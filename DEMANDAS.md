@@ -25,7 +25,7 @@ Criar estrutura mínima do projeto, escopo, governança, backlog, testes, bugs e
 
 Entregáveis:
 
-- `escopo.md`
+- `ESCOPO.md`
 - `CODEX_PATHS.toml`
 - `QUALITY_ROADMAP.md`
 - `GOVERNANCA.md`

@@ -3,7 +3,7 @@ set -euo pipefail
 
 required_files=(
   "CODEX_PATHS.toml"
-  "escopo.md"
+  "ESCOPO.md"
   "QUALITY_ROADMAP.md"
   "GOVERNANCA.md"
   "DEMANDAS.md"
@@ -11,6 +11,10 @@ required_files=(
   "BUGS.md"
   "README.md"
   ".gitignore"
+  "backend/pyproject.toml"
+  "backend/app/main.py"
+  "frontend/package.json"
+  "frontend/src/main.tsx"
 )
 
 for file in "${required_files[@]}"; do
@@ -27,10 +31,17 @@ fi
 
 if grep -RInE '(password|passwd|token|secret|api[_-]?key|private[_-]?key)\s*[:=]\s*[^ <]' . \
   --exclude-dir=.git \
+  --exclude-dir=node_modules \
+  --exclude-dir=.venv \
+  --exclude-dir=dist \
+  --exclude-dir=build \
   --exclude=check.sh \
   --exclude=BUGS.md; then
   echo "Potential secret found. Review before continuing." >&2
   exit 1
 fi
+
+python3 -m compileall -q backend/app backend/tests
+python3 -m json.tool frontend/package.json >/dev/null
 
 echo "MayderPrintLab checks passed."

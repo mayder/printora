@@ -76,7 +76,7 @@ Quando houver PR, incluir:
 
 Antes de implementar código:
 
-- `escopo.md` deve conter o escopo atualizado.
+- `ESCOPO.md` deve conter o escopo atualizado.
 - `DEMANDAS.md` deve conter os pacotes priorizados.
 - `GOVERNANCA.md` deve definir riscos e rollback.
 - `TESTS.md` deve definir validação mínima.

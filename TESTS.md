@@ -17,7 +17,35 @@ O check inicial valida:
 - existência dos documentos principais;
 - ausência de marcadores básicos de segredo;
 - formato básico do `CODEX_PATHS.toml`;
+- compilação sintática do backend Python;
+- validade do `frontend/package.json`;
 - permissão executável do `check.sh`.
+
+## Execução Local Do MVP
+
+Backend:
+
+```bash
+cd backend
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -e ".[dev]"
+uvicorn app.main:app --host 0.0.0.0 --port 8085 --reload
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Abrir:
+
+```text
+http://127.0.0.1:5178
+```
 
 ## Testes Manuais Futuros
 
