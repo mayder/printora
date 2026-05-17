@@ -21,6 +21,19 @@ O check inicial valida:
 - validade do `frontend/package.json`;
 - permissão executável do `check.sh`.
 
+Testes automatizados adicionais:
+
+```bash
+cd backend
+. .venv/bin/activate
+pytest
+```
+
+```bash
+cd frontend
+npm run build
+```
+
 ## Execução Local Do MVP
 
 Backend:
@@ -54,6 +67,8 @@ http://127.0.0.1:5178
 - Rodar auditoria em ambiente Klipper real.
 - Confirmar que não altera arquivos.
 - Confirmar classificação dos achados.
+- Validar `GET /api/audit/read-only` com Moonraker real.
+- Confirmar que falha de conexão vira `precisa_confirmacao`, não erro fatal.
 
 ### Backups
 

@@ -78,6 +78,10 @@ button:disabled {
   border-color: #8f6b2d;
 }
 
+.panel.wide {
+  grid-column: 1 / -1;
+}
+
 .metric {
   display: grid;
   grid-template-columns: 140px minmax(0, 1fr);
@@ -117,6 +121,78 @@ button:disabled {
   line-height: 1.4;
 }
 
+.audit-counts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.badge {
+  border: 1px solid #252b31;
+  border-radius: 6px;
+  padding: 10px;
+  background: #11151a;
+}
+
+.badge span {
+  display: block;
+  color: #9aa6b2;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.badge strong {
+  font-size: 20px;
+}
+
+.findings {
+  display: grid;
+  gap: 10px;
+}
+
+.finding {
+  border-left: 3px solid #6d7782;
+  background: #11151a;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.finding.blocker {
+  border-left-color: #e04f5f;
+}
+
+.finding.warning {
+  border-left-color: #ffb020;
+}
+
+.finding.info {
+  border-left-color: #42d77d;
+}
+
+.finding div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.finding span,
+.finding p,
+.finding small {
+  color: #9aa6b2;
+}
+
+.finding p {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+
+.finding small {
+  display: block;
+  line-height: 1.4;
+}
+
 .dot {
   width: 10px;
   height: 10px;
@@ -152,5 +228,13 @@ button:disabled {
 
   .metric {
     grid-template-columns: 1fr;
+  }
+
+  .audit-counts {
+    grid-template-columns: 1fr;
+  }
+
+  .finding div {
+    display: grid;
   }
 }

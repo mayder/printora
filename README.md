@@ -37,7 +37,15 @@ O MVP inicial contém:
 - SQLite preparado em `~/.local/share/mayderprintlab`;
 - endpoints somente leitura para Moonraker;
 - checklist pós-update básico;
+- auditoria somente leitura com classificação de achados;
 - template systemd em `packaging/systemd/`.
+
+Endpoints iniciais:
+
+- `GET /health`
+- `GET /api/moonraker/status`
+- `GET /api/checklist/post-update`
+- `GET /api/audit/read-only`
 
 Backend local:
 

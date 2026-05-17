@@ -32,9 +32,28 @@ type MoonrakerStatus = {
   };
 };
 
+type AuditFinding = {
+  id: string;
+  title: string;
+  category: string;
+  classification: "corrigir_agora" | "monitorar" | "ignorar" | "precisa_confirmacao";
+  severity: "blocker" | "warning" | "info";
+  detail: string;
+  safe_action: string;
+};
+
+type AuditResponse = {
+  connected: boolean;
+  safe_mode: string;
+  summary: string;
+  counts: Record<string, number>;
+  findings: AuditFinding[];
+};
+
 function App() {
   const [status, setStatus] = React.useState<MoonrakerStatus | null>(null);
   const [checklist, setChecklist] = React.useState<ChecklistResponse | null>(null);
+  const [audit, setAudit] = React.useState<AuditResponse | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -49,6 +68,11 @@ function App() {
       const checklistResponse = await fetch("/api/checklist/post-update");
       if (checklistResponse.ok) {
         setChecklist((await checklistResponse.json()) as ChecklistResponse);
+      }
+
+      const auditResponse = await fetch("/api/audit/read-only");
+      if (auditResponse.ok) {
+        setAudit((await auditResponse.json()) as AuditResponse);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
@@ -106,6 +130,29 @@ function App() {
             ))}
           </div>
         </article>
+
+        <article className="panel wide">
+          <h2>Auditoria somente leitura</h2>
+          <strong className="summary">{audit?.summary ?? "Aguardando dados"}</strong>
+          <div className="audit-counts">
+            <Badge label="Corrigir agora" value={audit?.counts.corrigir_agora ?? 0} />
+            <Badge label="Monitorar" value={audit?.counts.monitorar ?? 0} />
+            <Badge label="Precisa confirmação" value={audit?.counts.precisa_confirmacao ?? 0} />
+            <Badge label="Ignorar" value={audit?.counts.ignorar ?? 0} />
+          </div>
+          <div className="findings">
+            {audit?.findings.map((finding) => (
+              <div key={finding.id} className={`finding ${finding.severity}`}>
+                <div>
+                  <strong>{finding.title}</strong>
+                  <span>{finding.category} · {formatClassification(finding.classification)}</span>
+                </div>
+                <p>{finding.detail}</p>
+                <small>{finding.safe_action}</small>
+              </div>
+            ))}
+          </div>
+        </article>
       </section>
     </main>
   );
@@ -118,6 +165,19 @@ function Metric({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function Badge({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="badge">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function formatClassification(classification: AuditFinding["classification"]) {
+  return classification.replace("_", " ");
 }
 
 createRoot(document.getElementById("root")!).render(<App />);

@@ -62,6 +62,12 @@ Critério de aceite:
 
 - relatório classifica achados em corrigir agora, monitorar, ignorar e precisa confirmação.
 
+Estado atual:
+
+- MVP parcial implementado via `GET /api/audit/read-only`.
+- Classificação inicial cobre Klipper, Moonraker, Update Manager e sinais básicos do host.
+- Próximo incremento: incluir leitura segura de logs, systemd, includes e symlinks.
+
 ## PKG-03: Checklist Pós-Update Guiado
 
 Objetivo:
