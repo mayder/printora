@@ -1,0 +1,26 @@
+[project]
+name = "MayderPrintLab"
+root = "/Users/brenomayder/projects/mayder_print_lab"
+language = "pt-BR"
+
+[paths]
+scope = "escopo.md"
+roadmap = "QUALITY_ROADMAP.md"
+governance = "GOVERNANCA.md"
+backlog = "DEMANDAS.md"
+tests = "TESTS.md"
+bugs = "BUGS.md"
+check_script = "check.sh"
+
+[runtime]
+target_device = "Raspberry Pi"
+target_stack = "Klipper + Moonraker + Mainsail"
+deployment_model = "external_app_with_systemd_and_moonraker_update_manager"
+
+[rules]
+read_order = [
+  "CODEX_PATHS.toml",
+  "QUALITY_ROADMAP.md",
+  "GOVERNANCA.md",
+  "DEMANDAS.md"
+]

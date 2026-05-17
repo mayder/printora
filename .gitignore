@@ -1,0 +1,46 @@
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+build/
+
+# Local runtime data
+*.db
+*.sqlite
+*.sqlite3
+*.log
+*.pid
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+*.crt
+id_rsa*
+id_ed25519*
+
+# Firmware/build artifacts
+firmware_builds/
+out/
+*.bin
+*.uf2
+*.hex
+
+# Backups/archives
+backups/
+cleanup_archives/
+*.tar
+*.tar.gz
+*.zip
