@@ -83,6 +83,8 @@ Validações:
 - Docker Compose define porta, volume e modo seguro por padrão.
 - frontend organiza os painéis em navegação lateral por domínio.
 - frontend mantém as ações existentes sem executar comandos novos na troca de seção.
+- frontend mantém a impressora ativa na topbar e usa esse contexto no restante do sistema.
+- cadastro/detecção de impressora acontece em modal, sem poluir o dashboard.
 
 Testes automatizados adicionais:
 
@@ -228,8 +230,11 @@ Critérios:
 - Abrir `http://127.0.0.1:5178`.
 - Confirmar que existe sidebar com Visão geral, Operação, Calibração, Firmware, Manutenção, Relatórios e Sistema.
 - Confirmar que trocar de seção muda os painéis visíveis sem recarregar a página.
+- Confirmar que a impressora ativa fica selecionável na topbar.
 - Confirmar que Visão geral mostra decisão operacional e checklist.
-- Confirmar que `Buscar na rede` lista candidatos Moonraker sem cadastrar automaticamente.
+- Confirmar que Visão geral mostra dashboard de impressoras.
+- Confirmar que `Adicionar impressora` abre modal.
+- Confirmar que `Buscar na rede` lista candidatos Moonraker dentro do modal sem cadastrar automaticamente.
 - Confirmar que Firmware mostra placas, presets, dry-runs e mods/plugins.
 - Confirmar que Calibração mostra testes e Z-offset.
 - Confirmar que cada item mostra risco, modo de execução, pré-condições e critérios de sucesso.

@@ -427,6 +427,7 @@ function App() {
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
   const [activeSection, setActiveSection] = React.useState<AppSection>("overview");
   const [discovery, setDiscovery] = React.useState<PrinterDiscoveryResponse | null>(null);
+  const [printerModalOpen, setPrinterModalOpen] = React.useState(false);
   const [newPrinterName, setNewPrinterName] = React.useState("Voron - Mayder");
   const [newPrinterUrl, setNewPrinterUrl] = React.useState("http://voron.local:7125");
   const [snapshots, setSnapshots] = React.useState<SnapshotRecord[]>([]);
@@ -545,18 +546,28 @@ function App() {
     const nextSelected = selectedPrinterId ?? payload.printers[0]?.id ?? null;
     setSelectedPrinterId(nextSelected);
     if (nextSelected) {
-      await loadSnapshots(nextSelected);
-      await loadPrinterHealth(nextSelected);
-      await loadBackups(nextSelected);
-      await loadMaintenance(nextSelected);
-      await loadZOffsets(nextSelected);
-      await loadCanRecords(nextSelected);
-      await loadPluginAudit(nextSelected);
-      await loadFirmwareBoards(nextSelected);
-      await loadFirmwareBuildRuns(nextSelected);
-      await loadFirmwareFlashRuns(nextSelected);
-      await loadCalibrationRuns(nextSelected);
+      await loadPrinterContext(nextSelected);
     }
+  }
+
+  async function loadPrinterContext(printerId: number) {
+    await loadSnapshots(printerId);
+    await loadPrinterHealth(printerId);
+    await loadBackups(printerId);
+    await loadMaintenance(printerId);
+    await loadZOffsets(printerId);
+    await loadCanRecords(printerId);
+    await loadPluginAudit(printerId);
+    await loadFirmwareBoards(printerId);
+    await loadFirmwareBuildRuns(printerId);
+    await loadFirmwareFlashRuns(printerId);
+    await loadCalibrationRuns(printerId);
+  }
+
+  function selectPrinter(printerId: number) {
+    setSelectedPrinterId(printerId);
+    setSanitizedReport(null);
+    void loadPrinterContext(printerId);
   }
 
   async function createPrinter(event: React.FormEvent<HTMLFormElement>) {
@@ -579,16 +590,8 @@ function App() {
       const created = (await response.json()) as PrinterRecord;
       await loadPrinters();
       setSelectedPrinterId(created.id);
-      await loadPrinterHealth(created.id);
-      await loadBackups(created.id);
-      await loadMaintenance(created.id);
-      await loadZOffsets(created.id);
-      await loadCanRecords(created.id);
-      await loadPluginAudit(created.id);
-      await loadFirmwareBoards(created.id);
-      await loadFirmwareBuildRuns(created.id);
-      await loadFirmwareFlashRuns(created.id);
-      await loadCalibrationRuns(created.id);
+      await loadPrinterContext(created.id);
+      setPrinterModalOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -1272,6 +1275,22 @@ function App() {
             <p>{activeSectionMeta.detail}</p>
           </div>
           <div className="topbar-actions">
+            <label className="context-select">
+              Impressora ativa
+              <select
+                value={selectedPrinterId ?? ""}
+                onChange={(event) => selectPrinter(Number(event.target.value))}
+              >
+                <option value="" disabled>
+                  Selecione uma impressora
+                </option>
+                {printers.map((printer) => (
+                  <option key={printer.id} value={printer.id}>
+                    {printer.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <span>{selectedPrinter?.moonraker_url ?? "Moonraker não selecionado"}</span>
             <button type="button" onClick={() => void loadStatus()} disabled={loading}>
               {loading ? "Atualizando" : "Atualizar"}
@@ -1281,114 +1300,130 @@ function App() {
 
         {error ? <section className="alert danger">{error}</section> : null}
 
+        {printerModalOpen ? (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Cadastrar impressora">
+            <div className="modal-card">
+              <div className="modal-header">
+                <div>
+                  <h2>Cadastrar impressora</h2>
+                  <p>Detecte Moonraker na rede local ou informe os dados manualmente.</p>
+                </div>
+                <button type="button" className="ghost-button" onClick={() => setPrinterModalOpen(false)}>
+                  Fechar
+                </button>
+              </div>
+              <div className="modal-actions">
+                <button type="button" onClick={() => void discoverPrinters()} disabled={loading}>
+                  Buscar na rede
+                </button>
+                <span>Leitura segura: HTTP GET em `/server/info`, sem G-code e sem cadastro automático.</span>
+              </div>
+              {discovery ? (
+                <div className="discovery-box">
+                  <div className="discovery-summary">
+                    <strong>
+                      {discovery.candidates.length} Moonraker encontrado(s) em {discovery.cidr}
+                    </strong>
+                    <span>
+                      {discovery.scanned_hosts} hosts verificados · modo {discovery.safe_mode}
+                    </span>
+                  </div>
+                  {discovery.warnings.map((warning) => (
+                    <small key={warning} className="muted">
+                      {warning}
+                    </small>
+                  ))}
+                  <div className="discovery-list">
+                    {discovery.candidates.length === 0 ? <p className="muted">Nenhuma impressora encontrada na rede atual.</p> : null}
+                    {discovery.candidates.map((candidate) => (
+                      <div key={candidate.moonraker_url} className="discovery-row">
+                        <div>
+                          <strong>{candidate.name}</strong>
+                          <span>{candidate.moonraker_url}</span>
+                          <small>
+                            Klippy: {candidate.klippy_state ?? "-"} · Moonraker: {candidate.moonraker_version ?? "-"}
+                          </small>
+                        </div>
+                        {candidate.already_registered ? (
+                          <span className="registered-badge">já cadastrada</span>
+                        ) : (
+                          <button type="button" onClick={() => useDiscoveredPrinter(candidate)} disabled={loading}>
+                            Usar dados
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              <form className="modal-form" onSubmit={(event) => void createPrinter(event)}>
+                <input
+                  aria-label="Nome da impressora"
+                  value={newPrinterName}
+                  onChange={(event) => setNewPrinterName(event.target.value)}
+                  placeholder="Nome da impressora"
+                />
+                <input
+                  aria-label="URL Moonraker"
+                  value={newPrinterUrl}
+                  onChange={(event) => setNewPrinterUrl(event.target.value)}
+                  placeholder="http://printer.local:7125"
+                />
+                <button type="submit" disabled={loading}>
+                  Cadastrar impressora
+                </button>
+              </form>
+            </div>
+          </div>
+        ) : null}
+
         <section className="grid">
         <article className="panel wide panel-section panel-overview panel-system">
           <div className="panel-heading">
-            <h2>Impressoras</h2>
-            <button type="button" onClick={() => void discoverPrinters()} disabled={loading}>
-              Buscar na rede
-            </button>
-          </div>
-          <div className="printer-toolbar">
-            <label>
-              Impressora ativa
-              <select
-                value={selectedPrinterId ?? ""}
-                onChange={(event) => {
-                  const printerId = Number(event.target.value);
-                  setSelectedPrinterId(printerId);
-                  setSanitizedReport(null);
-                  void loadSnapshots(printerId);
-                  void loadPrinterHealth(printerId);
-                  void loadBackups(printerId);
-                  void loadMaintenance(printerId);
-                  void loadZOffsets(printerId);
-                  void loadCanRecords(printerId);
-                  void loadPluginAudit(printerId);
-                  void loadFirmwareBoards(printerId);
-                  void loadFirmwareBuildRuns(printerId);
-                  void loadFirmwareFlashRuns(printerId);
-                  void loadCalibrationRuns(printerId);
-                }}
-              >
-                <option value="" disabled>
-                  Selecione
-                </option>
-                {printers.map((printer) => (
-                  <option key={printer.id} value={printer.id}>
-                    {printer.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="button" onClick={() => void loadSelectedPrinterStatus()} disabled={!selectedPrinterId || loading}>
-              Ler selecionada
-            </button>
-            <button type="button" onClick={() => void captureSnapshot()} disabled={!selectedPrinterId || loading}>
-              Capturar snapshot
-            </button>
-          </div>
-          <form className="printer-form" onSubmit={(event) => void createPrinter(event)}>
-            <input
-              aria-label="Nome da impressora"
-              value={newPrinterName}
-              onChange={(event) => setNewPrinterName(event.target.value)}
-              placeholder="Nome da impressora"
-            />
-            <input
-              aria-label="URL Moonraker"
-              value={newPrinterUrl}
-              onChange={(event) => setNewPrinterUrl(event.target.value)}
-              placeholder="http://printer.local:7125"
-            />
-            <button type="submit" disabled={loading}>
-              Cadastrar
-            </button>
-          </form>
-          {discovery ? (
-            <div className="discovery-box">
-              <div className="discovery-summary">
-                <strong>
-                  {discovery.candidates.length} Moonraker encontrado(s) em {discovery.cidr}
-                </strong>
-                <span>
-                  {discovery.scanned_hosts} hosts verificados · modo {discovery.safe_mode}
-                </span>
-              </div>
-              {discovery.warnings.map((warning) => (
-                <small key={warning} className="muted">
-                  {warning}
-                </small>
-              ))}
-              <div className="discovery-list">
-                {discovery.candidates.length === 0 ? <p className="muted">Nenhuma impressora encontrada na rede atual.</p> : null}
-                {discovery.candidates.map((candidate) => (
-                  <div key={candidate.moonraker_url} className="discovery-row">
-                    <div>
-                      <strong>{candidate.name}</strong>
-                      <span>{candidate.moonraker_url}</span>
-                      <small>
-                        Klippy: {candidate.klippy_state ?? "-"} · Moonraker: {candidate.moonraker_version ?? "-"}
-                      </small>
-                    </div>
-                    {candidate.already_registered ? (
-                      <span className="registered-badge">já cadastrada</span>
-                    ) : (
-                      <button type="button" onClick={() => useDiscoveredPrinter(candidate)} disabled={loading}>
-                        Usar dados
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
+            <div>
+              <h2>Dashboard de impressoras</h2>
+              <p className="muted">Visão rápida das impressoras cadastradas e do contexto ativo do sistema.</p>
             </div>
-          ) : null}
-          <div className="printer-list">
+            <button type="button" onClick={() => setPrinterModalOpen(true)}>
+              Adicionar impressora
+            </button>
+          </div>
+          <div className="overview-strip">
+            <Badge label="Impressoras" value={printers.length} />
+            <Badge label="Ativa" value={selectedPrinter?.name ?? "-"} />
+            <Badge label="Decisão" value={formatDecision(health?.decision)} />
+            <Badge label="Snapshots" value={snapshots.length} />
+          </div>
+          <div className="printer-dashboard">
+            {printers.length === 0 ? <p className="muted">Nenhuma impressora cadastrada.</p> : null}
             {printers.map((printer) => (
-              <div key={printer.id} className="printer-row">
-                <strong>{printer.name}</strong>
-                <span>{printer.moonraker_url}</span>
-                <small>{printer.host_audit_mode}</small>
+              <div key={printer.id} className={`printer-card ${printer.id === selectedPrinterId ? "active" : ""}`}>
+                <div className="printer-card-header">
+                  <div>
+                    <strong>{printer.name}</strong>
+                    <span>{printer.moonraker_url}</span>
+                  </div>
+                  <span className={printer.id === selectedPrinterId ? "status-pill active" : "status-pill"}>
+                    {printer.id === selectedPrinterId ? "ativa" : "cadastrada"}
+                  </span>
+                </div>
+                <div className="printer-card-grid">
+                  <Metric label="Host audit" value={printer.host_audit_mode} />
+                  <Metric label="Klipper" value={printer.id === selectedPrinterId ? health?.metrics.klipper_state ? String(health.metrics.klipper_state) : "-" : "-"} />
+                  <Metric label="Moonraker" value={printer.id === selectedPrinterId ? health?.metrics.moonraker_version ? String(health.metrics.moonraker_version) : "-" : "-"} />
+                  <Metric label="Local" value={printer.location ?? "-"} />
+                </div>
+                <div className="printer-card-actions">
+                  <button type="button" onClick={() => selectPrinter(printer.id)} disabled={loading || printer.id === selectedPrinterId}>
+                    Selecionar
+                  </button>
+                  <button type="button" onClick={() => void loadSelectedPrinterStatus()} disabled={!selectedPrinterId || printer.id !== selectedPrinterId || loading}>
+                    Ler status
+                  </button>
+                  <button type="button" onClick={() => void captureSnapshot()} disabled={!selectedPrinterId || printer.id !== selectedPrinterId || loading}>
+                    Snapshot
+                  </button>
+                </div>
               </div>
             ))}
           </div>

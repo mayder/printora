@@ -959,8 +959,10 @@ Reorganizar o frontend em uma experiência de operação parecida com ferramenta
 Entregáveis:
 
 - sidebar com navegação por domínio;
-- topbar contextual por seção;
+- topbar contextual por seção e impressora ativa;
 - painéis agrupados por grandeza operacional;
+- dashboard de impressoras na visão geral;
+- cadastro/detecção de impressora em modal;
 - preservação das telas e ações existentes;
 - responsividade básica para telas menores;
 - validação por build do frontend e `./check.sh`.
@@ -968,6 +970,8 @@ Entregáveis:
 Critério de aceite:
 
 - usuário consegue navegar por Visão geral, Operação, Calibração, Firmware, Manutenção, Relatórios e Sistema;
+- usuário consegue trocar a impressora ativa pela topbar;
+- cadastro e detecção de impressoras não poluem o dashboard principal;
 - os painéis deixam de aparecer todos ao mesmo tempo;
 - nenhuma operação nova é enviada para Klipper/Moonraker;
 - nenhum endpoint backend é alterado;
@@ -975,4 +979,4 @@ Critério de aceite:
 
 Estado atual:
 
-- Implementado layout com sidebar, topbar contextual e filtragem de painéis por seção.
+- Implementado layout com sidebar, topbar contextual, seletor global de impressora, dashboard de impressoras e modal para cadastro/detecção.
