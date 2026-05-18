@@ -82,6 +82,10 @@ type PrinterRecord = {
   moonraker_url: string;
   host_audit_mode: "disabled" | "local" | "ssh";
   host_audit_ssh_target?: string | null;
+  ssh_host?: string | null;
+  ssh_port?: number | null;
+  ssh_username?: string | null;
+  ssh_credential_configured: boolean;
   location?: string | null;
   notes?: string | null;
   is_active: boolean;
@@ -493,12 +497,18 @@ function App() {
   const [activeSection, setActiveSection] = React.useState<AppSection>("overview");
   const [discovery, setDiscovery] = React.useState<PrinterDiscoveryResponse | null>(null);
   const [printerModalOpen, setPrinterModalOpen] = React.useState(false);
+  const [printerModalMode, setPrinterModalMode] = React.useState<"create" | "edit">("create");
+  const [editingPrinterId, setEditingPrinterId] = React.useState<number | null>(null);
   const [theme, setTheme] = React.useState<ThemeMode>(() => {
     const storedTheme = window.localStorage.getItem("mayderprintlab-theme");
     return storedTheme === "light" ? "light" : "dark";
   });
   const [newPrinterName, setNewPrinterName] = React.useState("Voron - Mayder");
   const [newPrinterUrl, setNewPrinterUrl] = React.useState("http://voron.local:7125");
+  const [newPrinterSshHost, setNewPrinterSshHost] = React.useState("");
+  const [newPrinterSshPort, setNewPrinterSshPort] = React.useState(22);
+  const [newPrinterSshUser, setNewPrinterSshUser] = React.useState("");
+  const [newPrinterSshCredential, setNewPrinterSshCredential] = React.useState("");
   const [snapshots, setSnapshots] = React.useState<SnapshotRecord[]>([]);
   const [fromSnapshotId, setFromSnapshotId] = React.useState<number | null>(null);
   const [toSnapshotId, setToSnapshotId] = React.useState<number | null>(null);
@@ -644,14 +654,19 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/printers", {
-        method: "POST",
+      const payload = {
+        name: newPrinterName,
+        moonraker_url: newPrinterUrl,
+        host_audit_mode: newPrinterSshHost && newPrinterSshUser ? "ssh" : "disabled",
+        ssh_host: newPrinterSshHost || null,
+        ssh_port: newPrinterSshPort,
+        ssh_username: newPrinterSshUser || null,
+        ssh_credential: newPrinterSshCredential || null,
+      };
+      const response = await fetch(printerModalMode === "edit" && editingPrinterId ? `/api/printers/${editingPrinterId}` : "/api/printers", {
+        method: printerModalMode === "edit" && editingPrinterId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newPrinterName,
-          moonraker_url: newPrinterUrl,
-          host_audit_mode: "disabled",
-        }),
+        body: JSON.stringify(payload),
       });
       if (!response.ok) {
         throw new Error(await response.text());
@@ -661,6 +676,7 @@ function App() {
       setSelectedPrinterId(created.id);
       await loadPrinterContext(created.id);
       setPrinterModalOpen(false);
+      setNewPrinterSshCredential("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -687,6 +703,31 @@ function App() {
   function useDiscoveredPrinter(candidate: DiscoveredPrinter) {
     setNewPrinterName(candidate.name);
     setNewPrinterUrl(candidate.moonraker_url);
+    setNewPrinterSshHost(extractHost(candidate.moonraker_url));
+  }
+
+  function openCreatePrinterModal() {
+    setPrinterModalMode("create");
+    setEditingPrinterId(null);
+    setNewPrinterName("Voron - Mayder");
+    setNewPrinterUrl("http://voron.local:7125");
+    setNewPrinterSshHost("");
+    setNewPrinterSshPort(22);
+    setNewPrinterSshUser("");
+    setNewPrinterSshCredential("");
+    setPrinterModalOpen(true);
+  }
+
+  function openEditPrinterModal(printer: PrinterRecord) {
+    setPrinterModalMode("edit");
+    setEditingPrinterId(printer.id);
+    setNewPrinterName(printer.name);
+    setNewPrinterUrl(printer.moonraker_url);
+    setNewPrinterSshHost(printer.ssh_host ?? extractHost(printer.moonraker_url));
+    setNewPrinterSshPort(printer.ssh_port ?? 22);
+    setNewPrinterSshUser(printer.ssh_username ?? "");
+    setNewPrinterSshCredential("");
+    setPrinterModalOpen(true);
   }
 
   async function loadSelectedPrinterStatus() {
@@ -1403,7 +1444,7 @@ function App() {
               <Bell size={18} />
               {alertCount > 0 ? <strong>{alertCount}</strong> : null}
             </button>
-            <button type="button" className="icon-button" title="Configurar impressoras" onClick={() => setPrinterModalOpen(true)}>
+            <button type="button" className="icon-button" title="Configurar impressoras" onClick={() => selectedPrinter ? openEditPrinterModal(selectedPrinter) : openCreatePrinterModal()}>
               <Settings size={18} />
             </button>
             <button type="button" className="primary-button" onClick={() => void loadStatus()} disabled={loading}>
@@ -1425,8 +1466,8 @@ function App() {
             <div className="modal-card">
               <div className="modal-header">
                 <div>
-                  <h2>Cadastrar impressora</h2>
-                  <p>Detecte Moonraker na rede local ou informe os dados manualmente.</p>
+                  <h2>{printerModalMode === "edit" ? "Editar impressora" : "Cadastrar impressora"}</h2>
+                  <p>Configure Moonraker e, se quiser auditoria completa, o acesso SSH do host.</p>
                 </div>
                 <button type="button" className="ghost-button" onClick={() => setPrinterModalOpen(false)}>
                   Fechar
@@ -1477,7 +1518,7 @@ function App() {
                   </div>
                 </div>
               ) : null}
-              <form className="modal-form" onSubmit={(event) => void createPrinter(event)}>
+              <form className="modal-form printer-access-form" onSubmit={(event) => void createPrinter(event)}>
                 <input
                   aria-label="Nome da impressora"
                   value={newPrinterName}
@@ -1490,9 +1531,40 @@ function App() {
                   onChange={(event) => setNewPrinterUrl(event.target.value)}
                   placeholder="http://printer.local:7125"
                 />
+                <input
+                  aria-label="Host SSH"
+                  value={newPrinterSshHost}
+                  onChange={(event) => setNewPrinterSshHost(event.target.value)}
+                  placeholder="host ou IP SSH"
+                />
+                <input
+                  aria-label="Porta SSH"
+                  type="number"
+                  min="1"
+                  max="65535"
+                  value={newPrinterSshPort}
+                  onChange={(event) => setNewPrinterSshPort(Number(event.target.value))}
+                  placeholder="22"
+                />
+                <input
+                  aria-label="Usuário SSH"
+                  value={newPrinterSshUser}
+                  onChange={(event) => setNewPrinterSshUser(event.target.value)}
+                  placeholder="usuario SSH"
+                />
+                <input
+                  aria-label="Senha SSH"
+                  type="password"
+                  value={newPrinterSshCredential}
+                  onChange={(event) => setNewPrinterSshCredential(event.target.value)}
+                  placeholder={printerModalMode === "edit" ? "Nova senha SSH opcional" : "Senha SSH opcional"}
+                />
+                <small className="form-note">
+                  SSH é opcional, mas necessário para auditoria profunda, CAN, systemd, backups locais e firmware. O valor sensível não é retornado pela API.
+                </small>
                 <button type="submit" className="primary-button" disabled={loading}>
                   <Plus size={16} />
-                  Cadastrar impressora
+                  {printerModalMode === "edit" ? "Salvar impressora" : "Cadastrar impressora"}
                 </button>
               </form>
             </div>
@@ -1506,7 +1578,7 @@ function App() {
               <h2>Dashboard de impressoras</h2>
               <p className="muted">Visão rápida das impressoras cadastradas e do contexto ativo do sistema.</p>
             </div>
-            <button type="button" className="primary-button" onClick={() => setPrinterModalOpen(true)}>
+            <button type="button" className="primary-button" onClick={openCreatePrinterModal}>
               <Plus size={16} />
               Adicionar impressora
             </button>
@@ -1532,11 +1604,15 @@ function App() {
                 </div>
                 <div className="printer-card-grid">
                   <Metric label="Host audit" value={printer.host_audit_mode} />
+                  <Metric label="SSH" value={formatSshStatus(printer)} />
                   <Metric label="Klipper" value={printer.id === selectedPrinterId ? health?.metrics.klipper_state ? String(health.metrics.klipper_state) : "-" : "-"} />
                   <Metric label="Moonraker" value={printer.id === selectedPrinterId ? health?.metrics.moonraker_version ? String(health.metrics.moonraker_version) : "-" : "-"} />
-                  <Metric label="Local" value={printer.location ?? "-"} />
                 </div>
                 <div className="printer-card-actions">
+                  <button type="button" className="secondary-button" onClick={() => openEditPrinterModal(printer)} disabled={loading}>
+                    <Settings size={15} />
+                    Editar
+                  </button>
                   <button type="button" className="secondary-button" onClick={() => selectPrinter(printer.id)} disabled={loading || printer.id === selectedPrinterId}>
                     <CheckCircle2 size={15} />
                     Selecionar
@@ -2523,6 +2599,21 @@ function formatMetricLabel(label: string) {
     latest_diff_severity: "Último diff",
   };
   return labels[label] ?? label.replaceAll("_", " ");
+}
+
+function extractHost(url: string) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "";
+  }
+}
+
+function formatSshStatus(printer: PrinterRecord) {
+  if (!printer.ssh_host || !printer.ssh_username) {
+    return "pendente";
+  }
+  return printer.ssh_credential_configured ? "configurado" : "sem credencial";
 }
 
 function formatSeverity(severity: SnapshotDiffItem["severity"]) {
