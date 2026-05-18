@@ -28,6 +28,23 @@ button:disabled {
   opacity: 0.7;
 }
 
+input,
+select {
+  width: 100%;
+  border: 1px solid #2f3741;
+  background: #101419;
+  color: #e8edf2;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  color: #9aa6b2;
+  font-size: 13px;
+}
+
 .shell {
   max-width: 1180px;
   margin: 0 auto;
@@ -96,6 +113,39 @@ button:disabled {
 }
 
 .metric strong {
+  overflow-wrap: anywhere;
+}
+
+.printer-toolbar,
+.printer-form {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
+.printer-form {
+  grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) auto;
+}
+
+.printer-list {
+  display: grid;
+  gap: 8px;
+}
+
+.printer-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.8fr) minmax(220px, 1fr) 100px;
+  gap: 12px;
+  border-top: 1px solid #252b31;
+  padding: 10px 0;
+  align-items: center;
+}
+
+.printer-row span,
+.printer-row small {
+  color: #9aa6b2;
   overflow-wrap: anywhere;
 }
 
@@ -233,6 +283,12 @@ button:disabled {
   }
 
   .metric {
+    grid-template-columns: 1fr;
+  }
+
+  .printer-toolbar,
+  .printer-form,
+  .printer-row {
     grid-template-columns: 1fr;
   }
 

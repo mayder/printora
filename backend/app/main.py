@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.audit import build_read_only_audit
@@ -11,6 +11,7 @@ from app.config import Settings, get_settings
 from app.database import initialize_database
 from app.host_audit import collect_host_audit, summarize_sections
 from app.moonraker import MoonrakerClient
+from app.printers import PrinterCreate, PrinterRecord, PrinterRepository, PrinterUpdate
 
 
 def get_moonraker_client(settings: Settings) -> MoonrakerClient:
@@ -18,6 +19,10 @@ def get_moonraker_client(settings: Settings) -> MoonrakerClient:
         base_url=settings.moonraker_url,
         timeout_seconds=settings.request_timeout_seconds,
     )
+
+
+def get_printer_repository(settings: Settings) -> PrinterRepository:
+    return PrinterRepository(settings.database_path)
 
 
 @asynccontextmanager
@@ -33,7 +38,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "PUT"],
     allow_headers=["*"],
 )
 
@@ -59,6 +64,69 @@ async def moonraker_status() -> dict[str, Any]:
     return {
         "connected": True,
         "moonraker_url": settings.moonraker_url,
+        "printer": printer_info,
+        "server": server_info,
+        "system": system_info,
+        "proc_stats": proc_stats,
+    }
+
+
+@app.get("/api/printers")
+async def list_printers() -> dict[str, list[PrinterRecord]]:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    return {"printers": repository.list_printers()}
+
+
+@app.post("/api/printers")
+async def create_printer(payload: PrinterCreate) -> PrinterRecord:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    try:
+        return repository.create_printer(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.put("/api/printers/{printer_id}")
+async def update_printer(printer_id: int, payload: PrinterUpdate) -> PrinterRecord:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    try:
+        record = repository.update_printer(printer_id, payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if record is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return record
+
+
+@app.get("/api/printers/{printer_id}/moonraker/status")
+async def printer_moonraker_status(printer_id: int) -> dict[str, Any]:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    printer = repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    try:
+        printer_info, server_info, system_info, proc_stats = await _collect_status(client)
+    except httpx.HTTPError as exc:
+        return {
+            "connected": False,
+            "printer_id": printer.id,
+            "moonraker_url": printer.moonraker_url,
+            "error": str(exc),
+        }
+
+    return {
+        "connected": True,
+        "printer_id": printer.id,
+        "moonraker_url": printer.moonraker_url,
         "printer": printer_info,
         "server": server_info,
         "system": system_info,

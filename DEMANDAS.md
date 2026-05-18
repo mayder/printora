@@ -3,6 +3,7 @@
 ## Índice De Pacotes
 
 - PKG-01: Base do projeto e documentação operacional
+- PKG-01B: Base multi-impressora e fixtures locais
 - PKG-02: Auditoria somente leitura do ambiente Klipper
 - PKG-03: Checklist pós-update guiado
 - PKG-04: Health check da impressora
@@ -69,6 +70,35 @@ Estado atual:
 - Auditoria manual read-only da Voron registrada em `docs/audits/VORON_READONLY_AUDIT_2026-05-18.md`.
 - Coletor read-only do host implementado em `GET /api/audit/host-read-only`.
 - Próximo incremento: instalar o app em modo `local` na Raspberry para eliminar dependência de SSH.
+
+## PKG-01B: Base Multi-Impressora E Fixtures Locais
+
+Objetivo:
+
+Permitir que o MayderPrintLab seja instalado em uma Raspberry ou em um computador da rede para gerenciar múltiplas impressoras Klipper.
+
+Entregáveis:
+
+- tabela `printers`;
+- tabela `printer_snapshots`;
+- vínculo opcional entre eventos e impressora;
+- endpoints para cadastrar, listar e atualizar impressoras;
+- endpoint para ler status Moonraker de uma impressora cadastrada;
+- fixtures locais para desenvolvimento sem impressora real.
+
+Critério de aceite:
+
+- múltiplas impressoras podem ser cadastradas no SQLite;
+- nenhuma credencial é armazenada;
+- leitura de status por impressora usa apenas Moonraker read-only;
+- testes automatizados cobrem schema idempotente e CRUD básico.
+
+Estado atual:
+
+- Implementado via SQL idempotente em `backend/sql/001_initial_schema.sql`.
+- Implementado repository SQLite em `backend/app/printers.py`.
+- Implementado endpoints `/api/printers` e `/api/printers/{printer_id}/moonraker/status`.
+- UI inicial permite cadastrar e selecionar impressoras.
 
 ## PKG-03: Checklist Pós-Update Guiado
 

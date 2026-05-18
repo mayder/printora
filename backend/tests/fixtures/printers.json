@@ -1,0 +1,19 @@
+{
+  "printers": [
+    {
+      "name": "Voron - Mayder",
+      "moonraker_url": "http://voron.local:7125",
+      "host_audit_mode": "ssh",
+      "host_audit_ssh_target": "pi@voron.local",
+      "location": "Casa",
+      "notes": "Voron 2.4 com Octopus USB-CAN bridge e EBB CAN."
+    },
+    {
+      "name": "Mock local",
+      "moonraker_url": "http://127.0.0.1:7125",
+      "host_audit_mode": "disabled",
+      "location": "Desenvolvimento",
+      "notes": "Fixture local para testes sem impressora real."
+    }
+  ]
+}

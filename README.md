@@ -35,6 +35,7 @@ O MVP inicial contém:
 - backend FastAPI em `backend/`;
 - frontend React/TypeScript em `frontend/`;
 - SQLite preparado em `~/.local/share/mayderprintlab`;
+- cadastro local de múltiplas impressoras;
 - endpoints somente leitura para Moonraker;
 - checklist pós-update básico;
 - auditoria somente leitura com classificação de achados;
@@ -43,10 +44,34 @@ O MVP inicial contém:
 Endpoints iniciais:
 
 - `GET /health`
+- `GET /api/printers`
+- `POST /api/printers`
+- `PUT /api/printers/{printer_id}`
+- `GET /api/printers/{printer_id}/moonraker/status`
 - `GET /api/moonraker/status`
 - `GET /api/checklist/post-update`
 - `GET /api/audit/read-only`
 - `GET /api/audit/host-read-only`
+
+## Múltiplas Impressoras
+
+O banco SQLite já suporta várias impressoras no mesmo MayderPrintLab.
+
+Campos principais:
+
+- nome;
+- URL do Moonraker;
+- modo da auditoria do host;
+- alvo SSH opcional;
+- localização;
+- notas.
+
+Isso permite dois modelos de uso:
+
+- instalado em uma Raspberry, cuidando da impressora local;
+- instalado em um computador da rede, centralizando várias impressoras Klipper.
+
+O cadastro não armazena credenciais. Acesso SSH, quando usado no futuro, deve depender de chave SSH do sistema.
 
 ## Auditoria Do Host
 

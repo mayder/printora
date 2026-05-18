@@ -32,6 +32,17 @@ type MoonrakerStatus = {
   };
 };
 
+type PrinterRecord = {
+  id: number;
+  name: string;
+  moonraker_url: string;
+  host_audit_mode: "disabled" | "local" | "ssh";
+  host_audit_ssh_target?: string | null;
+  location?: string | null;
+  notes?: string | null;
+  is_active: boolean;
+};
+
 type AuditFinding = {
   id: string;
   title: string;
@@ -54,6 +65,10 @@ type AuditResponse = {
 };
 
 function App() {
+  const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
+  const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
+  const [newPrinterName, setNewPrinterName] = React.useState("Voron - Mayder");
+  const [newPrinterUrl, setNewPrinterUrl] = React.useState("http://voron.local:7125");
   const [status, setStatus] = React.useState<MoonrakerStatus | null>(null);
   const [checklist, setChecklist] = React.useState<ChecklistResponse | null>(null);
   const [audit, setAudit] = React.useState<AuditResponse | null>(null);
@@ -83,6 +98,62 @@ function App() {
       if (hostAuditResponse.ok) {
         setHostAudit((await hostAuditResponse.json()) as AuditResponse);
       }
+
+      await loadPrinters();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadPrinters() {
+    const response = await fetch("/api/printers");
+    if (!response.ok) {
+      return;
+    }
+    const payload = (await response.json()) as { printers: PrinterRecord[] };
+    setPrinters(payload.printers);
+    setSelectedPrinterId((current) => current ?? payload.printers[0]?.id ?? null);
+  }
+
+  async function createPrinter(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/printers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newPrinterName,
+          moonraker_url: newPrinterUrl,
+          host_audit_mode: "disabled",
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      const created = (await response.json()) as PrinterRecord;
+      await loadPrinters();
+      setSelectedPrinterId(created.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadSelectedPrinterStatus() {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/moonraker/status`);
+      const payload = (await response.json()) as MoonrakerStatus;
+      setStatus(payload);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -109,6 +180,57 @@ function App() {
       {error ? <section className="alert danger">{error}</section> : null}
 
       <section className="grid">
+        <article className="panel wide">
+          <h2>Impressoras</h2>
+          <div className="printer-toolbar">
+            <label>
+              Impressora ativa
+              <select
+                value={selectedPrinterId ?? ""}
+                onChange={(event) => setSelectedPrinterId(Number(event.target.value))}
+              >
+                <option value="" disabled>
+                  Selecione
+                </option>
+                {printers.map((printer) => (
+                  <option key={printer.id} value={printer.id}>
+                    {printer.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="button" onClick={() => void loadSelectedPrinterStatus()} disabled={!selectedPrinterId || loading}>
+              Ler selecionada
+            </button>
+          </div>
+          <form className="printer-form" onSubmit={(event) => void createPrinter(event)}>
+            <input
+              aria-label="Nome da impressora"
+              value={newPrinterName}
+              onChange={(event) => setNewPrinterName(event.target.value)}
+              placeholder="Nome da impressora"
+            />
+            <input
+              aria-label="URL Moonraker"
+              value={newPrinterUrl}
+              onChange={(event) => setNewPrinterUrl(event.target.value)}
+              placeholder="http://printer.local:7125"
+            />
+            <button type="submit" disabled={loading}>
+              Cadastrar
+            </button>
+          </form>
+          <div className="printer-list">
+            {printers.map((printer) => (
+              <div key={printer.id} className="printer-row">
+                <strong>{printer.name}</strong>
+                <span>{printer.moonraker_url}</span>
+                <small>{printer.host_audit_mode}</small>
+              </div>
+            ))}
+          </div>
+        </article>
+
         <article className="panel">
           <h2>Moonraker</h2>
           <Metric label="Conexão" value={status?.connected ? "Conectado" : "Desconectado"} />

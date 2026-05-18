@@ -21,6 +21,17 @@ O check inicial valida:
 - validade do `frontend/package.json`;
 - permissão executável do `check.sh`.
 
+## Banco Local
+
+Mudanças de banco devem ser feitas por scripts `.sql` idempotentes em `backend/sql/`.
+
+Validações:
+
+- `initialize_database()` pode rodar mais de uma vez;
+- tabelas multi-impressora existem;
+- endpoints não armazenam credenciais;
+- fixtures ficam em `backend/tests/fixtures/`.
+
 Testes automatizados adicionais:
 
 ```bash
