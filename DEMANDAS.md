@@ -792,3 +792,35 @@ Estado atual:
 - Implementado `GET /api/calibration/tests`.
 - Implementado `GET /api/calibration/tests/{test_key}`.
 - UI lista o catálogo com pré-condições, critérios e G-code somente para revisão.
+
+## PKG-15B: Centro De Calibração - Histórico Manual De Resultados
+
+Objetivo:
+
+Registrar resultados manuais dos testes por impressora, sem executar G-code.
+
+Entregáveis:
+
+- tabela `calibration_test_runs`;
+- endpoint para listar histórico por impressora;
+- endpoint para registrar resultado manual;
+- status `passed`, `warning`, `failed` e `skipped`;
+- campos para material, chapa, nozzle/tool, valor observado, notas e confirmação de G-code revisado;
+- painel no frontend para registrar e consultar resultados recentes.
+
+Critério de aceite:
+
+- não envia G-code;
+- não reinicia serviços;
+- não altera configs;
+- histórico fica escopado por impressora;
+- rejeita chave de teste inexistente;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado via `backend/sql/010_calibration_runs.sql`.
+- Implementado em `backend/app/calibration.py`.
+- Implementado `GET /api/printers/{printer_id}/calibration/runs`.
+- Implementado `POST /api/printers/{printer_id}/calibration/runs`.
+- UI permite registrar resultado manual do teste selecionado.

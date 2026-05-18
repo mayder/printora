@@ -72,6 +72,8 @@ Validações:
 - catálogo de calibração é criado por SQL idempotente.
 - catálogo de calibração classifica modo de execução, risco e bloqueio durante impressão.
 - catálogo de calibração pode ser filtrado por categoria.
+- histórico manual de calibração fica escopado por impressora.
+- histórico manual rejeita chave de teste inexistente.
 - artefatos de systemd, Mainsail e Update Manager existem e apontam para serviço local.
 - instalador Raspberry roda em dry-run por padrão.
 
@@ -214,6 +216,8 @@ Critérios:
 - Confirmar que itens com G-code mostram o código apenas para revisão.
 - Confirmar que nenhum botão de execução de G-code existe nesta etapa.
 - Confirmar que cada item mostra risco, modo de execução, pré-condições e critérios de sucesso.
+- Registrar resultado manual de um teste.
+- Confirmar que o histórico mostra status, material, chapa, nozzle, valor observado e notas.
 
 ### UI
 

@@ -488,6 +488,65 @@ label {
   gap: 8px;
 }
 
+.calibration-run-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) minmax(120px, 0.7fr) repeat(4, minmax(110px, 0.7fr)) minmax(130px, 0.7fr);
+  gap: 10px;
+  align-items: start;
+  margin: 14px 0;
+}
+
+.calibration-run-form textarea {
+  grid-column: 1 / -2;
+  min-height: 46px;
+}
+
+.inline-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+}
+
+.inline-check input {
+  width: auto;
+}
+
+.calibration-run-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.calibration-run-row {
+  border-left: 3px solid #5b6a79;
+  border-top: 1px solid #252b31;
+  padding: 10px 12px;
+}
+
+.calibration-run-row.passed {
+  border-left-color: #42d77d;
+}
+
+.calibration-run-row.warning {
+  border-left-color: #d9a441;
+}
+
+.calibration-run-row.failed {
+  border-left-color: #d95b5b;
+}
+
+.calibration-run-row.skipped {
+  border-left-color: #78818c;
+}
+
+.calibration-run-row span,
+.calibration-run-row small {
+  display: block;
+  color: #9aa6b2;
+  margin-top: 4px;
+}
+
 .calibration-row {
   border-top: 1px solid #252b31;
   padding: 10px 0;
@@ -919,6 +978,7 @@ label {
   .firmware-board-form,
   .firmware-board-row,
   .firmware-build-controls,
+  .calibration-run-form,
   .z-offset-form,
   .wizard-actions,
   .wizard-summary,
@@ -934,6 +994,10 @@ label {
 
   .health-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .calibration-run-form textarea {
+    grid-column: auto;
   }
 
   .panel-heading {

@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.audit import build_read_only_audit
 from app.backups import BackupPolicyCreate, BackupPolicyRecord, BackupRepository, BackupRunRecord
-from app.calibration import CalibrationRepository, CalibrationTestRecord
+from app.calibration import CalibrationRepository, CalibrationRunCreate, CalibrationRunRecord, CalibrationTestRecord
 from app.can_monitor import CanBusRecord, CanBusRecordCreate, CanMonitorRepository
 from app.checklists import build_post_update_checklist
 from app.config import Settings, get_settings
@@ -492,6 +492,30 @@ async def get_calibration_test(test_key: str) -> CalibrationTestRecord:
     if record is None:
         raise HTTPException(status_code=404, detail="calibration test not found")
     return record
+
+
+@app.get("/api/printers/{printer_id}/calibration/runs")
+async def list_calibration_runs(printer_id: int, limit: int = 50) -> dict[str, list[CalibrationRunRecord]]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    repository = get_calibration_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    clean_limit = min(max(limit, 1), 100)
+    return {"runs": repository.list_runs(printer_id, clean_limit)}
+
+
+@app.post("/api/printers/{printer_id}/calibration/runs")
+async def create_calibration_run(printer_id: int, payload: CalibrationRunCreate) -> CalibrationRunRecord:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    repository = get_calibration_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        return repository.create_run(printer_id, payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/printers/{printer_id}/plugins/audit")

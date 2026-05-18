@@ -90,6 +90,8 @@ Endpoints iniciais:
 - `POST /api/firmware/boards/{board_id}/flash-runs/dry-run`
 - `GET /api/calibration/tests`
 - `GET /api/calibration/tests/{test_key}`
+- `GET /api/printers/{printer_id}/calibration/runs`
+- `POST /api/printers/{printer_id}/calibration/runs`
 - `POST /api/printers/{printer_id}/snapshots/moonraker`
 - `GET /api/printers/{printer_id}/snapshots`
 - `GET /api/printers/{printer_id}/snapshots/diff?from_id=...&to_id=...`
@@ -504,6 +506,28 @@ GET /api/calibration/tests/{test_key}
 ```
 
 Esta etapa não envia G-code, não reinicia serviços, não altera configs e não conversa com a impressora. O objetivo é organizar conhecimento operacional antes de permitir execução guiada.
+
+### Histórico Manual De Calibração
+
+O histórico permite registrar resultado manual por impressora:
+
+- teste executado;
+- aprovado, atenção, falhou ou ignorado;
+- material;
+- chapa;
+- nozzle/tool;
+- valor observado;
+- confirmação de G-code revisado;
+- notas.
+
+Endpoints:
+
+```text
+GET /api/printers/{printer_id}/calibration/runs
+POST /api/printers/{printer_id}/calibration/runs
+```
+
+Este registro não executa o teste. Ele apenas documenta o que o operador fez fisicamente ou via Mainsail/console fora do MayderPrintLab.
 
 ## Auditoria Do Host
 

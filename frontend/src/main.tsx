@@ -336,6 +336,22 @@ type CalibrationTestRecord = {
   sort_order: number;
 };
 
+type CalibrationRunRecord = {
+  id: number;
+  printer_id: number;
+  test_key: string;
+  test_title: string;
+  created_at: string;
+  result_status: "passed" | "warning" | "failed" | "skipped";
+  material: string;
+  plate_name: string;
+  nozzle: string;
+  observed_value: string;
+  notes: string;
+  gcode_reviewed: boolean;
+  photo_reference?: string | null;
+};
+
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
@@ -363,6 +379,7 @@ function App() {
   const [firmwareBuildRuns, setFirmwareBuildRuns] = React.useState<FirmwareBuildRunRecord[]>([]);
   const [firmwareFlashRuns, setFirmwareFlashRuns] = React.useState<FirmwareFlashRunRecord[]>([]);
   const [calibrationTests, setCalibrationTests] = React.useState<CalibrationTestRecord[]>([]);
+  const [calibrationRuns, setCalibrationRuns] = React.useState<CalibrationRunRecord[]>([]);
   const [zOffsetWizardPlan, setZOffsetWizardPlan] = React.useState<ZOffsetWizardPlan | null>(null);
   const [zOffsetWizardChecks, setZOffsetWizardChecks] = React.useState<Record<string, boolean>>({});
   const [maintenanceEventType, setMaintenanceEventType] =
@@ -395,6 +412,15 @@ function App() {
   const [firmwareOutputRoot, setFirmwareOutputRoot] = React.useState("~/printer_data/firmware_builds");
   const [firmwareBuildConfirmation, setFirmwareBuildConfirmation] = React.useState("");
   const [firmwareFlashBinaryPath, setFirmwareFlashBinaryPath] = React.useState("");
+  const [calibrationTestKey, setCalibrationTestKey] = React.useState("probe_accuracy_center");
+  const [calibrationResultStatus, setCalibrationResultStatus] =
+    React.useState<CalibrationRunRecord["result_status"]>("passed");
+  const [calibrationMaterial, setCalibrationMaterial] = React.useState("PLA");
+  const [calibrationPlateName, setCalibrationPlateName] = React.useState("Texturizada");
+  const [calibrationNozzle, setCalibrationNozzle] = React.useState("T0");
+  const [calibrationObservedValue, setCalibrationObservedValue] = React.useState("");
+  const [calibrationNotes, setCalibrationNotes] = React.useState("");
+  const [calibrationGcodeReviewed, setCalibrationGcodeReviewed] = React.useState(false);
   const [backupName, setBackupName] = React.useState("Config backup");
   const [backupSourcePath, setBackupSourcePath] = React.useState("/home/pi/printer_data/config");
   const [backupDestinationPath, setBackupDestinationPath] = React.useState(
@@ -457,6 +483,7 @@ function App() {
       await loadFirmwareBoards(nextSelected);
       await loadFirmwareBuildRuns(nextSelected);
       await loadFirmwareFlashRuns(nextSelected);
+      await loadCalibrationRuns(nextSelected);
     }
   }
 
@@ -489,6 +516,7 @@ function App() {
       await loadFirmwareBoards(created.id);
       await loadFirmwareBuildRuns(created.id);
       await loadFirmwareFlashRuns(created.id);
+      await loadCalibrationRuns(created.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -679,6 +707,52 @@ function App() {
     }
     const payload = (await response.json()) as { tests: CalibrationTestRecord[] };
     setCalibrationTests(payload.tests);
+    setCalibrationTestKey((current) => current || payload.tests[0]?.test_key || "");
+  }
+
+  async function loadCalibrationRuns(printerId: number) {
+    const response = await fetch(`/api/printers/${printerId}/calibration/runs`);
+    if (!response.ok) {
+      return;
+    }
+    const payload = (await response.json()) as { runs: CalibrationRunRecord[] };
+    setCalibrationRuns(payload.runs);
+  }
+
+  async function createCalibrationRun(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/calibration/runs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          test_key: calibrationTestKey,
+          result_status: calibrationResultStatus,
+          material: calibrationMaterial,
+          plate_name: calibrationPlateName,
+          nozzle: calibrationNozzle,
+          observed_value: calibrationObservedValue,
+          notes: calibrationNotes,
+          gcode_reviewed: calibrationGcodeReviewed,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setCalibrationObservedValue("");
+      setCalibrationNotes("");
+      setCalibrationGcodeReviewed(false);
+      await loadCalibrationRuns(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function createFirmwareBoard(event: React.FormEvent<HTMLFormElement>) {
@@ -1105,6 +1179,7 @@ function App() {
                   void loadFirmwareBoards(printerId);
                   void loadFirmwareBuildRuns(printerId);
                   void loadFirmwareFlashRuns(printerId);
+                  void loadCalibrationRuns(printerId);
                 }}
               >
                 <option value="" disabled>
@@ -1490,6 +1565,87 @@ function App() {
             Catálogo seguro: esta área apenas lista testes, pré-condições, critérios e G-code para revisão. Nada é enviado
             para a impressora.
           </p>
+          <form className="calibration-run-form" onSubmit={(event) => void createCalibrationRun(event)}>
+            <select
+              aria-label="Teste de calibração"
+              value={calibrationTestKey}
+              onChange={(event) => setCalibrationTestKey(event.target.value)}
+            >
+              {calibrationTests.map((test) => (
+                <option key={test.test_key} value={test.test_key}>
+                  {test.title}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Resultado do teste"
+              value={calibrationResultStatus}
+              onChange={(event) => setCalibrationResultStatus(event.target.value as CalibrationRunRecord["result_status"])}
+            >
+              <option value="passed">aprovado</option>
+              <option value="warning">atenção</option>
+              <option value="failed">falhou</option>
+              <option value="skipped">ignorado</option>
+            </select>
+            <input
+              aria-label="Material"
+              value={calibrationMaterial}
+              onChange={(event) => setCalibrationMaterial(event.target.value)}
+              placeholder="PLA"
+            />
+            <input
+              aria-label="Chapa"
+              value={calibrationPlateName}
+              onChange={(event) => setCalibrationPlateName(event.target.value)}
+              placeholder="Texturizada"
+            />
+            <input
+              aria-label="Nozzle"
+              value={calibrationNozzle}
+              onChange={(event) => setCalibrationNozzle(event.target.value)}
+              placeholder="T0"
+            />
+            <input
+              aria-label="Valor observado"
+              value={calibrationObservedValue}
+              onChange={(event) => setCalibrationObservedValue(event.target.value)}
+              placeholder="Ex.: range 0.0125"
+            />
+            <label className="inline-check">
+              <input
+                type="checkbox"
+                checked={calibrationGcodeReviewed}
+                onChange={(event) => setCalibrationGcodeReviewed(event.target.checked)}
+              />
+              G-code revisado
+            </label>
+            <textarea
+              aria-label="Notas da calibração"
+              value={calibrationNotes}
+              onChange={(event) => setCalibrationNotes(event.target.value)}
+              placeholder="Notas, medidas, decisão e próximos ajustes"
+            />
+            <button type="submit" disabled={!selectedPrinterId || loading || calibrationTests.length === 0}>
+              Registrar resultado
+            </button>
+          </form>
+          <div className="calibration-run-list">
+            {calibrationRuns.length === 0 ? <p className="muted">Nenhum resultado de calibração registrado.</p> : null}
+            {calibrationRuns.slice(0, 8).map((run) => (
+              <div key={run.id} className={`calibration-run-row ${run.result_status}`}>
+                <strong>
+                  {run.test_title} · {formatCalibrationResult(run.result_status)}
+                </strong>
+                <span>
+                  {run.material || "-"} · {run.plate_name || "-"} · {run.nozzle || "-"} · {run.created_at}
+                </span>
+                <small>
+                  Valor: {run.observed_value || "-"} · G-code revisado: {formatBoolean(run.gcode_reviewed)}
+                </small>
+                {run.notes ? <small>{run.notes}</small> : null}
+              </div>
+            ))}
+          </div>
           <div className="calibration-list">
             {calibrationTests.map((test) => (
               <details key={test.test_key} className={`calibration-row ${test.risk_level}`}>
@@ -2157,6 +2313,16 @@ function formatRiskLevel(riskLevel: CalibrationTestRecord["risk_level"]) {
     high: "alto",
   };
   return labels[riskLevel];
+}
+
+function formatCalibrationResult(resultStatus: CalibrationRunRecord["result_status"]) {
+  const labels: Record<CalibrationRunRecord["result_status"], string> = {
+    passed: "aprovado",
+    warning: "atenção",
+    failed: "falhou",
+    skipped: "ignorado",
+  };
+  return labels[resultStatus];
 }
 
 function confirmedWizardSteps(checks: Record<string, boolean>) {

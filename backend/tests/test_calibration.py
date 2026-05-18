@@ -1,7 +1,10 @@
 from pathlib import Path
 
-from app.calibration import CalibrationRepository
+import pytest
+
+from app.calibration import CalibrationRepository, CalibrationRunCreate
 from app.database import initialize_database
+from app.printers import PrinterCreate, PrinterRepository
 
 
 def test_calibration_catalog_is_seeded(tmp_path: Path) -> None:
@@ -43,3 +46,47 @@ def test_calibration_catalog_can_filter_by_category(tmp_path: Path) -> None:
 
     assert tests
     assert {test.category for test in tests} == {"qualidade"}
+
+
+def test_create_calibration_run_is_scoped_by_printer(tmp_path: Path) -> None:
+    database_path = tmp_path / "mayderprintlab.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = CalibrationRepository(database_path)
+
+    run = repository.create_run(
+        printer.id,
+        CalibrationRunCreate(
+            test_key="probe_accuracy_center",
+            result_status="passed",
+            material="PLA",
+            plate_name="Texturizada",
+            nozzle="T0",
+            observed_value="range 0.0125",
+            notes="Probe repetível após ajuste mecânico.",
+            gcode_reviewed=True,
+        ),
+    )
+
+    assert run.printer_id == printer.id
+    assert run.test_title == "Probe Accuracy no centro"
+    assert run.result_status == "passed"
+    assert run.gcode_reviewed is True
+    assert len(repository.list_runs(printer.id)) == 1
+
+
+def test_calibration_run_requires_existing_test(tmp_path: Path) -> None:
+    database_path = tmp_path / "mayderprintlab.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = CalibrationRepository(database_path)
+
+    with pytest.raises(ValueError, match="calibration test not found"):
+        repository.create_run(
+            printer.id,
+            CalibrationRunCreate(test_key="missing", result_status="failed"),
+        )
