@@ -2,14 +2,23 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import {
   Activity,
+  AlertTriangle,
   Bell,
+  Camera,
+  CheckCircle2,
+  Database,
   FileText,
+  Gauge,
   Home,
   ListChecks,
+  Plus,
   Printer,
+  Radio,
   RefreshCw,
   Search,
+  Server,
   Settings,
+  ShieldCheck,
   SlidersHorizontal,
   Wrench,
   Zap,
@@ -1375,7 +1384,7 @@ function App() {
             <button type="button" className="icon-button" title="Configurar impressoras" onClick={() => setPrinterModalOpen(true)}>
               <Settings size={18} />
             </button>
-            <button type="button" onClick={() => void loadStatus()} disabled={loading}>
+            <button type="button" className="primary-button" onClick={() => void loadStatus()} disabled={loading}>
               <RefreshCw size={16} />
               {loading ? "Atualizando" : "Atualizar"}
             </button>
@@ -1402,7 +1411,8 @@ function App() {
                 </button>
               </div>
               <div className="modal-actions">
-                <button type="button" onClick={() => void discoverPrinters()} disabled={loading}>
+                <button type="button" className="secondary-button" onClick={() => void discoverPrinters()} disabled={loading}>
+                  <Search size={16} />
                   Buscar na rede
                 </button>
                 <span>Leitura segura: HTTP GET em `/server/info`, sem G-code e sem cadastro automático.</span>
@@ -1458,7 +1468,8 @@ function App() {
                   onChange={(event) => setNewPrinterUrl(event.target.value)}
                   placeholder="http://printer.local:7125"
                 />
-                <button type="submit" disabled={loading}>
+                <button type="submit" className="primary-button" disabled={loading}>
+                  <Plus size={16} />
                   Cadastrar impressora
                 </button>
               </form>
@@ -1473,16 +1484,16 @@ function App() {
               <h2>Dashboard de impressoras</h2>
               <p className="muted">Visão rápida das impressoras cadastradas e do contexto ativo do sistema.</p>
             </div>
-            <button type="button" onClick={() => setPrinterModalOpen(true)}>
-              <Search size={16} />
+            <button type="button" className="primary-button" onClick={() => setPrinterModalOpen(true)}>
+              <Plus size={16} />
               Adicionar impressora
             </button>
           </div>
           <div className="overview-strip">
-            <Badge label="Impressoras" value={printers.length} />
-            <Badge label="Ativa" value={selectedPrinter?.name ?? "-"} />
-            <Badge label="Decisão" value={formatDecision(health?.decision)} />
-            <Badge label="Snapshots" value={snapshots.length} />
+            <Badge icon={Server} label="Impressoras" value={printers.length} />
+            <Badge icon={Printer} label="Ativa" value={selectedPrinter?.name ?? "-"} />
+            <Badge icon={Gauge} label="Decisão" value={formatDecision(health?.decision)} />
+            <Badge icon={Database} label="Snapshots" value={snapshots.length} />
           </div>
           <div className="printer-dashboard">
             {printers.length === 0 ? <p className="muted">Nenhuma impressora cadastrada.</p> : null}
@@ -1504,13 +1515,16 @@ function App() {
                   <Metric label="Local" value={printer.location ?? "-"} />
                 </div>
                 <div className="printer-card-actions">
-                  <button type="button" onClick={() => selectPrinter(printer.id)} disabled={loading || printer.id === selectedPrinterId}>
+                  <button type="button" className="secondary-button" onClick={() => selectPrinter(printer.id)} disabled={loading || printer.id === selectedPrinterId}>
+                    <CheckCircle2 size={15} />
                     Selecionar
                   </button>
-                  <button type="button" onClick={() => void loadSelectedPrinterStatus()} disabled={!selectedPrinterId || printer.id !== selectedPrinterId || loading}>
+                  <button type="button" className="secondary-button" onClick={() => void loadSelectedPrinterStatus()} disabled={!selectedPrinterId || printer.id !== selectedPrinterId || loading}>
+                    <Radio size={15} />
                     Ler status
                   </button>
-                  <button type="button" onClick={() => void captureSnapshot()} disabled={!selectedPrinterId || printer.id !== selectedPrinterId || loading}>
+                  <button type="button" className="secondary-button" onClick={() => void captureSnapshot()} disabled={!selectedPrinterId || printer.id !== selectedPrinterId || loading}>
+                    <Camera size={15} />
                     Snapshot
                   </button>
                 </div>
@@ -1525,15 +1539,15 @@ function App() {
             <strong>{health?.summary ?? "Aguardando dados"}</strong>
           </div>
           <div className="health-metrics">
-            <Badge label="Decisão" value={formatDecision(health?.decision)} />
-            <Badge label="Bloqueios" value={health?.counts.blocker ?? 0} />
-            <Badge label="Alertas" value={health?.counts.warning ?? 0} />
-            <Badge label="Snapshots" value={formatUnknown(health?.metrics.snapshot_count ?? "-")} />
+            <Badge icon={Gauge} label="Decisão" value={formatDecision(health?.decision)} />
+            <Badge icon={ShieldCheck} label="Bloqueios" value={health?.counts.blocker ?? 0} />
+            <Badge icon={AlertTriangle} label="Alertas" value={health?.counts.warning ?? 0} />
+            <Badge icon={Database} label="Snapshots" value={formatUnknown(health?.metrics.snapshot_count ?? "-")} />
           </div>
           <div className="section-summary">
             {health?.metrics
               ? Object.entries(health.metrics).map(([key, value]) => (
-                  <Metric key={key} label={key} value={formatUnknown(value)} />
+                  <Metric key={key} label={formatMetricLabel(key)} value={formatUnknown(value)} />
                 ))
               : null}
           </div>
@@ -2415,15 +2429,15 @@ function App() {
           <h2>Auditoria do host</h2>
           <strong className="summary">{hostAudit?.summary ?? "Aguardando dados"}</strong>
           <div className="audit-counts">
-            <Badge label="Modo" value={hostAudit?.mode ?? "-"} />
-            <Badge label="Executou" value={hostAudit?.executed ? "sim" : "não"} />
-            <Badge label="Monitorar" value={hostAudit?.counts.monitorar ?? 0} />
-            <Badge label="Corrigir" value={hostAudit?.counts.corrigir_agora ?? 0} />
+            <Badge icon={Settings} label="Modo" value={hostAudit?.mode ?? "-"} />
+            <Badge icon={Activity} label="Executou" value={hostAudit?.executed ? "sim" : "não"} />
+            <Badge icon={AlertTriangle} label="Monitorar" value={hostAudit?.counts.monitorar ?? 0} />
+            <Badge icon={ShieldCheck} label="Corrigir" value={hostAudit?.counts.corrigir_agora ?? 0} />
           </div>
           <div className="section-summary">
             {hostAudit?.section_summary
               ? Object.entries(hostAudit.section_summary).map(([key, value]) => (
-                  <Metric key={key} label={key} value={formatUnknown(value)} />
+                  <Metric key={key} label={formatMetricLabel(key)} value={formatUnknown(value)} />
                 ))
               : null}
           </div>
@@ -2455,17 +2469,38 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Badge({ label, value }: { label: string; value: number | string }) {
+function Badge({ icon: Icon, label, value }: { icon?: LucideIcon; label: string; value: number | string }) {
   return (
     <div className="badge">
-      <span>{label}</span>
-      <strong>{value}</strong>
+      {Icon ? (
+        <span className="badge-icon">
+          <Icon size={17} strokeWidth={2.1} />
+        </span>
+      ) : null}
+      <span className="badge-text">
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </span>
     </div>
   );
 }
 
 function formatClassification(classification: AuditFinding["classification"]) {
   return classification.replace("_", " ");
+}
+
+function formatMetricLabel(label: string) {
+  const labels: Record<string, string> = {
+    klipper_state: "Klipper",
+    klipper_version: "Versão Klipper",
+    moonraker_version: "Moonraker",
+    cpu_temp: "CPU temp.",
+    disk_available_bytes: "Disco livre",
+    snapshot_count: "Snapshots",
+    latest_snapshot_id: "Último snapshot",
+    latest_diff_severity: "Último diff",
+  };
+  return labels[label] ?? label.replaceAll("_", " ");
 }
 
 function formatSeverity(severity: SnapshotDiffItem["severity"]) {
