@@ -11,6 +11,7 @@ import {
   Gauge,
   Home,
   ListChecks,
+  Moon,
   Plus,
   Printer,
   Radio,
@@ -20,6 +21,7 @@ import {
   Settings,
   ShieldCheck,
   SlidersHorizontal,
+  Sun,
   Wrench,
   Zap,
 } from "lucide-react";
@@ -405,6 +407,8 @@ type AppSection =
   | "reports"
   | "settings";
 
+type ThemeMode = "dark" | "light";
+
 const appSections: Array<{
   key: AppSection;
   icon: LucideIcon;
@@ -489,6 +493,10 @@ function App() {
   const [activeSection, setActiveSection] = React.useState<AppSection>("overview");
   const [discovery, setDiscovery] = React.useState<PrinterDiscoveryResponse | null>(null);
   const [printerModalOpen, setPrinterModalOpen] = React.useState(false);
+  const [theme, setTheme] = React.useState<ThemeMode>(() => {
+    const storedTheme = window.localStorage.getItem("mayderprintlab-theme");
+    return storedTheme === "light" ? "light" : "dark";
+  });
   const [newPrinterName, setNewPrinterName] = React.useState("Voron - Mayder");
   const [newPrinterUrl, setNewPrinterUrl] = React.useState("http://voron.local:7125");
   const [snapshots, setSnapshots] = React.useState<SnapshotRecord[]>([]);
@@ -1300,9 +1308,15 @@ function App() {
     void loadStatus();
   }, []);
 
+  React.useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("mayderprintlab-theme", theme);
+  }, [theme]);
+
   const activeSectionMeta = appSections.find((section) => section.key === activeSection) ?? appSections[0];
   const selectedPrinter = printers.find((printer) => printer.id === selectedPrinterId);
   const ActiveIcon = activeSectionMeta.icon;
+  const ThemeIcon = theme === "dark" ? Sun : Moon;
   const alertCount = (health?.counts.blocker ?? 0) + (health?.counts.warning ?? 0);
 
   return (
@@ -1360,8 +1374,7 @@ function App() {
             </div>
           </div>
           <div className="topbar-actions">
-            <label className="context-select">
-              Impressora ativa
+            <label className="context-select" aria-label="Impressora ativa">
               <select
                 value={selectedPrinterId ?? ""}
                 onChange={(event) => selectPrinter(Number(event.target.value))}
@@ -1377,6 +1390,15 @@ function App() {
               </select>
             </label>
             <span>{selectedPrinter?.moonraker_url ?? "Moonraker não selecionado"}</span>
+            <button
+              type="button"
+              className="icon-button"
+              title={theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
+              aria-label={theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
+              onClick={() => setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"))}
+            >
+              <ThemeIcon size={18} />
+            </button>
             <button type="button" className="icon-button" title="Alertas">
               <Bell size={18} />
               {alertCount > 0 ? <strong>{alertCount}</strong> : null}

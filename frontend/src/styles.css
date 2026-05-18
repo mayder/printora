@@ -3,18 +3,54 @@
   --surface-1: #14181d;
   --surface-2: #191e24;
   --surface-3: #101419;
+  --surface-hover: #161d24;
+  --secondary-bg: #151b22;
   --border: #2a3139;
   --border-soft: #222932;
   --text: #e8edf2;
   --muted: #98a6b3;
   --accent: #2f8bd7;
   --accent-strong: #1d73bd;
+  --accent-soft: rgb(47 139 215 / 0.14);
   --success: #2fb36d;
   --warning: #c78b2d;
   --danger: #d9515d;
+  --danger-bg: #3a1d1d;
+  --brand-start: #f06437;
+  --brand-end: #c62e1b;
+  --shadow: rgb(0 0 0 / 0.18);
+  --shadow-strong: rgb(0 0 0 / 0.45);
+  --code-bg: #0d1116;
+  --code-text: #dce6f1;
   color: var(--text);
   background: var(--bg);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+[data-theme="light"] {
+  --bg: #f3f5f7;
+  --surface-1: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #f8fafc;
+  --surface-hover: #eef3f8;
+  --secondary-bg: #f4f7fa;
+  --border: #cfd8e3;
+  --border-soft: #dfe6ee;
+  --text: #1d2733;
+  --muted: #5f6e7d;
+  --accent: #1976c9;
+  --accent-strong: #1568b2;
+  --accent-soft: rgb(25 118 201 / 0.12);
+  --success: #1f9d58;
+  --warning: #a66d12;
+  --danger: #c43f4d;
+  --danger-bg: #fff0f1;
+  --brand-start: #f06437;
+  --brand-end: #c62e1b;
+  --shadow: rgb(31 42 55 / 0.08);
+  --shadow-strong: rgb(31 42 55 / 0.18);
+  --code-bg: #edf2f7;
+  --code-text: #223142;
 }
 
 * {
@@ -44,7 +80,7 @@ button {
 
 button:hover {
   border-color: #3b4652;
-  background: #161d24;
+  background: var(--surface-hover);
 }
 
 .primary-button {
@@ -60,15 +96,15 @@ button:hover {
 
 .secondary-button {
   border-color: var(--border);
-  background: #151b22;
-  color: #cfe0ee;
+  background: var(--secondary-bg);
+  color: var(--text);
 }
 
 .secondary-button:hover,
 .ghost-button:hover,
 .icon-button:hover {
   border-color: #3b4652;
-  background: #1a222b;
+  background: var(--surface-hover);
 }
 
 button:disabled {
@@ -133,7 +169,7 @@ label {
   width: 40px;
   height: 40px;
   border-radius: 9px;
-  background: linear-gradient(135deg, #f06437, #c62e1b);
+  background: linear-gradient(135deg, var(--brand-start), var(--brand-end));
   color: white;
   font-size: 22px;
   font-weight: 900;
@@ -186,7 +222,7 @@ label {
   align-items: center;
   border: 1px solid transparent;
   background: transparent;
-  color: #c8d2dc;
+  color: var(--text);
   padding: 10px 12px;
   text-align: left;
 }
@@ -194,7 +230,7 @@ label {
 .nav-button:hover,
 .nav-button.active {
   border-color: var(--border);
-  background: #20262d;
+  background: var(--surface-hover);
 }
 
 .nav-button.active {
@@ -246,7 +282,7 @@ label {
   border-radius: 8px;
   background: var(--surface-1);
   padding: 14px 16px;
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.18);
+  box-shadow: 0 10px 30px var(--shadow);
 }
 
 .topbar-title {
@@ -289,7 +325,7 @@ label {
   height: 40px;
   border-color: var(--border);
   background: var(--surface-3);
-  color: #dce6f1;
+  color: var(--text);
   padding: 0;
 }
 
@@ -352,7 +388,7 @@ label {
   border-radius: 8px;
   background: var(--surface-2);
   padding: 18px;
-  box-shadow: 0 10px 26px rgb(0 0 0 / 0.14);
+  box-shadow: 0 10px 26px var(--shadow);
 }
 
 .panel-section {
@@ -386,7 +422,7 @@ label {
 
 .panel.danger {
   border-color: var(--danger);
-  background: #211719;
+  background: var(--danger-bg);
 }
 
 .panel.wide {
@@ -602,7 +638,7 @@ label {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface-2);
-  box-shadow: 0 24px 80px rgb(0 0 0 / 0.45);
+  box-shadow: 0 24px 80px var(--shadow-strong);
   padding: 18px;
 }
 
@@ -646,7 +682,7 @@ label {
 .ghost-button {
   border-color: var(--border);
   background: transparent;
-  color: #c8d2dc;
+  color: var(--text);
 }
 
 .printer-row {
@@ -960,8 +996,8 @@ label {
   border: 1px solid var(--border-soft);
   border-radius: 6px;
   padding: 10px;
-  background: #0d1116;
-  color: #dce6f1;
+  background: var(--code-bg);
+  color: var(--code-text);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -1165,8 +1201,8 @@ label {
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 4px 6px;
-  color: #dce6f1;
-  background: #0d1116;
+  color: var(--code-text);
+  background: var(--code-bg);
 }
 
 .z-offset-list {
@@ -1200,8 +1236,8 @@ label {
   overflow: auto;
   border: 1px solid var(--border-soft);
   border-radius: 6px;
-  background: #0d1116;
-  color: #dce6f1;
+  background: var(--code-bg);
+  color: var(--code-text);
   padding: 14px;
   line-height: 1.45;
   white-space: pre-wrap;
@@ -1357,7 +1393,7 @@ label {
   height: 34px;
   margin: 0 !important;
   border-radius: 7px;
-  background: rgb(47 139 215 / 0.14);
+  background: var(--accent-soft);
   color: #9bc9ff !important;
 }
 
