@@ -9,6 +9,7 @@ from app.audit import build_read_only_audit
 from app.checklists import build_post_update_checklist
 from app.config import Settings, get_settings
 from app.database import initialize_database
+from app.host_audit import collect_host_audit, summarize_sections
 from app.moonraker import MoonrakerClient
 
 
@@ -122,9 +123,50 @@ async def read_only_audit() -> dict[str, Any]:
     }
 
 
+@app.get("/api/audit/host-read-only")
+async def host_read_only_audit() -> dict[str, Any]:
+    settings = get_settings()
+    result = await collect_host_audit(
+        mode=settings.host_audit_mode,
+        ssh_target=settings.host_audit_ssh_target,
+        timeout_seconds=settings.host_audit_timeout_seconds,
+    )
+    return {
+        "safe_mode": "read_only",
+        "connected": result.executed and result.exit_code == 0,
+        "mode": result.mode,
+        "executed": result.executed,
+        "exit_code": result.exit_code,
+        "summary": _host_summary(result.findings),
+        "counts": _count_findings(result.findings),
+        "findings": [finding.__dict__ for finding in result.findings],
+        "section_summary": summarize_sections(result.sections),
+    }
+
+
 async def _collect_status(client: MoonrakerClient) -> tuple[dict[str, Any], ...]:
     printer_info = await client.printer_info()
     server_info = await client.server_info()
     system_info = await client.system_info()
     proc_stats = await client.proc_stats()
     return printer_info, server_info, system_info, proc_stats
+
+
+def _count_findings(findings: list[Any]) -> dict[str, int]:
+    counts = {
+        "corrigir_agora": 0,
+        "monitorar": 0,
+        "ignorar": 0,
+        "precisa_confirmacao": 0,
+    }
+    for finding in findings:
+        counts[finding.classification] += 1
+    return counts
+
+
+def _host_summary(findings: list[Any]) -> str:
+    if any(finding.severity == "blocker" for finding in findings):
+        return "Auditoria do host encontrou bloqueios."
+    if any(finding.classification in {"monitorar", "precisa_confirmacao"} for finding in findings):
+        return "Auditoria do host sem bloqueio crítico, mas com itens para revisar."
+    return "Auditoria do host sem problemas críticos nos dados disponíveis."

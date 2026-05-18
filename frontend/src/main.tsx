@@ -45,15 +45,19 @@ type AuditFinding = {
 type AuditResponse = {
   connected: boolean;
   safe_mode: string;
+  mode?: string;
+  executed?: boolean;
   summary: string;
   counts: Record<string, number>;
   findings: AuditFinding[];
+  section_summary?: Record<string, unknown>;
 };
 
 function App() {
   const [status, setStatus] = React.useState<MoonrakerStatus | null>(null);
   const [checklist, setChecklist] = React.useState<ChecklistResponse | null>(null);
   const [audit, setAudit] = React.useState<AuditResponse | null>(null);
+  const [hostAudit, setHostAudit] = React.useState<AuditResponse | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -73,6 +77,11 @@ function App() {
       const auditResponse = await fetch("/api/audit/read-only");
       if (auditResponse.ok) {
         setAudit((await auditResponse.json()) as AuditResponse);
+      }
+
+      const hostAuditResponse = await fetch("/api/audit/host-read-only");
+      if (hostAuditResponse.ok) {
+        setHostAudit((await hostAuditResponse.json()) as AuditResponse);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
@@ -153,6 +162,36 @@ function App() {
             ))}
           </div>
         </article>
+
+        <article className="panel wide">
+          <h2>Auditoria do host</h2>
+          <strong className="summary">{hostAudit?.summary ?? "Aguardando dados"}</strong>
+          <div className="audit-counts">
+            <Badge label="Modo" value={hostAudit?.mode ?? "-"} />
+            <Badge label="Executou" value={hostAudit?.executed ? "sim" : "não"} />
+            <Badge label="Monitorar" value={hostAudit?.counts.monitorar ?? 0} />
+            <Badge label="Corrigir" value={hostAudit?.counts.corrigir_agora ?? 0} />
+          </div>
+          <div className="section-summary">
+            {hostAudit?.section_summary
+              ? Object.entries(hostAudit.section_summary).map(([key, value]) => (
+                  <Metric key={key} label={key} value={formatUnknown(value)} />
+                ))
+              : null}
+          </div>
+          <div className="findings">
+            {hostAudit?.findings.map((finding) => (
+              <div key={finding.id} className={`finding ${finding.severity}`}>
+                <div>
+                  <strong>{finding.title}</strong>
+                  <span>{finding.category} · {formatClassification(finding.classification)}</span>
+                </div>
+                <p>{finding.detail}</p>
+                <small>{finding.safe_action}</small>
+              </div>
+            ))}
+          </div>
+        </article>
       </section>
     </main>
   );
@@ -167,7 +206,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Badge({ label, value }: { label: string; value: number }) {
+function Badge({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="badge">
       <span>{label}</span>
@@ -178,6 +217,13 @@ function Badge({ label, value }: { label: string; value: number }) {
 
 function formatClassification(classification: AuditFinding["classification"]) {
   return classification.replace("_", " ");
+}
+
+function formatUnknown(value: unknown) {
+  if (typeof value === "string") {
+    return value || "-";
+  }
+  return JSON.stringify(value);
 }
 
 createRoot(document.getElementById("root")!).render(<App />);

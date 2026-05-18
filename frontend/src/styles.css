@@ -151,6 +151,12 @@ button:disabled {
   gap: 10px;
 }
 
+.section-summary {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
 .finding {
   border-left: 3px solid #6d7782;
   background: #11151a;

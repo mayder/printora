@@ -70,6 +70,14 @@ http://127.0.0.1:5178
 - Validar `GET /api/audit/read-only` com Moonraker real.
 - Confirmar que falha de conexão vira `precisa_confirmacao`, não erro fatal.
 
+### Auditoria Do Host
+
+- Validar `GET /api/audit/host-read-only` com `MAYDER_PRINT_LAB_HOST_AUDIT_MODE=disabled`.
+- Validar parser de `systemctl`, CAN, Git e symlinks via testes unitários.
+- Validar em Raspberry com `MAYDER_PRINT_LAB_HOST_AUDIT_MODE=local`.
+- Validar em desenvolvimento com `MAYDER_PRINT_LAB_HOST_AUDIT_MODE=ssh` e chave SSH.
+- Confirmar que não há `restart`, `update`, `flash`, `rm`, `mv`, `cp` ou G-code no script read-only.
+
 ### Backups
 
 - Criar backup.

@@ -46,6 +46,31 @@ Endpoints iniciais:
 - `GET /api/moonraker/status`
 - `GET /api/checklist/post-update`
 - `GET /api/audit/read-only`
+- `GET /api/audit/host-read-only`
+
+## Auditoria Do Host
+
+O coletor do host é read-only e vem desabilitado por padrão.
+
+Configuração por ambiente:
+
+```bash
+MAYDER_PRINT_LAB_HOST_AUDIT_MODE=disabled
+MAYDER_PRINT_LAB_HOST_AUDIT_MODE=local
+MAYDER_PRINT_LAB_HOST_AUDIT_MODE=ssh
+MAYDER_PRINT_LAB_HOST_AUDIT_SSH_TARGET=pi@voron.local
+```
+
+Regras:
+
+- não envia G-code;
+- não reinicia serviços;
+- não edita arquivos;
+- não executa update;
+- não faz flash;
+- não armazena senha.
+
+Em produção na Raspberry, o modo recomendado é `local`. Em desenvolvimento fora da Raspberry, usar `ssh` apenas com chave SSH configurada.
 
 Backend local:
 
