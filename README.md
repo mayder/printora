@@ -45,6 +45,7 @@ O MVP inicial contém:
 - registro manual de Z-offset por chapa/material/nozzle;
 - wizard manual de Z-offset;
 - registro manual/read-only de saúde CAN;
+- auditoria read-only de mods e plugins;
 - auditoria somente leitura com classificação de achados;
 - template systemd em `packaging/systemd/`.
 
@@ -72,6 +73,7 @@ Endpoints iniciais:
 - `GET /api/printers/{printer_id}/z-offsets/wizard-plan`
 - `GET /api/printers/{printer_id}/can/records`
 - `POST /api/printers/{printer_id}/can/records`
+- `GET /api/printers/{printer_id}/plugins/audit`
 - `POST /api/printers/{printer_id}/snapshots/moonraker`
 - `GET /api/printers/{printer_id}/snapshots`
 - `GET /api/printers/{printer_id}/snapshots/diff?from_id=...&to_id=...`
@@ -286,6 +288,39 @@ Alertas:
 - `problema`: `rx_error` ou `tx_error` subiu desde a leitura anterior.
 
 Este módulo não executa `ip`, não acessa SSH, não zera contadores CAN e não reinicia serviços. A leitura real continua sendo feita pelo usuário ou por um coletor futuro.
+
+## Mods E Plugins
+
+A auditoria de mods e plugins usa o último snapshot Moonraker/Update Manager.
+
+Itens do catálogo inicial:
+
+- KAMP / adaptive meshing;
+- KTC-Easy / StealthChanger;
+- `led_effect`;
+- Crowsnest;
+- Sonar;
+- Timelapse;
+- Auto Speed;
+- TapChanger antigo;
+- TMC Autotune.
+
+Classificações:
+
+- necessário;
+- opcional;
+- legado/lixo técnico;
+- perigoso remover agora;
+- seguro remover depois de backup;
+- precisa confirmação.
+
+Endpoint:
+
+```text
+GET /api/printers/{printer_id}/plugins/audit
+```
+
+Este módulo é read-only. Ele não remove repositórios, não edita `moonraker.conf`, não reinicia serviços e não altera configurações Klipper.
 
 ## Auditoria Do Host
 

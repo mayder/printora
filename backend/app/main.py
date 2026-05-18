@@ -22,6 +22,7 @@ from app.maintenance import (
     MaintenanceTaskRecord,
 )
 from app.moonraker import MoonrakerClient
+from app.plugins import PluginAuditResponse, build_plugin_audit
 from app.printers import PrinterCreate, PrinterRecord, PrinterRepository, PrinterUpdate
 from app.reports import SanitizedReport, build_sanitized_report
 from app.snapshots import (
@@ -343,6 +344,19 @@ async def create_can_bus_record(printer_id: int, payload: CanBusRecordCreate) ->
         return can_repository.create_record(printer_id, payload)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/printers/{printer_id}/plugins/audit")
+async def plugin_audit(printer_id: int) -> PluginAuditResponse:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    snapshot_repository = get_snapshot_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    snapshots = snapshot_repository.list_snapshots(printer_id, limit=20)
+    latest_moonraker_snapshot = next((snapshot for snapshot in snapshots if snapshot.snapshot_type == "moonraker_status"), None)
+    latest_snapshot = snapshot_repository.get_snapshot(latest_moonraker_snapshot.id) if latest_moonraker_snapshot else None
+    return build_plugin_audit(printer_id, latest_snapshot)
 
 
 @app.get("/api/printers/{printer_id}/maintenance/events")

@@ -347,6 +347,57 @@ label {
   color: #9aa6b2;
 }
 
+.plugin-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.plugin-actions span {
+  color: #9aa6b2;
+}
+
+.plugin-list {
+  display: grid;
+  gap: 8px;
+}
+
+.plugin-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1.2fr) minmax(220px, 1.2fr);
+  gap: 12px;
+  border-left: 3px solid #6d7782;
+  border-top: 1px solid #252b31;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+}
+
+.plugin-row.detected.necessario,
+.plugin-row.detected.opcional {
+  border-left-color: #42d77d;
+}
+
+.plugin-row.detected.precisa_confirmacao,
+.plugin-row.detected.seguro_remover_depois_backup {
+  border-left-color: #ffb020;
+}
+
+.plugin-row.detected.legado_lixo_tecnico,
+.plugin-row.detected.perigoso_remover_agora {
+  border-left-color: #e04f5f;
+}
+
+.plugin-row span,
+.plugin-row small,
+.plugin-row p {
+  color: #9aa6b2;
+}
+
+.plugin-row p {
+  margin: 0;
+}
+
 .wizard-actions {
   display: flex;
   gap: 12px;
@@ -706,6 +757,8 @@ label {
   .maintenance-task-form,
   .maintenance-row,
   .can-form,
+  .plugin-actions,
+  .plugin-row,
   .z-offset-form,
   .wizard-actions,
   .wizard-summary,

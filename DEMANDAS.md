@@ -498,6 +498,14 @@ Critério de aceite:
 
 - usuário vê o que manter, remover, atualizar ou investigar.
 
+Estado atual:
+
+- Implementado `GET /api/printers/{printer_id}/plugins/audit`.
+- Auditoria usa o último snapshot Moonraker/Update Manager.
+- Catálogo inicial cobre KAMP/adaptive meshing, KTC-Easy/StealthChanger, `led_effect`, Crowsnest, Sonar, Timelapse, Auto Speed, TapChanger e TMC Autotune.
+- UI classifica cada item como necessário, opcional, legado/lixo técnico, perigoso remover agora, seguro remover depois de backup ou precisa confirmação.
+- O fluxo é read-only e não remove, atualiza, reinicia ou altera configurações.
+
 ## PKG-11: Firmware Manager - Cadastro De Placas E Presets
 
 Objetivo:

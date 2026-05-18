@@ -55,6 +55,9 @@ Validações:
 - registro manual CAN classifica `tx_retries` crescente como monitoramento.
 - registro manual CAN classifica `rx_error` ou `tx_error` crescente como problema.
 - histórico CAN fica escopado por impressora.
+- auditoria de plugins usa último snapshot Moonraker/Update Manager.
+- auditoria de plugins funciona sem snapshot e não executa comandos no host.
+- auditoria de plugins classifica KTC-Easy como perigoso remover agora e Auto Speed como legado/lixo técnico.
 
 Testes automatizados adicionais:
 
@@ -141,6 +144,14 @@ http://127.0.0.1:5178
 - Registrar nova leitura com `tx_retries` maior e confirmar alerta de monitoramento.
 - Registrar nova leitura com `rx_error` ou `tx_error` maior e confirmar alerta de problema.
 - Confirmar que o app não executou SSH, `ip`, G-code, restart, update ou flash.
+
+### Mods E Plugins
+
+- Capturar snapshot Moonraker.
+- Abrir painel de mods e plugins.
+- Confirmar que itens do Update Manager aparecem como detectados.
+- Confirmar classificação de KTC-Easy/StealthChanger, KAMP, `led_effect`, Crowsnest, Sonar, Timelapse, Auto Speed, TapChanger e TMC Autotune.
+- Confirmar que nenhuma remoção, update, restart ou edição de config foi executada.
 
 ### Firmware Dry-Run
 

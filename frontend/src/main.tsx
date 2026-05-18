@@ -230,6 +230,32 @@ type CanBusRecord = {
   created_at: string;
 };
 
+type PluginAuditItem = {
+  name: string;
+  title: string;
+  detected: boolean;
+  classification:
+    | "necessario"
+    | "opcional"
+    | "legado_lixo_tecnico"
+    | "perigoso_remover_agora"
+    | "seguro_remover_depois_backup"
+    | "precisa_confirmacao";
+  version?: string | null;
+  dirty?: boolean | null;
+  commits_behind?: number | null;
+  risk: string;
+  recommendation: string;
+};
+
+type PluginAuditResponse = {
+  printer_id: number;
+  safe_mode: string;
+  source: string;
+  summary: string;
+  items: PluginAuditItem[];
+};
+
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
@@ -251,6 +277,7 @@ function App() {
   const [maintenanceTasks, setMaintenanceTasks] = React.useState<MaintenanceTaskRecord[]>([]);
   const [zOffsetRecords, setZOffsetRecords] = React.useState<ZOffsetRecord[]>([]);
   const [canRecords, setCanRecords] = React.useState<CanBusRecord[]>([]);
+  const [pluginAudit, setPluginAudit] = React.useState<PluginAuditResponse | null>(null);
   const [zOffsetWizardPlan, setZOffsetWizardPlan] = React.useState<ZOffsetWizardPlan | null>(null);
   const [zOffsetWizardChecks, setZOffsetWizardChecks] = React.useState<Record<string, boolean>>({});
   const [maintenanceEventType, setMaintenanceEventType] =
@@ -329,6 +356,7 @@ function App() {
       await loadMaintenance(nextSelected);
       await loadZOffsets(nextSelected);
       await loadCanRecords(nextSelected);
+      await loadPluginAudit(nextSelected);
     }
   }
 
@@ -357,6 +385,7 @@ function App() {
       await loadMaintenance(created.id);
       await loadZOffsets(created.id);
       await loadCanRecords(created.id);
+      await loadPluginAudit(created.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -494,6 +523,14 @@ function App() {
     }
     const payload = (await response.json()) as { records: CanBusRecord[] };
     setCanRecords(payload.records);
+  }
+
+  async function loadPluginAudit(printerId: number) {
+    const response = await fetch(`/api/printers/${printerId}/plugins/audit`);
+    if (!response.ok) {
+      return;
+    }
+    setPluginAudit((await response.json()) as PluginAuditResponse);
   }
 
   async function createCanRecord(event: React.FormEvent<HTMLFormElement>) {
@@ -804,6 +841,7 @@ function App() {
                   void loadMaintenance(printerId);
                   void loadZOffsets(printerId);
                   void loadCanRecords(printerId);
+                  void loadPluginAudit(printerId);
                 }}
               >
                 <option value="" disabled>
@@ -956,6 +994,37 @@ function App() {
                   Estado: {record.bus_state ?? "-"} · bitrate: {record.bitrate ?? "-"}
                 </small>
                 {record.notes ? <small>{record.notes}</small> : null}
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel wide">
+          <div className="panel-heading">
+            <h2>Mods e plugins</h2>
+            <strong>{pluginAudit?.summary ?? "Sem snapshot analisado"}</strong>
+          </div>
+          <div className="plugin-actions">
+            <button type="button" onClick={() => selectedPrinterId && void loadPluginAudit(selectedPrinterId)} disabled={!selectedPrinterId || loading}>
+              Reanalisar
+            </button>
+            <span>Leitura baseada no último snapshot Moonraker/Update Manager. Não remove nem altera nada.</span>
+          </div>
+          <div className="plugin-list">
+            {pluginAudit?.items.map((item) => (
+              <div key={item.name} className={`plugin-row ${item.classification} ${item.detected ? "detected" : "missing"}`}>
+                <div>
+                  <strong>{item.title}</strong>
+                  <span>
+                    {item.detected ? "detectado" : "não detectado"} · {formatPluginClassification(item.classification)}
+                  </span>
+                  <small>
+                    Versão: {item.version ?? "-"} · dirty: {formatBoolean(item.dirty)} · behind:{" "}
+                    {formatOptionalInt(item.commits_behind)}
+                  </small>
+                </div>
+                <p>{item.risk}</p>
+                <small>{item.recommendation}</small>
               </div>
             ))}
           </div>
@@ -1527,6 +1596,25 @@ function formatCanAlert(alertLevel: CanBusRecord["alert_level"]) {
     problema: "problema físico/elétrico possível",
   };
   return labels[alertLevel];
+}
+
+function formatPluginClassification(classification: PluginAuditItem["classification"]) {
+  const labels: Record<PluginAuditItem["classification"], string> = {
+    necessario: "necessário",
+    opcional: "opcional",
+    legado_lixo_tecnico: "legado/lixo técnico",
+    perigoso_remover_agora: "perigoso remover agora",
+    seguro_remover_depois_backup: "seguro remover depois de backup",
+    precisa_confirmacao: "precisa confirmação",
+  };
+  return labels[classification];
+}
+
+function formatBoolean(value: boolean | null | undefined) {
+  if (typeof value !== "boolean") {
+    return "-";
+  }
+  return value ? "sim" : "não";
 }
 
 function confirmedWizardSteps(checks: Record<string, boolean>) {
