@@ -25,3 +25,19 @@ def test_mainsail_navigation_links_to_local_service() -> None:
 
     assert "MayderPrintLab" in navigation
     assert "http://voron.local:8085" in navigation
+
+
+def test_multiplatform_bootstrap_artifacts_exist() -> None:
+    assert (ROOT_DIR / "scripts/mpl_platform.sh").is_file()
+    assert (ROOT_DIR / "scripts/bootstrap_dev.sh").is_file()
+    assert (ROOT_DIR / "scripts/bootstrap_windows.ps1").is_file()
+    assert (ROOT_DIR / "docs/INSTALL_MULTIPLATFORM.md").is_file()
+
+
+def test_docker_compose_uses_safe_defaults() -> None:
+    compose = (ROOT_DIR / "docker-compose.yml").read_text()
+
+    assert "8085:8085" in compose
+    assert "MAYDER_PRINT_LAB_HOST_AUDIT_MODE: \"disabled\"" in compose
+    assert "MAYDER_PRINT_LAB_FIRMWARE_BUILD_MODE: \"disabled\"" in compose
+    assert "mayderprintlab-data:/data" in compose

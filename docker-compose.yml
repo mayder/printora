@@ -1,0 +1,17 @@
+services:
+  mayderprintlab:
+    build: .
+    container_name: mayderprintlab
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    environment:
+      MAYDER_PRINT_LAB_MOONRAKER_URL: "http://host.docker.internal:7125"
+      MAYDER_PRINT_LAB_DATA_DIR: "/data"
+      MAYDER_PRINT_LAB_HOST_AUDIT_MODE: "disabled"
+      MAYDER_PRINT_LAB_FIRMWARE_BUILD_MODE: "disabled"
+    volumes:
+      - mayderprintlab-data:/data
+
+volumes:
+  mayderprintlab-data:

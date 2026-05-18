@@ -76,6 +76,9 @@ Validações:
 - histórico manual rejeita chave de teste inexistente.
 - artefatos de systemd, Mainsail e Update Manager existem e apontam para serviço local.
 - instalador Raspberry roda em dry-run por padrão.
+- bootstrap dev macOS/Linux roda em dry-run por padrão.
+- instalador Linux recusa macOS/Windows e hosts sem systemd.
+- Docker Compose define porta, volume e modo seguro por padrão.
 
 Testes automatizados adicionais:
 
@@ -235,6 +238,15 @@ Critérios:
 - Revisar `packaging/mainsail/navi.json`.
 - Revisar `packaging/moonraker/update_manager_mayderprintlab.conf`.
 - Confirmar que `docs/INSTALL_RASPBERRY.md` contém rollback.
+
+### Instalação Multiplataforma
+
+- Rodar `./scripts/bootstrap_dev.sh` sem `--apply`.
+- Confirmar que a saída mostra `DRY-RUN`.
+- No macOS, confirmar data dir em `~/Library/Application Support/MayderPrintLab`.
+- Revisar `scripts/bootstrap_windows.ps1`.
+- Revisar `Dockerfile` e `docker-compose.yml`.
+- Confirmar que `docs/INSTALL_MULTIPLATFORM.md` documenta macOS, Linux, Windows, Docker, Raspberry e Manta/CB1.
 
 ## Critérios Para Não Avançar
 

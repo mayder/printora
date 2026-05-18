@@ -111,6 +111,7 @@ Artefatos principais:
 - `packaging/moonraker/update_manager_mayderprintlab.conf`
 - `scripts/install_raspberry.sh`
 - `docs/INSTALL_RASPBERRY.md`
+- `docs/INSTALL_MULTIPLATFORM.md`
 
 O instalador roda em dry-run por padrão:
 
@@ -129,6 +130,37 @@ O script não inicia o serviço automaticamente. Revise `.env` antes:
 ```bash
 sudo systemctl start mayderprintlab.service
 curl -s http://127.0.0.1:8085/health
+```
+
+## Instalação Multiplataforma
+
+Roteiro completo:
+
+```text
+docs/INSTALL_MULTIPLATFORM.md
+```
+
+Atalhos:
+
+```bash
+# macOS/Linux dev, dry-run
+./scripts/bootstrap_dev.sh
+
+# macOS/Linux dev, aplicar
+./scripts/bootstrap_dev.sh --apply
+
+# Raspberry/Manta/Linux systemd, dry-run
+./scripts/install_raspberry.sh
+
+# Docker
+docker compose up --build
+```
+
+Windows PowerShell:
+
+```powershell
+.\scripts\bootstrap_windows.ps1
+.\scripts\bootstrap_windows.ps1 --apply
 ```
 
 ## Múltiplas Impressoras

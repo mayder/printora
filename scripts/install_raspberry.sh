@@ -2,6 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/mpl_platform.sh
+source "${ROOT_DIR}/scripts/mpl_platform.sh"
+
 TARGET_DIR="${MAYDER_PRINT_LAB_INSTALL_DIR:-/home/pi/MayderPrintLab}"
 SERVICE_SRC="${ROOT_DIR}/packaging/systemd/mayderprintlab.service"
 SERVICE_DST="/etc/systemd/system/mayderprintlab.service"
@@ -26,6 +29,20 @@ run_or_print() {
 if [[ "${APPLY}" != "true" ]]; then
   echo "Modo dry-run. Reexecute com --apply para instalar."
 fi
+
+if [[ "$(mpl_os)" != "linux" ]]; then
+  echo "Este instalador é para Linux/Raspberry/Manta com systemd." >&2
+  echo "Para macOS/Windows/dev, use scripts/bootstrap_dev.sh." >&2
+  exit 1
+fi
+
+if ! mpl_has_systemd; then
+  echo "systemd não detectado. Use scripts/bootstrap_dev.sh ou Docker." >&2
+  exit 1
+fi
+
+mpl_require_command rsync
+mpl_require_command npm
 
 run_or_print mkdir -p "${TARGET_DIR}"
 

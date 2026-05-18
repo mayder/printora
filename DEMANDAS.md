@@ -24,6 +24,7 @@
 - PKG-13: Firmware Manager - flash controlado
 - PKG-14: Integração Mainsail e Update Manager
 - PKG-15: Centro de calibração e testes Voron
+- PKG-16: Instalador multiplataforma
 
 ## PKG-01: Base Do Projeto E Documentação Operacional
 
@@ -824,3 +825,96 @@ Estado atual:
 - Implementado `GET /api/printers/{printer_id}/calibration/runs`.
 - Implementado `POST /api/printers/{printer_id}/calibration/runs`.
 - UI permite registrar resultado manual do teste selecionado.
+
+## PKG-16: Instalador Multiplataforma
+
+Objetivo:
+
+Permitir rodar o MayderPrintLab em Raspberry, Manta/CB1/Linux, macOS, Windows e Docker com fluxos seguros.
+
+Escopo:
+
+- detectar plataforma;
+- preparar ambiente local sem instalar serviço por padrão;
+- manter Linux/systemd separado de macOS/Windows;
+- oferecer Docker Compose para uso centralizado;
+- documentar caminhos de dados por plataforma;
+- preservar dry-run por padrão;
+- não tocar na impressora durante instalação.
+
+## PKG-16A: Bootstrap Dev macOS/Linux
+
+Objetivo:
+
+Preparar ambiente local no macOS/Linux para testar facilmente fora da Raspberry.
+
+Entregáveis:
+
+- `scripts/mpl_platform.sh`;
+- `scripts/bootstrap_dev.sh`;
+- detecção de sistema;
+- data dir por plataforma;
+- instalação de backend/frontend em dry-run por padrão.
+
+Critério de aceite:
+
+- dry-run não cria venv, não instala dependências e não altera serviço;
+- `--apply` prepara ambiente local;
+- não usa systemd;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado `scripts/mpl_platform.sh`.
+- Implementado `scripts/bootstrap_dev.sh`.
+
+## PKG-16B: Linux/Raspberry/Manta Systemd
+
+Objetivo:
+
+Tornar o instalador Linux explícito para hosts com systemd.
+
+Entregáveis:
+
+- validação de Linux;
+- validação de systemd;
+- mensagem clara para macOS/Windows;
+- preservação do dry-run por padrão.
+
+Estado atual:
+
+- `scripts/install_raspberry.sh` valida Linux/systemd antes de instalar.
+
+## PKG-16C: Docker Compose
+
+Objetivo:
+
+Permitir rodar o app em qualquer host com Docker.
+
+Entregáveis:
+
+- `Dockerfile`;
+- `docker-compose.yml`;
+- volume persistente para SQLite;
+- porta `8085`.
+
+Estado atual:
+
+- Implementado `Dockerfile`.
+- Implementado `docker-compose.yml`.
+
+## PKG-16D: Windows Dev
+
+Objetivo:
+
+Preparar ambiente de desenvolvimento no Windows sem serviço nativo.
+
+Entregáveis:
+
+- script PowerShell;
+- dry-run por padrão;
+- preparação de Python/frontend/build.
+
+Estado atual:
+
+- Implementado `scripts/bootstrap_windows.ps1`.
