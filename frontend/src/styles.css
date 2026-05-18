@@ -14,6 +14,10 @@ body {
 }
 
 button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: 1px solid #2d7dd2;
   background: #1769aa;
   color: #fff;
@@ -72,25 +76,62 @@ label {
 
 .brand {
   display: grid;
-  gap: 4px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
   padding: 6px 8px 14px;
   border-bottom: 1px solid #252b31;
 }
 
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  background: #e24622;
+  color: white;
+  font-size: 22px;
+  font-weight: 900;
+}
+
 .brand strong {
+  display: block;
   font-size: 18px;
+  overflow-wrap: anywhere;
 }
 
 .brand span {
+  display: block;
   color: #9aa6b2;
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
+.brand > div:last-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
 .sidebar-nav {
   display: grid;
+  gap: 16px;
+}
+
+.nav-group {
+  display: grid;
   gap: 6px;
+}
+
+.nav-group-title {
+  padding: 0 8px;
+  color: #6f7c89;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .nav-button {
@@ -163,6 +204,23 @@ label {
   padding: 14px 16px;
 }
 
+.topbar-title {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.section-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #2f3741;
+  border-radius: 8px;
+  background: #101419;
+  color: #88bfff;
+}
+
 .topbar h1 {
   margin: 0 0 6px;
   font-size: 28px;
@@ -178,6 +236,30 @@ label {
   align-items: center;
   justify-content: end;
   gap: 12px;
+}
+
+.icon-button {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-color: #2f3741;
+  background: #101419;
+  color: #dce6f1;
+  padding: 0;
+}
+
+.icon-button strong {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #e04f5f;
+  color: #fff;
+  font-size: 11px;
 }
 
 .context-select {
@@ -202,6 +284,23 @@ label {
   gap: 16px;
 }
 
+.page-helper {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #252b31;
+  border-left: 3px solid #2d7dd2;
+  border-radius: 8px;
+  background: #11151a;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.page-helper span {
+  color: #9aa6b2;
+  text-align: right;
+}
+
 .panel {
   grid-column: span 6;
   border: 1px solid #252b31;
@@ -215,12 +314,14 @@ label {
 }
 
 .section-overview .panel-overview,
-.section-operation .panel-operation,
+.section-printers .panel-printers,
+.section-monitoring .panel-monitoring,
 .section-calibration .panel-calibration,
+.section-tests .panel-tests,
 .section-firmware .panel-firmware,
 .section-maintenance .panel-maintenance,
 .section-reports .panel-reports,
-.section-system .panel-system {
+.section-settings .panel-settings {
   display: block;
 }
 
@@ -1303,6 +1404,7 @@ label {
 
   .grid,
   .topbar,
+  .topbar-title,
   .topbar-actions {
     grid-template-columns: 1fr;
     display: grid;
@@ -1314,6 +1416,14 @@ label {
 
   .topbar-actions span {
     max-width: none;
+    text-align: left;
+  }
+
+  .page-helper {
+    display: grid;
+  }
+
+  .page-helper span {
     text-align: left;
   }
 

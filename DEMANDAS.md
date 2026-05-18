@@ -27,6 +27,7 @@
 - PKG-15: Centro de calibração e testes Voron
 - PKG-16: Instalador multiplataforma
 - PKG-17: Navegação e layout operacional do frontend
+- PKG-18: Arquitetura de UX e menu por domínio
 
 ## PKG-01: Base Do Projeto E Documentação Operacional
 
@@ -969,7 +970,7 @@ Entregáveis:
 
 Critério de aceite:
 
-- usuário consegue navegar por Visão geral, Operação, Calibração, Firmware, Manutenção, Relatórios e Sistema;
+- usuário consegue navegar por Visão geral, Impressoras, Monitoramento, Calibração, Testes, Firmware, Manutenção, Relatórios e Configurações;
 - usuário consegue trocar a impressora ativa pela topbar;
 - cadastro e detecção de impressoras não poluem o dashboard principal;
 - os painéis deixam de aparecer todos ao mesmo tempo;
@@ -980,3 +981,32 @@ Critério de aceite:
 Estado atual:
 
 - Implementado layout com sidebar, topbar contextual, seletor global de impressora, dashboard de impressoras e modal para cadastro/detecção.
+
+## PKG-18: Arquitetura De UX E Menu Por Domínio
+
+Objetivo:
+
+Organizar o MayderPrintLab como produto operacional, com navegação clara por domínio e contexto permanente da impressora selecionada.
+
+Entregáveis:
+
+- logo e identidade visual no shell principal;
+- sidebar com ícones e grupos de menu;
+- topbar com contexto da seção, alertas, atualização e configuração de impressora;
+- separação de Calibração e Testes;
+- seção de Monitoramento para saúde, logs, CAN, Moonraker, Klipper e auditorias;
+- seção de Firmware restrita à impressora selecionada;
+- página inicial como dashboard geral;
+- texto de orientação em cada seção.
+
+Critério de aceite:
+
+- usuário entende onde cadastrar impressora, monitorar logs, analisar saúde, calibrar, testar, gerenciar firmware, fazer backup e gerar relatório;
+- impressora selecionada governa todas as telas de operação;
+- menu não mistura gestão global com operação da impressora;
+- nenhuma ação nova é enviada para Klipper/Moonraker;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado primeiro redesenho do shell com identidade visual, grupos de menu, ícones, topbar operacional e novas seções por domínio.

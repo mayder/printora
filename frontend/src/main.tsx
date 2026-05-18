@@ -1,5 +1,20 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
+import {
+  Activity,
+  Bell,
+  FileText,
+  Home,
+  ListChecks,
+  Printer,
+  RefreshCw,
+  Search,
+  Settings,
+  SlidersHorizontal,
+  Wrench,
+  Zap,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import "./styles.css";
 
 type ChecklistItem = {
@@ -370,56 +385,93 @@ type CalibrationRunRecord = {
   photo_reference?: string | null;
 };
 
-type AppSection = "overview" | "operation" | "calibration" | "firmware" | "maintenance" | "reports" | "system";
+type AppSection =
+  | "overview"
+  | "printers"
+  | "monitoring"
+  | "calibration"
+  | "tests"
+  | "firmware"
+  | "maintenance"
+  | "reports"
+  | "settings";
 
 const appSections: Array<{
   key: AppSection;
-  icon: string;
+  icon: LucideIcon;
   label: string;
   detail: string;
+  purpose: string;
 }> = [
   {
     key: "overview",
-    icon: "VG",
+    icon: Home,
     label: "Visão geral",
-    detail: "Estado operacional, impressora ativa e decisão rápida antes de imprimir.",
+    detail: "Dashboard geral da frota e da impressora selecionada.",
+    purpose: "Use esta tela para saber rapidamente se há bloqueios, alertas ou pendências antes de trabalhar na impressora.",
   },
   {
-    key: "operation",
-    icon: "OP",
-    label: "Operação",
-    detail: "Leituras de uso diário, histórico CAN e dados de execução.",
+    key: "printers",
+    icon: Printer,
+    label: "Impressoras",
+    detail: "Cadastro, descoberta e seleção da impressora ativa.",
+    purpose: "Gerencie as impressoras cadastradas e defina qual delas controla o contexto do restante do sistema.",
+  },
+  {
+    key: "monitoring",
+    icon: Activity,
+    label: "Monitoramento",
+    detail: "Health, logs, CAN, Moonraker, Klipper e host.",
+    purpose: "Analise saúde, logs e sinais técnicos antes de imprimir, atualizar ou diagnosticar falhas.",
   },
   {
     key: "calibration",
-    icon: "CL",
+    icon: SlidersHorizontal,
     label: "Calibração",
-    detail: "Z-offset, primeira camada, testes Voron e ajustes finos.",
+    detail: "Z-offset, primeira camada e ajustes manuais.",
+    purpose: "Registre offsets, siga o wizard manual e compare variações por chapa, material e toolhead.",
+  },
+  {
+    key: "tests",
+    icon: ListChecks,
+    label: "Testes",
+    detail: "Centro de testes Voron e histórico de resultados.",
+    purpose: "Consulte testes, critérios de sucesso e registre resultados sem executar G-code automaticamente.",
   },
   {
     key: "firmware",
-    icon: "FW",
+    icon: Zap,
     label: "Firmware",
     detail: "Placas, presets, dry-runs de build/flash e auditoria de mods.",
+    purpose: "Gerencie MCUs, presets, builds e flash planejado para a impressora ativa.",
   },
   {
     key: "maintenance",
-    icon: "MT",
+    icon: Wrench,
     label: "Manutenção",
     detail: "Backups, tarefas preventivas e diário da impressora.",
+    purpose: "Acompanhe manutenção preventiva, eventos e backups locais com histórico por impressora.",
   },
   {
     key: "reports",
-    icon: "RP",
+    icon: FileText,
     label: "Relatórios",
     detail: "Auditorias, snapshots, diffs e relatórios sanitizados.",
+    purpose: "Gere diagnósticos compartilháveis e compare snapshots sem expor dados sensíveis.",
   },
   {
-    key: "system",
-    icon: "SI",
-    label: "Sistema",
-    detail: "Moonraker, Klipper, host e configurações da impressora.",
+    key: "settings",
+    icon: Settings,
+    label: "Configurações",
+    detail: "Preferências, integrações e contexto da impressora ativa.",
+    purpose: "Centralize ajustes do app, seleção de impressora e integrações futuras.",
   },
+];
+
+const navGroups: Array<{ title: string; sections: AppSection[] }> = [
+  { title: "Principal", sections: ["overview", "printers"] },
+  { title: "Impressora ativa", sections: ["monitoring", "calibration", "tests", "firmware", "maintenance"] },
+  { title: "Diagnóstico", sections: ["reports", "settings"] },
 ];
 
 function App() {
@@ -1241,25 +1293,44 @@ function App() {
 
   const activeSectionMeta = appSections.find((section) => section.key === activeSection) ?? appSections[0];
   const selectedPrinter = printers.find((printer) => printer.id === selectedPrinterId);
+  const ActiveIcon = activeSectionMeta.icon;
+  const alertCount = (health?.counts.blocker ?? 0) + (health?.counts.warning ?? 0);
 
   return (
     <main className="app-shell">
       <aside className="sidebar" aria-label="Navegação principal">
         <div className="brand">
-          <strong>MayderPrintLab</strong>
-          <span>Klipper Ops</span>
+          <div className="brand-mark">M</div>
+          <div>
+            <strong>MayderPrintLab</strong>
+            <span>Klipper Ops</span>
+          </div>
         </div>
         <nav className="sidebar-nav">
-          {appSections.map((section) => (
-            <button
-              key={section.key}
-              type="button"
-              className={`nav-button ${activeSection === section.key ? "active" : ""}`}
-              onClick={() => setActiveSection(section.key)}
-            >
-              <span className="nav-icon">{section.icon}</span>
-              <span>{section.label}</span>
-            </button>
+          {navGroups.map((group) => (
+            <div key={group.title} className="nav-group">
+              <span className="nav-group-title">{group.title}</span>
+              {group.sections.map((sectionKey) => {
+                const section = appSections.find((candidate) => candidate.key === sectionKey);
+                if (!section) {
+                  return null;
+                }
+                const Icon = section.icon;
+                return (
+                  <button
+                    key={section.key}
+                    type="button"
+                    className={`nav-button ${activeSection === section.key ? "active" : ""}`}
+                    onClick={() => setActiveSection(section.key)}
+                  >
+                    <span className="nav-icon">
+                      <Icon size={17} strokeWidth={2.2} />
+                    </span>
+                    <span>{section.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           ))}
         </nav>
         <div className="sidebar-footer">
@@ -1270,9 +1341,14 @@ function App() {
 
       <div className={`workspace section-${activeSection}`}>
         <header className="topbar">
-          <div>
-            <h1>{activeSectionMeta.label}</h1>
-            <p>{activeSectionMeta.detail}</p>
+          <div className="topbar-title">
+            <span className="section-icon">
+              <ActiveIcon size={22} strokeWidth={2.2} />
+            </span>
+            <div>
+              <h1>{activeSectionMeta.label}</h1>
+              <p>{activeSectionMeta.detail}</p>
+            </div>
           </div>
           <div className="topbar-actions">
             <label className="context-select">
@@ -1292,11 +1368,24 @@ function App() {
               </select>
             </label>
             <span>{selectedPrinter?.moonraker_url ?? "Moonraker não selecionado"}</span>
+            <button type="button" className="icon-button" title="Alertas">
+              <Bell size={18} />
+              {alertCount > 0 ? <strong>{alertCount}</strong> : null}
+            </button>
+            <button type="button" className="icon-button" title="Configurar impressoras" onClick={() => setPrinterModalOpen(true)}>
+              <Settings size={18} />
+            </button>
             <button type="button" onClick={() => void loadStatus()} disabled={loading}>
+              <RefreshCw size={16} />
               {loading ? "Atualizando" : "Atualizar"}
             </button>
           </div>
         </header>
+
+        <section className="page-helper">
+          <strong>{activeSectionMeta.purpose}</strong>
+          <span>{selectedPrinter ? `Contexto atual: ${selectedPrinter.name}` : "Selecione uma impressora para carregar os dados por contexto."}</span>
+        </section>
 
         {error ? <section className="alert danger">{error}</section> : null}
 
@@ -1378,13 +1467,14 @@ function App() {
         ) : null}
 
         <section className="grid">
-        <article className="panel wide panel-section panel-overview panel-system">
+        <article className="panel wide panel-section panel-overview panel-printers panel-settings">
           <div className="panel-heading">
             <div>
               <h2>Dashboard de impressoras</h2>
               <p className="muted">Visão rápida das impressoras cadastradas e do contexto ativo do sistema.</p>
             </div>
             <button type="button" onClick={() => setPrinterModalOpen(true)}>
+              <Search size={16} />
               Adicionar impressora
             </button>
           </div>
@@ -1429,7 +1519,7 @@ function App() {
           </div>
         </article>
 
-        <article className={`panel wide health ${healthPanelClass(health?.decision)} panel-section panel-overview`}>
+        <article className={`panel wide health ${healthPanelClass(health?.decision)} panel-section panel-overview panel-monitoring`}>
           <div className="panel-heading">
             <h2>Health Check</h2>
             <strong>{health?.summary ?? "Aguardando dados"}</strong>
@@ -1461,7 +1551,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide panel-section panel-operation">
+        <article className="panel wide panel-section panel-monitoring">
           <div className="panel-heading">
             <h2>Monitor CAN</h2>
             <strong>{formatLatestCan(canRecords[0])}</strong>
@@ -1758,7 +1848,7 @@ function App() {
           </details>
         </article>
 
-        <article className="panel wide panel-section panel-calibration">
+        <article className="panel wide panel-section panel-tests">
           <div className="panel-heading">
             <h2>Calibração e testes</h2>
             <strong>{calibrationTests.length} itens catalogados</strong>
@@ -2267,7 +2357,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel panel-section panel-system">
+        <article className="panel panel-section panel-monitoring panel-settings">
           <h2>Moonraker</h2>
           <Metric label="Conexão" value={status?.connected ? "Conectado" : "Desconectado"} />
           <Metric label="URL" value={status?.moonraker_url ?? "-"} />
@@ -2275,14 +2365,14 @@ function App() {
           <Metric label="Moonraker" value={status?.server?.moonraker_version ?? "-"} />
         </article>
 
-        <article className="panel panel-section panel-system">
+        <article className="panel panel-section panel-monitoring panel-settings">
           <h2>Klipper</h2>
           <Metric label="Estado" value={status?.printer?.state ?? "-"} />
           <Metric label="Mensagem" value={status?.printer?.state_message ?? "-"} />
           <Metric label="Versão" value={status?.printer?.software_version ?? "-"} />
         </article>
 
-        <article className={`panel ${checklist?.can_print ? "ok" : "warn"} panel-section panel-overview`}>
+        <article className={`panel ${checklist?.can_print ? "ok" : "warn"} panel-section panel-overview panel-monitoring`}>
           <h2>Checklist pós-update</h2>
           <strong className="summary">{checklist?.summary ?? "Aguardando dados"}</strong>
           <div className="checks">
@@ -2298,7 +2388,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide panel-section panel-reports">
+        <article className="panel wide panel-section panel-monitoring panel-reports">
           <h2>Auditoria somente leitura</h2>
           <strong className="summary">{audit?.summary ?? "Aguardando dados"}</strong>
           <div className="audit-counts">
@@ -2321,7 +2411,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide panel-section panel-system">
+        <article className="panel wide panel-section panel-monitoring panel-settings">
           <h2>Auditoria do host</h2>
           <strong className="summary">{hostAudit?.summary ?? "Aguardando dados"}</strong>
           <div className="audit-counts">

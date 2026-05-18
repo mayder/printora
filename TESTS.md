@@ -85,6 +85,8 @@ Validações:
 - frontend mantém as ações existentes sem executar comandos novos na troca de seção.
 - frontend mantém a impressora ativa na topbar e usa esse contexto no restante do sistema.
 - cadastro/detecção de impressora acontece em modal, sem poluir o dashboard.
+- frontend separa Monitoramento, Calibração, Testes, Firmware, Manutenção, Relatórios e Configurações.
+- frontend mostra orientação objetiva de uso em cada seção.
 
 Testes automatizados adicionais:
 
@@ -228,15 +230,18 @@ Critérios:
 ### Navegação Do Frontend
 
 - Abrir `http://127.0.0.1:5178`.
-- Confirmar que existe sidebar com Visão geral, Operação, Calibração, Firmware, Manutenção, Relatórios e Sistema.
+- Confirmar que existe sidebar com Visão geral, Impressoras, Monitoramento, Calibração, Testes, Firmware, Manutenção, Relatórios e Configurações.
 - Confirmar que trocar de seção muda os painéis visíveis sem recarregar a página.
 - Confirmar que a impressora ativa fica selecionável na topbar.
+- Confirmar que a topbar mostra alertas, configuração de impressora e atualização.
 - Confirmar que Visão geral mostra decisão operacional e checklist.
 - Confirmar que Visão geral mostra dashboard de impressoras.
 - Confirmar que `Adicionar impressora` abre modal.
 - Confirmar que `Buscar na rede` lista candidatos Moonraker dentro do modal sem cadastrar automaticamente.
+- Confirmar que Monitoramento concentra Health Check, CAN, Moonraker, Klipper e auditorias.
 - Confirmar que Firmware mostra placas, presets, dry-runs e mods/plugins.
-- Confirmar que Calibração mostra testes e Z-offset.
+- Confirmar que Calibração mostra Z-offset.
+- Confirmar que Testes mostra o centro de testes Voron.
 - Confirmar que cada item mostra risco, modo de execução, pré-condições e critérios de sucesso.
 - Registrar resultado manual de um teste.
 - Confirmar que o histórico mostra status, material, chapa, nozzle, valor observado e notas.
