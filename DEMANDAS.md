@@ -22,6 +22,7 @@
 - PKG-12: Firmware Manager - build e dry-run
 - PKG-13: Firmware Manager - flash controlado
 - PKG-14: Integração Mainsail e Update Manager
+- PKG-15: Centro de calibração e testes Voron
 
 ## PKG-01: Base Do Projeto E Documentação Operacional
 
@@ -530,3 +531,52 @@ Itens:
 - entrada no Moonraker Update Manager;
 - documentação de instalação;
 - documentação de rollback.
+
+## PKG-15: Centro De Calibração E Testes Voron
+
+Objetivo:
+
+Criar uma área dedicada para testes de qualidade, calibrações e ajustes finos recomendados pela documentação Voron e pela comunidade Klipper.
+
+Escopo planejado:
+
+- levantar e catalogar os testes oficiais/recomendados pela Voron;
+- levantar calibrações relevantes do Klipper;
+- organizar sequência desde início da calibração até ajuste fino;
+- armazenar G-code bruto dos testes;
+- permitir execução guiada de G-code no momento certo;
+- registrar resultado, fotos/notas e recomendação por teste;
+- relacionar testes com material, perfil, nozzle, input shaper, pressure advance, temperatura e primeira camada.
+
+Exemplos de grupos de testes:
+
+- validação mecânica inicial;
+- homing e endstops;
+- QGL/Z tilt quando aplicável;
+- probe accuracy;
+- bed mesh;
+- primeira camada;
+- extrusion/flow;
+- pressure advance;
+- input shaper;
+- velocidade/aceleração;
+- ringing/ghosting;
+- cooling/bridging;
+- dimensional accuracy;
+- tolerâncias e artefatos de qualidade.
+
+Critério de aceite futuro:
+
+- nenhum G-code é enviado sem confirmação explícita;
+- bloquear execução se a impressora estiver imprimindo;
+- mostrar G-code completo antes de executar;
+- registrar exatamente o que foi enviado;
+- registrar resultado e rollback/ação segura quando aplicável;
+- permitir modo dry-run;
+- separar testes genéricos Klipper, testes Voron e testes específicos por impressora.
+
+Estado atual:
+
+- Pacote criado apenas no backlog.
+- Execução real deixada para o final do roadmap.
+- Antes da implementação, será necessário listar as fontes, testes, calibrações, ajustes finos e G-codes brutos.
