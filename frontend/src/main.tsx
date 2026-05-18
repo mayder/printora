@@ -764,6 +764,7 @@ function App() {
     setNewPrinterSshPort(22);
     setNewPrinterSshUser("");
     setNewPrinterSshCredential("");
+    setDiscovery(null);
     setPrinterConnectionTest(null);
     setPrinterModalOpen(true);
   }
@@ -777,6 +778,7 @@ function App() {
     setNewPrinterSshPort(printer.ssh_port ?? 22);
     setNewPrinterSshUser(printer.ssh_username ?? "");
     setNewPrinterSshCredential("");
+    setDiscovery(null);
     setPrinterConnectionTest(null);
     setPrinterModalOpen(true);
   }
@@ -1525,17 +1527,23 @@ function App() {
                 </button>
               </div>
               <div className="modal-actions">
-                <button type="button" className="secondary-button" onClick={() => void discoverPrinters()} disabled={loading}>
-                  <Search size={16} />
-                  Buscar na rede
-                </button>
+                {printerModalMode === "create" ? (
+                  <button type="button" className="secondary-button" onClick={() => void discoverPrinters()} disabled={loading}>
+                    <Search size={16} />
+                    Buscar na rede
+                  </button>
+                ) : null}
                 <button type="button" className="secondary-button" onClick={() => void testPrinterConnections()} disabled={loading}>
                   <Radio size={16} />
                   Testar conexões
                 </button>
-                <span>Leitura segura: HTTP GET em `/server/info`, sem G-code e sem cadastro automático.</span>
+                <span>
+                  {printerModalMode === "create"
+                    ? "Buscar usa HTTP GET em `/server/info`, sem G-code e sem cadastro automático."
+                    : "Teste seguro: valida Moonraker e porta SSH sem enviar G-code."}
+                </span>
               </div>
-              {discovery ? (
+              {printerModalMode === "create" && discovery ? (
                 <div className="discovery-box">
                   <div className="discovery-summary">
                     <strong>
