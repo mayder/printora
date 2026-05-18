@@ -111,6 +111,36 @@ type HealthResponse = {
   items: HealthItem[];
 };
 
+type BackupPolicyRecord = {
+  id: number;
+  printer_id: number;
+  name: string;
+  source_path: string;
+  destination_path: string;
+  include_patterns: string[];
+  exclude_patterns: string[];
+  dry_run_only: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type BackupRunRecord = {
+  id: number;
+  printer_id: number;
+  policy_id: number;
+  created_at: string;
+  status: string;
+  dry_run: boolean;
+  source_path: string;
+  destination_path: string;
+  include_patterns: string[];
+  exclude_patterns: string[];
+  total_files: number;
+  total_bytes: number;
+  message: string;
+};
+
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
@@ -125,6 +155,13 @@ function App() {
   const [checklist, setChecklist] = React.useState<ChecklistResponse | null>(null);
   const [audit, setAudit] = React.useState<AuditResponse | null>(null);
   const [hostAudit, setHostAudit] = React.useState<AuditResponse | null>(null);
+  const [backupPolicies, setBackupPolicies] = React.useState<BackupPolicyRecord[]>([]);
+  const [backupRuns, setBackupRuns] = React.useState<BackupRunRecord[]>([]);
+  const [backupName, setBackupName] = React.useState("Config backup");
+  const [backupSourcePath, setBackupSourcePath] = React.useState("/home/pi/printer_data/config");
+  const [backupDestinationPath, setBackupDestinationPath] = React.useState(
+    "/home/pi/printer_data/backups/mayderprintlab",
+  );
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -171,6 +208,7 @@ function App() {
     if (nextSelected) {
       await loadSnapshots(nextSelected);
       await loadPrinterHealth(nextSelected);
+      await loadBackups(nextSelected);
     }
   }
 
@@ -195,6 +233,7 @@ function App() {
       await loadPrinters();
       setSelectedPrinterId(created.id);
       await loadPrinterHealth(created.id);
+      await loadBackups(created.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -267,6 +306,70 @@ function App() {
     setHealth((await response.json()) as HealthResponse);
   }
 
+  async function loadBackups(printerId: number) {
+    const [policiesResponse, runsResponse] = await Promise.all([
+      fetch(`/api/printers/${printerId}/backup/policies`),
+      fetch(`/api/printers/${printerId}/backup/runs`),
+    ]);
+    if (policiesResponse.ok) {
+      const payload = (await policiesResponse.json()) as { policies: BackupPolicyRecord[] };
+      setBackupPolicies(payload.policies);
+    }
+    if (runsResponse.ok) {
+      const payload = (await runsResponse.json()) as { runs: BackupRunRecord[] };
+      setBackupRuns(payload.runs);
+    }
+  }
+
+  async function createBackupPolicy(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/backup/policies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: backupName,
+          source_path: backupSourcePath,
+          destination_path: backupDestinationPath,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadBackups(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createBackupDryRun(policyId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/backup/policies/${policyId}/dry-run`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadBackups(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function compareSnapshots() {
     if (!selectedPrinterId || !fromSnapshotId || !toSnapshotId || fromSnapshotId === toSnapshotId) {
       return;
@@ -319,6 +422,7 @@ function App() {
                   setSelectedPrinterId(printerId);
                   void loadSnapshots(printerId);
                   void loadPrinterHealth(printerId);
+                  void loadBackups(printerId);
                 }}
               >
                 <option value="" disabled>
@@ -393,6 +497,65 @@ function App() {
                 </div>
                 <p>{item.detail}</p>
                 <small>{item.action}</small>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel wide">
+          <div className="panel-heading">
+            <h2>Backups</h2>
+            <strong>Dry-run seguro</strong>
+          </div>
+          <form className="backup-form" onSubmit={(event) => void createBackupPolicy(event)}>
+            <input
+              aria-label="Nome da política"
+              value={backupName}
+              onChange={(event) => setBackupName(event.target.value)}
+              placeholder="Nome"
+            />
+            <input
+              aria-label="Origem do backup"
+              value={backupSourcePath}
+              onChange={(event) => setBackupSourcePath(event.target.value)}
+              placeholder="/home/pi/printer_data/config"
+            />
+            <input
+              aria-label="Destino do backup"
+              value={backupDestinationPath}
+              onChange={(event) => setBackupDestinationPath(event.target.value)}
+              placeholder="/home/pi/printer_data/backups/mayderprintlab"
+            />
+            <button type="submit" disabled={!selectedPrinterId || loading}>
+              Criar política
+            </button>
+          </form>
+          <div className="backup-list">
+            {backupPolicies.length === 0 ? <p className="muted">Nenhuma política de backup cadastrada.</p> : null}
+            {backupPolicies.map((policy) => (
+              <div key={policy.id} className="backup-row">
+                <div>
+                  <strong>{policy.name}</strong>
+                  <span>{policy.source_path}</span>
+                  <small>Destino: {policy.destination_path}</small>
+                </div>
+                <div>
+                  <small>Exclusões: {policy.exclude_patterns.join(", ")}</small>
+                </div>
+                <button type="button" onClick={() => void createBackupDryRun(policy.id)} disabled={loading}>
+                  Dry-run
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="backup-runs">
+            <h3>Histórico</h3>
+            {backupRuns.length === 0 ? <p className="muted">Nenhum dry-run registrado.</p> : null}
+            {backupRuns.map((run) => (
+              <div key={run.id} className="backup-run-row">
+                <strong>#{run.id} · {run.status}</strong>
+                <span>{run.created_at}</span>
+                <small>{run.message}</small>
               </div>
             ))}
           </div>

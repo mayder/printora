@@ -38,6 +38,8 @@ Validações:
 - health check permite impressora ready sem bloqueios.
 - health check bloqueia Klipper não ready ou último diff crítico.
 - health check classifica repo `dirty` como monitoramento.
+- backup dry-run cria histórico sem ler/copiar arquivos.
+- políticas e histórico de backup ficam escopados por impressora.
 
 Testes automatizados adicionais:
 

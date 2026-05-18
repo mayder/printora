@@ -210,6 +210,38 @@ Regras:
 - restauração por arquivo;
 - histórico.
 
+## PKG-05A: Backup Dry-Run E Histórico
+
+Objetivo:
+
+Preparar o gerenciador de backups sem executar cópia real.
+
+Entregáveis:
+
+- tabela de políticas de backup por impressora;
+- tabela de histórico de dry-run;
+- API para criar política;
+- API para listar políticas;
+- API para registrar dry-run seguro;
+- UI para criar política e ver histórico;
+- exclusões padrão para arquivos sensíveis/gerados.
+
+Critério de aceite:
+
+- não lê, copia, apaga ou restaura arquivos;
+- não acessa a Raspberry;
+- não armazena senhas, tokens ou chaves;
+- histórico fica vinculado à impressora;
+- execução real fica bloqueada para etapa futura.
+
+Estado atual:
+
+- Implementado via `backend/sql/002_backup_manager.sql`.
+- Implementado `GET/POST /api/printers/{printer_id}/backup/policies`.
+- Implementado `GET /api/printers/{printer_id}/backup/runs`.
+- Implementado `POST /api/backup/policies/{policy_id}/dry-run`.
+- UI permite criar política e registrar dry-run planejado.
+
 ## PKG-06: Relatórios Sanitizados
 
 Objetivo:

@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.audit import build_read_only_audit
+from app.backups import BackupPolicyCreate, BackupPolicyRecord, BackupRepository, BackupRunRecord
 from app.checklists import build_post_update_checklist
 from app.config import Settings, get_settings
 from app.database import initialize_database
@@ -35,6 +36,10 @@ def get_printer_repository(settings: Settings) -> PrinterRepository:
 
 def get_snapshot_repository(settings: Settings) -> SnapshotRepository:
     return SnapshotRepository(settings.database_path)
+
+
+def get_backup_repository(settings: Settings) -> BackupRepository:
+    return BackupRepository(settings.database_path)
 
 
 @asynccontextmanager
@@ -187,6 +192,50 @@ async def printer_health(printer_id: int) -> dict[str, Any]:
             latest_diff=latest_diff,
         ),
     }
+
+
+@app.get("/api/printers/{printer_id}/backup/policies")
+async def list_backup_policies(printer_id: int) -> dict[str, list[BackupPolicyRecord]]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    backup_repository = get_backup_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return {"policies": backup_repository.list_policies(printer_id)}
+
+
+@app.post("/api/printers/{printer_id}/backup/policies")
+async def create_backup_policy(printer_id: int, payload: BackupPolicyCreate) -> BackupPolicyRecord:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    backup_repository = get_backup_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        return backup_repository.create_policy(printer_id, payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/printers/{printer_id}/backup/runs")
+async def list_backup_runs(printer_id: int, limit: int = 20) -> dict[str, list[BackupRunRecord]]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    backup_repository = get_backup_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    clean_limit = min(max(limit, 1), 100)
+    return {"runs": backup_repository.list_runs(printer_id, clean_limit)}
+
+
+@app.post("/api/backup/policies/{policy_id}/dry-run")
+async def create_backup_dry_run(policy_id: int) -> BackupRunRecord:
+    settings = get_settings()
+    backup_repository = get_backup_repository(settings)
+    run = backup_repository.create_dry_run(policy_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="backup policy not found")
+    return run
 
 
 @app.post("/api/printers/{printer_id}/snapshots/moonraker")

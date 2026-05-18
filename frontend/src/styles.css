@@ -138,7 +138,8 @@ label {
 }
 
 .printer-toolbar,
-.printer-form {
+.printer-form,
+.backup-form {
   display: grid;
   grid-template-columns: minmax(240px, 1fr) auto auto;
   gap: 12px;
@@ -148,6 +149,10 @@ label {
 
 .printer-form {
   grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) auto;
+}
+
+.backup-form {
+  grid-template-columns: minmax(160px, 0.7fr) minmax(220px, 1fr) minmax(220px, 1fr) auto;
 }
 
 .printer-list {
@@ -168,6 +173,52 @@ label {
 .printer-row small {
   color: #9aa6b2;
   overflow-wrap: anywhere;
+}
+
+.backup-list,
+.backup-runs {
+  display: grid;
+  gap: 8px;
+}
+
+.backup-runs {
+  margin-top: 16px;
+}
+
+.backup-runs h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.backup-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(240px, 1fr) auto;
+  gap: 12px;
+  border-top: 1px solid #252b31;
+  padding: 10px 0;
+  align-items: center;
+}
+
+.backup-run-row {
+  display: grid;
+  grid-template-columns: 180px 160px minmax(0, 1fr);
+  gap: 12px;
+  border-top: 1px solid #252b31;
+  padding: 10px 0;
+  align-items: start;
+}
+
+.backup-row div,
+.backup-run-row {
+  overflow-wrap: anywhere;
+}
+
+.backup-row span,
+.backup-row small,
+.backup-run-row span,
+.backup-run-row small {
+  display: block;
+  color: #9aa6b2;
 }
 
 .snapshot-list {
@@ -411,6 +462,9 @@ label {
 
   .printer-toolbar,
   .printer-form,
+  .backup-form,
+  .backup-row,
+  .backup-run-row,
   .printer-row,
   .snapshot-compare,
   .snapshot-row {

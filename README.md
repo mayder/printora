@@ -39,6 +39,7 @@ O MVP inicial contém:
 - endpoints somente leitura para Moonraker;
 - checklist pós-update básico;
 - health check por impressora;
+- políticas de backup e dry-run seguro;
 - auditoria somente leitura com classificação de achados;
 - template systemd em `packaging/systemd/`.
 
@@ -50,6 +51,10 @@ Endpoints iniciais:
 - `PUT /api/printers/{printer_id}`
 - `GET /api/printers/{printer_id}/moonraker/status`
 - `GET /api/printers/{printer_id}/health`
+- `GET /api/printers/{printer_id}/backup/policies`
+- `POST /api/printers/{printer_id}/backup/policies`
+- `GET /api/printers/{printer_id}/backup/runs`
+- `POST /api/backup/policies/{policy_id}/dry-run`
 - `POST /api/printers/{printer_id}/snapshots/moonraker`
 - `GET /api/printers/{printer_id}/snapshots`
 - `GET /api/printers/{printer_id}/snapshots/diff?from_id=...&to_id=...`
@@ -127,6 +132,33 @@ Endpoint:
 ```text
 GET /api/printers/{printer_id}/health
 ```
+
+## Backups
+
+O primeiro incremento de backups é propositalmente conservador.
+
+Ele permite:
+
+- criar políticas por impressora;
+- definir origem e destino;
+- usar padrões de inclusão/exclusão;
+- registrar dry-run no histórico.
+
+Ele ainda não:
+
+- lê arquivos;
+- copia arquivos;
+- apaga arquivos;
+- restaura arquivos;
+- acessa a Raspberry por SSH.
+
+Endpoint principal:
+
+```text
+POST /api/backup/policies/{policy_id}/dry-run
+```
+
+O resultado `dry_run_planned` documenta o que seria feito em etapa futura, sem executar a operação real.
 
 ## Auditoria Do Host
 
