@@ -66,7 +66,8 @@ Estado atual:
 
 - MVP parcial implementado via `GET /api/audit/read-only`.
 - Classificação inicial cobre Klipper, Moonraker, Update Manager e sinais básicos do host.
-- Próximo incremento: incluir leitura segura de logs, systemd, includes e symlinks.
+- Auditoria manual read-only da Voron registrada em `docs/audits/VORON_READONLY_AUDIT_2026-05-18.md`.
+- Próximo incremento: transformar a coleta SSH/manual em coletor read-only automatizado.
 
 ## PKG-03: Checklist Pós-Update Guiado
 
