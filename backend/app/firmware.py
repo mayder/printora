@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -52,6 +53,29 @@ class FirmwareBoardRecord(BaseModel):
     is_active: bool
     created_at: str
     updated_at: str
+
+
+class FirmwareBuildDryRunCreate(BaseModel):
+    klipper_path: str = Field(default="~/klipper", min_length=1, max_length=200)
+    output_root: str = Field(default="~/printer_data/firmware_builds", min_length=1, max_length=240)
+    notes: str = Field(default="", max_length=1000)
+
+
+class FirmwareBuildRunRecord(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    printer_id: int
+    board_id: int
+    created_at: str
+    status: str
+    klipper_path: str
+    output_dir: str
+    config_backup_path: str
+    binary_output_path: str
+    commands: list[str]
+    checklist: list[str]
+    message: str
 
 
 BOARD_PRESETS: dict[str, BoardPreset] = {
@@ -286,6 +310,70 @@ class FirmwareBoardRepository:
             ).fetchone()
         return _record_from_row(row) if row else None
 
+    def create_build_dry_run(self, board_id: int, payload: FirmwareBuildDryRunCreate) -> FirmwareBuildRunRecord:
+        board = self.get_board(board_id)
+        if board is None:
+            raise ValueError("firmware board not found")
+        preset = self.get_preset(board.preset_id)
+        if preset is None:
+            raise ValueError("unknown board preset")
+        plan = _build_dry_run_plan(board, preset, payload)
+        with connect_database(self.database_path) as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO firmware_build_runs (
+                    printer_id, board_id, status, klipper_path, output_dir, config_backup_path,
+                    binary_output_path, commands_json, checklist_json, message
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    board.printer_id,
+                    board.id,
+                    "dry_run_planned",
+                    plan["klipper_path"],
+                    plan["output_dir"],
+                    plan["config_backup_path"],
+                    plan["binary_output_path"],
+                    json.dumps(plan["commands"], ensure_ascii=False),
+                    json.dumps(plan["checklist"], ensure_ascii=False),
+                    plan["message"],
+                ),
+            )
+            run_id = int(cursor.lastrowid)
+        record = self.get_build_run(run_id)
+        if record is None:
+            raise RuntimeError("firmware build dry-run was not persisted")
+        return record
+
+    def list_build_runs(self, printer_id: int, limit: int = 20) -> list[FirmwareBuildRunRecord]:
+        with connect_database(self.database_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT id, printer_id, board_id, created_at, status, klipper_path, output_dir,
+                       config_backup_path, binary_output_path, commands_json, checklist_json, message
+                FROM firmware_build_runs
+                WHERE printer_id = ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+                """,
+                (printer_id, limit),
+            ).fetchall()
+        return [_build_run_from_row(row) for row in rows]
+
+    def get_build_run(self, run_id: int) -> FirmwareBuildRunRecord | None:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT id, printer_id, board_id, created_at, status, klipper_path, output_dir,
+                       config_backup_path, binary_output_path, commands_json, checklist_json, message
+                FROM firmware_build_runs
+                WHERE id = ?
+                """,
+                (run_id,),
+            ).fetchone()
+        return _build_run_from_row(row) if row else None
+
 
 def _record_from_row(row) -> FirmwareBoardRecord:
     return FirmwareBoardRecord(
@@ -304,6 +392,66 @@ def _record_from_row(row) -> FirmwareBoardRecord:
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
     )
+
+
+def _build_run_from_row(row) -> FirmwareBuildRunRecord:
+    return FirmwareBuildRunRecord(
+        id=int(row["id"]),
+        printer_id=int(row["printer_id"]),
+        board_id=int(row["board_id"]),
+        created_at=str(row["created_at"]),
+        status=str(row["status"]),
+        klipper_path=str(row["klipper_path"]),
+        output_dir=str(row["output_dir"]),
+        config_backup_path=str(row["config_backup_path"]),
+        binary_output_path=str(row["binary_output_path"]),
+        commands=json.loads(row["commands_json"]),
+        checklist=json.loads(row["checklist_json"]),
+        message=str(row["message"]),
+    )
+
+
+def _build_dry_run_plan(
+    board: FirmwareBoardRecord,
+    preset: BoardPreset,
+    payload: FirmwareBuildDryRunCreate,
+) -> dict[str, object]:
+    slug = _slug(board.name)
+    output_dir = f"{payload.output_root.rstrip('/')}/DRY-RUN/{slug}"
+    backup_path = f"{output_dir}/.config.before-build"
+    binary_path = f"{output_dir}/{Path(preset.build_output).name}"
+    commands = [
+        "curl -s http://127.0.0.1:7125/printer/info",
+        f"mkdir -p {output_dir}",
+        f"cd {payload.klipper_path}",
+        f"cp .config {backup_path}",
+        "make clean",
+        f"cp {board.config_file} .config",
+        "make",
+        f"cp {preset.build_output} {binary_path}",
+    ]
+    checklist = [
+        "Confirmar que a impressora não está imprimindo.",
+        "Confirmar Klipper/Moonraker conectados e sem erro.",
+        f"Confirmar preset {preset.id} para {board.name}.",
+        f"Confirmar UUID CAN {board.can_uuid or '-'} antes de qualquer flash futuro.",
+        "Confirmar backup da .config antes de sobrescrever.",
+        "Confirmar que esta etapa é apenas dry-run e não executou comandos.",
+    ]
+    return {
+        "klipper_path": payload.klipper_path,
+        "output_dir": output_dir,
+        "config_backup_path": backup_path,
+        "binary_output_path": binary_path,
+        "commands": commands,
+        "checklist": checklist,
+        "message": payload.notes.strip()
+        or "Dry-run criado. Nenhum comando foi executado; plano salvo apenas para revisão.",
+    }
+
+
+def _slug(value: str) -> str:
+    return "".join(char.lower() if char.isalnum() else "-" for char in value.strip()).strip("-") or "board"
 
 
 def _clean_optional(value: str | None) -> str | None:

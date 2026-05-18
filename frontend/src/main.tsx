@@ -288,6 +288,21 @@ type FirmwareBoardRecord = {
   updated_at: string;
 };
 
+type FirmwareBuildRunRecord = {
+  id: number;
+  printer_id: number;
+  board_id: number;
+  created_at: string;
+  status: string;
+  klipper_path: string;
+  output_dir: string;
+  config_backup_path: string;
+  binary_output_path: string;
+  commands: string[];
+  checklist: string[];
+  message: string;
+};
+
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
@@ -312,6 +327,7 @@ function App() {
   const [pluginAudit, setPluginAudit] = React.useState<PluginAuditResponse | null>(null);
   const [boardPresets, setBoardPresets] = React.useState<BoardPreset[]>([]);
   const [firmwareBoards, setFirmwareBoards] = React.useState<FirmwareBoardRecord[]>([]);
+  const [firmwareBuildRuns, setFirmwareBuildRuns] = React.useState<FirmwareBuildRunRecord[]>([]);
   const [zOffsetWizardPlan, setZOffsetWizardPlan] = React.useState<ZOffsetWizardPlan | null>(null);
   const [zOffsetWizardChecks, setZOffsetWizardChecks] = React.useState<Record<string, boolean>>({});
   const [maintenanceEventType, setMaintenanceEventType] =
@@ -340,6 +356,8 @@ function App() {
   const [firmwareBoardCanInterface, setFirmwareBoardCanInterface] = React.useState("can0");
   const [firmwareBoardConfigFile, setFirmwareBoardConfigFile] = React.useState("firmware/ebb_t0.config");
   const [firmwareBoardNotes, setFirmwareBoardNotes] = React.useState("");
+  const [firmwareKlipperPath, setFirmwareKlipperPath] = React.useState("~/klipper");
+  const [firmwareOutputRoot, setFirmwareOutputRoot] = React.useState("~/printer_data/firmware_builds");
   const [backupName, setBackupName] = React.useState("Config backup");
   const [backupSourcePath, setBackupSourcePath] = React.useState("/home/pi/printer_data/config");
   const [backupDestinationPath, setBackupDestinationPath] = React.useState(
@@ -399,6 +417,7 @@ function App() {
       await loadCanRecords(nextSelected);
       await loadPluginAudit(nextSelected);
       await loadFirmwareBoards(nextSelected);
+      await loadFirmwareBuildRuns(nextSelected);
     }
   }
 
@@ -429,6 +448,7 @@ function App() {
       await loadCanRecords(created.id);
       await loadPluginAudit(created.id);
       await loadFirmwareBoards(created.id);
+      await loadFirmwareBuildRuns(created.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -594,6 +614,15 @@ function App() {
     setFirmwareBoards(payload.boards);
   }
 
+  async function loadFirmwareBuildRuns(printerId: number) {
+    const response = await fetch(`/api/printers/${printerId}/firmware/build-runs`);
+    if (!response.ok) {
+      return;
+    }
+    const payload = (await response.json()) as { runs: FirmwareBuildRunRecord[] };
+    setFirmwareBuildRuns(payload.runs);
+  }
+
   async function createFirmwareBoard(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedPrinterId) {
@@ -619,6 +648,32 @@ function App() {
       }
       setFirmwareBoardNotes("");
       await loadFirmwareBoards(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createFirmwareBuildDryRun(boardId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/firmware/boards/${boardId}/build-runs/dry-run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          klipper_path: firmwareKlipperPath,
+          output_root: firmwareOutputRoot,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadFirmwareBuildRuns(selectedPrinterId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -936,6 +991,7 @@ function App() {
                   void loadCanRecords(printerId);
                   void loadPluginAudit(printerId);
                   void loadFirmwareBoards(printerId);
+                  void loadFirmwareBuildRuns(printerId);
                 }}
               >
                 <option value="" disabled>
@@ -1198,8 +1254,51 @@ function App() {
                   <span>CAN UUID: {board.can_uuid ?? "-"}</span>
                   <small>Interface: {board.can_interface}</small>
                 </div>
-                <small>{board.notes || "Sem notas."}</small>
+                <div>
+                  <small>{board.notes || "Sem notas."}</small>
+                  <button type="button" onClick={() => void createFirmwareBuildDryRun(board.id)} disabled={loading}>
+                    Dry-run build
+                  </button>
+                </div>
               </div>
+            ))}
+          </div>
+          <div className="firmware-build-controls">
+            <input
+              aria-label="Caminho do Klipper"
+              value={firmwareKlipperPath}
+              onChange={(event) => setFirmwareKlipperPath(event.target.value)}
+              placeholder="~/klipper"
+            />
+            <input
+              aria-label="Diretório raiz dos builds"
+              value={firmwareOutputRoot}
+              onChange={(event) => setFirmwareOutputRoot(event.target.value)}
+              placeholder="~/printer_data/firmware_builds"
+            />
+          </div>
+          <div className="firmware-run-list">
+            {firmwareBuildRuns.length === 0 ? <p className="muted">Nenhum dry-run de firmware registrado.</p> : null}
+            {firmwareBuildRuns.map((run) => (
+              <details key={run.id} className="firmware-run-row">
+                <summary>
+                  #{run.id} · placa #{run.board_id} · {run.status} · {run.created_at}
+                </summary>
+                <div className="firmware-run-detail">
+                  <small>Output: {run.output_dir}</small>
+                  <small>Backup .config: {run.config_backup_path}</small>
+                  <small>Binário planejado: {run.binary_output_path}</small>
+                  <strong>Checklist</strong>
+                  <ol>
+                    {run.checklist.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ol>
+                  <strong>Comandos planejados</strong>
+                  <pre>{run.commands.join("\n")}</pre>
+                  <small>{run.message}</small>
+                </div>
+              </details>
             ))}
           </div>
           <details className="preset-details">

@@ -11,7 +11,14 @@ from app.can_monitor import CanBusRecord, CanBusRecordCreate, CanMonitorReposito
 from app.checklists import build_post_update_checklist
 from app.config import Settings, get_settings
 from app.database import initialize_database
-from app.firmware import BoardPreset, FirmwareBoardCreate, FirmwareBoardRecord, FirmwareBoardRepository
+from app.firmware import (
+    BoardPreset,
+    FirmwareBoardCreate,
+    FirmwareBoardRecord,
+    FirmwareBoardRepository,
+    FirmwareBuildDryRunCreate,
+    FirmwareBuildRunRecord,
+)
 from app.health import build_printer_health, build_unreachable_health
 from app.host_audit import collect_host_audit, summarize_sections
 from app.maintenance import (
@@ -377,6 +384,30 @@ async def create_firmware_board(printer_id: int, payload: FirmwareBoardCreate) -
         raise HTTPException(status_code=404, detail="printer not found")
     try:
         return firmware_repository.create_board(printer_id, payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/printers/{printer_id}/firmware/build-runs")
+async def list_firmware_build_runs(printer_id: int, limit: int = 20) -> dict[str, list[FirmwareBuildRunRecord]]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    firmware_repository = get_firmware_board_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    clean_limit = min(max(limit, 1), 100)
+    return {"runs": firmware_repository.list_build_runs(printer_id, clean_limit)}
+
+
+@app.post("/api/firmware/boards/{board_id}/build-runs/dry-run")
+async def create_firmware_build_dry_run(
+    board_id: int,
+    payload: FirmwareBuildDryRunCreate,
+) -> FirmwareBuildRunRecord:
+    settings = get_settings()
+    firmware_repository = get_firmware_board_repository(settings)
+    try:
+        return firmware_repository.create_build_dry_run(board_id, payload)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

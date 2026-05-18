@@ -62,6 +62,9 @@ Validações:
 - cadastro de placa de firmware herda MCU, conexão e método de flash do preset.
 - placas CAN exigem UUID CAN.
 - placas de firmware ficam escopadas por impressora.
+- dry-run de build de firmware gera checklist e comandos planejados sem executar comandos.
+- dry-run de build exige placa cadastrada.
+- histórico de dry-run de build fica escopado por impressora.
 
 Testes automatizados adicionais:
 
@@ -164,6 +167,9 @@ http://127.0.0.1:5178
 - Cadastrar um EBB CAN com UUID CAN.
 - Confirmar que MCU, método de flash futuro e arquivo `.config` aparecem no painel.
 - Confirmar que nenhum build, flash, SSH, restart ou update foi executado.
+- Gerar dry-run de build para uma placa.
+- Confirmar checklist, comandos planejados, backup `.config` planejado e caminho do binário.
+- Confirmar que nenhum `make`, cópia de arquivo, SSH, restart, update ou flash foi executado.
 
 ### Firmware Dry-Run
 

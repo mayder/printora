@@ -47,6 +47,7 @@ O MVP inicial contém:
 - registro manual/read-only de saúde CAN;
 - auditoria read-only de mods e plugins;
 - cadastro local de placas e presets de firmware;
+- dry-run planejado de build de firmware;
 - auditoria somente leitura com classificação de achados;
 - template systemd em `packaging/systemd/`.
 
@@ -78,6 +79,8 @@ Endpoints iniciais:
 - `GET /api/firmware/board-presets`
 - `GET /api/printers/{printer_id}/firmware/boards`
 - `POST /api/printers/{printer_id}/firmware/boards`
+- `GET /api/printers/{printer_id}/firmware/build-runs`
+- `POST /api/firmware/boards/{board_id}/build-runs/dry-run`
 - `POST /api/printers/{printer_id}/snapshots/moonraker`
 - `GET /api/printers/{printer_id}/snapshots`
 - `GET /api/printers/{printer_id}/snapshots/diff?from_id=...&to_id=...`
@@ -355,6 +358,28 @@ POST /api/printers/{printer_id}/firmware/boards
 ```
 
 Esta etapa não compila firmware, não faz flash, não acessa SSH, não reinicia serviços e não altera Klipper.
+
+### Build Dry-Run
+
+O build dry-run registra o que seria feito para compilar firmware de uma placa cadastrada.
+
+Ele salva:
+
+- caminho do Klipper;
+- diretório planejado de output;
+- backup planejado da `.config`;
+- caminho planejado do binário;
+- checklist pré-build;
+- comandos planejados.
+
+Endpoints:
+
+```text
+GET /api/printers/{printer_id}/firmware/build-runs
+POST /api/firmware/boards/{board_id}/build-runs/dry-run
+```
+
+O dry-run não executa `make`, não copia arquivos, não cria diretórios, não acessa SSH, não reinicia serviços e não faz flash.
 
 ## Auditoria Do Host
 

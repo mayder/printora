@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from app.database import initialize_database
-from app.firmware import FirmwareBoardCreate, FirmwareBoardRepository
+from app.firmware import FirmwareBoardCreate, FirmwareBoardRepository, FirmwareBuildDryRunCreate
 from app.printers import PrinterCreate, PrinterRepository
 
 
@@ -80,3 +80,47 @@ def test_firmware_boards_are_scoped_by_printer(tmp_path: Path) -> None:
 
     assert len(repository.list_boards(first.id)) == 1
     assert repository.list_boards(first.id)[0].name == "Octopus"
+
+
+def test_create_firmware_build_dry_run_does_not_execute_commands(tmp_path: Path) -> None:
+    database_path = tmp_path / "mayderprintlab.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = FirmwareBoardRepository(database_path)
+    board = repository.create_board(
+        printer.id,
+        FirmwareBoardCreate(
+            name="EBB T0",
+            preset_id="btt_ebb36_g0b1_can",
+            can_uuid="fd7bbba1e6aa",
+            config_file="firmware/ebb_t0.config",
+        ),
+    )
+
+    run = repository.create_build_dry_run(
+        board.id,
+        FirmwareBuildDryRunCreate(
+            klipper_path="~/klipper",
+            output_root="~/printer_data/firmware_builds",
+        ),
+    )
+
+    assert run.status == "dry_run_planned"
+    assert run.printer_id == printer.id
+    assert run.board_id == board.id
+    assert run.binary_output_path.endswith("/klipper.bin")
+    assert "make clean" in run.commands
+    assert "make" in run.commands
+    assert any("não executou comandos" in item for item in run.checklist)
+    assert len(repository.list_build_runs(printer.id)) == 1
+
+
+def test_build_dry_run_requires_existing_board(tmp_path: Path) -> None:
+    database_path = tmp_path / "mayderprintlab.db"
+    initialize_database(database_path)
+    repository = FirmwareBoardRepository(database_path)
+
+    with pytest.raises(ValueError, match="firmware board not found"):
+        repository.create_build_dry_run(999, FirmwareBuildDryRunCreate())

@@ -411,6 +411,7 @@ label {
 }
 
 .firmware-board-list,
+.firmware-run-list,
 .preset-list {
   display: grid;
   gap: 8px;
@@ -428,10 +429,55 @@ label {
 
 .firmware-board-row span,
 .firmware-board-row small,
+.firmware-run-row small,
 .preset-row span,
 .preset-row small {
   display: block;
   color: #9aa6b2;
+}
+
+.firmware-board-row button {
+  margin-top: 8px;
+}
+
+.firmware-build-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(260px, 1fr);
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.firmware-run-row {
+  border-top: 1px solid #252b31;
+  padding: 10px 0;
+}
+
+.firmware-run-row summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.firmware-run-detail {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.firmware-run-detail ol {
+  margin: 0;
+  padding-left: 22px;
+  color: #9aa6b2;
+}
+
+.firmware-run-detail pre {
+  margin: 0;
+  border: 1px solid #252b31;
+  border-radius: 6px;
+  padding: 10px;
+  background: #0d1116;
+  color: #dce6f1;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .preset-details {
@@ -818,6 +864,7 @@ label {
   .plugin-row,
   .firmware-board-form,
   .firmware-board-row,
+  .firmware-build-controls,
   .z-offset-form,
   .wizard-actions,
   .wizard-summary,

@@ -558,6 +558,39 @@ Critério de aceite:
 
 - dry-run mostra exatamente o que seria feito.
 
+## PKG-12A: Firmware Manager - Plano De Build Dry-Run
+
+Objetivo:
+
+Gerar plano e histórico do build de firmware sem executar comandos.
+
+Entregáveis:
+
+- tabela `firmware_build_runs`;
+- endpoint para criar dry-run por placa;
+- endpoint para listar histórico por impressora;
+- comandos planejados;
+- checklist pré-build;
+- caminhos planejados para backup da `.config`, output e binário;
+- UI para revisar o plano.
+
+Critério de aceite:
+
+- não executa `make`, `cp`, `mkdir`, SSH, restart, update ou flash;
+- não altera arquivos locais ou remotos;
+- histórico fica escopado por impressora e placa;
+- plano mostra claramente comandos que seriam executados em etapa futura;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado via `backend/sql/007_firmware_build_runs.sql`.
+- Implementado em `backend/app/firmware.py`.
+- Implementado `POST /api/firmware/boards/{board_id}/build-runs/dry-run`.
+- Implementado `GET /api/printers/{printer_id}/firmware/build-runs`.
+- UI permite gerar e revisar dry-runs de build.
+- Build real continua fora do escopo desta etapa.
+
 ## PKG-13: Firmware Manager - Flash Controlado
 
 Objetivo:
