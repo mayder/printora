@@ -90,6 +90,27 @@ type AuditResponse = {
   section_summary?: Record<string, unknown>;
 };
 
+type HealthItem = {
+  key: string;
+  title: string;
+  ok: boolean;
+  severity: "ok" | "info" | "warning" | "blocker";
+  detail: string;
+  action: string;
+};
+
+type HealthResponse = {
+  connected: boolean;
+  safe_mode: string;
+  printer_id: number;
+  moonraker_url: string;
+  decision: "ok_para_imprimir" | "monitorar" | "nao_imprimir";
+  summary: string;
+  metrics: Record<string, unknown>;
+  counts: Record<string, number>;
+  items: HealthItem[];
+};
+
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
@@ -100,6 +121,7 @@ function App() {
   const [toSnapshotId, setToSnapshotId] = React.useState<number | null>(null);
   const [snapshotDiff, setSnapshotDiff] = React.useState<SnapshotDiff | null>(null);
   const [status, setStatus] = React.useState<MoonrakerStatus | null>(null);
+  const [health, setHealth] = React.useState<HealthResponse | null>(null);
   const [checklist, setChecklist] = React.useState<ChecklistResponse | null>(null);
   const [audit, setAudit] = React.useState<AuditResponse | null>(null);
   const [hostAudit, setHostAudit] = React.useState<AuditResponse | null>(null);
@@ -148,6 +170,7 @@ function App() {
     setSelectedPrinterId(nextSelected);
     if (nextSelected) {
       await loadSnapshots(nextSelected);
+      await loadPrinterHealth(nextSelected);
     }
   }
 
@@ -171,6 +194,7 @@ function App() {
       const created = (await response.json()) as PrinterRecord;
       await loadPrinters();
       setSelectedPrinterId(created.id);
+      await loadPrinterHealth(created.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -188,6 +212,7 @@ function App() {
       const response = await fetch(`/api/printers/${selectedPrinterId}/moonraker/status`);
       const payload = (await response.json()) as MoonrakerStatus;
       setStatus(payload);
+      await loadPrinterHealth(selectedPrinterId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -209,6 +234,7 @@ function App() {
         throw new Error(await response.text());
       }
       await loadSnapshots(selectedPrinterId);
+      await loadPrinterHealth(selectedPrinterId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -231,6 +257,14 @@ function App() {
       setFromSnapshotId(payload.snapshots[0]?.id ?? null);
       setToSnapshotId(payload.snapshots[0]?.id ?? null);
     }
+  }
+
+  async function loadPrinterHealth(printerId: number) {
+    const response = await fetch(`/api/printers/${printerId}/health`);
+    if (!response.ok) {
+      return;
+    }
+    setHealth((await response.json()) as HealthResponse);
   }
 
   async function compareSnapshots() {
@@ -284,6 +318,7 @@ function App() {
                   const printerId = Number(event.target.value);
                   setSelectedPrinterId(printerId);
                   void loadSnapshots(printerId);
+                  void loadPrinterHealth(printerId);
                 }}
               >
                 <option value="" disabled>
@@ -326,6 +361,38 @@ function App() {
                 <strong>{printer.name}</strong>
                 <span>{printer.moonraker_url}</span>
                 <small>{printer.host_audit_mode}</small>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className={`panel wide health ${healthPanelClass(health?.decision)}`}>
+          <div className="panel-heading">
+            <h2>Health Check</h2>
+            <strong>{health?.summary ?? "Aguardando dados"}</strong>
+          </div>
+          <div className="health-metrics">
+            <Badge label="Decisão" value={formatDecision(health?.decision)} />
+            <Badge label="Bloqueios" value={health?.counts.blocker ?? 0} />
+            <Badge label="Alertas" value={health?.counts.warning ?? 0} />
+            <Badge label="Snapshots" value={formatUnknown(health?.metrics.snapshot_count ?? "-")} />
+          </div>
+          <div className="section-summary">
+            {health?.metrics
+              ? Object.entries(health.metrics).map(([key, value]) => (
+                  <Metric key={key} label={key} value={formatUnknown(value)} />
+                ))
+              : null}
+          </div>
+          <div className="findings">
+            {health?.items.map((item) => (
+              <div key={item.key} className={`finding ${healthFindingClass(item.severity)}`}>
+                <div>
+                  <strong>{item.title}</strong>
+                  <span>{formatHealthSeverity(item.severity)}</span>
+                </div>
+                <p>{item.detail}</p>
+                <small>{item.action}</small>
               </div>
             ))}
           </div>
@@ -524,6 +591,49 @@ function formatSeverity(severity: SnapshotDiffItem["severity"]) {
     bloqueio: "bloqueio",
   };
   return labels[severity];
+}
+
+function formatHealthSeverity(severity: HealthItem["severity"]) {
+  const labels: Record<HealthItem["severity"], string> = {
+    ok: "ok",
+    info: "informativo",
+    warning: "atenção",
+    blocker: "bloqueio",
+  };
+  return labels[severity];
+}
+
+function formatDecision(decision: HealthResponse["decision"] | undefined) {
+  if (decision === "ok_para_imprimir") {
+    return "OK";
+  }
+  if (decision === "monitorar") {
+    return "Monitorar";
+  }
+  if (decision === "nao_imprimir") {
+    return "Não imprimir";
+  }
+  return "-";
+}
+
+function healthPanelClass(decision: HealthResponse["decision"] | undefined) {
+  if (decision === "ok_para_imprimir") {
+    return "ok";
+  }
+  if (decision === "nao_imprimir") {
+    return "danger";
+  }
+  return "warn";
+}
+
+function healthFindingClass(severity: HealthItem["severity"]) {
+  if (severity === "blocker") {
+    return "blocker";
+  }
+  if (severity === "warning") {
+    return "warning";
+  }
+  return "info";
 }
 
 function formatUnknown(value: unknown) {

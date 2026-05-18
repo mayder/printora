@@ -9,6 +9,7 @@ from app.audit import build_read_only_audit
 from app.checklists import build_post_update_checklist
 from app.config import Settings, get_settings
 from app.database import initialize_database
+from app.health import build_printer_health, build_unreachable_health
 from app.host_audit import collect_host_audit, summarize_sections
 from app.moonraker import MoonrakerClient
 from app.printers import PrinterCreate, PrinterRecord, PrinterRepository, PrinterUpdate
@@ -142,6 +143,49 @@ async def printer_moonraker_status(printer_id: int) -> dict[str, Any]:
         "server": server_info,
         "system": system_info,
         "proc_stats": proc_stats,
+    }
+
+
+@app.get("/api/printers/{printer_id}/health")
+async def printer_health(printer_id: int) -> dict[str, Any]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    snapshot_repository = get_snapshot_repository(settings)
+    printer = printer_repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    try:
+        printer_info, server_info, system_info, proc_stats = await _collect_status(client)
+        update_status = await client.update_status()
+    except httpx.HTTPError as exc:
+        return {
+            "printer_id": printer.id,
+            "moonraker_url": printer.moonraker_url,
+            **build_unreachable_health(printer.moonraker_url, str(exc)),
+        }
+
+    snapshots = snapshot_repository.list_snapshots(printer.id, limit=2)
+    latest_diff = None
+    if len(snapshots) >= 2:
+        latest_diff = snapshot_repository.diff_snapshots(printer.id, snapshots[1].id, snapshots[0].id)
+
+    return {
+        "printer_id": printer.id,
+        "moonraker_url": printer.moonraker_url,
+        **build_printer_health(
+            printer_info=printer_info,
+            server_info=server_info,
+            update_status=update_status,
+            system_info=system_info,
+            proc_stats=proc_stats,
+            snapshots=snapshots,
+            latest_diff=latest_diff,
+        ),
     }
 
 

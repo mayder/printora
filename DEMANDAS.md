@@ -183,6 +183,20 @@ Itens:
 - latência API;
 - alertas.
 
+Critério de aceite:
+
+- resultado final mostra `OK para imprimir`, `monitorar` ou `não imprimir`;
+- leitura é por impressora cadastrada;
+- não executa G-code, restart, update ou flash;
+- usa dados Moonraker e snapshots recentes;
+- UI mostra métricas e ações recomendadas.
+
+Estado atual:
+
+- Implementado `GET /api/printers/{printer_id}/health`.
+- Health check consolida Klipper, Moonraker, Update Manager, temperatura/host, snapshots e último diff.
+- UI exibe decisão operacional, contadores, métricas e itens de ação.
+
 ## PKG-05: Gerenciador De Backups
 
 Objetivo:

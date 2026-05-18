@@ -95,8 +95,29 @@ label {
   border-color: #8f6b2d;
 }
 
+.panel.danger {
+  border-color: #8f2d2d;
+  background: #211719;
+}
+
 .panel.wide {
   grid-column: 1 / -1;
+}
+
+.panel-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.panel-heading h2 {
+  margin: 0;
+}
+
+.panel-heading strong {
+  color: #e8edf2;
 }
 
 .metric {
@@ -273,6 +294,13 @@ label {
   margin-bottom: 14px;
 }
 
+.health-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
 .badge {
   border: 1px solid #252b31;
   border-radius: 6px;
@@ -391,6 +419,14 @@ label {
 
   .audit-counts {
     grid-template-columns: 1fr;
+  }
+
+  .health-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-heading {
+    display: grid;
   }
 
   .finding div,

@@ -35,6 +35,9 @@ Validações:
 - listagem de snapshot retorna resumo, não payload completo.
 - comparação de snapshots rejeita snapshots de outra impressora.
 - comparação classifica componentes falhando como bloqueio e repos `dirty` como risco.
+- health check permite impressora ready sem bloqueios.
+- health check bloqueia Klipper não ready ou último diff crítico.
+- health check classifica repo `dirty` como monitoramento.
 
 Testes automatizados adicionais:
 

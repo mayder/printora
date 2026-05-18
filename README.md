@@ -38,6 +38,7 @@ O MVP inicial contém:
 - cadastro local de múltiplas impressoras;
 - endpoints somente leitura para Moonraker;
 - checklist pós-update básico;
+- health check por impressora;
 - auditoria somente leitura com classificação de achados;
 - template systemd em `packaging/systemd/`.
 
@@ -48,6 +49,7 @@ Endpoints iniciais:
 - `POST /api/printers`
 - `PUT /api/printers/{printer_id}`
 - `GET /api/printers/{printer_id}/moonraker/status`
+- `GET /api/printers/{printer_id}/health`
 - `POST /api/printers/{printer_id}/snapshots/moonraker`
 - `GET /api/printers/{printer_id}/snapshots`
 - `GET /api/printers/{printer_id}/snapshots/diff?from_id=...&to_id=...`
@@ -98,6 +100,33 @@ GET /api/printers/{printer_id}/snapshots/diff?from_id={base}&to_id={atual}
 ```
 
 A comparação destaca estado Klipper, versões, warnings, componentes Moonraker com falha, repos `dirty`, versões do Update Manager e variações relevantes de temperatura do host.
+
+## Health Check
+
+O health check consolida leituras read-only por impressora:
+
+- estado Klipper;
+- conexão Moonraker;
+- componentes e warnings;
+- Update Manager;
+- temperatura do host;
+- espaço livre quando disponível;
+- snapshots recentes;
+- última comparação entre snapshots.
+
+Resultado:
+
+```text
+OK para imprimir
+Pode imprimir com atenção
+Não imprima ainda
+```
+
+Endpoint:
+
+```text
+GET /api/printers/{printer_id}/health
+```
 
 ## Auditoria Do Host
 
