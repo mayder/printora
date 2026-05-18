@@ -41,6 +41,7 @@ O MVP inicial contém:
 - health check por impressora;
 - políticas de backup e dry-run seguro;
 - relatório Markdown sanitizado por impressora;
+- diário de manutenção e tarefas preventivas por impressora;
 - auditoria somente leitura com classificação de achados;
 - template systemd em `packaging/systemd/`.
 
@@ -58,6 +59,11 @@ Endpoints iniciais:
 - `GET /api/printers/{printer_id}/backup/runs`
 - `POST /api/backup/policies/{policy_id}/dry-run`
 - `POST /api/backup/policies/{policy_id}/execute-local`
+- `GET /api/printers/{printer_id}/maintenance/events`
+- `POST /api/printers/{printer_id}/maintenance/events`
+- `GET /api/printers/{printer_id}/maintenance/tasks`
+- `POST /api/printers/{printer_id}/maintenance/tasks`
+- `POST /api/maintenance/tasks/{task_id}/complete`
 - `POST /api/printers/{printer_id}/snapshots/moonraker`
 - `GET /api/printers/{printer_id}/snapshots`
 - `GET /api/printers/{printer_id}/snapshots/diff?from_id=...&to_id=...`
@@ -202,6 +208,29 @@ Sanitização aplicada:
 - valores detectáveis de senha, token, chave e segredo.
 
 O relatório deve ser revisado antes de ser publicado fora da rede local.
+
+## Manutenção
+
+O módulo de manutenção registra histórico local por impressora.
+
+Eventos suportados:
+
+- manutenção;
+- falha;
+- ajuste;
+- nota.
+
+Tarefas preventivas:
+
+- nome;
+- componente;
+- intervalo em dias;
+- última execução;
+- status `pendente`, `em dia` ou `desconhecido`.
+
+Concluir uma tarefa preventiva cria automaticamente um evento no diário e atualiza `last_done_at`.
+
+O módulo não envia G-code, não reinicia serviços e não altera configuração da impressora.
 
 ## Auditoria Do Host
 

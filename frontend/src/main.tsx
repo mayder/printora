@@ -149,6 +149,31 @@ type SanitizedReport = {
   markdown: string;
 };
 
+type MaintenanceEventRecord = {
+  id: number;
+  printer_id: number;
+  performed_at: string;
+  event_type: "maintenance" | "failure" | "adjustment" | "note";
+  component?: string | null;
+  title: string;
+  notes: string;
+  created_at: string;
+};
+
+type MaintenanceTaskRecord = {
+  id: number;
+  printer_id: number;
+  name: string;
+  component: string;
+  interval_days: number;
+  last_done_at?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  due_status: "due" | "ok" | "unknown";
+  days_until_due?: number | null;
+};
+
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
@@ -166,6 +191,16 @@ function App() {
   const [backupPolicies, setBackupPolicies] = React.useState<BackupPolicyRecord[]>([]);
   const [backupRuns, setBackupRuns] = React.useState<BackupRunRecord[]>([]);
   const [sanitizedReport, setSanitizedReport] = React.useState<SanitizedReport | null>(null);
+  const [maintenanceEvents, setMaintenanceEvents] = React.useState<MaintenanceEventRecord[]>([]);
+  const [maintenanceTasks, setMaintenanceTasks] = React.useState<MaintenanceTaskRecord[]>([]);
+  const [maintenanceEventType, setMaintenanceEventType] =
+    React.useState<MaintenanceEventRecord["event_type"]>("maintenance");
+  const [maintenanceComponent, setMaintenanceComponent] = React.useState("motion");
+  const [maintenanceTitle, setMaintenanceTitle] = React.useState("Lubrificação / inspeção");
+  const [maintenanceNotes, setMaintenanceNotes] = React.useState("");
+  const [maintenanceTaskName, setMaintenanceTaskName] = React.useState("Limpar mesa");
+  const [maintenanceTaskComponent, setMaintenanceTaskComponent] = React.useState("bed");
+  const [maintenanceTaskIntervalDays, setMaintenanceTaskIntervalDays] = React.useState(30);
   const [backupName, setBackupName] = React.useState("Config backup");
   const [backupSourcePath, setBackupSourcePath] = React.useState("/home/pi/printer_data/config");
   const [backupDestinationPath, setBackupDestinationPath] = React.useState(
@@ -219,6 +254,7 @@ function App() {
       await loadSnapshots(nextSelected);
       await loadPrinterHealth(nextSelected);
       await loadBackups(nextSelected);
+      await loadMaintenance(nextSelected);
     }
   }
 
@@ -244,6 +280,7 @@ function App() {
       setSelectedPrinterId(created.id);
       await loadPrinterHealth(created.id);
       await loadBackups(created.id);
+      await loadMaintenance(created.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -343,6 +380,102 @@ function App() {
         throw new Error(await response.text());
       }
       setSanitizedReport((await response.json()) as SanitizedReport);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadMaintenance(printerId: number) {
+    const [eventsResponse, tasksResponse] = await Promise.all([
+      fetch(`/api/printers/${printerId}/maintenance/events`),
+      fetch(`/api/printers/${printerId}/maintenance/tasks`),
+    ]);
+    if (eventsResponse.ok) {
+      const payload = (await eventsResponse.json()) as { events: MaintenanceEventRecord[] };
+      setMaintenanceEvents(payload.events);
+    }
+    if (tasksResponse.ok) {
+      const payload = (await tasksResponse.json()) as { tasks: MaintenanceTaskRecord[] };
+      setMaintenanceTasks(payload.tasks);
+    }
+  }
+
+  async function createMaintenanceEvent(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/maintenance/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_type: maintenanceEventType,
+          component: maintenanceComponent,
+          title: maintenanceTitle,
+          notes: maintenanceNotes,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setMaintenanceNotes("");
+      await loadMaintenance(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createMaintenanceTask(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/maintenance/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: maintenanceTaskName,
+          component: maintenanceTaskComponent,
+          interval_days: maintenanceTaskIntervalDays,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadMaintenance(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function completeMaintenanceTask(taskId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/maintenance/tasks/${taskId}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: "Concluído pelo painel MayderPrintLab." }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadMaintenance(selectedPrinterId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -475,6 +608,7 @@ function App() {
                   void loadSnapshots(printerId);
                   void loadPrinterHealth(printerId);
                   void loadBackups(printerId);
+                  void loadMaintenance(printerId);
                 }}
               >
                 <option value="" disabled>
@@ -551,6 +685,108 @@ function App() {
                 <small>{item.action}</small>
               </div>
             ))}
+          </div>
+        </article>
+
+        <article className="panel wide">
+          <div className="panel-heading">
+            <h2>Manutenção</h2>
+            <strong>{maintenanceTasks.filter((task) => task.due_status === "due").length} pendentes</strong>
+          </div>
+          <div className="maintenance-layout">
+            <section>
+              <h3>Tarefas preventivas</h3>
+              <form className="maintenance-task-form" onSubmit={(event) => void createMaintenanceTask(event)}>
+                <input
+                  aria-label="Nome da tarefa preventiva"
+                  value={maintenanceTaskName}
+                  onChange={(event) => setMaintenanceTaskName(event.target.value)}
+                  placeholder="Tarefa"
+                />
+                <input
+                  aria-label="Componente da tarefa"
+                  value={maintenanceTaskComponent}
+                  onChange={(event) => setMaintenanceTaskComponent(event.target.value)}
+                  placeholder="Componente"
+                />
+                <input
+                  aria-label="Intervalo em dias"
+                  type="number"
+                  min="1"
+                  max="3650"
+                  value={maintenanceTaskIntervalDays}
+                  onChange={(event) => setMaintenanceTaskIntervalDays(Number(event.target.value))}
+                />
+                <button type="submit" disabled={!selectedPrinterId || loading}>
+                  Criar
+                </button>
+              </form>
+              <div className="maintenance-list">
+                {maintenanceTasks.length === 0 ? <p className="muted">Nenhuma tarefa preventiva cadastrada.</p> : null}
+                {maintenanceTasks.map((task) => (
+                  <div key={task.id} className={`maintenance-row ${task.due_status}`}>
+                    <div>
+                      <strong>{task.name}</strong>
+                      <span>{task.component} · a cada {task.interval_days} dias</span>
+                      <small>
+                        Última execução: {task.last_done_at ?? "nunca"} · {formatDueStatus(task)}
+                      </small>
+                    </div>
+                    <button type="button" onClick={() => void completeMaintenanceTask(task.id)} disabled={loading}>
+                      Concluir
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section>
+              <h3>Diário</h3>
+              <form className="maintenance-event-form" onSubmit={(event) => void createMaintenanceEvent(event)}>
+                <select
+                  aria-label="Tipo de evento"
+                  value={maintenanceEventType}
+                  onChange={(event) => setMaintenanceEventType(event.target.value as MaintenanceEventRecord["event_type"])}
+                >
+                  <option value="maintenance">manutenção</option>
+                  <option value="failure">falha</option>
+                  <option value="adjustment">ajuste</option>
+                  <option value="note">nota</option>
+                </select>
+                <input
+                  aria-label="Componente do evento"
+                  value={maintenanceComponent}
+                  onChange={(event) => setMaintenanceComponent(event.target.value)}
+                  placeholder="Componente"
+                />
+                <input
+                  aria-label="Título do evento"
+                  value={maintenanceTitle}
+                  onChange={(event) => setMaintenanceTitle(event.target.value)}
+                  placeholder="Título"
+                />
+                <textarea
+                  aria-label="Notas do evento"
+                  value={maintenanceNotes}
+                  onChange={(event) => setMaintenanceNotes(event.target.value)}
+                  placeholder="Notas"
+                />
+                <button type="submit" disabled={!selectedPrinterId || loading}>
+                  Registrar
+                </button>
+              </form>
+              <div className="maintenance-list">
+                {maintenanceEvents.length === 0 ? <p className="muted">Nenhum evento registrado.</p> : null}
+                {maintenanceEvents.map((event) => (
+                  <div key={event.id} className="maintenance-event-row">
+                    <strong>{event.title}</strong>
+                    <span>
+                      {formatMaintenanceEventType(event.event_type)} · {event.component ?? "-"} · {event.performed_at}
+                    </span>
+                    {event.notes ? <small>{event.notes}</small> : null}
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
         </article>
 
@@ -858,6 +1094,26 @@ function formatHealthSeverity(severity: HealthItem["severity"]) {
     blocker: "bloqueio",
   };
   return labels[severity];
+}
+
+function formatMaintenanceEventType(eventType: MaintenanceEventRecord["event_type"]) {
+  const labels: Record<MaintenanceEventRecord["event_type"], string> = {
+    maintenance: "manutenção",
+    failure: "falha",
+    adjustment: "ajuste",
+    note: "nota",
+  };
+  return labels[eventType];
+}
+
+function formatDueStatus(task: MaintenanceTaskRecord) {
+  if (task.due_status === "due") {
+    return "pendente";
+  }
+  if (task.due_status === "unknown") {
+    return "data inválida";
+  }
+  return `${task.days_until_due ?? "-"} dias restantes`;
 }
 
 function formatDecision(decision: HealthResponse["decision"] | undefined) {

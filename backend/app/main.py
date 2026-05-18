@@ -12,6 +12,14 @@ from app.config import Settings, get_settings
 from app.database import initialize_database
 from app.health import build_printer_health, build_unreachable_health
 from app.host_audit import collect_host_audit, summarize_sections
+from app.maintenance import (
+    MaintenanceEventCreate,
+    MaintenanceEventRecord,
+    MaintenanceRepository,
+    MaintenanceTaskComplete,
+    MaintenanceTaskCreate,
+    MaintenanceTaskRecord,
+)
 from app.moonraker import MoonrakerClient
 from app.printers import PrinterCreate, PrinterRecord, PrinterRepository, PrinterUpdate
 from app.reports import SanitizedReport, build_sanitized_report
@@ -41,6 +49,10 @@ def get_snapshot_repository(settings: Settings) -> SnapshotRepository:
 
 def get_backup_repository(settings: Settings) -> BackupRepository:
     return BackupRepository(settings.database_path)
+
+
+def get_maintenance_repository(settings: Settings) -> MaintenanceRepository:
+    return MaintenanceRepository(settings.database_path)
 
 
 @asynccontextmanager
@@ -244,6 +256,72 @@ async def sanitized_report(printer_id: int) -> SanitizedReport:
         latest_diff=latest_diff,
         backup_runs=backup_runs,
     )
+
+
+@app.get("/api/printers/{printer_id}/maintenance/events")
+async def list_maintenance_events(printer_id: int, limit: int = 50) -> dict[str, list[MaintenanceEventRecord]]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    maintenance_repository = get_maintenance_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    clean_limit = min(max(limit, 1), 100)
+    return {"events": maintenance_repository.list_events(printer_id, clean_limit)}
+
+
+@app.post("/api/printers/{printer_id}/maintenance/events")
+async def create_maintenance_event(
+    printer_id: int,
+    payload: MaintenanceEventCreate,
+) -> MaintenanceEventRecord:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    maintenance_repository = get_maintenance_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        return maintenance_repository.create_event(printer_id, payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/printers/{printer_id}/maintenance/tasks")
+async def list_maintenance_tasks(printer_id: int) -> dict[str, list[MaintenanceTaskRecord]]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    maintenance_repository = get_maintenance_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return {"tasks": maintenance_repository.list_tasks(printer_id)}
+
+
+@app.post("/api/printers/{printer_id}/maintenance/tasks")
+async def create_maintenance_task(
+    printer_id: int,
+    payload: MaintenanceTaskCreate,
+) -> MaintenanceTaskRecord:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    maintenance_repository = get_maintenance_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        return maintenance_repository.create_task(printer_id, payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/maintenance/tasks/{task_id}/complete")
+async def complete_maintenance_task(
+    task_id: int,
+    payload: MaintenanceTaskComplete,
+) -> MaintenanceEventRecord:
+    settings = get_settings()
+    maintenance_repository = get_maintenance_repository(settings)
+    event = maintenance_repository.complete_task(task_id, payload)
+    if event is None:
+        raise HTTPException(status_code=404, detail="maintenance task not found")
+    return event
 
 
 @app.get("/api/printers/{printer_id}/backup/policies")

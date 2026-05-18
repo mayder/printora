@@ -44,6 +44,8 @@ Validações:
 - execução local bloqueia política `dry_run_only` e destino dentro da origem.
 - relatório sanitizado remove IP, URL, caminho local e valores sensíveis detectáveis.
 - relatório sanitizado inclui health, snapshots, diff e histórico de backup sem dados privados.
+- eventos de manutenção ficam vinculados à impressora correta.
+- tarefa preventiva inicia pendente, ao concluir gera evento e fica em dia.
 
 Testes automatizados adicionais:
 
@@ -108,6 +110,13 @@ http://127.0.0.1:5178
 - Confirmar arquivos incluídos.
 - Confirmar que segredos não vazam.
 - Testar restauração por arquivo em ambiente controlado.
+
+### Manutenção
+
+- Criar tarefa preventiva.
+- Concluir tarefa.
+- Confirmar que evento aparece no diário.
+- Confirmar que nenhuma ação foi enviada para Klipper/Moonraker.
 
 ### Firmware Dry-Run
 

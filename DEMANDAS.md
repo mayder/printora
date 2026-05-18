@@ -330,6 +330,31 @@ Itens:
 - hotend/nozzle;
 - limpeza de mesa.
 
+Entregáveis:
+
+- tabela de eventos de manutenção por impressora;
+- tabela de tarefas preventivas por impressora;
+- API para registrar manutenção, falha, ajuste e nota;
+- API para criar e concluir tarefas preventivas;
+- status objetivo de tarefa pendente ou em dia;
+- UI para diário e tarefas preventivas.
+
+Critério de aceite:
+
+- não envia G-code;
+- não altera configs;
+- não reinicia serviços;
+- histórico fica vinculado à impressora correta;
+- conclusão de tarefa registra evento no diário;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado via `backend/sql/003_maintenance.sql`.
+- Implementado em `backend/app/maintenance.py`.
+- Endpoints e UI inicial implementados.
+- Testes cobrem escopo por impressora e conclusão de tarefa.
+
 ## PKG-08: Assistente De Primeira Camada E Z-Offset
 
 Objetivo:
