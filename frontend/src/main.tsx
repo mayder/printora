@@ -1518,54 +1518,95 @@ function App() {
                   </div>
                 </div>
               ) : null}
-              <form className="modal-form printer-access-form" onSubmit={(event) => void createPrinter(event)}>
-                <input
-                  aria-label="Nome da impressora"
-                  value={newPrinterName}
-                  onChange={(event) => setNewPrinterName(event.target.value)}
-                  placeholder="Nome da impressora"
-                />
-                <input
-                  aria-label="URL Moonraker"
-                  value={newPrinterUrl}
-                  onChange={(event) => setNewPrinterUrl(event.target.value)}
-                  placeholder="http://printer.local:7125"
-                />
-                <input
-                  aria-label="Host SSH"
-                  value={newPrinterSshHost}
-                  onChange={(event) => setNewPrinterSshHost(event.target.value)}
-                  placeholder="host ou IP SSH"
-                />
-                <input
-                  aria-label="Porta SSH"
-                  type="number"
-                  min="1"
-                  max="65535"
-                  value={newPrinterSshPort}
-                  onChange={(event) => setNewPrinterSshPort(Number(event.target.value))}
-                  placeholder="22"
-                />
-                <input
-                  aria-label="Usuário SSH"
-                  value={newPrinterSshUser}
-                  onChange={(event) => setNewPrinterSshUser(event.target.value)}
-                  placeholder="usuario SSH"
-                />
-                <input
-                  aria-label="Senha SSH"
-                  type="password"
-                  value={newPrinterSshCredential}
-                  onChange={(event) => setNewPrinterSshCredential(event.target.value)}
-                  placeholder={printerModalMode === "edit" ? "Nova senha SSH opcional" : "Senha SSH opcional"}
-                />
-                <small className="form-note">
-                  SSH é opcional, mas necessário para auditoria profunda, CAN, systemd, backups locais e firmware. O valor sensível não é retornado pela API.
-                </small>
-                <button type="submit" className="primary-button" disabled={loading}>
-                  <Plus size={16} />
-                  {printerModalMode === "edit" ? "Salvar impressora" : "Cadastrar impressora"}
-                </button>
+              <form className="printer-access-form" onSubmit={(event) => void createPrinter(event)}>
+                <section className="form-section">
+                  <div className="form-section-heading">
+                    <strong>Conexão Moonraker</strong>
+                    <span>Usada para status, snapshots e leitura segura via HTTP.</span>
+                  </div>
+                  <div className="form-grid two-columns">
+                    <label className="form-field">
+                      <span>Nome</span>
+                      <input
+                        aria-label="Nome da impressora"
+                        value={newPrinterName}
+                        onChange={(event) => setNewPrinterName(event.target.value)}
+                        placeholder="Voron 2.4"
+                      />
+                    </label>
+                    <label className="form-field">
+                      <span>URL Moonraker</span>
+                      <input
+                        aria-label="URL Moonraker"
+                        value={newPrinterUrl}
+                        onChange={(event) => setNewPrinterUrl(event.target.value)}
+                        placeholder="http://voron.local:7125"
+                      />
+                    </label>
+                  </div>
+                </section>
+
+                <section className="form-section">
+                  <div className="form-section-heading">
+                    <strong>Acesso SSH</strong>
+                    <span>Necessário para auditoria profunda, CAN, systemd, backups locais e firmware.</span>
+                  </div>
+                  <div className="form-grid ssh-grid">
+                    <label className="form-field">
+                      <span>Host SSH</span>
+                      <input
+                        aria-label="Host SSH"
+                        value={newPrinterSshHost}
+                        onChange={(event) => setNewPrinterSshHost(event.target.value)}
+                        placeholder="voron.local"
+                      />
+                    </label>
+                    <label className="form-field compact-field">
+                      <span>Porta</span>
+                      <input
+                        aria-label="Porta SSH"
+                        type="number"
+                        min="1"
+                        max="65535"
+                        value={newPrinterSshPort}
+                        onChange={(event) => setNewPrinterSshPort(Number(event.target.value))}
+                        placeholder="22"
+                      />
+                    </label>
+                    <label className="form-field">
+                      <span>Usuário</span>
+                      <input
+                        aria-label="Usuário SSH"
+                        value={newPrinterSshUser}
+                        onChange={(event) => setNewPrinterSshUser(event.target.value)}
+                        placeholder="pi"
+                      />
+                    </label>
+                    <label className="form-field">
+                      <span>{printerModalMode === "edit" ? "Nova senha opcional" : "Senha"}</span>
+                      <input
+                        aria-label="Senha SSH"
+                        type="password"
+                        value={newPrinterSshCredential}
+                        onChange={(event) => setNewPrinterSshCredential(event.target.value)}
+                        placeholder={printerModalMode === "edit" ? "Deixe vazio para manter a atual" : "Senha SSH"}
+                      />
+                    </label>
+                  </div>
+                  <small className="form-note">
+                    O valor sensível não é retornado pela API. Em edição, deixe a senha vazia para manter a credencial atual.
+                  </small>
+                </section>
+
+                <div className="modal-footer">
+                  <button type="button" className="ghost-button" onClick={() => setPrinterModalOpen(false)}>
+                    Cancelar
+                  </button>
+                  <button type="submit" className="primary-button" disabled={loading}>
+                    <Plus size={16} />
+                    {printerModalMode === "edit" ? "Salvar impressora" : "Cadastrar impressora"}
+                  </button>
+                </div>
               </form>
             </div>
           </div>

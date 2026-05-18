@@ -672,44 +672,80 @@ label {
   color: var(--muted);
 }
 
-.modal-form {
+.printer-access-form {
   display: grid;
-  grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.2fr) auto;
-  gap: 10px;
-  align-items: center;
+  gap: 16px;
 }
 
-.printer-access-form {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+.form-section {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 14px;
+}
+
+.form-section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: baseline;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 10px;
+}
+
+.form-section-heading span,
+.form-note {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.form-grid {
+  display: grid;
+  gap: 12px;
   align-items: end;
 }
 
-.printer-access-form input:nth-of-type(1),
-.printer-access-form input:nth-of-type(2) {
-  grid-column: span 3;
+.two-columns {
+  grid-template-columns: minmax(220px, 0.9fr) minmax(340px, 1.1fr);
 }
 
-.printer-access-form input:nth-of-type(3) {
-  grid-column: span 2;
+.ssh-grid {
+  grid-template-columns: minmax(220px, 1fr) minmax(90px, 0.28fr) minmax(180px, 0.7fr) minmax(220px, 0.9fr);
 }
 
-.printer-access-form input:nth-of-type(4) {
-  grid-column: span 1;
-}
-
-.printer-access-form input:nth-of-type(5),
-.printer-access-form input:nth-of-type(6) {
-  grid-column: span 2;
-}
-
-.printer-access-form button {
-  grid-column: span 2;
-}
-
-.form-note {
-  grid-column: 1 / -1;
+.form-field {
+  display: grid;
+  gap: 7px;
   color: var(--muted);
-  line-height: 1.4;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.form-field span {
+  letter-spacing: 0.02em;
+}
+
+.form-field input {
+  min-height: 38px;
+  font-size: 13px;
+}
+
+.compact-field input {
+  text-align: center;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+
+.modal-footer button {
+  min-width: 150px;
 }
 
 .ghost-button {
@@ -1588,7 +1624,9 @@ label {
   .printer-card-grid,
   .modal-header,
   .modal-actions,
-  .modal-form,
+  .form-section-heading,
+  .form-grid,
+  .modal-footer,
   .discovery-summary,
   .discovery-row,
   .backup-form,
@@ -1615,6 +1653,15 @@ label {
 
   .audit-counts {
     grid-template-columns: 1fr;
+  }
+
+  .form-section-heading,
+  .modal-footer {
+    display: grid;
+  }
+
+  .modal-footer button {
+    width: 100%;
   }
 
   .health-metrics {
