@@ -242,6 +242,36 @@ Estado atual:
 - Implementado `POST /api/backup/policies/{policy_id}/dry-run`.
 - UI permite criar política e registrar dry-run planejado.
 
+## PKG-05B: Execução Local De Backup
+
+Objetivo:
+
+Criar backup real somente quando o app estiver rodando no mesmo host dos arquivos.
+
+Entregáveis:
+
+- política com execução local explicitamente habilitada;
+- endpoint de execução local;
+- criação de arquivo `.zip`;
+- exclusão de logs, temporários, backups, tokens, senhas e segredos por padrão;
+- bloqueio quando destino fica dentro da origem;
+- histórico com status, quantidade de arquivos, bytes e mensagem.
+
+Critério de aceite:
+
+- política `dry_run_only` bloqueia execução;
+- execução não usa SSH;
+- execução não reinicia serviços;
+- execução não altera configs;
+- execução não apaga arquivos;
+- testes usam somente diretórios temporários locais.
+
+Estado atual:
+
+- Implementado `POST /api/backup/policies/{policy_id}/execute-local`.
+- UI permite executar somente políticas com execução local habilitada.
+- Testes cobrem archive criado, bloqueio dry-run e destino inválido.
+
 ## PKG-06: Relatórios Sanitizados
 
 Objetivo:

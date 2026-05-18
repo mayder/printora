@@ -55,6 +55,7 @@ Endpoints iniciais:
 - `POST /api/printers/{printer_id}/backup/policies`
 - `GET /api/printers/{printer_id}/backup/runs`
 - `POST /api/backup/policies/{policy_id}/dry-run`
+- `POST /api/backup/policies/{policy_id}/execute-local`
 - `POST /api/printers/{printer_id}/snapshots/moonraker`
 - `GET /api/printers/{printer_id}/snapshots`
 - `GET /api/printers/{printer_id}/snapshots/diff?from_id=...&to_id=...`
@@ -146,8 +147,6 @@ Ele permite:
 
 Ele ainda não:
 
-- lê arquivos;
-- copia arquivos;
 - apaga arquivos;
 - restaura arquivos;
 - acessa a Raspberry por SSH.
@@ -159,6 +158,20 @@ POST /api/backup/policies/{policy_id}/dry-run
 ```
 
 O resultado `dry_run_planned` documenta o que seria feito em etapa futura, sem executar a operação real.
+
+Execução local:
+
+```text
+POST /api/backup/policies/{policy_id}/execute-local
+```
+
+Regras:
+
+- só executa quando a política não está marcada como `dry_run_only`;
+- só usa caminhos locais do host onde o backend está rodando;
+- cria `.zip` no destino;
+- bloqueia destino dentro da origem;
+- registra resultado no histórico.
 
 ## Auditoria Do Host
 

@@ -152,7 +152,7 @@ label {
 }
 
 .backup-form {
-  grid-template-columns: minmax(160px, 0.7fr) minmax(220px, 1fr) minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(150px, 0.6fr) minmax(220px, 1fr) minmax(220px, 1fr) 140px auto;
 }
 
 .printer-list {
@@ -197,6 +197,23 @@ label {
   border-top: 1px solid #252b31;
   padding: 10px 0;
   align-items: center;
+}
+
+.backup-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: end;
+}
+
+.inline-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  align-self: center;
+}
+
+.inline-check input {
+  width: auto;
 }
 
 .backup-run-row {

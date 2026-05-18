@@ -238,6 +238,16 @@ async def create_backup_dry_run(policy_id: int) -> BackupRunRecord:
     return run
 
 
+@app.post("/api/backup/policies/{policy_id}/execute-local")
+async def execute_local_backup(policy_id: int) -> BackupRunRecord:
+    settings = get_settings()
+    backup_repository = get_backup_repository(settings)
+    run = backup_repository.execute_local_backup(policy_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="backup policy not found")
+    return run
+
+
 @app.post("/api/printers/{printer_id}/snapshots/moonraker")
 async def create_moonraker_snapshot(printer_id: int) -> SnapshotDetail:
     settings = get_settings()

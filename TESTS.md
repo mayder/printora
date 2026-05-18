@@ -40,6 +40,8 @@ Validações:
 - health check classifica repo `dirty` como monitoramento.
 - backup dry-run cria histórico sem ler/copiar arquivos.
 - políticas e histórico de backup ficam escopados por impressora.
+- execução local de backup cria `.zip` usando apenas diretórios temporários em teste.
+- execução local bloqueia política `dry_run_only` e destino dentro da origem.
 
 Testes automatizados adicionais:
 

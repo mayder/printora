@@ -162,6 +162,7 @@ function App() {
   const [backupDestinationPath, setBackupDestinationPath] = React.useState(
     "/home/pi/printer_data/backups/mayderprintlab",
   );
+  const [backupDryRunOnly, setBackupDryRunOnly] = React.useState(true);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -336,7 +337,29 @@ function App() {
           name: backupName,
           source_path: backupSourcePath,
           destination_path: backupDestinationPath,
+          dry_run_only: backupDryRunOnly,
         }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadBackups(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function executeLocalBackup(policyId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/backup/policies/${policyId}/execute-local`, {
+        method: "POST",
       });
       if (!response.ok) {
         throw new Error(await response.text());
@@ -526,6 +549,14 @@ function App() {
               onChange={(event) => setBackupDestinationPath(event.target.value)}
               placeholder="/home/pi/printer_data/backups/mayderprintlab"
             />
+            <label className="inline-check">
+              <input
+                type="checkbox"
+                checked={backupDryRunOnly}
+                onChange={(event) => setBackupDryRunOnly(event.target.checked)}
+              />
+              Somente dry-run
+            </label>
             <button type="submit" disabled={!selectedPrinterId || loading}>
               Criar política
             </button>
@@ -537,14 +568,25 @@ function App() {
                 <div>
                   <strong>{policy.name}</strong>
                   <span>{policy.source_path}</span>
-                  <small>Destino: {policy.destination_path}</small>
+                  <small>
+                    Destino: {policy.destination_path} · {policy.dry_run_only ? "somente dry-run" : "execução local habilitada"}
+                  </small>
                 </div>
                 <div>
                   <small>Exclusões: {policy.exclude_patterns.join(", ")}</small>
                 </div>
-                <button type="button" onClick={() => void createBackupDryRun(policy.id)} disabled={loading}>
-                  Dry-run
-                </button>
+                <div className="backup-actions">
+                  <button type="button" onClick={() => void createBackupDryRun(policy.id)} disabled={loading}>
+                    Dry-run
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void executeLocalBackup(policy.id)}
+                    disabled={loading || policy.dry_run_only}
+                  >
+                    Executar local
+                  </button>
+                </div>
               </div>
             ))}
           </div>
