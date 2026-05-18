@@ -19,6 +19,8 @@ from app.firmware import (
     FirmwareBuildDryRunCreate,
     FirmwareBuildExecuteCreate,
     FirmwareBuildRunRecord,
+    FirmwareFlashDryRunCreate,
+    FirmwareFlashRunRecord,
 )
 from app.health import build_printer_health, build_unreachable_health
 from app.host_audit import collect_host_audit, summarize_sections
@@ -427,6 +429,30 @@ async def execute_firmware_build_local(
             mode=settings.firmware_build_mode,
             timeout_seconds=settings.firmware_build_timeout_seconds,
         )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/printers/{printer_id}/firmware/flash-runs")
+async def list_firmware_flash_runs(printer_id: int, limit: int = 20) -> dict[str, list[FirmwareFlashRunRecord]]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    firmware_repository = get_firmware_board_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    clean_limit = min(max(limit, 1), 100)
+    return {"runs": firmware_repository.list_flash_runs(printer_id, clean_limit)}
+
+
+@app.post("/api/firmware/boards/{board_id}/flash-runs/dry-run")
+async def create_firmware_flash_dry_run(
+    board_id: int,
+    payload: FirmwareFlashDryRunCreate,
+) -> FirmwareFlashRunRecord:
+    settings = get_settings()
+    firmware_repository = get_firmware_board_repository(settings)
+    try:
+        return firmware_repository.create_flash_dry_run(board_id, payload)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

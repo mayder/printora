@@ -640,6 +640,41 @@ Regras:
 - reiniciar Klipper;
 - confirmar `printer/info ready`.
 
+## PKG-13A: Firmware Manager - Flash Dry-Run Bloqueado
+
+Objetivo:
+
+Gerar plano de flash antes de permitir execução real.
+
+Entregáveis:
+
+- tabela `firmware_flash_runs`;
+- endpoint para criar dry-run de flash por placa;
+- endpoint para listar histórico por impressora;
+- uso opcional do binário vindo de um build run;
+- comandos planejados por método de flash;
+- checklist pré-flash;
+- UI para revisar plano de flash.
+
+Critério de aceite:
+
+- não faz flash;
+- não reinicia Klipper;
+- não acessa SSH;
+- não valida MCU ao vivo;
+- não altera arquivos;
+- rejeita build run de outra placa;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado via `backend/sql/008_firmware_flash_runs.sql`.
+- Implementado em `backend/app/firmware.py`.
+- Implementado `POST /api/firmware/boards/{board_id}/flash-runs/dry-run`.
+- Implementado `GET /api/printers/{printer_id}/firmware/flash-runs`.
+- UI permite gerar e revisar dry-run de flash.
+- Flash real continua fora do escopo desta etapa.
+
 ## PKG-14: Integração Mainsail E Update Manager
 
 Objetivo:

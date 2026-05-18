@@ -67,6 +67,8 @@ Validações:
 - histórico de dry-run de build fica escopado por impressora.
 - build local fica bloqueado quando `MAYDER_PRINT_LAB_FIRMWARE_BUILD_MODE` está desabilitado.
 - build local exige confirmação textual quando o modo local está habilitado.
+- dry-run de flash usa binário de build quando informado e não executa comandos.
+- dry-run de flash rejeita build de outra placa.
 
 Testes automatizados adicionais:
 
@@ -174,6 +176,9 @@ http://127.0.0.1:5178
 - Confirmar que nenhum `make`, cópia de arquivo, SSH, restart, update ou flash foi executado.
 - Tentar execução local sem habilitar modo local e confirmar status bloqueado.
 - Em ambiente controlado futuro, habilitar modo local e exigir confirmação textual antes de executar build.
+- Gerar dry-run de flash para uma placa.
+- Confirmar checklist, UUID CAN, interface CAN, binário e comandos planejados.
+- Confirmar que nenhum flash, restart, SSH, update ou validação de MCU ao vivo foi executado.
 
 ### Firmware Dry-Run
 

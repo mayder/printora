@@ -48,6 +48,7 @@ O MVP inicial contém:
 - auditoria read-only de mods e plugins;
 - cadastro local de placas e presets de firmware;
 - dry-run planejado de build de firmware;
+- dry-run planejado de flash de firmware;
 - auditoria somente leitura com classificação de achados;
 - template systemd em `packaging/systemd/`.
 
@@ -82,6 +83,8 @@ Endpoints iniciais:
 - `GET /api/printers/{printer_id}/firmware/build-runs`
 - `POST /api/firmware/boards/{board_id}/build-runs/dry-run`
 - `POST /api/firmware/boards/{board_id}/build-runs/execute-local`
+- `GET /api/printers/{printer_id}/firmware/flash-runs`
+- `POST /api/firmware/boards/{board_id}/flash-runs/dry-run`
 - `POST /api/printers/{printer_id}/snapshots/moonraker`
 - `GET /api/printers/{printer_id}/snapshots`
 - `GET /api/printers/{printer_id}/snapshots/diff?from_id=...&to_id=...`
@@ -410,6 +413,28 @@ O fluxo local:
 - registra resultado no histórico.
 
 Ele não faz flash, não reinicia serviços e não acessa SSH.
+
+### Flash Dry-Run
+
+O flash dry-run registra o plano de flash de uma placa cadastrada, sem executar comandos.
+
+Ele salva:
+
+- método de flash da placa;
+- UUID CAN esperado;
+- interface CAN;
+- binário planejado;
+- checklist pré-flash;
+- comandos que seriam usados em uma etapa futura.
+
+Endpoints:
+
+```text
+GET /api/printers/{printer_id}/firmware/flash-runs
+POST /api/firmware/boards/{board_id}/flash-runs/dry-run
+```
+
+Esta etapa não faz flash, não reinicia Klipper, não acessa SSH, não valida MCU ao vivo e não altera a impressora. O objetivo é revisar o procedimento antes de liberar qualquer execução real.
 
 ## Auditoria Do Host
 

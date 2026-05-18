@@ -84,6 +84,30 @@ class FirmwareBuildRunRecord(BaseModel):
     message: str
 
 
+class FirmwareFlashDryRunCreate(BaseModel):
+    build_run_id: int | None = None
+    binary_path: str | None = Field(default=None, max_length=260)
+    notes: str = Field(default="", max_length=1000)
+
+
+class FirmwareFlashRunRecord(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    printer_id: int
+    board_id: int
+    build_run_id: int | None
+    created_at: str
+    status: str
+    flash_method: FlashMethod
+    can_uuid: str | None
+    can_interface: str
+    binary_path: str
+    commands: list[str]
+    checklist: list[str]
+    message: str
+
+
 BOARD_PRESETS: dict[str, BoardPreset] = {
     "btt_octopus_pro_f446_usb_can": BoardPreset(
         id="btt_octopus_pro_f446_usb_can",
@@ -417,6 +441,86 @@ class FirmwareBoardRepository:
             ).fetchone()
         return _build_run_from_row(row) if row else None
 
+    def create_flash_dry_run(self, board_id: int, payload: FirmwareFlashDryRunCreate) -> FirmwareFlashRunRecord:
+        board = self.get_board(board_id)
+        if board is None:
+            raise ValueError("firmware board not found")
+        preset = self.get_preset(board.preset_id)
+        if preset is None:
+            raise ValueError("unknown board preset")
+        build_run = self.get_build_run(payload.build_run_id) if payload.build_run_id is not None else None
+        if payload.build_run_id is not None and build_run is None:
+            raise ValueError("firmware build run not found")
+        if build_run is not None and (build_run.board_id != board.id or build_run.printer_id != board.printer_id):
+            raise ValueError("firmware build run does not belong to this board")
+
+        plan = _flash_dry_run_plan(board, preset, payload, build_run)
+        return self._insert_flash_run(board, payload.build_run_id, "flash_dry_run_planned", plan)
+
+    def _insert_flash_run(
+        self,
+        board: FirmwareBoardRecord,
+        build_run_id: int | None,
+        status: str,
+        plan: dict[str, object],
+    ) -> FirmwareFlashRunRecord:
+        with connect_database(self.database_path) as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO firmware_flash_runs (
+                    printer_id, board_id, build_run_id, status, flash_method, can_uuid,
+                    can_interface, binary_path, commands_json, checklist_json, message
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    board.printer_id,
+                    board.id,
+                    build_run_id,
+                    status,
+                    plan["flash_method"],
+                    plan["can_uuid"],
+                    plan["can_interface"],
+                    plan["binary_path"],
+                    json.dumps(plan["commands"], ensure_ascii=False),
+                    json.dumps(plan["checklist"], ensure_ascii=False),
+                    plan["message"],
+                ),
+            )
+            run_id = int(cursor.lastrowid)
+        record = self.get_flash_run(run_id)
+        if record is None:
+            raise RuntimeError("firmware flash run was not persisted")
+        return record
+
+    def list_flash_runs(self, printer_id: int, limit: int = 20) -> list[FirmwareFlashRunRecord]:
+        with connect_database(self.database_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT id, printer_id, board_id, build_run_id, created_at, status, flash_method,
+                       can_uuid, can_interface, binary_path, commands_json, checklist_json, message
+                FROM firmware_flash_runs
+                WHERE printer_id = ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+                """,
+                (printer_id, limit),
+            ).fetchall()
+        return [_flash_run_from_row(row) for row in rows]
+
+    def get_flash_run(self, run_id: int) -> FirmwareFlashRunRecord | None:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT id, printer_id, board_id, build_run_id, created_at, status, flash_method,
+                       can_uuid, can_interface, binary_path, commands_json, checklist_json, message
+                FROM firmware_flash_runs
+                WHERE id = ?
+                """,
+                (run_id,),
+            ).fetchone()
+        return _flash_run_from_row(row) if row else None
+
 
 def _record_from_row(row) -> FirmwareBoardRecord:
     return FirmwareBoardRecord(
@@ -448,6 +552,24 @@ def _build_run_from_row(row) -> FirmwareBuildRunRecord:
         output_dir=str(row["output_dir"]),
         config_backup_path=str(row["config_backup_path"]),
         binary_output_path=str(row["binary_output_path"]),
+        commands=json.loads(row["commands_json"]),
+        checklist=json.loads(row["checklist_json"]),
+        message=str(row["message"]),
+    )
+
+
+def _flash_run_from_row(row) -> FirmwareFlashRunRecord:
+    return FirmwareFlashRunRecord(
+        id=int(row["id"]),
+        printer_id=int(row["printer_id"]),
+        board_id=int(row["board_id"]),
+        build_run_id=int(row["build_run_id"]) if row["build_run_id"] is not None else None,
+        created_at=str(row["created_at"]),
+        status=str(row["status"]),
+        flash_method=row["flash_method"],
+        can_uuid=row["can_uuid"],
+        can_interface=str(row["can_interface"]),
+        binary_path=str(row["binary_path"]),
         commands=json.loads(row["commands_json"]),
         checklist=json.loads(row["checklist_json"]),
         message=str(row["message"]),
@@ -493,6 +615,73 @@ def _build_dry_run_plan(
         "message": payload.notes.strip()
         or "Dry-run criado. Nenhum comando foi executado; plano salvo apenas para revisão.",
     }
+
+
+def _flash_dry_run_plan(
+    board: FirmwareBoardRecord,
+    preset: BoardPreset,
+    payload: FirmwareFlashDryRunCreate,
+    build_run: FirmwareBuildRunRecord | None,
+) -> dict[str, object]:
+    binary_path = _flash_binary_path(board, preset, payload, build_run)
+    commands = _flash_commands(board, binary_path)
+    checklist = [
+        "Confirmar que a impressora não está imprimindo.",
+        "Confirmar hotend, mesa e câmara em condição segura.",
+        "Confirmar que o binário foi gerado com a mesma versão do Klipper em uso.",
+        "Confirmar backup da configuração de firmware e binário anterior.",
+        f"Confirmar UUID CAN esperado: {board.can_uuid or '-'}; abortar se não bater.",
+        f"Confirmar interface CAN esperada: {board.can_interface}.",
+        "Confirmar rollback manual antes de qualquer flash real.",
+        "Confirmar que este registro é dry-run: nenhum comando foi executado.",
+    ]
+    return {
+        "flash_method": board.flash_method,
+        "can_uuid": board.can_uuid,
+        "can_interface": board.can_interface,
+        "binary_path": binary_path,
+        "commands": commands,
+        "checklist": checklist,
+        "message": payload.notes.strip()
+        or "Dry-run de flash criado. Nenhum comando foi executado; usar apenas para revisão.",
+    }
+
+
+def _flash_binary_path(
+    board: FirmwareBoardRecord,
+    preset: BoardPreset,
+    payload: FirmwareFlashDryRunCreate,
+    build_run: FirmwareBuildRunRecord | None,
+) -> str:
+    if payload.binary_path and payload.binary_path.strip():
+        return payload.binary_path.strip()
+    if build_run is not None:
+        return build_run.binary_output_path
+    return f"~/printer_data/firmware_builds/DRY-RUN/{_slug(board.name)}/{Path(preset.build_output).name}"
+
+
+def _flash_commands(board: FirmwareBoardRecord, binary_path: str) -> list[str]:
+    if board.flash_method in {"katapult_can", "katapult_usb_can"}:
+        return [
+            "curl -s http://127.0.0.1:7125/printer/info",
+            f"python3 ~/katapult/scripts/flashtool.py -i {board.can_interface} -u {board.can_uuid} -f {binary_path}",
+            "sudo systemctl restart klipper",
+            "curl -s http://127.0.0.1:7125/printer/info",
+        ]
+    if board.flash_method == "dfu_usb":
+        return [
+            "curl -s http://127.0.0.1:7125/printer/info",
+            f"# DFU USB exige identificar o dispositivo correto antes do flash de {binary_path}.",
+            "# Exemplo futuro: make flash FLASH_DEVICE=<device> depois de validação manual.",
+            "sudo systemctl restart klipper",
+            "curl -s http://127.0.0.1:7125/printer/info",
+        ]
+    return [
+        "curl -s http://127.0.0.1:7125/printer/info",
+        f"# Método manual: revisar documentação da placa antes de usar {binary_path}.",
+        "sudo systemctl restart klipper",
+        "curl -s http://127.0.0.1:7125/printer/info",
+    ]
 
 
 def _slug(value: str) -> str:

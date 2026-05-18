@@ -303,6 +303,22 @@ type FirmwareBuildRunRecord = {
   message: string;
 };
 
+type FirmwareFlashRunRecord = {
+  id: number;
+  printer_id: number;
+  board_id: number;
+  build_run_id?: number | null;
+  created_at: string;
+  status: string;
+  flash_method: "katapult_can" | "katapult_usb_can" | "dfu_usb" | "manual";
+  can_uuid?: string | null;
+  can_interface: string;
+  binary_path: string;
+  commands: string[];
+  checklist: string[];
+  message: string;
+};
+
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
@@ -328,6 +344,7 @@ function App() {
   const [boardPresets, setBoardPresets] = React.useState<BoardPreset[]>([]);
   const [firmwareBoards, setFirmwareBoards] = React.useState<FirmwareBoardRecord[]>([]);
   const [firmwareBuildRuns, setFirmwareBuildRuns] = React.useState<FirmwareBuildRunRecord[]>([]);
+  const [firmwareFlashRuns, setFirmwareFlashRuns] = React.useState<FirmwareFlashRunRecord[]>([]);
   const [zOffsetWizardPlan, setZOffsetWizardPlan] = React.useState<ZOffsetWizardPlan | null>(null);
   const [zOffsetWizardChecks, setZOffsetWizardChecks] = React.useState<Record<string, boolean>>({});
   const [maintenanceEventType, setMaintenanceEventType] =
@@ -359,6 +376,7 @@ function App() {
   const [firmwareKlipperPath, setFirmwareKlipperPath] = React.useState("~/klipper");
   const [firmwareOutputRoot, setFirmwareOutputRoot] = React.useState("~/printer_data/firmware_builds");
   const [firmwareBuildConfirmation, setFirmwareBuildConfirmation] = React.useState("");
+  const [firmwareFlashBinaryPath, setFirmwareFlashBinaryPath] = React.useState("");
   const [backupName, setBackupName] = React.useState("Config backup");
   const [backupSourcePath, setBackupSourcePath] = React.useState("/home/pi/printer_data/config");
   const [backupDestinationPath, setBackupDestinationPath] = React.useState(
@@ -419,6 +437,7 @@ function App() {
       await loadPluginAudit(nextSelected);
       await loadFirmwareBoards(nextSelected);
       await loadFirmwareBuildRuns(nextSelected);
+      await loadFirmwareFlashRuns(nextSelected);
     }
   }
 
@@ -450,6 +469,7 @@ function App() {
       await loadPluginAudit(created.id);
       await loadFirmwareBoards(created.id);
       await loadFirmwareBuildRuns(created.id);
+      await loadFirmwareFlashRuns(created.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -624,6 +644,15 @@ function App() {
     setFirmwareBuildRuns(payload.runs);
   }
 
+  async function loadFirmwareFlashRuns(printerId: number) {
+    const response = await fetch(`/api/printers/${printerId}/firmware/flash-runs`);
+    if (!response.ok) {
+      return;
+    }
+    const payload = (await response.json()) as { runs: FirmwareFlashRunRecord[] };
+    setFirmwareFlashRuns(payload.runs);
+  }
+
   async function createFirmwareBoard(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedPrinterId) {
@@ -702,6 +731,33 @@ function App() {
         throw new Error(await response.text());
       }
       await loadFirmwareBuildRuns(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createFirmwareFlashDryRun(boardId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const latestBuildRun = firmwareBuildRuns.find((run) => run.board_id === boardId);
+      const response = await fetch(`/api/firmware/boards/${boardId}/flash-runs/dry-run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          build_run_id: latestBuildRun?.id ?? null,
+          binary_path: firmwareFlashBinaryPath || null,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadFirmwareFlashRuns(selectedPrinterId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -1020,6 +1076,7 @@ function App() {
                   void loadPluginAudit(printerId);
                   void loadFirmwareBoards(printerId);
                   void loadFirmwareBuildRuns(printerId);
+                  void loadFirmwareFlashRuns(printerId);
                 }}
               >
                 <option value="" disabled>
@@ -1214,7 +1271,7 @@ function App() {
             <strong>{firmwareBoards.length} placas cadastradas</strong>
           </div>
           <p className="muted">
-            Cadastro local de MCUs e presets. Esta etapa não compila firmware, não faz flash e não acessa a Raspberry.
+            Cadastro local de MCUs, presets, build e flash planejados. Flash permanece somente em dry-run nesta etapa.
           </p>
           <form className="firmware-board-form" onSubmit={(event) => void createFirmwareBoard(event)}>
             <input
@@ -1287,6 +1344,9 @@ function App() {
                   <button type="button" onClick={() => void createFirmwareBuildDryRun(board.id)} disabled={loading}>
                     Dry-run build
                   </button>
+                  <button type="button" onClick={() => void createFirmwareFlashDryRun(board.id)} disabled={loading}>
+                    Dry-run flash
+                  </button>
                   <button
                     type="button"
                     onClick={() => void executeFirmwareBuildLocal(board.id)}
@@ -1317,6 +1377,12 @@ function App() {
               onChange={(event) => setFirmwareBuildConfirmation(event.target.value)}
               placeholder="EXECUTE_LOCAL_BUILD_NO_FLASH"
             />
+            <input
+              aria-label="Binário para dry-run de flash"
+              value={firmwareFlashBinaryPath}
+              onChange={(event) => setFirmwareFlashBinaryPath(event.target.value)}
+              placeholder="binário opcional para dry-run de flash"
+            />
           </div>
           <div className="firmware-run-list">
             {firmwareBuildRuns.length === 0 ? <p className="muted">Nenhum dry-run de firmware registrado.</p> : null}
@@ -1329,6 +1395,32 @@ function App() {
                   <small>Output: {run.output_dir}</small>
                   <small>Backup .config: {run.config_backup_path}</small>
                   <small>Binário planejado: {run.binary_output_path}</small>
+                  <strong>Checklist</strong>
+                  <ol>
+                    {run.checklist.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ol>
+                  <strong>Comandos planejados</strong>
+                  <pre>{run.commands.join("\n")}</pre>
+                  <small>{run.message}</small>
+                </div>
+              </details>
+            ))}
+          </div>
+          <div className="firmware-run-list">
+            {firmwareFlashRuns.length === 0 ? <p className="muted">Nenhum dry-run de flash registrado.</p> : null}
+            {firmwareFlashRuns.map((run) => (
+              <details key={run.id} className="firmware-run-row">
+                <summary>
+                  Flash #{run.id} · placa #{run.board_id} · {run.status} · {run.created_at}
+                </summary>
+                <div className="firmware-run-detail">
+                  <small>Método: {run.flash_method}</small>
+                  <small>Binário: {run.binary_path}</small>
+                  <small>
+                    CAN: {run.can_uuid ?? "-"} · interface {run.can_interface}
+                  </small>
                   <strong>Checklist</strong>
                   <ol>
                     {run.checklist.map((item) => (
