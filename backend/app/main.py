@@ -14,6 +14,7 @@ from app.can_monitor import CanBusRecord, CanBusRecordCreate, CanMonitorReposito
 from app.checklists import build_post_update_checklist
 from app.config import Settings, get_settings
 from app.database import initialize_database
+from app.discovery import PrinterDiscoveryResponse, discover_moonraker_printers
 from app.firmware import (
     BoardPreset,
     FirmwareBoardCreate,
@@ -167,6 +168,19 @@ async def create_printer(payload: PrinterCreate) -> PrinterRecord:
     try:
         return repository.create_printer(payload)
     except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/printers/discover")
+async def discover_printers(cidr: str | None = None) -> PrinterDiscoveryResponse:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    try:
+        return await discover_moonraker_printers(
+            cidr=cidr,
+            registered_printers=repository.list_printers(),
+        )
+    except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 

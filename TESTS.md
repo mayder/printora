@@ -35,6 +35,8 @@ Validações:
 - listagem de snapshot retorna resumo, não payload completo.
 - comparação de snapshots rejeita snapshots de outra impressora.
 - comparação classifica componentes falhando como bloqueio e repos `dirty` como risco.
+- descoberta de impressoras aceita somente redes privadas `/24` ou menores.
+- descoberta de impressoras rejeita rede pública e rede grande demais.
 - health check permite impressora ready sem bloqueios.
 - health check bloqueia Klipper não ready ou último diff crítico.
 - health check classifica repo `dirty` como monitoramento.
@@ -227,6 +229,7 @@ Critérios:
 - Confirmar que existe sidebar com Visão geral, Operação, Calibração, Firmware, Manutenção, Relatórios e Sistema.
 - Confirmar que trocar de seção muda os painéis visíveis sem recarregar a página.
 - Confirmar que Visão geral mostra decisão operacional e checklist.
+- Confirmar que `Buscar na rede` lista candidatos Moonraker sem cadastrar automaticamente.
 - Confirmar que Firmware mostra placas, presets, dry-runs e mods/plugins.
 - Confirmar que Calibração mostra testes e Z-offset.
 - Confirmar que cada item mostra risco, modo de execução, pré-condições e critérios de sucesso.

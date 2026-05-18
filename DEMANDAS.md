@@ -6,6 +6,7 @@
 - PKG-01B: Base multi-impressora e fixtures locais
 - PKG-01C: Snapshots read-only por impressora
 - PKG-01D: Comparação de snapshots
+- PKG-01E: Descoberta de impressoras na rede local
 - PKG-02: Auditoria somente leitura do ambiente Klipper
 - PKG-03: Checklist pós-update guiado
 - PKG-04: Health check da impressora
@@ -163,6 +164,35 @@ Estado atual:
 - Implementado `GET /api/printers/{printer_id}/snapshots/diff`.
 - Implementada comparação read-only em `backend/app/snapshots.py`.
 - UI permite comparar snapshots capturados.
+
+## PKG-01E: Descoberta De Impressoras Na Rede Local
+
+Objetivo:
+
+Facilitar o cadastro de impressoras Klipper/Moonraker na mesma rede local.
+
+Entregáveis:
+
+- endpoint read-only para varrer a rede local privada;
+- limitação a redes IPv4 privadas, loopback ou link-local;
+- detecção via HTTP `GET /server/info` na porta Moonraker `7125`;
+- indicação de impressora já cadastrada;
+- botão no frontend para buscar e preencher o formulário de cadastro;
+- testes automatizados para limites de rede.
+
+Critério de aceite:
+
+- não envia G-code;
+- não altera impressora, Moonraker, Klipper ou configs;
+- não cadastra nada automaticamente;
+- não varre redes públicas;
+- limita varredura a `/24` ou menor;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado `GET /api/printers/discover`.
+- UI exibe botão `Buscar na rede` e lista candidatos encontrados.
 
 ## PKG-03: Checklist Pós-Update Guiado
 

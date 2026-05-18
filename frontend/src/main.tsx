@@ -32,6 +32,24 @@ type MoonrakerStatus = {
   };
 };
 
+type DiscoveredPrinter = {
+  name: string;
+  moonraker_url: string;
+  address: string;
+  klippy_connected: boolean | null;
+  klippy_state: string | null;
+  moonraker_version: string | null;
+  already_registered: boolean;
+};
+
+type PrinterDiscoveryResponse = {
+  cidr: string;
+  safe_mode: string;
+  scanned_hosts: number;
+  candidates: DiscoveredPrinter[];
+  warnings: string[];
+};
+
 type PrinterRecord = {
   id: number;
   name: string;
@@ -408,6 +426,7 @@ function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
   const [activeSection, setActiveSection] = React.useState<AppSection>("overview");
+  const [discovery, setDiscovery] = React.useState<PrinterDiscoveryResponse | null>(null);
   const [newPrinterName, setNewPrinterName] = React.useState("Voron - Mayder");
   const [newPrinterUrl, setNewPrinterUrl] = React.useState("http://voron.local:7125");
   const [snapshots, setSnapshots] = React.useState<SnapshotRecord[]>([]);
@@ -575,6 +594,27 @@ function App() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function discoverPrinters() {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/printers/discover");
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setDiscovery((await response.json()) as PrinterDiscoveryResponse);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function useDiscoveredPrinter(candidate: DiscoveredPrinter) {
+    setNewPrinterName(candidate.name);
+    setNewPrinterUrl(candidate.moonraker_url);
   }
 
   async function loadSelectedPrinterStatus() {
@@ -1243,7 +1283,12 @@ function App() {
 
         <section className="grid">
         <article className="panel wide panel-section panel-overview panel-system">
-          <h2>Impressoras</h2>
+          <div className="panel-heading">
+            <h2>Impressoras</h2>
+            <button type="button" onClick={() => void discoverPrinters()} disabled={loading}>
+              Buscar na rede
+            </button>
+          </div>
           <div className="printer-toolbar">
             <label>
               Impressora ativa
@@ -1300,6 +1345,44 @@ function App() {
               Cadastrar
             </button>
           </form>
+          {discovery ? (
+            <div className="discovery-box">
+              <div className="discovery-summary">
+                <strong>
+                  {discovery.candidates.length} Moonraker encontrado(s) em {discovery.cidr}
+                </strong>
+                <span>
+                  {discovery.scanned_hosts} hosts verificados · modo {discovery.safe_mode}
+                </span>
+              </div>
+              {discovery.warnings.map((warning) => (
+                <small key={warning} className="muted">
+                  {warning}
+                </small>
+              ))}
+              <div className="discovery-list">
+                {discovery.candidates.length === 0 ? <p className="muted">Nenhuma impressora encontrada na rede atual.</p> : null}
+                {discovery.candidates.map((candidate) => (
+                  <div key={candidate.moonraker_url} className="discovery-row">
+                    <div>
+                      <strong>{candidate.name}</strong>
+                      <span>{candidate.moonraker_url}</span>
+                      <small>
+                        Klippy: {candidate.klippy_state ?? "-"} · Moonraker: {candidate.moonraker_version ?? "-"}
+                      </small>
+                    </div>
+                    {candidate.already_registered ? (
+                      <span className="registered-badge">já cadastrada</span>
+                    ) : (
+                      <button type="button" onClick={() => useDiscoveredPrinter(candidate)} disabled={loading}>
+                        Usar dados
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="printer-list">
             {printers.map((printer) => (
               <div key={printer.id} className="printer-row">

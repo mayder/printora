@@ -289,6 +289,58 @@ label {
   gap: 8px;
 }
 
+.discovery-box {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #252b31;
+  border-radius: 8px;
+  background: #11151a;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.discovery-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.discovery-summary span {
+  color: #9aa6b2;
+  text-align: right;
+}
+
+.discovery-list {
+  display: grid;
+  gap: 8px;
+}
+
+.discovery-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  border-top: 1px solid #252b31;
+  padding-top: 10px;
+  align-items: center;
+}
+
+.discovery-row span,
+.discovery-row small {
+  display: block;
+  color: #9aa6b2;
+  overflow-wrap: anywhere;
+}
+
+.registered-badge {
+  border: 1px solid #2d8f57;
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #9de8ba !important;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .printer-row {
   display: grid;
   grid-template-columns: minmax(150px, 0.8fr) minmax(220px, 1fr) 100px;
@@ -1120,6 +1172,8 @@ label {
 
   .printer-toolbar,
   .printer-form,
+  .discovery-summary,
+  .discovery-row,
   .backup-form,
   .backup-row,
   .backup-run-row,
