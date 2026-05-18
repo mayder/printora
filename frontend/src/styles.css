@@ -309,6 +309,44 @@ label {
   min-height: 42px;
 }
 
+.can-form {
+  display: grid;
+  grid-template-columns: 90px 100px 100px 110px minmax(130px, 1fr) 120px minmax(220px, 1.5fr) auto;
+  gap: 10px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.can-form textarea {
+  min-height: 42px;
+}
+
+.can-list {
+  display: grid;
+  gap: 8px;
+}
+
+.can-row {
+  border-left: 3px solid #42d77d;
+  border-top: 1px solid #252b31;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+}
+
+.can-row.monitorar {
+  border-left-color: #ffb020;
+}
+
+.can-row.problema {
+  border-left-color: #e04f5f;
+}
+
+.can-row span,
+.can-row small {
+  display: block;
+  color: #9aa6b2;
+}
+
 .wizard-actions {
   display: flex;
   gap: 12px;
@@ -667,6 +705,7 @@ label {
   .maintenance-layout,
   .maintenance-task-form,
   .maintenance-row,
+  .can-form,
   .z-offset-form,
   .wizard-actions,
   .wizard-summary,

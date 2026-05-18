@@ -17,6 +17,7 @@
 - PKG-08A: Registro manual de Z-offset
 - PKG-08B: Wizard manual de Z-offset
 - PKG-09: Monitor CAN
+- PKG-09A: Registro manual/read-only de CAN
 - PKG-10: Gestão de mods e plugins
 - PKG-11: Firmware Manager - cadastro de placas e presets
 - PKG-12: Firmware Manager - build e dry-run
@@ -444,6 +445,37 @@ Itens:
 - `ip -details -statistics link show can0`;
 - comparação antes/depois;
 - diagnóstico físico sugerido.
+
+## PKG-09A: Registro Manual/Read-Only De CAN
+
+Objetivo:
+
+Registrar leituras CAN informadas manualmente, comparar com a leitura anterior da mesma interface e classificar risco sem executar comandos no host.
+
+Entregáveis:
+
+- tabela `can_bus_records`;
+- API para listar e registrar leituras CAN por impressora;
+- cálculo de delta para `rx_error`, `tx_error` e `tx_retries`;
+- alerta `ok`, `monitorar` ou `problema`;
+- UI para cadastro manual e histórico.
+
+Critério de aceite:
+
+- não executa `ip`, SSH, G-code, restart, update ou flash;
+- não zera contadores CAN;
+- histórico fica escopado por impressora;
+- comparação usa a última leitura da mesma interface CAN;
+- `rx_error` ou `tx_error` crescente vira problema;
+- `tx_retries` crescente vira monitoramento;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado via `backend/sql/005_can_monitor.sql`.
+- Implementado em `backend/app/can_monitor.py`.
+- Endpoints e UI inicial implementados.
+- Testes cobrem delta, alerta e escopo por impressora.
 
 ## PKG-10: Gestão De Mods E Plugins
 

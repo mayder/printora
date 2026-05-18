@@ -209,6 +209,27 @@ type ZOffsetWizardPlan = {
   }>;
 };
 
+type CanBusRecord = {
+  id: number;
+  printer_id: number;
+  recorded_at: string;
+  interface_name: string;
+  rx_error: number;
+  tx_error: number;
+  tx_retries: number;
+  bus_state?: string | null;
+  bitrate?: number | null;
+  previous_rx_error?: number | null;
+  previous_tx_error?: number | null;
+  previous_tx_retries?: number | null;
+  delta_rx_error?: number | null;
+  delta_tx_error?: number | null;
+  delta_tx_retries?: number | null;
+  alert_level: "ok" | "monitorar" | "problema";
+  notes: string;
+  created_at: string;
+};
+
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
@@ -229,6 +250,7 @@ function App() {
   const [maintenanceEvents, setMaintenanceEvents] = React.useState<MaintenanceEventRecord[]>([]);
   const [maintenanceTasks, setMaintenanceTasks] = React.useState<MaintenanceTaskRecord[]>([]);
   const [zOffsetRecords, setZOffsetRecords] = React.useState<ZOffsetRecord[]>([]);
+  const [canRecords, setCanRecords] = React.useState<CanBusRecord[]>([]);
   const [zOffsetWizardPlan, setZOffsetWizardPlan] = React.useState<ZOffsetWizardPlan | null>(null);
   const [zOffsetWizardChecks, setZOffsetWizardChecks] = React.useState<Record<string, boolean>>({});
   const [maintenanceEventType, setMaintenanceEventType] =
@@ -244,6 +266,13 @@ function App() {
   const [zOffsetNozzle, setZOffsetNozzle] = React.useState("T0");
   const [zOffsetValue, setZOffsetValue] = React.useState(-0.295);
   const [zOffsetNotes, setZOffsetNotes] = React.useState("");
+  const [canInterfaceName, setCanInterfaceName] = React.useState("can0");
+  const [canRxError, setCanRxError] = React.useState(0);
+  const [canTxError, setCanTxError] = React.useState(0);
+  const [canTxRetries, setCanTxRetries] = React.useState(0);
+  const [canBusState, setCanBusState] = React.useState("ERROR-ACTIVE");
+  const [canBitrate, setCanBitrate] = React.useState(1000000);
+  const [canNotes, setCanNotes] = React.useState("");
   const [backupName, setBackupName] = React.useState("Config backup");
   const [backupSourcePath, setBackupSourcePath] = React.useState("/home/pi/printer_data/config");
   const [backupDestinationPath, setBackupDestinationPath] = React.useState(
@@ -299,6 +328,7 @@ function App() {
       await loadBackups(nextSelected);
       await loadMaintenance(nextSelected);
       await loadZOffsets(nextSelected);
+      await loadCanRecords(nextSelected);
     }
   }
 
@@ -326,6 +356,7 @@ function App() {
       await loadBackups(created.id);
       await loadMaintenance(created.id);
       await loadZOffsets(created.id);
+      await loadCanRecords(created.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -454,6 +485,48 @@ function App() {
     }
     const payload = (await response.json()) as { records: ZOffsetRecord[] };
     setZOffsetRecords(payload.records);
+  }
+
+  async function loadCanRecords(printerId: number) {
+    const response = await fetch(`/api/printers/${printerId}/can/records`);
+    if (!response.ok) {
+      return;
+    }
+    const payload = (await response.json()) as { records: CanBusRecord[] };
+    setCanRecords(payload.records);
+  }
+
+  async function createCanRecord(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/can/records`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          interface_name: canInterfaceName,
+          rx_error: canRxError,
+          tx_error: canTxError,
+          tx_retries: canTxRetries,
+          bus_state: canBusState,
+          bitrate: canBitrate,
+          notes: canNotes,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setCanNotes("");
+      await loadCanRecords(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function createZOffsetRecord(event: React.FormEvent<HTMLFormElement>) {
@@ -730,6 +803,7 @@ function App() {
                   void loadBackups(printerId);
                   void loadMaintenance(printerId);
                   void loadZOffsets(printerId);
+                  void loadCanRecords(printerId);
                 }}
               >
                 <option value="" disabled>
@@ -804,6 +878,84 @@ function App() {
                 </div>
                 <p>{item.detail}</p>
                 <small>{item.action}</small>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel wide">
+          <div className="panel-heading">
+            <h2>Monitor CAN</h2>
+            <strong>{formatLatestCan(canRecords[0])}</strong>
+          </div>
+          <form className="can-form" onSubmit={(event) => void createCanRecord(event)}>
+            <input
+              aria-label="Interface CAN"
+              value={canInterfaceName}
+              onChange={(event) => setCanInterfaceName(event.target.value)}
+              placeholder="can0"
+            />
+            <input
+              aria-label="RX error"
+              type="number"
+              min="0"
+              value={canRxError}
+              onChange={(event) => setCanRxError(Number(event.target.value))}
+            />
+            <input
+              aria-label="TX error"
+              type="number"
+              min="0"
+              value={canTxError}
+              onChange={(event) => setCanTxError(Number(event.target.value))}
+            />
+            <input
+              aria-label="TX retries"
+              type="number"
+              min="0"
+              value={canTxRetries}
+              onChange={(event) => setCanTxRetries(Number(event.target.value))}
+            />
+            <input
+              aria-label="Estado do barramento"
+              value={canBusState}
+              onChange={(event) => setCanBusState(event.target.value)}
+              placeholder="ERROR-ACTIVE"
+            />
+            <input
+              aria-label="Bitrate CAN"
+              type="number"
+              min="1"
+              value={canBitrate}
+              onChange={(event) => setCanBitrate(Number(event.target.value))}
+            />
+            <textarea
+              aria-label="Notas CAN"
+              value={canNotes}
+              onChange={(event) => setCanNotes(event.target.value)}
+              placeholder="Ex.: leitura manual de ip -details -statistics link show can0"
+            />
+            <button type="submit" disabled={!selectedPrinterId || loading}>
+              Registrar
+            </button>
+          </form>
+          <div className="can-list">
+            {canRecords.length === 0 ? <p className="muted">Nenhuma leitura CAN registrada.</p> : null}
+            {canRecords.map((record) => (
+              <div key={record.id} className={`can-row ${record.alert_level}`}>
+                <strong>{formatCanAlert(record.alert_level)}</strong>
+                <span>
+                  {record.interface_name} · rx={record.rx_error} · tx={record.tx_error} · retries={record.tx_retries} ·{" "}
+                  {record.recorded_at}
+                </span>
+                <small>
+                  Delta rx={formatOptionalInt(record.delta_rx_error)} · tx={formatOptionalInt(record.delta_tx_error)} ·
+                  retries={formatOptionalInt(record.delta_tx_retries)}
+                </small>
+                <small>
+                  Estado: {record.bus_state ?? "-"} · bitrate: {record.bitrate ?? "-"}
+                </small>
+                {record.notes ? <small>{record.notes}</small> : null}
               </div>
             ))}
           </div>
@@ -1355,6 +1507,26 @@ function formatZOffsetAlert(alertLevel: ZOffsetRecord["alert_level"]) {
 
 function formatOptionalNumber(value: number | null | undefined) {
   return typeof value === "number" ? value.toFixed(3) : "-";
+}
+
+function formatOptionalInt(value: number | null | undefined) {
+  return typeof value === "number" ? String(value) : "-";
+}
+
+function formatLatestCan(record: CanBusRecord | undefined) {
+  if (!record) {
+    return "Sem histórico";
+  }
+  return `${formatCanAlert(record.alert_level)} · retries ${record.tx_retries}`;
+}
+
+function formatCanAlert(alertLevel: CanBusRecord["alert_level"]) {
+  const labels: Record<CanBusRecord["alert_level"], string> = {
+    ok: "ok",
+    monitorar: "monitorar",
+    problema: "problema físico/elétrico possível",
+  };
+  return labels[alertLevel];
 }
 
 function confirmedWizardSteps(checks: Record<string, boolean>) {

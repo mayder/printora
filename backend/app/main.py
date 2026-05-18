@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.audit import build_read_only_audit
 from app.backups import BackupPolicyCreate, BackupPolicyRecord, BackupRepository, BackupRunRecord
+from app.can_monitor import CanBusRecord, CanBusRecordCreate, CanMonitorRepository
 from app.checklists import build_post_update_checklist
 from app.config import Settings, get_settings
 from app.database import initialize_database
@@ -56,6 +57,10 @@ def get_snapshot_repository(settings: Settings) -> SnapshotRepository:
 
 def get_backup_repository(settings: Settings) -> BackupRepository:
     return BackupRepository(settings.database_path)
+
+
+def get_can_monitor_repository(settings: Settings) -> CanMonitorRepository:
+    return CanMonitorRepository(settings.database_path)
 
 
 def get_maintenance_repository(settings: Settings) -> MaintenanceRepository:
@@ -314,6 +319,30 @@ async def z_offset_wizard_plan(
         proposed_offset_value=proposed_offset_value,
         previous_record=previous,
     )
+
+
+@app.get("/api/printers/{printer_id}/can/records")
+async def list_can_bus_records(printer_id: int, limit: int = 50) -> dict[str, list[CanBusRecord]]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    can_repository = get_can_monitor_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    clean_limit = min(max(limit, 1), 100)
+    return {"records": can_repository.list_records(printer_id, clean_limit)}
+
+
+@app.post("/api/printers/{printer_id}/can/records")
+async def create_can_bus_record(printer_id: int, payload: CanBusRecordCreate) -> CanBusRecord:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    can_repository = get_can_monitor_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        return can_repository.create_record(printer_id, payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/printers/{printer_id}/maintenance/events")

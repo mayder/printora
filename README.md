@@ -44,6 +44,7 @@ O MVP inicial contém:
 - diário de manutenção e tarefas preventivas por impressora;
 - registro manual de Z-offset por chapa/material/nozzle;
 - wizard manual de Z-offset;
+- registro manual/read-only de saúde CAN;
 - auditoria somente leitura com classificação de achados;
 - template systemd em `packaging/systemd/`.
 
@@ -69,6 +70,8 @@ Endpoints iniciais:
 - `GET /api/printers/{printer_id}/z-offsets`
 - `POST /api/printers/{printer_id}/z-offsets`
 - `GET /api/printers/{printer_id}/z-offsets/wizard-plan`
+- `GET /api/printers/{printer_id}/can/records`
+- `POST /api/printers/{printer_id}/can/records`
 - `POST /api/printers/{printer_id}/snapshots/moonraker`
 - `GET /api/printers/{printer_id}/snapshots`
 - `GET /api/printers/{printer_id}/snapshots/diff?from_id=...&to_id=...`
@@ -261,6 +264,28 @@ Alertas:
 Este módulo não executa `PROBE_CALIBRATE`, não envia G-code e não altera `printer.cfg`.
 
 O wizard manual gera um roteiro seguro com comandos sugeridos, checklist e recomendação baseada no delta do valor anterior. Ele não executa os comandos pelo usuário.
+
+## Monitor CAN
+
+O Monitor CAN registra leituras manuais por impressora e interface.
+
+Campos principais:
+
+- interface, por exemplo `can0`;
+- `rx_error`;
+- `tx_error`;
+- `tx_retries`;
+- estado do barramento;
+- bitrate;
+- notas.
+
+Alertas:
+
+- `ok`: sem erro e sem delta relevante;
+- `monitorar`: contador absoluto de erro existe ou `tx_retries` subiu;
+- `problema`: `rx_error` ou `tx_error` subiu desde a leitura anterior.
+
+Este módulo não executa `ip`, não acessa SSH, não zera contadores CAN e não reinicia serviços. A leitura real continua sendo feita pelo usuário ou por um coletor futuro.
 
 ## Auditoria Do Host
 

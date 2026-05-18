@@ -51,6 +51,10 @@ Validações:
 - histórico de Z-offset fica escopado por impressora.
 - wizard de Z-offset retorna roteiro manual e não executa comandos.
 - wizard de Z-offset recomenda revisão quando delta é alto.
+- registro manual CAN calcula delta contra leitura anterior da mesma interface.
+- registro manual CAN classifica `tx_retries` crescente como monitoramento.
+- registro manual CAN classifica `rx_error` ou `tx_error` crescente como problema.
+- histórico CAN fica escopado por impressora.
 
 Testes automatizados adicionais:
 
@@ -130,6 +134,13 @@ http://127.0.0.1:5178
 - Confirmar delta e alerta.
 - Confirmar que nenhum G-code foi enviado e nenhum arquivo Klipper foi alterado.
 - Gerar wizard e confirmar que comandos aparecem apenas como orientação.
+
+### CAN
+
+- Registrar uma leitura manual de `can0` com `rx_error=0`, `tx_error=0` e `tx_retries=0`.
+- Registrar nova leitura com `tx_retries` maior e confirmar alerta de monitoramento.
+- Registrar nova leitura com `rx_error` ou `tx_error` maior e confirmar alerta de problema.
+- Confirmar que o app não executou SSH, `ip`, G-code, restart, update ou flash.
 
 ### Firmware Dry-Run
 
