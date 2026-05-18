@@ -49,6 +49,8 @@ Validações:
 - registro manual de Z-offset calcula delta contra valor anterior compatível.
 - Z-offset gera alerta `monitorar` ou `revisar` quando a variação passa do limite.
 - histórico de Z-offset fica escopado por impressora.
+- wizard de Z-offset retorna roteiro manual e não executa comandos.
+- wizard de Z-offset recomenda revisão quando delta é alto.
 
 Testes automatizados adicionais:
 
@@ -127,6 +129,7 @@ http://127.0.0.1:5178
 - Registrar segundo valor compatível.
 - Confirmar delta e alerta.
 - Confirmar que nenhum G-code foi enviado e nenhum arquivo Klipper foi alterado.
+- Gerar wizard e confirmar que comandos aparecem apenas como orientação.
 
 ### Firmware Dry-Run
 

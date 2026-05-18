@@ -309,6 +309,78 @@ label {
   min-height: 42px;
 }
 
+.wizard-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.wizard-actions span {
+  color: #9aa6b2;
+}
+
+.z-offset-wizard {
+  border: 1px solid #252b31;
+  border-left: 3px solid #42d77d;
+  border-radius: 6px;
+  background: #11151a;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.z-offset-wizard.monitorar {
+  border-left-color: #ffb020;
+}
+
+.z-offset-wizard.revisar {
+  border-left-color: #e04f5f;
+}
+
+.z-offset-wizard > div:first-child {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.z-offset-wizard span,
+.z-offset-wizard small {
+  color: #9aa6b2;
+}
+
+.wizard-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.wizard-steps {
+  display: grid;
+  gap: 8px;
+}
+
+.wizard-step {
+  grid-template-columns: 18px minmax(0, 1fr);
+  border-top: 1px solid #252b31;
+  padding-top: 8px;
+}
+
+.wizard-step input {
+  width: auto;
+  margin-top: 3px;
+}
+
+.wizard-step code {
+  display: inline-block;
+  margin-top: 6px;
+  border: 1px solid #2f3741;
+  border-radius: 4px;
+  padding: 4px 6px;
+  color: #dce6f1;
+  background: #0d1116;
+}
+
 .z-offset-list {
   display: grid;
   gap: 8px;
@@ -596,6 +668,8 @@ label {
   .maintenance-task-form,
   .maintenance-row,
   .z-offset-form,
+  .wizard-actions,
+  .wizard-summary,
   .printer-row,
   .snapshot-compare,
   .snapshot-row {

@@ -30,7 +30,13 @@ from app.snapshots import (
     SnapshotRepository,
     build_moonraker_snapshot_payload,
 )
-from app.z_offset import ZOffsetRecord, ZOffsetRecordCreate, ZOffsetRepository
+from app.z_offset import (
+    ZOffsetRecord,
+    ZOffsetRecordCreate,
+    ZOffsetRepository,
+    ZOffsetWizardPlan,
+    build_z_offset_wizard_plan,
+)
 
 
 def get_moonraker_client(settings: Settings) -> MoonrakerClient:
@@ -285,6 +291,29 @@ async def create_z_offset_record(printer_id: int, payload: ZOffsetRecordCreate) 
         return z_offset_repository.create_record(printer_id, payload)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/printers/{printer_id}/z-offsets/wizard-plan")
+async def z_offset_wizard_plan(
+    printer_id: int,
+    plate_name: str = "Texturizada",
+    material: str = "PLA",
+    nozzle: str = "T0",
+    proposed_offset_value: float = 0.0,
+) -> ZOffsetWizardPlan:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    z_offset_repository = get_z_offset_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    previous = z_offset_repository.latest_matching_record(printer_id, plate_name, material, nozzle)
+    return build_z_offset_wizard_plan(
+        plate_name=plate_name,
+        material=material,
+        nozzle=nozzle,
+        proposed_offset_value=proposed_offset_value,
+        previous_record=previous,
+    )
 
 
 @app.get("/api/printers/{printer_id}/maintenance/events")

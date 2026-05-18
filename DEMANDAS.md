@@ -15,6 +15,7 @@
 - PKG-07: Diário da impressora e manutenção preventiva
 - PKG-08: Assistente de primeira camada e Z-offset
 - PKG-08A: Registro manual de Z-offset
+- PKG-08B: Wizard manual de Z-offset
 - PKG-09: Monitor CAN
 - PKG-10: Gestão de mods e plugins
 - PKG-11: Firmware Manager - cadastro de placas e presets
@@ -399,6 +400,34 @@ Estado atual:
 - Implementado em `backend/app/z_offset.py`.
 - Endpoints e UI inicial implementados.
 - Testes cobrem delta, alerta e escopo por impressora.
+
+## PKG-08B: Wizard Manual De Z-offset
+
+Objetivo:
+
+Guiar o ajuste manual de Z-offset sem executar comandos automaticamente.
+
+Entregáveis:
+
+- endpoint `GET /api/printers/{printer_id}/z-offsets/wizard-plan`;
+- roteiro com comandos sugeridos para o usuário executar manualmente;
+- comparação com valor anterior compatível;
+- recomendação baseada no delta;
+- checklist visual no frontend.
+
+Critério de aceite:
+
+- não envia G-code;
+- não executa `PROBE_CALIBRATE` automaticamente;
+- não altera `printer.cfg`;
+- mostra claramente que o fluxo é manual;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado plano de wizard em `backend/app/z_offset.py`.
+- UI permite avaliar o wizard e marcar checklist manual.
+- Testes cobrem roteiro seguro e recomendação.
 
 ## PKG-09: Monitor CAN
 

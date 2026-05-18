@@ -36,6 +36,28 @@ class ZOffsetRecord(BaseModel):
     created_at: str
 
 
+class ZOffsetWizardStep(BaseModel):
+    key: str
+    title: str
+    detail: str
+    command: str | None = None
+    must_confirm: bool = True
+
+
+class ZOffsetWizardPlan(BaseModel):
+    safe_mode: str
+    plate_name: str
+    material: str
+    nozzle: str
+    proposed_offset_value: float
+    previous_offset_value: float | None
+    delta_value: float | None
+    alert_level: ZOffsetAlertLevel
+    recommendation: str
+    can_save_record: bool
+    steps: list[ZOffsetWizardStep]
+
+
 @dataclass(frozen=True)
 class ZOffsetRepository:
     database_path: Path
@@ -111,6 +133,9 @@ class ZOffsetRepository:
         material: str,
         nozzle: str,
     ) -> ZOffsetRecord | None:
+        clean_plate = plate_name.strip()
+        clean_material = material.strip().upper()
+        clean_nozzle = nozzle.strip().upper()
         with connect_database(self.database_path) as connection:
             row = connection.execute(
                 """
@@ -121,9 +146,63 @@ class ZOffsetRepository:
                 ORDER BY recorded_at DESC, id DESC
                 LIMIT 1
                 """,
-                (printer_id, plate_name, material, nozzle),
+                (printer_id, clean_plate, clean_material, clean_nozzle),
             ).fetchone()
         return _record_from_row(row) if row else None
+
+
+def build_z_offset_wizard_plan(
+    plate_name: str,
+    material: str,
+    nozzle: str,
+    proposed_offset_value: float,
+    previous_record: ZOffsetRecord | None,
+) -> ZOffsetWizardPlan:
+    previous_value = previous_record.offset_value if previous_record else None
+    delta = proposed_offset_value - previous_value if previous_value is not None else None
+    alert_level = _alert_level(delta)
+    return ZOffsetWizardPlan(
+        safe_mode="manual_guided_no_gcode",
+        plate_name=plate_name.strip(),
+        material=material.strip().upper(),
+        nozzle=nozzle.strip().upper(),
+        proposed_offset_value=proposed_offset_value,
+        previous_offset_value=previous_value,
+        delta_value=delta,
+        alert_level=alert_level,
+        recommendation=_wizard_recommendation(alert_level, delta),
+        can_save_record=True,
+        steps=[
+            ZOffsetWizardStep(
+                key="precheck",
+                title="Preparar impressora",
+                detail="Confirme mesa limpa, nozzle limpo, filamento sem pressão no bico e impressora parada.",
+            ),
+            ZOffsetWizardStep(
+                key="home",
+                title="Fazer homing manualmente",
+                detail="Execute o homing pela interface da impressora antes da calibração.",
+                command="G28",
+            ),
+            ZOffsetWizardStep(
+                key="probe_calibrate",
+                title="Abrir calibração manual",
+                detail="Execute este comando no console e ajuste com papel até chegar ao ponto correto.",
+                command="PROBE_CALIBRATE",
+            ),
+            ZOffsetWizardStep(
+                key="accept",
+                title="Aceitar valor calibrado",
+                detail="Depois do ajuste físico, aceite o valor na janela de calibração.",
+                command="ACCEPT",
+            ),
+            ZOffsetWizardStep(
+                key="record",
+                title="Registrar no MayderPrintLab",
+                detail="Copie o valor final e salve neste histórico. Este app não altera printer.cfg.",
+            ),
+        ],
+    )
 
 
 def _record_from_row(row) -> ZOffsetRecord:
@@ -152,6 +231,16 @@ def _alert_level(delta: float | None) -> ZOffsetAlertLevel:
     if absolute_delta >= 0.05:
         return "monitorar"
     return "ok"
+
+
+def _wizard_recommendation(alert_level: ZOffsetAlertLevel, delta: float | None) -> str:
+    if delta is None:
+        return "Sem valor anterior compatível. Salve como referência inicial para esta chapa/material/nozzle."
+    if alert_level == "revisar":
+        return "Variação alta. Revise limpeza da mesa, fixação da chapa, nozzle, toolhead e probe antes de imprimir."
+    if alert_level == "monitorar":
+        return "Variação moderada. Pode salvar, mas faça uma primeira camada curta de validação."
+    return "Variação pequena. Pode salvar como novo valor de referência."
 
 
 def _clean_optional(value: str | None) -> str | None:

@@ -189,6 +189,26 @@ type ZOffsetRecord = {
   created_at: string;
 };
 
+type ZOffsetWizardPlan = {
+  safe_mode: string;
+  plate_name: string;
+  material: string;
+  nozzle: string;
+  proposed_offset_value: number;
+  previous_offset_value?: number | null;
+  delta_value?: number | null;
+  alert_level: "ok" | "monitorar" | "revisar";
+  recommendation: string;
+  can_save_record: boolean;
+  steps: Array<{
+    key: string;
+    title: string;
+    detail: string;
+    command?: string | null;
+    must_confirm: boolean;
+  }>;
+};
+
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
@@ -209,6 +229,8 @@ function App() {
   const [maintenanceEvents, setMaintenanceEvents] = React.useState<MaintenanceEventRecord[]>([]);
   const [maintenanceTasks, setMaintenanceTasks] = React.useState<MaintenanceTaskRecord[]>([]);
   const [zOffsetRecords, setZOffsetRecords] = React.useState<ZOffsetRecord[]>([]);
+  const [zOffsetWizardPlan, setZOffsetWizardPlan] = React.useState<ZOffsetWizardPlan | null>(null);
+  const [zOffsetWizardChecks, setZOffsetWizardChecks] = React.useState<Record<string, boolean>>({});
   const [maintenanceEventType, setMaintenanceEventType] =
     React.useState<MaintenanceEventRecord["event_type"]>("maintenance");
   const [maintenanceComponent, setMaintenanceComponent] = React.useState("motion");
@@ -457,12 +479,47 @@ function App() {
         throw new Error(await response.text());
       }
       setZOffsetNotes("");
+      setZOffsetWizardPlan(null);
+      setZOffsetWizardChecks({});
       await loadZOffsets(selectedPrinterId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function evaluateZOffsetWizard() {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const query = new URLSearchParams({
+        plate_name: zOffsetPlateName,
+        material: zOffsetMaterial,
+        nozzle: zOffsetNozzle,
+        proposed_offset_value: String(zOffsetValue),
+      });
+      const response = await fetch(`/api/printers/${selectedPrinterId}/z-offsets/wizard-plan?${query.toString()}`);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      const plan = (await response.json()) as ZOffsetWizardPlan;
+      setZOffsetWizardPlan(plan);
+      setZOffsetWizardChecks(
+        Object.fromEntries(plan.steps.filter((step) => step.must_confirm).map((step) => [step.key, false])),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function toggleWizardCheck(key: string) {
+    setZOffsetWizardChecks((current) => ({ ...current, [key]: !current[key] }));
   }
 
   async function createMaintenanceEvent(event: React.FormEvent<HTMLFormElement>) {
@@ -757,6 +814,45 @@ function App() {
             <h2>Z-offset</h2>
             <strong>{formatLatestZOffset(zOffsetRecords[0])}</strong>
           </div>
+          <div className="wizard-actions">
+            <button type="button" onClick={() => void evaluateZOffsetWizard()} disabled={!selectedPrinterId || loading}>
+              Avaliar wizard
+            </button>
+            <span>Fluxo manual: o app orienta, mas não envia G-code nem altera config.</span>
+          </div>
+          {zOffsetWizardPlan ? (
+            <div className={`z-offset-wizard ${zOffsetWizardPlan.alert_level}`}>
+              <div>
+                <strong>{formatZOffsetAlert(zOffsetWizardPlan.alert_level)}</strong>
+                <span>{zOffsetWizardPlan.recommendation}</span>
+              </div>
+              <div className="wizard-summary">
+                <Badge label="Anterior" value={formatOptionalNumber(zOffsetWizardPlan.previous_offset_value)} />
+                <Badge label="Novo" value={zOffsetWizardPlan.proposed_offset_value.toFixed(3)} />
+                <Badge label="Delta" value={formatOptionalNumber(zOffsetWizardPlan.delta_value)} />
+                <Badge label="Modo" value={zOffsetWizardPlan.safe_mode} />
+              </div>
+              <div className="wizard-steps">
+                {zOffsetWizardPlan.steps.map((step) => (
+                  <label key={step.key} className="wizard-step">
+                    <input
+                      type="checkbox"
+                      checked={zOffsetWizardChecks[step.key] ?? false}
+                      onChange={() => toggleWizardCheck(step.key)}
+                    />
+                    <span>
+                      <strong>{step.title}</strong>
+                      <small>{step.detail}</small>
+                      {step.command ? <code>{step.command}</code> : null}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <small className="muted">
+                Checklist confirmado: {confirmedWizardSteps(zOffsetWizardChecks)}/{zOffsetWizardPlan.steps.length}
+              </small>
+            </div>
+          ) : null}
           <form className="z-offset-form" onSubmit={(event) => void createZOffsetRecord(event)}>
             <input
               aria-label="Chapa"
@@ -1259,6 +1355,10 @@ function formatZOffsetAlert(alertLevel: ZOffsetRecord["alert_level"]) {
 
 function formatOptionalNumber(value: number | null | undefined) {
   return typeof value === "number" ? value.toFixed(3) : "-";
+}
+
+function confirmedWizardSteps(checks: Record<string, boolean>) {
+  return Object.values(checks).filter(Boolean).length;
 }
 
 function formatDecision(decision: HealthResponse["decision"] | undefined) {

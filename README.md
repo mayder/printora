@@ -43,6 +43,7 @@ O MVP inicial contém:
 - relatório Markdown sanitizado por impressora;
 - diário de manutenção e tarefas preventivas por impressora;
 - registro manual de Z-offset por chapa/material/nozzle;
+- wizard manual de Z-offset;
 - auditoria somente leitura com classificação de achados;
 - template systemd em `packaging/systemd/`.
 
@@ -67,6 +68,7 @@ Endpoints iniciais:
 - `POST /api/maintenance/tasks/{task_id}/complete`
 - `GET /api/printers/{printer_id}/z-offsets`
 - `POST /api/printers/{printer_id}/z-offsets`
+- `GET /api/printers/{printer_id}/z-offsets/wizard-plan`
 - `POST /api/printers/{printer_id}/snapshots/moonraker`
 - `GET /api/printers/{printer_id}/snapshots`
 - `GET /api/printers/{printer_id}/snapshots/diff?from_id=...&to_id=...`
@@ -257,6 +259,8 @@ Alertas:
 - `revisar`: diferença a partir de `0.10`.
 
 Este módulo não executa `PROBE_CALIBRATE`, não envia G-code e não altera `printer.cfg`.
+
+O wizard manual gera um roteiro seguro com comandos sugeridos, checklist e recomendação baseada no delta do valor anterior. Ele não executa os comandos pelo usuário.
 
 ## Auditoria Do Host
 
