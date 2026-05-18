@@ -49,6 +49,7 @@ O MVP inicial contém:
 - cadastro local de placas e presets de firmware;
 - dry-run planejado de build de firmware;
 - dry-run planejado de flash de firmware;
+- catálogo read-only de calibrações e testes Voron/Klipper;
 - auditoria somente leitura com classificação de achados;
 - backend servindo frontend buildado quando `frontend/dist` existe;
 - templates de integração em `packaging/`;
@@ -87,6 +88,8 @@ Endpoints iniciais:
 - `POST /api/firmware/boards/{board_id}/build-runs/execute-local`
 - `GET /api/printers/{printer_id}/firmware/flash-runs`
 - `POST /api/firmware/boards/{board_id}/flash-runs/dry-run`
+- `GET /api/calibration/tests`
+- `GET /api/calibration/tests/{test_key}`
 - `POST /api/printers/{printer_id}/snapshots/moonraker`
 - `GET /api/printers/{printer_id}/snapshots`
 - `GET /api/printers/{printer_id}/snapshots/diff?from_id=...&to_id=...`
@@ -467,6 +470,40 @@ POST /api/firmware/boards/{board_id}/flash-runs/dry-run
 ```
 
 Esta etapa não faz flash, não reinicia Klipper, não acessa SSH, não valida MCU ao vivo e não altera a impressora. O objetivo é revisar o procedimento antes de liberar qualquer execução real.
+
+## Calibração E Testes
+
+O catálogo inicial lista testes e calibrações comuns para Voron/Klipper sem executar nada.
+
+Cada item guarda:
+
+- categoria;
+- objetivo;
+- fonte;
+- modo de execução;
+- nível de risco;
+- se deve bloquear durante impressão;
+- pré-condições;
+- G-code sugerido para revisão futura;
+- critérios de sucesso;
+- notas.
+
+Modos de execução:
+
+- `read_only`;
+- `manual`;
+- `gcode_review_required`;
+- `blocked_while_printing`.
+
+Endpoints:
+
+```text
+GET /api/calibration/tests
+GET /api/calibration/tests?category=qualidade
+GET /api/calibration/tests/{test_key}
+```
+
+Esta etapa não envia G-code, não reinicia serviços, não altera configs e não conversa com a impressora. O objetivo é organizar conhecimento operacional antes de permitir execução guiada.
 
 ## Auditoria Do Host
 

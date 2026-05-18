@@ -319,6 +319,23 @@ type FirmwareFlashRunRecord = {
   message: string;
 };
 
+type CalibrationTestRecord = {
+  id: number;
+  test_key: string;
+  category: string;
+  title: string;
+  objective: string;
+  source: string;
+  execution_mode: "read_only" | "manual" | "gcode_review_required" | "blocked_while_printing";
+  risk_level: "low" | "medium" | "high";
+  blocked_while_printing: boolean;
+  prerequisites: string[];
+  gcode: string[];
+  success_criteria: string[];
+  notes: string;
+  sort_order: number;
+};
+
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
@@ -345,6 +362,7 @@ function App() {
   const [firmwareBoards, setFirmwareBoards] = React.useState<FirmwareBoardRecord[]>([]);
   const [firmwareBuildRuns, setFirmwareBuildRuns] = React.useState<FirmwareBuildRunRecord[]>([]);
   const [firmwareFlashRuns, setFirmwareFlashRuns] = React.useState<FirmwareFlashRunRecord[]>([]);
+  const [calibrationTests, setCalibrationTests] = React.useState<CalibrationTestRecord[]>([]);
   const [zOffsetWizardPlan, setZOffsetWizardPlan] = React.useState<ZOffsetWizardPlan | null>(null);
   const [zOffsetWizardChecks, setZOffsetWizardChecks] = React.useState<Record<string, boolean>>({});
   const [maintenanceEventType, setMaintenanceEventType] =
@@ -410,6 +428,7 @@ function App() {
       }
 
       await loadBoardPresets();
+      await loadCalibrationTests();
       await loadPrinters();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
@@ -651,6 +670,15 @@ function App() {
     }
     const payload = (await response.json()) as { runs: FirmwareFlashRunRecord[] };
     setFirmwareFlashRuns(payload.runs);
+  }
+
+  async function loadCalibrationTests() {
+    const response = await fetch("/api/calibration/tests");
+    if (!response.ok) {
+      return;
+    }
+    const payload = (await response.json()) as { tests: CalibrationTestRecord[] };
+    setCalibrationTests(payload.tests);
   }
 
   async function createFirmwareBoard(event: React.FormEvent<HTMLFormElement>) {
@@ -1455,6 +1483,56 @@ function App() {
 
         <article className="panel wide">
           <div className="panel-heading">
+            <h2>Calibração e testes</h2>
+            <strong>{calibrationTests.length} itens catalogados</strong>
+          </div>
+          <p className="muted">
+            Catálogo seguro: esta área apenas lista testes, pré-condições, critérios e G-code para revisão. Nada é enviado
+            para a impressora.
+          </p>
+          <div className="calibration-list">
+            {calibrationTests.map((test) => (
+              <details key={test.test_key} className={`calibration-row ${test.risk_level}`}>
+                <summary>
+                  <span>
+                    <strong>{test.title}</strong>
+                    <small>
+                      {formatCalibrationCategory(test.category)} · {formatExecutionMode(test.execution_mode)} · risco{" "}
+                      {formatRiskLevel(test.risk_level)}
+                    </small>
+                  </span>
+                  {test.blocked_while_printing ? <em>bloquear imprimindo</em> : null}
+                </summary>
+                <div className="calibration-detail">
+                  <p>{test.objective}</p>
+                  <small>Fonte: {test.source}</small>
+                  <strong>Pré-condições</strong>
+                  <ol>
+                    {test.prerequisites.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ol>
+                  <strong>Critérios de sucesso</strong>
+                  <ol>
+                    {test.success_criteria.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ol>
+                  {test.gcode.length > 0 ? (
+                    <>
+                      <strong>G-code sugerido para revisão futura</strong>
+                      <pre>{test.gcode.join("\n")}</pre>
+                    </>
+                  ) : null}
+                  <small>{test.notes}</small>
+                </div>
+              </details>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel wide">
+          <div className="panel-heading">
             <h2>Z-offset</h2>
             <strong>{formatLatestZOffset(zOffsetRecords[0])}</strong>
           </div>
@@ -2047,6 +2125,38 @@ function formatConnectionType(connectionType: BoardPreset["connection_type"]) {
     usb_can_bridge: "USB-CAN bridge",
   };
   return labels[connectionType];
+}
+
+function formatCalibrationCategory(category: string) {
+  const labels: Record<string, string> = {
+    validacao_mecanica: "validação mecânica",
+    nivelamento: "nivelamento",
+    probe: "probe",
+    primeira_camada: "primeira camada",
+    extrusao: "extrusão",
+    movimento: "movimento",
+    qualidade: "qualidade",
+  };
+  return labels[category] ?? category;
+}
+
+function formatExecutionMode(mode: CalibrationTestRecord["execution_mode"]) {
+  const labels: Record<CalibrationTestRecord["execution_mode"], string> = {
+    read_only: "somente leitura",
+    manual: "manual",
+    gcode_review_required: "G-code exige revisão",
+    blocked_while_printing: "bloqueado imprimindo",
+  };
+  return labels[mode];
+}
+
+function formatRiskLevel(riskLevel: CalibrationTestRecord["risk_level"]) {
+  const labels: Record<CalibrationTestRecord["risk_level"], string> = {
+    low: "baixo",
+    medium: "médio",
+    high: "alto",
+  };
+  return labels[riskLevel];
 }
 
 function confirmedWizardSteps(checks: Record<string, boolean>) {

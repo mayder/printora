@@ -758,3 +758,37 @@ Estado atual:
 - Pacote criado apenas no backlog.
 - Execução real deixada para o final do roadmap.
 - Antes da implementação, será necessário listar as fontes, testes, calibrações, ajustes finos e G-codes brutos.
+
+## PKG-15A: Centro De Calibração - Catálogo Read-Only
+
+Objetivo:
+
+Criar a primeira versão segura do catálogo de calibrações e testes.
+
+Entregáveis:
+
+- tabela `calibration_tests`;
+- seed inicial idempotente;
+- endpoint para listar testes;
+- endpoint para consultar teste por chave;
+- painel no frontend;
+- classificação por categoria, risco e modo de execução;
+- pré-condições, critérios de sucesso e G-code sugerido para revisão.
+
+Critério de aceite:
+
+- não envia G-code;
+- não reinicia serviços;
+- não altera configs;
+- não acessa Moonraker para executar nada;
+- itens com G-code ficam marcados como `gcode_review_required`;
+- itens perigosos ficam bloqueados enquanto imprime;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado via `backend/sql/009_calibration_catalog.sql`.
+- Implementado em `backend/app/calibration.py`.
+- Implementado `GET /api/calibration/tests`.
+- Implementado `GET /api/calibration/tests/{test_key}`.
+- UI lista o catálogo com pré-condições, critérios e G-code somente para revisão.

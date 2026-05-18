@@ -69,6 +69,9 @@ Validações:
 - build local exige confirmação textual quando o modo local está habilitado.
 - dry-run de flash usa binário de build quando informado e não executa comandos.
 - dry-run de flash rejeita build de outra placa.
+- catálogo de calibração é criado por SQL idempotente.
+- catálogo de calibração classifica modo de execução, risco e bloqueio durante impressão.
+- catálogo de calibração pode ser filtrado por categoria.
 - artefatos de systemd, Mainsail e Update Manager existem e apontam para serviço local.
 - instalador Raspberry roda em dry-run por padrão.
 
@@ -203,6 +206,14 @@ Critérios:
 - flash concluído;
 - MCU voltou;
 - Klipper ready.
+
+### Calibração E Testes
+
+- Abrir painel de calibração.
+- Confirmar que homing, QGL, probe accuracy, bed mesh, primeira camada, flow, pressure advance, input shaper e testes de qualidade aparecem.
+- Confirmar que itens com G-code mostram o código apenas para revisão.
+- Confirmar que nenhum botão de execução de G-code existe nesta etapa.
+- Confirmar que cada item mostra risco, modo de execução, pré-condições e critérios de sucesso.
 
 ### UI
 

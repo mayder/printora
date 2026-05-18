@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.audit import build_read_only_audit
 from app.backups import BackupPolicyCreate, BackupPolicyRecord, BackupRepository, BackupRunRecord
+from app.calibration import CalibrationRepository, CalibrationTestRecord
 from app.can_monitor import CanBusRecord, CanBusRecordCreate, CanMonitorRepository
 from app.checklists import build_post_update_checklist
 from app.config import Settings, get_settings
@@ -87,6 +88,10 @@ def get_z_offset_repository(settings: Settings) -> ZOffsetRepository:
 
 def get_firmware_board_repository(settings: Settings) -> FirmwareBoardRepository:
     return FirmwareBoardRepository(settings.database_path)
+
+
+def get_calibration_repository(settings: Settings) -> CalibrationRepository:
+    return CalibrationRepository(settings.database_path)
 
 
 @asynccontextmanager
@@ -470,6 +475,23 @@ async def create_firmware_flash_dry_run(
         return firmware_repository.create_flash_dry_run(board_id, payload)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/calibration/tests")
+async def list_calibration_tests(category: str | None = None) -> dict[str, list[CalibrationTestRecord]]:
+    settings = get_settings()
+    repository = get_calibration_repository(settings)
+    return {"tests": repository.list_tests(category)}
+
+
+@app.get("/api/calibration/tests/{test_key}")
+async def get_calibration_test(test_key: str) -> CalibrationTestRecord:
+    settings = get_settings()
+    repository = get_calibration_repository(settings)
+    record = repository.get_test(test_key)
+    if record is None:
+        raise HTTPException(status_code=404, detail="calibration test not found")
+    return record
 
 
 @app.get("/api/printers/{printer_id}/plugins/audit")

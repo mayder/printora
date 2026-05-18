@@ -457,19 +457,22 @@ label {
   font-weight: 700;
 }
 
-.firmware-run-detail {
+.firmware-run-detail,
+.calibration-detail {
   display: grid;
   gap: 8px;
   margin-top: 10px;
 }
 
-.firmware-run-detail ol {
+.firmware-run-detail ol,
+.calibration-detail ol {
   margin: 0;
   padding-left: 22px;
   color: #9aa6b2;
 }
 
-.firmware-run-detail pre {
+.firmware-run-detail pre,
+.calibration-detail pre {
   margin: 0;
   border: 1px solid #252b31;
   border-radius: 6px;
@@ -478,6 +481,57 @@ label {
   color: #dce6f1;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.calibration-list {
+  display: grid;
+  gap: 8px;
+}
+
+.calibration-row {
+  border-top: 1px solid #252b31;
+  padding: 10px 0;
+}
+
+.calibration-row.low {
+  border-left: 3px solid #42d77d;
+  padding-left: 12px;
+}
+
+.calibration-row.medium {
+  border-left: 3px solid #d9a441;
+  padding-left: 12px;
+}
+
+.calibration-row.high {
+  border-left: 3px solid #d95b5b;
+  padding-left: 12px;
+}
+
+.calibration-row summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.calibration-row summary span,
+.calibration-row summary small,
+.calibration-row em,
+.calibration-detail small,
+.calibration-detail p {
+  color: #9aa6b2;
+}
+
+.calibration-row summary small {
+  display: block;
+  margin-top: 4px;
+}
+
+.calibration-row em {
+  font-style: normal;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .preset-details {
