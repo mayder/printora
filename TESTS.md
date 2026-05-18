@@ -79,6 +79,8 @@ Validações:
 - bootstrap dev macOS/Linux roda em dry-run por padrão.
 - instalador Linux recusa macOS/Windows e hosts sem systemd.
 - Docker Compose define porta, volume e modo seguro por padrão.
+- frontend organiza os painéis em navegação lateral por domínio.
+- frontend mantém as ações existentes sem executar comandos novos na troca de seção.
 
 Testes automatizados adicionais:
 
@@ -218,6 +220,15 @@ Critérios:
 - Confirmar que homing, QGL, probe accuracy, bed mesh, primeira camada, flow, pressure advance, input shaper e testes de qualidade aparecem.
 - Confirmar que itens com G-code mostram o código apenas para revisão.
 - Confirmar que nenhum botão de execução de G-code existe nesta etapa.
+
+### Navegação Do Frontend
+
+- Abrir `http://127.0.0.1:5178`.
+- Confirmar que existe sidebar com Visão geral, Operação, Calibração, Firmware, Manutenção, Relatórios e Sistema.
+- Confirmar que trocar de seção muda os painéis visíveis sem recarregar a página.
+- Confirmar que Visão geral mostra decisão operacional e checklist.
+- Confirmar que Firmware mostra placas, presets, dry-runs e mods/plugins.
+- Confirmar que Calibração mostra testes e Z-offset.
 - Confirmar que cada item mostra risco, modo de execução, pré-condições e critérios de sucesso.
 - Registrar resultado manual de um teste.
 - Confirmar que o histórico mostra status, material, chapa, nozzle, valor observado e notas.

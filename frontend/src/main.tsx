@@ -352,9 +352,62 @@ type CalibrationRunRecord = {
   photo_reference?: string | null;
 };
 
+type AppSection = "overview" | "operation" | "calibration" | "firmware" | "maintenance" | "reports" | "system";
+
+const appSections: Array<{
+  key: AppSection;
+  icon: string;
+  label: string;
+  detail: string;
+}> = [
+  {
+    key: "overview",
+    icon: "VG",
+    label: "Visão geral",
+    detail: "Estado operacional, impressora ativa e decisão rápida antes de imprimir.",
+  },
+  {
+    key: "operation",
+    icon: "OP",
+    label: "Operação",
+    detail: "Leituras de uso diário, histórico CAN e dados de execução.",
+  },
+  {
+    key: "calibration",
+    icon: "CL",
+    label: "Calibração",
+    detail: "Z-offset, primeira camada, testes Voron e ajustes finos.",
+  },
+  {
+    key: "firmware",
+    icon: "FW",
+    label: "Firmware",
+    detail: "Placas, presets, dry-runs de build/flash e auditoria de mods.",
+  },
+  {
+    key: "maintenance",
+    icon: "MT",
+    label: "Manutenção",
+    detail: "Backups, tarefas preventivas e diário da impressora.",
+  },
+  {
+    key: "reports",
+    icon: "RP",
+    label: "Relatórios",
+    detail: "Auditorias, snapshots, diffs e relatórios sanitizados.",
+  },
+  {
+    key: "system",
+    icon: "SI",
+    label: "Sistema",
+    detail: "Moonraker, Klipper, host e configurações da impressora.",
+  },
+];
+
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
+  const [activeSection, setActiveSection] = React.useState<AppSection>("overview");
   const [newPrinterName, setNewPrinterName] = React.useState("Voron - Mayder");
   const [newPrinterUrl, setNewPrinterUrl] = React.useState("http://voron.local:7125");
   const [snapshots, setSnapshots] = React.useState<SnapshotRecord[]>([]);
@@ -1143,22 +1196,53 @@ function App() {
     void loadStatus();
   }, []);
 
+  const activeSectionMeta = appSections.find((section) => section.key === activeSection) ?? appSections[0];
+  const selectedPrinter = printers.find((printer) => printer.id === selectedPrinterId);
+
   return (
-    <main className="shell">
-      <header className="topbar">
-        <div>
-          <h1>MayderPrintLab</h1>
-          <p>Toolkit de firmware, manutenção e diagnóstico para Klipper.</p>
+    <main className="app-shell">
+      <aside className="sidebar" aria-label="Navegação principal">
+        <div className="brand">
+          <strong>MayderPrintLab</strong>
+          <span>Klipper Ops</span>
         </div>
-        <button type="button" onClick={() => void loadStatus()} disabled={loading}>
-          {loading ? "Atualizando" : "Atualizar"}
-        </button>
-      </header>
+        <nav className="sidebar-nav">
+          {appSections.map((section) => (
+            <button
+              key={section.key}
+              type="button"
+              className={`nav-button ${activeSection === section.key ? "active" : ""}`}
+              onClick={() => setActiveSection(section.key)}
+            >
+              <span className="nav-icon">{section.icon}</span>
+              <span>{section.label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-footer">
+          <span>Impressora</span>
+          <strong>{selectedPrinter?.name ?? "não selecionada"}</strong>
+        </div>
+      </aside>
 
-      {error ? <section className="alert danger">{error}</section> : null}
+      <div className={`workspace section-${activeSection}`}>
+        <header className="topbar">
+          <div>
+            <h1>{activeSectionMeta.label}</h1>
+            <p>{activeSectionMeta.detail}</p>
+          </div>
+          <div className="topbar-actions">
+            <span>{selectedPrinter?.moonraker_url ?? "Moonraker não selecionado"}</span>
+            <button type="button" onClick={() => void loadStatus()} disabled={loading}>
+              {loading ? "Atualizando" : "Atualizar"}
+            </button>
+          </div>
+        </header>
 
-      <section className="grid">
-        <article className="panel wide">
+        {error ? <section className="alert danger">{error}</section> : null}
+
+        <section className="grid">
+        <article className="panel wide panel-section panel-overview panel-system">
           <h2>Impressoras</h2>
           <div className="printer-toolbar">
             <label>
@@ -1227,7 +1311,7 @@ function App() {
           </div>
         </article>
 
-        <article className={`panel wide health ${healthPanelClass(health?.decision)}`}>
+        <article className={`panel wide health ${healthPanelClass(health?.decision)} panel-section panel-overview`}>
           <div className="panel-heading">
             <h2>Health Check</h2>
             <strong>{health?.summary ?? "Aguardando dados"}</strong>
@@ -1259,7 +1343,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide">
+        <article className="panel wide panel-section panel-operation">
           <div className="panel-heading">
             <h2>Monitor CAN</h2>
             <strong>{formatLatestCan(canRecords[0])}</strong>
@@ -1337,7 +1421,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide">
+        <article className="panel wide panel-section panel-firmware">
           <div className="panel-heading">
             <h2>Mods e plugins</h2>
             <strong>{pluginAudit?.summary ?? "Sem snapshot analisado"}</strong>
@@ -1368,7 +1452,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide">
+        <article className="panel wide panel-section panel-firmware">
           <div className="panel-heading">
             <h2>Firmware Manager</h2>
             <strong>{firmwareBoards.length} placas cadastradas</strong>
@@ -1556,7 +1640,7 @@ function App() {
           </details>
         </article>
 
-        <article className="panel wide">
+        <article className="panel wide panel-section panel-calibration">
           <div className="panel-heading">
             <h2>Calibração e testes</h2>
             <strong>{calibrationTests.length} itens catalogados</strong>
@@ -1687,7 +1771,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide">
+        <article className="panel wide panel-section panel-calibration">
           <div className="panel-heading">
             <h2>Z-offset</h2>
             <strong>{formatLatestZOffset(zOffsetRecords[0])}</strong>
@@ -1787,7 +1871,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide">
+        <article className="panel wide panel-section panel-maintenance">
           <div className="panel-heading">
             <h2>Manutenção</h2>
             <strong>{maintenanceTasks.filter((task) => task.due_status === "due").length} pendentes</strong>
@@ -1889,7 +1973,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide">
+        <article className="panel wide panel-section panel-reports">
           <div className="panel-heading">
             <h2>Relatório sanitizado</h2>
             <button type="button" onClick={() => void loadSanitizedReport()} disabled={!selectedPrinterId || loading}>
@@ -1912,7 +1996,7 @@ function App() {
           ) : null}
         </article>
 
-        <article className="panel wide">
+        <article className="panel wide panel-section panel-maintenance">
           <div className="panel-heading">
             <h2>Backups</h2>
             <strong>Dry-run seguro</strong>
@@ -1990,7 +2074,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide">
+        <article className="panel wide panel-section panel-reports">
           <h2>Snapshots</h2>
           {snapshots.length >= 2 ? (
             <div className="snapshot-compare">
@@ -2065,7 +2149,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel">
+        <article className="panel panel-section panel-system">
           <h2>Moonraker</h2>
           <Metric label="Conexão" value={status?.connected ? "Conectado" : "Desconectado"} />
           <Metric label="URL" value={status?.moonraker_url ?? "-"} />
@@ -2073,14 +2157,14 @@ function App() {
           <Metric label="Moonraker" value={status?.server?.moonraker_version ?? "-"} />
         </article>
 
-        <article className="panel">
+        <article className="panel panel-section panel-system">
           <h2>Klipper</h2>
           <Metric label="Estado" value={status?.printer?.state ?? "-"} />
           <Metric label="Mensagem" value={status?.printer?.state_message ?? "-"} />
           <Metric label="Versão" value={status?.printer?.software_version ?? "-"} />
         </article>
 
-        <article className={`panel ${checklist?.can_print ? "ok" : "warn"}`}>
+        <article className={`panel ${checklist?.can_print ? "ok" : "warn"} panel-section panel-overview`}>
           <h2>Checklist pós-update</h2>
           <strong className="summary">{checklist?.summary ?? "Aguardando dados"}</strong>
           <div className="checks">
@@ -2096,7 +2180,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide">
+        <article className="panel wide panel-section panel-reports">
           <h2>Auditoria somente leitura</h2>
           <strong className="summary">{audit?.summary ?? "Aguardando dados"}</strong>
           <div className="audit-counts">
@@ -2119,7 +2203,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide">
+        <article className="panel wide panel-section panel-system">
           <h2>Auditoria do host</h2>
           <strong className="summary">{hostAudit?.summary ?? "Aguardando dados"}</strong>
           <div className="audit-counts">
@@ -2148,7 +2232,8 @@ function App() {
             ))}
           </div>
         </article>
-      </section>
+        </section>
+      </div>
     </main>
   );
 }

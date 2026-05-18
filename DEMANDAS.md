@@ -25,6 +25,7 @@
 - PKG-14: Integração Mainsail e Update Manager
 - PKG-15: Centro de calibração e testes Voron
 - PKG-16: Instalador multiplataforma
+- PKG-17: Navegação e layout operacional do frontend
 
 ## PKG-01: Base Do Projeto E Documentação Operacional
 
@@ -918,3 +919,30 @@ Entregáveis:
 Estado atual:
 
 - Implementado `scripts/bootstrap_windows.ps1`.
+
+## PKG-17: Navegação E Layout Operacional Do Frontend
+
+Objetivo:
+
+Reorganizar o frontend em uma experiência de operação parecida com ferramentas Klipper modernas, evitando uma página única longa e difícil de usar.
+
+Entregáveis:
+
+- sidebar com navegação por domínio;
+- topbar contextual por seção;
+- painéis agrupados por grandeza operacional;
+- preservação das telas e ações existentes;
+- responsividade básica para telas menores;
+- validação por build do frontend e `./check.sh`.
+
+Critério de aceite:
+
+- usuário consegue navegar por Visão geral, Operação, Calibração, Firmware, Manutenção, Relatórios e Sistema;
+- os painéis deixam de aparecer todos ao mesmo tempo;
+- nenhuma operação nova é enviada para Klipper/Moonraker;
+- nenhum endpoint backend é alterado;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado layout com sidebar, topbar contextual e filtragem de painéis por seção.
