@@ -1,4 +1,6 @@
 import json
+import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -59,6 +61,10 @@ class FirmwareBuildDryRunCreate(BaseModel):
     klipper_path: str = Field(default="~/klipper", min_length=1, max_length=200)
     output_root: str = Field(default="~/printer_data/firmware_builds", min_length=1, max_length=240)
     notes: str = Field(default="", max_length=1000)
+
+
+class FirmwareBuildExecuteCreate(FirmwareBuildDryRunCreate):
+    confirmation: str = Field(default="", max_length=80)
 
 
 class FirmwareBuildRunRecord(BaseModel):
@@ -318,6 +324,43 @@ class FirmwareBoardRepository:
         if preset is None:
             raise ValueError("unknown board preset")
         plan = _build_dry_run_plan(board, preset, payload)
+        return self._insert_build_run(board, "dry_run_planned", plan)
+
+    def execute_build_local(
+        self,
+        board_id: int,
+        payload: FirmwareBuildExecuteCreate,
+        mode: str,
+        timeout_seconds: float,
+    ) -> FirmwareBuildRunRecord:
+        board = self.get_board(board_id)
+        if board is None:
+            raise ValueError("firmware board not found")
+        preset = self.get_preset(board.preset_id)
+        if preset is None:
+            raise ValueError("unknown board preset")
+        plan = _build_dry_run_plan(board, preset, payload)
+        if mode != "local":
+            plan["message"] = "Build local bloqueado: MAYDER_PRINT_LAB_FIRMWARE_BUILD_MODE não está em local."
+            return self._insert_build_run(board, "blocked_build_mode_disabled", plan)
+        if payload.confirmation != "EXECUTE_LOCAL_BUILD_NO_FLASH":
+            raise ValueError("invalid build confirmation")
+
+        status = "build_success"
+        try:
+            _execute_local_build(board, preset, payload, timeout_seconds)
+            plan["message"] = payload.notes.strip() or "Build local concluído sem flash."
+        except Exception as exc:
+            status = "build_failed"
+            plan["message"] = f"Build local falhou: {exc}"
+        return self._insert_build_run(board, status, plan)
+
+    def _insert_build_run(
+        self,
+        board: FirmwareBoardRecord,
+        status: str,
+        plan: dict[str, object],
+    ) -> FirmwareBuildRunRecord:
         with connect_database(self.database_path) as connection:
             cursor = connection.execute(
                 """
@@ -330,7 +373,7 @@ class FirmwareBoardRepository:
                 (
                     board.printer_id,
                     board.id,
-                    "dry_run_planned",
+                    status,
                     plan["klipper_path"],
                     plan["output_dir"],
                     plan["config_backup_path"],
@@ -343,7 +386,7 @@ class FirmwareBoardRepository:
             run_id = int(cursor.lastrowid)
         record = self.get_build_run(run_id)
         if record is None:
-            raise RuntimeError("firmware build dry-run was not persisted")
+            raise RuntimeError("firmware build run was not persisted")
         return record
 
     def list_build_runs(self, printer_id: int, limit: int = 20) -> list[FirmwareBuildRunRecord]:
@@ -429,6 +472,7 @@ def _build_dry_run_plan(
         f"cp {board.config_file} .config",
         "make",
         f"cp {preset.build_output} {binary_path}",
+        f"cp {backup_path} .config",
     ]
     checklist = [
         "Confirmar que a impressora não está imprimindo.",
@@ -436,7 +480,8 @@ def _build_dry_run_plan(
         f"Confirmar preset {preset.id} para {board.name}.",
         f"Confirmar UUID CAN {board.can_uuid or '-'} antes de qualquer flash futuro.",
         "Confirmar backup da .config antes de sobrescrever.",
-        "Confirmar que esta etapa é apenas dry-run e não executou comandos.",
+        "Confirmar que build local só roda com modo local e confirmação explícita.",
+        "Confirmar que dry-run apenas registra plano e não executou comandos.",
     ]
     return {
         "klipper_path": payload.klipper_path,
@@ -452,6 +497,65 @@ def _build_dry_run_plan(
 
 def _slug(value: str) -> str:
     return "".join(char.lower() if char.isalnum() else "-" for char in value.strip()).strip("-") or "board"
+
+
+def _execute_local_build(
+    board: FirmwareBoardRecord,
+    preset: BoardPreset,
+    payload: FirmwareBuildExecuteCreate,
+    timeout_seconds: float,
+) -> None:
+    klipper_path = Path(payload.klipper_path).expanduser().resolve()
+    output_root = Path(payload.output_root).expanduser().resolve()
+    output_dir = output_root / "local-build" / _slug(board.name)
+    backup_path = output_dir / ".config.before-build"
+    binary_path = output_dir / Path(preset.build_output).name
+    source_config = Path(board.config_file).expanduser()
+    if not source_config.is_absolute():
+        source_config = klipper_path / source_config
+    source_config = source_config.resolve()
+    klipper_config = klipper_path / ".config"
+    build_output = klipper_path / preset.build_output
+
+    if not klipper_path.is_dir():
+        raise ValueError(f"klipper path not found: {klipper_path}")
+    if not (klipper_path / "Makefile").is_file():
+        raise ValueError("klipper path does not contain Makefile")
+    if not source_config.is_file():
+        raise ValueError(f"firmware config not found: {source_config}")
+    if not klipper_config.is_file():
+        raise ValueError("current .config not found")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(klipper_config, backup_path)
+    restored = False
+    try:
+        _run_make(["make", "clean"], klipper_path, timeout_seconds)
+        shutil.copy2(source_config, klipper_config)
+        _run_make(["make"], klipper_path, timeout_seconds)
+        if not build_output.is_file():
+            raise ValueError(f"expected build output not found: {build_output}")
+        shutil.copy2(build_output, binary_path)
+    finally:
+        if backup_path.is_file():
+            shutil.copy2(backup_path, klipper_config)
+            restored = True
+        if not restored:
+            raise RuntimeError("failed to restore original .config")
+
+
+def _run_make(command: list[str], cwd: Path, timeout_seconds: float) -> None:
+    result = subprocess.run(
+        command,
+        cwd=cwd,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=timeout_seconds,
+    )
+    if result.returncode != 0:
+        excerpt = "\n".join((result.stdout + "\n" + result.stderr).splitlines()[-20:])
+        raise RuntimeError(f"{' '.join(command)} failed with exit {result.returncode}: {excerpt}")
 
 
 def _clean_optional(value: str | None) -> str | None:

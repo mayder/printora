@@ -6,6 +6,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 HostAuditMode = Literal["disabled", "local", "ssh"]
+FirmwareBuildMode = Literal["disabled", "local"]
 
 
 class Settings(BaseSettings):
@@ -16,6 +17,8 @@ class Settings(BaseSettings):
     host_audit_mode: HostAuditMode = "disabled"
     host_audit_ssh_target: str = "pi@voron.local"
     host_audit_timeout_seconds: float = 12.0
+    firmware_build_mode: FirmwareBuildMode = "disabled"
+    firmware_build_timeout_seconds: float = 900.0
 
     model_config = SettingsConfigDict(
         env_file=".env",

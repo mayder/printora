@@ -17,6 +17,7 @@ from app.firmware import (
     FirmwareBoardRecord,
     FirmwareBoardRepository,
     FirmwareBuildDryRunCreate,
+    FirmwareBuildExecuteCreate,
     FirmwareBuildRunRecord,
 )
 from app.health import build_printer_health, build_unreachable_health
@@ -408,6 +409,24 @@ async def create_firmware_build_dry_run(
     firmware_repository = get_firmware_board_repository(settings)
     try:
         return firmware_repository.create_build_dry_run(board_id, payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/firmware/boards/{board_id}/build-runs/execute-local")
+async def execute_firmware_build_local(
+    board_id: int,
+    payload: FirmwareBuildExecuteCreate,
+) -> FirmwareBuildRunRecord:
+    settings = get_settings()
+    firmware_repository = get_firmware_board_repository(settings)
+    try:
+        return firmware_repository.execute_build_local(
+            board_id=board_id,
+            payload=payload,
+            mode=settings.firmware_build_mode,
+            timeout_seconds=settings.firmware_build_timeout_seconds,
+        )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

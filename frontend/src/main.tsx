@@ -358,6 +358,7 @@ function App() {
   const [firmwareBoardNotes, setFirmwareBoardNotes] = React.useState("");
   const [firmwareKlipperPath, setFirmwareKlipperPath] = React.useState("~/klipper");
   const [firmwareOutputRoot, setFirmwareOutputRoot] = React.useState("~/printer_data/firmware_builds");
+  const [firmwareBuildConfirmation, setFirmwareBuildConfirmation] = React.useState("");
   const [backupName, setBackupName] = React.useState("Config backup");
   const [backupSourcePath, setBackupSourcePath] = React.useState("/home/pi/printer_data/config");
   const [backupDestinationPath, setBackupDestinationPath] = React.useState(
@@ -668,6 +669,33 @@ function App() {
         body: JSON.stringify({
           klipper_path: firmwareKlipperPath,
           output_root: firmwareOutputRoot,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadFirmwareBuildRuns(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function executeFirmwareBuildLocal(boardId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/firmware/boards/${boardId}/build-runs/execute-local`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          klipper_path: firmwareKlipperPath,
+          output_root: firmwareOutputRoot,
+          confirmation: firmwareBuildConfirmation,
         }),
       });
       if (!response.ok) {
@@ -1259,6 +1287,13 @@ function App() {
                   <button type="button" onClick={() => void createFirmwareBuildDryRun(board.id)} disabled={loading}>
                     Dry-run build
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => void executeFirmwareBuildLocal(board.id)}
+                    disabled={loading || firmwareBuildConfirmation !== "EXECUTE_LOCAL_BUILD_NO_FLASH"}
+                  >
+                    Executar build local
+                  </button>
                 </div>
               </div>
             ))}
@@ -1275,6 +1310,12 @@ function App() {
               value={firmwareOutputRoot}
               onChange={(event) => setFirmwareOutputRoot(event.target.value)}
               placeholder="~/printer_data/firmware_builds"
+            />
+            <input
+              aria-label="Confirmação do build local"
+              value={firmwareBuildConfirmation}
+              onChange={(event) => setFirmwareBuildConfirmation(event.target.value)}
+              placeholder="EXECUTE_LOCAL_BUILD_NO_FLASH"
             />
           </div>
           <div className="firmware-run-list">

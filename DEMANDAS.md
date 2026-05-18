@@ -591,6 +591,38 @@ Estado atual:
 - UI permite gerar e revisar dry-runs de build.
 - Build real continua fora do escopo desta etapa.
 
+## PKG-12B: Firmware Manager - Executor Local De Build Com Travas
+
+Objetivo:
+
+Preparar execução local de build sem flash, protegida por modo de ambiente e confirmação explícita.
+
+Entregáveis:
+
+- endpoint `POST /api/firmware/boards/{board_id}/build-runs/execute-local`;
+- bloqueio padrão via `MAYDER_PRINT_LAB_FIRMWARE_BUILD_MODE=disabled`;
+- confirmação textual `EXECUTE_LOCAL_BUILD_NO_FLASH`;
+- backup da `.config` antes de sobrescrever;
+- restauração da `.config` ao final;
+- cópia do binário gerado para diretório de builds;
+- registro de sucesso, falha ou bloqueio no histórico.
+
+Critério de aceite:
+
+- em modo padrão `disabled`, nenhum comando é executado;
+- em modo `local`, build só roda com confirmação textual;
+- não faz flash;
+- não reinicia serviços;
+- não acessa SSH;
+- restaura `.config` original depois do build;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado executor local no backend, bloqueado por padrão.
+- UI exige confirmação textual antes de habilitar o botão de execução local.
+- Testes cobrem bloqueio por modo desabilitado e confirmação obrigatória.
+
 ## PKG-13: Firmware Manager - Flash Controlado
 
 Objetivo:

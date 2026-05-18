@@ -81,6 +81,7 @@ Endpoints iniciais:
 - `POST /api/printers/{printer_id}/firmware/boards`
 - `GET /api/printers/{printer_id}/firmware/build-runs`
 - `POST /api/firmware/boards/{board_id}/build-runs/dry-run`
+- `POST /api/firmware/boards/{board_id}/build-runs/execute-local`
 - `POST /api/printers/{printer_id}/snapshots/moonraker`
 - `GET /api/printers/{printer_id}/snapshots`
 - `GET /api/printers/{printer_id}/snapshots/diff?from_id=...&to_id=...`
@@ -380,6 +381,35 @@ POST /api/firmware/boards/{board_id}/build-runs/dry-run
 ```
 
 O dry-run não executa `make`, não copia arquivos, não cria diretórios, não acessa SSH, não reinicia serviços e não faz flash.
+
+### Build Local Controlado
+
+O executor local fica bloqueado por padrão.
+
+Para habilitar em uma instalação local controlada:
+
+```bash
+MAYDER_PRINT_LAB_FIRMWARE_BUILD_MODE=local
+```
+
+Mesmo habilitado, a chamada exige confirmação textual:
+
+```text
+EXECUTE_LOCAL_BUILD_NO_FLASH
+```
+
+O fluxo local:
+
+- cria diretório de saída;
+- faz backup da `.config`;
+- roda `make clean`;
+- copia a config cadastrada para `.config`;
+- roda `make`;
+- copia o binário gerado;
+- restaura a `.config` original;
+- registra resultado no histórico.
+
+Ele não faz flash, não reinicia serviços e não acessa SSH.
 
 ## Auditoria Do Host
 

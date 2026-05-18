@@ -3,7 +3,12 @@ from pathlib import Path
 import pytest
 
 from app.database import initialize_database
-from app.firmware import FirmwareBoardCreate, FirmwareBoardRepository, FirmwareBuildDryRunCreate
+from app.firmware import (
+    FirmwareBoardCreate,
+    FirmwareBoardRepository,
+    FirmwareBuildDryRunCreate,
+    FirmwareBuildExecuteCreate,
+)
 from app.printers import PrinterCreate, PrinterRepository
 
 
@@ -124,3 +129,58 @@ def test_build_dry_run_requires_existing_board(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="firmware board not found"):
         repository.create_build_dry_run(999, FirmwareBuildDryRunCreate())
+
+
+def test_local_build_is_blocked_when_mode_disabled(tmp_path: Path) -> None:
+    database_path = tmp_path / "mayderprintlab.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = FirmwareBoardRepository(database_path)
+    board = repository.create_board(
+        printer.id,
+        FirmwareBoardCreate(
+            name="EBB T0",
+            preset_id="btt_ebb36_g0b1_can",
+            can_uuid="fd7bbba1e6aa",
+            config_file="firmware/ebb_t0.config",
+        ),
+    )
+
+    run = repository.execute_build_local(
+        board.id,
+        FirmwareBuildExecuteCreate(confirmation="EXECUTE_LOCAL_BUILD_NO_FLASH"),
+        mode="disabled",
+        timeout_seconds=1,
+    )
+
+    assert run.status == "blocked_build_mode_disabled"
+    assert "bloqueado" in run.message
+    assert len(repository.list_build_runs(printer.id)) == 1
+
+
+def test_local_build_requires_confirmation_when_enabled(tmp_path: Path) -> None:
+    database_path = tmp_path / "mayderprintlab.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = FirmwareBoardRepository(database_path)
+    board = repository.create_board(
+        printer.id,
+        FirmwareBoardCreate(
+            name="EBB T0",
+            preset_id="btt_ebb36_g0b1_can",
+            can_uuid="fd7bbba1e6aa",
+            config_file="firmware/ebb_t0.config",
+        ),
+    )
+
+    with pytest.raises(ValueError, match="invalid build confirmation"):
+        repository.execute_build_local(
+            board.id,
+            FirmwareBuildExecuteCreate(confirmation="wrong"),
+            mode="local",
+            timeout_seconds=1,
+        )

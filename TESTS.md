@@ -65,6 +65,8 @@ Validações:
 - dry-run de build de firmware gera checklist e comandos planejados sem executar comandos.
 - dry-run de build exige placa cadastrada.
 - histórico de dry-run de build fica escopado por impressora.
+- build local fica bloqueado quando `MAYDER_PRINT_LAB_FIRMWARE_BUILD_MODE` está desabilitado.
+- build local exige confirmação textual quando o modo local está habilitado.
 
 Testes automatizados adicionais:
 
@@ -170,6 +172,8 @@ http://127.0.0.1:5178
 - Gerar dry-run de build para uma placa.
 - Confirmar checklist, comandos planejados, backup `.config` planejado e caminho do binário.
 - Confirmar que nenhum `make`, cópia de arquivo, SSH, restart, update ou flash foi executado.
+- Tentar execução local sem habilitar modo local e confirmar status bloqueado.
+- Em ambiente controlado futuro, habilitar modo local e exigir confirmação textual antes de executar build.
 
 ### Firmware Dry-Run
 
