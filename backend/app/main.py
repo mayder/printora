@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -6,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field, HttpUrl
 
 from app.audit import build_read_only_audit
 from app.backups import BackupPolicyCreate, BackupPolicyRecord, BackupRepository, BackupRunRecord
@@ -54,6 +56,24 @@ from app.z_offset import (
     ZOffsetWizardPlan,
     build_z_offset_wizard_plan,
 )
+
+
+class PrinterConnectionTestRequest(BaseModel):
+    moonraker_url: HttpUrl
+    ssh_host: str | None = Field(default=None, max_length=160)
+    ssh_port: int = Field(default=22, ge=1, le=65535)
+
+
+class ConnectionCheckResult(BaseModel):
+    ok: bool
+    target: str
+    detail: str
+
+
+class PrinterConnectionTestResponse(BaseModel):
+    safe_mode: str
+    moonraker: ConnectionCheckResult
+    ssh: ConnectionCheckResult | None = None
 
 
 def get_moonraker_client(settings: Settings) -> MoonrakerClient:
@@ -182,6 +202,23 @@ async def discover_printers(cidr: str | None = None) -> PrinterDiscoveryResponse
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/printers/test-connection")
+async def test_printer_connection(payload: PrinterConnectionTestRequest) -> PrinterConnectionTestResponse:
+    settings = get_settings()
+    moonraker_url = str(payload.moonraker_url).rstrip("/")
+    moonraker = await _test_moonraker_connection(moonraker_url, settings.request_timeout_seconds)
+    ssh = None
+    if payload.ssh_host:
+        ssh_host = payload.ssh_host.strip()
+        if ssh_host:
+            ssh = await _test_tcp_connection(ssh_host, payload.ssh_port, settings.request_timeout_seconds)
+    return PrinterConnectionTestResponse(
+        safe_mode="read_only",
+        moonraker=moonraker,
+        ssh=ssh,
+    )
 
 
 @app.put("/api/printers/{printer_id}")
@@ -814,6 +851,46 @@ async def _collect_status(client: MoonrakerClient) -> tuple[dict[str, Any], ...]
     system_info = await client.system_info()
     proc_stats = await client.proc_stats()
     return printer_info, server_info, system_info, proc_stats
+
+
+async def _test_moonraker_connection(moonraker_url: str, timeout_seconds: float) -> ConnectionCheckResult:
+    target = f"{moonraker_url}/server/info"
+    try:
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            response = await client.get(target)
+        if response.status_code >= 400:
+            return ConnectionCheckResult(
+                ok=False,
+                target=target,
+                detail=f"HTTP {response.status_code}",
+            )
+        payload = response.json()
+        result = payload.get("result", {}) if isinstance(payload, dict) else {}
+        state = result.get("klippy_state", "desconhecido")
+        version = result.get("moonraker_version", "versao desconhecida")
+        return ConnectionCheckResult(
+            ok=True,
+            target=target,
+            detail=f"Moonraker respondeu. Klippy={state}. Moonraker={version}.",
+        )
+    except Exception as exc:
+        return ConnectionCheckResult(ok=False, target=target, detail=str(exc))
+
+
+async def _test_tcp_connection(host: str, port: int, timeout_seconds: float) -> ConnectionCheckResult:
+    target = f"{host}:{port}"
+    try:
+        reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=timeout_seconds)
+        writer.close()
+        await writer.wait_closed()
+        del reader
+        return ConnectionCheckResult(
+            ok=True,
+            target=target,
+            detail="Porta SSH acessivel. Este teste nao autentica usuario/senha.",
+        )
+    except Exception as exc:
+        return ConnectionCheckResult(ok=False, target=target, detail=str(exc))
 
 
 def _count_findings(findings: list[Any]) -> dict[str, int]:

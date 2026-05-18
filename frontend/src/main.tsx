@@ -76,6 +76,18 @@ type PrinterDiscoveryResponse = {
   warnings: string[];
 };
 
+type ConnectionCheckResult = {
+  ok: boolean;
+  target: string;
+  detail: string;
+};
+
+type PrinterConnectionTestResponse = {
+  safe_mode: string;
+  moonraker: ConnectionCheckResult;
+  ssh?: ConnectionCheckResult | null;
+};
+
 type PrinterRecord = {
   id: number;
   name: string;
@@ -509,6 +521,7 @@ function App() {
   const [newPrinterSshPort, setNewPrinterSshPort] = React.useState(22);
   const [newPrinterSshUser, setNewPrinterSshUser] = React.useState("");
   const [newPrinterSshCredential, setNewPrinterSshCredential] = React.useState("");
+  const [printerConnectionTest, setPrinterConnectionTest] = React.useState<PrinterConnectionTestResponse | null>(null);
   const [snapshots, setSnapshots] = React.useState<SnapshotRecord[]>([]);
   const [fromSnapshotId, setFromSnapshotId] = React.useState<number | null>(null);
   const [toSnapshotId, setToSnapshotId] = React.useState<number | null>(null);
@@ -705,10 +718,41 @@ function App() {
     }
   }
 
+  async function testPrinterConnections() {
+    setLoading(true);
+    setError(null);
+    setPrinterConnectionTest(null);
+    try {
+      const validationError = validatePrinterConnectionInput(newPrinterUrl, newPrinterSshHost);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+      const response = await fetch("/api/printers/test-connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          moonraker_url: newPrinterUrl.trim(),
+          ssh_host: newPrinterSshHost.trim() || null,
+          ssh_port: newPrinterSshPort,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setPrinterConnectionTest((await response.json()) as PrinterConnectionTestResponse);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function useDiscoveredPrinter(candidate: DiscoveredPrinter) {
     setNewPrinterName(candidate.name);
     setNewPrinterUrl(candidate.moonraker_url);
     setNewPrinterSshHost(extractHost(candidate.moonraker_url));
+    setPrinterConnectionTest(null);
   }
 
   function openCreatePrinterModal() {
@@ -720,6 +764,7 @@ function App() {
     setNewPrinterSshPort(22);
     setNewPrinterSshUser("");
     setNewPrinterSshCredential("");
+    setPrinterConnectionTest(null);
     setPrinterModalOpen(true);
   }
 
@@ -732,6 +777,7 @@ function App() {
     setNewPrinterSshPort(printer.ssh_port ?? 22);
     setNewPrinterSshUser(printer.ssh_username ?? "");
     setNewPrinterSshCredential("");
+    setPrinterConnectionTest(null);
     setPrinterModalOpen(true);
   }
 
@@ -1483,6 +1529,10 @@ function App() {
                   <Search size={16} />
                   Buscar na rede
                 </button>
+                <button type="button" className="secondary-button" onClick={() => void testPrinterConnections()} disabled={loading}>
+                  <Radio size={16} />
+                  Testar conexões
+                </button>
                 <span>Leitura segura: HTTP GET em `/server/info`, sem G-code e sem cadastro automático.</span>
               </div>
               {discovery ? (
@@ -1521,6 +1571,12 @@ function App() {
                       </div>
                     ))}
                   </div>
+                </div>
+              ) : null}
+              {printerConnectionTest ? (
+                <div className="connection-test-box">
+                  <ConnectionTestRow label="Moonraker" result={printerConnectionTest.moonraker} />
+                  <ConnectionTestRow label="SSH" result={printerConnectionTest.ssh} emptyDetail="Preencha host SSH para testar a porta." />
                 </div>
               ) : null}
               <form className="printer-access-form" onSubmit={(event) => void createPrinter(event)}>
@@ -2609,6 +2665,33 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="metric">
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function ConnectionTestRow({
+  label,
+  result,
+  emptyDetail,
+}: {
+  label: string;
+  result?: ConnectionCheckResult | null;
+  emptyDetail?: string;
+}) {
+  if (!result) {
+    return (
+      <div className="connection-test-row idle">
+        <span>{label}</span>
+        <strong>não testado</strong>
+        <small>{emptyDetail ?? "Clique em testar conexões."}</small>
+      </div>
+    );
+  }
+  return (
+    <div className={`connection-test-row ${result.ok ? "ok" : "failed"}`}>
+      <span>{label}</span>
+      <strong>{result.ok ? "OK" : "falhou"}</strong>
+      <small>{result.target} · {result.detail}</small>
     </div>
   );
 }

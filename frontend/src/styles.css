@@ -672,6 +672,47 @@ label {
   color: var(--muted);
 }
 
+.connection-test-box {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.connection-test-row {
+  display: grid;
+  grid-template-columns: 120px 90px 1fr;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--border-soft);
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 10px 12px;
+}
+
+.connection-test-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.connection-test-row small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.connection-test-row.ok {
+  border-left-color: var(--ok);
+}
+
+.connection-test-row.failed {
+  border-left-color: var(--danger);
+}
+
+.connection-test-row.idle {
+  border-left-color: var(--accent);
+}
+
 .printer-access-form {
   display: grid;
   gap: 16px;
@@ -1627,6 +1668,7 @@ label {
   .form-section-heading,
   .form-grid,
   .modal-footer,
+  .connection-test-row,
   .discovery-summary,
   .discovery-row,
   .backup-form,
