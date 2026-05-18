@@ -50,6 +50,7 @@ Endpoints iniciais:
 - `GET /api/printers/{printer_id}/moonraker/status`
 - `POST /api/printers/{printer_id}/snapshots/moonraker`
 - `GET /api/printers/{printer_id}/snapshots`
+- `GET /api/printers/{printer_id}/snapshots/diff?from_id=...&to_id=...`
 - `GET /api/snapshots/{snapshot_id}`
 - `GET /api/moonraker/status`
 - `GET /api/checklist/post-update`
@@ -89,6 +90,14 @@ O primeiro tipo suportado é `moonraker_status`, com:
 - `machine/proc_stats`.
 
 A listagem retorna resumo. O payload completo fica disponível em `GET /api/snapshots/{snapshot_id}`.
+
+Snapshots também podem ser comparados sem executar ações na impressora:
+
+```text
+GET /api/printers/{printer_id}/snapshots/diff?from_id={base}&to_id={atual}
+```
+
+A comparação destaca estado Klipper, versões, warnings, componentes Moonraker com falha, repos `dirty`, versões do Update Manager e variações relevantes de temperatura do host.
 
 ## Auditoria Do Host
 

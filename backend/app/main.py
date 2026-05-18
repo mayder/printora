@@ -13,6 +13,7 @@ from app.host_audit import collect_host_audit, summarize_sections
 from app.moonraker import MoonrakerClient
 from app.printers import PrinterCreate, PrinterRecord, PrinterRepository, PrinterUpdate
 from app.snapshots import (
+    SnapshotDiff,
     SnapshotDetail,
     SnapshotRecord,
     SnapshotRepository,
@@ -184,6 +185,19 @@ async def list_snapshots(printer_id: int, limit: int = 20) -> dict[str, list[Sna
         raise HTTPException(status_code=404, detail="printer not found")
     clean_limit = min(max(limit, 1), 100)
     return {"snapshots": snapshot_repository.list_snapshots(printer_id, clean_limit)}
+
+
+@app.get("/api/printers/{printer_id}/snapshots/diff")
+async def diff_snapshots(printer_id: int, from_id: int, to_id: int) -> SnapshotDiff:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    snapshot_repository = get_snapshot_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    diff = snapshot_repository.diff_snapshots(printer_id, from_id, to_id)
+    if diff is None:
+        raise HTTPException(status_code=404, detail="snapshots not found for printer")
+    return diff
 
 
 @app.get("/api/snapshots/{snapshot_id}")

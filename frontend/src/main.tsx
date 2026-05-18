@@ -51,6 +51,24 @@ type SnapshotRecord = {
   summary: Record<string, unknown>;
 };
 
+type SnapshotDiffItem = {
+  field: string;
+  title: string;
+  severity: "info" | "monitorar" | "risco" | "bloqueio";
+  before: unknown;
+  after: unknown;
+  detail: string;
+};
+
+type SnapshotDiff = {
+  printer_id: number;
+  from_snapshot_id: number;
+  to_snapshot_id: number;
+  summary: string;
+  highest_severity: "info" | "monitorar" | "risco" | "bloqueio";
+  changes: SnapshotDiffItem[];
+};
+
 type AuditFinding = {
   id: string;
   title: string;
@@ -78,6 +96,9 @@ function App() {
   const [newPrinterName, setNewPrinterName] = React.useState("Voron - Mayder");
   const [newPrinterUrl, setNewPrinterUrl] = React.useState("http://voron.local:7125");
   const [snapshots, setSnapshots] = React.useState<SnapshotRecord[]>([]);
+  const [fromSnapshotId, setFromSnapshotId] = React.useState<number | null>(null);
+  const [toSnapshotId, setToSnapshotId] = React.useState<number | null>(null);
+  const [snapshotDiff, setSnapshotDiff] = React.useState<SnapshotDiff | null>(null);
   const [status, setStatus] = React.useState<MoonrakerStatus | null>(null);
   const [checklist, setChecklist] = React.useState<ChecklistResponse | null>(null);
   const [audit, setAudit] = React.useState<AuditResponse | null>(null);
@@ -202,6 +223,35 @@ function App() {
     }
     const payload = (await response.json()) as { snapshots: SnapshotRecord[] };
     setSnapshots(payload.snapshots);
+    setSnapshotDiff(null);
+    if (payload.snapshots.length >= 2) {
+      setFromSnapshotId(payload.snapshots[1].id);
+      setToSnapshotId(payload.snapshots[0].id);
+    } else {
+      setFromSnapshotId(payload.snapshots[0]?.id ?? null);
+      setToSnapshotId(payload.snapshots[0]?.id ?? null);
+    }
+  }
+
+  async function compareSnapshots() {
+    if (!selectedPrinterId || !fromSnapshotId || !toSnapshotId || fromSnapshotId === toSnapshotId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/printers/${selectedPrinterId}/snapshots/diff?from_id=${fromSnapshotId}&to_id=${toSnapshotId}`,
+      );
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setSnapshotDiff((await response.json()) as SnapshotDiff);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
   }
 
   React.useEffect(() => {
@@ -283,6 +333,66 @@ function App() {
 
         <article className="panel wide">
           <h2>Snapshots</h2>
+          {snapshots.length >= 2 ? (
+            <div className="snapshot-compare">
+              <label>
+                Base
+                <select
+                  value={fromSnapshotId ?? ""}
+                  onChange={(event) => setFromSnapshotId(Number(event.target.value))}
+                >
+                  {snapshots.map((snapshot) => (
+                    <option key={snapshot.id} value={snapshot.id}>
+                      #{snapshot.id} · {snapshot.created_at}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Atual
+                <select
+                  value={toSnapshotId ?? ""}
+                  onChange={(event) => setToSnapshotId(Number(event.target.value))}
+                >
+                  {snapshots.map((snapshot) => (
+                    <option key={snapshot.id} value={snapshot.id}>
+                      #{snapshot.id} · {snapshot.created_at}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => void compareSnapshots()}
+                disabled={!fromSnapshotId || !toSnapshotId || fromSnapshotId === toSnapshotId || loading}
+              >
+                Comparar
+              </button>
+            </div>
+          ) : null}
+          {snapshotDiff ? (
+            <div className={`snapshot-diff ${snapshotDiff.highest_severity}`}>
+              <strong>{snapshotDiff.summary}</strong>
+              {snapshotDiff.changes.length === 0 ? (
+                <p className="muted">Nenhuma mudança relevante detectada.</p>
+              ) : (
+                <div className="diff-list">
+                  {snapshotDiff.changes.map((change) => (
+                    <div key={`${change.field}-${change.title}`} className={`diff-row ${change.severity}`}>
+                      <div>
+                        <strong>{change.title}</strong>
+                        <span>{formatSeverity(change.severity)}</span>
+                      </div>
+                      <p>{change.detail}</p>
+                      <small>
+                        Antes: {formatUnknown(change.before)} · Depois: {formatUnknown(change.after)}
+                      </small>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
           <div className="snapshot-list">
             {snapshots.length === 0 ? <p className="muted">Nenhum snapshot capturado.</p> : null}
             {snapshots.map((snapshot) => (
@@ -404,6 +514,16 @@ function Badge({ label, value }: { label: string; value: number | string }) {
 
 function formatClassification(classification: AuditFinding["classification"]) {
   return classification.replace("_", " ");
+}
+
+function formatSeverity(severity: SnapshotDiffItem["severity"]) {
+  const labels: Record<SnapshotDiffItem["severity"], string> = {
+    info: "informativo",
+    monitorar: "monitorar",
+    risco: "risco",
+    bloqueio: "bloqueio",
+  };
+  return labels[severity];
 }
 
 function formatUnknown(value: unknown) {

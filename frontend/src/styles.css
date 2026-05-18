@@ -154,6 +154,80 @@ label {
   gap: 8px;
 }
 
+.snapshot-compare {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
+.snapshot-diff {
+  border: 1px solid #252b31;
+  border-radius: 6px;
+  background: #11151a;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.snapshot-diff.bloqueio {
+  border-color: #e04f5f;
+}
+
+.snapshot-diff.risco {
+  border-color: #ffb020;
+}
+
+.snapshot-diff.monitorar {
+  border-color: #2d7dd2;
+}
+
+.diff-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.diff-row {
+  border-left: 3px solid #6d7782;
+  padding: 10px 12px;
+  background: #171a1f;
+  border-radius: 6px;
+}
+
+.diff-row.bloqueio {
+  border-left-color: #e04f5f;
+}
+
+.diff-row.risco {
+  border-left-color: #ffb020;
+}
+
+.diff-row.monitorar {
+  border-left-color: #2d7dd2;
+}
+
+.diff-row.info {
+  border-left-color: #42d77d;
+}
+
+.diff-row div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.diff-row span,
+.diff-row p,
+.diff-row small {
+  color: #9aa6b2;
+}
+
+.diff-row p {
+  margin: 0 0 6px;
+}
+
 .snapshot-row {
   display: grid;
   grid-template-columns: 80px 160px 170px minmax(0, 1fr);
@@ -310,6 +384,7 @@ label {
   .printer-toolbar,
   .printer-form,
   .printer-row,
+  .snapshot-compare,
   .snapshot-row {
     grid-template-columns: 1fr;
   }
@@ -318,7 +393,8 @@ label {
     grid-template-columns: 1fr;
   }
 
-  .finding div {
+  .finding div,
+  .diff-row div {
     display: grid;
   }
 }

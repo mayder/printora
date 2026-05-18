@@ -33,6 +33,8 @@ Validações:
 - fixtures ficam em `backend/tests/fixtures/`.
 - snapshots ficam vinculados a `printer_id`;
 - listagem de snapshot retorna resumo, não payload completo.
+- comparação de snapshots rejeita snapshots de outra impressora.
+- comparação classifica componentes falhando como bloqueio e repos `dirty` como risco.
 
 Testes automatizados adicionais:
 

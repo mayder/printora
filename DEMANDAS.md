@@ -5,6 +5,7 @@
 - PKG-01: Base do projeto e documentação operacional
 - PKG-01B: Base multi-impressora e fixtures locais
 - PKG-01C: Snapshots read-only por impressora
+- PKG-01D: Comparação de snapshots
 - PKG-02: Auditoria somente leitura do ambiente Klipper
 - PKG-03: Checklist pós-update guiado
 - PKG-04: Health check da impressora
@@ -128,6 +129,33 @@ Estado atual:
 - Implementado `GET /api/printers/{printer_id}/snapshots`.
 - Implementado `GET /api/snapshots/{snapshot_id}`.
 - UI inicial permite capturar e listar snapshots.
+
+## PKG-01D: Comparação De Snapshots
+
+Objetivo:
+
+Comparar dois snapshots da mesma impressora para identificar regressões entre leituras, especialmente depois de update, manutenção ou mudança de configuração.
+
+Entregáveis:
+
+- endpoint para comparar dois snapshots por impressora;
+- classificação objetiva por severidade;
+- comparação de estado Klipper, versões, warnings, componentes falhando, repos `dirty` e temperatura do host;
+- UI simples para selecionar snapshot base e atual;
+- testes automatizados para mudanças críticas e rejeição de snapshots de outra impressora.
+
+Critério de aceite:
+
+- comparação não executa ações na impressora;
+- snapshots precisam pertencer à mesma impressora;
+- resultado diferencia informação, monitoramento, risco e bloqueio;
+- UI mostra resumo e mudanças sem despejar payload bruto.
+
+Estado atual:
+
+- Implementado `GET /api/printers/{printer_id}/snapshots/diff`.
+- Implementada comparação read-only em `backend/app/snapshots.py`.
+- UI permite comparar snapshots capturados.
 
 ## PKG-03: Checklist Pós-Update Guiado
 
