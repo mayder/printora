@@ -42,6 +42,8 @@ Validações:
 - políticas e histórico de backup ficam escopados por impressora.
 - execução local de backup cria `.zip` usando apenas diretórios temporários em teste.
 - execução local bloqueia política `dry_run_only` e destino dentro da origem.
+- relatório sanitizado remove IP, URL, caminho local e valores sensíveis detectáveis.
+- relatório sanitizado inclui health, snapshots, diff e histórico de backup sem dados privados.
 
 Testes automatizados adicionais:
 

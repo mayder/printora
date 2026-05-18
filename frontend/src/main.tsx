@@ -141,6 +141,14 @@ type BackupRunRecord = {
   message: string;
 };
 
+type SanitizedReport = {
+  printer_id: number;
+  safe_mode: string;
+  format: "markdown";
+  redactions: string[];
+  markdown: string;
+};
+
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
@@ -157,6 +165,7 @@ function App() {
   const [hostAudit, setHostAudit] = React.useState<AuditResponse | null>(null);
   const [backupPolicies, setBackupPolicies] = React.useState<BackupPolicyRecord[]>([]);
   const [backupRuns, setBackupRuns] = React.useState<BackupRunRecord[]>([]);
+  const [sanitizedReport, setSanitizedReport] = React.useState<SanitizedReport | null>(null);
   const [backupName, setBackupName] = React.useState("Config backup");
   const [backupSourcePath, setBackupSourcePath] = React.useState("/home/pi/printer_data/config");
   const [backupDestinationPath, setBackupDestinationPath] = React.useState(
@@ -322,6 +331,25 @@ function App() {
     }
   }
 
+  async function loadSanitizedReport() {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/reports/sanitized`);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setSanitizedReport((await response.json()) as SanitizedReport);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function createBackupPolicy(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedPrinterId) {
@@ -443,6 +471,7 @@ function App() {
                 onChange={(event) => {
                   const printerId = Number(event.target.value);
                   setSelectedPrinterId(printerId);
+                  setSanitizedReport(null);
                   void loadSnapshots(printerId);
                   void loadPrinterHealth(printerId);
                   void loadBackups(printerId);
@@ -523,6 +552,29 @@ function App() {
               </div>
             ))}
           </div>
+        </article>
+
+        <article className="panel wide">
+          <div className="panel-heading">
+            <h2>Relatório sanitizado</h2>
+            <button type="button" onClick={() => void loadSanitizedReport()} disabled={!selectedPrinterId || loading}>
+              Gerar relatório
+            </button>
+          </div>
+          <p className="muted">
+            Markdown read-only para compartilhar diagnóstico sem URLs, IPs, caminhos locais ou valores sensíveis detectáveis.
+          </p>
+          {sanitizedReport ? (
+            <>
+              <div className="audit-counts">
+                <Badge label="Formato" value={sanitizedReport.format} />
+                <Badge label="Modo" value={sanitizedReport.safe_mode} />
+                <Badge label="Redações" value={sanitizedReport.redactions.length} />
+                <Badge label="Impressora" value={sanitizedReport.printer_id} />
+              </div>
+              <pre className="report-preview">{sanitizedReport.markdown}</pre>
+            </>
+          ) : null}
         </article>
 
         <article className="panel wide">

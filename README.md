@@ -40,6 +40,7 @@ O MVP inicial contém:
 - checklist pós-update básico;
 - health check por impressora;
 - políticas de backup e dry-run seguro;
+- relatório Markdown sanitizado por impressora;
 - auditoria somente leitura com classificação de achados;
 - template systemd em `packaging/systemd/`.
 
@@ -51,6 +52,7 @@ Endpoints iniciais:
 - `PUT /api/printers/{printer_id}`
 - `GET /api/printers/{printer_id}/moonraker/status`
 - `GET /api/printers/{printer_id}/health`
+- `GET /api/printers/{printer_id}/reports/sanitized`
 - `GET /api/printers/{printer_id}/backup/policies`
 - `POST /api/printers/{printer_id}/backup/policies`
 - `GET /api/printers/{printer_id}/backup/runs`
@@ -172,6 +174,34 @@ Regras:
 - cria `.zip` no destino;
 - bloqueia destino dentro da origem;
 - registra resultado no histórico.
+
+## Relatórios Sanitizados
+
+O relatório sanitizado gera Markdown read-only para suporte/comunidade.
+
+Endpoint:
+
+```text
+GET /api/printers/{printer_id}/reports/sanitized
+```
+
+Inclui:
+
+- resumo da impressora;
+- decisão do health check;
+- itens de ação;
+- snapshots recentes;
+- última comparação de snapshots;
+- histórico recente de backups.
+
+Sanitização aplicada:
+
+- URLs;
+- IPs;
+- caminhos locais em `/home/...`;
+- valores detectáveis de senha, token, chave e segredo.
+
+O relatório deve ser revisado antes de ser publicado fora da rede local.
 
 ## Auditoria Do Host
 

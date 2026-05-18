@@ -238,6 +238,19 @@ label {
   color: #9aa6b2;
 }
 
+.report-preview {
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid #252b31;
+  border-radius: 6px;
+  background: #0d1116;
+  color: #dce6f1;
+  padding: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .snapshot-list {
   display: grid;
   gap: 8px;

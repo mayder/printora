@@ -11,6 +11,7 @@
 - PKG-04: Health check da impressora
 - PKG-05: Gerenciador de backups
 - PKG-06: Relatórios sanitizados
+- PKG-06A: Relatório Markdown sanitizado por impressora
 - PKG-07: Diário da impressora e manutenção preventiva
 - PKG-08: Assistente de primeira camada e Z-offset
 - PKG-09: Monitor CAN
@@ -285,6 +286,33 @@ Remover:
 - chaves;
 - URLs privadas;
 - dados pessoais.
+
+## PKG-06A: Relatório Markdown Sanitizado Por Impressora
+
+Objetivo:
+
+Gerar um relatório Markdown read-only por impressora para compartilhar diagnóstico em Discord, fórum ou issue pública.
+
+Entregáveis:
+
+- endpoint `GET /api/printers/{printer_id}/reports/sanitized`;
+- consolidação de health check, snapshots recentes, última comparação e histórico de backup;
+- sanitização de URLs, IPs, caminhos locais de usuário e valores sensíveis detectáveis;
+- preview no frontend;
+- testes automatizados para sanitização e conteúdo do relatório.
+
+Critério de aceite:
+
+- não altera impressora, configs, backups ou banco além da leitura normal;
+- relatório não expõe URL/IP/caminho local/senhas/tokens detectáveis;
+- usuário vê a lista de tipos de redação aplicados;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado em `backend/app/reports.py`.
+- Endpoint e preview no frontend implementados.
+- Testes cobrem sanitização de IP, URL, caminho local e segredo.
 
 ## PKG-07: Diário Da Impressora E Manutenção Preventiva
 
