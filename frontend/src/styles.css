@@ -398,6 +398,63 @@ label {
   margin: 0;
 }
 
+.firmware-board-form {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.7fr) minmax(260px, 1.4fr) minmax(140px, 0.7fr) 90px minmax(200px, 1fr) minmax(220px, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  margin: 14px 0;
+}
+
+.firmware-board-form textarea {
+  min-height: 42px;
+}
+
+.firmware-board-list,
+.preset-list {
+  display: grid;
+  gap: 8px;
+}
+
+.firmware-board-row {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.2fr) minmax(180px, 0.8fr) minmax(220px, 1fr);
+  gap: 12px;
+  border-left: 3px solid #42d77d;
+  border-top: 1px solid #252b31;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+}
+
+.firmware-board-row span,
+.firmware-board-row small,
+.preset-row span,
+.preset-row small {
+  display: block;
+  color: #9aa6b2;
+}
+
+.preset-details {
+  margin-top: 14px;
+  border-top: 1px solid #252b31;
+  padding-top: 12px;
+}
+
+.preset-details summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.preset-list {
+  margin-top: 10px;
+}
+
+.preset-row {
+  border-top: 1px solid #252b31;
+  padding: 10px 0;
+  overflow-wrap: anywhere;
+}
+
 .wizard-actions {
   display: flex;
   gap: 12px;
@@ -759,6 +816,8 @@ label {
   .can-form,
   .plugin-actions,
   .plugin-row,
+  .firmware-board-form,
+  .firmware-board-row,
   .z-offset-form,
   .wizard-actions,
   .wizard-summary,

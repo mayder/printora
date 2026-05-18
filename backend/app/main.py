@@ -11,6 +11,7 @@ from app.can_monitor import CanBusRecord, CanBusRecordCreate, CanMonitorReposito
 from app.checklists import build_post_update_checklist
 from app.config import Settings, get_settings
 from app.database import initialize_database
+from app.firmware import BoardPreset, FirmwareBoardCreate, FirmwareBoardRecord, FirmwareBoardRepository
 from app.health import build_printer_health, build_unreachable_health
 from app.host_audit import collect_host_audit, summarize_sections
 from app.maintenance import (
@@ -70,6 +71,10 @@ def get_maintenance_repository(settings: Settings) -> MaintenanceRepository:
 
 def get_z_offset_repository(settings: Settings) -> ZOffsetRepository:
     return ZOffsetRepository(settings.database_path)
+
+
+def get_firmware_board_repository(settings: Settings) -> FirmwareBoardRepository:
+    return FirmwareBoardRepository(settings.database_path)
 
 
 @asynccontextmanager
@@ -342,6 +347,36 @@ async def create_can_bus_record(printer_id: int, payload: CanBusRecordCreate) ->
         raise HTTPException(status_code=404, detail="printer not found")
     try:
         return can_repository.create_record(printer_id, payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/firmware/board-presets")
+async def list_firmware_board_presets() -> dict[str, list[BoardPreset]]:
+    settings = get_settings()
+    firmware_repository = get_firmware_board_repository(settings)
+    return {"presets": firmware_repository.list_presets()}
+
+
+@app.get("/api/printers/{printer_id}/firmware/boards")
+async def list_firmware_boards(printer_id: int) -> dict[str, list[FirmwareBoardRecord]]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    firmware_repository = get_firmware_board_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return {"boards": firmware_repository.list_boards(printer_id)}
+
+
+@app.post("/api/printers/{printer_id}/firmware/boards")
+async def create_firmware_board(printer_id: int, payload: FirmwareBoardCreate) -> FirmwareBoardRecord:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    firmware_repository = get_firmware_board_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        return firmware_repository.create_board(printer_id, payload)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

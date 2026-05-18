@@ -46,6 +46,7 @@ O MVP inicial contém:
 - wizard manual de Z-offset;
 - registro manual/read-only de saúde CAN;
 - auditoria read-only de mods e plugins;
+- cadastro local de placas e presets de firmware;
 - auditoria somente leitura com classificação de achados;
 - template systemd em `packaging/systemd/`.
 
@@ -74,6 +75,9 @@ Endpoints iniciais:
 - `GET /api/printers/{printer_id}/can/records`
 - `POST /api/printers/{printer_id}/can/records`
 - `GET /api/printers/{printer_id}/plugins/audit`
+- `GET /api/firmware/board-presets`
+- `GET /api/printers/{printer_id}/firmware/boards`
+- `POST /api/printers/{printer_id}/firmware/boards`
 - `POST /api/printers/{printer_id}/snapshots/moonraker`
 - `GET /api/printers/{printer_id}/snapshots`
 - `GET /api/printers/{printer_id}/snapshots/diff?from_id=...&to_id=...`
@@ -321,6 +325,36 @@ GET /api/printers/{printer_id}/plugins/audit
 ```
 
 Este módulo é read-only. Ele não remove repositórios, não edita `moonraker.conf`, não reinicia serviços e não altera configurações Klipper.
+
+## Firmware Manager
+
+O primeiro incremento do Firmware Manager é apenas cadastro local.
+
+Ele permite:
+
+- listar presets de placas comuns no ecossistema Voron/Klipper;
+- cadastrar placas por impressora;
+- guardar UUID CAN, interface CAN, arquivo `.config`, MCU e método futuro de flash;
+- preparar o inventário para build/dry-run em etapa futura.
+
+Presets iniciais:
+
+- BTT Octopus/Octopus Pro F446/H723;
+- BTT EBB36/EBB42;
+- BTT SB2209/SB2240;
+- Mellow Fly SHT36/SB2040;
+- Fysetc Spider;
+- Fysetc SB CAN.
+
+Endpoints:
+
+```text
+GET /api/firmware/board-presets
+GET /api/printers/{printer_id}/firmware/boards
+POST /api/printers/{printer_id}/firmware/boards
+```
+
+Esta etapa não compila firmware, não faz flash, não acessa SSH, não reinicia serviços e não altera Klipper.
 
 ## Auditoria Do Host
 

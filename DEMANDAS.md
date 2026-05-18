@@ -521,6 +521,23 @@ Itens:
 - Fysetc;
 - presets com MCU, bootloader, pins, build output e flash methods.
 
+Critério de aceite:
+
+- cadastrar placas por impressora;
+- listar presets sem acessar a impressora;
+- preservar UUID CAN, interface CAN, arquivo `.config` e método futuro de flash;
+- não executar build, flash, SSH, restart ou update;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado via `backend/sql/006_firmware_boards.sql`.
+- Implementado catálogo inicial de presets em `backend/app/firmware.py`.
+- Implementado `GET /api/firmware/board-presets`.
+- Implementado `GET/POST /api/printers/{printer_id}/firmware/boards`.
+- UI permite cadastrar placas por impressora e consultar presets disponíveis.
+- Esta etapa é apenas inventário local; build e flash continuam fora do escopo.
+
 ## PKG-12: Firmware Manager - Build E Dry-Run
 
 Objetivo:

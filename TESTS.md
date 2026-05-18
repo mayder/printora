@@ -58,6 +58,10 @@ Validações:
 - auditoria de plugins usa último snapshot Moonraker/Update Manager.
 - auditoria de plugins funciona sem snapshot e não executa comandos no host.
 - auditoria de plugins classifica KTC-Easy como perigoso remover agora e Auto Speed como legado/lixo técnico.
+- catálogo de presets de firmware inclui placas comuns BTT, Mellow e Fysetc.
+- cadastro de placa de firmware herda MCU, conexão e método de flash do preset.
+- placas CAN exigem UUID CAN.
+- placas de firmware ficam escopadas por impressora.
 
 Testes automatizados adicionais:
 
@@ -152,6 +156,14 @@ http://127.0.0.1:5178
 - Confirmar que itens do Update Manager aparecem como detectados.
 - Confirmar classificação de KTC-Easy/StealthChanger, KAMP, `led_effect`, Crowsnest, Sonar, Timelapse, Auto Speed, TapChanger e TMC Autotune.
 - Confirmar que nenhuma remoção, update, restart ou edição de config foi executada.
+
+### Firmware Manager
+
+- Abrir lista de presets.
+- Cadastrar uma Octopus USB-CAN bridge com UUID CAN.
+- Cadastrar um EBB CAN com UUID CAN.
+- Confirmar que MCU, método de flash futuro e arquivo `.config` aparecem no painel.
+- Confirmar que nenhum build, flash, SSH, restart ou update foi executado.
 
 ### Firmware Dry-Run
 

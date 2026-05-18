@@ -256,6 +256,38 @@ type PluginAuditResponse = {
   items: PluginAuditItem[];
 };
 
+type BoardPreset = {
+  id: string;
+  vendor: string;
+  name: string;
+  mcu: string;
+  architecture: string;
+  connection_type: "usb" | "can" | "usb_can_bridge";
+  communication: string;
+  bootloader_offset: string;
+  canbus_pins?: string | null;
+  build_output: string;
+  default_flash_method: "katapult_can" | "katapult_usb_can" | "dfu_usb" | "manual";
+  notes: string;
+};
+
+type FirmwareBoardRecord = {
+  id: number;
+  printer_id: number;
+  name: string;
+  preset_id: string;
+  can_uuid?: string | null;
+  can_interface: string;
+  connection_type: "usb" | "can" | "usb_can_bridge";
+  mcu: string;
+  flash_method: "katapult_can" | "katapult_usb_can" | "dfu_usb" | "manual";
+  config_file: string;
+  notes: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
@@ -278,6 +310,8 @@ function App() {
   const [zOffsetRecords, setZOffsetRecords] = React.useState<ZOffsetRecord[]>([]);
   const [canRecords, setCanRecords] = React.useState<CanBusRecord[]>([]);
   const [pluginAudit, setPluginAudit] = React.useState<PluginAuditResponse | null>(null);
+  const [boardPresets, setBoardPresets] = React.useState<BoardPreset[]>([]);
+  const [firmwareBoards, setFirmwareBoards] = React.useState<FirmwareBoardRecord[]>([]);
   const [zOffsetWizardPlan, setZOffsetWizardPlan] = React.useState<ZOffsetWizardPlan | null>(null);
   const [zOffsetWizardChecks, setZOffsetWizardChecks] = React.useState<Record<string, boolean>>({});
   const [maintenanceEventType, setMaintenanceEventType] =
@@ -300,6 +334,12 @@ function App() {
   const [canBusState, setCanBusState] = React.useState("ERROR-ACTIVE");
   const [canBitrate, setCanBitrate] = React.useState(1000000);
   const [canNotes, setCanNotes] = React.useState("");
+  const [firmwareBoardName, setFirmwareBoardName] = React.useState("EBB T0");
+  const [firmwareBoardPresetId, setFirmwareBoardPresetId] = React.useState("btt_ebb36_g0b1_can");
+  const [firmwareBoardCanUuid, setFirmwareBoardCanUuid] = React.useState("");
+  const [firmwareBoardCanInterface, setFirmwareBoardCanInterface] = React.useState("can0");
+  const [firmwareBoardConfigFile, setFirmwareBoardConfigFile] = React.useState("firmware/ebb_t0.config");
+  const [firmwareBoardNotes, setFirmwareBoardNotes] = React.useState("");
   const [backupName, setBackupName] = React.useState("Config backup");
   const [backupSourcePath, setBackupSourcePath] = React.useState("/home/pi/printer_data/config");
   const [backupDestinationPath, setBackupDestinationPath] = React.useState(
@@ -332,6 +372,7 @@ function App() {
         setHostAudit((await hostAuditResponse.json()) as AuditResponse);
       }
 
+      await loadBoardPresets();
       await loadPrinters();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
@@ -357,6 +398,7 @@ function App() {
       await loadZOffsets(nextSelected);
       await loadCanRecords(nextSelected);
       await loadPluginAudit(nextSelected);
+      await loadFirmwareBoards(nextSelected);
     }
   }
 
@@ -386,6 +428,7 @@ function App() {
       await loadZOffsets(created.id);
       await loadCanRecords(created.id);
       await loadPluginAudit(created.id);
+      await loadFirmwareBoards(created.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -531,6 +574,56 @@ function App() {
       return;
     }
     setPluginAudit((await response.json()) as PluginAuditResponse);
+  }
+
+  async function loadBoardPresets() {
+    const response = await fetch("/api/firmware/board-presets");
+    if (!response.ok) {
+      return;
+    }
+    const payload = (await response.json()) as { presets: BoardPreset[] };
+    setBoardPresets(payload.presets);
+  }
+
+  async function loadFirmwareBoards(printerId: number) {
+    const response = await fetch(`/api/printers/${printerId}/firmware/boards`);
+    if (!response.ok) {
+      return;
+    }
+    const payload = (await response.json()) as { boards: FirmwareBoardRecord[] };
+    setFirmwareBoards(payload.boards);
+  }
+
+  async function createFirmwareBoard(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/firmware/boards`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: firmwareBoardName,
+          preset_id: firmwareBoardPresetId,
+          can_uuid: firmwareBoardCanUuid || null,
+          can_interface: firmwareBoardCanInterface,
+          config_file: firmwareBoardConfigFile || null,
+          notes: firmwareBoardNotes,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setFirmwareBoardNotes("");
+      await loadFirmwareBoards(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function createCanRecord(event: React.FormEvent<HTMLFormElement>) {
@@ -842,6 +935,7 @@ function App() {
                   void loadZOffsets(printerId);
                   void loadCanRecords(printerId);
                   void loadPluginAudit(printerId);
+                  void loadFirmwareBoards(printerId);
                 }}
               >
                 <option value="" disabled>
@@ -1028,6 +1122,103 @@ function App() {
               </div>
             ))}
           </div>
+        </article>
+
+        <article className="panel wide">
+          <div className="panel-heading">
+            <h2>Firmware Manager</h2>
+            <strong>{firmwareBoards.length} placas cadastradas</strong>
+          </div>
+          <p className="muted">
+            Cadastro local de MCUs e presets. Esta etapa não compila firmware, não faz flash e não acessa a Raspberry.
+          </p>
+          <form className="firmware-board-form" onSubmit={(event) => void createFirmwareBoard(event)}>
+            <input
+              aria-label="Nome da placa"
+              value={firmwareBoardName}
+              onChange={(event) => setFirmwareBoardName(event.target.value)}
+              placeholder="EBB T0"
+            />
+            <select
+              aria-label="Preset da placa"
+              value={firmwareBoardPresetId}
+              onChange={(event) => {
+                setFirmwareBoardPresetId(event.target.value);
+                setFirmwareBoardConfigFile(`firmware/${event.target.value}.config`);
+              }}
+            >
+              {boardPresets.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.vendor} · {preset.name}
+                </option>
+              ))}
+            </select>
+            <input
+              aria-label="UUID CAN"
+              value={firmwareBoardCanUuid}
+              onChange={(event) => setFirmwareBoardCanUuid(event.target.value)}
+              placeholder="UUID CAN"
+            />
+            <input
+              aria-label="Interface CAN"
+              value={firmwareBoardCanInterface}
+              onChange={(event) => setFirmwareBoardCanInterface(event.target.value)}
+              placeholder="can0"
+            />
+            <input
+              aria-label="Arquivo .config"
+              value={firmwareBoardConfigFile}
+              onChange={(event) => setFirmwareBoardConfigFile(event.target.value)}
+              placeholder="firmware/ebb_t0.config"
+            />
+            <textarea
+              aria-label="Notas da placa"
+              value={firmwareBoardNotes}
+              onChange={(event) => setFirmwareBoardNotes(event.target.value)}
+              placeholder="Ex.: toolhead CAN, Katapult já instalado"
+            />
+            <button type="submit" disabled={!selectedPrinterId || loading || boardPresets.length === 0}>
+              Cadastrar placa
+            </button>
+          </form>
+          <div className="firmware-board-list">
+            {firmwareBoards.length === 0 ? <p className="muted">Nenhuma placa cadastrada.</p> : null}
+            {firmwareBoards.map((board) => (
+              <div key={board.id} className="firmware-board-row">
+                <div>
+                  <strong>{board.name}</strong>
+                  <span>
+                    {board.preset_id} · {board.mcu} · {formatConnectionType(board.connection_type)}
+                  </span>
+                  <small>
+                    flash futuro: {board.flash_method} · config: {board.config_file}
+                  </small>
+                </div>
+                <div>
+                  <span>CAN UUID: {board.can_uuid ?? "-"}</span>
+                  <small>Interface: {board.can_interface}</small>
+                </div>
+                <small>{board.notes || "Sem notas."}</small>
+              </div>
+            ))}
+          </div>
+          <details className="preset-details">
+            <summary>Presets disponíveis ({boardPresets.length})</summary>
+            <div className="preset-list">
+              {boardPresets.map((preset) => (
+                <div key={preset.id} className="preset-row">
+                  <strong>{preset.name}</strong>
+                  <span>
+                    {preset.mcu} · {formatConnectionType(preset.connection_type)} · {preset.default_flash_method}
+                  </span>
+                  <small>
+                    bootloader: {preset.bootloader_offset} · output: {preset.build_output} · pins:{" "}
+                    {preset.canbus_pins ?? "-"}
+                  </small>
+                </div>
+              ))}
+            </div>
+          </details>
         </article>
 
         <article className="panel wide">
@@ -1615,6 +1806,15 @@ function formatBoolean(value: boolean | null | undefined) {
     return "-";
   }
   return value ? "sim" : "não";
+}
+
+function formatConnectionType(connectionType: BoardPreset["connection_type"]) {
+  const labels: Record<BoardPreset["connection_type"], string> = {
+    usb: "USB",
+    can: "CAN",
+    usb_can_bridge: "USB-CAN bridge",
+  };
+  return labels[connectionType];
 }
 
 function confirmedWizardSteps(checks: Record<string, boolean>) {
