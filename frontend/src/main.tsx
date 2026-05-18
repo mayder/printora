@@ -654,13 +654,18 @@ function App() {
     setLoading(true);
     setError(null);
     try {
+      const validationError = validatePrinterConnectionInput(newPrinterUrl, newPrinterSshHost);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
       const payload = {
-        name: newPrinterName,
-        moonraker_url: newPrinterUrl,
+        name: newPrinterName.trim(),
+        moonraker_url: newPrinterUrl.trim(),
         host_audit_mode: newPrinterSshHost && newPrinterSshUser ? "ssh" : "disabled",
-        ssh_host: newPrinterSshHost || null,
+        ssh_host: newPrinterSshHost.trim() || null,
         ssh_port: newPrinterSshPort,
-        ssh_username: newPrinterSshUser || null,
+        ssh_username: newPrinterSshUser.trim() || null,
         ssh_credential: newPrinterSshCredential || null,
       };
       const response = await fetch(printerModalMode === "edit" && editingPrinterId ? `/api/printers/${editingPrinterId}` : "/api/printers", {
@@ -2640,6 +2645,26 @@ function formatMetricLabel(label: string) {
     latest_diff_severity: "Último diff",
   };
   return labels[label] ?? label.replaceAll("_", " ");
+}
+
+function validatePrinterConnectionInput(moonrakerUrl: string, sshHost: string) {
+  try {
+    const parsedUrl = new URL(moonrakerUrl.trim());
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+      return "A URL do Moonraker precisa começar com http:// ou https://.";
+    }
+    if (parsedUrl.hostname.endsWith(".loca")) {
+      return `Host Moonraker inválido: use ${parsedUrl.hostname}l ou um IP.`;
+    }
+  } catch {
+    return "URL Moonraker inválida. Exemplo: http://voron.local:7125.";
+  }
+
+  const cleanSshHost = sshHost.trim();
+  if (cleanSshHost.endsWith(".loca")) {
+    return `Host SSH inválido: use ${cleanSshHost}l ou um IP.`;
+  }
+  return null;
 }
 
 function extractHost(url: string) {
