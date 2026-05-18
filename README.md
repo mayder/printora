@@ -42,6 +42,7 @@ O MVP inicial contém:
 - políticas de backup e dry-run seguro;
 - relatório Markdown sanitizado por impressora;
 - diário de manutenção e tarefas preventivas por impressora;
+- registro manual de Z-offset por chapa/material/nozzle;
 - auditoria somente leitura com classificação de achados;
 - template systemd em `packaging/systemd/`.
 
@@ -64,6 +65,8 @@ Endpoints iniciais:
 - `GET /api/printers/{printer_id}/maintenance/tasks`
 - `POST /api/printers/{printer_id}/maintenance/tasks`
 - `POST /api/maintenance/tasks/{task_id}/complete`
+- `GET /api/printers/{printer_id}/z-offsets`
+- `POST /api/printers/{printer_id}/z-offsets`
 - `POST /api/printers/{printer_id}/snapshots/moonraker`
 - `GET /api/printers/{printer_id}/snapshots`
 - `GET /api/printers/{printer_id}/snapshots/diff?from_id=...&to_id=...`
@@ -231,6 +234,29 @@ Tarefas preventivas:
 Concluir uma tarefa preventiva cria automaticamente um evento no diário e atualiza `last_done_at`.
 
 O módulo não envia G-code, não reinicia serviços e não altera configuração da impressora.
+
+## Z-offset
+
+O registro manual de Z-offset guarda histórico por impressora, chapa, material e nozzle/toolhead.
+
+Campos principais:
+
+- chapa;
+- material;
+- nozzle/toolhead;
+- valor do Z-offset;
+- valor anterior compatível;
+- delta;
+- alerta;
+- notas.
+
+Alertas:
+
+- `ok`: diferença menor que `0.05`;
+- `monitorar`: diferença a partir de `0.05`;
+- `revisar`: diferença a partir de `0.10`.
+
+Este módulo não executa `PROBE_CALIBRATE`, não envia G-code e não altera `printer.cfg`.
 
 ## Auditoria Do Host
 

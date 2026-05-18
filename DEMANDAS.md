@@ -14,6 +14,7 @@
 - PKG-06A: Relatório Markdown sanitizado por impressora
 - PKG-07: Diário da impressora e manutenção preventiva
 - PKG-08: Assistente de primeira camada e Z-offset
+- PKG-08A: Registro manual de Z-offset
 - PKG-09: Monitor CAN
 - PKG-10: Gestão de mods e plugins
 - PKG-11: Firmware Manager - cadastro de placas e presets
@@ -368,6 +369,36 @@ Itens:
 - comparação com valor anterior;
 - alerta se mudança for grande;
 - notas e fotos opcionais.
+
+## PKG-08A: Registro Manual De Z-offset
+
+Objetivo:
+
+Registrar manualmente valores de Z-offset por impressora, chapa, material e nozzle/toolhead.
+
+Entregáveis:
+
+- tabela `z_offset_records`;
+- API para listar e registrar Z-offset;
+- cálculo automático de valor anterior e delta;
+- alerta `ok`, `monitorar` ou `revisar`;
+- UI para histórico e cadastro manual.
+
+Critério de aceite:
+
+- não envia G-code;
+- não executa `PROBE_CALIBRATE`;
+- não altera `printer.cfg`;
+- histórico fica escopado por impressora;
+- comparação usa chapa, material e nozzle/toolhead compatíveis;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado via `backend/sql/004_z_offset.sql`.
+- Implementado em `backend/app/z_offset.py`.
+- Endpoints e UI inicial implementados.
+- Testes cobrem delta, alerta e escopo por impressora.
 
 ## PKG-09: Monitor CAN
 

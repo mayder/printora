@@ -297,6 +297,44 @@ label {
   color: #9aa6b2;
 }
 
+.z-offset-form {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) 100px 90px 120px minmax(220px, 1.5fr) auto;
+  gap: 10px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.z-offset-form textarea {
+  min-height: 42px;
+}
+
+.z-offset-list {
+  display: grid;
+  gap: 8px;
+}
+
+.z-offset-row {
+  border-left: 3px solid #42d77d;
+  border-top: 1px solid #252b31;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+}
+
+.z-offset-row.monitorar {
+  border-left-color: #ffb020;
+}
+
+.z-offset-row.revisar {
+  border-left-color: #e04f5f;
+}
+
+.z-offset-row span,
+.z-offset-row small {
+  display: block;
+  color: #9aa6b2;
+}
+
 .report-preview {
   max-height: 420px;
   overflow: auto;
@@ -557,6 +595,7 @@ label {
   .maintenance-layout,
   .maintenance-task-form,
   .maintenance-row,
+  .z-offset-form,
   .printer-row,
   .snapshot-compare,
   .snapshot-row {

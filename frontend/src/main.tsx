@@ -174,6 +174,21 @@ type MaintenanceTaskRecord = {
   days_until_due?: number | null;
 };
 
+type ZOffsetRecord = {
+  id: number;
+  printer_id: number;
+  recorded_at: string;
+  plate_name: string;
+  material: string;
+  nozzle: string;
+  offset_value: number;
+  previous_offset_value?: number | null;
+  delta_value?: number | null;
+  alert_level: "ok" | "monitorar" | "revisar";
+  notes: string;
+  created_at: string;
+};
+
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
@@ -193,6 +208,7 @@ function App() {
   const [sanitizedReport, setSanitizedReport] = React.useState<SanitizedReport | null>(null);
   const [maintenanceEvents, setMaintenanceEvents] = React.useState<MaintenanceEventRecord[]>([]);
   const [maintenanceTasks, setMaintenanceTasks] = React.useState<MaintenanceTaskRecord[]>([]);
+  const [zOffsetRecords, setZOffsetRecords] = React.useState<ZOffsetRecord[]>([]);
   const [maintenanceEventType, setMaintenanceEventType] =
     React.useState<MaintenanceEventRecord["event_type"]>("maintenance");
   const [maintenanceComponent, setMaintenanceComponent] = React.useState("motion");
@@ -201,6 +217,11 @@ function App() {
   const [maintenanceTaskName, setMaintenanceTaskName] = React.useState("Limpar mesa");
   const [maintenanceTaskComponent, setMaintenanceTaskComponent] = React.useState("bed");
   const [maintenanceTaskIntervalDays, setMaintenanceTaskIntervalDays] = React.useState(30);
+  const [zOffsetPlateName, setZOffsetPlateName] = React.useState("Texturizada");
+  const [zOffsetMaterial, setZOffsetMaterial] = React.useState("PLA");
+  const [zOffsetNozzle, setZOffsetNozzle] = React.useState("T0");
+  const [zOffsetValue, setZOffsetValue] = React.useState(-0.295);
+  const [zOffsetNotes, setZOffsetNotes] = React.useState("");
   const [backupName, setBackupName] = React.useState("Config backup");
   const [backupSourcePath, setBackupSourcePath] = React.useState("/home/pi/printer_data/config");
   const [backupDestinationPath, setBackupDestinationPath] = React.useState(
@@ -255,6 +276,7 @@ function App() {
       await loadPrinterHealth(nextSelected);
       await loadBackups(nextSelected);
       await loadMaintenance(nextSelected);
+      await loadZOffsets(nextSelected);
     }
   }
 
@@ -281,6 +303,7 @@ function App() {
       await loadPrinterHealth(created.id);
       await loadBackups(created.id);
       await loadMaintenance(created.id);
+      await loadZOffsets(created.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -399,6 +422,46 @@ function App() {
     if (tasksResponse.ok) {
       const payload = (await tasksResponse.json()) as { tasks: MaintenanceTaskRecord[] };
       setMaintenanceTasks(payload.tasks);
+    }
+  }
+
+  async function loadZOffsets(printerId: number) {
+    const response = await fetch(`/api/printers/${printerId}/z-offsets`);
+    if (!response.ok) {
+      return;
+    }
+    const payload = (await response.json()) as { records: ZOffsetRecord[] };
+    setZOffsetRecords(payload.records);
+  }
+
+  async function createZOffsetRecord(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/z-offsets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plate_name: zOffsetPlateName,
+          material: zOffsetMaterial,
+          nozzle: zOffsetNozzle,
+          offset_value: zOffsetValue,
+          notes: zOffsetNotes,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setZOffsetNotes("");
+      await loadZOffsets(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -609,6 +672,7 @@ function App() {
                   void loadPrinterHealth(printerId);
                   void loadBackups(printerId);
                   void loadMaintenance(printerId);
+                  void loadZOffsets(printerId);
                 }}
               >
                 <option value="" disabled>
@@ -683,6 +747,67 @@ function App() {
                 </div>
                 <p>{item.detail}</p>
                 <small>{item.action}</small>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel wide">
+          <div className="panel-heading">
+            <h2>Z-offset</h2>
+            <strong>{formatLatestZOffset(zOffsetRecords[0])}</strong>
+          </div>
+          <form className="z-offset-form" onSubmit={(event) => void createZOffsetRecord(event)}>
+            <input
+              aria-label="Chapa"
+              value={zOffsetPlateName}
+              onChange={(event) => setZOffsetPlateName(event.target.value)}
+              placeholder="Chapa"
+            />
+            <input
+              aria-label="Material"
+              value={zOffsetMaterial}
+              onChange={(event) => setZOffsetMaterial(event.target.value)}
+              placeholder="Material"
+            />
+            <input
+              aria-label="Nozzle ou toolhead"
+              value={zOffsetNozzle}
+              onChange={(event) => setZOffsetNozzle(event.target.value)}
+              placeholder="T0"
+            />
+            <input
+              aria-label="Valor do Z-offset"
+              type="number"
+              step="0.001"
+              value={zOffsetValue}
+              onChange={(event) => setZOffsetValue(Number(event.target.value))}
+            />
+            <textarea
+              aria-label="Notas do Z-offset"
+              value={zOffsetNotes}
+              onChange={(event) => setZOffsetNotes(event.target.value)}
+              placeholder="Ex.: calibrado com papel após limpeza da mesa"
+            />
+            <button type="submit" disabled={!selectedPrinterId || loading}>
+              Registrar
+            </button>
+          </form>
+          <div className="z-offset-list">
+            {zOffsetRecords.length === 0 ? <p className="muted">Nenhum Z-offset registrado.</p> : null}
+            {zOffsetRecords.map((record) => (
+              <div key={record.id} className={`z-offset-row ${record.alert_level}`}>
+                <div>
+                  <strong>{record.offset_value.toFixed(3)}</strong>
+                  <span>
+                    {record.plate_name} · {record.material} · {record.nozzle} · {record.recorded_at}
+                  </span>
+                  <small>
+                    Anterior: {formatOptionalNumber(record.previous_offset_value)} · Delta:{" "}
+                    {formatOptionalNumber(record.delta_value)} · {formatZOffsetAlert(record.alert_level)}
+                  </small>
+                  {record.notes ? <small>{record.notes}</small> : null}
+                </div>
               </div>
             ))}
           </div>
@@ -1114,6 +1239,26 @@ function formatDueStatus(task: MaintenanceTaskRecord) {
     return "data inválida";
   }
   return `${task.days_until_due ?? "-"} dias restantes`;
+}
+
+function formatLatestZOffset(record: ZOffsetRecord | undefined) {
+  if (!record) {
+    return "Sem histórico";
+  }
+  return `${record.offset_value.toFixed(3)} · ${formatZOffsetAlert(record.alert_level)}`;
+}
+
+function formatZOffsetAlert(alertLevel: ZOffsetRecord["alert_level"]) {
+  const labels: Record<ZOffsetRecord["alert_level"], string> = {
+    ok: "ok",
+    monitorar: "monitorar",
+    revisar: "revisar antes de imprimir",
+  };
+  return labels[alertLevel];
+}
+
+function formatOptionalNumber(value: number | null | undefined) {
+  return typeof value === "number" ? value.toFixed(3) : "-";
 }
 
 function formatDecision(decision: HealthResponse["decision"] | undefined) {

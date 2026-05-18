@@ -46,6 +46,9 @@ Validações:
 - relatório sanitizado inclui health, snapshots, diff e histórico de backup sem dados privados.
 - eventos de manutenção ficam vinculados à impressora correta.
 - tarefa preventiva inicia pendente, ao concluir gera evento e fica em dia.
+- registro manual de Z-offset calcula delta contra valor anterior compatível.
+- Z-offset gera alerta `monitorar` ou `revisar` quando a variação passa do limite.
+- histórico de Z-offset fica escopado por impressora.
 
 Testes automatizados adicionais:
 
@@ -117,6 +120,13 @@ http://127.0.0.1:5178
 - Concluir tarefa.
 - Confirmar que evento aparece no diário.
 - Confirmar que nenhuma ação foi enviada para Klipper/Moonraker.
+
+### Z-offset
+
+- Registrar primeiro valor de Z-offset para chapa/material/nozzle.
+- Registrar segundo valor compatível.
+- Confirmar delta e alerta.
+- Confirmar que nenhum G-code foi enviado e nenhum arquivo Klipper foi alterado.
 
 ### Firmware Dry-Run
 

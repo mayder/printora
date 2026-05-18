@@ -30,6 +30,7 @@ from app.snapshots import (
     SnapshotRepository,
     build_moonraker_snapshot_payload,
 )
+from app.z_offset import ZOffsetRecord, ZOffsetRecordCreate, ZOffsetRepository
 
 
 def get_moonraker_client(settings: Settings) -> MoonrakerClient:
@@ -53,6 +54,10 @@ def get_backup_repository(settings: Settings) -> BackupRepository:
 
 def get_maintenance_repository(settings: Settings) -> MaintenanceRepository:
     return MaintenanceRepository(settings.database_path)
+
+
+def get_z_offset_repository(settings: Settings) -> ZOffsetRepository:
+    return ZOffsetRepository(settings.database_path)
 
 
 @asynccontextmanager
@@ -256,6 +261,30 @@ async def sanitized_report(printer_id: int) -> SanitizedReport:
         latest_diff=latest_diff,
         backup_runs=backup_runs,
     )
+
+
+@app.get("/api/printers/{printer_id}/z-offsets")
+async def list_z_offset_records(printer_id: int, limit: int = 50) -> dict[str, list[ZOffsetRecord]]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    z_offset_repository = get_z_offset_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    clean_limit = min(max(limit, 1), 100)
+    return {"records": z_offset_repository.list_records(printer_id, clean_limit)}
+
+
+@app.post("/api/printers/{printer_id}/z-offsets")
+async def create_z_offset_record(printer_id: int, payload: ZOffsetRecordCreate) -> ZOffsetRecord:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    z_offset_repository = get_z_offset_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        return z_offset_repository.create_record(printer_id, payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/printers/{printer_id}/maintenance/events")
