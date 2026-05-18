@@ -43,6 +43,14 @@ type PrinterRecord = {
   is_active: boolean;
 };
 
+type SnapshotRecord = {
+  id: number;
+  printer_id: number;
+  created_at: string;
+  snapshot_type: string;
+  summary: Record<string, unknown>;
+};
+
 type AuditFinding = {
   id: string;
   title: string;
@@ -69,6 +77,7 @@ function App() {
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
   const [newPrinterName, setNewPrinterName] = React.useState("Voron - Mayder");
   const [newPrinterUrl, setNewPrinterUrl] = React.useState("http://voron.local:7125");
+  const [snapshots, setSnapshots] = React.useState<SnapshotRecord[]>([]);
   const [status, setStatus] = React.useState<MoonrakerStatus | null>(null);
   const [checklist, setChecklist] = React.useState<ChecklistResponse | null>(null);
   const [audit, setAudit] = React.useState<AuditResponse | null>(null);
@@ -114,7 +123,11 @@ function App() {
     }
     const payload = (await response.json()) as { printers: PrinterRecord[] };
     setPrinters(payload.printers);
-    setSelectedPrinterId((current) => current ?? payload.printers[0]?.id ?? null);
+    const nextSelected = selectedPrinterId ?? payload.printers[0]?.id ?? null;
+    setSelectedPrinterId(nextSelected);
+    if (nextSelected) {
+      await loadSnapshots(nextSelected);
+    }
   }
 
   async function createPrinter(event: React.FormEvent<HTMLFormElement>) {
@@ -161,6 +174,36 @@ function App() {
     }
   }
 
+  async function captureSnapshot() {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/snapshots/moonraker`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadSnapshots(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadSnapshots(printerId: number) {
+    const response = await fetch(`/api/printers/${printerId}/snapshots`);
+    if (!response.ok) {
+      return;
+    }
+    const payload = (await response.json()) as { snapshots: SnapshotRecord[] };
+    setSnapshots(payload.snapshots);
+  }
+
   React.useEffect(() => {
     void loadStatus();
   }, []);
@@ -187,7 +230,11 @@ function App() {
               Impressora ativa
               <select
                 value={selectedPrinterId ?? ""}
-                onChange={(event) => setSelectedPrinterId(Number(event.target.value))}
+                onChange={(event) => {
+                  const printerId = Number(event.target.value);
+                  setSelectedPrinterId(printerId);
+                  void loadSnapshots(printerId);
+                }}
               >
                 <option value="" disabled>
                   Selecione
@@ -201,6 +248,9 @@ function App() {
             </label>
             <button type="button" onClick={() => void loadSelectedPrinterStatus()} disabled={!selectedPrinterId || loading}>
               Ler selecionada
+            </button>
+            <button type="button" onClick={() => void captureSnapshot()} disabled={!selectedPrinterId || loading}>
+              Capturar snapshot
             </button>
           </div>
           <form className="printer-form" onSubmit={(event) => void createPrinter(event)}>
@@ -226,6 +276,21 @@ function App() {
                 <strong>{printer.name}</strong>
                 <span>{printer.moonraker_url}</span>
                 <small>{printer.host_audit_mode}</small>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel wide">
+          <h2>Snapshots</h2>
+          <div className="snapshot-list">
+            {snapshots.length === 0 ? <p className="muted">Nenhum snapshot capturado.</p> : null}
+            {snapshots.map((snapshot) => (
+              <div key={snapshot.id} className="snapshot-row">
+                <strong>#{snapshot.id}</strong>
+                <span>{snapshot.created_at}</span>
+                <span>{snapshot.snapshot_type}</span>
+                <small>{formatUnknown(snapshot.summary)}</small>
               </div>
             ))}
           </div>

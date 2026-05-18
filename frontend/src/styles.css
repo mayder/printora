@@ -119,7 +119,7 @@ label {
 .printer-toolbar,
 .printer-form {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) auto;
+  grid-template-columns: minmax(240px, 1fr) auto auto;
   gap: 12px;
   align-items: end;
   margin-bottom: 14px;
@@ -145,6 +145,27 @@ label {
 
 .printer-row span,
 .printer-row small {
+  color: #9aa6b2;
+  overflow-wrap: anywhere;
+}
+
+.snapshot-list {
+  display: grid;
+  gap: 8px;
+}
+
+.snapshot-row {
+  display: grid;
+  grid-template-columns: 80px 160px 170px minmax(0, 1fr);
+  gap: 12px;
+  border-top: 1px solid #252b31;
+  padding: 10px 0;
+  align-items: start;
+}
+
+.snapshot-row span,
+.snapshot-row small,
+.muted {
   color: #9aa6b2;
   overflow-wrap: anywhere;
 }
@@ -288,7 +309,8 @@ label {
 
   .printer-toolbar,
   .printer-form,
-  .printer-row {
+  .printer-row,
+  .snapshot-row {
     grid-template-columns: 1fr;
   }
 

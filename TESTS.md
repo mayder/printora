@@ -31,6 +31,8 @@ Validações:
 - tabelas multi-impressora existem;
 - endpoints não armazenam credenciais;
 - fixtures ficam em `backend/tests/fixtures/`.
+- snapshots ficam vinculados a `printer_id`;
+- listagem de snapshot retorna resumo, não payload completo.
 
 Testes automatizados adicionais:
 

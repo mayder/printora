@@ -4,6 +4,7 @@
 
 - PKG-01: Base do projeto e documentação operacional
 - PKG-01B: Base multi-impressora e fixtures locais
+- PKG-01C: Snapshots read-only por impressora
 - PKG-02: Auditoria somente leitura do ambiente Klipper
 - PKG-03: Checklist pós-update guiado
 - PKG-04: Health check da impressora
@@ -99,6 +100,34 @@ Estado atual:
 - Implementado repository SQLite em `backend/app/printers.py`.
 - Implementado endpoints `/api/printers` e `/api/printers/{printer_id}/moonraker/status`.
 - UI inicial permite cadastrar e selecionar impressoras.
+
+## PKG-01C: Snapshots Read-Only Por Impressora
+
+Objetivo:
+
+Salvar leituras reais por impressora para histórico, auditoria comparativa e desenvolvimento offline.
+
+Entregáveis:
+
+- endpoint para capturar snapshot Moonraker;
+- endpoint para listar snapshots por impressora;
+- endpoint para abrir payload completo de um snapshot;
+- resumo sanitizado na listagem;
+- fixtures de snapshot Moonraker para testes.
+
+Critério de aceite:
+
+- snapshot usa apenas leitura Moonraker;
+- snapshot fica vinculado a uma impressora;
+- listagem não despeja payload grande por padrão;
+- testes cobrem persistência e resumo.
+
+Estado atual:
+
+- Implementado `POST /api/printers/{printer_id}/snapshots/moonraker`.
+- Implementado `GET /api/printers/{printer_id}/snapshots`.
+- Implementado `GET /api/snapshots/{snapshot_id}`.
+- UI inicial permite capturar e listar snapshots.
 
 ## PKG-03: Checklist Pós-Update Guiado
 

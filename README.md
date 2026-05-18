@@ -48,6 +48,9 @@ Endpoints iniciais:
 - `POST /api/printers`
 - `PUT /api/printers/{printer_id}`
 - `GET /api/printers/{printer_id}/moonraker/status`
+- `POST /api/printers/{printer_id}/snapshots/moonraker`
+- `GET /api/printers/{printer_id}/snapshots`
+- `GET /api/snapshots/{snapshot_id}`
 - `GET /api/moonraker/status`
 - `GET /api/checklist/post-update`
 - `GET /api/audit/read-only`
@@ -72,6 +75,20 @@ Isso permite dois modelos de uso:
 - instalado em um computador da rede, centralizando várias impressoras Klipper.
 
 O cadastro não armazena credenciais. Acesso SSH, quando usado no futuro, deve depender de chave SSH do sistema.
+
+## Snapshots
+
+Snapshots salvam leituras read-only para histórico e desenvolvimento offline.
+
+O primeiro tipo suportado é `moonraker_status`, com:
+
+- `printer/info`;
+- `server/info`;
+- `machine/update/status`;
+- `machine/system_info`;
+- `machine/proc_stats`.
+
+A listagem retorna resumo. O payload completo fica disponível em `GET /api/snapshots/{snapshot_id}`.
 
 ## Auditoria Do Host
 

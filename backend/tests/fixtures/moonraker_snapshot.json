@@ -1,0 +1,38 @@
+{
+  "printer_info": {
+    "state": "ready",
+    "state_message": "Printer is ready",
+    "software_version": "v0.13.0-656-g4cc47cf5-dirty"
+  },
+  "server_info": {
+    "klippy_connected": true,
+    "klippy_state": "ready",
+    "moonraker_version": "v0.10.0-20-g9008485",
+    "failed_components": [],
+    "warnings": []
+  },
+  "update_status": {
+    "version_info": {
+      "klipper": {
+        "is_dirty": false,
+        "commits_behind_count": 0,
+        "full_version_string": "v0.13.0-656-g4cc47cf5"
+      },
+      "moonraker": {
+        "is_dirty": false,
+        "commits_behind_count": 0,
+        "full_version_string": "v0.10.0-20-g90084858"
+      }
+    }
+  },
+  "system_info": {
+    "system_info": {
+      "distribution": {
+        "name": "Debian GNU/Linux 11 (bullseye)"
+      }
+    }
+  },
+  "proc_stats": {
+    "cpu_temp": 44.3
+  }
+}
