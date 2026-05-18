@@ -69,6 +69,8 @@ Validações:
 - build local exige confirmação textual quando o modo local está habilitado.
 - dry-run de flash usa binário de build quando informado e não executa comandos.
 - dry-run de flash rejeita build de outra placa.
+- artefatos de systemd, Mainsail e Update Manager existem e apontam para serviço local.
+- instalador Raspberry roda em dry-run por padrão.
 
 Testes automatizados adicionais:
 
@@ -208,6 +210,16 @@ Critérios:
 - Abrir app pelo Mainsail.
 - Validar layout desktop.
 - Validar layout no navegador embutido do OrcaSlicer.
+
+### Integração Raspberry
+
+- Rodar `./scripts/install_raspberry.sh` sem `--apply`.
+- Confirmar que a saída mostra `DRY-RUN`.
+- Confirmar que nenhum serviço foi instalado/iniciado.
+- Revisar `packaging/systemd/mayderprintlab.service`.
+- Revisar `packaging/mainsail/navi.json`.
+- Revisar `packaging/moonraker/update_manager_mayderprintlab.conf`.
+- Confirmar que `docs/INSTALL_RASPBERRY.md` contém rollback.
 
 ## Critérios Para Não Avançar
 

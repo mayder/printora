@@ -689,6 +689,27 @@ Itens:
 - documentação de instalação;
 - documentação de rollback.
 
+Critério de aceite:
+
+- backend consegue servir o frontend buildado;
+- serviço systemd documentado;
+- `.env` de exemplo sem segredo;
+- snippet de Update Manager;
+- exemplo de custom navigation do Mainsail;
+- instalador com dry-run por padrão;
+- documentação de instalação e rollback;
+- nenhuma instalação é aplicada sem comando explícito;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Backend serve `frontend/dist` quando disponível.
+- Criado `packaging/env/mayderprintlab.env.example`.
+- Criado `packaging/moonraker/update_manager_mayderprintlab.conf`.
+- Criado `packaging/mainsail/navi.json`.
+- Criado `scripts/install_raspberry.sh` com dry-run padrão e `--apply` explícito.
+- Criada documentação `docs/INSTALL_RASPBERRY.md`.
+
 ## PKG-15: Centro De Calibração E Testes Voron
 
 Objetivo:

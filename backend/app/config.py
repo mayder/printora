@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     app_name: str = "MayderPrintLab"
     moonraker_url: str = Field(default="http://127.0.0.1:7125")
     data_dir: Path = Field(default=Path.home() / ".local/share/mayderprintlab")
+    frontend_dist_dir: Path = Field(default=Path(__file__).resolve().parents[2] / "frontend" / "dist")
     request_timeout_seconds: float = 5.0
     host_audit_mode: HostAuditMode = "disabled"
     host_audit_ssh_target: str = "pi@voron.local"

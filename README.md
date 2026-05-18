@@ -50,7 +50,9 @@ O MVP inicial contém:
 - dry-run planejado de build de firmware;
 - dry-run planejado de flash de firmware;
 - auditoria somente leitura com classificação de achados;
-- template systemd em `packaging/systemd/`.
+- backend servindo frontend buildado quando `frontend/dist` existe;
+- templates de integração em `packaging/`;
+- instalador Raspberry com dry-run em `scripts/install_raspberry.sh`.
 
 Endpoints iniciais:
 
@@ -93,6 +95,36 @@ Endpoints iniciais:
 - `GET /api/checklist/post-update`
 - `GET /api/audit/read-only`
 - `GET /api/audit/host-read-only`
+
+## Integração Raspberry/Mainsail/Moonraker
+
+Artefatos principais:
+
+- `packaging/systemd/mayderprintlab.service`
+- `packaging/env/mayderprintlab.env.example`
+- `packaging/mainsail/navi.json`
+- `packaging/moonraker/update_manager_mayderprintlab.conf`
+- `scripts/install_raspberry.sh`
+- `docs/INSTALL_RASPBERRY.md`
+
+O instalador roda em dry-run por padrão:
+
+```bash
+./scripts/install_raspberry.sh
+```
+
+Para aplicar em uma Raspberry depois de revisar:
+
+```bash
+./scripts/install_raspberry.sh --apply
+```
+
+O script não inicia o serviço automaticamente. Revise `.env` antes:
+
+```bash
+sudo systemctl start mayderprintlab.service
+curl -s http://127.0.0.1:8085/health
+```
 
 ## Múltiplas Impressoras
 

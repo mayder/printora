@@ -4,6 +4,8 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.audit import build_read_only_audit
 from app.backups import BackupPolicyCreate, BackupPolicyRecord, BackupRepository, BackupRunRecord
@@ -104,10 +106,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+_frontend_dist_dir = get_settings().frontend_dist_dir
+_frontend_assets_dir = _frontend_dist_dir / "assets"
+if _frontend_assets_dir.is_dir():
+    app.mount("/assets", StaticFiles(directory=_frontend_assets_dir), name="frontend-assets")
+
 
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "app": "MayderPrintLab"}
+
+
+@app.get("/")
+async def frontend_index() -> FileResponse:
+    index_path = get_settings().frontend_dist_dir / "index.html"
+    if not index_path.is_file():
+        raise HTTPException(status_code=404, detail="frontend build not found")
+    return FileResponse(index_path)
 
 
 @app.get("/api/moonraker/status")
@@ -769,3 +784,13 @@ def _latest_snapshot_diff(
     if len(snapshots) < 2:
         return None
     return snapshot_repository.diff_snapshots(printer_id, snapshots[1].id, snapshots[0].id)
+
+
+@app.get("/{frontend_path:path}")
+async def frontend_fallback(frontend_path: str) -> FileResponse:
+    if frontend_path == "health" or frontend_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="not found")
+    index_path = get_settings().frontend_dist_dir / "index.html"
+    if not index_path.is_file():
+        raise HTTPException(status_code=404, detail="frontend build not found")
+    return FileResponse(index_path)
