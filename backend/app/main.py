@@ -875,30 +875,7 @@ async def read_only_audit() -> dict[str, Any]:
         printer_info, server_info, system_info, proc_stats = await _collect_status(client)
         update_status = await client.update_status()
     except httpx.HTTPError as exc:
-        return {
-            "safe_mode": "read_only",
-            "connected": False,
-            "moonraker_url": settings.moonraker_url,
-            "summary": "Moonraker indisponível para auditoria somente leitura.",
-            "error": str(exc),
-            "counts": {
-                "corrigir_agora": 0,
-                "monitorar": 0,
-                "ignorar": 0,
-                "precisa_confirmacao": 1,
-            },
-            "findings": [
-                {
-                    "id": "moonraker_unreachable",
-                    "title": "Moonraker não respondeu",
-                    "category": "moonraker",
-                    "classification": "precisa_confirmacao",
-                    "severity": "warning",
-                    "detail": str(exc),
-                    "safe_action": "Validar URL e rede. Esta checagem não alterou a impressora.",
-                }
-            ],
-        }
+        return _build_unreachable_audit(settings.moonraker_url, exc)
 
     audit = build_read_only_audit(
         printer_info=printer_info,
@@ -910,6 +887,38 @@ async def read_only_audit() -> dict[str, Any]:
     return {
         "connected": True,
         "moonraker_url": settings.moonraker_url,
+        **audit,
+    }
+
+
+@app.get("/api/printers/{printer_id}/audit/read-only")
+async def printer_read_only_audit(printer_id: int) -> dict[str, Any]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    printer = printer_repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    try:
+        printer_info, server_info, system_info, proc_stats = await _collect_status(client)
+        update_status = await client.update_status()
+    except httpx.HTTPError as exc:
+        return _build_unreachable_audit(printer.moonraker_url, exc)
+
+    audit = build_read_only_audit(
+        printer_info=printer_info,
+        server_info=server_info,
+        update_status=update_status,
+        system_info=system_info,
+        proc_stats=proc_stats,
+    )
+    return {
+        "connected": True,
+        "moonraker_url": printer.moonraker_url,
         **audit,
     }
 
@@ -941,6 +950,33 @@ async def _collect_status(client: MoonrakerClient) -> tuple[dict[str, Any], ...]
     system_info = await client.system_info()
     proc_stats = await client.proc_stats()
     return printer_info, server_info, system_info, proc_stats
+
+
+def _build_unreachable_audit(moonraker_url: str, exc: Exception) -> dict[str, Any]:
+    return {
+        "safe_mode": "read_only",
+        "connected": False,
+        "moonraker_url": moonraker_url,
+        "summary": "Moonraker indisponível para auditoria somente leitura.",
+        "error": str(exc),
+        "counts": {
+            "corrigir_agora": 0,
+            "monitorar": 0,
+            "ignorar": 0,
+            "precisa_confirmacao": 1,
+        },
+        "findings": [
+            {
+                "id": "moonraker_unreachable",
+                "title": "Moonraker não respondeu",
+                "category": "moonraker",
+                "classification": "precisa_confirmacao",
+                "severity": "warning",
+                "detail": str(exc),
+                "safe_action": "Validar URL e rede. Esta checagem não alterou a impressora.",
+            }
+        ],
+    }
 
 
 async def _test_moonraker_connection(moonraker_url: str, timeout_seconds: float) -> ConnectionCheckResult:

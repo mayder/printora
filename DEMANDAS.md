@@ -78,6 +78,7 @@ Critério de aceite:
 Estado atual:
 
 - MVP parcial implementado via `GET /api/audit/read-only`.
+- Auditoria por impressora implementada via `GET /api/printers/{printer_id}/audit/read-only`.
 - Classificação inicial cobre Klipper, Moonraker, Update Manager e sinais básicos do host.
 - Auditoria manual read-only da Voron registrada em `docs/audits/VORON_READONLY_AUDIT_2026-05-18.md`.
 - Coletor read-only do host implementado em `GET /api/audit/host-read-only`.

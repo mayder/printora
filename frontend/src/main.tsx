@@ -683,11 +683,6 @@ function App() {
         setChecklist((await checklistResponse.json()) as ChecklistResponse);
       }
 
-      const auditResponse = await fetch("/api/audit/read-only");
-      if (auditResponse.ok) {
-        setAudit((await auditResponse.json()) as AuditResponse);
-      }
-
       const hostAuditResponse = await fetch("/api/audit/host-read-only");
       if (hostAuditResponse.ok) {
         setHostAudit((await hostAuditResponse.json()) as AuditResponse);
@@ -718,6 +713,7 @@ function App() {
   }
 
   async function loadPrinterContext(printerId: number) {
+    await loadPrinterAudit(printerId);
     await loadSnapshots(printerId);
     await loadPrinterHealth(printerId);
     await loadUpdateStatus(printerId);
@@ -730,6 +726,15 @@ function App() {
     await loadFirmwareBuildRuns(printerId);
     await loadFirmwareFlashRuns(printerId);
     await loadCalibrationRuns(printerId);
+  }
+
+  async function loadPrinterAudit(printerId: number) {
+    setAudit(null);
+    const response = await fetch(`/api/printers/${printerId}/audit/read-only`);
+    if (!response.ok) {
+      return;
+    }
+    setAudit((await response.json()) as AuditResponse);
   }
 
   function selectPrinter(printerId: number) {
