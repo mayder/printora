@@ -172,6 +172,47 @@ type HealthResponse = {
   items: HealthItem[];
 };
 
+type OperationMetric = {
+  label: string;
+  value: unknown;
+  unit?: string | null;
+};
+
+type OperationTemperature = {
+  name: string;
+  temperature?: number | null;
+  target?: number | null;
+  power?: number | null;
+};
+
+type OperationFan = {
+  name: string;
+  speed?: number | null;
+  rpm?: number | null;
+};
+
+type OperationStatusResponse = {
+  connected: boolean;
+  safe_mode: string;
+  data_state: "live" | "offline" | "fixture";
+  printer_id: number;
+  moonraker_url: string;
+  summary: string;
+  error?: string;
+  can_send_commands: boolean;
+  system_loads: OperationMetric[];
+  temperatures: OperationTemperature[];
+  toolhead: Record<string, unknown>;
+  extruder: Record<string, unknown>;
+  miscellaneous: {
+    fans?: OperationFan[];
+    progress?: number | null;
+    message?: string | null;
+    print_state?: string | null;
+    filename?: string | null;
+  };
+};
+
 type BackupPolicyRecord = {
   id: number;
   printer_id: number;
@@ -475,6 +516,7 @@ type CalibrationRunRecord = {
 type AppSection =
   | "overview"
   | "printers"
+  | "operation"
   | "monitoring"
   | "updates"
   | "calibration"
@@ -506,6 +548,13 @@ const appSections: Array<{
     label: "Impressoras",
     detail: "Cadastro, descoberta e seleção da impressora ativa.",
     purpose: "Gerencie as impressoras cadastradas e defina qual delas controla o contexto do restante do sistema.",
+  },
+  {
+    key: "operation",
+    icon: Gauge,
+    label: "Operação",
+    detail: "Painéis read-only no estilo Mainsail.",
+    purpose: "Acompanhe estado operacional, temperaturas, toolhead, extrusor e periféricos sem enviar comandos para a impressora.",
   },
   {
     key: "monitoring",
@@ -567,7 +616,7 @@ const appSections: Array<{
 
 const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Principal", sections: ["overview", "printers"] },
-  { title: "Impressora ativa", sections: ["monitoring", "updates", "calibration", "tests", "firmware", "maintenance"] },
+  { title: "Impressora ativa", sections: ["operation", "monitoring", "updates", "calibration", "tests", "firmware", "maintenance"] },
   { title: "Diagnóstico", sections: ["reports", "settings"] },
 ];
 
@@ -596,6 +645,7 @@ function App() {
   const [snapshotDiff, setSnapshotDiff] = React.useState<SnapshotDiff | null>(null);
   const [status, setStatus] = React.useState<MoonrakerStatus | null>(null);
   const [health, setHealth] = React.useState<HealthResponse | null>(null);
+  const [operationStatus, setOperationStatus] = React.useState<OperationStatusResponse | null>(null);
   const [updateStatus, setUpdateStatus] = React.useState<UpdateStatusResponse | null>(null);
   const [updateActionResult, setUpdateActionResult] = React.useState<UpdateActionResponse | null>(null);
   const [updateDialog, setUpdateDialog] = React.useState<UpdateDialogState | null>(null);
@@ -713,6 +763,7 @@ function App() {
   }
 
   async function loadPrinterContext(printerId: number) {
+    await loadOperationStatus(printerId);
     await loadPrinterAudit(printerId);
     await loadSnapshots(printerId);
     await loadPrinterHealth(printerId);
@@ -735,6 +786,32 @@ function App() {
       return;
     }
     setAudit((await response.json()) as AuditResponse);
+  }
+
+  async function loadOperationStatus(printerId: number) {
+    setOperationStatus(null);
+    const response = await fetch(`/api/printers/${printerId}/operation/status`);
+    if (!response.ok) {
+      return;
+    }
+    setOperationStatus((await response.json()) as OperationStatusResponse);
+  }
+
+  async function loadOfflineOperationFixture() {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/operation/fixtures/voron-offline");
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setOperationStatus((await response.json()) as OperationStatusResponse);
+      setActiveSection("operation");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
   }
 
   function selectPrinter(printerId: number) {
@@ -874,6 +951,7 @@ function App() {
       const response = await fetch(`/api/printers/${selectedPrinterId}/moonraker/status`);
       const payload = (await response.json()) as MoonrakerStatus;
       setStatus(payload);
+      await loadOperationStatus(selectedPrinterId);
       await loadPrinterHealth(selectedPrinterId);
       await loadUpdateStatus(selectedPrinterId);
     } catch (err) {
@@ -2116,6 +2194,10 @@ function App() {
               <Activity size={15} />
               Abrir monitoramento
             </button>
+            <button type="button" className="secondary-button" onClick={() => setActiveSection("operation")}>
+              <Gauge size={15} />
+              Abrir operação
+            </button>
             <button type="button" className="secondary-button" onClick={() => setActiveSection("updates")}>
               <RefreshCw size={15} />
               Ver atualizações
@@ -2187,6 +2269,115 @@ function App() {
                 </div>
               </div>
             ))}
+          </div>
+        </article>
+
+        <article className="panel wide panel-section panel-operation">
+          <div className="panel-heading">
+            <div>
+              <h2>Operação read-only</h2>
+              <p className="muted">{operationStatus?.summary ?? "Aguardando dados da impressora selecionada."}</p>
+            </div>
+            <button type="button" className="secondary-button" onClick={() => selectedPrinterId && void loadOperationStatus(selectedPrinterId)} disabled={!selectedPrinterId || loading}>
+              <RefreshCw size={15} />
+              Recarregar
+            </button>
+            <button type="button" className="secondary-button" onClick={() => void loadOfflineOperationFixture()} disabled={loading}>
+              <Database size={15} />
+              Exemplo offline
+            </button>
+          </div>
+          <div className="overview-strip">
+            <Badge icon={Printer} label="Impressora" value={selectedPrinter?.name ?? "-"} />
+            <Badge icon={Radio} label="Moonraker" value={operationStatus?.connected ? "online" : "offline"} />
+            <Badge icon={ShieldCheck} label="Modo" value={operationStatus?.safe_mode ?? "read_only"} />
+            <Badge icon={Database} label="Dados" value={formatOperationDataState(operationStatus?.data_state)} />
+            <Badge icon={Gauge} label="Comandos" value={operationStatus?.can_send_commands ? "habilitados" : "bloqueados"} />
+          </div>
+          {operationStatus?.data_state === "offline" ? (
+            <div className="operation-state offline">
+              <AlertTriangle size={17} />
+              <div>
+                <strong>Sem leitura ao vivo</strong>
+                <span>{operationStatus.error ?? "A impressora pode estar desligada ou fora da rede."}</span>
+              </div>
+            </div>
+          ) : null}
+          {operationStatus?.data_state === "fixture" ? (
+            <div className="operation-state fixture">
+              <Database size={17} />
+              <div>
+                <strong>Fixture local</strong>
+                <span>Dados simulados para validar layout com a impressora desligada. Nenhum endpoint da impressora foi chamado.</span>
+              </div>
+            </div>
+          ) : null}
+          <div className="operation-grid">
+            <section className="operation-panel">
+              <h3>System Loads</h3>
+              <div className="section-summary">
+                {operationStatus?.system_loads.map((metric) => (
+                  <Metric key={metric.label} label={metric.label} value={formatOperationValue(metric.value, metric.unit)} />
+                ))}
+              </div>
+            </section>
+
+            <section className="operation-panel">
+              <h3>Temperaturas</h3>
+              <div className="temperature-list">
+                {operationStatus?.temperatures.length === 0 ? <p className="muted">Nenhum heater ou sensor retornado pelo Moonraker.</p> : null}
+                {operationStatus?.temperatures.map((item) => (
+                  <div key={item.name} className="temperature-row">
+                    <strong>{item.name}</strong>
+                    <span>
+                      {formatTemperature(item.temperature)} / alvo {formatTemperature(item.target)}
+                    </span>
+                    <small>Potência: {formatPercent(item.power)}</small>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="operation-panel">
+              <h3>Toolhead</h3>
+              <div className="section-summary">
+                <Metric label="Posição" value={formatPosition(operationStatus?.toolhead.position)} />
+                <Metric label="Home" value={formatUnknown(operationStatus?.toolhead.homed_axes ?? "-")} />
+                <Metric label="Velocidade máx." value={formatOperationValue(operationStatus?.toolhead.max_velocity, "mm/s")} />
+                <Metric label="Aceleração máx." value={formatOperationValue(operationStatus?.toolhead.max_accel, "mm/s²")} />
+                <Metric label="Speed factor" value={formatPercent(operationStatus?.toolhead.speed_factor)} />
+              </div>
+            </section>
+
+            <section className="operation-panel">
+              <h3>Extruder</h3>
+              <div className="section-summary">
+                <Metric label="Pressure advance" value={formatUnknown(operationStatus?.extruder.pressure_advance ?? "-")} />
+                <Metric label="Smooth time" value={formatOperationValue(operationStatus?.extruder.smooth_time, "s")} />
+                <Metric label="Extrusion factor" value={formatPercent(operationStatus?.extruder.extrusion_factor)} />
+                <Metric label="Filamento usado" value={formatOperationValue(operationStatus?.extruder.filament_used, "mm")} />
+              </div>
+            </section>
+
+            <section className="operation-panel wide-operation-panel">
+              <h3>Miscellaneous</h3>
+              <div className="section-summary">
+                <Metric label="Print state" value={operationStatus?.miscellaneous.print_state ?? "-"} />
+                <Metric label="Arquivo" value={operationStatus?.miscellaneous.filename || "-"} />
+                <Metric label="Progresso" value={formatPercent(operationStatus?.miscellaneous.progress)} />
+                <Metric label="Mensagem" value={operationStatus?.miscellaneous.message || "-"} />
+              </div>
+              <div className="fan-list">
+                {operationStatus?.miscellaneous.fans?.length === 0 ? <p className="muted">Nenhum fan retornado pelo Moonraker.</p> : null}
+                {operationStatus?.miscellaneous.fans?.map((fan) => (
+                  <div key={fan.name} className="fan-row">
+                    <strong>{fan.name}</strong>
+                    <span>{formatPercent(fan.speed)}</span>
+                    <small>RPM: {formatUnknown(fan.rpm ?? "-")}</small>
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
         </article>
 
@@ -3708,11 +3899,59 @@ function healthFindingClass(severity: HealthItem["severity"]) {
   return "info";
 }
 
-function formatUnknown(value: unknown) {
+function formatOperationDataState(dataState: OperationStatusResponse["data_state"] | undefined) {
+  if (dataState === "live") {
+    return "ao vivo";
+  }
+  if (dataState === "offline") {
+    return "offline";
+  }
+  if (dataState === "fixture") {
+    return "fixture";
+  }
+  return "-";
+}
+
+function formatOperationValue(value: unknown, unit?: string | null) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+  const normalized = typeof value === "number" ? Number(value.toFixed(2)).toString() : formatUnknown(value);
+  return unit && unit !== "bytes" ? `${normalized} ${unit}` : normalized;
+}
+
+function formatTemperature(value: unknown) {
+  if (typeof value !== "number") {
+    return "-";
+  }
+  return `${Number(value.toFixed(1))} °C`;
+}
+
+function formatPercent(value: unknown) {
+  if (typeof value !== "number") {
+    return "-";
+  }
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatPosition(value: unknown) {
+  if (!Array.isArray(value)) {
+    return "-";
+  }
+  return value
+    .slice(0, 3)
+    .map((axis) => (typeof axis === "number" ? Number(axis.toFixed(2)) : axis))
+    .join(" / ");
+}
+
+function formatUnknown(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "-";
+  }
   if (typeof value === "string") {
     return value || "-";
   }
-  return JSON.stringify(value);
+  return JSON.stringify(value) ?? "-";
 }
 
 createRoot(document.getElementById("root")!).render(<App />);

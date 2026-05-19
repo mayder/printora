@@ -390,6 +390,7 @@ label {
 
 .section-overview .panel-overview,
 .section-printers .panel-printers,
+.section-operation .panel-operation,
 .section-monitoring .panel-monitoring,
 .section-updates .panel-updates,
 .section-calibration .panel-calibration,
@@ -485,10 +486,85 @@ label {
   margin-bottom: 14px;
 }
 
+.panel-operation .overview-strip {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
 .quick-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.operation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.operation-panel {
+  min-width: 0;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+
+.operation-panel h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.operation-state {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 7px;
+  background: var(--surface-3);
+  padding: 11px 12px;
+  margin-bottom: 14px;
+}
+
+.operation-state.offline {
+  border-left-color: var(--warning);
+}
+
+.operation-state.fixture {
+  border-left-color: var(--accent);
+}
+
+.operation-state span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.wide-operation-panel {
+  grid-column: 1 / -1;
+}
+
+.temperature-list,
+.fan-list {
+  display: grid;
+  gap: 10px;
+}
+
+.temperature-row,
+.fan-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(120px, 0.8fr) minmax(90px, 0.6fr);
+  gap: 10px;
+  align-items: center;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 10px;
+}
+
+.temperature-row span,
+.temperature-row small,
+.fan-row span,
+.fan-row small {
+  color: var(--muted);
 }
 
 .printer-dashboard {
@@ -1791,7 +1867,13 @@ label {
 
 .badge-text strong {
   font-size: 20px;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+}
+
+.panel-operation .badge-text strong {
+  font-size: 18px;
+  word-break: normal;
+  hyphens: none;
 }
 
 .findings {
@@ -1926,6 +2008,9 @@ label {
   .printer-toolbar,
   .printer-form,
   .overview-strip,
+  .operation-grid,
+  .temperature-row,
+  .fan-row,
   .quick-actions,
   .printer-dashboard,
   .printer-card-grid,
@@ -1960,6 +2045,10 @@ label {
   }
 
   .audit-counts {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-operation .overview-strip {
     grid-template-columns: 1fr;
   }
 

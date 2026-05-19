@@ -126,3 +126,29 @@ def test_database_schema_is_idempotent(tmp_path: Path) -> None:
     repository = PrinterRepository(database_path)
 
     assert repository.list_printers() == []
+
+
+def test_database_schema_repairs_legacy_app_events_table(tmp_path: Path) -> None:
+    database_path = tmp_path / "mayderprintlab.db"
+    with connect_database(database_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE app_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                event_type TEXT NOT NULL,
+                payload_json TEXT NOT NULL
+            )
+            """
+        )
+
+    initialize_database(database_path)
+
+    with connect_database(database_path) as connection:
+        columns = [row["name"] for row in connection.execute("PRAGMA table_info(app_events)").fetchall()]
+        index_row = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_app_events_printer_created'"
+        ).fetchone()
+
+    assert "printer_id" in columns
+    assert index_row is not None

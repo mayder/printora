@@ -1,5 +1,5 @@
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import httpx
 
@@ -57,3 +57,12 @@ class MoonrakerClient:
 
     async def proc_stats(self) -> dict[str, Any]:
         return await self.get_json("/machine/proc_stats")
+
+    async def printer_objects_list(self) -> list[str]:
+        payload = await self.get_json("/printer/objects/list")
+        objects = payload.get("objects", [])
+        return [str(name) for name in objects] if isinstance(objects, list) else []
+
+    async def printer_objects(self, objects: dict[str, list[str]]) -> dict[str, Any]:
+        query = urlencode({name: ",".join(fields) for name, fields in objects.items()})
+        return await self.get_json(f"/printer/objects/query?{query}")

@@ -39,6 +39,12 @@ from app.maintenance import (
     MaintenanceTaskRecord,
 )
 from app.moonraker import MoonrakerClient
+from app.operation import (
+    build_offline_fixture_operation,
+    build_operation_query_objects,
+    build_operation_status,
+    build_unreachable_operation,
+)
 from app.plugins import PluginAuditResponse, build_plugin_audit
 from app.printers import PrinterCreate, PrinterRecord, PrinterRepository, PrinterUpdate
 from app.reports import SanitizedReport, build_sanitized_report
@@ -335,6 +341,46 @@ async def printer_update_status(printer_id: int) -> UpdateStatusResponse:
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return build_update_status(update_status)
+
+
+@app.get("/api/printers/{printer_id}/operation/status")
+async def printer_operation_status(printer_id: int) -> dict[str, Any]:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    printer = repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    try:
+        printer_info, server_info, system_info, proc_stats = await _collect_status(client)
+        available_objects = await client.printer_objects_list()
+        objects = await client.printer_objects(build_operation_query_objects(available_objects))
+    except httpx.HTTPError as exc:
+        return build_unreachable_operation(printer.moonraker_url, str(exc))
+
+    return {
+        "printer_id": printer.id,
+        "moonraker_url": printer.moonraker_url,
+        **build_operation_status(
+            printer_info=printer_info,
+            server_info=server_info,
+            system_info=system_info,
+            proc_stats=proc_stats,
+            objects=objects,
+        ),
+    }
+
+
+@app.get("/api/operation/fixtures/voron-offline")
+async def operation_voron_offline_fixture() -> dict[str, Any]:
+    return {
+        "printer_id": 0,
+        **build_offline_fixture_operation(),
+    }
 
 
 @app.post("/api/printers/{printer_id}/updates/refresh")

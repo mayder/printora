@@ -7,6 +7,7 @@
 - PKG-01C: Snapshots read-only por impressora
 - PKG-01D: Comparação de snapshots
 - PKG-01E: Descoberta de impressoras na rede local
+- PKG-01F: Compatibilidade com SQLite local legado
 - PKG-02: Auditoria somente leitura do ambiente Klipper
 - PKG-03: Checklist pós-update guiado
 - PKG-04: Health check da impressora
@@ -29,6 +30,8 @@
 - PKG-17: Navegação e layout operacional do frontend
 - PKG-18: Arquitetura de UX e menu por domínio
 - PKG-19: Painéis operacionais estilo Mainsail
+- PKG-19A: Operação read-only estilo Mainsail
+- PKG-19B: Operação offline e fixtures locais
 
 ## PKG-01: Base Do Projeto E Documentação Operacional
 
@@ -196,6 +199,29 @@ Estado atual:
 
 - Implementado `GET /api/printers/discover`.
 - UI exibe botão `Buscar na rede` e lista candidatos encontrados.
+
+## PKG-01F: Compatibilidade Com SQLite Local Legado
+
+Objetivo:
+
+Garantir que instalações locais criadas antes do vínculo de eventos por impressora continuem inicializando.
+
+Entregáveis:
+
+- reparo idempotente da tabela `app_events` legada sem apagar dados;
+- preservação dos scripts SQL existentes como fonte do schema alvo;
+- teste automatizado com banco antigo contendo `app_events` sem `printer_id`.
+
+Critério de aceite:
+
+- inicialização não falha em banco local legado;
+- nenhum dado existente é removido;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado reparo idempotente para adicionar `app_events.printer_id` quando ausente.
+- Teste automatizado cobre criação do índice esperado após reparo.
 
 ## PKG-03: Checklist Pós-Update Guiado
 
@@ -1059,4 +1085,69 @@ Riscos e controles:
 
 Estado atual:
 
-- Pacote planejado. Não implementado.
+- Primeiro lote seguro implementado em `PKG-19A`.
+- Modo offline/fixture implementado em `PKG-19B`.
+- Ações mutáveis de operação continuam fora do escopo.
+
+## PKG-19A: Operação Read-Only Estilo Mainsail
+
+Objetivo:
+
+Criar o primeiro painel operacional da impressora selecionada, reaproveitando leituras Moonraker sem enviar comandos.
+
+Entregáveis:
+
+- endpoint `GET /api/printers/{printer_id}/operation/status`;
+- seção `Operação` no frontend;
+- painel `System Loads`;
+- painel `Temperaturas`;
+- painel `Toolhead`;
+- painel `Extruder`;
+- painel `Miscellaneous`;
+- indicação explícita de modo `read_only` e comandos bloqueados;
+- estados vazios para dados ausentes do Moonraker.
+
+Critério de aceite:
+
+- não envia G-code;
+- não faz home, QGL, extrusão, fan, LED, restart, update ou flash;
+- não altera configs Klipper/Moonraker/Mainsail;
+- dados sempre usam a impressora selecionada;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado endpoint read-only de operação.
+- Implementada seção `Operação` no frontend.
+- Implementados painéis System Loads, Temperaturas, Toolhead, Extruder e Miscellaneous.
+- Ações mutáveis permanecem fora do escopo deste lote.
+
+## PKG-19B: Operação Offline E Fixtures Locais
+
+Objetivo:
+
+Permitir evoluir e validar a tela de Operação quando as impressoras estiverem desligadas.
+
+Entregáveis:
+
+- estado explícito `offline` quando Moonraker estiver indisponível;
+- fixture local de operação estilo Voron;
+- endpoint `GET /api/operation/fixtures/voron-offline`;
+- botão `Exemplo offline` no frontend;
+- destaque visual para dados simulados e dados offline;
+- dados simulados para System Loads, Temperaturas, Toolhead, Extruder e Miscellaneous.
+
+Critério de aceite:
+
+- não chama Moonraker real ao carregar fixture;
+- não envia G-code;
+- não executa restart, update, flash, home, QGL, fan, LED ou extrusão;
+- tela continua funcional sem impressora ligada;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado endpoint de fixture offline.
+- Implementado botão `Exemplo offline` na seção Operação.
+- Implementado estado visual para `offline` e `fixture`.
+- Testes automatizados cobrem fixture e bloqueio de comandos.
