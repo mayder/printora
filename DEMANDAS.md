@@ -28,6 +28,7 @@
 - PKG-16: Instalador multiplataforma
 - PKG-17: Navegação e layout operacional do frontend
 - PKG-18: Arquitetura de UX e menu por domínio
+- PKG-19: Painéis operacionais estilo Mainsail
 
 ## PKG-01: Base Do Projeto E Documentação Operacional
 
@@ -1010,3 +1011,51 @@ Critério de aceite:
 Estado atual:
 
 - Implementado primeiro redesenho do shell com identidade visual, grupos de menu, ícones, topbar operacional e novas seções por domínio.
+
+## PKG-19: Painéis Operacionais Estilo Mainsail
+
+Objetivo:
+
+Criar uma área operacional para a impressora selecionada com blocos ricos e acionáveis no padrão de uso do Mainsail, mantendo as ações perigosas protegidas por confirmação e sem misturar monitoramento, configuração e operação diária.
+
+Motivação:
+
+Hoje parte dessas informações já existe em health check, monitoramento, atualização e cadastro de impressoras, mas ainda não está organizada em blocos operacionais claros como no Mainsail. O usuário deve conseguir abrir uma tela e entender rapidamente carga do sistema, temperaturas, toolhead, extrusor, fans, LEDs, offsets e ações seguras da impressora ativa.
+
+Entregáveis:
+
+- novo menu ou subárea `Operação` para ações e estado da impressora selecionada;
+- painel `System Loads` com host, MCUs, arquitetura, versões, load, frequência, temperatura, CPU, memória, disco e interfaces de rede;
+- painel `Temperaturas` com extrusor, mesa, câmara, MCUs, Raspberry Pi, targets e gráfico histórico;
+- painel `Toolhead` com posição X/Y/Z, home/QGL, movimentos incrementais, Z-offset e speed factor;
+- painel `Extruder` com tool ativa, extrusion factor, pressure advance, smooth time, retract/unretract, comandos de extrusão/retração e limites de segurança;
+- painel `Miscellaneous` com fans, caselight, Nevermore, LEDs, display e estados binários relevantes;
+- reaproveitamento e melhoria visual dos dados já coletados por health check, Moonraker, CAN e snapshots;
+- identificação objetiva do que ainda não existe no backend e precisa de endpoint read-only ou ação controlada;
+- botões com ícones e estados claros: desabilitado, loading, sucesso, alerta e erro;
+- confirmação moderna para qualquer ação que envie G-code, altere target, mova eixo, faça home, QGL, extrusão, fan ou LED;
+- log/histórico local das ações executadas por essa tela;
+- responsividade para uso dentro do OrcaSlicer e em navegador.
+
+Critério de aceite:
+
+- a tela mostra somente dados da impressora selecionada;
+- ações operacionais ficam separadas de diagnóstico, firmware, backups e relatórios;
+- nenhum comando mutável é disparado sem confirmação e feedback visual;
+- se a impressora estiver imprimindo, ações de risco ficam bloqueadas ou exigem confirmação explícita;
+- o layout usa cards compactos, ícones e organização visual comparável ao Mainsail;
+- componentes já existentes são aproveitados quando possível, sem duplicar lógica;
+- `./check.sh` passa.
+
+Riscos e controles:
+
+- risco: enviar comando errado para a impressora ativa.
+  Controle: contexto fixo da impressora selecionada, confirmação por ação e log.
+- risco: transformar o app em clone completo do Mainsail.
+  Controle: foco em operação, saúde e confiabilidade; não substituir fluxo principal de impressão.
+- risco: ações durante impressão.
+  Controle: consultar estado Klipper/Moonraker antes de habilitar comandos.
+
+Estado atual:
+
+- Pacote planejado. Não implementado.
