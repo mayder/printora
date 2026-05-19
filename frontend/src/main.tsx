@@ -1065,19 +1065,22 @@ function App() {
       await loadPrinterHealth(selectedPrinterId);
       setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "done" } : currentDialog));
     } catch (err) {
-      const latestStatus = await loadUpdateStatus(selectedPrinterId);
+      const latestStatus = await reloadUpdateStatusAfterUpdateError(selectedPrinterId, target);
       await loadPrinterHealth(selectedPrinterId);
-      const updatedComponent = latestStatus?.components.find((component) => component.name === target);
-      if (target !== "all" && updatedComponent?.status === "up_to_date") {
+      if (isUpdateTargetConfirmedUpdated(latestStatus, target)) {
         setUpdateActionResult({
           safe_mode: "moonraker_update_manager",
           action: "update",
           target,
           accepted: true,
-          message: "Update aplicado. O Moonraker retornou erro vazio no fim da operação, mas o componente agora está atualizado.",
+          message:
+            "Update aplicado. O Moonraker ficou temporariamente indisponível no fim da operação, mas a reanálise confirmou que está atualizado.",
           result: {},
         });
-        appendUpdateLog("success", "Update aplicado. O componente aparece como atualizado apos reanalise.");
+        appendUpdateLog(
+          "success",
+          "Update confirmado apos reanalise. O erro HTTP provavelmente veio de reinicio temporario do Moonraker.",
+        );
         setError(null);
         setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "done" } : currentDialog));
       } else {
@@ -1089,6 +1092,26 @@ function App() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function reloadUpdateStatusAfterUpdateError(printerId: number, target: string): Promise<UpdateStatusResponse | null> {
+    const retryDelaysMs = [0, 1500, 3500];
+    let latestStatus: UpdateStatusResponse | null = null;
+    for (const retryDelayMs of retryDelaysMs) {
+      if (retryDelayMs > 0) {
+        appendUpdateLog("info", "Revalidando status do Update Manager apos indisponibilidade temporaria.");
+        await delay(retryDelayMs);
+      }
+      try {
+        latestStatus = await loadUpdateStatus(printerId);
+      } catch {
+        latestStatus = null;
+      }
+      if (isUpdateTargetConfirmedUpdated(latestStatus, target)) {
+        return latestStatus;
+      }
+    }
+    return latestStatus;
   }
 
   async function loadBackups(printerId: number) {
@@ -3399,6 +3422,17 @@ function countPendingUpdates(status: UpdateStatusResponse | null) {
   return status.components.filter((component) => component.can_update || component.status === "update_available").length;
 }
 
+function isUpdateTargetConfirmedUpdated(status: UpdateStatusResponse | null, target: string) {
+  if (!status) {
+    return false;
+  }
+  if (target === "all") {
+    return status.components.every((component) => !component.can_update && component.status !== "update_available" && component.status !== "busy");
+  }
+  const component = status.components.find((item) => item.name === target);
+  return Boolean(component && !component.can_update && component.status === "up_to_date");
+}
+
 function buildAlertCenterItems({
   health,
   updateStatus,
@@ -3497,6 +3531,10 @@ async function readApiError(response: Response): Promise<string> {
     return text;
   }
   return fallback;
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function moonrakerWebsocketUrl(moonrakerUrl: string): string | null {
