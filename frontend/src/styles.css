@@ -818,6 +818,83 @@ label {
   width: min(820px, 100%);
 }
 
+.alert-center-card {
+  width: min(880px, 100%);
+}
+
+.alert-center-list {
+  display: grid;
+  gap: 10px;
+  max-height: 520px;
+  overflow: auto;
+}
+
+.alert-center-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px;
+}
+
+.alert-center-row.blocker {
+  border-left-color: var(--danger);
+}
+
+.alert-center-row.warning {
+  border-left-color: var(--warning);
+}
+
+.alert-center-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.alert-center-row.blocker .alert-center-icon {
+  background: rgba(238, 91, 91, 0.14);
+  color: var(--danger);
+}
+
+.alert-center-row.warning .alert-center-icon {
+  background: rgba(199, 139, 45, 0.16);
+  color: var(--warning);
+}
+
+.alert-center-row strong,
+.alert-center-row span,
+.alert-center-row p,
+.alert-center-row small {
+  display: block;
+}
+
+.alert-center-row span,
+.alert-center-row small {
+  color: var(--muted);
+}
+
+.alert-center-row p {
+  margin: 7px 0 4px;
+}
+
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 24px;
+  text-align: center;
+}
+
 .update-confirm-box {
   display: grid;
   gap: 14px;

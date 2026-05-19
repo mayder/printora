@@ -360,6 +360,15 @@ type UpdateLogEntry = {
   message: string;
 };
 
+type AlertCenterItem = {
+  id: string;
+  source: string;
+  title: string;
+  detail: string;
+  action: string;
+  severity: "blocker" | "warning" | "info";
+};
+
 type UpdateDialogState = {
   open: boolean;
   target: string;
@@ -591,6 +600,7 @@ function App() {
   const [updateActionResult, setUpdateActionResult] = React.useState<UpdateActionResponse | null>(null);
   const [updateDialog, setUpdateDialog] = React.useState<UpdateDialogState | null>(null);
   const [updateLogs, setUpdateLogs] = React.useState<UpdateLogEntry[]>([]);
+  const [alertCenterOpen, setAlertCenterOpen] = React.useState(false);
   const [checklist, setChecklist] = React.useState<ChecklistResponse | null>(null);
   const [audit, setAudit] = React.useState<AuditResponse | null>(null);
   const [hostAudit, setHostAudit] = React.useState<AuditResponse | null>(null);
@@ -1646,7 +1656,8 @@ function App() {
   const selectedPrinter = printers.find((printer) => printer.id === selectedPrinterId);
   const ActiveIcon = activeSectionMeta.icon;
   const ThemeIcon = theme === "dark" ? Sun : Moon;
-  const alertCount = (health?.counts.blocker ?? 0) + (health?.counts.warning ?? 0);
+  const alertCenterItems = buildAlertCenterItems({ health, updateStatus, checklist, audit });
+  const alertCount = alertCenterItems.length;
 
   return (
     <main className="app-shell">
@@ -1728,7 +1739,7 @@ function App() {
             >
               <ThemeIcon size={18} />
             </button>
-            <button type="button" className="icon-button" title="Alertas">
+            <button type="button" className="icon-button" title="Alertas" onClick={() => setAlertCenterOpen(true)}>
               <Bell size={18} />
               {alertCount > 0 ? <strong>{alertCount}</strong> : null}
             </button>
@@ -1748,6 +1759,54 @@ function App() {
         </section>
 
         {error ? <section className="alert danger">{error}</section> : null}
+
+        {alertCenterOpen ? (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Central de alertas">
+            <div className="modal-card alert-center-card">
+              <div className="modal-header">
+                <div>
+                  <h2>
+                    <Bell size={20} />
+                    Central de alertas
+                  </h2>
+                  <p>{selectedPrinter?.name ?? "Impressora não selecionada"} · riscos, updates e avisos consolidados.</p>
+                </div>
+                <button type="button" className="ghost-button" onClick={() => setAlertCenterOpen(false)}>
+                  <X size={16} />
+                  Fechar
+                </button>
+              </div>
+              <div className="overview-strip">
+                <Badge icon={AlertTriangle} label="Bloqueios" value={alertCenterItems.filter((item) => item.severity === "blocker").length} />
+                <Badge icon={AlertTriangle} label="Alertas" value={alertCenterItems.filter((item) => item.severity === "warning").length} />
+                <Badge icon={RefreshCw} label="Updates" value={countPendingUpdates(updateStatus)} />
+                <Badge icon={Bell} label="Total" value={alertCenterItems.length} />
+              </div>
+              <div className="alert-center-list">
+                {alertCenterItems.length === 0 ? (
+                  <div className="empty-state">
+                    <CheckCircle2 size={22} />
+                    <strong>Nenhum alerta ativo</strong>
+                    <p className="muted">Não há bloqueios, riscos ou updates pendentes nos dados carregados da impressora selecionada.</p>
+                  </div>
+                ) : null}
+                {alertCenterItems.map((item) => (
+                  <div key={item.id} className={`alert-center-row ${item.severity}`}>
+                    <div className="alert-center-icon">
+                      {React.createElement(alertCenterIcon(item.severity), { size: 17 })}
+                    </div>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <span>{item.source}</span>
+                      <p>{item.detail}</p>
+                      <small>{item.action}</small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {printerModalOpen ? (
           <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Cadastrar impressora">
@@ -3339,6 +3398,86 @@ function countPendingUpdates(status: UpdateStatusResponse | null) {
     return "-";
   }
   return status.components.filter((component) => component.can_update || component.status === "update_available").length;
+}
+
+function buildAlertCenterItems({
+  health,
+  updateStatus,
+  checklist,
+  audit,
+}: {
+  health: HealthResponse | null;
+  updateStatus: UpdateStatusResponse | null;
+  checklist: ChecklistResponse | null;
+  audit: AuditResponse | null;
+}): AlertCenterItem[] {
+  const items: AlertCenterItem[] = [];
+
+  health?.items
+    .filter((item) => item.severity === "blocker" || item.severity === "warning")
+    .forEach((item) => {
+      items.push({
+        id: `health-${item.key}`,
+        source: "Health Check",
+        title: item.title,
+        detail: item.detail,
+        action: item.action,
+        severity: item.severity === "blocker" ? "blocker" : "warning",
+      });
+    });
+
+  updateStatus?.components
+    .filter((component) => component.can_update || component.status === "warning" || component.warnings.length > 0 || component.anomalies.length > 0)
+    .forEach((component) => {
+      items.push({
+        id: `update-${component.name}`,
+        source: "Update Manager",
+        title: component.title,
+        detail:
+          component.status === "warning"
+            ? [...component.warnings, ...component.anomalies].filter(Boolean).join(" · ") || "Componente com aviso no Update Manager."
+            : `${component.current_version ?? "-"} → ${component.remote_version ?? component.full_version ?? "-"}`,
+        action: component.can_update ? "Atualização disponível. Revise e execute pela tela Atualizações." : "Reanalise o componente antes de agir.",
+        severity: component.status === "warning" || component.anomalies.length > 0 ? "warning" : "info",
+      });
+    });
+
+  checklist?.items
+    .filter((item) => !item.ok)
+    .forEach((item) => {
+      items.push({
+        id: `checklist-${item.key}`,
+        source: "Checklist pós-update",
+        title: item.title,
+        detail: item.detail,
+        action: "Corrija este item antes de considerar a impressora pronta.",
+        severity: item.severity === "blocker" ? "blocker" : "warning",
+      });
+    });
+
+  audit?.findings
+    .filter((finding) => finding.severity === "blocker" || finding.severity === "warning")
+    .forEach((finding) => {
+      items.push({
+        id: `audit-${finding.id}`,
+        source: `Auditoria · ${finding.category}`,
+        title: finding.title,
+        detail: finding.detail,
+        action: finding.safe_action,
+        severity: finding.severity,
+      });
+    });
+
+  return items;
+}
+
+function alertCenterIcon(severity: AlertCenterItem["severity"]): LucideIcon {
+  const icons: Record<AlertCenterItem["severity"], LucideIcon> = {
+    blocker: AlertTriangle,
+    warning: AlertTriangle,
+    info: Bell,
+  };
+  return icons[severity];
 }
 
 async function readApiError(response: Response): Promise<string> {
