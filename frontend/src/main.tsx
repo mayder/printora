@@ -23,6 +23,7 @@ import {
   SlidersHorizontal,
   Sun,
   Wrench,
+  X,
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -352,6 +353,20 @@ type UpdateActionResponse = {
   result: Record<string, unknown>;
 };
 
+type UpdateLogEntry = {
+  id: number;
+  time: string;
+  level: "info" | "success" | "warning" | "error";
+  message: string;
+};
+
+type UpdateDialogState = {
+  open: boolean;
+  target: string;
+  label: string;
+  phase: "confirm" | "running" | "done" | "failed";
+};
+
 type BoardPreset = {
   id: string;
   vendor: string;
@@ -574,6 +589,8 @@ function App() {
   const [health, setHealth] = React.useState<HealthResponse | null>(null);
   const [updateStatus, setUpdateStatus] = React.useState<UpdateStatusResponse | null>(null);
   const [updateActionResult, setUpdateActionResult] = React.useState<UpdateActionResponse | null>(null);
+  const [updateDialog, setUpdateDialog] = React.useState<UpdateDialogState | null>(null);
+  const [updateLogs, setUpdateLogs] = React.useState<UpdateLogEntry[]>([]);
   const [checklist, setChecklist] = React.useState<ChecklistResponse | null>(null);
   const [audit, setAudit] = React.useState<AuditResponse | null>(null);
   const [hostAudit, setHostAudit] = React.useState<AuditResponse | null>(null);
@@ -638,6 +655,8 @@ function App() {
     "/home/pi/printer_data/backups/mayderprintlab",
   );
   const [backupDryRunOnly, setBackupDryRunOnly] = React.useState(true);
+  const updateSocketRef = React.useRef<WebSocket | null>(null);
+  const updateLogIdRef = React.useRef(0);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -933,17 +952,90 @@ function App() {
     }
   }
 
-  async function runUpdate(target: string) {
+  function appendUpdateLog(level: UpdateLogEntry["level"], message: string) {
+    const id = updateLogIdRef.current + 1;
+    updateLogIdRef.current = id;
+    setUpdateLogs((currentLogs) => [
+      ...currentLogs,
+      {
+        id,
+        level,
+        message,
+        time: new Date().toLocaleTimeString("pt-BR", { hour12: false }),
+      },
+    ]);
+  }
+
+  function openUpdateDialog(target: string) {
     if (!selectedPrinterId) {
       return;
     }
     const selectedLabel = target === "all" ? "todos os componentes" : target;
-    const confirmed = window.confirm(
-      `Atualizar ${selectedLabel}? O Moonraker pode reiniciar serviços e recusará a ação se houver impressão em andamento.`,
-    );
-    if (!confirmed) {
+    setError(null);
+    setUpdateActionResult(null);
+    setUpdateLogs([]);
+    updateLogIdRef.current = 0;
+    setUpdateDialog({ open: true, target, label: selectedLabel, phase: "confirm" });
+  }
+
+  function closeUpdateSocket() {
+    updateSocketRef.current?.close();
+    updateSocketRef.current = null;
+  }
+
+  function connectUpdateSocket(printer: PrinterRecord) {
+    closeUpdateSocket();
+    const websocketUrl = moonrakerWebsocketUrl(printer.moonraker_url);
+    if (!websocketUrl) {
+      appendUpdateLog("warning", "Nao foi possivel montar a URL WebSocket do Moonraker. O update continua sem log ao vivo.");
       return;
     }
+    appendUpdateLog("info", `Conectando ao log ao vivo em ${websocketUrl}`);
+    const socket = new WebSocket(websocketUrl);
+    updateSocketRef.current = socket;
+    socket.onopen = () => {
+      socket.send(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          method: "server.connection.identify",
+          params: {
+            client_name: "MayderPrintLab",
+            version: "0.1.0",
+            type: "web",
+            url: "https://github.com/mayderprintlab/mayder-print-lab",
+          },
+          id: 1,
+        }),
+      );
+      appendUpdateLog("success", "Log ao vivo conectado.");
+    };
+    socket.onerror = () => appendUpdateLog("warning", "WebSocket do Moonraker indisponivel. O update continua via HTTP.");
+    socket.onclose = () => {
+      if (updateSocketRef.current === socket) {
+        appendUpdateLog("warning", "Conexao de log encerrada. Moonraker pode estar reiniciando.");
+      }
+    };
+    socket.onmessage = (event) => {
+      const updateMessage = parseMoonrakerUpdateMessage(event.data);
+      if (!updateMessage) {
+        return;
+      }
+      appendUpdateLog(updateMessage.complete ? "success" : "info", updateMessage.message);
+      if (updateMessage.complete) {
+        setUpdateDialog((currentDialog) =>
+          currentDialog && currentDialog.phase === "running" ? { ...currentDialog, phase: "done" } : currentDialog,
+        );
+      }
+    };
+  }
+
+  async function runUpdate(target: string) {
+    if (!selectedPrinterId || !selectedPrinter) {
+      return;
+    }
+    setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "running" } : currentDialog));
+    connectUpdateSocket(selectedPrinter);
+    appendUpdateLog("info", `Solicitando update de ${target === "all" ? "todos os componentes" : target}.`);
     setLoading(true);
     setError(null);
     setUpdateActionResult(null);
@@ -956,9 +1048,12 @@ function App() {
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
-      setUpdateActionResult((await response.json()) as UpdateActionResponse);
+      const actionResult = (await response.json()) as UpdateActionResponse;
+      setUpdateActionResult(actionResult);
+      appendUpdateLog("success", actionResult.message);
       await loadUpdateStatus(selectedPrinterId);
       await loadPrinterHealth(selectedPrinterId);
+      setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "done" } : currentDialog));
     } catch (err) {
       const latestStatus = await loadUpdateStatus(selectedPrinterId);
       await loadPrinterHealth(selectedPrinterId);
@@ -972,9 +1067,14 @@ function App() {
           message: "Update aplicado. O Moonraker retornou erro vazio no fim da operação, mas o componente agora está atualizado.",
           result: {},
         });
+        appendUpdateLog("success", "Update aplicado. O componente aparece como atualizado apos reanalise.");
         setError(null);
+        setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "done" } : currentDialog));
       } else {
-        setError(err instanceof Error ? err.message : "Erro desconhecido");
+        const errorMessage = err instanceof Error ? err.message : "Erro desconhecido";
+        appendUpdateLog("error", errorMessage);
+        setError(errorMessage);
+        setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "failed" } : currentDialog));
       }
     } finally {
       setLoading(false);
@@ -1540,6 +1640,8 @@ function App() {
     window.localStorage.setItem("mayderprintlab-theme", theme);
   }, [theme]);
 
+  React.useEffect(() => () => closeUpdateSocket(), []);
+
   const activeSectionMeta = appSections.find((section) => section.key === activeSection) ?? appSections[0];
   const selectedPrinter = printers.find((printer) => printer.id === selectedPrinterId);
   const ActiveIcon = activeSectionMeta.icon;
@@ -1814,6 +1916,101 @@ function App() {
           </div>
         ) : null}
 
+        {updateDialog?.open ? (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Atualizar componente">
+            <div className="modal-card update-modal-card">
+              <div className="modal-header">
+                <div>
+                  <h2>
+                    <RefreshCw size={20} />
+                    Atualizar {updateDialog.label}
+                  </h2>
+                  <p>
+                    {selectedPrinter?.name ?? "Impressora"} · {selectedPrinter?.moonraker_url ?? "Moonraker não selecionado"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => {
+                    closeUpdateSocket();
+                    setUpdateDialog(null);
+                  }}
+                  disabled={updateDialog.phase === "running"}
+                >
+                  <X size={16} />
+                  Fechar
+                </button>
+              </div>
+
+              {updateDialog.phase === "confirm" ? (
+                <div className="update-confirm-box">
+                  <div className="finding monitorar">
+                    <div>
+                      <strong>Confirmação necessária</strong>
+                      <span>operação mutável</span>
+                    </div>
+                    <p>O Moonraker pode reiniciar serviços durante o update. Não execute se houver impressão em andamento.</p>
+                    <small>O MayderPrintLab vai abrir o log ao vivo do Moonraker e atualizar o status ao final.</small>
+                  </div>
+                  <div className="modal-footer">
+                    <button type="button" className="ghost-button" onClick={() => setUpdateDialog(null)}>
+                      Cancelar
+                    </button>
+                    <button type="button" className="primary-button" onClick={() => void runUpdate(updateDialog.target)} disabled={loading}>
+                      <RefreshCw size={16} />
+                      Iniciar update
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className={`update-progress-status ${updateDialog.phase}`}>
+                    {React.createElement(updatePhaseIcon(updateDialog.phase), { size: 18 })}
+                    <strong>{formatUpdatePhase(updateDialog.phase)}</strong>
+                  </div>
+                  <div className="update-log-list" aria-live="polite">
+                    {updateLogs.length === 0 ? <p className="muted">Aguardando mensagens do Moonraker...</p> : null}
+                    {updateLogs.map((log) => (
+                      <div key={log.id} className={`update-log-row ${log.level}`}>
+                        <time>{log.time}</time>
+                        <span>{log.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => {
+                        if (selectedPrinterId) {
+                          void loadUpdateStatus(selectedPrinterId);
+                        }
+                      }}
+                      disabled={!selectedPrinterId || loading}
+                    >
+                      <RefreshCw size={16} />
+                      Recarregar status
+                    </button>
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={() => {
+                        closeUpdateSocket();
+                        setUpdateDialog(null);
+                      }}
+                      disabled={updateDialog.phase === "running"}
+                    >
+                      <X size={16} />
+                      Fechar
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        ) : null}
+
         <section className="grid">
         <article className="panel wide panel-section panel-overview panel-printers panel-settings">
           <div className="panel-heading">
@@ -1925,7 +2122,7 @@ function App() {
               <button
                 type="button"
                 className="primary-button"
-                onClick={() => void runUpdate("all")}
+                onClick={() => openUpdateDialog("all")}
                 disabled={!selectedPrinterId || loading || updateStatus?.busy}
               >
                 <RefreshCw size={15} />
@@ -1983,7 +2180,7 @@ function App() {
                     <button
                       type="button"
                       className="primary-button"
-                      onClick={() => void runUpdate(component.name)}
+                      onClick={() => openUpdateDialog(component.name)}
                       disabled={!selectedPrinterId || loading || updateStatus.busy}
                     >
                       <RefreshCw size={15} />
@@ -3122,6 +3319,66 @@ async function readApiError(response: Response): Promise<string> {
     return text;
   }
   return fallback;
+}
+
+function moonrakerWebsocketUrl(moonrakerUrl: string): string | null {
+  try {
+    const url = new URL(moonrakerUrl);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    url.pathname = "/websocket";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function parseMoonrakerUpdateMessage(rawData: string): { message: string; complete: boolean } | null {
+  try {
+    const payload = JSON.parse(rawData) as {
+      method?: string;
+      params?: Array<{
+        application?: string;
+        message?: string;
+        complete?: boolean;
+      }>;
+    };
+    if (payload.method !== "notify_update_response") {
+      return null;
+    }
+    const response = payload.params?.[0];
+    if (!response?.message) {
+      return null;
+    }
+    const application = response.application ? `${response.application}: ` : "";
+    return {
+      message: `${application}${response.message}`,
+      complete: Boolean(response.complete),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function formatUpdatePhase(phase: UpdateDialogState["phase"]) {
+  const labels: Record<UpdateDialogState["phase"], string> = {
+    confirm: "Aguardando confirmação",
+    running: "Update em andamento",
+    done: "Update concluído",
+    failed: "Update com erro",
+  };
+  return labels[phase];
+}
+
+function updatePhaseIcon(phase: UpdateDialogState["phase"]): LucideIcon {
+  const icons: Record<UpdateDialogState["phase"], LucideIcon> = {
+    confirm: AlertTriangle,
+    running: RefreshCw,
+    done: CheckCircle2,
+    failed: AlertTriangle,
+  };
+  return icons[phase];
 }
 
 function updateStatusIcon(status: UpdateComponent["status"]): LucideIcon {

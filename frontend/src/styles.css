@@ -669,6 +669,9 @@ label {
 }
 
 .modal-header h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   margin: 0 0 6px;
 }
 
@@ -718,7 +721,7 @@ label {
 }
 
 .connection-test-row.ok {
-  border-left-color: var(--ok);
+  border-left-color: var(--success);
 }
 
 .connection-test-row.failed {
@@ -803,6 +806,87 @@ label {
 
 .modal-footer button {
   min-width: 150px;
+}
+
+.update-modal-card {
+  width: min(820px, 100%);
+}
+
+.update-confirm-box {
+  display: grid;
+  gap: 14px;
+}
+
+.update-progress-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 11px 13px;
+  margin-bottom: 14px;
+}
+
+.update-progress-status.done {
+  border-left-color: var(--success);
+}
+
+.update-progress-status.failed {
+  border-left-color: var(--danger);
+}
+
+.update-progress-status.running svg {
+  animation: spin 1.1s linear infinite;
+}
+
+.update-log-list {
+  display: grid;
+  max-height: 380px;
+  overflow: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.update-log-row {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 12px;
+  border-bottom: 1px solid var(--border-soft);
+  padding: 10px 12px;
+}
+
+.update-log-row:last-child {
+  border-bottom: 0;
+}
+
+.update-log-row time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.update-log-row span {
+  overflow-wrap: anywhere;
+}
+
+.update-log-row.success span {
+  color: var(--success);
+}
+
+.update-log-row.warning span {
+  color: var(--warning);
+}
+
+.update-log-row.error span {
+  color: var(--danger);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .ghost-button {
