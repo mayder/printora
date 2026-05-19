@@ -896,12 +896,15 @@ function App() {
     setHealth((await response.json()) as HealthResponse);
   }
 
-  async function loadUpdateStatus(printerId: number) {
+  async function loadUpdateStatus(printerId: number): Promise<UpdateStatusResponse | null> {
     const response = await fetch(`/api/printers/${printerId}/updates/status`);
     if (!response.ok) {
-      return;
+      return null;
     }
-    setUpdateStatus((await response.json()) as UpdateStatusResponse);
+    const status = (await response.json()) as UpdateStatusResponse;
+    setUpdateStatus(status);
+    setError(null);
+    return status;
   }
 
   async function refreshUpdateStatus(componentName?: string) {
@@ -918,7 +921,7 @@ function App() {
         body: JSON.stringify({ name: componentName ?? null }),
       });
       if (!response.ok) {
-        throw new Error(await response.text());
+        throw new Error(await readApiError(response));
       }
       setUpdateActionResult((await response.json()) as UpdateActionResponse);
       await loadUpdateStatus(selectedPrinterId);
@@ -951,13 +954,28 @@ function App() {
         body: JSON.stringify({ target }),
       });
       if (!response.ok) {
-        throw new Error(await response.text());
+        throw new Error(await readApiError(response));
       }
       setUpdateActionResult((await response.json()) as UpdateActionResponse);
       await loadUpdateStatus(selectedPrinterId);
       await loadPrinterHealth(selectedPrinterId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro desconhecido");
+      const latestStatus = await loadUpdateStatus(selectedPrinterId);
+      await loadPrinterHealth(selectedPrinterId);
+      const updatedComponent = latestStatus?.components.find((component) => component.name === target);
+      if (target !== "all" && updatedComponent?.status === "up_to_date") {
+        setUpdateActionResult({
+          safe_mode: "moonraker_update_manager",
+          action: "update",
+          target,
+          accepted: true,
+          message: "Update aplicado. O Moonraker retornou erro vazio no fim da operação, mas o componente agora está atualizado.",
+          result: {},
+        });
+        setError(null);
+      } else {
+        setError(err instanceof Error ? err.message : "Erro desconhecido");
+      }
     } finally {
       setLoading(false);
     }
@@ -3084,6 +3102,26 @@ function formatUpdateStatus(status: UpdateComponent["status"]) {
     unknown: "desconhecido",
   };
   return labels[status];
+}
+
+async function readApiError(response: Response): Promise<string> {
+  const fallback = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`;
+  const text = await response.text();
+  if (!text.trim()) {
+    return fallback;
+  }
+  try {
+    const payload = JSON.parse(text) as { detail?: unknown };
+    if (typeof payload.detail === "string" && payload.detail.trim()) {
+      return payload.detail;
+    }
+    if (payload.detail && typeof payload.detail !== "string") {
+      return JSON.stringify(payload.detail);
+    }
+  } catch {
+    return text;
+  }
+  return fallback;
 }
 
 function updateStatusIcon(status: UpdateComponent["status"]): LucideIcon {
