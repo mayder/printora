@@ -1888,7 +1888,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide panel-section panel-updates panel-monitoring">
+        <article className="panel wide panel-section panel-updates">
           <div className="panel-heading">
             <div>
               <h2>Atualizações</h2>
