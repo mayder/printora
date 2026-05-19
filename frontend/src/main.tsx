@@ -2012,7 +2012,40 @@ function App() {
         ) : null}
 
         <section className="grid">
-        <article className="panel wide panel-section panel-overview panel-printers panel-settings">
+        <article className="panel wide panel-section panel-overview">
+          <div className="panel-heading">
+            <div>
+              <h2>Resumo operacional</h2>
+              <p className="muted">Atalhos e sinais rápidos da impressora ativa, sem repetir telas completas.</p>
+            </div>
+          </div>
+          <div className="overview-strip">
+            <Badge icon={Printer} label="Impressora" value={selectedPrinter?.name ?? "-"} />
+            <Badge icon={Gauge} label="Decisão" value={formatDecision(health?.decision)} />
+            <Badge icon={RefreshCw} label="Updates pendentes" value={countPendingUpdates(updateStatus)} />
+            <Badge icon={Database} label="Snapshots" value={snapshots.length} />
+          </div>
+          <div className="quick-actions">
+            <button type="button" className="secondary-button" onClick={() => setActiveSection("monitoring")}>
+              <Activity size={15} />
+              Abrir monitoramento
+            </button>
+            <button type="button" className="secondary-button" onClick={() => setActiveSection("updates")}>
+              <RefreshCw size={15} />
+              Ver atualizações
+            </button>
+            <button type="button" className="secondary-button" onClick={() => setActiveSection("calibration")}>
+              <SlidersHorizontal size={15} />
+              Ajustes e calibração
+            </button>
+            <button type="button" className="secondary-button" onClick={() => setActiveSection("printers")}>
+              <Printer size={15} />
+              Gerenciar impressoras
+            </button>
+          </div>
+        </article>
+
+        <article className="panel wide panel-section panel-printers panel-settings">
           <div className="panel-heading">
             <div>
               <h2>Dashboard de impressoras</h2>
@@ -2071,7 +2104,7 @@ function App() {
           </div>
         </article>
 
-        <article className={`panel wide health ${healthPanelClass(health?.decision)} panel-section panel-overview panel-monitoring`}>
+        <article className={`panel wide health ${healthPanelClass(health?.decision)} panel-section panel-monitoring`}>
           <div className="panel-heading">
             <h2>Health Check</h2>
             <strong>{health?.summary ?? "Aguardando dados"}</strong>
@@ -3019,7 +3052,7 @@ function App() {
           <Metric label="Versão" value={status?.printer?.software_version ?? "-"} />
         </article>
 
-        <article className={`panel ${checklist?.can_print ? "ok" : "warn"} panel-section panel-overview panel-monitoring`}>
+        <article className={`panel ${checklist?.can_print ? "ok" : "warn"} panel-section panel-monitoring`}>
           <h2>Checklist pós-update</h2>
           <strong className="summary">{checklist?.summary ?? "Aguardando dados"}</strong>
           <div className="checks">
@@ -3299,6 +3332,13 @@ function formatUpdateStatus(status: UpdateComponent["status"]) {
     unknown: "desconhecido",
   };
   return labels[status];
+}
+
+function countPendingUpdates(status: UpdateStatusResponse | null) {
+  if (!status) {
+    return "-";
+  }
+  return status.components.filter((component) => component.can_update || component.status === "update_available").length;
 }
 
 async function readApiError(response: Response): Promise<string> {
