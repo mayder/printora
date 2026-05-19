@@ -1932,8 +1932,11 @@ function App() {
             {updateStatus?.components.map((component) => (
               <div key={component.name} className={`update-row ${component.status}`}>
                 <div className="update-main">
-                  <div>
-                    <strong>{component.title}</strong>
+                  <div className="update-component-copy">
+                    <strong className="update-title">
+                      {React.createElement(updateStatusIcon(component.status), { size: 16 })}
+                      {component.title}
+                    </strong>
                     <span>
                       {component.current_version ?? "-"} {component.remote_version ? `→ ${component.remote_version}` : ""}
                     </span>
@@ -1955,16 +1958,25 @@ function App() {
                     onClick={() => void refreshUpdateStatus(component.name)}
                     disabled={!selectedPrinterId || loading || updateStatus.busy}
                   >
+                    <RefreshCw size={15} />
                     Reanalisar
                   </button>
-                  <button
-                    type="button"
-                    className="primary-button"
-                    onClick={() => void runUpdate(component.name)}
-                    disabled={!selectedPrinterId || loading || updateStatus.busy || !component.can_update}
-                  >
-                    Atualizar
-                  </button>
+                  {component.can_update ? (
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={() => void runUpdate(component.name)}
+                      disabled={!selectedPrinterId || loading || updateStatus.busy}
+                    >
+                      <RefreshCw size={15} />
+                      Atualizar
+                    </button>
+                  ) : (
+                    <button type="button" className="secondary-button" disabled>
+                      <CheckCircle2 size={15} />
+                      Atualizado
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -3072,6 +3084,17 @@ function formatUpdateStatus(status: UpdateComponent["status"]) {
     unknown: "desconhecido",
   };
   return labels[status];
+}
+
+function updateStatusIcon(status: UpdateComponent["status"]): LucideIcon {
+  const icons: Record<UpdateComponent["status"], LucideIcon> = {
+    up_to_date: CheckCircle2,
+    update_available: RefreshCw,
+    warning: AlertTriangle,
+    busy: Gauge,
+    unknown: Gauge,
+  };
+  return icons[status];
 }
 
 function formatBoolean(value: boolean | null | undefined) {

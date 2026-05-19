@@ -1567,6 +1567,17 @@ label {
   overflow-wrap: anywhere;
 }
 
+.update-title {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+}
+
+.update-title svg {
+  flex: 0 0 auto;
+  color: #9bc9ff;
+}
+
 .update-main span,
 .update-main small,
 .update-warning {
@@ -1578,6 +1589,10 @@ label {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.update-actions button:disabled {
+  cursor: default;
 }
 
 .badge {

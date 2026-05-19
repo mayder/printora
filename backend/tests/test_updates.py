@@ -29,7 +29,9 @@ def test_build_update_status_detects_available_updates() -> None:
     assert result.counts["update_available"] == 1
     assert result.components[0].name == "klipper"
     assert result.components[0].status == "update_available"
+    assert result.components[0].can_update is True
     assert result.components[1].status == "up_to_date"
+    assert result.components[1].can_update is False
 
 
 def test_build_update_status_warns_on_dirty_or_invalid_component() -> None:
@@ -50,6 +52,7 @@ def test_build_update_status_warns_on_dirty_or_invalid_component() -> None:
     assert result.summary == "Há componentes com alerta"
     assert result.counts["warning"] == 1
     assert result.components[0].status == "warning"
+    assert result.components[0].can_update is True
 
 
 def test_update_route_for_target_uses_safe_moonraker_routes() -> None:

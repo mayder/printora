@@ -135,7 +135,7 @@ def _build_component(name: str, payload: dict[str, Any]) -> UpdateComponent:
         package_count=package_count,
         warnings=warnings,
         anomalies=anomalies,
-        can_update=True,
+        can_update=status in {"update_available", "warning"},
     )
 
 
