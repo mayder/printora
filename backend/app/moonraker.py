@@ -1,4 +1,5 @@
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -36,8 +37,8 @@ class MoonrakerClient:
         return await self.get_json("/machine/update/status")
 
     async def refresh_update_status(self, name: str | None = None) -> dict[str, Any]:
-        payload = {"name": name} if name else {}
-        return await self.post_json("/machine/update/refresh", payload)
+        path = f"/machine/update/refresh?name={quote(name)}" if name else "/machine/update/refresh"
+        return await self.post_json(path)
 
     async def update_all(self) -> dict[str, Any]:
         return await self.post_json("/machine/update/full")
@@ -49,7 +50,7 @@ class MoonrakerClient:
         return await self.post_json(f"/machine/update/{name}")
 
     async def update_client(self, name: str) -> dict[str, Any]:
-        return await self.post_json("/machine/update/client", {"name": name})
+        return await self.post_json(f"/machine/update/client?name={quote(name)}")
 
     async def system_info(self) -> dict[str, Any]:
         return await self.get_json("/machine/system_info")

@@ -389,7 +389,7 @@ async def run_printer_update(printer_id: int, payload: UpdateRunRequest) -> Upda
         else:
             result = await client.update_client(target)
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise HTTPException(status_code=502, detail=_http_error_detail(exc)) from exc
     return UpdateActionResponse(
         safe_mode="moonraker_update_manager",
         action="update",
@@ -1011,6 +1011,15 @@ def _latest_snapshot_diff(
     if len(snapshots) < 2:
         return None
     return snapshot_repository.diff_snapshots(printer_id, snapshots[1].id, snapshots[0].id)
+
+
+def _http_error_detail(exc: httpx.HTTPError) -> str:
+    if isinstance(exc, httpx.HTTPStatusError):
+        response_text = exc.response.text.strip()
+        if response_text:
+            return f"Moonraker HTTP {exc.response.status_code}: {response_text}"
+        return f"Moonraker HTTP {exc.response.status_code}"
+    return str(exc)
 
 
 @app.get("/{frontend_path:path}")
