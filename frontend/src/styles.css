@@ -352,13 +352,6 @@ label {
   min-height: 38px;
 }
 
-.topbar-actions span {
-  max-width: 360px;
-  color: var(--muted);
-  overflow-wrap: anywhere;
-  text-align: right;
-}
-
 .grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -1908,11 +1901,6 @@ label {
 
   .topbar-actions {
     justify-content: stretch;
-  }
-
-  .topbar-actions span {
-    max-width: none;
-    text-align: left;
   }
 
   .page-helper {

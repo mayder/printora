@@ -1729,7 +1729,6 @@ function App() {
                 ))}
               </select>
             </label>
-            <span>{selectedPrinter?.moonraker_url ?? "Moonraker não selecionado"}</span>
             <button
               type="button"
               className="icon-button"
