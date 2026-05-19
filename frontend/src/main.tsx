@@ -316,6 +316,42 @@ type PluginAuditResponse = {
   items: PluginAuditItem[];
 };
 
+type UpdateComponent = {
+  name: string;
+  title: string;
+  configured_type: string;
+  status: "up_to_date" | "update_available" | "warning" | "busy" | "unknown";
+  current_version?: string | null;
+  remote_version?: string | null;
+  full_version?: string | null;
+  is_dirty?: boolean | null;
+  is_valid?: boolean | null;
+  commits_behind_count: number;
+  package_count: number;
+  warnings: string[];
+  anomalies: string[];
+  can_update: boolean;
+};
+
+type UpdateStatusResponse = {
+  safe_mode: string;
+  busy: boolean;
+  github_requests_remaining?: number | null;
+  github_rate_limit?: number | null;
+  summary: string;
+  counts: Record<string, number>;
+  components: UpdateComponent[];
+};
+
+type UpdateActionResponse = {
+  safe_mode: string;
+  action: "refresh" | "update";
+  target: string;
+  accepted: boolean;
+  message: string;
+  result: Record<string, unknown>;
+};
+
 type BoardPreset = {
   id: string;
   vendor: string;
@@ -416,6 +452,7 @@ type AppSection =
   | "overview"
   | "printers"
   | "monitoring"
+  | "updates"
   | "calibration"
   | "tests"
   | "firmware"
@@ -452,6 +489,13 @@ const appSections: Array<{
     label: "Monitoramento",
     detail: "Health, logs, CAN, Moonraker, Klipper e host.",
     purpose: "Analise saúde, logs e sinais técnicos antes de imprimir, atualizar ou diagnosticar falhas.",
+  },
+  {
+    key: "updates",
+    icon: RefreshCw,
+    label: "Atualizações",
+    detail: "Update Manager da impressora selecionada.",
+    purpose: "Veja componentes desatualizados e execute updates pelo Moonraker, no mesmo modelo do Mainsail.",
   },
   {
     key: "calibration",
@@ -499,7 +543,7 @@ const appSections: Array<{
 
 const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Principal", sections: ["overview", "printers"] },
-  { title: "Impressora ativa", sections: ["monitoring", "calibration", "tests", "firmware", "maintenance"] },
+  { title: "Impressora ativa", sections: ["monitoring", "updates", "calibration", "tests", "firmware", "maintenance"] },
   { title: "Diagnóstico", sections: ["reports", "settings"] },
 ];
 
@@ -528,6 +572,8 @@ function App() {
   const [snapshotDiff, setSnapshotDiff] = React.useState<SnapshotDiff | null>(null);
   const [status, setStatus] = React.useState<MoonrakerStatus | null>(null);
   const [health, setHealth] = React.useState<HealthResponse | null>(null);
+  const [updateStatus, setUpdateStatus] = React.useState<UpdateStatusResponse | null>(null);
+  const [updateActionResult, setUpdateActionResult] = React.useState<UpdateActionResponse | null>(null);
   const [checklist, setChecklist] = React.useState<ChecklistResponse | null>(null);
   const [audit, setAudit] = React.useState<AuditResponse | null>(null);
   const [hostAudit, setHostAudit] = React.useState<AuditResponse | null>(null);
@@ -645,6 +691,7 @@ function App() {
   async function loadPrinterContext(printerId: number) {
     await loadSnapshots(printerId);
     await loadPrinterHealth(printerId);
+    await loadUpdateStatus(printerId);
     await loadBackups(printerId);
     await loadMaintenance(printerId);
     await loadZOffsets(printerId);
@@ -794,6 +841,7 @@ function App() {
       const payload = (await response.json()) as MoonrakerStatus;
       setStatus(payload);
       await loadPrinterHealth(selectedPrinterId);
+      await loadUpdateStatus(selectedPrinterId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -846,6 +894,73 @@ function App() {
       return;
     }
     setHealth((await response.json()) as HealthResponse);
+  }
+
+  async function loadUpdateStatus(printerId: number) {
+    const response = await fetch(`/api/printers/${printerId}/updates/status`);
+    if (!response.ok) {
+      return;
+    }
+    setUpdateStatus((await response.json()) as UpdateStatusResponse);
+  }
+
+  async function refreshUpdateStatus(componentName?: string) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setUpdateActionResult(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/updates/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: componentName ?? null }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setUpdateActionResult((await response.json()) as UpdateActionResponse);
+      await loadUpdateStatus(selectedPrinterId);
+      await loadPrinterHealth(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function runUpdate(target: string) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    const selectedLabel = target === "all" ? "todos os componentes" : target;
+    const confirmed = window.confirm(
+      `Atualizar ${selectedLabel}? O Moonraker pode reiniciar serviços e recusará a ação se houver impressão em andamento.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setUpdateActionResult(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/updates/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setUpdateActionResult((await response.json()) as UpdateActionResponse);
+      await loadUpdateStatus(selectedPrinterId);
+      await loadPrinterHealth(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function loadBackups(printerId: number) {
@@ -1768,6 +1883,89 @@ function App() {
                 </div>
                 <p>{item.detail}</p>
                 <small>{item.action}</small>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel wide panel-section panel-updates panel-monitoring">
+          <div className="panel-heading">
+            <div>
+              <h2>Atualizações</h2>
+              <p className="muted">Componentes do Update Manager para {selectedPrinter?.name ?? "a impressora selecionada"}.</p>
+            </div>
+            <div className="panel-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => void refreshUpdateStatus()}
+                disabled={!selectedPrinterId || loading || updateStatus?.busy}
+              >
+                <RefreshCw size={15} />
+                Reanalisar
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => void runUpdate("all")}
+                disabled={!selectedPrinterId || loading || updateStatus?.busy}
+              >
+                <RefreshCw size={15} />
+                Atualizar tudo
+              </button>
+            </div>
+          </div>
+          <div className="overview-strip">
+            <Badge icon={RefreshCw} label="Pendentes" value={updateStatus?.counts.update_available ?? 0} />
+            <Badge icon={AlertTriangle} label="Alertas" value={updateStatus?.counts.warning ?? 0} />
+            <Badge icon={CheckCircle2} label="Atualizados" value={updateStatus?.counts.up_to_date ?? 0} />
+            <Badge icon={Gauge} label="Estado" value={updateStatus?.busy ? "ocupado" : updateStatus?.summary ?? "-"} />
+          </div>
+          {updateActionResult ? (
+            <div className="action-result">
+              <strong>{updateActionResult.message}</strong>
+              <span>Alvo: {updateActionResult.target}</span>
+            </div>
+          ) : null}
+          <div className="update-list">
+            {updateStatus?.components.length === 0 ? <p className="muted">Nenhum componente retornado pelo Update Manager.</p> : null}
+            {updateStatus?.components.map((component) => (
+              <div key={component.name} className={`update-row ${component.status}`}>
+                <div className="update-main">
+                  <div>
+                    <strong>{component.title}</strong>
+                    <span>
+                      {component.current_version ?? "-"} {component.remote_version ? `→ ${component.remote_version}` : ""}
+                    </span>
+                    <small>
+                      {component.configured_type} · behind {component.commits_behind_count} · packages {component.package_count}
+                    </small>
+                  </div>
+                  <span className={`status-pill ${component.status}`}>{formatUpdateStatus(component.status)}</span>
+                </div>
+                {component.warnings.length || component.anomalies.length ? (
+                  <small className="update-warning">
+                    {[...component.warnings, ...component.anomalies].join(" · ")}
+                  </small>
+                ) : null}
+                <div className="update-actions">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => void refreshUpdateStatus(component.name)}
+                    disabled={!selectedPrinterId || loading || updateStatus.busy}
+                  >
+                    Reanalisar
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={() => void runUpdate(component.name)}
+                    disabled={!selectedPrinterId || loading || updateStatus.busy || !component.can_update}
+                  >
+                    Atualizar
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -2863,6 +3061,17 @@ function formatPluginClassification(classification: PluginAuditItem["classificat
     precisa_confirmacao: "precisa confirmação",
   };
   return labels[classification];
+}
+
+function formatUpdateStatus(status: UpdateComponent["status"]) {
+  const labels: Record<UpdateComponent["status"], string> = {
+    up_to_date: "atualizado",
+    update_available: "update disponível",
+    warning: "atenção",
+    busy: "ocupado",
+    unknown: "desconhecido",
+  };
+  return labels[status];
 }
 
 function formatBoolean(value: boolean | null | undefined) {

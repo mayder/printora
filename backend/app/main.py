@@ -49,6 +49,14 @@ from app.snapshots import (
     SnapshotRepository,
     build_moonraker_snapshot_payload,
 )
+from app.updates import (
+    UpdateActionResponse,
+    UpdateRefreshRequest,
+    UpdateRunRequest,
+    UpdateStatusResponse,
+    build_update_status,
+    update_route_for_target,
+)
 from app.z_offset import (
     ZOffsetRecord,
     ZOffsetRecordCreate,
@@ -308,6 +316,88 @@ async def printer_health(printer_id: int) -> dict[str, Any]:
             latest_diff=latest_diff,
         ),
     }
+
+
+@app.get("/api/printers/{printer_id}/updates/status")
+async def printer_update_status(printer_id: int) -> UpdateStatusResponse:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    printer = repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    try:
+        update_status = await client.update_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return build_update_status(update_status)
+
+
+@app.post("/api/printers/{printer_id}/updates/refresh")
+async def refresh_printer_update_status(
+    printer_id: int,
+    payload: UpdateRefreshRequest,
+) -> UpdateActionResponse:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    printer = repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    try:
+        result = await client.refresh_update_status(payload.name)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return UpdateActionResponse(
+        safe_mode="moonraker_update_manager",
+        action="refresh",
+        target=payload.name or "all",
+        accepted=True,
+        message="Atualização de status solicitada ao Moonraker.",
+        result=result,
+    )
+
+
+@app.post("/api/printers/{printer_id}/updates/run")
+async def run_printer_update(printer_id: int, payload: UpdateRunRequest) -> UpdateActionResponse:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    printer = repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+
+    route, target = update_route_for_target(payload.target)
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    try:
+        if target == "all":
+            result = await client.update_all()
+        elif target == "system":
+            result = await client.update_system()
+        elif target in {"klipper", "moonraker"}:
+            result = await client.update_core_component(target)
+        else:
+            result = await client.update_client(target)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return UpdateActionResponse(
+        safe_mode="moonraker_update_manager",
+        action="update",
+        target=target,
+        accepted=True,
+        message=f"Update solicitado ao Moonraker via {route}.",
+        result=result,
+    )
 
 
 @app.get("/api/printers/{printer_id}/reports/sanitized")

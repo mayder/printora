@@ -17,6 +17,15 @@ class MoonrakerClient:
         result = payload.get("result")
         return result if isinstance(result, dict) else payload
 
+    async def post_json(self, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        url = f"{self.base_url}/{path.lstrip('/')}"
+        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+            response = await client.post(url, json=payload) if payload is not None else await client.post(url)
+            response.raise_for_status()
+            response_payload = response.json()
+        result = response_payload.get("result")
+        return result if isinstance(result, dict) else response_payload
+
     async def printer_info(self) -> dict[str, Any]:
         return await self.get_json("/printer/info")
 
@@ -25,6 +34,22 @@ class MoonrakerClient:
 
     async def update_status(self) -> dict[str, Any]:
         return await self.get_json("/machine/update/status")
+
+    async def refresh_update_status(self, name: str | None = None) -> dict[str, Any]:
+        payload = {"name": name} if name else {}
+        return await self.post_json("/machine/update/refresh", payload)
+
+    async def update_all(self) -> dict[str, Any]:
+        return await self.post_json("/machine/update/full")
+
+    async def update_system(self) -> dict[str, Any]:
+        return await self.post_json("/machine/update/system")
+
+    async def update_core_component(self, name: str) -> dict[str, Any]:
+        return await self.post_json(f"/machine/update/{name}")
+
+    async def update_client(self, name: str) -> dict[str, Any]:
+        return await self.post_json("/machine/update/client", {"name": name})
 
     async def system_info(self) -> dict[str, Any]:
         return await self.get_json("/machine/system_info")
