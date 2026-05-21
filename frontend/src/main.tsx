@@ -2740,7 +2740,9 @@ function App() {
     <main className="app-shell">
       <aside className="sidebar" aria-label="Navegação principal">
         <div className="brand">
-          <div className="brand-mark">M</div>
+          <div className="brand-mark">
+            <img src="/brand/printora-icon-app-color.png" alt="" />
+          </div>
           <div>
             <strong>Printora</strong>
             <span>Klipper Ops</span>

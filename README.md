@@ -1,5 +1,7 @@
 # Printora
 
+![Printora logo](frontend/public/brand/printora-logo-horizontal-color.png)
+
 Printora é uma aplicação web local para impressoras Klipper/Moonraker.
 
 Ela ajuda com saúde da impressora, auditorias read-only, snapshots, backups, manutenção, histórico de CAN, Z-offset, registros de calibração e planejamento seguro de firmware.

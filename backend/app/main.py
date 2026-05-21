@@ -213,8 +213,11 @@ app.add_middleware(
 
 _frontend_dist_dir = get_settings().frontend_dist_dir
 _frontend_assets_dir = _frontend_dist_dir / "assets"
+_frontend_brand_dir = _frontend_dist_dir / "brand"
 if _frontend_assets_dir.is_dir():
     app.mount("/assets", StaticFiles(directory=_frontend_assets_dir), name="frontend-assets")
+if _frontend_brand_dir.is_dir():
+    app.mount("/brand", StaticFiles(directory=_frontend_brand_dir), name="frontend-brand")
 
 
 @app.get("/health")
@@ -228,6 +231,22 @@ async def frontend_index() -> FileResponse:
     if not index_path.is_file():
         raise HTTPException(status_code=404, detail="frontend build not found")
     return FileResponse(index_path)
+
+
+@app.get("/favicon.png")
+async def frontend_favicon() -> FileResponse:
+    favicon_path = get_settings().frontend_dist_dir / "favicon.png"
+    if not favicon_path.is_file():
+        raise HTTPException(status_code=404, detail="favicon not found")
+    return FileResponse(favicon_path)
+
+
+@app.get("/apple-touch-icon.png")
+async def frontend_apple_touch_icon() -> FileResponse:
+    icon_path = get_settings().frontend_dist_dir / "apple-touch-icon.png"
+    if not icon_path.is_file():
+        raise HTTPException(status_code=404, detail="apple touch icon not found")
+    return FileResponse(icon_path)
 
 
 @app.get("/api/moonraker/status")
