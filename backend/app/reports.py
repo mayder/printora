@@ -13,6 +13,8 @@ class SanitizedReport(BaseModel):
     printer_id: int
     safe_mode: str
     format: str
+    data_state: str
+    source: str
     redactions: list[str]
     markdown: str
 
@@ -20,7 +22,7 @@ class SanitizedReport(BaseModel):
 class Sanitizer:
     _url_pattern = re.compile(r"https?://[^\s)>\]]+", re.IGNORECASE)
     _ipv4_pattern = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
-    _home_path_pattern = re.compile(r"/home/[^/\s]+/[^\s)>\]]+")
+    _home_path_pattern = re.compile(r"/(?:home|Users)/[^/\s]+/[^\s)>\]]+")
     _sensitive_assignment_pattern = re.compile(
         r"(?i)\b(password|passwd|senha|token|secret|api[_-]?key|access[_-]?key|private[_-]?key|psk)\b"
         r"(\s*[:=]\s*)"
@@ -81,6 +83,8 @@ def build_sanitized_report(
         "",
         f"- Modo seguro: {sanitizer.clean(health.get('safe_mode', 'read_only'))}",
         f"- Conectado: {sanitizer.clean(health.get('connected'))}",
+        f"- Origem dos dados: {sanitizer.clean(health.get('data_state', 'unknown'))}",
+        f"- Fonte: {sanitizer.clean(health.get('source', health.get('moonraker_url', '-')))}",
         f"- Decisão: {sanitizer.clean(health.get('decision'))}",
         f"- Resumo: {sanitizer.clean(health.get('summary'))}",
         f"- Contadores: {sanitizer.clean(health.get('counts', {}))}",
@@ -137,7 +141,8 @@ def build_sanitized_report(
         for run in backup_runs[:5]:
             lines.append(
                 f"- #{run.id} · {sanitizer.clean(run.created_at)} · {sanitizer.clean(run.status)} · "
-                f"dry_run={sanitizer.clean(run.dry_run)} · arquivos={run.total_files} · "
+                f"dry_run={sanitizer.clean(run.dry_run)} · origem={sanitizer.clean(run.source_path)} · "
+                f"destino={sanitizer.clean(run.destination_path)} · arquivos={run.total_files} · "
                 f"bytes={run.total_bytes} · {sanitizer.clean(run.message)}"
             )
     else:
@@ -158,6 +163,8 @@ def build_sanitized_report(
         printer_id=printer.id,
         safe_mode="read_only",
         format="markdown",
+        data_state=str(health.get("data_state", "unknown")),
+        source=sanitizer.clean(health.get("source", health.get("moonraker_url", "-"))),
         redactions=sorted(sanitizer.redactions),
         markdown=markdown,
     )

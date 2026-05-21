@@ -3,6 +3,7 @@ import ipaddress
 import socket
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from pydantic import BaseModel, ConfigDict
@@ -47,13 +48,13 @@ async def discover_moonraker_printers(
     timeout_seconds: float = 0.35,
 ) -> PrinterDiscoveryResponse:
     network, warnings = _resolve_discovery_network(cidr)
-    registered_urls = {printer.moonraker_url.rstrip("/") for printer in registered_printers}
+    registered_urls, registered_endpoints = _registered_moonraker_targets(registered_printers)
     targets = [DiscoveryTarget(address=str(host), url=f"http://{host}:{MOONRAKER_PORT}") for host in network.hosts()]
 
     timeout = httpx.Timeout(timeout_seconds, connect=timeout_seconds)
     limits = httpx.Limits(max_connections=64, max_keepalive_connections=0)
     async with httpx.AsyncClient(timeout=timeout, limits=limits) as client:
-        results = await asyncio.gather(*[_probe_target(client, target, registered_urls) for target in targets])
+        results = await asyncio.gather(*[_probe_target(client, target, registered_urls, registered_endpoints) for target in targets])
 
     candidates = sorted((result for result in results if result is not None), key=lambda item: item.address)
     return PrinterDiscoveryResponse(
@@ -98,6 +99,7 @@ async def _probe_target(
     client: httpx.AsyncClient,
     target: DiscoveryTarget,
     registered_urls: set[str],
+    registered_endpoints: set[tuple[str, int]],
 ) -> DiscoveredPrinter | None:
     try:
         response = await client.get(f"{target.url}/server/info")
@@ -118,8 +120,32 @@ async def _probe_target(
         klippy_connected=_optional_bool(result.get("klippy_connected")),
         klippy_state=_optional_string(result.get("klippy_state")),
         moonraker_version=_optional_string(result.get("moonraker_version")),
-        already_registered=target.url.rstrip("/") in registered_urls,
+        already_registered=target.url.rstrip("/") in registered_urls or (target.address, MOONRAKER_PORT) in registered_endpoints,
     )
+
+
+def _registered_moonraker_targets(registered_printers: list[PrinterRecord]) -> tuple[set[str], set[tuple[str, int]]]:
+    urls: set[str] = set()
+    endpoints: set[tuple[str, int]] = set()
+    for printer in registered_printers:
+        clean_url = printer.moonraker_url.rstrip("/")
+        urls.add(clean_url)
+        parsed = urlparse(clean_url)
+        if parsed.hostname is None:
+            continue
+        port = parsed.port or MOONRAKER_PORT
+        endpoints.add((parsed.hostname, port))
+        for address in _resolve_host_addresses(parsed.hostname):
+            endpoints.add((address, port))
+    return urls, endpoints
+
+
+def _resolve_host_addresses(hostname: str) -> set[str]:
+    try:
+        results = socket.getaddrinfo(hostname, None, family=socket.AF_INET, type=socket.SOCK_STREAM)
+    except OSError:
+        return set()
+    return {result[4][0] for result in results if result[4]}
 
 
 def _name_from_server_info(server_info: dict[str, Any], address: str) -> str:

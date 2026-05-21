@@ -3,6 +3,7 @@ import zipfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from zipfile import ZipFile
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -68,6 +69,52 @@ class BackupRunRecord(BaseModel):
     exclude_patterns: list[str]
     total_files: int
     total_bytes: int
+    message: str
+
+
+class BackupArchiveCompareRequest(BaseModel):
+    base_archive_path: str = Field(min_length=1, max_length=400)
+    target_archive_path: str = Field(min_length=1, max_length=400)
+
+
+class BackupArchiveCompareResponse(BaseModel):
+    safe_mode: str
+    base_archive_path: str
+    target_archive_path: str
+    added: list[str]
+    removed: list[str]
+    changed: list[str]
+    unchanged_count: int
+    summary: str
+
+
+class BackupRestorePlanRequest(BaseModel):
+    archive_path: str = Field(min_length=1, max_length=400)
+    restore_root: str = Field(min_length=1, max_length=400)
+    files: list[str] = Field(default_factory=list)
+
+
+class BackupRestorePlanResponse(BaseModel):
+    safe_mode: str
+    archive_path: str
+    restore_root: str
+    selected_files: list[str]
+    missing_files: list[str]
+    planned_commands: list[str]
+    blocked: bool
+    message: str
+
+
+class BackupRestoreExecuteRequest(BackupRestorePlanRequest):
+    confirmation: str = Field(default="", max_length=100)
+
+
+class BackupRestoreGateResponse(BaseModel):
+    safe_mode: str
+    accepted_confirmation: bool
+    blocked: bool
+    plan: BackupRestorePlanResponse
+    rollback_plan: list[str]
     message: str
 
 
@@ -349,3 +396,95 @@ def _run_from_row(row) -> BackupRunRecord:
         total_bytes=int(row["total_bytes"]),
         message=str(row["message"]),
     )
+
+
+def compare_backup_archives(payload: BackupArchiveCompareRequest) -> BackupArchiveCompareResponse:
+    base_path = Path(payload.base_archive_path).expanduser()
+    target_path = Path(payload.target_archive_path).expanduser()
+    if not base_path.is_file():
+        raise ValueError(f"arquivo base não encontrado: {base_path}")
+    if not target_path.is_file():
+        raise ValueError(f"arquivo alvo não encontrado: {target_path}")
+    base = _zip_manifest(base_path)
+    target = _zip_manifest(target_path)
+    base_names = set(base)
+    target_names = set(target)
+    added = sorted(target_names - base_names)
+    removed = sorted(base_names - target_names)
+    common = base_names & target_names
+    changed = sorted(name for name in common if base[name] != target[name])
+    unchanged_count = len(common) - len(changed)
+    summary = (
+        f"{len(added)} adicionados, {len(removed)} removidos, "
+        f"{len(changed)} alterados, {unchanged_count} inalterados."
+    )
+    return BackupArchiveCompareResponse(
+        safe_mode="local_zip_read_only",
+        base_archive_path=str(base_path),
+        target_archive_path=str(target_path),
+        added=added,
+        removed=removed,
+        changed=changed,
+        unchanged_count=unchanged_count,
+        summary=summary,
+    )
+
+
+def build_backup_restore_plan(payload: BackupRestorePlanRequest) -> BackupRestorePlanResponse:
+    archive_path = Path(payload.archive_path).expanduser()
+    restore_root = Path(payload.restore_root).expanduser()
+    if not archive_path.is_file():
+        raise ValueError(f"arquivo de backup não encontrado: {archive_path}")
+    manifest = _zip_manifest(archive_path)
+    requested = _clean_patterns(payload.files)
+    selected = requested or sorted(manifest)
+    missing = sorted(file for file in selected if file not in manifest)
+    existing = [file for file in selected if file in manifest]
+    planned_commands = [
+        f"# revisar backup antes de restaurar: {archive_path}",
+        f"mkdir -p {restore_root}",
+    ]
+    planned_commands.extend(
+        f"unzip -p {archive_path} {file} > {restore_root / file}"
+        for file in existing
+    )
+    return BackupRestorePlanResponse(
+        safe_mode="restore_dry_run_only",
+        archive_path=str(archive_path),
+        restore_root=str(restore_root),
+        selected_files=existing,
+        missing_files=missing,
+        planned_commands=planned_commands,
+        blocked=True,
+        message="Plano de restore gerado. Nenhum arquivo foi extraído, sobrescrito ou removido.",
+    )
+
+
+def build_backup_restore_gate(payload: BackupRestoreExecuteRequest) -> BackupRestoreGateResponse:
+    plan = build_backup_restore_plan(payload)
+    accepted_confirmation = payload.confirmation == "BLOCK_REAL_RESTORE"
+    return BackupRestoreGateResponse(
+        safe_mode="restore_execution_gate_blocked",
+        accepted_confirmation=accepted_confirmation,
+        blocked=True,
+        plan=plan,
+        rollback_plan=[
+            "Nenhum arquivo foi extraído, sobrescrito ou removido pelo MayderPrintLab.",
+            "Restore real futuro deve criar backup automático do destino antes de sobrescrever qualquer arquivo.",
+            "Restore real futuro deve validar Klipper depois da cópia e exigir restart confirmado separadamente.",
+        ],
+        message=(
+            "Gate validado e restore real bloqueado. Nenhuma alteração foi aplicada."
+            if accepted_confirmation
+            else "Confirmação inválida. Restore real permanece bloqueado e nenhuma alteração foi aplicada."
+        ),
+    )
+
+
+def _zip_manifest(path: Path) -> dict[str, tuple[int, int]]:
+    with ZipFile(path) as archive:
+        return {
+            item.filename: (item.file_size, item.CRC)
+            for item in archive.infolist()
+            if not item.is_dir()
+        }

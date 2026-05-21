@@ -84,10 +84,37 @@ class FirmwareBuildRunRecord(BaseModel):
     message: str
 
 
+class FirmwareBuildPreflightCheck(BaseModel):
+    key: str
+    label: str
+    status: Literal["ok", "warning", "blocked"]
+    detail: str
+
+
+class FirmwareBuildPreflight(BaseModel):
+    safe_mode: str
+    printer_id: int
+    board_id: int
+    board_name: str
+    klipper_path: str
+    output_root: str
+    config_file: str
+    expected_build_output: str
+    checks: list[FirmwareBuildPreflightCheck]
+    commands_preview: list[str]
+    blocked: bool
+    can_execute_build: bool
+    message: str
+
+
 class FirmwareFlashDryRunCreate(BaseModel):
     build_run_id: int | None = None
     binary_path: str | None = Field(default=None, max_length=260)
     notes: str = Field(default="", max_length=1000)
+
+
+class FirmwareFlashExecuteCreate(FirmwareFlashDryRunCreate):
+    confirmation: str = Field(default="", max_length=100)
 
 
 class FirmwareFlashRunRecord(BaseModel):
@@ -106,6 +133,50 @@ class FirmwareFlashRunRecord(BaseModel):
     commands: list[str]
     checklist: list[str]
     message: str
+
+
+class FirmwareFlashPreflightCheck(BaseModel):
+    key: str
+    label: str
+    status: Literal["ok", "warning", "blocked"]
+    detail: str
+
+
+class FirmwareFlashPreflight(BaseModel):
+    safe_mode: str
+    printer_id: int
+    board_id: int
+    board_name: str
+    flash_method: FlashMethod
+    can_uuid: str | None
+    can_interface: str
+    binary_path: str
+    connected: bool
+    printing: bool
+    print_state: str
+    klipper_state: str | None
+    klippy_state: str | None
+    checks: list[FirmwareFlashPreflightCheck]
+    commands_preview: list[str]
+    rollback_plan: list[str]
+    blocked: bool
+    can_execute_flash: bool
+    message: str
+
+
+class FirmwareRecoveryPlan(BaseModel):
+    safe_mode: str
+    printer_id: int
+    board_id: int
+    board_name: str
+    flash_method: FlashMethod
+    can_uuid: str | None
+    can_interface: str
+    prerequisites: list[str]
+    recovery_steps: list[str]
+    validation_steps: list[str]
+    rollback_notes: list[str]
+    blocked: bool
 
 
 BOARD_PRESETS: dict[str, BoardPreset] = {
@@ -340,6 +411,37 @@ class FirmwareBoardRepository:
             ).fetchone()
         return _record_from_row(row) if row else None
 
+    def build_recovery_plan(self, board_id: int) -> FirmwareRecoveryPlan:
+        board = self.get_board(board_id)
+        if board is None:
+            raise ValueError("firmware board not found")
+        return FirmwareRecoveryPlan(
+            safe_mode="manual_recovery_plan_only",
+            printer_id=board.printer_id,
+            board_id=board.id,
+            board_name=board.name,
+            flash_method=board.flash_method,
+            can_uuid=board.can_uuid,
+            can_interface=board.can_interface,
+            prerequisites=[
+                "Confirmar impressora parada e energia estável.",
+                "Ter backup da .config e binário anterior antes de qualquer flash.",
+                "Confirmar método de bootloader da placa e acesso físico se necessário.",
+                "Registrar UUID/serial atual antes de alterar firmware.",
+            ],
+            recovery_steps=_firmware_recovery_steps(board),
+            validation_steps=[
+                "Validar UUID/serial após recuperação.",
+                "Reiniciar Klipper somente depois de confirmar que a MCU voltou a responder.",
+                "Conferir printer/info e logs antes de liberar impressão.",
+            ],
+            rollback_notes=[
+                "Este plano não executou flash, restart, SSH nem comandos locais.",
+                "Se o flash falhar, usar o binário anterior e o método de bootloader documentado para a placa.",
+            ],
+            blocked=True,
+        )
+
     def create_build_dry_run(self, board_id: int, payload: FirmwareBuildDryRunCreate) -> FirmwareBuildRunRecord:
         board = self.get_board(board_id)
         if board is None:
@@ -349,6 +451,15 @@ class FirmwareBoardRepository:
             raise ValueError("unknown board preset")
         plan = _build_dry_run_plan(board, preset, payload)
         return self._insert_build_run(board, "dry_run_planned", plan)
+
+    def build_build_preflight(self, board_id: int, payload: FirmwareBuildDryRunCreate, mode: str) -> FirmwareBuildPreflight:
+        board = self.get_board(board_id)
+        if board is None:
+            raise ValueError("firmware board not found")
+        preset = self.get_preset(board.preset_id)
+        if preset is None:
+            raise ValueError("unknown board preset")
+        return _build_local_build_preflight(board, preset, payload, mode)
 
     def execute_build_local(
         self,
@@ -369,11 +480,12 @@ class FirmwareBoardRepository:
             return self._insert_build_run(board, "blocked_build_mode_disabled", plan)
         if payload.confirmation != "EXECUTE_LOCAL_BUILD_NO_FLASH":
             raise ValueError("invalid build confirmation")
+        _mark_local_build_plan(plan, board, preset, payload)
 
         status = "build_success"
         try:
-            _execute_local_build(board, preset, payload, timeout_seconds)
-            plan["message"] = payload.notes.strip() or "Build local concluído sem flash."
+            log_excerpt = _execute_local_build(board, preset, payload, timeout_seconds)
+            plan["message"] = payload.notes.strip() or f"Build local concluído sem flash. Log: {log_excerpt}"
         except Exception as exc:
             status = "build_failed"
             plan["message"] = f"Build local falhou: {exc}"
@@ -456,6 +568,53 @@ class FirmwareBoardRepository:
 
         plan = _flash_dry_run_plan(board, preset, payload, build_run)
         return self._insert_flash_run(board, payload.build_run_id, "flash_dry_run_planned", plan)
+
+    def build_flash_preflight(
+        self,
+        board_id: int,
+        payload: FirmwareFlashDryRunCreate,
+        preflight: dict[str, object],
+    ) -> FirmwareFlashPreflight:
+        board = self.get_board(board_id)
+        if board is None:
+            raise ValueError("firmware board not found")
+        preset = self.get_preset(board.preset_id)
+        if preset is None:
+            raise ValueError("unknown board preset")
+        build_run = self.get_build_run(payload.build_run_id) if payload.build_run_id is not None else None
+        if payload.build_run_id is not None and build_run is None:
+            raise ValueError("firmware build run not found")
+        if build_run is not None and (build_run.board_id != board.id or build_run.printer_id != board.printer_id):
+            raise ValueError("firmware build run does not belong to this board")
+        return _build_flash_preflight(board, preset, payload, build_run, preflight)
+
+    def execute_flash_blocked(self, board_id: int, payload: FirmwareFlashExecuteCreate) -> FirmwareFlashRunRecord:
+        board = self.get_board(board_id)
+        if board is None:
+            raise ValueError("firmware board not found")
+        preset = self.get_preset(board.preset_id)
+        if preset is None:
+            raise ValueError("unknown board preset")
+        build_run = self.get_build_run(payload.build_run_id) if payload.build_run_id is not None else None
+        if payload.build_run_id is not None and build_run is None:
+            raise ValueError("firmware build run not found")
+        if build_run is not None and (build_run.board_id != board.id or build_run.printer_id != board.printer_id):
+            raise ValueError("firmware build run does not belong to this board")
+        if payload.confirmation != "BLOCK_REAL_FLASH":
+            raise ValueError("invalid flash confirmation")
+
+        plan = _flash_dry_run_plan(board, preset, payload, build_run)
+        plan["message"] = (
+            payload.notes.strip()
+            or "Execução real de flash bloqueada por segurança. Nenhum comando foi executado."
+        )
+        plan["checklist"] = [
+            "Gate validado: confirmação textual recebida.",
+            "Execução real bloqueada nesta versão.",
+            "Nenhum flash, restart, SSH ou validação ao vivo foi executado.",
+            *list(plan["checklist"]),
+        ]
+        return self._insert_flash_run(board, payload.build_run_id, "blocked_flash_execution", plan)
 
     def _insert_flash_run(
         self,
@@ -600,6 +759,9 @@ def _build_dry_run_plan(
         "Confirmar que a impressora não está imprimindo.",
         "Confirmar Klipper/Moonraker conectados e sem erro.",
         f"Confirmar preset {preset.id} para {board.name}.",
+        f"Confirmar MCU {preset.mcu}, arquitetura {preset.architecture} e bootloader {preset.bootloader_offset}.",
+        f"Confirmar arquivo de config planejado: {board.config_file}.",
+        f"Confirmar saída esperada do build: {preset.build_output}.",
         f"Confirmar UUID CAN {board.can_uuid or '-'} antes de qualquer flash futuro.",
         "Confirmar backup da .config antes de sobrescrever.",
         "Confirmar que build local só roda com modo local e confirmação explícita.",
@@ -617,6 +779,124 @@ def _build_dry_run_plan(
     }
 
 
+def _build_local_build_preflight(
+    board: FirmwareBoardRecord,
+    preset: BoardPreset,
+    payload: FirmwareBuildDryRunCreate,
+    mode: str,
+) -> FirmwareBuildPreflight:
+    klipper_path = Path(payload.klipper_path).expanduser()
+    output_root = Path(payload.output_root).expanduser()
+    source_config = Path(board.config_file).expanduser()
+    if not source_config.is_absolute():
+        source_config = klipper_path / source_config
+    expected_output = klipper_path / preset.build_output
+    plan = _build_dry_run_plan(board, preset, payload)
+    checks = [
+        _preflight_check(
+            "build_mode",
+            "Modo de build local",
+            mode == "local",
+            f"MAYDER_PRINT_LAB_FIRMWARE_BUILD_MODE={mode}",
+            "Build real bloqueado porque o modo local não está habilitado.",
+        ),
+        _preflight_check(
+            "make_binary",
+            "Comando make disponível",
+            shutil.which("make") is not None,
+            shutil.which("make") or "make não encontrado no PATH",
+            "Instalar toolchain/build tools no host antes de compilar.",
+        ),
+        _preflight_check(
+            "klipper_path",
+            "Diretório Klipper",
+            klipper_path.is_dir(),
+            str(klipper_path),
+            "Diretório Klipper não encontrado neste host.",
+        ),
+        _preflight_check(
+            "klipper_makefile",
+            "Makefile do Klipper",
+            (klipper_path / "Makefile").is_file(),
+            str(klipper_path / "Makefile"),
+            "Makefile do Klipper não encontrado.",
+        ),
+        _preflight_check(
+            "current_config",
+            ".config atual",
+            (klipper_path / ".config").is_file(),
+            str(klipper_path / ".config"),
+            ".config atual não encontrado; build real não deve sobrescrever sem backup.",
+        ),
+        _preflight_check(
+            "board_config",
+            ".config da placa cadastrada",
+            source_config.is_file(),
+            str(source_config),
+            "Arquivo de configuração da placa não encontrado.",
+        ),
+        FirmwareBuildPreflightCheck(
+            key="expected_output",
+            label="Saída esperada do build",
+            status="warning",
+            detail=f"{expected_output} será validado somente depois de make; nenhum build foi executado.",
+        ),
+        FirmwareBuildPreflightCheck(
+            key="output_root",
+            label="Diretório destino planejado",
+            status="warning",
+            detail=f"{output_root} não foi criado nem alterado neste preflight.",
+        ),
+    ]
+    blocked = any(check.status == "blocked" for check in checks)
+    return FirmwareBuildPreflight(
+        safe_mode="local_build_preflight_read_only",
+        printer_id=board.printer_id,
+        board_id=board.id,
+        board_name=board.name,
+        klipper_path=str(klipper_path),
+        output_root=str(output_root),
+        config_file=str(source_config),
+        expected_build_output=str(expected_output),
+        checks=checks,
+        commands_preview=list(plan["commands"]),
+        blocked=True,
+        can_execute_build=False,
+        message=(
+            "Preflight concluído com bloqueios; nenhum comando foi executado."
+            if blocked
+            else "Preflight sem bloqueios críticos, mas build real permanece bloqueado neste lote."
+        ),
+    )
+
+
+def _preflight_check(
+    key: str,
+    label: str,
+    ok: bool,
+    ok_detail: str,
+    blocked_detail: str,
+) -> FirmwareBuildPreflightCheck:
+    return FirmwareBuildPreflightCheck(
+        key=key,
+        label=label,
+        status="ok" if ok else "blocked",
+        detail=ok_detail if ok else blocked_detail,
+    )
+
+
+def _mark_local_build_plan(
+    plan: dict[str, object],
+    board: FirmwareBoardRecord,
+    preset: BoardPreset,
+    payload: FirmwareBuildDryRunCreate,
+) -> None:
+    output_dir = f"{payload.output_root.rstrip('/')}/local-build/{_slug(board.name)}"
+    plan["output_dir"] = output_dir
+    plan["config_backup_path"] = f"{output_dir}/.config.before-build"
+    plan["binary_output_path"] = f"{output_dir}/{Path(preset.build_output).name}"
+
+
 def _flash_dry_run_plan(
     board: FirmwareBoardRecord,
     preset: BoardPreset,
@@ -628,10 +908,13 @@ def _flash_dry_run_plan(
     checklist = [
         "Confirmar que a impressora não está imprimindo.",
         "Confirmar hotend, mesa e câmara em condição segura.",
+        "Confirmar energia estável antes de qualquer flash futuro.",
         "Confirmar que o binário foi gerado com a mesma versão do Klipper em uso.",
         "Confirmar backup da configuração de firmware e binário anterior.",
         f"Confirmar UUID CAN esperado: {board.can_uuid or '-'}; abortar se não bater.",
         f"Confirmar interface CAN esperada: {board.can_interface}.",
+        f"Confirmar método de flash esperado: {board.flash_method}.",
+        "Confirmar plano de recuperação caso a MCU não volte.",
         "Confirmar rollback manual antes de qualquer flash real.",
         "Confirmar que este registro é dry-run: nenhum comando foi executado.",
     ]
@@ -645,6 +928,101 @@ def _flash_dry_run_plan(
         "message": payload.notes.strip()
         or "Dry-run de flash criado. Nenhum comando foi executado; usar apenas para revisão.",
     }
+
+
+def _build_flash_preflight(
+    board: FirmwareBoardRecord,
+    preset: BoardPreset,
+    payload: FirmwareFlashDryRunCreate,
+    build_run: FirmwareBuildRunRecord | None,
+    preflight: dict[str, object],
+) -> FirmwareFlashPreflight:
+    binary_path = _flash_binary_path(board, preset, payload, build_run)
+    connected = bool(preflight.get("connected"))
+    printing = bool(preflight.get("printing"))
+    print_state = str(preflight.get("print_state") or "")
+    klipper_state = _optional_str(preflight.get("klipper_state"))
+    klippy_state = _optional_str(preflight.get("klippy_state"))
+    checks = [
+        FirmwareFlashPreflightCheck(
+            key="moonraker_connected",
+            label="Moonraker/Klipper acessível",
+            status="ok" if connected else "blocked",
+            detail="Moonraker respondeu ao preflight read-only." if connected else str(preflight.get("error") or "Moonraker indisponível."),
+        ),
+        FirmwareFlashPreflightCheck(
+            key="not_printing",
+            label="Impressão parada",
+            status="blocked" if printing else "ok",
+            detail=f"print_stats.state={print_state or '-'}",
+        ),
+        FirmwareFlashPreflightCheck(
+            key="klipper_ready",
+            label="Klipper ready",
+            status="ok" if klipper_state == "ready" else "blocked",
+            detail=f"printer/info.state={klipper_state or '-'}",
+        ),
+        FirmwareFlashPreflightCheck(
+            key="klippy_ready",
+            label="Klippy ready",
+            status="ok" if klippy_state == "ready" else "blocked",
+            detail=f"server/info.klippy_state={klippy_state or '-'}",
+        ),
+        FirmwareFlashPreflightCheck(
+            key="binary_selected",
+            label="Binário selecionado",
+            status="ok" if binary_path.strip() else "blocked",
+            detail=binary_path or "Nenhum binário informado ou planejado.",
+        ),
+        FirmwareFlashPreflightCheck(
+            key="flash_method",
+            label="Método de flash cadastrado",
+            status="ok",
+            detail=board.flash_method,
+        ),
+        FirmwareFlashPreflightCheck(
+            key="can_identity",
+            label="Identidade CAN/USB",
+            status="ok" if board.connection_type == "usb" or bool(board.can_uuid) else "blocked",
+            detail=f"uuid={board.can_uuid or '-'} interface={board.can_interface}",
+        ),
+        FirmwareFlashPreflightCheck(
+            key="execution_policy",
+            label="Política de execução",
+            status="blocked",
+            detail="Flash real permanece bloqueado neste lote.",
+        ),
+    ]
+    blocked = any(check.status == "blocked" for check in checks)
+    return FirmwareFlashPreflight(
+        safe_mode="flash_preflight_read_only",
+        printer_id=board.printer_id,
+        board_id=board.id,
+        board_name=board.name,
+        flash_method=board.flash_method,
+        can_uuid=board.can_uuid,
+        can_interface=board.can_interface,
+        binary_path=binary_path,
+        connected=connected,
+        printing=printing,
+        print_state=print_state,
+        klipper_state=klipper_state,
+        klippy_state=klippy_state,
+        checks=checks,
+        commands_preview=_flash_commands(board, binary_path),
+        rollback_plan=[
+            "Nenhum flash, restart, SSH ou comando local foi executado neste preflight.",
+            "Flash real futuro deve preservar binário anterior e .config antes da execução.",
+            "Flash real futuro deve validar UUID/serial antes e depois, reiniciar Klipper separadamente e confirmar printer/info ready.",
+        ],
+        blocked=True,
+        can_execute_flash=False,
+        message=(
+            "Preflight de flash concluiu com bloqueios; nenhuma ação foi executada."
+            if blocked
+            else "Preflight sem bloqueios operacionais, mas flash real permanece bloqueado neste lote."
+        ),
+    )
 
 
 def _flash_binary_path(
@@ -684,6 +1062,34 @@ def _flash_commands(board: FirmwareBoardRecord, binary_path: str) -> list[str]:
     ]
 
 
+def _firmware_recovery_steps(board: FirmwareBoardRecord) -> list[str]:
+    if board.flash_method == "katapult_can":
+        return [
+            f"Confirmar interface CAN: {board.can_interface}.",
+            f"Confirmar UUID atual/esperado: {board.can_uuid or '-'}.",
+            "Colocar a placa em Katapult pelo procedimento físico/documentado.",
+            "Reaplicar o binário anterior com o comando Katapult validado manualmente.",
+        ]
+    if board.flash_method == "katapult_usb_can":
+        return [
+            "Confirmar que a bridge USB-CAN continua aparecendo no host.",
+            f"Confirmar interface CAN: {board.can_interface}.",
+            "Colocar a placa em Katapult pelo procedimento físico/documentado.",
+            "Reaplicar o binário anterior com o comando da bridge validado manualmente.",
+        ]
+    if board.flash_method == "dfu_usb":
+        return [
+            "Colocar a placa em DFU/bootloader pelo jumper ou botão documentado.",
+            "Confirmar presença no host com ferramenta de listagem USB apropriada.",
+            "Reaplicar o binário anterior com o comando DFU validado manualmente.",
+        ]
+    return [
+        "Seguir o procedimento manual da placa.",
+        "Usar binário anterior e .config preservados.",
+        "Registrar comando, resultado e evidência antes de reiniciar Klipper.",
+    ]
+
+
 def _slug(value: str) -> str:
     return "".join(char.lower() if char.isalnum() else "-" for char in value.strip()).strip("-") or "board"
 
@@ -693,7 +1099,7 @@ def _execute_local_build(
     preset: BoardPreset,
     payload: FirmwareBuildExecuteCreate,
     timeout_seconds: float,
-) -> None:
+) -> str:
     klipper_path = Path(payload.klipper_path).expanduser().resolve()
     output_root = Path(payload.output_root).expanduser().resolve()
     output_dir = output_root / "local-build" / _slug(board.name)
@@ -718,10 +1124,11 @@ def _execute_local_build(
     output_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(klipper_config, backup_path)
     restored = False
+    logs: list[str] = []
     try:
-        _run_make(["make", "clean"], klipper_path, timeout_seconds)
+        logs.append(_run_make(["make", "clean"], klipper_path, timeout_seconds))
         shutil.copy2(source_config, klipper_config)
-        _run_make(["make"], klipper_path, timeout_seconds)
+        logs.append(_run_make(["make"], klipper_path, timeout_seconds))
         if not build_output.is_file():
             raise ValueError(f"expected build output not found: {build_output}")
         shutil.copy2(build_output, binary_path)
@@ -731,9 +1138,10 @@ def _execute_local_build(
             restored = True
         if not restored:
             raise RuntimeError("failed to restore original .config")
+    return _excerpt("\n".join(logs))
 
 
-def _run_make(command: list[str], cwd: Path, timeout_seconds: float) -> None:
+def _run_make(command: list[str], cwd: Path, timeout_seconds: float) -> str:
     result = subprocess.run(
         command,
         cwd=cwd,
@@ -742,11 +1150,25 @@ def _run_make(command: list[str], cwd: Path, timeout_seconds: float) -> None:
         text=True,
         timeout=timeout_seconds,
     )
+    output = result.stdout + "\n" + result.stderr
     if result.returncode != 0:
-        excerpt = "\n".join((result.stdout + "\n" + result.stderr).splitlines()[-20:])
+        excerpt = _excerpt(output)
         raise RuntimeError(f"{' '.join(command)} failed with exit {result.returncode}: {excerpt}")
+    return output
 
 
 def _clean_optional(value: str | None) -> str | None:
     cleaned = value.strip() if value else None
     return cleaned or None
+
+
+def _optional_str(value: object) -> str | None:
+    if value is None:
+        return None
+    cleaned = str(value).strip()
+    return cleaned or None
+
+
+def _excerpt(output: str, max_lines: int = 20) -> str:
+    lines = [line for line in output.splitlines() if line.strip()]
+    return "\n".join(lines[-max_lines:]) if lines else "sem saída relevante"

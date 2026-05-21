@@ -9,9 +9,12 @@ import {
   Database,
   FileText,
   Gauge,
+  HelpCircle,
   Home,
+  History,
   ListChecks,
   Moon,
+  Play,
   Plus,
   Printer,
   Radio,
@@ -35,10 +38,15 @@ type ChecklistItem = {
   ok: boolean;
   severity: string;
   detail: string;
+  status: string;
+  source: string;
 };
 
 type ChecklistResponse = {
   can_print: boolean;
+  data_state: string;
+  source: string;
+  error?: string | null;
   summary: string;
   items: ChecklistItem[];
 };
@@ -143,6 +151,9 @@ type AuditFinding = {
 type AuditResponse = {
   connected: boolean;
   safe_mode: string;
+  data_state?: "live" | "last_snapshot" | "offline";
+  source?: string;
+  error?: string | null;
   mode?: string;
   executed?: boolean;
   summary: string;
@@ -163,6 +174,9 @@ type HealthItem = {
 type HealthResponse = {
   connected: boolean;
   safe_mode: string;
+  data_state: string;
+  source: string;
+  error?: string | null;
   printer_id: number;
   moonraker_url: string;
   decision: "ok_para_imprimir" | "monitorar" | "nao_imprimir";
@@ -191,17 +205,119 @@ type OperationFan = {
   rpm?: number | null;
 };
 
+type OperationTemperatureHistoryRow = {
+  snapshot_id: number | null;
+  created_at: string;
+  readings: Array<{
+    name: string;
+    temperature?: number | null;
+    target?: number | null;
+  }>;
+};
+
+type OperationAction = {
+  id: string;
+  group: string;
+  label: string;
+  command: string;
+  risk: string;
+  compatibility?: string[];
+  enabled: boolean;
+  confirmation_required: boolean;
+  block_reason: string;
+};
+
+type OperationCapability = {
+  action_id: string;
+  status: "supported" | "unknown" | "blocked";
+  reason: string;
+};
+
+type OperationActionPreview = {
+  printer_id: number;
+  moonraker_url: string;
+  history_id?: number;
+  created_at?: string;
+  safe_mode: string;
+  action: OperationAction;
+  parameters: Record<string, unknown>;
+  expected_parameters: OperationActionParameterSpec[];
+  command_preview: string[];
+  would_send_gcode: boolean;
+  executable: boolean;
+  confirmation_phrase: string;
+  blockers: string[];
+  rollback_plan: string | string[];
+  can_execute?: boolean;
+  preflight?: Record<string, unknown>;
+  capability?: OperationCapability;
+};
+
+type OperationActionParameterSpec = {
+  name: string;
+  type: "number" | "enum" | "text";
+  default?: number | string;
+  min?: number;
+  max?: number;
+  values?: string[];
+};
+
+type OperationActionPreviewRecord = {
+  id: number;
+  printer_id: number;
+  created_at: string;
+  action_id: string;
+  action_label: string;
+  safe_mode: string;
+  executable: boolean;
+  would_send_gcode: boolean;
+  command_preview: string[];
+  blockers: string[];
+};
+
+type OperationActionExecutionAttempt = {
+  id: number;
+  printer_id: number;
+  preview_id: number;
+  created_at: string;
+  action_id: string;
+  status: string;
+  confirmation_matched: boolean;
+  executable: boolean;
+  would_send_gcode: boolean;
+  block_reason: string;
+  payload: {
+    rollback_plan?: string;
+    command_preview?: string[];
+    preflight?: {
+      connected?: boolean | null;
+      printing?: boolean | null;
+      print_state?: string;
+      summary?: string;
+      error?: string;
+    };
+  };
+};
+
 type OperationStatusResponse = {
   connected: boolean;
   safe_mode: string;
-  data_state: "live" | "offline" | "fixture";
+  data_state: "live" | "offline" | "fixture" | "last_snapshot";
   printer_id: number;
   moonraker_url: string;
   summary: string;
   error?: string;
+  last_snapshot?: {
+    id: number;
+    created_at: string;
+    snapshot_type: string;
+  };
   can_send_commands: boolean;
   system_loads: OperationMetric[];
   temperatures: OperationTemperature[];
+  temperature_history: OperationTemperatureHistoryRow[];
+  actions: OperationAction[];
+  capabilities: OperationCapability[];
   toolhead: Record<string, unknown>;
   extruder: Record<string, unknown>;
   miscellaneous: {
@@ -243,10 +359,34 @@ type BackupRunRecord = {
   message: string;
 };
 
+type BackupArchiveCompareResponse = {
+  safe_mode: string;
+  base_archive_path: string;
+  target_archive_path: string;
+  added: string[];
+  removed: string[];
+  changed: string[];
+  unchanged_count: number;
+  summary: string;
+};
+
+type BackupRestorePlanResponse = {
+  safe_mode: string;
+  archive_path: string;
+  restore_root: string;
+  selected_files: string[];
+  missing_files: string[];
+  planned_commands: string[];
+  blocked: boolean;
+  message: string;
+};
+
 type SanitizedReport = {
   printer_id: number;
   safe_mode: string;
   format: "markdown";
+  data_state: string;
+  source: string;
   redactions: string[];
   markdown: string;
 };
@@ -272,8 +412,17 @@ type MaintenanceTaskRecord = {
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  due_status: "due" | "ok" | "unknown";
+  due_status: "due" | "soon" | "ok" | "unknown";
   days_until_due?: number | null;
+};
+
+type MaintenanceSummary = {
+  printer_id: number;
+  safe_mode: string;
+  counts: Record<string, number>;
+  due_components: string[];
+  next_due_task?: MaintenanceTaskRecord | null;
+  recommended_tasks: Array<{ name: string; component: string; interval_days: number }>;
 };
 
 type ZOffsetRecord = {
@@ -328,8 +477,47 @@ type CanBusRecord = {
   delta_tx_error?: number | null;
   delta_tx_retries?: number | null;
   alert_level: "ok" | "monitorar" | "problema";
+  diagnosis: string;
+  recommended_actions: string[];
   notes: string;
   created_at: string;
+};
+
+type CanBusSummary = {
+  printer_id: number;
+  safe_mode: string;
+  data_state: "manual_records" | "no_data";
+  source: string;
+  counts: Record<string, number>;
+  overall_alert: CanBusRecord["alert_level"];
+  recommended_actions: string[];
+  interfaces: Array<{
+    interface_name: string;
+    latest_alert: CanBusRecord["alert_level"];
+    record_count: number;
+    latest_recorded_at: string;
+    rx_error: number;
+    tx_error: number;
+    tx_retries: number;
+    delta_rx_error?: number | null;
+    delta_tx_error?: number | null;
+    delta_tx_retries?: number | null;
+    diagnosis: string;
+  }>;
+};
+
+type CanBusRecordComparison = {
+  safe_mode: string;
+  printer_id: number;
+  interface_name: string;
+  before_record_id: number;
+  after_record_id: number;
+  delta_rx_error: number;
+  delta_tx_error: number;
+  delta_tx_retries: number;
+  alert_level: CanBusRecord["alert_level"];
+  diagnosis: string;
+  recommended_actions: string[];
 };
 
 type PluginAuditItem = {
@@ -348,6 +536,9 @@ type PluginAuditItem = {
   commits_behind?: number | null;
   risk: string;
   recommendation: string;
+  action: "manter" | "investigar" | "remover_depois_backup" | "nao_remover_agora";
+  evidence: string[];
+  removal_gates: string[];
 };
 
 type PluginAuditResponse = {
@@ -355,6 +546,8 @@ type PluginAuditResponse = {
   safe_mode: string;
   source: string;
   summary: string;
+  counts: Record<string, number>;
+  unknown_update_manager_components: string[];
   items: PluginAuditItem[];
 };
 
@@ -464,6 +657,27 @@ type FirmwareBuildRunRecord = {
   message: string;
 };
 
+type FirmwareBuildPreflight = {
+  safe_mode: string;
+  printer_id: number;
+  board_id: number;
+  board_name: string;
+  klipper_path: string;
+  output_root: string;
+  config_file: string;
+  expected_build_output: string;
+  checks: {
+    key: string;
+    label: string;
+    status: "ok" | "warning" | "blocked";
+    detail: string;
+  }[];
+  commands_preview: string[];
+  blocked: boolean;
+  can_execute_build: boolean;
+  message: string;
+};
+
 type FirmwareFlashRunRecord = {
   id: number;
   printer_id: number;
@@ -477,6 +691,57 @@ type FirmwareFlashRunRecord = {
   binary_path: string;
   commands: string[];
   checklist: string[];
+  message: string;
+};
+
+type FirmwareFlashPreflight = {
+  safe_mode: string;
+  printer_id: number;
+  board_id: number;
+  board_name: string;
+  flash_method: FirmwareBoardRecord["flash_method"];
+  can_uuid?: string | null;
+  can_interface: string;
+  binary_path: string;
+  connected: boolean;
+  printing: boolean;
+  print_state: string;
+  klipper_state?: string | null;
+  klippy_state?: string | null;
+  checks: {
+    key: string;
+    label: string;
+    status: "ok" | "warning" | "blocked";
+    detail: string;
+  }[];
+  commands_preview: string[];
+  rollback_plan: string[];
+  blocked: boolean;
+  can_execute_flash: boolean;
+  message: string;
+};
+
+type FirmwareRecoveryPlan = {
+  safe_mode: string;
+  printer_id: number;
+  board_id: number;
+  board_name: string;
+  flash_method: FirmwareBoardRecord["flash_method"];
+  can_uuid?: string | null;
+  can_interface: string;
+  prerequisites: string[];
+  recovery_steps: string[];
+  validation_steps: string[];
+  rollback_notes: string[];
+  blocked: boolean;
+};
+
+type BackupRestoreGateResponse = {
+  safe_mode: string;
+  accepted_confirmation: boolean;
+  blocked: boolean;
+  plan: BackupRestorePlanResponse;
+  rollback_plan: string[];
   message: string;
 };
 
@@ -497,6 +762,18 @@ type CalibrationTestRecord = {
   sort_order: number;
 };
 
+type CalibrationAvailableTestsResponse = {
+  safe_mode: string;
+  printer_id: number;
+  data_state: "live" | "offline";
+  tests: CalibrationTestRecord[];
+  hidden_tests: Array<{
+    test_key: string;
+    title: string;
+    reason: string;
+  }>;
+};
+
 type CalibrationRunRecord = {
   id: number;
   printer_id: number;
@@ -511,6 +788,86 @@ type CalibrationRunRecord = {
   notes: string;
   gcode_reviewed: boolean;
   photo_reference?: string | null;
+};
+
+type CalibrationSummary = {
+  printer_id: number;
+  safe_mode: string;
+  catalog_count: number;
+  run_count: number;
+  category_counts: Record<string, number>;
+  risk_counts: Record<string, number>;
+  execution_mode_counts: Record<string, number>;
+  result_counts: Record<string, number>;
+  blocked_while_printing_count: number;
+  gcode_review_required_count: number;
+  latest_runs: CalibrationRunRecord[];
+  recommended_next_tests: Array<{
+    test_key: string;
+    title: string;
+    category: string;
+    risk_level: CalibrationTestRecord["risk_level"];
+    reason: string;
+  }>;
+};
+
+type CalibrationSequencePlan = {
+  safe_mode: string;
+  printer_id: number;
+  total_steps: number;
+  completed_steps: number;
+  blocked_while_printing_count: number;
+  steps: Array<{
+    order: number;
+    phase: string;
+    test_key: string;
+    title: string;
+    status: "completed" | "pending";
+    risk_level: CalibrationTestRecord["risk_level"];
+    execution_mode: CalibrationTestRecord["execution_mode"];
+    reason: string;
+  }>;
+};
+
+type CalibrationPreflight = {
+  safe_mode: string;
+  printer_id: number;
+  test_key: string;
+  test_title: string;
+  data_state: "live" | "offline";
+  connected: boolean;
+  printing: boolean;
+  print_state: string;
+  klipper_state?: string | null;
+  klippy_state?: string | null;
+  blocked: boolean;
+  can_execute_gcode: boolean;
+  block_reasons: string[];
+  checklist: string[];
+  gcode_preview: string[];
+  rollback_plan: string;
+  summary: string;
+};
+
+type CalibrationExecutionRecord = {
+  id: number;
+  printer_id: number;
+  test_key: string;
+  created_at: string;
+  status: string;
+  confirmation_matched: boolean;
+  operator_present: boolean;
+  gcode_reviewed: boolean;
+  connected: boolean;
+  printing: boolean;
+  print_state: string;
+  klipper_state?: string | null;
+  klippy_state?: string | null;
+  commands: string[];
+  sent_commands: string[];
+  result: Array<Record<string, unknown>>;
+  block_reasons: string[];
+  message: string;
 };
 
 type AppSection =
@@ -582,7 +939,7 @@ const appSections: Array<{
     icon: ListChecks,
     label: "Testes",
     detail: "Centro de testes Voron e histórico de resultados.",
-    purpose: "Consulte testes, critérios de sucesso e registre resultados sem executar G-code automaticamente.",
+    purpose: "Escolha um teste, revise a ajuda quando precisar e execute com confirmação presencial.",
   },
   {
     key: "firmware",
@@ -620,10 +977,15 @@ const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Diagnóstico", sections: ["reports", "settings"] },
 ];
 
+function getInitialSection(): AppSection {
+  const section = new URLSearchParams(window.location.search).get("section") ?? window.location.hash.replace("#", "");
+  return appSections.some((candidate) => candidate.key === section) ? (section as AppSection) : "overview";
+}
+
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
-  const [activeSection, setActiveSection] = React.useState<AppSection>("overview");
+  const [activeSection, setActiveSection] = React.useState<AppSection>(() => getInitialSection());
   const [discovery, setDiscovery] = React.useState<PrinterDiscoveryResponse | null>(null);
   const [printerModalOpen, setPrinterModalOpen] = React.useState(false);
   const [printerModalMode, setPrinterModalMode] = React.useState<"create" | "edit">("create");
@@ -646,6 +1008,12 @@ function App() {
   const [status, setStatus] = React.useState<MoonrakerStatus | null>(null);
   const [health, setHealth] = React.useState<HealthResponse | null>(null);
   const [operationStatus, setOperationStatus] = React.useState<OperationStatusResponse | null>(null);
+  const [operationActionPreview, setOperationActionPreview] = React.useState<OperationActionPreview | null>(null);
+  const [operationActionHistory, setOperationActionHistory] = React.useState<OperationActionPreviewRecord[]>([]);
+  const [operationExecutionHistory, setOperationExecutionHistory] = React.useState<OperationActionExecutionAttempt[]>([]);
+  const [operationActionParameters, setOperationActionParameters] = React.useState<Record<string, Record<string, string>>>({});
+  const [operationExecutionPhrase, setOperationExecutionPhrase] = React.useState("");
+  const [operationExecutionAttempt, setOperationExecutionAttempt] = React.useState<OperationActionExecutionAttempt | null>(null);
   const [updateStatus, setUpdateStatus] = React.useState<UpdateStatusResponse | null>(null);
   const [updateActionResult, setUpdateActionResult] = React.useState<UpdateActionResponse | null>(null);
   const [updateDialog, setUpdateDialog] = React.useState<UpdateDialogState | null>(null);
@@ -656,20 +1024,41 @@ function App() {
   const [hostAudit, setHostAudit] = React.useState<AuditResponse | null>(null);
   const [backupPolicies, setBackupPolicies] = React.useState<BackupPolicyRecord[]>([]);
   const [backupRuns, setBackupRuns] = React.useState<BackupRunRecord[]>([]);
+  const [backupCompareResult, setBackupCompareResult] = React.useState<BackupArchiveCompareResponse | null>(null);
+  const [backupRestorePlan, setBackupRestorePlan] = React.useState<BackupRestorePlanResponse | null>(null);
+  const [backupRestoreGate, setBackupRestoreGate] = React.useState<BackupRestoreGateResponse | null>(null);
   const [sanitizedReport, setSanitizedReport] = React.useState<SanitizedReport | null>(null);
   const [maintenanceEvents, setMaintenanceEvents] = React.useState<MaintenanceEventRecord[]>([]);
   const [maintenanceTasks, setMaintenanceTasks] = React.useState<MaintenanceTaskRecord[]>([]);
+  const [maintenanceSummary, setMaintenanceSummary] = React.useState<MaintenanceSummary | null>(null);
   const [zOffsetRecords, setZOffsetRecords] = React.useState<ZOffsetRecord[]>([]);
   const [canRecords, setCanRecords] = React.useState<CanBusRecord[]>([]);
+  const [canSummary, setCanSummary] = React.useState<CanBusSummary | null>(null);
+  const [canComparison, setCanComparison] = React.useState<CanBusRecordComparison | null>(null);
   const [pluginAudit, setPluginAudit] = React.useState<PluginAuditResponse | null>(null);
   const [boardPresets, setBoardPresets] = React.useState<BoardPreset[]>([]);
   const [firmwareBoards, setFirmwareBoards] = React.useState<FirmwareBoardRecord[]>([]);
   const [firmwareBuildRuns, setFirmwareBuildRuns] = React.useState<FirmwareBuildRunRecord[]>([]);
   const [firmwareFlashRuns, setFirmwareFlashRuns] = React.useState<FirmwareFlashRunRecord[]>([]);
+  const [firmwareRecoveryPlan, setFirmwareRecoveryPlan] = React.useState<FirmwareRecoveryPlan | null>(null);
+  const [firmwareBuildPreflight, setFirmwareBuildPreflight] = React.useState<FirmwareBuildPreflight | null>(null);
+  const [firmwareFlashPreflight, setFirmwareFlashPreflight] = React.useState<FirmwareFlashPreflight | null>(null);
   const [calibrationTests, setCalibrationTests] = React.useState<CalibrationTestRecord[]>([]);
+  const [calibrationHiddenTests, setCalibrationHiddenTests] = React.useState<CalibrationAvailableTestsResponse["hidden_tests"]>([]);
   const [calibrationRuns, setCalibrationRuns] = React.useState<CalibrationRunRecord[]>([]);
+  const [calibrationSummary, setCalibrationSummary] = React.useState<CalibrationSummary | null>(null);
+  const [calibrationSequence, setCalibrationSequence] = React.useState<CalibrationSequencePlan | null>(null);
+  const [calibrationPreflight, setCalibrationPreflight] = React.useState<CalibrationPreflight | null>(null);
+  const [calibrationExecutions, setCalibrationExecutions] = React.useState<CalibrationExecutionRecord[]>([]);
+  const [calibrationExecutionResult, setCalibrationExecutionResult] = React.useState<CalibrationExecutionRecord | null>(null);
+  const [calibrationHelpTestKey, setCalibrationHelpTestKey] = React.useState<string | null>(null);
+  const [calibrationExecuteTestKey, setCalibrationExecuteTestKey] = React.useState<string | null>(null);
+  const [calibrationResultTestKey, setCalibrationResultTestKey] = React.useState<string | null>(null);
+  const [calibrationResultFormOpen, setCalibrationResultFormOpen] = React.useState(false);
+  const [calibrationActivityCleared, setCalibrationActivityCleared] = React.useState(false);
   const [zOffsetWizardPlan, setZOffsetWizardPlan] = React.useState<ZOffsetWizardPlan | null>(null);
   const [zOffsetWizardChecks, setZOffsetWizardChecks] = React.useState<Record<string, boolean>>({});
+  const [zOffsetFormOpen, setZOffsetFormOpen] = React.useState(false);
   const [maintenanceEventType, setMaintenanceEventType] =
     React.useState<MaintenanceEventRecord["event_type"]>("maintenance");
   const [maintenanceComponent, setMaintenanceComponent] = React.useState("motion");
@@ -678,10 +1067,10 @@ function App() {
   const [maintenanceTaskName, setMaintenanceTaskName] = React.useState("Limpar mesa");
   const [maintenanceTaskComponent, setMaintenanceTaskComponent] = React.useState("bed");
   const [maintenanceTaskIntervalDays, setMaintenanceTaskIntervalDays] = React.useState(30);
-  const [zOffsetPlateName, setZOffsetPlateName] = React.useState("Texturizada");
-  const [zOffsetMaterial, setZOffsetMaterial] = React.useState("PLA");
-  const [zOffsetNozzle, setZOffsetNozzle] = React.useState("T0");
-  const [zOffsetValue, setZOffsetValue] = React.useState(-0.295);
+  const [zOffsetPlateName, setZOffsetPlateName] = React.useState("");
+  const [zOffsetMaterial, setZOffsetMaterial] = React.useState("");
+  const [zOffsetNozzle, setZOffsetNozzle] = React.useState("");
+  const [zOffsetValue, setZOffsetValue] = React.useState("");
   const [zOffsetNotes, setZOffsetNotes] = React.useState("");
   const [canInterfaceName, setCanInterfaceName] = React.useState("can0");
   const [canRxError, setCanRxError] = React.useState(0);
@@ -690,6 +1079,7 @@ function App() {
   const [canBusState, setCanBusState] = React.useState("ERROR-ACTIVE");
   const [canBitrate, setCanBitrate] = React.useState(1000000);
   const [canNotes, setCanNotes] = React.useState("");
+  const [canRawOutput, setCanRawOutput] = React.useState("");
   const [firmwareBoardName, setFirmwareBoardName] = React.useState("EBB T0");
   const [firmwareBoardPresetId, setFirmwareBoardPresetId] = React.useState("btt_ebb36_g0b1_can");
   const [firmwareBoardCanUuid, setFirmwareBoardCanUuid] = React.useState("");
@@ -700,6 +1090,7 @@ function App() {
   const [firmwareOutputRoot, setFirmwareOutputRoot] = React.useState("~/printer_data/firmware_builds");
   const [firmwareBuildConfirmation, setFirmwareBuildConfirmation] = React.useState("");
   const [firmwareFlashBinaryPath, setFirmwareFlashBinaryPath] = React.useState("");
+  const [firmwareFlashConfirmation, setFirmwareFlashConfirmation] = React.useState("");
   const [calibrationTestKey, setCalibrationTestKey] = React.useState("probe_accuracy_center");
   const [calibrationResultStatus, setCalibrationResultStatus] =
     React.useState<CalibrationRunRecord["result_status"]>("passed");
@@ -709,12 +1100,21 @@ function App() {
   const [calibrationObservedValue, setCalibrationObservedValue] = React.useState("");
   const [calibrationNotes, setCalibrationNotes] = React.useState("");
   const [calibrationGcodeReviewed, setCalibrationGcodeReviewed] = React.useState(false);
+  const [calibrationPhotoReference, setCalibrationPhotoReference] = React.useState("");
+  const [calibrationOperatorPresent, setCalibrationOperatorPresent] = React.useState(false);
+  const [calibrationExecutionConfirmation, setCalibrationExecutionConfirmation] = React.useState("");
   const [backupName, setBackupName] = React.useState("Config backup");
   const [backupSourcePath, setBackupSourcePath] = React.useState("/home/pi/printer_data/config");
   const [backupDestinationPath, setBackupDestinationPath] = React.useState(
     "/home/pi/printer_data/backups/mayderprintlab",
   );
   const [backupDryRunOnly, setBackupDryRunOnly] = React.useState(true);
+  const [backupCompareBasePath, setBackupCompareBasePath] = React.useState("");
+  const [backupCompareTargetPath, setBackupCompareTargetPath] = React.useState("");
+  const [backupRestoreArchivePath, setBackupRestoreArchivePath] = React.useState("");
+  const [backupRestoreRoot, setBackupRestoreRoot] = React.useState("/home/pi/printer_data/config");
+  const [backupRestoreFiles, setBackupRestoreFiles] = React.useState("printer.cfg");
+  const [backupRestoreConfirmation, setBackupRestoreConfirmation] = React.useState("");
   const updateSocketRef = React.useRef<WebSocket | null>(null);
   const updateLogIdRef = React.useRef(0);
   const [loading, setLoading] = React.useState(false);
@@ -739,7 +1139,6 @@ function App() {
       }
 
       await loadBoardPresets();
-      await loadCalibrationTests();
       await loadPrinters();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
@@ -763,7 +1162,10 @@ function App() {
   }
 
   async function loadPrinterContext(printerId: number) {
+    await loadPrinterChecklist(printerId);
     await loadOperationStatus(printerId);
+    await loadOperationActionHistory(printerId);
+    await loadOperationExecutionHistory(printerId);
     await loadPrinterAudit(printerId);
     await loadSnapshots(printerId);
     await loadPrinterHealth(printerId);
@@ -776,7 +1178,17 @@ function App() {
     await loadFirmwareBoards(printerId);
     await loadFirmwareBuildRuns(printerId);
     await loadFirmwareFlashRuns(printerId);
+    await loadCalibrationTests(printerId);
     await loadCalibrationRuns(printerId);
+  }
+
+  async function loadPrinterChecklist(printerId: number) {
+    const response = await fetch(`/api/printers/${printerId}/checklist/post-update`);
+    if (!response.ok) {
+      setChecklist(null);
+      return;
+    }
+    setChecklist((await response.json()) as ChecklistResponse);
   }
 
   async function loadPrinterAudit(printerId: number) {
@@ -790,11 +1202,34 @@ function App() {
 
   async function loadOperationStatus(printerId: number) {
     setOperationStatus(null);
+    setOperationActionPreview(null);
+    setOperationExecutionPhrase("");
+    setOperationExecutionAttempt(null);
     const response = await fetch(`/api/printers/${printerId}/operation/status`);
     if (!response.ok) {
       return;
     }
     setOperationStatus((await response.json()) as OperationStatusResponse);
+  }
+
+  async function loadOperationActionHistory(printerId: number) {
+    const response = await fetch(`/api/printers/${printerId}/operation/actions/history`);
+    if (!response.ok) {
+      setOperationActionHistory([]);
+      return;
+    }
+    const payload = (await response.json()) as { previews: OperationActionPreviewRecord[] };
+    setOperationActionHistory(payload.previews);
+  }
+
+  async function loadOperationExecutionHistory(printerId: number) {
+    const response = await fetch(`/api/printers/${printerId}/operation/actions/executions`);
+    if (!response.ok) {
+      setOperationExecutionHistory([]);
+      return;
+    }
+    const payload = (await response.json()) as { attempts: OperationActionExecutionAttempt[] };
+    setOperationExecutionHistory(payload.attempts);
   }
 
   async function loadOfflineOperationFixture() {
@@ -806,7 +1241,101 @@ function App() {
         throw new Error(await response.text());
       }
       setOperationStatus((await response.json()) as OperationStatusResponse);
+      setOperationActionPreview(null);
+      setOperationExecutionPhrase("");
+      setOperationExecutionAttempt(null);
       setActiveSection("operation");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function previewOperationAction(action: OperationAction) {
+    if (!selectedPrinterId) {
+      setError("Selecione uma impressora para gerar a prévia da ação.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/operation/actions/preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action_id: action.id, parameters: buildOperationActionPayload(operationActionParameters[action.id] ?? {}) }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setOperationActionPreview((await response.json()) as OperationActionPreview);
+      setOperationExecutionPhrase("");
+      setOperationExecutionAttempt(null);
+      await loadOperationActionHistory(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function preflightOperationAction(action: OperationAction) {
+    if (!selectedPrinterId) {
+      setError("Selecione uma impressora para validar o preflight da ação.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/operation/actions/preflight`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action_id: action.id, parameters: buildOperationActionPayload(operationActionParameters[action.id] ?? {}) }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setOperationActionPreview((await response.json()) as OperationActionPreview);
+      setOperationExecutionPhrase("");
+      setOperationExecutionAttempt(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function updateOperationActionParameter(actionId: string, parameterName: string, value: string) {
+    setOperationActionParameters((current) => ({
+      ...current,
+      [actionId]: {
+        ...(current[actionId] ?? {}),
+        [parameterName]: value,
+      },
+    }));
+  }
+
+  async function validateOperationExecutionGate() {
+    if (!selectedPrinterId || !operationActionPreview?.history_id) {
+      setError("Gere uma prévia antes de validar a execução.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/operation/actions/execute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          preview_id: operationActionPreview.history_id,
+          confirmation_phrase: operationExecutionPhrase,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setOperationExecutionAttempt((await response.json()) as OperationActionExecutionAttempt);
+      await loadOperationExecutionHistory(selectedPrinterId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -817,6 +1346,10 @@ function App() {
   function selectPrinter(printerId: number) {
     setSelectedPrinterId(printerId);
     setSanitizedReport(null);
+    setOperationActionHistory([]);
+    setOperationExecutionHistory([]);
+    setOperationExecutionPhrase("");
+    setOperationExecutionAttempt(null);
     void loadPrinterContext(printerId);
   }
 
@@ -1232,9 +1765,10 @@ function App() {
   }
 
   async function loadMaintenance(printerId: number) {
-    const [eventsResponse, tasksResponse] = await Promise.all([
+    const [eventsResponse, tasksResponse, summaryResponse] = await Promise.all([
       fetch(`/api/printers/${printerId}/maintenance/events`),
       fetch(`/api/printers/${printerId}/maintenance/tasks`),
+      fetch(`/api/printers/${printerId}/maintenance/summary`),
     ]);
     if (eventsResponse.ok) {
       const payload = (await eventsResponse.json()) as { events: MaintenanceEventRecord[] };
@@ -1243,6 +1777,9 @@ function App() {
     if (tasksResponse.ok) {
       const payload = (await tasksResponse.json()) as { tasks: MaintenanceTaskRecord[] };
       setMaintenanceTasks(payload.tasks);
+    }
+    if (summaryResponse.ok) {
+      setMaintenanceSummary((await summaryResponse.json()) as MaintenanceSummary);
     }
   }
 
@@ -1256,12 +1793,17 @@ function App() {
   }
 
   async function loadCanRecords(printerId: number) {
-    const response = await fetch(`/api/printers/${printerId}/can/records`);
-    if (!response.ok) {
-      return;
+    const [recordsResponse, summaryResponse] = await Promise.all([
+      fetch(`/api/printers/${printerId}/can/records`),
+      fetch(`/api/printers/${printerId}/can/summary`),
+    ]);
+    if (recordsResponse.ok) {
+      const payload = (await recordsResponse.json()) as { records: CanBusRecord[] };
+      setCanRecords(payload.records);
     }
-    const payload = (await response.json()) as { records: CanBusRecord[] };
-    setCanRecords(payload.records);
+    if (summaryResponse.ok) {
+      setCanSummary((await summaryResponse.json()) as CanBusSummary);
+    }
   }
 
   async function loadPluginAudit(printerId: number) {
@@ -1308,23 +1850,43 @@ function App() {
     setFirmwareFlashRuns(payload.runs);
   }
 
-  async function loadCalibrationTests() {
-    const response = await fetch("/api/calibration/tests");
+  async function loadCalibrationTests(printerId?: number) {
+    const response = await fetch(printerId ? `/api/printers/${printerId}/calibration/available-tests` : "/api/calibration/tests");
     if (!response.ok) {
       return;
     }
-    const payload = (await response.json()) as { tests: CalibrationTestRecord[] };
+    const payload = (await response.json()) as { tests: CalibrationTestRecord[] } | CalibrationAvailableTestsResponse;
     setCalibrationTests(payload.tests);
-    setCalibrationTestKey((current) => current || payload.tests[0]?.test_key || "");
+    setCalibrationHiddenTests("hidden_tests" in payload ? payload.hidden_tests : []);
+    setCalibrationTestKey((current) => {
+      if (current && payload.tests.some((test) => test.test_key === current)) {
+        return current;
+      }
+      return payload.tests[0]?.test_key || "";
+    });
   }
 
   async function loadCalibrationRuns(printerId: number) {
-    const response = await fetch(`/api/printers/${printerId}/calibration/runs`);
-    if (!response.ok) {
-      return;
+    const [runsResponse, summaryResponse, sequenceResponse, executionsResponse] = await Promise.all([
+      fetch(`/api/printers/${printerId}/calibration/runs`),
+      fetch(`/api/printers/${printerId}/calibration/summary`),
+      fetch(`/api/printers/${printerId}/calibration/sequence`),
+      fetch(`/api/printers/${printerId}/calibration/executions`),
+    ]);
+    if (runsResponse.ok) {
+      const payload = (await runsResponse.json()) as { runs: CalibrationRunRecord[] };
+      setCalibrationRuns(payload.runs);
     }
-    const payload = (await response.json()) as { runs: CalibrationRunRecord[] };
-    setCalibrationRuns(payload.runs);
+    if (summaryResponse.ok) {
+      setCalibrationSummary((await summaryResponse.json()) as CalibrationSummary);
+    }
+    if (sequenceResponse.ok) {
+      setCalibrationSequence((await sequenceResponse.json()) as CalibrationSequencePlan);
+    }
+    if (executionsResponse.ok) {
+      const payload = (await executionsResponse.json()) as { executions: CalibrationExecutionRecord[] };
+      setCalibrationExecutions(payload.executions);
+    }
   }
 
   async function createCalibrationRun(event: React.FormEvent<HTMLFormElement>) {
@@ -1347,6 +1909,7 @@ function App() {
           observed_value: calibrationObservedValue,
           notes: calibrationNotes,
           gcode_reviewed: calibrationGcodeReviewed,
+          photo_reference: calibrationPhotoReference || null,
         }),
       });
       if (!response.ok) {
@@ -1355,7 +1918,107 @@ function App() {
       setCalibrationObservedValue("");
       setCalibrationNotes("");
       setCalibrationGcodeReviewed(false);
+      setCalibrationPhotoReference("");
+      setCalibrationResultTestKey(null);
+      setCalibrationResultFormOpen(false);
+      setCalibrationActivityCleared(false);
       await loadCalibrationRuns(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadCalibrationPreflight() {
+    if (!selectedPrinterId || !calibrationTestKey) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/printers/${selectedPrinterId}/calibration/tests/${encodeURIComponent(calibrationTestKey)}/preflight`,
+      );
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setCalibrationPreflight((await response.json()) as CalibrationPreflight);
+      setCalibrationExecutionResult(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function openCalibrationExecute(test: CalibrationTestRecord) {
+    setCalibrationTestKey(test.test_key);
+    setCalibrationExecuteTestKey(test.test_key);
+    setCalibrationExecutionResult(null);
+    setCalibrationPreflight(null);
+    setCalibrationGcodeReviewed(false);
+    setCalibrationOperatorPresent(false);
+    setCalibrationExecutionConfirmation("");
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/printers/${selectedPrinterId}/calibration/tests/${encodeURIComponent(test.test_key)}/preflight`,
+      );
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setCalibrationPreflight((await response.json()) as CalibrationPreflight);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openCalibrationResult(test: CalibrationTestRecord, showForm = false) {
+    setCalibrationTestKey(test.test_key);
+    setCalibrationResultTestKey(test.test_key);
+    setCalibrationResultFormOpen(showForm);
+    setCalibrationObservedValue("");
+    setCalibrationNotes("");
+    setCalibrationPhotoReference("");
+    setCalibrationGcodeReviewed(test.gcode.length === 0);
+  }
+
+  async function executeCalibrationGcode(confirmationOverride?: string) {
+    if (!selectedPrinterId || !calibrationTestKey) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/calibration/execute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          test_key: calibrationTestKey,
+          confirmation: confirmationOverride ?? calibrationExecutionConfirmation,
+          operator_present: calibrationOperatorPresent,
+          gcode_reviewed: calibrationGcodeReviewed,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      const payload = (await response.json()) as CalibrationExecutionRecord;
+      setCalibrationExecutionResult(payload);
+      setCalibrationActivityCleared(false);
+      await loadCalibrationRuns(selectedPrinterId);
+      if (payload.status === "executed") {
+        setCalibrationOperatorPresent(false);
+        setCalibrationGcodeReviewed(false);
+        setCalibrationExecutionConfirmation("");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -1421,6 +2084,29 @@ function App() {
     }
   }
 
+  async function validateFirmwareBuildPreflight(boardId: number) {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/firmware/boards/${boardId}/build-runs/preflight`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          klipper_path: firmwareKlipperPath,
+          output_root: firmwareOutputRoot,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setFirmwareBuildPreflight((await response.json()) as FirmwareBuildPreflight);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function executeFirmwareBuildLocal(boardId: number) {
     if (!selectedPrinterId) {
       return;
@@ -1475,6 +2161,77 @@ function App() {
     }
   }
 
+  async function validateFirmwareFlashPreflight(boardId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const latestBuildRun = firmwareBuildRuns.find((run) => run.board_id === boardId);
+      const response = await fetch(`/api/firmware/boards/${boardId}/flash-runs/preflight`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          build_run_id: latestBuildRun?.id ?? null,
+          binary_path: firmwareFlashBinaryPath || null,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setFirmwareFlashPreflight((await response.json()) as FirmwareFlashPreflight);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function validateFirmwareFlashGate(boardId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const latestBuildRun = firmwareBuildRuns.find((run) => run.board_id === boardId);
+      const response = await fetch(`/api/firmware/boards/${boardId}/flash-runs/execute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          build_run_id: latestBuildRun?.id ?? null,
+          binary_path: firmwareFlashBinaryPath || null,
+          confirmation: firmwareFlashConfirmation,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadFirmwareFlashRuns(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadFirmwareRecoveryPlan(boardId: number) {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/firmware/boards/${boardId}/recovery-plan`);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setFirmwareRecoveryPlan((await response.json()) as FirmwareRecoveryPlan);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function createCanRecord(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedPrinterId) {
@@ -1500,6 +2257,7 @@ function App() {
         throw new Error(await response.text());
       }
       setCanNotes("");
+      setCanRawOutput("");
       await loadCanRecords(selectedPrinterId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
@@ -1508,9 +2266,92 @@ function App() {
     }
   }
 
+  async function parseCanRawOutput() {
+    if (!selectedPrinterId || !canRawOutput.trim()) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/can/parse`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ interface_name: canInterfaceName, output: canRawOutput }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      const parsed = (await response.json()) as {
+        interface_name: string;
+        rx_error: number;
+        tx_error: number;
+        tx_retries: number;
+        bus_state?: string | null;
+        bitrate?: number | null;
+        notes: string;
+      };
+      setCanInterfaceName(parsed.interface_name);
+      setCanRxError(parsed.rx_error);
+      setCanTxError(parsed.tx_error);
+      setCanTxRetries(parsed.tx_retries);
+      setCanBusState(parsed.bus_state ?? "");
+      setCanBitrate(parsed.bitrate ?? 1000000);
+      setCanNotes(parsed.notes);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function compareLatestCanRecords() {
+    if (!selectedPrinterId || canRecords.length < 2) {
+      return;
+    }
+    const pair = findLatestComparableCanRecords(canRecords);
+    if (!pair) {
+      setError("Não há duas leituras da mesma interface CAN para comparar.");
+      return;
+    }
+    const { after, before } = pair;
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        before_record_id: String(before.id),
+        after_record_id: String(after.id),
+      });
+      const response = await fetch(`/api/printers/${selectedPrinterId}/can/compare?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setCanComparison((await response.json()) as CanBusRecordComparison);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function findLatestComparableCanRecords(records: CanBusRecord[]) {
+    for (let afterIndex = 0; afterIndex < records.length; afterIndex += 1) {
+      const after = records[afterIndex];
+      const before = records.slice(afterIndex + 1).find((record) => record.interface_name === after.interface_name);
+      if (before) {
+        return { after, before };
+      }
+    }
+    return null;
+  }
+
   async function createZOffsetRecord(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedPrinterId) {
+      return;
+    }
+    const parsedOffset = Number(zOffsetValue);
+    if (!zOffsetPlateName.trim() || !zOffsetMaterial.trim() || !zOffsetNozzle.trim() || !Number.isFinite(parsedOffset)) {
+      setError("Preencha chapa, material, toolhead e um Z-offset válido antes de registrar.");
       return;
     }
     setLoading(true);
@@ -1520,10 +2361,10 @@ function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          plate_name: zOffsetPlateName,
-          material: zOffsetMaterial,
-          nozzle: zOffsetNozzle,
-          offset_value: zOffsetValue,
+          plate_name: zOffsetPlateName.trim(),
+          material: zOffsetMaterial.trim(),
+          nozzle: zOffsetNozzle.trim(),
+          offset_value: parsedOffset,
           notes: zOffsetNotes,
         }),
       });
@@ -1531,6 +2372,7 @@ function App() {
         throw new Error(await response.text());
       }
       setZOffsetNotes("");
+      setZOffsetFormOpen(false);
       setZOffsetWizardPlan(null);
       setZOffsetWizardChecks({});
       await loadZOffsets(selectedPrinterId);
@@ -1545,14 +2387,19 @@ function App() {
     if (!selectedPrinterId) {
       return;
     }
+    const parsedOffset = Number(zOffsetValue);
+    if (!zOffsetPlateName.trim() || !zOffsetMaterial.trim() || !zOffsetNozzle.trim() || !Number.isFinite(parsedOffset)) {
+      setError("Preencha chapa, material, toolhead e um Z-offset válido antes de avaliar.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const query = new URLSearchParams({
-        plate_name: zOffsetPlateName,
-        material: zOffsetMaterial,
-        nozzle: zOffsetNozzle,
-        proposed_offset_value: String(zOffsetValue),
+        plate_name: zOffsetPlateName.trim(),
+        material: zOffsetMaterial.trim(),
+        nozzle: zOffsetNozzle.trim(),
+        proposed_offset_value: String(parsedOffset),
       });
       const response = await fetch(`/api/printers/${selectedPrinterId}/z-offsets/wizard-plan?${query.toString()}`);
       if (!response.ok) {
@@ -1655,6 +2502,27 @@ function App() {
     }
   }
 
+  async function createDefaultMaintenanceTasks() {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/printers/${selectedPrinterId}/maintenance/tasks/defaults`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadMaintenance(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function createBackupPolicy(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedPrinterId) {
@@ -1726,6 +2594,79 @@ function App() {
     }
   }
 
+  async function compareBackupArchives() {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/backup/archives/compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          base_archive_path: backupCompareBasePath,
+          target_archive_path: backupCompareTargetPath,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setBackupCompareResult((await response.json()) as BackupArchiveCompareResponse);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createBackupRestorePlan() {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/backup/restore-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          archive_path: backupRestoreArchivePath,
+          restore_root: backupRestoreRoot,
+          files: backupRestoreFiles.split("\n").map((item) => item.trim()).filter(Boolean),
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setBackupRestorePlan((await response.json()) as BackupRestorePlanResponse);
+      setBackupRestoreGate(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function validateBackupRestoreGate() {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/backup/restore-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          archive_path: backupRestoreArchivePath,
+          restore_root: backupRestoreRoot,
+          files: backupRestoreFiles.split("\n").map((item) => item.trim()).filter(Boolean),
+          confirmation: backupRestoreConfirmation,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setBackupRestoreGate((await response.json()) as BackupRestoreGateResponse);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function compareSnapshots() {
     if (!selectedPrinterId || !fromSnapshotId || !toSnapshotId || fromSnapshotId === toSnapshotId) {
       return;
@@ -1756,10 +2697,40 @@ function App() {
     window.localStorage.setItem("mayderprintlab-theme", theme);
   }, [theme]);
 
+  React.useEffect(() => {
+    if (!selectedPrinterId || !["calibration", "tests"].includes(activeSection)) {
+      return;
+    }
+    void loadCalibrationTests(selectedPrinterId);
+    void loadCalibrationRuns(selectedPrinterId);
+    if (activeSection === "calibration") {
+      void loadOperationStatus(selectedPrinterId);
+      void loadZOffsets(selectedPrinterId);
+    }
+  }, [activeSection, selectedPrinterId]);
+
   React.useEffect(() => () => closeUpdateSocket(), []);
 
   const activeSectionMeta = appSections.find((section) => section.key === activeSection) ?? appSections[0];
   const selectedPrinter = printers.find((printer) => printer.id === selectedPrinterId);
+  const selectedCalibrationTest = calibrationTests.find((test) => test.test_key === calibrationTestKey) ?? calibrationTests[0];
+  const calibrationHelpTest = calibrationTests.find((test) => test.test_key === calibrationHelpTestKey);
+  const calibrationExecuteTest = calibrationTests.find((test) => test.test_key === calibrationExecuteTestKey);
+  const calibrationResultTest = calibrationTests.find((test) => test.test_key === calibrationResultTestKey);
+  const calibrationResultRuns = calibrationResultTest
+    ? calibrationRuns.filter((run) => run.test_key === calibrationResultTest.test_key)
+    : [];
+  const calibrationResultExecutions = calibrationResultTest
+    ? calibrationExecutions.filter((execution) => execution.test_key === calibrationResultTest.test_key)
+    : [];
+  const calibrationVisibleGcodeCount = calibrationTests.filter((test) => test.gcode.length > 0).length;
+  const calibrationBlockedGcodeCount = calibrationHiddenTests.length;
+  const calibrationRecommended = calibrationSummary?.recommended_next_tests.slice(0, 5) ?? [];
+  const calibrationSequencePreview = calibrationSequence?.steps ?? [];
+  const hotendTemperature = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("extruder"));
+  const bedTemperature = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("bed"));
+  const recentCalibrationActivityCount =
+    (calibrationExecutionResult ? 1 : 0) + calibrationExecutions.slice(0, 4).length + calibrationRuns.slice(0, 4).length;
   const ActiveIcon = activeSectionMeta.icon;
   const ThemeIcon = theme === "dark" ? Sun : Moon;
   const alertCenterItems = buildAlertCenterItems({ health, updateStatus, checklist, audit });
@@ -2312,6 +3283,18 @@ function App() {
               </div>
             </div>
           ) : null}
+          {operationStatus?.data_state === "last_snapshot" ? (
+            <div className="operation-state last-snapshot">
+              <Database size={17} />
+              <div>
+                <strong>Último estado conhecido</strong>
+                <span>
+                  Snapshot #{operationStatus.last_snapshot?.id ?? "-"} de {operationStatus.last_snapshot?.created_at ?? "-"}.
+                  A impressora não foi consultada ao exibir estes dados.
+                </span>
+              </div>
+            </div>
+          ) : null}
           <div className="operation-grid">
             <section className="operation-panel">
               <h3>System Loads</h3>
@@ -2333,6 +3316,34 @@ function App() {
                       {formatTemperature(item.temperature)} / alvo {formatTemperature(item.target)}
                     </span>
                     <small>Potência: {formatPercent(item.power)}</small>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="operation-panel wide-operation-panel">
+              <h3>Histórico de temperaturas</h3>
+              <div className="temperature-history">
+                {buildTemperatureSeries(operationStatus?.temperature_history ?? []).length === 0 ? (
+                  <p className="muted">Nenhum snapshot com temperatura disponível para histórico.</p>
+                ) : null}
+                {buildTemperatureSeries(operationStatus?.temperature_history ?? []).map((series) => (
+                  <div key={series.name} className="temperature-history-row">
+                    <div className="temperature-history-label">
+                      <strong>{series.name}</strong>
+                      <span>
+                        {formatTemperature(series.min)} - {formatTemperature(series.max)}
+                      </span>
+                    </div>
+                    <div className="temperature-sparkline" aria-label={`Histórico ${series.name}`}>
+                      {series.points.map((point) => (
+                        <span
+                          key={`${series.name}-${point.snapshotId}-${point.createdAt}`}
+                          style={{ height: `${temperatureBarHeight(point.temperature, series.min, series.max)}%` }}
+                          title={`${point.createdAt}: ${formatTemperature(point.temperature)}`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -2386,6 +3397,12 @@ function App() {
             <h2>Health Check</h2>
             <strong>{health?.summary ?? "Aguardando dados"}</strong>
           </div>
+          {health ? (
+            <div className="checklist-meta">
+              <span>{formatChecklistDataState(health.data_state)}</span>
+              <span>{health.source}</span>
+            </div>
+          ) : null}
           <div className="health-metrics">
             <Badge icon={Gauge} label="Decisão" value={formatDecision(health?.decision)} />
             <Badge icon={ShieldCheck} label="Bloqueios" value={health?.counts.blocker ?? 0} />
@@ -2511,7 +3528,43 @@ function App() {
         <article className="panel wide panel-section panel-monitoring">
           <div className="panel-heading">
             <h2>Monitor CAN</h2>
-            <strong>{formatLatestCan(canRecords[0])}</strong>
+            <strong>{formatCanAlert(canSummary?.overall_alert ?? canRecords[0]?.alert_level ?? "ok")}</strong>
+          </div>
+          <div className="can-summary">
+            <Badge label="Modo" value={canSummary?.safe_mode ?? "manual_read_only"} />
+            <Badge label="Dados" value={canSummary?.data_state === "manual_records" ? "registros manuais" : "sem registros"} />
+            <Badge label="OK" value={canSummary?.counts.ok ?? 0} />
+            <Badge label="Monitorar" value={canSummary?.counts.monitorar ?? 0} />
+            <Badge label="Problemas" value={canSummary?.counts.problema ?? 0} />
+          </div>
+          <div className="panel-actions">
+            <button type="button" className="secondary-button" onClick={() => void compareLatestCanRecords()} disabled={!selectedPrinterId || loading || canRecords.length < 2}>
+              Comparar últimas leituras
+            </button>
+          </div>
+          {canSummary?.data_state === "no_data" ? (
+            <p className="muted">Nenhuma leitura CAN local registrada. Cole a saída de ip link ou preencha os contadores manualmente.</p>
+          ) : null}
+          {canComparison ? (
+            <div className={`can-row ${canComparison.alert_level}`}>
+              <strong>Comparação #{canComparison.before_record_id} → #{canComparison.after_record_id}</strong>
+              <span>
+                {canComparison.interface_name} · rx={canComparison.delta_rx_error} · tx={canComparison.delta_tx_error} · retries={canComparison.delta_tx_retries}
+              </span>
+              <small>{canComparison.diagnosis}</small>
+              <small>{canComparison.recommended_actions.join(" · ")}</small>
+            </div>
+          ) : null}
+          <div className="can-parser">
+            <textarea
+              aria-label="Saída bruta ip link CAN"
+              value={canRawOutput}
+              onChange={(event) => setCanRawOutput(event.target.value)}
+              placeholder="Cole aqui a saída de ip -details -statistics link show can0 para preencher os campos."
+            />
+            <button type="button" className="secondary-button" onClick={() => void parseCanRawOutput()} disabled={!selectedPrinterId || loading || !canRawOutput.trim()}>
+              Extrair leitura
+            </button>
           </div>
           <form className="can-form" onSubmit={(event) => void createCanRecord(event)}>
             <input
@@ -2580,6 +3633,8 @@ function App() {
                 <small>
                   Estado: {record.bus_state ?? "-"} · bitrate: {record.bitrate ?? "-"}
                 </small>
+                <small>{record.diagnosis}</small>
+                {record.recommended_actions.length ? <small>{record.recommended_actions.join(" · ")}</small> : null}
                 {record.notes ? <small>{record.notes}</small> : null}
               </div>
             ))}
@@ -2597,6 +3652,18 @@ function App() {
             </button>
             <span>Leitura baseada no último snapshot Moonraker/Update Manager. Não remove nem altera nada.</span>
           </div>
+          <div className="plugin-summary">
+            <Badge label="Detectados" value={pluginAudit?.counts.detected ?? 0} />
+            <Badge label="Risco" value={pluginAudit?.counts.risky ?? 0} />
+            <Badge label="Investigar" value={pluginAudit?.counts.investigate ?? 0} />
+            <Badge label="Desconhecidos" value={pluginAudit?.counts.unknown ?? 0} />
+          </div>
+          {pluginAudit?.unknown_update_manager_components.length ? (
+            <div className="plugin-unknown">
+              <strong>Componentes fora do catálogo</strong>
+              <span>{pluginAudit.unknown_update_manager_components.join(" · ")}</span>
+            </div>
+          ) : null}
           <div className="plugin-list">
             {pluginAudit?.items.map((item) => (
               <div key={item.name} className={`plugin-row ${item.classification} ${item.detected ? "detected" : "missing"}`}>
@@ -2609,9 +3676,12 @@ function App() {
                     Versão: {item.version ?? "-"} · dirty: {formatBoolean(item.dirty)} · behind:{" "}
                     {formatOptionalInt(item.commits_behind)}
                   </small>
+                  <small>Ação: {formatPluginAction(item.action)}</small>
                 </div>
                 <p>{item.risk}</p>
                 <small>{item.recommendation}</small>
+                <small>Evidência: {item.evidence.join(" · ")}</small>
+                <small>Gate: {item.removal_gates.join(" · ")}</small>
               </div>
             ))}
           </div>
@@ -2693,11 +3763,27 @@ function App() {
                 </div>
                 <div>
                   <small>{board.notes || "Sem notas."}</small>
+                  <button type="button" onClick={() => void validateFirmwareBuildPreflight(board.id)} disabled={loading}>
+                    Preflight build
+                  </button>
                   <button type="button" onClick={() => void createFirmwareBuildDryRun(board.id)} disabled={loading}>
                     Dry-run build
                   </button>
                   <button type="button" onClick={() => void createFirmwareFlashDryRun(board.id)} disabled={loading}>
                     Dry-run flash
+                  </button>
+                  <button type="button" onClick={() => void validateFirmwareFlashPreflight(board.id)} disabled={loading}>
+                    Preflight flash
+                  </button>
+                  <button type="button" onClick={() => void loadFirmwareRecoveryPlan(board.id)} disabled={loading}>
+                    Plano recuperação
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void validateFirmwareFlashGate(board.id)}
+                    disabled={loading || firmwareFlashConfirmation !== "BLOCK_REAL_FLASH"}
+                  >
+                    Validar gate flash
                   </button>
                   <button
                     type="button"
@@ -2710,6 +3796,105 @@ function App() {
               </div>
             ))}
           </div>
+          {firmwareRecoveryPlan ? (
+            <details className="firmware-run-row" open>
+              <summary>
+                Recuperação · {firmwareRecoveryPlan.board_name} · {firmwareRecoveryPlan.flash_method}
+              </summary>
+              <div className="firmware-run-detail">
+                <small>
+                  Modo: {firmwareRecoveryPlan.safe_mode} · bloqueado: {formatBoolean(firmwareRecoveryPlan.blocked)}
+                </small>
+                <strong>Pré-condições</strong>
+                <ol>
+                  {firmwareRecoveryPlan.prerequisites.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ol>
+                <strong>Recuperação</strong>
+                <ol>
+                  {firmwareRecoveryPlan.recovery_steps.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ol>
+                <strong>Validação</strong>
+                <ol>
+                  {firmwareRecoveryPlan.validation_steps.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ol>
+                <small>{firmwareRecoveryPlan.rollback_notes.join(" · ")}</small>
+              </div>
+            </details>
+          ) : null}
+          {firmwareBuildPreflight ? (
+            <details className="firmware-run-row" open>
+              <summary>
+                Preflight build · {firmwareBuildPreflight.board_name} · bloqueado:{" "}
+                {formatBoolean(firmwareBuildPreflight.blocked)}
+              </summary>
+              <div className="firmware-run-detail">
+                <small>
+                  Modo: {firmwareBuildPreflight.safe_mode} · execução liberada:{" "}
+                  {formatBoolean(firmwareBuildPreflight.can_execute_build)}
+                </small>
+                <small>Klipper: {firmwareBuildPreflight.klipper_path}</small>
+                <small>Config: {firmwareBuildPreflight.config_file}</small>
+                <small>Output esperado: {firmwareBuildPreflight.expected_build_output}</small>
+                <strong>Checks</strong>
+                <ol>
+                  {firmwareBuildPreflight.checks.map((item) => (
+                    <li key={item.key}>
+                      {item.label}: {item.status} · {item.detail}
+                    </li>
+                  ))}
+                </ol>
+                <strong>Preview</strong>
+                <pre>{firmwareBuildPreflight.commands_preview.join("\n")}</pre>
+                <small>{firmwareBuildPreflight.message}</small>
+              </div>
+            </details>
+          ) : null}
+          {firmwareFlashPreflight ? (
+            <details className="firmware-run-row" open>
+              <summary>
+                Preflight flash · {firmwareFlashPreflight.board_name} · bloqueado:{" "}
+                {formatBoolean(firmwareFlashPreflight.blocked)}
+              </summary>
+              <div className="firmware-run-detail">
+                <small>
+                  Modo: {firmwareFlashPreflight.safe_mode} · execução liberada:{" "}
+                  {formatBoolean(firmwareFlashPreflight.can_execute_flash)}
+                </small>
+                <small>
+                  Klipper: {firmwareFlashPreflight.klipper_state ?? "-"} · Klippy:{" "}
+                  {firmwareFlashPreflight.klippy_state ?? "-"} · print: {firmwareFlashPreflight.print_state || "-"}
+                </small>
+                <small>
+                  Método: {firmwareFlashPreflight.flash_method} · CAN: {firmwareFlashPreflight.can_uuid ?? "-"} ·{" "}
+                  interface {firmwareFlashPreflight.can_interface}
+                </small>
+                <small>Binário: {firmwareFlashPreflight.binary_path}</small>
+                <strong>Checks</strong>
+                <ol>
+                  {firmwareFlashPreflight.checks.map((item) => (
+                    <li key={item.key}>
+                      {item.label}: {item.status} · {item.detail}
+                    </li>
+                  ))}
+                </ol>
+                <strong>Preview bloqueado</strong>
+                <pre>{firmwareFlashPreflight.commands_preview.join("\n")}</pre>
+                <strong>Rollback futuro</strong>
+                <ol>
+                  {firmwareFlashPreflight.rollback_plan.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ol>
+                <small>{firmwareFlashPreflight.message}</small>
+              </div>
+            </details>
+          ) : null}
           <div className="firmware-build-controls">
             <input
               aria-label="Caminho do Klipper"
@@ -2734,6 +3919,12 @@ function App() {
               value={firmwareFlashBinaryPath}
               onChange={(event) => setFirmwareFlashBinaryPath(event.target.value)}
               placeholder="binário opcional para dry-run de flash"
+            />
+            <input
+              aria-label="Confirmação do gate de flash"
+              value={firmwareFlashConfirmation}
+              onChange={(event) => setFirmwareFlashConfirmation(event.target.value)}
+              placeholder="BLOCK_REAL_FLASH"
             />
           </div>
           <div className="firmware-run-list">
@@ -2807,146 +3998,479 @@ function App() {
 
         <article className="panel wide panel-section panel-tests">
           <div className="panel-heading">
-            <h2>Calibração e testes</h2>
-            <strong>{calibrationTests.length} itens catalogados</strong>
+            <h2>Testes da impressora</h2>
+            <strong>{selectedPrinter?.name ?? "Sem impressora"}</strong>
           </div>
-          <p className="muted">
-            Catálogo seguro: esta área apenas lista testes, pré-condições, critérios e G-code para revisão. Nada é enviado
-            para a impressora.
-          </p>
-          <form className="calibration-run-form" onSubmit={(event) => void createCalibrationRun(event)}>
-            <select
-              aria-label="Teste de calibração"
-              value={calibrationTestKey}
-              onChange={(event) => setCalibrationTestKey(event.target.value)}
-            >
-              {calibrationTests.map((test) => (
-                <option key={test.test_key} value={test.test_key}>
-                  {test.title}
-                </option>
-              ))}
-            </select>
-            <select
-              aria-label="Resultado do teste"
-              value={calibrationResultStatus}
-              onChange={(event) => setCalibrationResultStatus(event.target.value as CalibrationRunRecord["result_status"])}
-            >
-              <option value="passed">aprovado</option>
-              <option value="warning">atenção</option>
-              <option value="failed">falhou</option>
-              <option value="skipped">ignorado</option>
-            </select>
-            <input
-              aria-label="Material"
-              value={calibrationMaterial}
-              onChange={(event) => setCalibrationMaterial(event.target.value)}
-              placeholder="PLA"
-            />
-            <input
-              aria-label="Chapa"
-              value={calibrationPlateName}
-              onChange={(event) => setCalibrationPlateName(event.target.value)}
-              placeholder="Texturizada"
-            />
-            <input
-              aria-label="Nozzle"
-              value={calibrationNozzle}
-              onChange={(event) => setCalibrationNozzle(event.target.value)}
-              placeholder="T0"
-            />
-            <input
-              aria-label="Valor observado"
-              value={calibrationObservedValue}
-              onChange={(event) => setCalibrationObservedValue(event.target.value)}
-              placeholder="Ex.: range 0.0125"
-            />
-            <label className="inline-check">
-              <input
-                type="checkbox"
-                checked={calibrationGcodeReviewed}
-                onChange={(event) => setCalibrationGcodeReviewed(event.target.checked)}
-              />
-              G-code revisado
-            </label>
-            <textarea
-              aria-label="Notas da calibração"
-              value={calibrationNotes}
-              onChange={(event) => setCalibrationNotes(event.target.value)}
-              placeholder="Notas, medidas, decisão e próximos ajustes"
-            />
-            <button type="submit" disabled={!selectedPrinterId || loading || calibrationTests.length === 0}>
-              Registrar resultado
-            </button>
-          </form>
-          <div className="calibration-run-list">
-            {calibrationRuns.length === 0 ? <p className="muted">Nenhum resultado de calibração registrado.</p> : null}
-            {calibrationRuns.slice(0, 8).map((run) => (
-              <div key={run.id} className={`calibration-run-row ${run.result_status}`}>
-                <strong>
-                  {run.test_title} · {formatCalibrationResult(run.result_status)}
-                </strong>
-                <span>
-                  {run.material || "-"} · {run.plate_name || "-"} · {run.nozzle || "-"} · {run.created_at}
-                </span>
-                <small>
-                  Valor: {run.observed_value || "-"} · G-code revisado: {formatBoolean(run.gcode_reviewed)}
-                </small>
-                {run.notes ? <small>{run.notes}</small> : null}
-              </div>
-            ))}
+          <div className="test-board-header">
+            <div>
+              <strong>{calibrationSummary?.run_count ?? calibrationRuns.length}</strong>
+              <span>resultados registrados</span>
+            </div>
+            <div>
+              <strong>{calibrationExecutions.filter((item) => item.status === "executed").length}</strong>
+              <span>execuções feitas</span>
+            </div>
+            <div>
+              <strong>{calibrationTests.filter((test) => test.gcode.length > 0).length}</strong>
+              <span>testes executáveis</span>
+            </div>
+            <div>
+              <strong>{calibrationHiddenTests.length}</strong>
+              <span>bloqueados pelo contexto</span>
+            </div>
           </div>
-          <div className="calibration-list">
-            {calibrationTests.map((test) => (
-              <details key={test.test_key} className={`calibration-row ${test.risk_level}`}>
-                <summary>
-                  <span>
-                    <strong>{test.title}</strong>
-                    <small>
-                      {formatCalibrationCategory(test.category)} · {formatExecutionMode(test.execution_mode)} · risco{" "}
-                      {formatRiskLevel(test.risk_level)}
-                    </small>
-                  </span>
-                  {test.blocked_while_printing ? <em>bloquear imprimindo</em> : null}
-                </summary>
-                <div className="calibration-detail">
+          <div className="test-card-grid">
+            {calibrationTests.map((test) => {
+              const lastRun = calibrationRuns.find((run) => run.test_key === test.test_key);
+              const lastExecution = calibrationExecutions.find((execution) => execution.test_key === test.test_key);
+              return (
+                <article key={test.test_key} className={`test-card ${test.risk_level}`}>
+                  <div className="test-card-title">
+                    <div>
+                      <strong>{test.title}</strong>
+                      <span>{formatCalibrationCategory(test.category)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      onClick={() => setCalibrationHelpTestKey(test.test_key)}
+                      aria-label={`Ajuda de ${test.title}`}
+                    >
+                      <HelpCircle size={16} />
+                    </button>
+                  </div>
                   <p>{test.objective}</p>
-                  <small>Fonte: {test.source}</small>
-                  <strong>Pré-condições</strong>
-                  <ol>
-                    {test.prerequisites.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ol>
-                  <strong>Critérios de sucesso</strong>
-                  <ol>
-                    {test.success_criteria.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ol>
-                  {test.gcode.length > 0 ? (
-                    <>
-                      <strong>G-code sugerido para revisão futura</strong>
-                      <pre>{test.gcode.join("\n")}</pre>
-                    </>
+                  <div className="test-card-meta">
+                    <span>Risco: {formatRiskLevel(test.risk_level)}</span>
+                    <span>{test.gcode.length ? "Com G-code" : "Manual"}</span>
+                    <span>{lastRun ? `Último: ${formatCalibrationResult(lastRun.result_status)}` : "Sem resultado"}</span>
+                  </div>
+                  {lastExecution ? (
+                    <small>
+                      Última execução: {lastExecution.status} · {lastExecution.sent_commands.length} comando(s)
+                    </small>
                   ) : null}
-                  <small>{test.notes}</small>
+                  <div className="test-card-actions">
+                    {test.gcode.length ? (
+                      <button type="button" className="primary-button" onClick={() => void openCalibrationExecute(test)} disabled={!selectedPrinterId || loading}>
+                        <Play size={15} />
+                        Executar
+                      </button>
+                    ) : (
+                      <button type="button" className="primary-button" onClick={() => openCalibrationResult(test, true)} disabled={!selectedPrinterId || loading}>
+                        <CheckCircle2 size={15} />
+                        Registrar
+                      </button>
+                    )}
+                    <button type="button" className="secondary-button" onClick={() => openCalibrationResult(test)} disabled={!selectedPrinterId || loading}>
+                      <History size={15} />
+                      Histórico
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+            {calibrationHiddenTests.map((test) => (
+              <article key={test.test_key} className="test-card high blocked">
+                <div className="test-card-title">
+                  <div>
+                    <strong>{test.title}</strong>
+                    <span>bloqueado</span>
+                  </div>
+                  <AlertTriangle size={16} />
                 </div>
-              </details>
+                <p>{test.reason}</p>
+                <div className="test-card-meta">
+                  <span>Sem execução neste contexto</span>
+                  <span>Disponível quando a capacidade for confirmada</span>
+                </div>
+              </article>
             ))}
           </div>
         </article>
 
+        <article className="panel wide panel-section test-history-panel">
+          <div className="panel-heading">
+            <h2>Atividade recente</h2>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                setCalibrationActivityCleared(true);
+                setCalibrationExecutionResult(null);
+              }}
+              disabled={recentCalibrationActivityCount === 0}
+            >
+              Limpar visualização
+            </button>
+          </div>
+          {calibrationActivityCleared ? <p className="muted">Atividade recente limpa nesta sessão.</p> : null}
+          {!calibrationActivityCleared && calibrationExecutionResult ? (
+            <div className={`test-history-row ${calibrationExecutionResult.status === "executed" ? "passed" : "warning"}`}>
+              <strong>{formatCalibrationExecutionStatus(calibrationExecutionResult.status)}</strong>
+              <span>{calibrationExecutionResult.message || "Sem mensagem."}</span>
+            </div>
+          ) : null}
+          {!calibrationActivityCleared &&
+            calibrationExecutions.slice(0, 4).map((execution) => (
+              <div key={execution.id} className={`test-history-row ${execution.status === "executed" ? "passed" : "warning"}`}>
+                <strong>{formatCalibrationTestTitle(execution.test_key, calibrationTests)}</strong>
+                <span>
+                  {formatCalibrationExecutionStatus(execution.status)} · {execution.created_at}
+                </span>
+              </div>
+            ))}
+          {!calibrationActivityCleared &&
+            calibrationRuns.slice(0, 4).map((run) => (
+              <div key={`run-${run.id}`} className={`test-history-row ${run.result_status}`}>
+                <strong>{run.test_title}</strong>
+                <span>
+                  {formatCalibrationResult(run.result_status)} · {run.created_at}
+                </span>
+              </div>
+            ))}
+          {!calibrationActivityCleared && !calibrationExecutions.length && !calibrationRuns.length ? (
+            <p className="muted">Nenhuma atividade registrada ainda.</p>
+          ) : null}
+        </article>
+
+        {calibrationHelpTest ? (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Ajuda de ${calibrationHelpTest.title}`}>
+            <div className="modal-card test-modal-card">
+              <div className="modal-header">
+                <div>
+                  <h2>{calibrationHelpTest.title}</h2>
+                  <p>{calibrationHelpTest.objective}</p>
+                </div>
+                <button type="button" className="icon-button" onClick={() => setCalibrationHelpTestKey(null)} aria-label="Fechar ajuda">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="test-help-grid">
+                <section>
+                  <strong>Antes de começar</strong>
+                  <ol>
+                    {calibrationHelpTest.prerequisites.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ol>
+                </section>
+                <section>
+                  <strong>Sucesso esperado</strong>
+                  <ol>
+                    {calibrationHelpTest.success_criteria.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ol>
+                </section>
+              </div>
+              {calibrationHelpTest.gcode.length ? <pre>{calibrationHelpTest.gcode.join("\n")}</pre> : null}
+              <div className="modal-footer">
+                <button type="button" className="secondary-button" onClick={() => setCalibrationHelpTestKey(null)}>
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {calibrationExecuteTest ? (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Executar ${calibrationExecuteTest.title}`}>
+            <div className="modal-card test-modal-card">
+              <div className="modal-header">
+                <div>
+                  <h2>{calibrationExecuteTest.title}</h2>
+                  <p>
+                    {calibrationPreflight?.summary ?? "Preflight será validado antes do envio."}
+                  </p>
+                </div>
+                <button type="button" className="icon-button" onClick={() => setCalibrationExecuteTestKey(null)} aria-label="Fechar execução">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className={`test-preflight-status ${calibrationPreflight?.blocked ? "blocked" : "ready"}`}>
+                <strong>{calibrationPreflight?.blocked ? "Bloqueado" : "Pronto para confirmação"}</strong>
+                <span>
+                  Klipper {calibrationPreflight?.klipper_state ?? "-"} · print {calibrationPreflight?.print_state || "-"}
+                </span>
+              </div>
+              {calibrationPreflight?.block_reasons.length ? (
+                <ul className="test-blockers">
+                  {calibrationPreflight.block_reasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              ) : null}
+              <pre>{calibrationExecuteTest.gcode.join("\n")}</pre>
+              <div className="test-confirm-grid">
+                <label className="inline-check">
+                  <input
+                    type="checkbox"
+                    checked={calibrationGcodeReviewed}
+                    onChange={(event) => setCalibrationGcodeReviewed(event.target.checked)}
+                  />
+                  Revisei o G-code
+                </label>
+                <label className="inline-check">
+                  <input
+                    type="checkbox"
+                    checked={calibrationOperatorPresent}
+                    onChange={(event) => setCalibrationOperatorPresent(event.target.checked)}
+                  />
+                  Estou ao lado da impressora
+                </label>
+              </div>
+              {calibrationExecutionResult ? (
+                <div className={`test-history-row ${calibrationExecutionResult.status === "executed" ? "passed" : "warning"}`}>
+                  <strong>{calibrationExecutionResult.status}</strong>
+                  <span>{calibrationExecutionResult.message}</span>
+                </div>
+              ) : null}
+              <div className="modal-footer">
+                <button type="button" className="secondary-button" onClick={() => setCalibrationExecuteTestKey(null)}>
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="danger-button"
+                  onClick={() => {
+                    setCalibrationExecutionConfirmation("EXECUTE_CALIBRATION_GCODE");
+                    void executeCalibrationGcode("EXECUTE_CALIBRATION_GCODE");
+                  }}
+                  disabled={!selectedPrinterId || loading || !calibrationGcodeReviewed || !calibrationOperatorPresent || !calibrationPreflight || calibrationPreflight.blocked}
+                >
+                  Executar agora
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {calibrationResultTest ? (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Resultados de ${calibrationResultTest.title}`}>
+            <div className="modal-card test-modal-card">
+              <div className="modal-header">
+                <div>
+                  <h2>Resultados - {calibrationResultTest.title}</h2>
+                  <p>Histórico deste teste na impressora selecionada.</p>
+                </div>
+                <button type="button" className="icon-button" onClick={() => setCalibrationResultTestKey(null)} aria-label="Fechar resultado">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="test-result-history">
+                {calibrationResultExecutions.map((execution) => (
+                  <div key={`execution-${execution.id}`} className={`test-history-row ${execution.status === "executed" ? "passed" : "warning"}`}>
+                    <strong>{formatCalibrationExecutionStatus(execution.status)}</strong>
+                    <span>
+                      {execution.created_at} · {execution.sent_commands.length} comando(s)
+                    </span>
+                    {execution.message ? <small>{execution.message}</small> : null}
+                  </div>
+                ))}
+                {calibrationResultRuns.map((run) => (
+                  <div key={`run-${run.id}`} className={`test-history-row ${run.result_status}`}>
+                    <strong>{formatCalibrationResult(run.result_status)}</strong>
+                    <span>
+                      {run.created_at} · {run.material || "-"} · {run.plate_name || "-"} · {run.nozzle || "-"}
+                    </span>
+                    {run.observed_value ? <small>Valor: {run.observed_value}</small> : null}
+                    {run.notes ? <small>{run.notes}</small> : null}
+                  </div>
+                ))}
+                {!calibrationResultExecutions.length && !calibrationResultRuns.length ? (
+                  <p className="muted">Ainda não há resultados para este teste.</p>
+                ) : null}
+              </div>
+              {!calibrationResultFormOpen ? (
+                <div className="modal-footer">
+                  <button type="button" className="secondary-button" onClick={() => setCalibrationResultTestKey(null)}>
+                    Fechar
+                  </button>
+                  <button type="button" className="primary-button" onClick={() => setCalibrationResultFormOpen(true)} disabled={!selectedPrinterId || loading}>
+                    Adicionar resultado
+                  </button>
+                </div>
+              ) : null}
+              {calibrationResultFormOpen ? (
+                <form className="test-result-form" onSubmit={(event) => void createCalibrationRun(event)}>
+                  <select
+                    aria-label="Resultado do teste"
+                    value={calibrationResultStatus}
+                    onChange={(event) => setCalibrationResultStatus(event.target.value as CalibrationRunRecord["result_status"])}
+                  >
+                    <option value="passed">aprovado</option>
+                    <option value="warning">atenção</option>
+                    <option value="failed">falhou</option>
+                    <option value="skipped">ignorado</option>
+                  </select>
+                  <input value={calibrationMaterial} onChange={(event) => setCalibrationMaterial(event.target.value)} placeholder="Material" />
+                  <input value={calibrationPlateName} onChange={(event) => setCalibrationPlateName(event.target.value)} placeholder="Chapa" />
+                  <input value={calibrationNozzle} onChange={(event) => setCalibrationNozzle(event.target.value)} placeholder="Nozzle" />
+                  <input value={calibrationObservedValue} onChange={(event) => setCalibrationObservedValue(event.target.value)} placeholder="Valor observado" />
+                  <textarea value={calibrationNotes} onChange={(event) => setCalibrationNotes(event.target.value)} placeholder="Notas" />
+                  <div className="modal-footer">
+                    <button type="button" className="secondary-button" onClick={() => setCalibrationResultFormOpen(false)}>
+                      Cancelar
+                    </button>
+                    <button type="submit" className="primary-button" disabled={!selectedPrinterId || loading}>
+                      Salvar resultado
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
         <article className="panel wide panel-section panel-calibration">
           <div className="panel-heading">
-            <h2>Z-offset</h2>
+            <div>
+              <h2>Contexto de calibração</h2>
+              <p className="muted">Estado da impressora ativa, sequência recomendada e histórico local.</p>
+            </div>
+            <strong>{selectedPrinter?.name ?? "Sem impressora"}</strong>
+          </div>
+          <div className="calibration-summary">
+            <Badge label="Origem" value={formatOperationDataState(operationStatus?.data_state)} />
+            <Badge label="Print state" value={operationStatus?.miscellaneous.print_state ?? "-"} />
+            <Badge label="Hotend" value={formatTemperature(hotendTemperature?.temperature)} />
+            <Badge label="Mesa" value={formatTemperature(bedTemperature?.temperature)} />
+            <Badge label="Catálogo" value={calibrationSummary?.catalog_count ?? calibrationTests.length + calibrationHiddenTests.length} />
+            <Badge label="Liberados" value={calibrationTests.length} />
+            <Badge label="Bloqueados" value={calibrationBlockedGcodeCount} />
+            <Badge label="Último Z" value={formatLatestZOffset(zOffsetRecords[0])} />
+          </div>
+          {operationStatus?.data_state === "last_snapshot" ? (
+            <div className="operation-state last-snapshot">
+              <Database size={17} />
+              <div>
+                <strong>Usando último snapshot conhecido</strong>
+                <span>
+                  Snapshot #{operationStatus.last_snapshot?.id ?? "-"} de {operationStatus.last_snapshot?.created_at ?? "-"}.
+                  A impressora selecionada existe, mas a leitura ao vivo do Moonraker não respondeu neste carregamento.
+                </span>
+              </div>
+            </div>
+          ) : null}
+          {operationStatus?.data_state === "offline" ? (
+            <div className="operation-state offline">
+              <AlertTriangle size={17} />
+              <div>
+                <strong>Moonraker sem leitura ao vivo</strong>
+                <span>{operationStatus.error ?? "A tela mantém catálogo e histórico local, mas bloqueia testes que exigem G-code."}</span>
+              </div>
+            </div>
+          ) : null}
+          <div className="calibration-flow-grid">
+            <section className="calibration-recommendations calibration-roadmap-panel">
+              <div className="section-heading-compact">
+                <strong>Sequência de calibração</strong>
+                <span>{calibrationSequence?.completed_steps ?? 0}/{calibrationSequence?.total_steps ?? 0} concluídos</span>
+              </div>
+              <p className="muted calibration-section-note">
+                Siga de cima para baixo. Cada linha abre orientação, execução segura ou registro manual.
+              </p>
+              {calibrationSequencePreview.length === 0 ? <p className="muted">Aguardando sequência da impressora selecionada.</p> : null}
+              <ol className="calibration-sequence-list">
+                {calibrationSequencePreview.map((step) => {
+                  const stepTest = calibrationTests.find((test) => test.test_key === step.test_key);
+                  const hiddenReason = calibrationHiddenTests.find((test) => test.test_key === step.test_key)?.reason;
+                  return (
+                    <li key={`${step.order}-${step.test_key}`} className={`calibration-sequence-row ${step.status}`}>
+                      <span className="calibration-step-index">{step.order}</span>
+                      <span className="calibration-step-phase">{formatCalibrationPhase(step.phase).replace(/^\d+\.\s*/, "")}</span>
+                      <span className="calibration-step-main">
+                        <strong>{step.title}</strong>
+                        <small>{formatExecutionMode(step.execution_mode)} · risco {formatRiskLevel(step.risk_level)}</small>
+                      </span>
+                      <em>{hiddenReason ? "bloqueado" : formatCalibrationSequenceStatus(step.status)}</em>
+                      <span className="calibration-step-actions">
+                        <button type="button" onClick={() => stepTest && setCalibrationHelpTestKey(stepTest.test_key)} disabled={!stepTest}>
+                          Ajuda
+                        </button>
+                        {stepTest?.gcode.length ? (
+                          <button type="button" onClick={() => void openCalibrationExecute(stepTest)} disabled={!selectedPrinterId || loading || Boolean(hiddenReason)}>
+                            Executar
+                          </button>
+                        ) : (
+                          <button type="button" onClick={() => stepTest && openCalibrationResult(stepTest, true)} disabled={!selectedPrinterId || loading || !stepTest}>
+                            Registrar
+                          </button>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+            <section className="calibration-recommendations calibration-action-panel">
+              <div className="section-heading-compact">
+                <strong>Próximo ajuste</strong>
+                <span>{calibrationVisibleGcodeCount} com G-code liberado(s)</span>
+              </div>
+              {calibrationRecommended.length === 0 ? <p className="muted">Sem recomendações pendentes pelo histórico local.</p> : null}
+              {calibrationRecommended.map((test) => {
+                const blockedReason = calibrationHiddenTests.find((hidden) => hidden.test_key === test.test_key)?.reason;
+                const availableTest = calibrationTests.find((candidate) => candidate.test_key === test.test_key);
+                return (
+                  <div key={test.test_key} className={`calibration-next-row ${test.risk_level}`}>
+                    <span className="calibration-next-title">
+                      <strong>{test.title}</strong>
+                      <em>{blockedReason ? "bloqueado" : "disponível"}</em>
+                    </span>
+                    <small>{formatCalibrationCategory(test.category)} · risco {formatRiskLevel(test.risk_level)}</small>
+                    <small>{blockedReason ?? test.reason}</small>
+                    <span className="calibration-next-actions">
+                      <button type="button" onClick={() => availableTest && setCalibrationHelpTestKey(availableTest.test_key)} disabled={!availableTest}>
+                        Ver orientação
+                      </button>
+                      {availableTest?.gcode.length ? (
+                        <button type="button" onClick={() => void openCalibrationExecute(availableTest)} disabled={!selectedPrinterId || loading || Boolean(blockedReason)}>
+                          Executar com confirmação
+                        </button>
+                      ) : (
+                        <button type="button" onClick={() => availableTest && openCalibrationResult(availableTest, true)} disabled={!selectedPrinterId || loading || !availableTest}>
+                          Registrar resultado
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </section>
+          </div>
+        </article>
+
+        <article className="panel wide panel-section panel-calibration calibration-fine-tune-panel">
+          <div className="panel-heading">
+            <div>
+              <h2>Perfil aprovado de primeira camada</h2>
+              <p className="muted">Registre apenas quando uma impressão de teste ficou boa. Isso cria histórico por chapa, material e toolhead.</p>
+            </div>
             <strong>{formatLatestZOffset(zOffsetRecords[0])}</strong>
           </div>
-          <div className="wizard-actions">
-            <button type="button" onClick={() => void evaluateZOffsetWizard()} disabled={!selectedPrinterId || loading}>
-              Avaliar wizard
-            </button>
-            <span>Fluxo manual: o app orienta, mas não envia G-code nem altera config.</span>
-          </div>
+          {!zOffsetFormOpen ? (
+            <div className="first-layer-empty-state">
+              <div>
+                <strong>O que será registrado?</strong>
+                <span>
+                  Chapa usada, material, toolhead/nozzle, valor final de Z-offset e observações do teste. O app usa isso para comparar ajustes futuros.
+                </span>
+              </div>
+              <button type="button" onClick={() => setZOffsetFormOpen(true)} disabled={!selectedPrinterId || loading}>
+                Registrar perfil aprovado
+              </button>
+            </div>
+          ) : null}
+          {zOffsetFormOpen ? (
+            <div className="wizard-actions">
+              <button type="button" onClick={() => void evaluateZOffsetWizard()} disabled={!selectedPrinterId || loading}>
+                Avaliar antes de salvar
+              </button>
+              <span>Preencha com o material e o valor real usado no teste. Nada é assumido automaticamente.</span>
+            </div>
+          ) : null}
           {zOffsetWizardPlan ? (
             <div className={`z-offset-wizard ${zOffsetWizardPlan.alert_level}`}>
               <div>
@@ -2980,44 +4504,67 @@ function App() {
               </small>
             </div>
           ) : null}
-          <form className="z-offset-form" onSubmit={(event) => void createZOffsetRecord(event)}>
-            <input
-              aria-label="Chapa"
-              value={zOffsetPlateName}
-              onChange={(event) => setZOffsetPlateName(event.target.value)}
-              placeholder="Chapa"
-            />
-            <input
-              aria-label="Material"
-              value={zOffsetMaterial}
-              onChange={(event) => setZOffsetMaterial(event.target.value)}
-              placeholder="Material"
-            />
-            <input
-              aria-label="Nozzle ou toolhead"
-              value={zOffsetNozzle}
-              onChange={(event) => setZOffsetNozzle(event.target.value)}
-              placeholder="T0"
-            />
-            <input
-              aria-label="Valor do Z-offset"
-              type="number"
-              step="0.001"
-              value={zOffsetValue}
-              onChange={(event) => setZOffsetValue(Number(event.target.value))}
-            />
-            <textarea
-              aria-label="Notas do Z-offset"
-              value={zOffsetNotes}
-              onChange={(event) => setZOffsetNotes(event.target.value)}
-              placeholder="Ex.: calibrado com papel após limpeza da mesa"
-            />
-            <button type="submit" disabled={!selectedPrinterId || loading}>
-              Registrar
-            </button>
-          </form>
+          {zOffsetFormOpen ? (
+            <form className="z-offset-form" onSubmit={(event) => void createZOffsetRecord(event)}>
+              <label>
+                <span>Chapa</span>
+                <input
+                  aria-label="Chapa"
+                  value={zOffsetPlateName}
+                  onChange={(event) => setZOffsetPlateName(event.target.value)}
+                  placeholder="Ex.: Texturizada, lisa, PEI"
+                />
+              </label>
+              <label>
+                <span>Material</span>
+                <input
+                  aria-label="Material"
+                  value={zOffsetMaterial}
+                  onChange={(event) => setZOffsetMaterial(event.target.value)}
+                  placeholder="Ex.: PLA, ABS, ASA"
+                />
+              </label>
+              <label>
+                <span>Toolhead/nozzle</span>
+                <input
+                  aria-label="Nozzle ou toolhead"
+                  value={zOffsetNozzle}
+                  onChange={(event) => setZOffsetNozzle(event.target.value)}
+                  placeholder="Ex.: T0, T1, 0.4"
+                />
+              </label>
+              <label>
+                <span>Z-offset aprovado</span>
+                <input
+                  aria-label="Valor do Z-offset"
+                  type="number"
+                  step="0.001"
+                  value={zOffsetValue}
+                  onChange={(event) => setZOffsetValue(event.target.value)}
+                  placeholder="Ex.: -0.295"
+                />
+              </label>
+              <label>
+                <span>Observação</span>
+                <textarea
+                  aria-label="Notas do Z-offset"
+                  value={zOffsetNotes}
+                  onChange={(event) => setZOffsetNotes(event.target.value)}
+                  placeholder="Ex.: primeira camada uniforme após limpeza da mesa"
+                />
+              </label>
+              <div className="z-offset-form-actions">
+                <button type="button" onClick={() => setZOffsetFormOpen(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" disabled={!selectedPrinterId || loading}>
+                  Salvar perfil
+                </button>
+              </div>
+            </form>
+          ) : null}
           <div className="z-offset-list">
-            {zOffsetRecords.length === 0 ? <p className="muted">Nenhum Z-offset registrado.</p> : null}
+            {zOffsetRecords.length === 0 ? <p className="muted">Nenhum perfil aprovado registrado ainda.</p> : null}
             {zOffsetRecords.map((record) => (
               <div key={record.id} className={`z-offset-row ${record.alert_level}`}>
                 <div>
@@ -3038,12 +4585,31 @@ function App() {
 
         <article className="panel wide panel-section panel-maintenance">
           <div className="panel-heading">
-            <h2>Manutenção</h2>
-            <strong>{maintenanceTasks.filter((task) => task.due_status === "due").length} pendentes</strong>
+            <div>
+              <h2>Manutenção</h2>
+              <p className="muted">Diário local e tarefas preventivas por impressora.</p>
+            </div>
+            <strong>{maintenanceSummary?.counts.due ?? maintenanceTasks.filter((task) => task.due_status === "due").length} pendentes</strong>
+          </div>
+          <div className="maintenance-summary">
+            <Badge label="Modo" value={maintenanceSummary?.safe_mode ?? "local_only"} />
+            <Badge label="Em breve" value={maintenanceSummary?.counts.soon ?? 0} />
+            <Badge label="Em dia" value={maintenanceSummary?.counts.ok ?? 0} />
+            <Badge label="Próxima" value={maintenanceSummary?.next_due_task?.name ?? "-"} />
           </div>
           <div className="maintenance-layout">
             <section>
-              <h3>Tarefas preventivas</h3>
+              <div className="maintenance-section-heading">
+                <h3>Tarefas preventivas</h3>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => void createDefaultMaintenanceTasks()}
+                  disabled={!selectedPrinterId || loading || maintenanceSummary?.recommended_tasks.length === 0}
+                >
+                  Criar padrão
+                </button>
+              </div>
               <form className="maintenance-task-form" onSubmit={(event) => void createMaintenanceTask(event)}>
                 <input
                   aria-label="Nome da tarefa preventiva"
@@ -3153,8 +4719,16 @@ function App() {
               <div className="audit-counts">
                 <Badge label="Formato" value={sanitizedReport.format} />
                 <Badge label="Modo" value={sanitizedReport.safe_mode} />
+                <Badge label="Origem" value={formatChecklistDataState(sanitizedReport.data_state)} />
                 <Badge label="Redações" value={sanitizedReport.redactions.length} />
                 <Badge label="Impressora" value={sanitizedReport.printer_id} />
+              </div>
+              <div className="redaction-list">
+                {sanitizedReport.redactions.length === 0 ? (
+                  <span>Nenhuma redação detectada nos dados usados.</span>
+                ) : (
+                  sanitizedReport.redactions.map((redaction) => <span key={redaction}>{formatRedaction(redaction)}</span>)
+                )}
               </div>
               <pre className="report-preview">{sanitizedReport.markdown}</pre>
             </>
@@ -3237,6 +4811,90 @@ function App() {
               </div>
             ))}
           </div>
+          <div className="backup-form">
+            <input
+              aria-label="Backup base"
+              value={backupCompareBasePath}
+              onChange={(event) => setBackupCompareBasePath(event.target.value)}
+              placeholder="/path/base.zip"
+            />
+            <input
+              aria-label="Backup alvo"
+              value={backupCompareTargetPath}
+              onChange={(event) => setBackupCompareTargetPath(event.target.value)}
+              placeholder="/path/novo.zip"
+            />
+            <button type="button" onClick={() => void compareBackupArchives()} disabled={loading || !backupCompareBasePath || !backupCompareTargetPath}>
+              Comparar backups
+            </button>
+          </div>
+          {backupCompareResult ? (
+            <div className="backup-run-row">
+              <strong>{backupCompareResult.summary}</strong>
+              <small>Adicionados: {backupCompareResult.added.join(", ") || "-"}</small>
+              <small>Removidos: {backupCompareResult.removed.join(", ") || "-"}</small>
+              <small>Alterados: {backupCompareResult.changed.join(", ") || "-"}</small>
+            </div>
+          ) : null}
+          <div className="backup-form">
+            <input
+              aria-label="Arquivo de backup para restore"
+              value={backupRestoreArchivePath}
+              onChange={(event) => setBackupRestoreArchivePath(event.target.value)}
+              placeholder="/path/backup.zip"
+            />
+            <input
+              aria-label="Raiz de restore"
+              value={backupRestoreRoot}
+              onChange={(event) => setBackupRestoreRoot(event.target.value)}
+              placeholder="/home/pi/printer_data/config"
+            />
+            <textarea
+              aria-label="Arquivos para restore"
+              value={backupRestoreFiles}
+              onChange={(event) => setBackupRestoreFiles(event.target.value)}
+              placeholder="printer.cfg"
+            />
+            <input
+              aria-label="Confirmação do gate de restore"
+              value={backupRestoreConfirmation}
+              onChange={(event) => setBackupRestoreConfirmation(event.target.value)}
+              placeholder="BLOCK_REAL_RESTORE"
+            />
+            <button type="button" onClick={() => void createBackupRestorePlan()} disabled={loading || !backupRestoreArchivePath || !backupRestoreRoot}>
+              Planejar restore
+            </button>
+            <button type="button" onClick={() => void validateBackupRestoreGate()} disabled={loading || !backupRestoreArchivePath || !backupRestoreRoot}>
+              Validar gate restore
+            </button>
+          </div>
+          {backupRestorePlan ? (
+            <details className="backup-run-row" open>
+              <summary>
+                Restore dry-run · {backupRestorePlan.selected_files.length} arquivo(s) · bloqueado: {formatBoolean(backupRestorePlan.blocked)}
+              </summary>
+              <small>{backupRestorePlan.message}</small>
+              {backupRestorePlan.missing_files.length ? <small>Ausentes: {backupRestorePlan.missing_files.join(", ")}</small> : null}
+              <pre>{backupRestorePlan.planned_commands.join("\n")}</pre>
+            </details>
+          ) : null}
+          {backupRestoreGate ? (
+            <details className="backup-run-row" open>
+              <summary>
+                Gate restore · confirmação: {formatBoolean(backupRestoreGate.accepted_confirmation)} · bloqueado:{" "}
+                {formatBoolean(backupRestoreGate.blocked)}
+              </summary>
+              <small>{backupRestoreGate.message}</small>
+              <small>Modo: {backupRestoreGate.safe_mode}</small>
+              <strong>Rollback futuro obrigatório</strong>
+              <ol>
+                {backupRestoreGate.rollback_plan.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ol>
+              <pre>{backupRestoreGate.plan.planned_commands.join("\n")}</pre>
+            </details>
+          ) : null}
         </article>
 
         <article className="panel wide panel-section panel-reports">
@@ -3332,10 +4990,16 @@ function App() {
         <article className={`panel ${checklist?.can_print ? "ok" : "warn"} panel-section panel-monitoring`}>
           <h2>Checklist pós-update</h2>
           <strong className="summary">{checklist?.summary ?? "Aguardando dados"}</strong>
+          {checklist ? (
+            <div className="checklist-meta">
+              <span>{formatChecklistDataState(checklist.data_state)}</span>
+              <span>{checklist.source}</span>
+            </div>
+          ) : null}
           <div className="checks">
             {checklist?.items.map((item) => (
               <div key={item.key} className="check">
-                <span className={item.ok ? "dot good" : "dot bad"} />
+                <span className={checklistDotClass(item)} />
                 <div>
                   <strong>{item.title}</strong>
                   <p>{item.detail}</p>
@@ -3348,6 +5012,12 @@ function App() {
         <article className="panel wide panel-section panel-monitoring panel-reports">
           <h2>Auditoria somente leitura</h2>
           <strong className="summary">{audit?.summary ?? "Aguardando dados"}</strong>
+          {audit ? (
+            <div className="checklist-meta">
+              <span>{formatChecklistDataState(audit.data_state ?? "live")}</span>
+              <span>{audit.source ?? "-"}</span>
+            </div>
+          ) : null}
           <div className="audit-counts">
             <Badge label="Corrigir agora" value={audit?.counts.corrigir_agora ?? 0} />
             <Badge label="Monitorar" value={audit?.counts.monitorar ?? 0} />
@@ -3455,6 +5125,50 @@ function Badge({ icon: Icon, label, value }: { icon?: LucideIcon; label: string;
   );
 }
 
+function OperationActionParameterFields({
+  action,
+  values,
+  onChange,
+}: {
+  action: OperationAction;
+  values: Record<string, string>;
+  onChange: (actionId: string, parameterName: string, value: string) => void;
+}) {
+  const parameters = operationActionParameterSpecs(action.id);
+  if (parameters.length === 0) {
+    return <small className="operation-action-no-params">Sem parâmetros.</small>;
+  }
+  return (
+    <div className="operation-action-params">
+      {parameters.map((parameter) => (
+        <label key={`${action.id}-${parameter.name}`}>
+          <span>{formatOperationParameterLabel(parameter.name)}</span>
+          {parameter.type === "enum" ? (
+            <select
+              value={values[parameter.name] ?? String(parameter.default ?? parameter.values?.[0] ?? "")}
+              onChange={(event) => onChange(action.id, parameter.name, event.target.value)}
+            >
+              {(parameter.values ?? []).map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type={parameter.type === "number" ? "number" : "text"}
+              min={parameter.min}
+              max={parameter.max}
+              value={values[parameter.name] ?? String(parameter.default ?? 0)}
+              onChange={(event) => onChange(action.id, parameter.name, event.target.value)}
+            />
+          )}
+        </label>
+      ))}
+    </div>
+  );
+}
+
 function formatClassification(classification: AuditFinding["classification"]) {
   return classification.replace("_", " ");
 }
@@ -3466,6 +5180,9 @@ function formatMetricLabel(label: string) {
     moonraker_version: "Moonraker",
     cpu_temp: "CPU temp.",
     disk_available_bytes: "Disco livre",
+    memory_available_bytes: "Memória livre",
+    api_latency_ms: "Latência API",
+    data_state: "Origem",
     snapshot_count: "Snapshots",
     latest_snapshot_id: "Último snapshot",
     latest_diff_severity: "Último diff",
@@ -3528,6 +5245,16 @@ function formatHealthSeverity(severity: HealthItem["severity"]) {
   return labels[severity];
 }
 
+function formatRedaction(redaction: string) {
+  const labels: Record<string, string> = {
+    urls: "URLs",
+    ip_addresses: "IPs",
+    home_paths: "caminhos locais",
+    secret_values: "valores sensíveis",
+  };
+  return labels[redaction] ?? redaction;
+}
+
 function formatMaintenanceEventType(eventType: MaintenanceEventRecord["event_type"]) {
   const labels: Record<MaintenanceEventRecord["event_type"], string> = {
     maintenance: "manutenção",
@@ -3541,6 +5268,9 @@ function formatMaintenanceEventType(eventType: MaintenanceEventRecord["event_typ
 function formatDueStatus(task: MaintenanceTaskRecord) {
   if (task.due_status === "due") {
     return "pendente";
+  }
+  if (task.due_status === "soon") {
+    return `${task.days_until_due ?? "-"} dias restantes · atenção`;
   }
   if (task.due_status === "unknown") {
     return "data inválida";
@@ -3598,6 +5328,16 @@ function formatPluginClassification(classification: PluginAuditItem["classificat
     precisa_confirmacao: "precisa confirmação",
   };
   return labels[classification];
+}
+
+function formatPluginAction(action: PluginAuditItem["action"]) {
+  const labels: Record<PluginAuditItem["action"], string> = {
+    manter: "manter",
+    investigar: "investigar",
+    remover_depois_backup: "remover depois de backup",
+    nao_remover_agora: "não remover agora",
+  };
+  return labels[action];
 }
 
 function formatUpdateStatus(status: UpdateComponent["status"]) {
@@ -3822,13 +5562,18 @@ function formatConnectionType(connectionType: BoardPreset["connection_type"]) {
 
 function formatCalibrationCategory(category: string) {
   const labels: Record<string, string> = {
+    extrusao_base: "extrusão base",
     validacao_mecanica: "validação mecânica",
     nivelamento: "nivelamento",
     probe: "probe",
     primeira_camada: "primeira camada",
+    material: "material",
     extrusao: "extrusão",
     movimento: "movimento",
     qualidade: "qualidade",
+    temperatura: "temperatura",
+    perifericos: "periféricos",
+    dimensional: "dimensional",
   };
   return labels[category] ?? category;
 }
@@ -3860,6 +5605,54 @@ function formatCalibrationResult(resultStatus: CalibrationRunRecord["result_stat
     skipped: "ignorado",
   };
   return labels[resultStatus];
+}
+
+function formatCalibrationExecutionStatus(status: string) {
+  const labels: Record<string, string> = {
+    executed: "executado",
+    blocked: "bloqueado",
+    failed: "falhou",
+    failed_partial: "falhou parcialmente",
+  };
+  return labels[status] ?? status;
+}
+
+function formatCalibrationTestTitle(testKey: string, tests: CalibrationTestRecord[]) {
+  return tests.find((test) => test.test_key === testKey)?.title ?? testKey;
+}
+
+function formatCalibrationSequenceStatus(status: CalibrationSequencePlan["steps"][number]["status"]) {
+  return status === "completed" ? "concluído" : "pendente";
+}
+
+function groupCalibrationSteps(steps: CalibrationSequencePlan["steps"]) {
+  const groups = new Map<string, CalibrationSequencePlan["steps"]>();
+  steps.forEach((step) => {
+    const current = groups.get(step.phase) ?? [];
+    current.push(step);
+    groups.set(step.phase, current);
+  });
+  return Array.from(groups.entries()).map(([phase, phaseSteps]) => ({
+    phase,
+    steps: phaseSteps,
+    completed: phaseSteps.filter((step) => step.status === "completed").length,
+  }));
+}
+
+function formatCalibrationPhase(phase: string) {
+  const labels: Record<string, string> = {
+    "01_base_mecanica": "1. Base mecânica",
+    "02_temperatura": "2. Temperatura",
+    "03_extrusao_base": "3. Extrusão base",
+    "04_probe_mesa": "4. Probe e mesa",
+    "05_primeira_camada": "5. Primeira camada",
+    "06_material": "6. Material e fluxo",
+    "07_movimento": "7. Movimento e vibração",
+    "08_acabamento": "8. Acabamento",
+    "09_dimensional": "9. Dimensional",
+    "10_perifericos": "10. Periféricos",
+  };
+  return labels[phase] ?? phase.replace(/^[0-9]+_/, "").replaceAll("_", " ");
 }
 
 function confirmedWizardSteps(checks: Record<string, boolean>) {
@@ -3899,6 +5692,132 @@ function healthFindingClass(severity: HealthItem["severity"]) {
   return "info";
 }
 
+function checklistDotClass(item: ChecklistItem) {
+  if (item.ok) {
+    return "dot good";
+  }
+  if (item.severity === "manual" || item.status === "manual") {
+    return "dot manual";
+  }
+  return "dot bad";
+}
+
+function formatChecklistDataState(dataState: string) {
+  if (dataState === "live") {
+    return "ao vivo";
+  }
+  if (dataState === "last_snapshot") {
+    return "último snapshot";
+  }
+  if (dataState === "offline") {
+    return "offline";
+  }
+  if (dataState === "no_data") {
+    return "sem dados";
+  }
+  return dataState;
+}
+
+function buildTemperatureSeries(history: OperationTemperatureHistoryRow[]) {
+  const series = new Map<
+    string,
+    Array<{ snapshotId: number | null; createdAt: string; temperature: number }>
+  >();
+  history.forEach((row) => {
+    row.readings.forEach((reading) => {
+      if (typeof reading.temperature !== "number") {
+        return;
+      }
+      const points = series.get(reading.name) ?? [];
+      points.push({ snapshotId: row.snapshot_id, createdAt: row.created_at, temperature: reading.temperature });
+      series.set(reading.name, points);
+    });
+  });
+  return Array.from(series.entries()).map(([name, points]) => {
+    const temperatures = points.map((point) => point.temperature);
+    return {
+      name,
+      points,
+      min: Math.min(...temperatures),
+      max: Math.max(...temperatures),
+    };
+  });
+}
+
+function temperatureBarHeight(value: number, min: number, max: number) {
+  if (max === min) {
+    return 55;
+  }
+  return Math.max(18, Math.round(((value - min) / (max - min)) * 82) + 18);
+}
+
+function operationActionParameterSpecs(actionId: string): OperationActionParameterSpec[] {
+  const specs: Record<string, OperationActionParameterSpec[]> = {
+    move_xy: [
+      { name: "axis", type: "enum", values: ["X", "Y"], default: "X" },
+      { name: "distance_mm", type: "number", default: 10, min: -50, max: 50 },
+      { name: "feedrate", type: "number", default: 6000, min: 600, max: 12000 },
+    ],
+    move_z: [
+      { name: "distance_mm", type: "number", default: 5, min: -10, max: 10 },
+      { name: "feedrate", type: "number", default: 1200, min: 120, max: 3000 },
+    ],
+    extrude: [
+      { name: "length_mm", type: "number", default: 5, min: -10, max: 50 },
+      { name: "feedrate", type: "number", default: 300, min: 60, max: 1200 },
+    ],
+    set_hotend_temp: [{ name: "temperature", type: "number", default: 0, min: 0, max: 300 }],
+    set_bed_temp: [{ name: "temperature", type: "number", default: 0, min: 0, max: 130 }],
+    set_fan: [{ name: "speed_percent", type: "number", default: 0, min: 0, max: 100 }],
+    set_led: [
+      { name: "led_name", type: "text", default: "" },
+      { name: "brightness_percent", type: "number", default: 0, min: 0, max: 100 },
+    ],
+  };
+  return specs[actionId] ?? [];
+}
+
+function buildOperationActionPayload(values: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(values).map(([key, value]) => {
+      const numericValue = Number(value);
+      return [key, value.trim() !== "" && Number.isFinite(numericValue) ? numericValue : value];
+    }),
+  );
+}
+
+function formatOperationParameterLabel(name: string) {
+  const labels: Record<string, string> = {
+    axis: "Eixo",
+    distance_mm: "Distância mm",
+    feedrate: "Feedrate",
+    length_mm: "Comprimento mm",
+    temperature: "Temperatura",
+    speed_percent: "Velocidade %",
+    led_name: "Nome do LED",
+    brightness_percent: "Brilho %",
+  };
+  return labels[name] ?? name;
+}
+
+function formatOperationActionId(actionId: string) {
+  return actionId.replaceAll("_", " ");
+}
+
+function formatOperationCapabilityStatus(status: OperationCapability["status"]) {
+  if (status === "supported") {
+    return "suportado";
+  }
+  if (status === "blocked") {
+    return "bloqueado";
+  }
+  return "desconhecido";
+}
+
+function formatRollbackPlan(plan: string | string[]) {
+  return Array.isArray(plan) ? plan.join(" · ") : plan;
+}
+
 function formatOperationDataState(dataState: OperationStatusResponse["data_state"] | undefined) {
   if (dataState === "live") {
     return "ao vivo";
@@ -3908,6 +5827,9 @@ function formatOperationDataState(dataState: OperationStatusResponse["data_state
   }
   if (dataState === "fixture") {
     return "fixture";
+  }
+  if (dataState === "last_snapshot") {
+    return "snapshot";
   }
   return "-";
 }

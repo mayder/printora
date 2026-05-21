@@ -40,6 +40,21 @@ def test_create_and_list_moonraker_snapshot(tmp_path: Path) -> None:
     assert detail.payload["safe_mode"] == "read_only"
 
 
+def test_moonraker_snapshot_can_store_operation_objects() -> None:
+    payload = build_moonraker_snapshot_payload(
+        printer_id=1,
+        moonraker_url="http://voron.local:7125",
+        printer_info={"state": "ready"},
+        server_info={"klippy_state": "ready"},
+        update_status={},
+        system_info={},
+        proc_stats={},
+        operation_objects={"status": {"extruder": {"temperature": 25}}},
+    )
+
+    assert payload["operation_objects"]["status"]["extruder"]["temperature"] == 25
+
+
 def test_snapshot_summary_flags_dirty_repos() -> None:
     fixture = _load_fixture()
     fixture["update_status"]["version_info"]["klipper"]["is_dirty"] = True
@@ -67,6 +82,24 @@ def test_snapshot_list_is_scoped_by_printer(tmp_path: Path) -> None:
 
     assert len(snapshot_repository.list_snapshots(first.id)) == 1
     assert snapshot_repository.list_snapshots(first.id)[0].summary == {"keys": ["name"]}
+
+
+def test_snapshot_list_by_type_filters_before_limit(tmp_path: Path) -> None:
+    database_path = tmp_path / "mayderprintlab.db"
+    initialize_database(database_path)
+    printer_repository = PrinterRepository(database_path)
+    snapshot_repository = SnapshotRepository(database_path)
+    printer = printer_repository.create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+
+    moonraker = snapshot_repository.create_snapshot(printer.id, "moonraker_status", {"server_info": {"klippy_state": "ready"}})
+    snapshot_repository.create_snapshot(printer.id, "manual", {"name": "newer"})
+    snapshot_repository.create_snapshot(printer.id, "host_audit", {"hostname": "voron"})
+
+    snapshots = snapshot_repository.list_snapshots_by_type(printer.id, "moonraker_status", limit=1)
+
+    assert [snapshot.id for snapshot in snapshots] == [moonraker.id]
 
 
 def test_snapshot_diff_reports_no_relevant_changes(tmp_path: Path) -> None:

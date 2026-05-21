@@ -27,11 +27,23 @@
 - PKG-14: Integração Mainsail e Update Manager
 - PKG-15: Centro de calibração e testes Voron
 - PKG-16: Instalador multiplataforma
+- PKG-16E: Launcher local plug and play
 - PKG-17: Navegação e layout operacional do frontend
 - PKG-18: Arquitetura de UX e menu por domínio
 - PKG-19: Painéis operacionais estilo Mainsail
 - PKG-19A: Operação read-only estilo Mainsail
 - PKG-19B: Operação offline e fixtures locais
+- PKG-19C: Último estado operacional conhecido
+- PKG-19D: Histórico de temperaturas por snapshot
+- PKG-19E: Catálogo de ações operacionais bloqueadas
+- PKG-19F: Preview dry-run de ações operacionais
+- PKG-19G: Histórico local de previews operacionais
+- PKG-19H: Gate de execução com confirmação bloqueada
+- PKG-19I: Parâmetros editáveis no preview operacional
+- PKG-19J: Histórico de tentativas de execução bloqueadas
+- PKG-19K: Preflight read-only no gate operacional
+- PKG-19L: Compatibilidade genérica de ações operacionais
+- PKG-19M: Matriz de capacidade por impressora
 
 ## PKG-01: Base Do Projeto E Documentação Operacional
 
@@ -83,6 +95,11 @@ Estado atual:
 - MVP parcial implementado via `GET /api/audit/read-only`.
 - Auditoria por impressora implementada via `GET /api/printers/{printer_id}/audit/read-only`.
 - Classificação inicial cobre Klipper, Moonraker, Update Manager e sinais básicos do host.
+- Auditoria por impressora retorna `data_state`, `source` e usa último snapshot quando Moonraker está offline.
+- UI exibe origem dos dados da auditoria junto dos achados classificados.
+- Testes cobrem classificação, estado `live` e fallback por snapshot offline.
+- Validação real read-only executada na Voron 0.2 e Voron 2.4.
+- Voron 0.2 ficou sem problemas críticos; Voron 2.4 ficou em `monitorar` por versão Klipper `dirty`.
 - Auditoria manual read-only da Voron registrada em `docs/audits/VORON_READONLY_AUDIT_2026-05-18.md`.
 - Coletor read-only do host implementado em `GET /api/audit/host-read-only`.
 - Próximo incremento: instalar o app em modo `local` na Raspberry para eliminar dependência de SSH.
@@ -199,6 +216,10 @@ Estado atual:
 
 - Implementado `GET /api/printers/discover`.
 - UI exibe botão `Buscar na rede` e lista candidatos encontrados.
+- Descoberta marca impressora já cadastrada mesmo quando o cadastro usa hostname e a varredura encontra o IP resolvido.
+- Testes cobrem rede privada `/24`, rejeição de rede pública, rejeição de rede maior que `/24` e correlação hostname/IP de impressora cadastrada.
+- Validação real read-only em `192.168.15.0/24` encontrou Voron 2.4 (`192.168.15.10`) e Voron 0.2 (`192.168.15.11`) como já cadastradas.
+- Fluxo confirmado sem cadastro automático, G-code, SSH, restart, update, flash ou alteração em Moonraker/Klipper/configs.
 
 ## PKG-01F: Compatibilidade Com SQLite Local Legado
 
@@ -229,9 +250,31 @@ Objetivo:
 
 Criar fluxo orientado para validar impressora após updates.
 
+Entregáveis:
+
+- contrato de checklist com origem dos dados (`live`, `last_snapshot`, `offline` ou `no_data`);
+- endpoint global e endpoint por impressora;
+- fallback para último snapshot quando a impressora selecionada estiver desligada;
+- resposta estável e bloqueante quando Moonraker estiver offline e não houver snapshot;
+- itens técnicos, avisos do Update Manager e smoke test manual;
+- UI exibindo origem dos dados e decisão final.
+
 Critério de aceite:
 
 - resultado final simples: "seguro imprimir" ou "não imprima ainda".
+- não declara seguro quando usa snapshot ou leitura offline;
+- funciona para qualquer impressora Klipper/Moonraker cadastrada;
+- não envia G-code e não executa comandos mutáveis.
+
+Estado atual:
+
+- Implementado checklist pós-update por impressora.
+- Implementado fallback para último snapshot.
+- Implementado bloqueio explícito quando Moonraker está offline.
+- Frontend exibe resumo, origem dos dados e itens técnicos/manuais.
+- Validação real read-only executada na Voron 0.2 e Voron 2.4 com `data_state=live`.
+- Ambas retornaram `Seguro imprimir após smoke manual`, sem bloqueadores técnicos e sem avisos do Update Manager.
+- Fluxo confirmado sem envio de G-code, restart, update, flash ou comando mutável.
 
 ## PKG-04: Health Check Da Impressora
 
@@ -255,13 +298,20 @@ Critério de aceite:
 - leitura é por impressora cadastrada;
 - não executa G-code, restart, update ou flash;
 - usa dados Moonraker e snapshots recentes;
+- quando Moonraker está offline, usa último snapshot e não declara seguro imprimir;
+- quando não há leitura ao vivo nem snapshot, bloqueia com estado offline;
 - UI mostra métricas e ações recomendadas.
 
 Estado atual:
 
 - Implementado `GET /api/printers/{printer_id}/health`.
-- Health check consolida Klipper, Moonraker, Update Manager, temperatura/host, snapshots e último diff.
-- UI exibe decisão operacional, contadores, métricas e itens de ação.
+- Health check consolida Klipper, Moonraker, Update Manager, temperatura/host, memória, latência API, snapshots e último diff.
+- Implementado fallback para último snapshot quando a impressora está desligada.
+- Implementado bloqueio explícito quando não há leitura ao vivo.
+- UI exibe decisão operacional, origem dos dados, contadores, métricas e itens de ação.
+- Validação real read-only executada na Voron 0.2 e Voron 2.4 com Moonraker/Klipper `ready`.
+- Corrigida normalização de memória real reportada em kB pelo Moonraker e detecção de armazenamento via `sd_info`.
+- Ambas ficaram sem bloqueios; decisão `monitorar` por latência Moonraker acima do limite de atenção.
 
 ## PKG-05: Gerenciador De Backups
 
@@ -337,6 +387,11 @@ Estado atual:
 - Implementado `POST /api/backup/policies/{policy_id}/execute-local`.
 - UI permite executar somente políticas com execução local habilitada.
 - Testes cobrem archive criado, bloqueio dry-run e destino inválido.
+- Implementado complemento offline do pacote pai: comparação read-only entre `.zip` de backup e plano de restore dry-run por arquivo.
+- UI permite comparar arquivos de backup locais e gerar plano de restore bloqueado, sem extrair, sobrescrever ou remover arquivos.
+- Implementado gate bloqueado de restore em `POST /api/backup/restore-gate`.
+- UI permite validar a confirmação `BLOCK_REAL_RESTORE`, mas o restore real continua bloqueado.
+- Gate de restore reaproveita o plano dry-run, mostra rollback futuro obrigatório e não extrai, sobrescreve ou remove arquivos.
 
 ## PKG-06: Relatórios Sanitizados
 
@@ -377,7 +432,10 @@ Estado atual:
 
 - Implementado em `backend/app/reports.py`.
 - Endpoint e preview no frontend implementados.
-- Testes cobrem sanitização de IP, URL, caminho local e segredo.
+- Testes cobrem sanitização de IP, URL, fonte do relatório, caminho local e segredo.
+- Validação real read-only executada na Voron 0.2 e Voron 2.4 com `data_state=live`.
+- Relatórios reais retornaram Markdown sanitizado, `source=<url>` e sem URL, IP, caminho local ou segredo detectável.
+- Fluxo confirmado sem alterar impressora, configs, backups ou banco além da leitura normal.
 
 ## PKG-07: Diário Da Impressora E Manutenção Preventiva
 
@@ -402,6 +460,8 @@ Entregáveis:
 - API para registrar manutenção, falha, ajuste e nota;
 - API para criar e concluir tarefas preventivas;
 - status objetivo de tarefa pendente ou em dia;
+- alerta de tarefa vencida ou próxima do vencimento;
+- criação idempotente de tarefas preventivas padrão;
 - UI para diário e tarefas preventivas.
 
 Critério de aceite:
@@ -417,8 +477,10 @@ Estado atual:
 
 - Implementado via `backend/sql/003_maintenance.sql`.
 - Implementado em `backend/app/maintenance.py`.
-- Endpoints e UI inicial implementados.
-- Testes cobrem escopo por impressora e conclusão de tarefa.
+- Endpoints e UI implementados para eventos, tarefas, resumo e tarefas padrão.
+- Tarefas cobrem lubrificação, correias, parafusos, fans, CAN, hotend/nozzle e limpeza de mesa.
+- Status cobre `due`, `soon`, `ok` e `unknown`.
+- Testes cobrem escopo por impressora, conclusão de tarefa, resumo, alertas e criação idempotente de tarefas padrão.
 
 ## PKG-08: Assistente De Primeira Camada E Z-Offset
 
@@ -519,6 +581,9 @@ Entregáveis:
 - API para listar e registrar leituras CAN por impressora;
 - cálculo de delta para `rx_error`, `tx_error` e `tx_retries`;
 - alerta `ok`, `monitorar` ou `problema`;
+- resumo por interface CAN;
+- parser manual para saída de `ip -details -statistics link show can0`;
+- diagnóstico físico sugerido por alerta;
 - UI para cadastro manual e histórico.
 
 Critério de aceite:
@@ -535,8 +600,15 @@ Estado atual:
 
 - Implementado via `backend/sql/005_can_monitor.sql`.
 - Implementado em `backend/app/can_monitor.py`.
-- Endpoints e UI inicial implementados.
-- Testes cobrem delta, alerta e escopo por impressora.
+- Endpoints e UI implementados para registro, histórico, resumo e parser manual de saída `ip link`.
+- Diagnóstico orienta revisão de cabo, crimpagem, alimentação, terminação e aterramento quando há crescimento de erro.
+- Leitura real com `bus_state` diferente de `ERROR-ACTIVE` agora vira `problema`.
+- Resumo CAN agora diferencia explicitamente `manual_records` de `no_data`, sem declarar histórico inexistente como leitura real.
+- Testes cobrem delta, alerta, `bus_state`, resumo, ausência de dados, parser, escopo por impressora e operação local com impressora offline.
+- Implementada comparação offline entre duas leituras CAN manuais da mesma interface/impressora.
+- UI compara o par mais recente da mesma interface CAN e avisa quando não há par comparável.
+- Validação real read-only executada na Voron 0.2 e Voron 2.4: ambas retornaram `data_state=no_data`, `safe_mode=manual_read_only` e parser manual funcionando sem executar `ip`, SSH ou comando no host.
+- Leituras CAN reais registradas: Voron 0.2 `can0` ficou `STOPPED` com alerta `problema`; Voron 2.4 `can0` ficou `ERROR-ACTIVE` com alerta `ok`.
 
 ## PKG-10: Gestão De Mods E Plugins
 
@@ -555,9 +627,21 @@ Itens:
 - Auto Speed;
 - TMC Autotune.
 
+Entregáveis:
+
+- catálogo de mods/plugins conhecidos;
+- auditoria a partir do último snapshot Moonraker/Update Manager;
+- contadores de detectados, arriscados, investigar e desconhecidos;
+- ação recomendada por item;
+- evidências e gates antes de qualquer remoção futura;
+- UI read-only sem remover, atualizar, reiniciar ou alterar configuração.
+
 Critério de aceite:
 
 - usuário vê o que manter, remover, atualizar ou investigar.
+- usuário vê componentes fora do catálogo detectados no Update Manager;
+- qualquer remoção fica condicionada a backup, busca de referências e validação posterior;
+- não executa comandos no host nem no Moonraker.
 
 Estado atual:
 
@@ -565,6 +649,10 @@ Estado atual:
 - Auditoria usa o último snapshot Moonraker/Update Manager.
 - Catálogo inicial cobre KAMP/adaptive meshing, KTC-Easy/StealthChanger, `led_effect`, Crowsnest, Sonar, Timelapse, Auto Speed, TapChanger e TMC Autotune.
 - UI classifica cada item como necessário, opcional, legado/lixo técnico, perigoso remover agora, seguro remover depois de backup ou precisa confirmação.
+- UI exibe contadores, componentes desconhecidos, ação recomendada, evidência e gates de remoção.
+- Componentes fora do catálogo também viram item auditável com ação `investigar`, evidência e gates antes de qualquer remoção.
+- Validação real read-only executada na Voron 0.2 e Voron 2.4 a partir dos últimos snapshots Moonraker/Update Manager.
+- Voron 0.2 detectou `octoeverywhere` como componente fora do catálogo para investigar; Voron 2.4 detectou `adaptive_meshing_purging`, `klipper-toolchanger-easy` e `led_effect`.
 - O fluxo é read-only e não remove, atualiza, reinicia ou altera configurações.
 
 ## PKG-11: Firmware Manager - Cadastro De Placas E Presets
@@ -650,7 +738,8 @@ Estado atual:
 - Implementado `POST /api/firmware/boards/{board_id}/build-runs/dry-run`.
 - Implementado `GET /api/printers/{printer_id}/firmware/build-runs`.
 - UI permite gerar e revisar dry-runs de build.
-- Build real continua fora do escopo desta etapa.
+- Dry-run mostra comandos planejados, checklist, backup `.config`, output e binário planejado.
+- Build real continua bloqueado por padrão e só pode rodar em modo local explícito.
 
 ## PKG-12B: Firmware Manager - Executor Local De Build Com Travas
 
@@ -682,7 +771,11 @@ Estado atual:
 
 - Implementado executor local no backend, bloqueado por padrão.
 - UI exige confirmação textual antes de habilitar o botão de execução local.
-- Testes cobrem bloqueio por modo desabilitado e confirmação obrigatória.
+- Executor local salva log resumido no histórico.
+- Testes cobrem bloqueio por modo desabilitado, confirmação obrigatória, restauração de `.config` e cópia de binário em ambiente local fake.
+- Implementado preflight read-only de build em `POST /api/firmware/boards/{board_id}/build-runs/preflight`.
+- UI permite validar diretório Klipper, `Makefile`, `.config`, config da placa, `make`, saída esperada e modo de build.
+- Preflight não cria diretórios, não copia arquivos, não executa `make`, não acessa SSH, não reinicia serviço e mantém `can_execute_build=false`.
 
 ## PKG-13: Firmware Manager - Flash Controlado
 
@@ -734,7 +827,16 @@ Estado atual:
 - Implementado `POST /api/firmware/boards/{board_id}/flash-runs/dry-run`.
 - Implementado `GET /api/printers/{printer_id}/firmware/flash-runs`.
 - UI permite gerar e revisar dry-run de flash.
+- Implementado gate `POST /api/firmware/boards/{board_id}/flash-runs/execute`, que exige `BLOCK_REAL_FLASH` e ainda assim registra tentativa bloqueada.
+- UI permite validar o gate bloqueado de flash.
+- Checklist inclui energia estável, método de flash, UUID/interface CAN, rollback manual e plano de recuperação.
+- Flash real permanece não implementado por segurança: não executa flashtool, restart, SSH ou validação ao vivo.
 - Flash real continua fora do escopo desta etapa.
+- Implementado plano manual de recuperação pós-flash por placa, incluindo pré-condições, passos por método de flash, validação e rollback.
+- UI exibe plano de recuperação bloqueado sem executar flash, restart, SSH ou comandos locais.
+- Implementado preflight real read-only de flash em `POST /api/firmware/boards/{board_id}/flash-runs/preflight`.
+- UI permite validar Moonraker/Klipper ready, impressão parada, binário, método de flash, UUID/interface CAN e política de execução.
+- Preflight de flash mantém `can_execute_flash=false` e não executa flash, restart, SSH, update, build, G-code ou validação de MCU ao vivo.
 
 ## PKG-14: Integração Mainsail E Update Manager
 
@@ -770,6 +872,8 @@ Estado atual:
 - Criado `packaging/mainsail/navi.json`.
 - Criado `scripts/install_raspberry.sh` com dry-run padrão e `--apply` explícito.
 - Criada documentação `docs/INSTALL_RASPBERRY.md`.
+- Criado e validado `scripts/validate_integration.sh` para checar systemd, `.env`, Mainsail, Update Manager e documentação sem aplicar instalação.
+- Teste automatizado cobre o validador offline.
 
 ## PKG-15: Centro De Calibração E Testes Voron
 
@@ -816,9 +920,20 @@ Critério de aceite futuro:
 
 Estado atual:
 
-- Pacote criado apenas no backlog.
-- Execução real deixada para o final do roadmap.
-- Antes da implementação, será necessário listar as fontes, testes, calibrações, ajustes finos e G-codes brutos.
+- Implementado centro seguro com catálogo read-only e histórico manual por impressora.
+- Execução real de G-code permanece fora do escopo e bloqueada por contrato.
+- UI mostra resumo, recomenda próximos testes sem aprovação, exibe G-code apenas para revisão e registra resultados manuais.
+- Backend rejeita resultado de teste com G-code sugerido se o usuário não confirmar revisão do G-code.
+- Implementada sequência recomendada offline por fase, marcando testes concluídos e pendentes por impressora.
+- UI exibe sequência sem enviar G-code e sem criar ação mutável.
+- Implementado preflight real read-only por teste, com leitura Moonraker/Klipper, bloqueio se estiver imprimindo e `can_execute_gcode=false`.
+- UI permite validar preflight do teste selecionado, exibindo checklist, bloqueios e G-code apenas como preview.
+- Validação real executada na Voron 0.2 e Voron 2.4 para `probe_accuracy_center`: ambas `ready`, `standby`, sem impressão em andamento, mas G-code bloqueado pelo app.
+- Implementado gate de execução real supervisionada por operador em `POST /api/printers/{printer_id}/calibration/execute`.
+- UI permite executar G-code catalogado somente com `G-code revisado`, `Operador presente` e confirmação `EXECUTE_CALIBRATION_GCODE`.
+- Execução real valida Moonraker/Klipper live, bloqueia impressão em andamento, bloqueia Klipper/Klippy não ready, bloqueia comandos fora da allowlist e registra exatamente comandos enviados.
+- Histórico de tentativas de execução fica em `GET /api/printers/{printer_id}/calibration/executions`.
+- UI de Testes refeita para fluxo por cards: cada teste tem ação principal `Executar` ou `Registrar`, ajuda fica em modal via ícone de interrogação e detalhes técnicos deixam de poluir a tela principal.
 
 ## PKG-15A: Centro De Calibração - Catálogo Read-Only
 
@@ -853,6 +968,7 @@ Estado atual:
 - Implementado `GET /api/calibration/tests`.
 - Implementado `GET /api/calibration/tests/{test_key}`.
 - UI lista o catálogo com pré-condições, critérios e G-code somente para revisão.
+- Resumo por impressora consolida categorias, riscos, modos de execução e testes que exigem revisão de G-code.
 
 ## PKG-15B: Centro De Calibração - Histórico Manual De Resultados
 
@@ -883,8 +999,14 @@ Estado atual:
 - Implementado via `backend/sql/010_calibration_runs.sql`.
 - Implementado em `backend/app/calibration.py`.
 - Implementado `GET /api/printers/{printer_id}/calibration/runs`.
+- Implementado `GET /api/printers/{printer_id}/calibration/executions`.
+- Implementado `GET /api/printers/{printer_id}/calibration/summary`.
+- Implementado `GET /api/printers/{printer_id}/calibration/tests/{test_key}/preflight`.
+- Implementado `POST /api/printers/{printer_id}/calibration/execute`.
 - Implementado `POST /api/printers/{printer_id}/calibration/runs`.
-- UI permite registrar resultado manual do teste selecionado.
+- UI permite registrar resultado manual do teste selecionado, valor observado, foto/referência, material, chapa, nozzle/tool e notas.
+- Testes automatizados cobrem catálogo, filtros, escopo por impressora, rejeição de teste inexistente, exigência de revisão de G-code e resumo offline.
+- Testes automatizados cobrem gate de execução, bloqueio offline e persistência de tentativas.
 
 ## PKG-16: Instalador Multiplataforma
 
@@ -944,6 +1066,33 @@ Entregáveis:
 Estado atual:
 
 - `scripts/install_raspberry.sh` valida Linux/systemd antes de instalar.
+
+## PKG-16E: Launcher Local Plug And Play
+
+Objetivo:
+
+Permitir abrir a MayderPrintLab no macOS/Linux/Windows com um único comando ou duplo clique, sem depender de dois terminais separados.
+
+Entregáveis:
+
+- `scripts/run_app.sh`;
+- `Abrir MayderPrintLab.command`;
+- `scripts/run_app_windows.ps1`;
+- `Abrir MayderPrintLab.bat`;
+- preparação automática de venv/frontend quando ausente;
+- início do backend local servindo o frontend buildado;
+- modo foreground para atalho clicável manter a aplicação viva;
+- comando de status e parada;
+- log local no data dir da aplicação.
+
+Critério de aceite:
+
+- `scripts/run_app.sh --no-open` sobe `http://127.0.0.1:8085`;
+- `scripts/run_app_windows.ps1 --no-open` sobe `http://127.0.0.1:8085` no Windows;
+- `GET /health` responde `ok`;
+- `scripts/run_app.sh --stop` para o processo iniciado pelo runner;
+- `scripts/run_app_windows.ps1 --stop` para o processo iniciado pelo runner no Windows;
+- não executa G-code, restart, update, flash ou alteração de configuração da impressora.
 
 ## PKG-16C: Docker Compose
 
@@ -1087,6 +1236,18 @@ Estado atual:
 
 - Primeiro lote seguro implementado em `PKG-19A`.
 - Modo offline/fixture implementado em `PKG-19B`.
+- Fallback para último snapshot implementado em `PKG-19C`.
+- Histórico de temperaturas por snapshot implementado em `PKG-19D`.
+- Catálogo visual de ações bloqueadas implementado em `PKG-19E`.
+- Preview dry-run de ações operacionais implementado em `PKG-19F`.
+- Histórico local de previews operacionais implementado em `PKG-19G`.
+- Gate de execução com confirmação bloqueada implementado em `PKG-19H`.
+- Parâmetros editáveis no preview operacional implementados em `PKG-19I`.
+- Histórico de tentativas de execução bloqueadas implementado em `PKG-19J`.
+- Preflight read-only no gate operacional implementado em `PKG-19K`.
+- Compatibilidade genérica de ações operacionais implementada em `PKG-19L`.
+- Matriz de capacidade por impressora implementada em `PKG-19M`.
+- Preflight final por ação implementado em `POST /api/printers/{printer_id}/operation/actions/preflight`, com leitura Moonraker/Klipper, capacidade por ação e bloqueios explícitos.
 - Ações mutáveis de operação continuam fora do escopo.
 
 ## PKG-19A: Operação Read-Only Estilo Mainsail
@@ -1120,6 +1281,7 @@ Estado atual:
 - Implementado endpoint read-only de operação.
 - Implementada seção `Operação` no frontend.
 - Implementados painéis System Loads, Temperaturas, Toolhead, Extruder e Miscellaneous.
+- Validação real read-only executada na Voron 0.2 e Voron 2.4 com `data_state=live`, Klipper `ready`, comandos bloqueados e 5 leituras de temperatura em cada impressora.
 - Ações mutáveis permanecem fora do escopo deste lote.
 
 ## PKG-19B: Operação Offline E Fixtures Locais
@@ -1151,3 +1313,364 @@ Estado atual:
 - Implementado botão `Exemplo offline` na seção Operação.
 - Implementado estado visual para `offline` e `fixture`.
 - Testes automatizados cobrem fixture e bloqueio de comandos.
+
+## PKG-19C: Último Estado Operacional Conhecido
+
+Objetivo:
+
+Manter a tela de Operação útil quando a impressora estiver desligada, usando o último snapshot real salvo.
+
+Entregáveis:
+
+- fallback automático para o último snapshot `moonraker_status` da impressora;
+- estado `last_snapshot` no contrato de operação;
+- inclusão opcional de `operation_objects` nos novos snapshots Moonraker;
+- aviso visual no frontend quando os dados vêm de snapshot;
+- testes automatizados para montagem da operação a partir de snapshot.
+
+Critério de aceite:
+
+- não chama Moonraker quando está exibindo o fallback de snapshot;
+- não envia G-code;
+- não executa restart, update, flash, home, QGL, fan, LED ou extrusão;
+- mantém o contexto da impressora selecionada;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado fallback automático para último snapshot Moonraker.
+- Novos snapshots podem armazenar objetos operacionais read-only.
+- Frontend distingue dados `live`, `offline`, `fixture` e `last_snapshot`.
+- Snapshots novos preservam também a lista de objetos Klipper conhecidos para manter a matriz de capacidades no fallback.
+- Testes automatizados cobrem snapshot operacional e capacidades vindas do último snapshot.
+
+## PKG-19D: Histórico De Temperaturas Por Snapshot
+
+Objetivo:
+
+Exibir tendência recente de temperatura na tela de Operação usando snapshots salvos, sem consultar a impressora.
+
+Entregáveis:
+
+- extração de temperaturas dos snapshots `moonraker_status`;
+- fallback para temperatura do host via `proc_stats`;
+- campo `temperature_history` no contrato de Operação;
+- visual compacto de histórico por sensor;
+- testes automatizados para ordenação e extração do histórico.
+
+Critério de aceite:
+
+- não chama Moonraker ao montar histórico de snapshots;
+- não envia G-code;
+- não executa restart, update, flash, home, QGL, fan, LED ou extrusão;
+- funciona com snapshots antigos sem `operation_objects`;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado histórico por snapshot na API de Operação.
+- Implementado visual compacto no frontend.
+- Testes automatizados cobrem sensores, ordenação e fallback de host.
+- Validação real após novos snapshots retornou histórico com 2 pontos por impressora na Voron 0.2 e Voron 2.4.
+
+## PKG-19E: Catálogo De Ações Operacionais Bloqueadas
+
+Objetivo:
+
+Preparar a tela de Operação para comandos estilo Mainsail mostrando quais ações existirão, seus riscos e por que continuam bloqueadas.
+
+Entregáveis:
+
+- campo `actions` no contrato de Operação;
+- catálogo inicial para Home XYZ, QGL, movimento, extrusão, temperaturas, fan e LED;
+- motivo explícito de bloqueio por estado offline, impressão em andamento ou mutação ainda não implementada;
+- cards visuais de ações bloqueadas no frontend;
+- testes automatizados para bloqueio de ações.
+
+Critério de aceite:
+
+- não envia G-code;
+- não executa restart, update, flash, home, QGL, fan, LED ou extrusão;
+- todos os botões de execução permanecem desabilitados;
+- bloqueia ações quando não há leitura ao vivo;
+- bloqueia ações quando o estado indica impressão em andamento;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado catálogo de ações operacionais no contrato da API.
+- Implementada seção visual de ações bloqueadas na tela de Operação.
+- Testes automatizados cobrem bloqueios por estado.
+
+## PKG-19F: Preview Dry-Run De Ações Operacionais
+
+Objetivo:
+
+Permitir inspecionar o plano de uma ação operacional antes de qualquer execução real.
+
+Entregáveis:
+
+- endpoint `POST /api/printers/{printer_id}/operation/actions/preview`;
+- resposta `dry_run_only` com comandos planejados;
+- parâmetros esperados por ação;
+- bloqueios explícitos na resposta;
+- preview visual no frontend;
+- testes automatizados para garantir que o preview não envia G-code.
+
+Critério de aceite:
+
+- não chama Moonraker para executar ação;
+- não envia G-code;
+- não executa restart, update, flash, home, QGL, fan, LED ou extrusão;
+- retorna `would_send_gcode=false` e `executable=false`;
+- informa rollback como desnecessário para preview;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado preview dry-run de ações operacionais.
+- Frontend exibe comandos planejados, bloqueios e rollback do preview.
+- Testes automatizados cobrem o contrato dry-run.
+
+## PKG-19G: Histórico Local De Previews Operacionais
+
+Objetivo:
+
+Registrar localmente os previews de ações operacionais para criar rastreabilidade antes da execução real.
+
+Entregáveis:
+
+- tabela SQLite `operation_action_previews`;
+- repositório para salvar e listar previews por impressora;
+- endpoint `GET /api/printers/{printer_id}/operation/actions/history`;
+- gravação automática do preview dry-run;
+- lista visual dos últimos previews na tela de Operação;
+- testes automatizados para persistência e escopo por impressora.
+
+Critério de aceite:
+
+- não chama Moonraker para executar ação;
+- não envia G-code;
+- não executa restart, update, flash, home, QGL, fan, LED ou extrusão;
+- histórico fica isolado por impressora;
+- schema é idempotente;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementada persistência local dos previews.
+- Implementado endpoint de histórico por impressora.
+- Frontend exibe os últimos previews no painel de Operação.
+- Testes automatizados cobrem persistência, escopo e schema.
+
+## PKG-19H: Gate De Execução Com Confirmação Bloqueada
+
+Objetivo:
+
+Criar o contrato de execução segura das ações operacionais sem liberar execução real.
+
+Entregáveis:
+
+- tabela SQLite `operation_action_execution_attempts`;
+- endpoint `POST /api/printers/{printer_id}/operation/actions/execute`;
+- validação de preview existente e pertencente à impressora;
+- validação de frase de confirmação;
+- registro local de tentativa bloqueada;
+- UI para validar o gate a partir de um preview;
+- testes automatizados para confirmação correta e incorreta.
+
+Critério de aceite:
+
+- não chama Moonraker para executar ação;
+- não envia G-code;
+- não executa restart, update, flash, home, QGL, fan, LED ou extrusão;
+- retorna tentativa `blocked`;
+- mantém `would_send_gcode=false` e `executable=false`;
+- registra rollback como desnecessário porque nada foi executado;
+- schema é idempotente;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado gate de execução bloqueada.
+- Implementado registro local de tentativas de execução.
+- Frontend permite informar frase e validar o bloqueio.
+- Testes automatizados cobrem persistência e bloqueio.
+
+## PKG-19I: Parâmetros Editáveis No Preview Operacional
+
+Objetivo:
+
+Permitir configurar parâmetros das ações operacionais antes de gerar o preview dry-run.
+
+Entregáveis:
+
+- inputs por ação para movimento, extrusão, temperatura, fan e LED;
+- normalização backend de parâmetros fora do limite;
+- preview usando os parâmetros informados;
+- histórico armazenando parâmetros normalizados;
+- testes automatizados para normalização de parâmetros.
+
+Critério de aceite:
+
+- não chama Moonraker para executar ação;
+- não envia G-code;
+- não executa restart, update, flash, home, QGL, fan, LED ou extrusão;
+- limites de parâmetros são aplicados no backend;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementados campos editáveis por ação no frontend.
+- Implementada normalização backend de parâmetros.
+- Testes automatizados cobrem limites e defaults.
+
+## PKG-19J: Histórico De Tentativas De Execução Bloqueadas
+
+Objetivo:
+
+Exibir e consultar as tentativas bloqueadas de execução operacional por impressora.
+
+Entregáveis:
+
+- listagem backend das tentativas em `operation_action_execution_attempts`;
+- endpoint `GET /api/printers/{printer_id}/operation/actions/executions`;
+- carregamento do histórico junto com o contexto da impressora;
+- atualização do histórico após validar o gate;
+- lista visual das últimas tentativas na tela de Operação;
+- testes automatizados para escopo por impressora.
+
+Critério de aceite:
+
+- não chama Moonraker para executar ação;
+- não envia G-code;
+- não executa restart, update, flash, home, QGL, fan, LED ou extrusão;
+- histórico fica isolado por impressora;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado endpoint de tentativas bloqueadas.
+- Frontend exibe as últimas tentativas no painel de Operação.
+- Testes automatizados cobrem listagem por impressora.
+
+## PKG-19K: Preflight Read-Only No Gate Operacional
+
+Objetivo:
+
+Consultar o estado real da impressora antes de qualquer tentativa de execução, sem enviar comandos.
+
+Entregáveis:
+
+- preflight read-only no endpoint de execução;
+- leitura de `printer/info`, `server/info` e `print_stats`;
+- bloqueio explícito quando Moonraker está offline;
+- bloqueio explícito quando há impressão em andamento;
+- persistência do resultado de preflight na tentativa bloqueada;
+- exibição do preflight na UI.
+
+Critério de aceite:
+
+- usa apenas leitura Moonraker;
+- não envia G-code;
+- não executa restart, update, flash, home, QGL, fan, LED ou extrusão;
+- mantém a tentativa como `blocked`;
+- registra `would_send_gcode=false`;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado preflight read-only no gate de execução.
+- Tentativas bloqueadas registram estado online/offline e print state.
+- Frontend exibe o resumo do preflight.
+
+## PKG-19L: Compatibilidade Genérica De Ações Operacionais
+
+Objetivo:
+
+Evitar acoplamento das ações operacionais a uma Voron específica, mantendo o contrato útil para qualquer impressora Klipper.
+
+Entregáveis:
+
+- metadados de compatibilidade por ação;
+- QGL marcado como dependente do comando/macro `QUAD_GANTRY_LEVEL`;
+- LED sem nome fixo de objeto;
+- parâmetro `led_name` para `SET_LED`;
+- sanitização de identificadores usados no preview de G-code;
+- exibição dos requisitos de compatibilidade na UI.
+
+Critério de aceite:
+
+- não assume caselight, Nevermore ou nome de LED específico;
+- não envia G-code;
+- não executa restart, update, flash, home, QGL, fan, LED ou extrusão;
+- preview continua `dry_run_only`;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementados metadados genéricos de compatibilidade.
+- `SET_LED` passou a exigir nome informado em parâmetro.
+- Frontend exibe requisitos por ação.
+- Testes automatizados cobrem sanitização e preview de LED genérico.
+
+## PKG-19M: Matriz De Capacidade Por Impressora
+
+Objetivo:
+
+Mostrar, por impressora, quais ações parecem suportadas, desconhecidas ou bloqueadas usando apenas dados conhecidos do Moonraker/Klipper.
+
+Entregáveis:
+
+- campo `capabilities` no contrato de Operação;
+- matriz por ação com status `supported`, `unknown` ou `blocked`;
+- uso de objetos conhecidos do Moonraker e snapshots;
+- exibição visual da matriz na tela de Operação;
+- QGL/LED/fan/heaters sem pressupor uma Voron específica.
+
+Critério de aceite:
+
+- não envia G-code;
+- não executa restart, update, flash, home, QGL, fan, LED ou extrusão;
+- ações sem objeto conhecido ficam `unknown`;
+- funciona com fixture, snapshot e impressora offline;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementada matriz de capacidade por ação.
+
+## PKG-19N: Preflight Final Por Ação Operacional
+
+Objetivo:
+
+Validar cada ação operacional contra estado live e capacidades conhecidas antes de qualquer execução futura, sem enviar comandos.
+
+Entregáveis:
+
+- endpoint `POST /api/printers/{printer_id}/operation/actions/preflight`;
+- leitura read-only de `printer/info`, `server/info`, `print_stats` e lista de objetos Klipper;
+- bloqueio por Moonraker offline, impressão em andamento, Klipper/Klippy não ready e capacidade não confirmada;
+- preview do G-code que seria enviado;
+- UI com botão `Preflight` em cada ação operacional;
+- rollback futuro documentado no retorno.
+
+Critério de aceite:
+
+- não envia G-code;
+- não executa home, QGL, movimento, extrusão, temperatura, fan ou LED;
+- não reinicia serviço, não aplica update e não altera config;
+- mantém `would_send_gcode=false`, `executable=false` e `can_execute=false`;
+- ações com macro/objeto ausente ficam bloqueadas;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado preflight final por ação.
+- Movimento/home usam `toolhead` como capacidade mínima detectável.
+- QGL exige objeto/macro `quad_gantry_level`.
+- Extruder, heaters, fan e LED exigem objetos Klipper compatíveis.
+- Frontend exibe capacidade, bloqueadores e preview bloqueado por ação.
+- Frontend exibe suporte/desconhecido por ação.
+- Testes automatizados cobrem objetos genéricos, ausência de QGL e matriz preservada via snapshot.
+- Validação real confirmou matriz genérica nas duas impressoras: Voron 0.2 sem pressupor QGL e Voron 2.4 com QGL detectado; heaters/LED/fan tratados conforme objetos reais.

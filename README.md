@@ -28,6 +28,22 @@ Check local:
 ./check.sh
 ```
 
+Abrir local no macOS/Linux:
+
+```bash
+./scripts/run_app.sh
+```
+
+Também existe o atalho clicável `Abrir MayderPrintLab.command` na raiz do projeto. Ele prepara o ambiente local quando necessário, inicia o backend em `http://127.0.0.1:8085` e abre o navegador. A janela do terminal deve ficar aberta enquanto o app estiver em uso.
+
+Abrir local no Windows:
+
+```powershell
+.\scripts\run_app_windows.ps1
+```
+
+Também existe o atalho clicável `Abrir MayderPrintLab.bat` na raiz do projeto. Ele prepara o ambiente local quando necessário, inicia o backend em `http://127.0.0.1:8085` e abre o navegador. A janela do PowerShell deve ficar aberta enquanto o app estiver em uso.
+
 ## MVP Atual
 
 O MVP inicial contém:
@@ -148,6 +164,12 @@ Atalhos:
 
 # macOS/Linux dev, aplicar
 ./scripts/bootstrap_dev.sh --apply
+
+# macOS/Linux, iniciar e abrir app local
+./scripts/run_app.sh
+
+# Windows, iniciar e abrir app local
+.\scripts\run_app_windows.ps1
 
 # Raspberry/Manta/Linux systemd, dry-run
 ./scripts/install_raspberry.sh

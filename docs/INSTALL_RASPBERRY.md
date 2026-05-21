@@ -25,13 +25,25 @@ cd /home/pi/MayderPrintLab
 ./scripts/install_raspberry.sh --apply
 ```
 
+Em hosts não-Raspberry que usam outro usuário/home, como Catalyst/CB1 com `linaro`:
+
+```bash
+cd /home/linaro/MayderPrintLab
+MAYDER_PRINT_LAB_INSTALL_USER=linaro \
+MAYDER_PRINT_LAB_INSTALL_HOME=/home/linaro \
+MAYDER_PRINT_LAB_INSTALL_DIR=/home/linaro/MayderPrintLab \
+MAYDER_PRINT_LAB_PUBLIC_URL=http://voron-02-pro.local:8085 \
+./scripts/install_raspberry.sh --apply
+```
+
 O script:
 
 - cria/atualiza `/home/pi/MayderPrintLab`;
+- em hosts não-Raspberry, respeita `MAYDER_PRINT_LAB_INSTALL_USER`, `MAYDER_PRINT_LAB_INSTALL_HOME` e `MAYDER_PRINT_LAB_INSTALL_DIR`;
 - cria venv do backend;
 - instala dependências Python;
-- instala dependências frontend;
-- gera build estático;
+- instala dependências frontend e gera build estático quando `npm` existe;
+- usa `frontend/dist` já buildado quando `npm` não existe no host;
 - cria `.env` se ainda não existir;
 - copia `mayderprintlab.service`;
 - habilita o serviço.

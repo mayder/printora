@@ -83,6 +83,20 @@ class SnapshotRepository:
             ).fetchall()
         return [_record_from_row(row, include_payload=False) for row in rows]
 
+    def list_snapshots_by_type(self, printer_id: int, snapshot_type: SnapshotType, limit: int = 20) -> list[SnapshotRecord]:
+        with connect_database(self.database_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT id, printer_id, created_at, snapshot_type, payload_json
+                FROM printer_snapshots
+                WHERE printer_id = ? AND snapshot_type = ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+                """,
+                (printer_id, snapshot_type, limit),
+            ).fetchall()
+        return [_record_from_row(row, include_payload=False) for row in rows]
+
     def get_snapshot(self, snapshot_id: int) -> SnapshotDetail | None:
         with connect_database(self.database_path) as connection:
             row = connection.execute(
@@ -121,8 +135,9 @@ def build_moonraker_snapshot_payload(
     update_status: dict[str, Any],
     system_info: dict[str, Any],
     proc_stats: dict[str, Any],
+    operation_objects: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return {
+    payload = {
         "source": "moonraker",
         "safe_mode": "read_only",
         "printer_id": printer_id,
@@ -133,6 +148,9 @@ def build_moonraker_snapshot_payload(
         "system_info": system_info,
         "proc_stats": proc_stats,
     }
+    if operation_objects is not None:
+        payload["operation_objects"] = operation_objects
+    return payload
 
 
 def summarize_snapshot(snapshot_type: str, payload: dict[str, Any]) -> dict[str, Any]:

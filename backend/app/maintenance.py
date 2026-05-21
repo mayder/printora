@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -9,7 +9,18 @@ from app.database import connect_database
 
 
 MaintenanceEventType = Literal["maintenance", "failure", "adjustment", "note"]
-TaskDueStatus = Literal["due", "ok", "unknown"]
+TaskDueStatus = Literal["due", "soon", "ok", "unknown"]
+
+
+DEFAULT_PREVENTIVE_TASKS = [
+    {"name": "Lubrificar trilhos/eixos", "component": "motion", "interval_days": 30},
+    {"name": "Verificar tensão das correias", "component": "belts", "interval_days": 30},
+    {"name": "Conferir parafusos estruturais", "component": "frame", "interval_days": 60},
+    {"name": "Inspecionar fans e dutos", "component": "fans", "interval_days": 30},
+    {"name": "Inspecionar conectores CAN", "component": "can", "interval_days": 30},
+    {"name": "Inspecionar hotend/nozzle", "component": "hotend", "interval_days": 30},
+    {"name": "Limpar mesa", "component": "bed", "interval_days": 7},
+]
 
 
 class MaintenanceEventCreate(BaseModel):
@@ -59,6 +70,15 @@ class MaintenanceTaskRecord(BaseModel):
     updated_at: str
     due_status: TaskDueStatus
     days_until_due: int | None
+
+
+class MaintenanceSummary(BaseModel):
+    printer_id: int
+    safe_mode: str
+    counts: dict[str, int]
+    due_components: list[str]
+    next_due_task: MaintenanceTaskRecord | None
+    recommended_tasks: list[dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -149,6 +169,57 @@ class MaintenanceRepository:
             ).fetchall()
         return [_task_from_row(row) for row in rows]
 
+    def summary(self, printer_id: int) -> MaintenanceSummary:
+        tasks = self.list_tasks(printer_id)
+        counts = {"due": 0, "soon": 0, "ok": 0, "unknown": 0, "inactive": 0}
+        for task in tasks:
+            if not task.is_active:
+                counts["inactive"] += 1
+                continue
+            counts[task.due_status] += 1
+        due_components = sorted(
+            {task.component for task in tasks if task.is_active and task.due_status in {"due", "soon"}}
+        )
+        active_known_tasks = [task for task in tasks if task.is_active and task.days_until_due is not None]
+        next_due_task = min(active_known_tasks, key=lambda task: task.days_until_due or 0) if active_known_tasks else None
+        existing = {(task.name.lower(), task.component.lower()) for task in tasks}
+        recommended_tasks = [
+            task
+            for task in DEFAULT_PREVENTIVE_TASKS
+            if (str(task["name"]).lower(), str(task["component"]).lower()) not in existing
+        ]
+        return MaintenanceSummary(
+            printer_id=printer_id,
+            safe_mode="local_only",
+            counts=counts,
+            due_components=due_components,
+            next_due_task=next_due_task,
+            recommended_tasks=recommended_tasks,
+        )
+
+    def create_default_tasks(self, printer_id: int) -> list[MaintenanceTaskRecord]:
+        created: list[MaintenanceTaskRecord] = []
+        existing = {
+            (task.name.lower(), task.component.lower())
+            for task in self.list_tasks(printer_id)
+        }
+        for task in DEFAULT_PREVENTIVE_TASKS:
+            key = (str(task["name"]).lower(), str(task["component"]).lower())
+            if key in existing:
+                continue
+            created.append(
+                self.create_task(
+                    printer_id,
+                    MaintenanceTaskCreate(
+                        name=str(task["name"]),
+                        component=str(task["component"]),
+                        interval_days=int(task["interval_days"]),
+                    ),
+                )
+            )
+            existing.add(key)
+        return created
+
     def get_task(self, task_id: int) -> MaintenanceTaskRecord | None:
         with connect_database(self.database_path) as connection:
             row = connection.execute(
@@ -229,6 +300,8 @@ def _calculate_due_status(last_done_at: str | None, interval_days: int) -> tuple
     days_until_due = interval_days - elapsed_days
     if days_until_due <= 0:
         return "due", 0
+    if days_until_due <= max(1, min(7, interval_days // 5)):
+        return "soon", days_until_due
     return "ok", days_until_due
 
 

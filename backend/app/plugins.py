@@ -13,6 +13,7 @@ PluginClassification = Literal[
     "seguro_remover_depois_backup",
     "precisa_confirmacao",
 ]
+PluginAction = Literal["manter", "investigar", "remover_depois_backup", "nao_remover_agora"]
 
 
 class PluginAuditItem(BaseModel):
@@ -25,6 +26,9 @@ class PluginAuditItem(BaseModel):
     commits_behind: int | None
     risk: str
     recommendation: str
+    action: PluginAction
+    evidence: list[str]
+    removal_gates: list[str]
 
 
 class PluginAuditResponse(BaseModel):
@@ -32,6 +36,8 @@ class PluginAuditResponse(BaseModel):
     safe_mode: str
     source: str
     summary: str
+    counts: dict[str, int]
+    unknown_update_manager_components: list[str]
     items: list[PluginAuditItem]
 
 
@@ -95,17 +101,53 @@ PLUGIN_CATALOG: dict[str, dict[str, str]] = {
 
 def build_plugin_audit(printer_id: int, latest_snapshot: SnapshotDetail | None) -> PluginAuditResponse:
     version_info = _extract_version_info(latest_snapshot)
-    items = [_build_item(name, metadata, version_info.get(name)) for name, metadata in PLUGIN_CATALOG.items()]
+    catalog_items = [_build_item(name, metadata, version_info.get(name)) for name, metadata in PLUGIN_CATALOG.items()]
+    unknown_components = sorted(name for name in version_info if name not in PLUGIN_CATALOG and _looks_like_plugin(name))
+    unknown_items = [_build_unknown_item(name, version_info[name]) for name in unknown_components]
+    items = [*catalog_items, *unknown_items]
     detected_count = sum(1 for item in items if item.detected)
     risky_count = sum(1 for item in items if item.detected and item.classification in _RISKY_CLASSIFICATIONS)
-    source = "latest_moonraker_snapshot" if latest_snapshot else "catalog_without_snapshot"
+    counts = {
+        "detected": detected_count,
+        "missing": sum(1 for item in catalog_items if not item.detected),
+        "risky": risky_count,
+        "unknown": len(unknown_components),
+        "keep": sum(1 for item in items if item.detected and item.action == "manter"),
+        "investigate": sum(1 for item in items if item.detected and item.action == "investigar"),
+        "remove_after_backup": sum(1 for item in items if item.detected and item.action == "remover_depois_backup"),
+        "do_not_remove_now": sum(1 for item in items if item.detected and item.action == "nao_remover_agora"),
+    }
+    source = f"latest_moonraker_snapshot:{latest_snapshot.id}" if latest_snapshot else "catalog_without_snapshot"
     summary = f"{detected_count} plugins/mods detectados; {risky_count} exigem confirmação antes de remover."
     return PluginAuditResponse(
         printer_id=printer_id,
         safe_mode="read_only_no_host_commands",
         source=source,
         summary=summary,
+        counts=counts,
+        unknown_update_manager_components=unknown_components,
         items=items,
+    )
+
+
+def _build_unknown_item(name: str, repo: dict[str, Any]) -> PluginAuditItem:
+    return PluginAuditItem(
+        name=name,
+        title=f"Componente fora do catálogo: {name}",
+        detected=True,
+        classification="precisa_confirmacao",
+        version=_version(repo),
+        dirty=repo.get("is_dirty"),
+        commits_behind=repo.get("commits_behind_count"),
+        risk="Componente detectado no Update Manager, mas ainda sem política local no catálogo.",
+        recommendation="Investigar uso real antes de manter, atualizar ou remover.",
+        action="investigar",
+        evidence=_evidence(name, repo),
+        removal_gates=[
+            "Classificar o componente no catálogo antes de qualquer remoção.",
+            "Buscar referências em includes, macros, moonraker.conf e systemd.",
+            "Criar backup antes de qualquer alteração futura.",
+        ],
     )
 
 
@@ -125,16 +167,20 @@ def _extract_version_info(latest_snapshot: SnapshotDetail | None) -> dict[str, d
 
 
 def _build_item(name: str, metadata: dict[str, str], repo: dict[str, Any] | None) -> PluginAuditItem:
+    classification = metadata["classification"]
     return PluginAuditItem(
         name=name,
         title=metadata["title"],
         detected=repo is not None,
-        classification=metadata["classification"],
+        classification=classification,
         version=_version(repo),
         dirty=repo.get("is_dirty") if repo else None,
         commits_behind=repo.get("commits_behind_count") if repo else None,
         risk=metadata["risk"],
         recommendation=metadata["recommendation"],
+        action=_action(classification),
+        evidence=_evidence(name, repo),
+        removal_gates=_removal_gates(classification),
     )
 
 
@@ -143,3 +189,54 @@ def _version(repo: dict[str, Any] | None) -> str | None:
         return None
     version = repo.get("full_version_string") or repo.get("version")
     return str(version) if version is not None else None
+
+
+def _action(classification: str) -> PluginAction:
+    if classification in {"necessario", "perigoso_remover_agora"}:
+        return "nao_remover_agora"
+    if classification == "opcional":
+        return "manter"
+    if classification == "seguro_remover_depois_backup":
+        return "remover_depois_backup"
+    return "investigar"
+
+
+def _evidence(name: str, repo: dict[str, Any] | None) -> list[str]:
+    if repo is None:
+        return ["Não apareceu no version_info do último snapshot Moonraker/Update Manager."]
+    evidence = [f"Componente {name} apareceu no version_info do Update Manager."]
+    version = _version(repo)
+    if version:
+        evidence.append(f"Versão detectada: {version}.")
+    if repo.get("is_dirty") is True:
+        evidence.append("Repositório marcado como dirty.")
+    behind = repo.get("commits_behind_count")
+    if isinstance(behind, int) and behind > 0:
+        evidence.append(f"{behind} commit(s) atrás do remoto.")
+    warnings = repo.get("warnings") or []
+    anomalies = repo.get("anomalies") or []
+    for value in [*warnings, *anomalies]:
+        evidence.append(str(value))
+    return evidence
+
+
+def _removal_gates(classification: str) -> list[str]:
+    common = [
+        "Criar backup antes de qualquer remoção.",
+        "Buscar referências em includes, macros, moonraker.conf e systemd.",
+        "Validar Klipper/Moonraker ready após mudança em manutenção futura.",
+    ]
+    if classification == "perigoso_remover_agora":
+        return ["Não remover neste fluxo.", *common]
+    if classification in {"legado_lixo_tecnico", "precisa_confirmacao", "seguro_remover_depois_backup"}:
+        return common
+    if classification == "opcional":
+        return ["Manter por padrão; remover apenas se o usuário confirmar que não usa.", *common]
+    return ["Manter."]
+
+
+def _looks_like_plugin(name: str) -> bool:
+    ignored = {"klipper", "moonraker", "mainsail", "mainsail-config", "system", "client"}
+    if name in ignored:
+        return False
+    return True

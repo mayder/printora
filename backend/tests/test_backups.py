@@ -1,6 +1,16 @@
 from pathlib import Path
+import zipfile
 
-from app.backups import BackupPolicyCreate, BackupRepository
+from app.backups import (
+    BackupArchiveCompareRequest,
+    BackupPolicyCreate,
+    BackupRepository,
+    BackupRestoreExecuteRequest,
+    BackupRestorePlanRequest,
+    build_backup_restore_gate,
+    build_backup_restore_plan,
+    compare_backup_archives,
+)
 from app.database import initialize_database
 from app.printers import PrinterCreate, PrinterRepository
 
@@ -133,3 +143,93 @@ def test_execute_local_backup_rejects_destination_inside_source(tmp_path: Path) 
     assert run is not None
     assert run.status == "failed"
     assert "Destino não pode" in run.message
+
+
+def test_compare_backup_archives_is_read_only(tmp_path: Path) -> None:
+    base = tmp_path / "base.zip"
+    target = tmp_path / "target.zip"
+    with zipfile.ZipFile(base, "w") as archive:
+        archive.writestr("printer.cfg", "[printer]\n")
+        archive.writestr("old.cfg", "old\n")
+        archive.writestr("same.cfg", "same\n")
+    with zipfile.ZipFile(target, "w") as archive:
+        archive.writestr("printer.cfg", "[printer]\nchanged\n")
+        archive.writestr("same.cfg", "same\n")
+        archive.writestr("new.cfg", "new\n")
+
+    diff = compare_backup_archives(
+        BackupArchiveCompareRequest(base_archive_path=str(base), target_archive_path=str(target))
+    )
+
+    assert diff.safe_mode == "local_zip_read_only"
+    assert diff.added == ["new.cfg"]
+    assert diff.removed == ["old.cfg"]
+    assert diff.changed == ["printer.cfg"]
+    assert diff.unchanged_count == 1
+
+
+def test_restore_plan_is_blocked_and_does_not_extract_files(tmp_path: Path) -> None:
+    archive_path = tmp_path / "backup.zip"
+    restore_root = tmp_path / "restore"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("printer.cfg", "[printer]\n")
+
+    plan = build_backup_restore_plan(
+        BackupRestorePlanRequest(
+            archive_path=str(archive_path),
+            restore_root=str(restore_root),
+            files=["printer.cfg", "missing.cfg"],
+        )
+    )
+
+    assert plan.safe_mode == "restore_dry_run_only"
+    assert plan.blocked is True
+    assert plan.selected_files == ["printer.cfg"]
+    assert plan.missing_files == ["missing.cfg"]
+    assert "unzip -p" in plan.planned_commands[-1]
+    assert not restore_root.exists()
+
+
+def test_restore_gate_accepts_confirmation_but_stays_blocked(tmp_path: Path) -> None:
+    archive_path = tmp_path / "backup.zip"
+    restore_root = tmp_path / "restore"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("printer.cfg", "[printer]\n")
+
+    gate = build_backup_restore_gate(
+        BackupRestoreExecuteRequest(
+            archive_path=str(archive_path),
+            restore_root=str(restore_root),
+            files=["printer.cfg"],
+            confirmation="BLOCK_REAL_RESTORE",
+        )
+    )
+
+    assert gate.safe_mode == "restore_execution_gate_blocked"
+    assert gate.accepted_confirmation is True
+    assert gate.blocked is True
+    assert gate.plan.blocked is True
+    assert gate.plan.selected_files == ["printer.cfg"]
+    assert any("Nenhum arquivo foi extraído" in item for item in gate.rollback_plan)
+    assert not restore_root.exists()
+
+
+def test_restore_gate_rejects_wrong_confirmation_without_extracting(tmp_path: Path) -> None:
+    archive_path = tmp_path / "backup.zip"
+    restore_root = tmp_path / "restore"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("printer.cfg", "[printer]\n")
+
+    gate = build_backup_restore_gate(
+        BackupRestoreExecuteRequest(
+            archive_path=str(archive_path),
+            restore_root=str(restore_root),
+            files=["printer.cfg"],
+            confirmation="wrong",
+        )
+    )
+
+    assert gate.accepted_confirmation is False
+    assert gate.blocked is True
+    assert "Confirmação inválida" in gate.message
+    assert not restore_root.exists()

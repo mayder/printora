@@ -128,6 +128,31 @@ def test_database_schema_is_idempotent(tmp_path: Path) -> None:
     assert repository.list_printers() == []
 
 
+def test_database_schema_includes_operation_action_history(tmp_path: Path) -> None:
+    database_path = tmp_path / "mayderprintlab.db"
+
+    initialize_database(database_path)
+
+    with connect_database(database_path) as connection:
+        table_row = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'operation_action_previews'"
+        ).fetchone()
+        index_row = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_operation_action_previews_printer_created'"
+        ).fetchone()
+        attempt_table_row = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'operation_action_execution_attempts'"
+        ).fetchone()
+        attempt_index_row = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_operation_action_execution_attempts_printer_created'"
+        ).fetchone()
+
+    assert table_row is not None
+    assert index_row is not None
+    assert attempt_table_row is not None
+    assert attempt_index_row is not None
+
+
 def test_database_schema_repairs_legacy_app_events_table(tmp_path: Path) -> None:
     database_path = tmp_path / "mayderprintlab.db"
     with connect_database(database_path) as connection:

@@ -34,6 +34,10 @@ def build_read_only_audit(
     update_status: dict[str, Any],
     system_info: dict[str, Any] | None = None,
     proc_stats: dict[str, Any] | None = None,
+    *,
+    data_state: str = "live",
+    source: str = "moonraker",
+    error: str | None = None,
 ) -> dict[str, Any]:
     findings: list[AuditFinding] = []
 
@@ -57,6 +61,9 @@ def build_read_only_audit(
 
     return {
         "safe_mode": "read_only",
+        "data_state": data_state,
+        "source": source,
+        "error": error,
         "summary": _build_summary(findings),
         "counts": _count_by_classification(findings),
         "findings": [finding.__dict__ for finding in findings],

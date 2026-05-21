@@ -30,6 +30,9 @@ class MoonrakerClient:
     async def printer_info(self) -> dict[str, Any]:
         return await self.get_json("/printer/info")
 
+    async def gcode_script(self, script: str) -> dict[str, Any]:
+        return await self.post_json("/printer/gcode/script", {"script": script})
+
     async def server_info(self) -> dict[str, Any]:
         return await self.get_json("/server/info")
 

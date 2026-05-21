@@ -1,4 +1,5 @@
 import asyncio
+import time
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -10,10 +11,46 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, HttpUrl
 
 from app.audit import build_read_only_audit
-from app.backups import BackupPolicyCreate, BackupPolicyRecord, BackupRepository, BackupRunRecord
-from app.calibration import CalibrationRepository, CalibrationRunCreate, CalibrationRunRecord, CalibrationTestRecord
-from app.can_monitor import CanBusRecord, CanBusRecordCreate, CanMonitorRepository
-from app.checklists import build_post_update_checklist
+from app.backups import (
+    BackupArchiveCompareRequest,
+    BackupArchiveCompareResponse,
+    BackupPolicyCreate,
+    BackupPolicyRecord,
+    BackupRepository,
+    BackupRestorePlanRequest,
+    BackupRestorePlanResponse,
+    BackupRestoreExecuteRequest,
+    BackupRestoreGateResponse,
+    BackupRunRecord,
+    build_backup_restore_gate,
+    build_backup_restore_plan,
+    compare_backup_archives,
+)
+from app.calibration import (
+    CalibrationAvailableTestsResponse,
+    CalibrationExecutionRecord,
+    CalibrationExecutionRequest,
+    CalibrationPreflight,
+    CalibrationRepository,
+    CalibrationRunCreate,
+    CalibrationRunRecord,
+    CalibrationSequencePlan,
+    CalibrationSummary,
+    CalibrationTestRecord,
+    build_available_calibration_tests,
+    build_calibration_execution_gate,
+    build_calibration_preflight,
+)
+from app.can_monitor import (
+    CanBusParseRequest,
+    CanBusRecord,
+    CanBusRecordComparison,
+    CanBusRecordCreate,
+    CanBusSummary,
+    CanMonitorRepository,
+    parse_ip_link_can_output,
+)
+from app.checklists import build_post_update_checklist, build_unavailable_post_update_checklist
 from app.config import Settings, get_settings
 from app.database import initialize_database
 from app.discovery import PrinterDiscoveryResponse, discover_moonraker_printers
@@ -22,11 +59,15 @@ from app.firmware import (
     FirmwareBoardCreate,
     FirmwareBoardRecord,
     FirmwareBoardRepository,
+    FirmwareBuildPreflight,
     FirmwareBuildDryRunCreate,
     FirmwareBuildExecuteCreate,
     FirmwareBuildRunRecord,
     FirmwareFlashDryRunCreate,
+    FirmwareFlashExecuteCreate,
+    FirmwareFlashPreflight,
     FirmwareFlashRunRecord,
+    FirmwareRecoveryPlan,
 )
 from app.health import build_printer_health, build_unreachable_health
 from app.host_audit import collect_host_audit, summarize_sections
@@ -34,16 +75,26 @@ from app.maintenance import (
     MaintenanceEventCreate,
     MaintenanceEventRecord,
     MaintenanceRepository,
+    MaintenanceSummary,
     MaintenanceTaskComplete,
     MaintenanceTaskCreate,
     MaintenanceTaskRecord,
 )
 from app.moonraker import MoonrakerClient
 from app.operation import (
+    build_operation_action_preflight,
+    build_operation_action_preview,
+    build_last_known_operation,
     build_offline_fixture_operation,
     build_operation_query_objects,
     build_operation_status,
+    build_temperature_history,
     build_unreachable_operation,
+)
+from app.operation_history import (
+    OperationActionExecutionAttemptRecord,
+    OperationActionHistoryRepository,
+    OperationActionPreviewRecord,
 )
 from app.plugins import PluginAuditResponse, build_plugin_audit
 from app.printers import PrinterCreate, PrinterRecord, PrinterRepository, PrinterUpdate
@@ -90,6 +141,16 @@ class PrinterConnectionTestResponse(BaseModel):
     ssh: ConnectionCheckResult | None = None
 
 
+class OperationActionPreviewRequest(BaseModel):
+    action_id: str = Field(min_length=1, max_length=80)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+
+class OperationActionExecuteRequest(BaseModel):
+    preview_id: int = Field(gt=0)
+    confirmation_phrase: str = Field(min_length=1, max_length=120)
+
+
 def get_moonraker_client(settings: Settings) -> MoonrakerClient:
     return MoonrakerClient(
         base_url=settings.moonraker_url,
@@ -115,6 +176,10 @@ def get_can_monitor_repository(settings: Settings) -> CanMonitorRepository:
 
 def get_maintenance_repository(settings: Settings) -> MaintenanceRepository:
     return MaintenanceRepository(settings.database_path)
+
+
+def get_operation_action_history_repository(settings: Settings) -> OperationActionHistoryRepository:
+    return OperationActionHistoryRepository(settings.database_path)
 
 
 def get_z_offset_repository(settings: Settings) -> ZOffsetRepository:
@@ -294,20 +359,41 @@ async def printer_health(printer_id: int) -> dict[str, Any]:
         base_url=printer.moonraker_url,
         timeout_seconds=settings.request_timeout_seconds,
     )
+    started_at = time.perf_counter()
     try:
         printer_info, server_info, system_info, proc_stats = await _collect_status(client)
         update_status = await client.update_status()
     except httpx.HTTPError as exc:
+        latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
+        if latest_snapshot is not None:
+            snapshots = snapshot_repository.list_snapshots_by_type(printer.id, "moonraker_status", limit=2)
+            latest_diff = _latest_snapshot_diff(snapshot_repository, printer.id, snapshots)
+            payload = latest_snapshot.payload
+            return {
+                "printer_id": printer.id,
+                "moonraker_url": printer.moonraker_url,
+                **build_printer_health(
+                    printer_info=_dict(payload.get("printer_info")),
+                    server_info=_dict(payload.get("server_info")),
+                    update_status=_dict(payload.get("update_status")),
+                    system_info=_dict(payload.get("system_info")),
+                    proc_stats=_dict(payload.get("proc_stats")),
+                    snapshots=snapshots,
+                    latest_diff=latest_diff,
+                    data_state="last_snapshot",
+                    source=f"snapshot:{latest_snapshot.id}",
+                    error=str(exc),
+                ),
+            }
         return {
             "printer_id": printer.id,
             "moonraker_url": printer.moonraker_url,
             **build_unreachable_health(printer.moonraker_url, str(exc)),
         }
+    api_latency_ms = (time.perf_counter() - started_at) * 1000
 
-    snapshots = snapshot_repository.list_snapshots(printer.id, limit=2)
-    latest_diff = None
-    if len(snapshots) >= 2:
-        latest_diff = snapshot_repository.diff_snapshots(printer.id, snapshots[1].id, snapshots[0].id)
+    snapshots = snapshot_repository.list_snapshots_by_type(printer.id, "moonraker_status", limit=2)
+    latest_diff = _latest_snapshot_diff(snapshot_repository, printer.id, snapshots)
 
     return {
         "printer_id": printer.id,
@@ -320,6 +406,8 @@ async def printer_health(printer_id: int) -> dict[str, Any]:
             proc_stats=proc_stats,
             snapshots=snapshots,
             latest_diff=latest_diff,
+            source=printer.moonraker_url,
+            api_latency_ms=api_latency_ms,
         ),
     }
 
@@ -347,9 +435,11 @@ async def printer_update_status(printer_id: int) -> UpdateStatusResponse:
 async def printer_operation_status(printer_id: int) -> dict[str, Any]:
     settings = get_settings()
     repository = get_printer_repository(settings)
+    snapshot_repository = get_snapshot_repository(settings)
     printer = repository.get_printer(printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
+    recent_snapshots = _recent_moonraker_snapshots(snapshot_repository, printer.id, limit=12)
 
     client = MoonrakerClient(
         base_url=printer.moonraker_url,
@@ -359,19 +449,30 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
         printer_info, server_info, system_info, proc_stats = await _collect_status(client)
         available_objects = await client.printer_objects_list()
         objects = await client.printer_objects(build_operation_query_objects(available_objects))
+        objects["objects"] = available_objects
     except httpx.HTTPError as exc:
+        latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
+        if latest_snapshot is not None:
+            operation = build_last_known_operation(latest_snapshot)
+            operation["temperature_history"] = build_temperature_history(recent_snapshots)
+            return {
+                "printer_id": printer.id,
+                **operation,
+            }
         return build_unreachable_operation(printer.moonraker_url, str(exc))
 
+    operation = build_operation_status(
+        printer_info=printer_info,
+        server_info=server_info,
+        system_info=system_info,
+        proc_stats=proc_stats,
+        objects=objects,
+    )
+    operation["temperature_history"] = build_temperature_history(recent_snapshots)
     return {
         "printer_id": printer.id,
         "moonraker_url": printer.moonraker_url,
-        **build_operation_status(
-            printer_info=printer_info,
-            server_info=server_info,
-            system_info=system_info,
-            proc_stats=proc_stats,
-            objects=objects,
-        ),
+        **operation,
     }
 
 
@@ -381,6 +482,117 @@ async def operation_voron_offline_fixture() -> dict[str, Any]:
         "printer_id": 0,
         **build_offline_fixture_operation(),
     }
+
+
+@app.get("/api/printers/{printer_id}/operation/actions/history")
+async def list_printer_operation_action_history(printer_id: int, limit: int = 20) -> dict[str, list[OperationActionPreviewRecord]]:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    printer = repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    history_repository = get_operation_action_history_repository(settings)
+    return {"previews": history_repository.list_previews(printer.id, limit=limit)}
+
+
+@app.get("/api/printers/{printer_id}/operation/actions/executions")
+async def list_printer_operation_action_executions(printer_id: int, limit: int = 20) -> dict[str, list[OperationActionExecutionAttemptRecord]]:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    printer = repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    history_repository = get_operation_action_history_repository(settings)
+    return {"attempts": history_repository.list_execution_attempts(printer.id, limit=limit)}
+
+
+@app.post("/api/printers/{printer_id}/operation/actions/preview")
+async def preview_printer_operation_action(printer_id: int, payload: OperationActionPreviewRequest) -> dict[str, Any]:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    printer = repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        preview = build_operation_action_preview(
+            action_id=payload.action_id,
+            parameters=payload.parameters,
+            connected=False,
+            print_state="",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    history_repository = get_operation_action_history_repository(settings)
+    record = history_repository.create_preview(printer.id, preview)
+    return {
+        "printer_id": printer.id,
+        "moonraker_url": printer.moonraker_url,
+        "history_id": record.id,
+        "created_at": record.created_at,
+        **preview,
+    }
+
+
+@app.post("/api/printers/{printer_id}/operation/actions/preflight")
+async def preflight_printer_operation_action(printer_id: int, payload: OperationActionPreviewRequest) -> dict[str, Any]:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    printer = repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    preflight = await _operation_execution_preflight(client)
+    objects: dict[str, Any] = {}
+    if preflight.get("connected") is not False:
+        try:
+            available_objects = await client.printer_objects_list()
+            objects = {"objects": available_objects}
+        except httpx.HTTPError:
+            objects = {}
+    try:
+        action_preflight = build_operation_action_preflight(
+            action_id=payload.action_id,
+            parameters=payload.parameters,
+            preflight=preflight,
+            objects=objects,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {
+        "printer_id": printer.id,
+        "moonraker_url": printer.moonraker_url,
+        **action_preflight,
+    }
+
+
+@app.post("/api/printers/{printer_id}/operation/actions/execute")
+async def execute_printer_operation_action(
+    printer_id: int,
+    payload: OperationActionExecuteRequest,
+) -> OperationActionExecutionAttemptRecord:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    printer = repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    history_repository = get_operation_action_history_repository(settings)
+    preview = history_repository.get_preview(payload.preview_id)
+    if preview is None or preview.printer_id != printer.id:
+        raise HTTPException(status_code=404, detail="preview not found")
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    preflight = await _operation_execution_preflight(client)
+    return history_repository.create_execution_attempt(
+        printer_id=printer.id,
+        preview=preview,
+        confirmation_phrase=payload.confirmation_phrase,
+        preflight=preflight,
+    )
 
 
 @app.post("/api/printers/{printer_id}/updates/refresh")
@@ -463,7 +675,7 @@ async def sanitized_report(printer_id: int) -> SanitizedReport:
     try:
         printer_info, server_info, system_info, proc_stats = await _collect_status(client)
         update_status = await client.update_status()
-        snapshots = snapshot_repository.list_snapshots(printer.id, limit=2)
+        snapshots = snapshot_repository.list_snapshots_by_type(printer.id, "moonraker_status", limit=2)
         latest_diff = _latest_snapshot_diff(snapshot_repository, printer.id, snapshots)
         health_payload = {
             "printer_id": printer.id,
@@ -476,16 +688,37 @@ async def sanitized_report(printer_id: int) -> SanitizedReport:
                 proc_stats=proc_stats,
                 snapshots=snapshots,
                 latest_diff=latest_diff,
+                source=printer.moonraker_url,
             ),
         }
     except httpx.HTTPError as exc:
-        snapshots = snapshot_repository.list_snapshots(printer.id, limit=2)
+        snapshots = snapshot_repository.list_snapshots_by_type(printer.id, "moonraker_status", limit=2)
         latest_diff = _latest_snapshot_diff(snapshot_repository, printer.id, snapshots)
-        health_payload = {
-            "printer_id": printer.id,
-            "moonraker_url": printer.moonraker_url,
-            **build_unreachable_health(printer.moonraker_url, str(exc)),
-        }
+        latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
+        if latest_snapshot is not None:
+            payload = latest_snapshot.payload
+            health_payload = {
+                "printer_id": printer.id,
+                "moonraker_url": printer.moonraker_url,
+                **build_printer_health(
+                    printer_info=_dict(payload.get("printer_info")),
+                    server_info=_dict(payload.get("server_info")),
+                    update_status=_dict(payload.get("update_status")),
+                    system_info=_dict(payload.get("system_info")),
+                    proc_stats=_dict(payload.get("proc_stats")),
+                    snapshots=snapshots,
+                    latest_diff=latest_diff,
+                    data_state="last_snapshot",
+                    source=f"snapshot:{latest_snapshot.id}",
+                    error=str(exc),
+                ),
+            }
+        else:
+            health_payload = {
+                "printer_id": printer.id,
+                "moonraker_url": printer.moonraker_url,
+                **build_unreachable_health(printer.moonraker_url, str(exc)),
+            }
 
     backup_runs = backup_repository.list_runs(printer.id, limit=5)
     return build_sanitized_report(
@@ -555,6 +788,42 @@ async def list_can_bus_records(printer_id: int, limit: int = 50) -> dict[str, li
     return {"records": can_repository.list_records(printer_id, clean_limit)}
 
 
+@app.get("/api/printers/{printer_id}/can/summary")
+async def can_bus_summary(printer_id: int) -> CanBusSummary:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    can_repository = get_can_monitor_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return can_repository.summary(printer_id)
+
+
+@app.get("/api/printers/{printer_id}/can/compare")
+async def compare_can_bus_records(
+    printer_id: int,
+    before_record_id: int,
+    after_record_id: int,
+) -> CanBusRecordComparison:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    can_repository = get_can_monitor_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        return can_repository.compare_records(printer_id, before_record_id, after_record_id)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/printers/{printer_id}/can/parse")
+async def parse_can_bus_output(printer_id: int, payload: CanBusParseRequest) -> CanBusRecordCreate:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return parse_ip_link_can_output(payload)
+
+
 @app.post("/api/printers/{printer_id}/can/records")
 async def create_can_bus_record(printer_id: int, payload: CanBusRecordCreate) -> CanBusRecord:
     settings = get_settings()
@@ -622,6 +891,23 @@ async def create_firmware_build_dry_run(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.post("/api/firmware/boards/{board_id}/build-runs/preflight")
+async def firmware_build_preflight(
+    board_id: int,
+    payload: FirmwareBuildDryRunCreate,
+) -> FirmwareBuildPreflight:
+    settings = get_settings()
+    firmware_repository = get_firmware_board_repository(settings)
+    try:
+        return firmware_repository.build_build_preflight(
+            board_id=board_id,
+            payload=payload,
+            mode=settings.firmware_build_mode,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/api/firmware/boards/{board_id}/build-runs/execute-local")
 async def execute_firmware_build_local(
     board_id: int,
@@ -664,6 +950,54 @@ async def create_firmware_flash_dry_run(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.post("/api/firmware/boards/{board_id}/flash-runs/preflight")
+async def firmware_flash_preflight(
+    board_id: int,
+    payload: FirmwareFlashDryRunCreate,
+) -> FirmwareFlashPreflight:
+    settings = get_settings()
+    firmware_repository = get_firmware_board_repository(settings)
+    board = firmware_repository.get_board(board_id)
+    if board is None:
+        raise HTTPException(status_code=404, detail="firmware board not found")
+    printer_repository = get_printer_repository(settings)
+    printer = printer_repository.get_printer(board.printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    preflight = await _operation_execution_preflight(client)
+    try:
+        return firmware_repository.build_flash_preflight(board_id, payload, preflight)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/firmware/boards/{board_id}/flash-runs/execute")
+async def execute_firmware_flash_blocked(
+    board_id: int,
+    payload: FirmwareFlashExecuteCreate,
+) -> FirmwareFlashRunRecord:
+    settings = get_settings()
+    firmware_repository = get_firmware_board_repository(settings)
+    try:
+        return firmware_repository.execute_flash_blocked(board_id, payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/firmware/boards/{board_id}/recovery-plan")
+async def firmware_recovery_plan(board_id: int) -> FirmwareRecoveryPlan:
+    settings = get_settings()
+    firmware_repository = get_firmware_board_repository(settings)
+    try:
+        return firmware_repository.build_recovery_plan(board_id)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.get("/api/calibration/tests")
 async def list_calibration_tests(category: str | None = None) -> dict[str, list[CalibrationTestRecord]]:
     settings = get_settings()
@@ -681,6 +1015,35 @@ async def get_calibration_test(test_key: str) -> CalibrationTestRecord:
     return record
 
 
+@app.get("/api/printers/{printer_id}/calibration/available-tests")
+async def list_available_calibration_tests(printer_id: int) -> CalibrationAvailableTestsResponse:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    repository = get_calibration_repository(settings)
+    printer = printer_repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    connected = True
+    try:
+        available_objects = await client.printer_objects_list()
+        object_payload = await client.printer_objects({"toolhead": ["axis_minimum", "axis_maximum"]}) if "toolhead" in available_objects else {}
+    except httpx.HTTPError:
+        connected = False
+        available_objects = []
+        object_payload = {}
+    return build_available_calibration_tests(
+        printer_id=printer.id,
+        tests=repository.list_tests(),
+        available_objects=available_objects,
+        object_status=object_payload.get("status", object_payload) if isinstance(object_payload, dict) else {},
+        connected=connected,
+    )
+
+
 @app.get("/api/printers/{printer_id}/calibration/runs")
 async def list_calibration_runs(printer_id: int, limit: int = 50) -> dict[str, list[CalibrationRunRecord]]:
     settings = get_settings()
@@ -690,6 +1053,55 @@ async def list_calibration_runs(printer_id: int, limit: int = 50) -> dict[str, l
         raise HTTPException(status_code=404, detail="printer not found")
     clean_limit = min(max(limit, 1), 100)
     return {"runs": repository.list_runs(printer_id, clean_limit)}
+
+
+@app.get("/api/printers/{printer_id}/calibration/executions")
+async def list_calibration_executions(printer_id: int, limit: int = 20) -> dict[str, list[CalibrationExecutionRecord]]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    repository = get_calibration_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return {"executions": repository.list_execution_attempts(printer_id, limit=limit)}
+
+
+@app.get("/api/printers/{printer_id}/calibration/summary")
+async def calibration_summary(printer_id: int) -> CalibrationSummary:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    repository = get_calibration_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return repository.summary(printer_id)
+
+
+@app.get("/api/printers/{printer_id}/calibration/sequence")
+async def calibration_sequence(printer_id: int) -> CalibrationSequencePlan:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    repository = get_calibration_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return repository.sequence_plan(printer_id)
+
+
+@app.get("/api/printers/{printer_id}/calibration/tests/{test_key}/preflight")
+async def calibration_test_preflight(printer_id: int, test_key: str) -> CalibrationPreflight:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    repository = get_calibration_repository(settings)
+    printer = printer_repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    test = repository.get_test(test_key)
+    if test is None:
+        raise HTTPException(status_code=404, detail="calibration test not found")
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    preflight = await _operation_execution_preflight(client)
+    return build_calibration_preflight(printer_id=printer.id, test=test, preflight=preflight)
 
 
 @app.post("/api/printers/{printer_id}/calibration/runs")
@@ -703,6 +1115,66 @@ async def create_calibration_run(printer_id: int, payload: CalibrationRunCreate)
         return repository.create_run(printer_id, payload)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/printers/{printer_id}/calibration/execute")
+async def execute_calibration_test(
+    printer_id: int,
+    payload: CalibrationExecutionRequest,
+) -> CalibrationExecutionRecord:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    repository = get_calibration_repository(settings)
+    printer = printer_repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    test = repository.get_test(payload.test_key)
+    if test is None:
+        raise HTTPException(status_code=404, detail="calibration test not found")
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    preflight = await _operation_execution_preflight(client)
+    gate = build_calibration_execution_gate(test=test, payload=payload, preflight=preflight)
+    if gate.status == "blocked":
+        return repository.create_execution_attempt(
+            printer_id=printer.id,
+            test=test,
+            gate=gate,
+            status="blocked",
+            sent_commands=[],
+            result=[],
+            message=gate.message,
+        )
+
+    sent_commands: list[str] = []
+    results: list[dict[str, Any]] = []
+    try:
+        for command in gate.commands:
+            result = await client.gcode_script(command)
+            sent_commands.append(command)
+            results.append({"command": command, "result": result})
+    except httpx.HTTPError as exc:
+        return repository.create_execution_attempt(
+            printer_id=printer.id,
+            test=test,
+            gate=gate,
+            status="failed_partial" if sent_commands else "failed",
+            sent_commands=sent_commands,
+            result=results,
+            message=f"Falha ao enviar G-code: {_http_error_detail(exc)}",
+        )
+
+    return repository.create_execution_attempt(
+        printer_id=printer.id,
+        test=test,
+        gate=gate,
+        status="executed",
+        sent_commands=sent_commands,
+        result=results,
+        message="G-code de calibração enviado pelo Moonraker com operador presente.",
+    )
 
 
 @app.get("/api/printers/{printer_id}/plugins/audit")
@@ -755,6 +1227,16 @@ async def list_maintenance_tasks(printer_id: int) -> dict[str, list[MaintenanceT
     return {"tasks": maintenance_repository.list_tasks(printer_id)}
 
 
+@app.get("/api/printers/{printer_id}/maintenance/summary")
+async def maintenance_summary(printer_id: int) -> MaintenanceSummary:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    maintenance_repository = get_maintenance_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return maintenance_repository.summary(printer_id)
+
+
 @app.post("/api/printers/{printer_id}/maintenance/tasks")
 async def create_maintenance_task(
     printer_id: int,
@@ -769,6 +1251,16 @@ async def create_maintenance_task(
         return maintenance_repository.create_task(printer_id, payload)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/printers/{printer_id}/maintenance/tasks/defaults")
+async def create_default_maintenance_tasks(printer_id: int) -> dict[str, list[MaintenanceTaskRecord]]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    maintenance_repository = get_maintenance_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return {"tasks": maintenance_repository.create_default_tasks(printer_id)}
 
 
 @app.post("/api/maintenance/tasks/{task_id}/complete")
@@ -838,6 +1330,30 @@ async def execute_local_backup(policy_id: int) -> BackupRunRecord:
     return run
 
 
+@app.post("/api/backup/archives/compare")
+async def compare_backup_archives_endpoint(payload: BackupArchiveCompareRequest) -> BackupArchiveCompareResponse:
+    try:
+        return compare_backup_archives(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/backup/restore-plan")
+async def backup_restore_plan(payload: BackupRestorePlanRequest) -> BackupRestorePlanResponse:
+    try:
+        return build_backup_restore_plan(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/backup/restore-gate")
+async def backup_restore_gate(payload: BackupRestoreExecuteRequest) -> BackupRestoreGateResponse:
+    try:
+        return build_backup_restore_gate(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/api/printers/{printer_id}/snapshots/moonraker")
 async def create_moonraker_snapshot(printer_id: int) -> SnapshotDetail:
     settings = get_settings()
@@ -857,6 +1373,14 @@ async def create_moonraker_snapshot(printer_id: int) -> SnapshotDetail:
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"moonraker read failed: {exc}") from exc
 
+    operation_objects = None
+    try:
+        available_objects = await client.printer_objects_list()
+        operation_objects = await client.printer_objects(build_operation_query_objects(available_objects))
+        operation_objects["objects"] = available_objects
+    except httpx.HTTPError:
+        operation_objects = None
+
     payload = build_moonraker_snapshot_payload(
         printer_id=printer.id,
         moonraker_url=printer.moonraker_url,
@@ -865,6 +1389,7 @@ async def create_moonraker_snapshot(printer_id: int) -> SnapshotDetail:
         update_status=update_status,
         system_info=system_info,
         proc_stats=proc_stats,
+        operation_objects=operation_objects,
     )
     return snapshot_repository.create_snapshot(printer.id, "moonraker_status", payload)
 
@@ -907,10 +1432,63 @@ async def get_snapshot(snapshot_id: int) -> SnapshotDetail:
 async def post_update_checklist() -> dict[str, Any]:
     settings = get_settings()
     client = get_moonraker_client(settings)
-    printer_info = await client.printer_info()
-    server_info = await client.server_info()
-    update_status = await client.update_status()
-    return build_post_update_checklist(printer_info, server_info, update_status)
+    try:
+        printer_info = await client.printer_info()
+        server_info = await client.server_info()
+        update_status = await client.update_status()
+    except httpx.HTTPError as exc:
+        return build_unavailable_post_update_checklist(
+            data_state="offline",
+            source=settings.moonraker_url,
+            error=str(exc),
+        )
+    return build_post_update_checklist(
+        printer_info,
+        server_info,
+        update_status,
+        source=settings.moonraker_url,
+    )
+
+
+@app.get("/api/printers/{printer_id}/checklist/post-update")
+async def printer_post_update_checklist(printer_id: int) -> dict[str, Any]:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    snapshot_repository = get_snapshot_repository(settings)
+    printer = repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    try:
+        printer_info = await client.printer_info()
+        server_info = await client.server_info()
+        update_status = await client.update_status()
+    except httpx.HTTPError as exc:
+        latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
+        if latest_snapshot is not None:
+            payload = latest_snapshot.payload
+            return build_post_update_checklist(
+                _dict(payload.get("printer_info")),
+                _dict(payload.get("server_info")),
+                _dict(payload.get("update_status")),
+                data_state="last_snapshot",
+                source=f"snapshot:{latest_snapshot.id}",
+                error=str(exc),
+            )
+        return build_unavailable_post_update_checklist(
+            data_state="offline",
+            source=printer.moonraker_url,
+            error=str(exc),
+        )
+    return build_post_update_checklist(
+        printer_info,
+        server_info,
+        update_status,
+        source=printer.moonraker_url,
+    )
 
 
 @app.get("/api/audit/read-only")
@@ -929,6 +1507,7 @@ async def read_only_audit() -> dict[str, Any]:
         update_status=update_status,
         system_info=system_info,
         proc_stats=proc_stats,
+        source=settings.moonraker_url,
     )
     return {
         "connected": True,
@@ -941,6 +1520,7 @@ async def read_only_audit() -> dict[str, Any]:
 async def printer_read_only_audit(printer_id: int) -> dict[str, Any]:
     settings = get_settings()
     printer_repository = get_printer_repository(settings)
+    snapshot_repository = get_snapshot_repository(settings)
     printer = printer_repository.get_printer(printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
@@ -953,6 +1533,24 @@ async def printer_read_only_audit(printer_id: int) -> dict[str, Any]:
         printer_info, server_info, system_info, proc_stats = await _collect_status(client)
         update_status = await client.update_status()
     except httpx.HTTPError as exc:
+        latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
+        if latest_snapshot is not None:
+            payload = latest_snapshot.payload
+            audit = build_read_only_audit(
+                printer_info=_dict(payload.get("printer_info")),
+                server_info=_dict(payload.get("server_info")),
+                update_status=_dict(payload.get("update_status")),
+                system_info=_dict(payload.get("system_info")),
+                proc_stats=_dict(payload.get("proc_stats")),
+                data_state="last_snapshot",
+                source=f"snapshot:{latest_snapshot.id}",
+                error=str(exc),
+            )
+            return {
+                "connected": False,
+                "moonraker_url": printer.moonraker_url,
+                **audit,
+            }
         return _build_unreachable_audit(printer.moonraker_url, exc)
 
     audit = build_read_only_audit(
@@ -961,6 +1559,7 @@ async def printer_read_only_audit(printer_id: int) -> dict[str, Any]:
         update_status=update_status,
         system_info=system_info,
         proc_stats=proc_stats,
+        source=printer.moonraker_url,
     )
     return {
         "connected": True,
@@ -998,9 +1597,63 @@ async def _collect_status(client: MoonrakerClient) -> tuple[dict[str, Any], ...]
     return printer_info, server_info, system_info, proc_stats
 
 
+def _latest_moonraker_snapshot(snapshot_repository: SnapshotRepository, printer_id: int) -> SnapshotDetail | None:
+    snapshots = _recent_moonraker_snapshots(snapshot_repository, printer_id, limit=1)
+    return snapshots[0] if snapshots else None
+
+
+def _dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _recent_moonraker_snapshots(snapshot_repository: SnapshotRepository, printer_id: int, limit: int) -> list[SnapshotDetail]:
+    snapshots: list[SnapshotDetail] = []
+    for snapshot in snapshot_repository.list_snapshots_by_type(printer_id, "moonraker_status", limit=limit):
+        detail = snapshot_repository.get_snapshot(snapshot.id)
+        if detail is not None:
+            snapshots.append(detail)
+    return snapshots
+
+
+async def _operation_execution_preflight(client: MoonrakerClient) -> dict[str, Any]:
+    try:
+        printer_info = await client.printer_info()
+        server_info = await client.server_info()
+        available_objects = await client.printer_objects_list()
+        query_objects: dict[str, list[str]] = {"print_stats": ["state", "filename"]}
+        if "toolhead" in available_objects:
+            query_objects["toolhead"] = ["axis_minimum", "axis_maximum"]
+        objects = await client.printer_objects(query_objects)
+    except httpx.HTTPError as exc:
+        return {
+            "safe_mode": "read_only_preflight",
+            "connected": False,
+            "printing": False,
+            "print_state": "",
+            "summary": "Moonraker indisponível no preflight.",
+            "error": str(exc),
+        }
+    status = objects.get("status", objects)
+    print_stats = status.get("print_stats") if isinstance(status, dict) else {}
+    print_state = str(print_stats.get("state") or "") if isinstance(print_stats, dict) else ""
+    return {
+        "safe_mode": "read_only_preflight",
+        "connected": bool(server_info.get("klippy_connected", True)),
+        "printing": print_state not in {"", "standby", "complete", "cancelled", "error"},
+        "print_state": print_state,
+        "klipper_state": printer_info.get("state"),
+        "klippy_state": server_info.get("klippy_state"),
+        "available_objects": available_objects,
+        "object_status": status if isinstance(status, dict) else {},
+        "summary": "Preflight read-only concluído.",
+    }
+
+
 def _build_unreachable_audit(moonraker_url: str, exc: Exception) -> dict[str, Any]:
     return {
         "safe_mode": "read_only",
+        "data_state": "offline",
+        "source": moonraker_url,
         "connected": False,
         "moonraker_url": moonraker_url,
         "summary": "Moonraker indisponível para auditoria somente leitura.",

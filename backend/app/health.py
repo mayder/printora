@@ -27,22 +27,41 @@ def build_printer_health(
     proc_stats: dict[str, Any],
     snapshots: list[SnapshotRecord],
     latest_diff: SnapshotDiff | None = None,
+    *,
+    data_state: str = "live",
+    source: str = "moonraker",
+    api_latency_ms: float | None = None,
+    error: str | None = None,
 ) -> dict[str, Any]:
     items: list[HealthItem] = []
 
+    _check_data_state(items, data_state, source, error)
     _check_klipper(items, printer_info)
     _check_moonraker(items, server_info)
     _check_update_manager(items, update_status)
     _check_host_metrics(items, system_info, proc_stats)
+    _check_api_latency(items, api_latency_ms)
     _check_snapshots(items, snapshots, latest_diff)
 
     decision = _decision(items)
     return {
         "safe_mode": "read_only",
-        "connected": True,
+        "connected": data_state == "live",
+        "data_state": data_state,
+        "source": source,
+        "error": error,
         "decision": decision,
         "summary": _summary(decision),
-        "metrics": _metrics(printer_info, server_info, system_info, proc_stats, snapshots, latest_diff),
+        "metrics": _metrics(
+            printer_info,
+            server_info,
+            system_info,
+            proc_stats,
+            snapshots,
+            latest_diff,
+            api_latency_ms,
+            data_state,
+        ),
         "counts": _counts(items),
         "items": [item.__dict__ for item in items],
     }
@@ -60,6 +79,9 @@ def build_unreachable_health(moonraker_url: str, error: str) -> dict[str, Any]:
     return {
         "safe_mode": "read_only",
         "connected": False,
+        "data_state": "offline",
+        "source": moonraker_url,
+        "error": error,
         "moonraker_url": moonraker_url,
         "decision": "nao_imprimir",
         "summary": "Não imprima ainda",
@@ -67,6 +89,35 @@ def build_unreachable_health(moonraker_url: str, error: str) -> dict[str, Any]:
         "counts": _counts([item]),
         "items": [item.__dict__],
     }
+
+
+def _check_data_state(items: list[HealthItem], data_state: str, source: str, error: str | None) -> None:
+    if data_state == "live":
+        items.append(
+            HealthItem(
+                key="data_state",
+                title="Origem dos dados",
+                ok=True,
+                severity="ok",
+                detail=f"Leitura ao vivo de {source}.",
+                action="Sem ação.",
+            )
+        )
+        return
+
+    detail = f"Usando {source}."
+    if error:
+        detail = f"{detail} Falha ao ler Moonraker ao vivo: {error}"
+    items.append(
+        HealthItem(
+            key="data_state",
+            title="Origem dos dados",
+            ok=False,
+            severity="blocker",
+            detail=detail,
+            action="Não considerar a impressora pronta sem uma leitura ao vivo.",
+        )
+    )
 
 
 def _check_klipper(items: list[HealthItem], printer_info: dict[str, Any]) -> None:
@@ -182,7 +233,11 @@ def _check_host_metrics(
             )
         )
 
-    available_bytes = _find_nested_number(system_info, ["available", "free"])
+    disk = _find_disk_values(system_info)
+    if disk is not None:
+        available_bytes, total_bytes = disk
+    else:
+        available_bytes, total_bytes = None, None
     if available_bytes is not None:
         low_space = available_bytes < 1_000_000_000
         items.append(
@@ -195,6 +250,76 @@ def _check_host_metrics(
                 action="Planejar limpeza de logs/backups antigos." if low_space else "Sem ação.",
             )
         )
+    elif total_bytes is not None:
+        items.append(
+            HealthItem(
+                key="disk_space",
+                title="Armazenamento detectado",
+                ok=True,
+                severity="ok",
+                detail=f"{total_bytes / 1_000_000_000:.2f} GB totais; espaço livre não reportado pelo Moonraker.",
+                action="Validar espaço livre no host antes de updates ou backups grandes.",
+            )
+        )
+    else:
+        items.append(
+            HealthItem(
+                key="disk_space",
+                title="Armazenamento",
+                ok=True,
+                severity="info",
+                detail="Moonraker não reportou capacidade ou espaço livre do disco.",
+                action="Validar espaço livre no host antes de updates ou backups grandes.",
+            )
+        )
+
+    memory = _find_memory_values(proc_stats) or _find_memory_values(system_info)
+    if memory is not None:
+        available, total = memory
+        usage_ratio = 1 - (available / total) if total > 0 else 0
+        severity: HealthSeverity = "ok"
+        ok = True
+        action = "Sem ação."
+        if usage_ratio >= 0.90:
+            severity = "warning"
+            ok = False
+            action = "Monitorar processos do host antes de iniciar impressão longa."
+        items.append(
+            HealthItem(
+                key="host_memory",
+                title="Memória do host",
+                ok=ok,
+                severity=severity,
+                detail=f"{available / 1_000_000_000:.2f} GB livres de {total / 1_000_000_000:.2f} GB",
+                action=action,
+            )
+        )
+
+
+def _check_api_latency(items: list[HealthItem], api_latency_ms: float | None) -> None:
+    if api_latency_ms is None:
+        return
+    severity: HealthSeverity = "ok"
+    ok = True
+    action = "Sem ação."
+    if api_latency_ms >= 5_000:
+        severity = "blocker"
+        ok = False
+        action = "Validar rede/Moonraker antes de considerar nova impressão."
+    elif api_latency_ms >= 1_500:
+        severity = "warning"
+        ok = False
+        action = "Monitorar latência da API antes de operação longa."
+    items.append(
+        HealthItem(
+            key="api_latency",
+            title="Latência da API Moonraker",
+            ok=ok,
+            severity=severity,
+            detail=f"{api_latency_ms:.0f} ms",
+            action=action,
+        )
+    )
 
 
 def _check_snapshots(
@@ -243,13 +368,20 @@ def _metrics(
     proc_stats: dict[str, Any],
     snapshots: list[SnapshotRecord],
     latest_diff: SnapshotDiff | None,
+    api_latency_ms: float | None,
+    data_state: str,
 ) -> dict[str, Any]:
     return {
+        "data_state": data_state,
         "klipper_state": printer_info.get("state"),
         "klipper_version": printer_info.get("software_version"),
         "moonraker_version": server_info.get("moonraker_version"),
         "cpu_temp": _extract_number(proc_stats, ["cpu_temp", "temperature"]),
-        "disk_available_bytes": _find_nested_number(system_info, ["available", "free"]),
+        "disk_available_bytes": (_find_disk_values(system_info) or (None, None))[0],
+        "disk_total_bytes": (_find_disk_values(system_info) or (None, None))[1],
+        "memory_available_bytes": (_find_memory_values(proc_stats) or _find_memory_values(system_info) or (None, None))[0],
+        "memory_total_bytes": (_find_memory_values(proc_stats) or _find_memory_values(system_info) or (None, None))[1],
+        "api_latency_ms": api_latency_ms,
         "snapshot_count": len(snapshots),
         "latest_snapshot_id": snapshots[0].id if snapshots else None,
         "latest_diff_severity": latest_diff.highest_severity if latest_diff else None,
@@ -302,4 +434,77 @@ def _find_nested_number(data: Any, preferred_keys: list[str]) -> float | None:
             found = _find_nested_number(value, preferred_keys)
             if found is not None:
                 return found
+    return None
+
+
+def _find_memory_values(data: Any) -> tuple[float, float] | None:
+    if not isinstance(data, dict):
+        return None
+    candidates = [
+        data.get("memory"),
+        data.get("system_memory"),
+        data.get("mem"),
+        data,
+    ]
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        total = _first_number(candidate, ["total", "total_bytes", "MemTotal"])
+        available = _first_number(candidate, ["available", "available_bytes", "free", "free_bytes", "MemAvailable"])
+        used = _first_number(candidate, ["used", "used_bytes"])
+        if total is not None and available is None and used is not None:
+            available = total - used
+        if total is not None and available is not None and total > 0:
+            return _normalize_memory_bytes(float(max(0, available)), float(total), candidate)
+    for value in data.values():
+        found = _find_memory_values(value)
+        if found is not None:
+            return found
+    return None
+
+
+def _find_disk_values(data: Any) -> tuple[float | None, float | None] | None:
+    if not isinstance(data, dict):
+        return None
+    candidates = [
+        data.get("disk"),
+        data.get("disk_usage"),
+        data.get("sd_info"),
+        data,
+    ]
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        total = _first_number(candidate, ["total_bytes", "total", "capacity_bytes"])
+        available = _first_number(candidate, ["available_bytes", "available", "free_bytes", "free"])
+        used = _first_number(candidate, ["used_bytes", "used"])
+        if total is not None and available is None and used is not None:
+            available = total - used
+        if total is not None and total <= 0:
+            total = None
+        if available is not None and available <= 0:
+            available = None
+        if total is not None or available is not None:
+            return (float(max(0, available)) if available is not None else None, float(total) if total is not None else None)
+    for value in data.values():
+        found = _find_disk_values(value)
+        if found is not None:
+            return found
+    return None
+
+
+def _normalize_memory_bytes(available: float, total: float, payload: dict[str, Any]) -> tuple[float, float]:
+    units = str(payload.get("memory_units") or payload.get("mem_units") or "").lower()
+    if units in {"kb", "kib"} or total < 100_000_000:
+        return available * 1024, total * 1024
+    if units in {"mb", "mib"}:
+        return available * 1024 * 1024, total * 1024 * 1024
+    return available, total
+
+
+def _first_number(data: dict[str, Any], keys: list[str]) -> float | None:
+    for key in keys:
+        value = data.get(key)
+        if isinstance(value, int | float):
+            return float(value)
     return None
