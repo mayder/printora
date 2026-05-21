@@ -13,6 +13,7 @@ import {
   Home,
   History,
   ListChecks,
+  Menu,
   Moon,
   Play,
   Plus,
@@ -1019,6 +1020,7 @@ function App() {
   const [updateDialog, setUpdateDialog] = React.useState<UpdateDialogState | null>(null);
   const [updateLogs, setUpdateLogs] = React.useState<UpdateLogEntry[]>([]);
   const [alertCenterOpen, setAlertCenterOpen] = React.useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const [checklist, setChecklist] = React.useState<ChecklistResponse | null>(null);
   const [audit, setAudit] = React.useState<AuditResponse | null>(null);
   const [hostAudit, setHostAudit] = React.useState<AuditResponse | null>(null);
@@ -1056,6 +1058,9 @@ function App() {
   const [calibrationResultTestKey, setCalibrationResultTestKey] = React.useState<string | null>(null);
   const [calibrationResultFormOpen, setCalibrationResultFormOpen] = React.useState(false);
   const [calibrationActivityCleared, setCalibrationActivityCleared] = React.useState(false);
+  const [testFilter, setTestFilter] = React.useState<"all" | "executable" | "manual" | "blocked">("all");
+  const [maintenanceFilter, setMaintenanceFilter] = React.useState<"all" | "due" | "soon" | "ok">("all");
+  const [firmwareFilter, setFirmwareFilter] = React.useState<"all" | "can" | "usb">("all");
   const [zOffsetWizardPlan, setZOffsetWizardPlan] = React.useState<ZOffsetWizardPlan | null>(null);
   const [zOffsetWizardChecks, setZOffsetWizardChecks] = React.useState<Record<string, boolean>>({});
   const [zOffsetFormOpen, setZOffsetFormOpen] = React.useState(false);
@@ -2727,6 +2732,31 @@ function App() {
   const calibrationBlockedGcodeCount = calibrationHiddenTests.length;
   const calibrationRecommended = calibrationSummary?.recommended_next_tests.slice(0, 5) ?? [];
   const calibrationSequencePreview = calibrationSequence?.steps ?? [];
+  const visibleCalibrationTests = calibrationTests.filter((test) => {
+    if (testFilter === "executable") {
+      return test.gcode.length > 0;
+    }
+    if (testFilter === "manual") {
+      return test.gcode.length === 0;
+    }
+    return testFilter !== "blocked";
+  });
+  const visibleHiddenCalibrationTests = testFilter === "all" || testFilter === "blocked" ? calibrationHiddenTests : [];
+  const visibleMaintenanceTasks = maintenanceTasks.filter((task) => {
+    if (maintenanceFilter === "all") {
+      return true;
+    }
+    return task.due_status === maintenanceFilter;
+  });
+  const visibleFirmwareBoards = firmwareBoards.filter((board) => {
+    if (firmwareFilter === "can") {
+      return board.connection_type === "can" || board.connection_type === "usb_can_bridge";
+    }
+    if (firmwareFilter === "usb") {
+      return board.connection_type === "usb";
+    }
+    return true;
+  });
   const hotendTemperature = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("extruder"));
   const bedTemperature = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("bed"));
   const recentCalibrationActivityCount =
@@ -2735,10 +2765,66 @@ function App() {
   const ThemeIcon = theme === "dark" ? Sun : Moon;
   const alertCenterItems = buildAlertCenterItems({ health, updateStatus, checklist, audit });
   const alertCount = alertCenterItems.length;
+  const latestSnapshot = snapshots[0];
+  const moonrakerOnline = health?.connected ?? status?.connected ?? false;
+  const operationState = operationStatus?.miscellaneous.print_state ?? status?.printer?.state ?? health?.metrics.klipper_state ?? "-";
+  const riskClass = overviewRiskClass(health?.decision);
+  const riskLabel = formatDecision(health?.decision);
+  const lastReadingLabel = latestSnapshot
+    ? `Snapshot #${latestSnapshot.id} · ${latestSnapshot.created_at}`
+    : health?.data_state
+      ? formatChecklistDataState(health.data_state)
+      : "Sem leitura";
+  const topbarAlertTone = alertCenterItems.some((item) => item.severity === "blocker")
+    ? "danger"
+    : alertCenterItems.some((item) => item.severity === "warning")
+      ? "warning"
+      : "ok";
+  const topbarPrimaryAction = (() => {
+    if (activeSection === "printers") {
+      return {
+        icon: Plus,
+        label: "Adicionar",
+        disabled: loading,
+        run: openCreatePrinterModal,
+      };
+    }
+    if (activeSection === "reports") {
+      return {
+        icon: Camera,
+        label: "Snapshot",
+        disabled: !selectedPrinterId || loading,
+        run: captureSnapshot,
+      };
+    }
+    if (activeSection === "updates") {
+      return {
+        icon: RefreshCw,
+        label: "Reanalisar",
+        disabled: !selectedPrinterId || loading || Boolean(updateStatus?.busy),
+        run: () => refreshUpdateStatus(),
+      };
+    }
+    if (activeSection === "settings") {
+      return {
+        icon: Settings,
+        label: selectedPrinter ? "Editar" : "Adicionar",
+        disabled: loading,
+        run: () => (selectedPrinter ? openEditPrinterModal(selectedPrinter) : openCreatePrinterModal()),
+      };
+    }
+    return {
+      icon: RefreshCw,
+      label: loading ? "Atualizando" : "Atualizar",
+      disabled: loading || (!selectedPrinterId && activeSection !== "overview"),
+      run: () => (selectedPrinterId ? loadSelectedPrinterStatus() : loadStatus()),
+    };
+  })();
+  const TopbarPrimaryIcon = topbarPrimaryAction.icon;
 
   return (
     <main className="app-shell">
-      <aside className="sidebar" aria-label="Navegação principal">
+      <aside className={`sidebar ${mobileNavOpen ? "open" : ""}`} aria-label="Navegação principal">
         <div className="brand">
           <div className="brand-mark">
             <img src="/brand/printora-icon-app-color.png" alt="" />
@@ -2747,6 +2833,9 @@ function App() {
             <strong>Printora</strong>
             <span>Klipper Ops</span>
           </div>
+          <button type="button" className="icon-button sidebar-close" onClick={() => setMobileNavOpen(false)} aria-label="Fechar menu">
+            <X size={18} />
+          </button>
         </div>
         <nav className="sidebar-nav">
           {navGroups.map((group) => (
@@ -2763,7 +2852,10 @@ function App() {
                     key={section.key}
                     type="button"
                     className={`nav-button ${activeSection === section.key ? "active" : ""}`}
-                    onClick={() => setActiveSection(section.key)}
+                    onClick={() => {
+                      setActiveSection(section.key);
+                      setMobileNavOpen(false);
+                    }}
                   >
                     <span className="nav-icon">
                       <Icon size={17} strokeWidth={2.2} />
@@ -2776,24 +2868,28 @@ function App() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <span>Impressora</span>
+          <span>Impressora ativa</span>
           <strong>{selectedPrinter?.name ?? "não selecionada"}</strong>
+          <small>{selectedPrinter?.moonraker_url ?? "Cadastre ou selecione uma impressora."}</small>
         </div>
       </aside>
+      {mobileNavOpen ? <button type="button" className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} aria-label="Fechar menu" /> : null}
 
       <div className={`workspace section-${activeSection}`}>
         <header className="topbar">
           <div className="topbar-title">
+            <button type="button" className="icon-button mobile-menu-button" onClick={() => setMobileNavOpen(true)} aria-label="Abrir menu">
+              <Menu size={18} />
+            </button>
             <span className="section-icon">
-              <ActiveIcon size={22} strokeWidth={2.2} />
+              <ActiveIcon size={18} strokeWidth={2.2} />
             </span>
             <div>
               <h1>{activeSectionMeta.label}</h1>
-              <p>{activeSectionMeta.detail}</p>
             </div>
           </div>
           <div className="topbar-actions">
-            <label className="context-select" aria-label="Impressora ativa">
+            <label className="topbar-printer context-select" aria-label="Impressora ativa">
               <select
                 value={selectedPrinterId ?? ""}
                 onChange={(event) => selectPrinter(Number(event.target.value))}
@@ -2810,6 +2906,16 @@ function App() {
             </label>
             <button
               type="button"
+              className={`icon-button topbar-alert ${topbarAlertTone}`}
+              title="Alertas"
+              aria-label={alertCount > 0 ? `${alertCount} alerta(s)` : "Sem alertas"}
+              onClick={() => setAlertCenterOpen(true)}
+            >
+              <Bell size={16} />
+              {alertCount > 0 ? <strong>{alertCount}</strong> : null}
+            </button>
+            <button
+              type="button"
               className="icon-button"
               title={theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
               aria-label={theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
@@ -2817,16 +2923,15 @@ function App() {
             >
               <ThemeIcon size={18} />
             </button>
-            <button type="button" className="icon-button" title="Alertas" onClick={() => setAlertCenterOpen(true)}>
-              <Bell size={18} />
-              {alertCount > 0 ? <strong>{alertCount}</strong> : null}
-            </button>
-            <button type="button" className="icon-button" title="Configurar impressoras" onClick={() => selectedPrinter ? openEditPrinterModal(selectedPrinter) : openCreatePrinterModal()}>
-              <Settings size={18} />
-            </button>
-            <button type="button" className="primary-button" onClick={() => void loadStatus()} disabled={loading}>
-              <RefreshCw size={16} />
-              {loading ? "Atualizando" : "Atualizar"}
+            <button
+              type="button"
+              className="icon-button topbar-primary"
+              title={topbarPrimaryAction.label}
+              aria-label={topbarPrimaryAction.label}
+              onClick={() => void topbarPrimaryAction.run()}
+              disabled={topbarPrimaryAction.disabled}
+            >
+              <TopbarPrimaryIcon size={16} />
             </button>
           </div>
         </header>
@@ -2835,6 +2940,10 @@ function App() {
           <strong>{activeSectionMeta.purpose}</strong>
           <span>{selectedPrinter ? `Contexto atual: ${selectedPrinter.name}` : "Selecione uma impressora para carregar os dados por contexto."}</span>
         </section>
+        <button type="button" className="primary-button mobile-section-action" onClick={() => void topbarPrimaryAction.run()} disabled={topbarPrimaryAction.disabled}>
+          <TopbarPrimaryIcon size={16} />
+          {topbarPrimaryAction.label}
+        </button>
 
         {error ? <section className="alert danger">{error}</section> : null}
 
@@ -3150,38 +3259,48 @@ function App() {
 
         <section className="grid">
         <article className="panel wide panel-section panel-overview">
-          <div className="panel-heading">
-            <div>
-              <h2>Resumo operacional</h2>
-              <p className="muted">Atalhos e sinais rápidos da impressora ativa, sem repetir telas completas.</p>
+          <div className="overview-hero">
+            <div className="overview-status-card">
+              <span className={`status-pill ${moonrakerOnline ? "online" : "offline"}`}>
+                <span />
+                Moonraker {moonrakerOnline ? "online" : "offline"}
+              </span>
+              <h2>{selectedPrinter?.name ?? "Nenhuma impressora selecionada"}</h2>
+              <p>{selectedPrinter?.moonraker_url ?? "Cadastre uma impressora para carregar status, snapshots e health check."}</p>
+              <div className="overview-status-grid">
+                <Metric label="Estado" value={formatUnknown(operationState)} />
+                <Metric label="Última leitura" value={lastReadingLabel} />
+                <Metric label="Origem" value={health?.data_state ? formatChecklistDataState(health.data_state) : "-"} />
+                <Metric label="Updates" value={String(countPendingUpdates(updateStatus))} />
+              </div>
+            </div>
+            <div className={`overview-risk-card ${riskClass}`}>
+              <span>Risco atual</span>
+              <strong>{riskLabel}</strong>
+              <p>{health?.summary ?? "Sem health check carregado para a impressora ativa."}</p>
+              <div className="overview-risk-counts">
+                <span>{health?.counts.blocker ?? 0} bloqueio(s)</span>
+                <span>{health?.counts.warning ?? 0} alerta(s)</span>
+                <span>{snapshots.length} snapshot(s)</span>
+              </div>
             </div>
           </div>
-          <div className="overview-strip">
-            <Badge icon={Printer} label="Impressora" value={selectedPrinter?.name ?? "-"} />
-            <Badge icon={Gauge} label="Decisão" value={formatDecision(health?.decision)} />
-            <Badge icon={RefreshCw} label="Updates pendentes" value={countPendingUpdates(updateStatus)} />
-            <Badge icon={Database} label="Snapshots" value={snapshots.length} />
-          </div>
-          <div className="quick-actions">
-            <button type="button" className="secondary-button" onClick={() => setActiveSection("monitoring")}>
-              <Activity size={15} />
-              Abrir monitoramento
+          <div className="overview-quick-actions" aria-label="Ações rápidas">
+            <button type="button" className="primary-button" onClick={openCreatePrinterModal}>
+              <Plus size={15} />
+              Adicionar impressora
             </button>
-            <button type="button" className="secondary-button" onClick={() => setActiveSection("operation")}>
-              <Gauge size={15} />
-              Abrir operação
+            <button type="button" className="secondary-button" onClick={() => void captureSnapshot()} disabled={!selectedPrinterId || loading}>
+              <Database size={15} />
+              Capturar snapshot
             </button>
-            <button type="button" className="secondary-button" onClick={() => setActiveSection("updates")}>
+            <button type="button" className="secondary-button" onClick={() => selectedPrinterId ? void loadPrinterHealth(selectedPrinterId) : undefined} disabled={!selectedPrinterId || loading}>
+              <ShieldCheck size={15} />
+              Health check
+            </button>
+            <button type="button" className="secondary-button" onClick={() => void loadSelectedPrinterStatus()} disabled={!selectedPrinterId || loading}>
               <RefreshCw size={15} />
-              Ver atualizações
-            </button>
-            <button type="button" className="secondary-button" onClick={() => setActiveSection("calibration")}>
-              <SlidersHorizontal size={15} />
-              Ajustes e calibração
-            </button>
-            <button type="button" className="secondary-button" onClick={() => setActiveSection("printers")}>
-              <Printer size={15} />
-              Gerenciar impressoras
+              Atualizar status
             </button>
           </div>
         </article>
@@ -3260,7 +3379,7 @@ function App() {
               Exemplo offline
             </button>
           </div>
-          <div className="overview-strip">
+          <div className="overview-strip dense-toolbar">
             <Badge icon={Printer} label="Impressora" value={selectedPrinter?.name ?? "-"} />
             <Badge icon={Radio} label="Moonraker" value={operationStatus?.connected ? "online" : "offline"} />
             <Badge icon={ShieldCheck} label="Modo" value={operationStatus?.safe_mode ?? "read_only"} />
@@ -3310,6 +3429,11 @@ function App() {
             <section className="operation-panel">
               <h3>Temperaturas</h3>
               <div className="temperature-list">
+                <div className="list-table-header temperature-row">
+                  <strong>Sensor</strong>
+                  <span>Leitura</span>
+                  <small>Potência</small>
+                </div>
                 {operationStatus?.temperatures.length === 0 ? <p className="muted">Nenhum heater ou sensor retornado pelo Moonraker.</p> : null}
                 {operationStatus?.temperatures.map((item) => (
                   <div key={item.name} className="temperature-row">
@@ -3323,8 +3447,8 @@ function App() {
               </div>
             </section>
 
-            <section className="operation-panel wide-operation-panel">
-              <h3>Histórico de temperaturas</h3>
+            <details className="operation-panel wide-operation-panel collapsible-panel">
+              <summary>Histórico de temperaturas</summary>
               <div className="temperature-history">
                 {buildTemperatureSeries(operationStatus?.temperature_history ?? []).length === 0 ? (
                   <p className="muted">Nenhum snapshot com temperatura disponível para histórico.</p>
@@ -3349,7 +3473,7 @@ function App() {
                   </div>
                 ))}
               </div>
-            </section>
+            </details>
 
             <section className="operation-panel">
               <h3>Toolhead</h3>
@@ -3697,6 +3821,18 @@ function App() {
           <p className="muted">
             Cadastro local de MCUs, presets, build e flash planejados. Flash permanece somente em dry-run nesta etapa.
           </p>
+          <div className="dense-toolbar firmware-filter-toolbar" aria-label="Filtros de firmware">
+            <button type="button" className={firmwareFilter === "all" ? "active" : ""} onClick={() => setFirmwareFilter("all")}>
+              Todas
+            </button>
+            <button type="button" className={firmwareFilter === "can" ? "active" : ""} onClick={() => setFirmwareFilter("can")}>
+              CAN
+            </button>
+            <button type="button" className={firmwareFilter === "usb" ? "active" : ""} onClick={() => setFirmwareFilter("usb")}>
+              USB
+            </button>
+            <span>{visibleFirmwareBoards.length} placa(s) visíveis</span>
+          </div>
           <form className="firmware-board-form" onSubmit={(event) => void createFirmwareBoard(event)}>
             <input
               aria-label="Nome da placa"
@@ -3747,8 +3883,13 @@ function App() {
             </button>
           </form>
           <div className="firmware-board-list">
-            {firmwareBoards.length === 0 ? <p className="muted">Nenhuma placa cadastrada.</p> : null}
-            {firmwareBoards.map((board) => (
+            <div className="list-table-header firmware-board-row">
+              <strong>Placa</strong>
+              <span>Conexão</span>
+              <small>Ações</small>
+            </div>
+            {visibleFirmwareBoards.length === 0 ? <p className="muted">Nenhuma placa cadastrada para este filtro.</p> : null}
+            {visibleFirmwareBoards.map((board) => (
               <div key={board.id} className="firmware-board-row">
                 <div>
                   <strong>{board.name}</strong>
@@ -3897,6 +4038,8 @@ function App() {
               </div>
             </details>
           ) : null}
+          <details className="collapsible-panel firmware-control-panel" open>
+            <summary>Parâmetros de build e flash</summary>
           <div className="firmware-build-controls">
             <input
               aria-label="Caminho do Klipper"
@@ -3929,6 +4072,9 @@ function App() {
               placeholder="BLOCK_REAL_FLASH"
             />
           </div>
+          </details>
+          <details className="collapsible-panel firmware-history-panel">
+            <summary>Histórico de builds</summary>
           <div className="firmware-run-list">
             {firmwareBuildRuns.length === 0 ? <p className="muted">Nenhum dry-run de firmware registrado.</p> : null}
             {firmwareBuildRuns.map((run) => (
@@ -3953,6 +4099,9 @@ function App() {
               </details>
             ))}
           </div>
+          </details>
+          <details className="collapsible-panel firmware-history-panel">
+            <summary>Histórico de flash</summary>
           <div className="firmware-run-list">
             {firmwareFlashRuns.length === 0 ? <p className="muted">Nenhum dry-run de flash registrado.</p> : null}
             {firmwareFlashRuns.map((run) => (
@@ -3979,6 +4128,7 @@ function App() {
               </details>
             ))}
           </div>
+          </details>
           <details className="preset-details">
             <summary>Presets disponíveis ({boardPresets.length})</summary>
             <div className="preset-list">
@@ -4003,7 +4153,7 @@ function App() {
             <h2>Testes da impressora</h2>
             <strong>{selectedPrinter?.name ?? "Sem impressora"}</strong>
           </div>
-          <div className="test-board-header">
+          <div className="test-board-header dense-toolbar">
             <div>
               <strong>{calibrationSummary?.run_count ?? calibrationRuns.length}</strong>
               <span>resultados registrados</span>
@@ -4021,8 +4171,22 @@ function App() {
               <span>bloqueados pelo contexto</span>
             </div>
           </div>
+          <div className="dense-toolbar filter-toolbar" aria-label="Filtros de testes">
+            <button type="button" className={testFilter === "all" ? "active" : ""} onClick={() => setTestFilter("all")}>
+              Todos
+            </button>
+            <button type="button" className={testFilter === "executable" ? "active" : ""} onClick={() => setTestFilter("executable")}>
+              Executáveis
+            </button>
+            <button type="button" className={testFilter === "manual" ? "active" : ""} onClick={() => setTestFilter("manual")}>
+              Manuais
+            </button>
+            <button type="button" className={testFilter === "blocked" ? "active" : ""} onClick={() => setTestFilter("blocked")}>
+              Bloqueados
+            </button>
+          </div>
           <div className="test-card-grid">
-            {calibrationTests.map((test) => {
+            {visibleCalibrationTests.map((test) => {
               const lastRun = calibrationRuns.find((run) => run.test_key === test.test_key);
               const lastExecution = calibrationExecutions.find((execution) => execution.test_key === test.test_key);
               return (
@@ -4072,7 +4236,7 @@ function App() {
                 </article>
               );
             })}
-            {calibrationHiddenTests.map((test) => (
+            {visibleHiddenCalibrationTests.map((test) => (
               <article key={test.test_key} className="test-card high blocked">
                 <div className="test-card-title">
                   <div>
@@ -4091,9 +4255,9 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide panel-section test-history-panel">
+        <details className="panel wide panel-section test-history-panel collapsible-panel">
+          <summary>Atividade recente</summary>
           <div className="panel-heading">
-            <h2>Atividade recente</h2>
             <button
               type="button"
               className="secondary-button"
@@ -4134,7 +4298,7 @@ function App() {
           {!calibrationActivityCleared && !calibrationExecutions.length && !calibrationRuns.length ? (
             <p className="muted">Nenhuma atividade registrada ainda.</p>
           ) : null}
-        </article>
+        </details>
 
         {calibrationHelpTest ? (
           <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Ajuda de ${calibrationHelpTest.title}`}>
@@ -4593,11 +4757,25 @@ function App() {
             </div>
             <strong>{maintenanceSummary?.counts.due ?? maintenanceTasks.filter((task) => task.due_status === "due").length} pendentes</strong>
           </div>
-          <div className="maintenance-summary">
+          <div className="maintenance-summary dense-toolbar">
             <Badge label="Modo" value={maintenanceSummary?.safe_mode ?? "local_only"} />
             <Badge label="Em breve" value={maintenanceSummary?.counts.soon ?? 0} />
             <Badge label="Em dia" value={maintenanceSummary?.counts.ok ?? 0} />
             <Badge label="Próxima" value={maintenanceSummary?.next_due_task?.name ?? "-"} />
+          </div>
+          <div className="dense-toolbar filter-toolbar" aria-label="Filtros de manutenção">
+            <button type="button" className={maintenanceFilter === "all" ? "active" : ""} onClick={() => setMaintenanceFilter("all")}>
+              Todas
+            </button>
+            <button type="button" className={maintenanceFilter === "due" ? "active" : ""} onClick={() => setMaintenanceFilter("due")}>
+              Pendentes
+            </button>
+            <button type="button" className={maintenanceFilter === "soon" ? "active" : ""} onClick={() => setMaintenanceFilter("soon")}>
+              Em breve
+            </button>
+            <button type="button" className={maintenanceFilter === "ok" ? "active" : ""} onClick={() => setMaintenanceFilter("ok")}>
+              Em dia
+            </button>
           </div>
           <div className="maintenance-layout">
             <section>
@@ -4638,8 +4816,12 @@ function App() {
                 </button>
               </form>
               <div className="maintenance-list">
-                {maintenanceTasks.length === 0 ? <p className="muted">Nenhuma tarefa preventiva cadastrada.</p> : null}
-                {maintenanceTasks.map((task) => (
+                <div className="list-table-header maintenance-row">
+                  <strong>Tarefa</strong>
+                  <span>Ação</span>
+                </div>
+                {visibleMaintenanceTasks.length === 0 ? <p className="muted">Nenhuma tarefa preventiva para este filtro.</p> : null}
+                {visibleMaintenanceTasks.map((task) => (
                   <div key={task.id} className={`maintenance-row ${task.due_status}`}>
                     <div>
                       <strong>{task.name}</strong>
@@ -4690,7 +4872,8 @@ function App() {
                   Registrar
                 </button>
               </form>
-              <div className="maintenance-list">
+              <details className="maintenance-list collapsible-panel">
+                <summary>Histórico do diário ({maintenanceEvents.length})</summary>
                 {maintenanceEvents.length === 0 ? <p className="muted">Nenhum evento registrado.</p> : null}
                 {maintenanceEvents.map((event) => (
                   <div key={event.id} className="maintenance-event-row">
@@ -4701,7 +4884,7 @@ function App() {
                     {event.notes ? <small>{event.notes}</small> : null}
                   </div>
                 ))}
-              </div>
+              </details>
             </section>
           </div>
         </article>
@@ -4802,8 +4985,8 @@ function App() {
               </div>
             ))}
           </div>
-          <div className="backup-runs">
-            <h3>Histórico</h3>
+          <details className="backup-runs collapsible-panel">
+            <summary>Histórico de backups</summary>
             {backupRuns.length === 0 ? <p className="muted">Nenhum dry-run registrado.</p> : null}
             {backupRuns.map((run) => (
               <div key={run.id} className="backup-run-row">
@@ -4812,7 +4995,7 @@ function App() {
                 <small>{run.message}</small>
               </div>
             ))}
-          </div>
+          </details>
           <div className="backup-form">
             <input
               aria-label="Backup base"
@@ -5682,6 +5865,19 @@ function healthPanelClass(decision: HealthResponse["decision"] | undefined) {
     return "danger";
   }
   return "warn";
+}
+
+function overviewRiskClass(decision: HealthResponse["decision"] | undefined) {
+  if (decision === "ok_para_imprimir") {
+    return "ok";
+  }
+  if (decision === "nao_imprimir") {
+    return "danger";
+  }
+  if (decision === "monitorar") {
+    return "warn";
+  }
+  return "unknown";
 }
 
 function healthFindingClass(severity: HealthItem["severity"]) {
