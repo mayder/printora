@@ -108,7 +108,7 @@ Estado atual:
 
 Objetivo:
 
-Permitir que o MayderPrintLab seja instalado em uma Raspberry ou em um computador da rede para gerenciar múltiplas impressoras Klipper.
+Permitir que o Printora seja instalado em uma Raspberry ou em um computador da rede para gerenciar múltiplas impressoras Klipper.
 
 Entregáveis:
 
@@ -750,7 +750,7 @@ Preparar execução local de build sem flash, protegida por modo de ambiente e c
 Entregáveis:
 
 - endpoint `POST /api/firmware/boards/{board_id}/build-runs/execute-local`;
-- bloqueio padrão via `MAYDER_PRINT_LAB_FIRMWARE_BUILD_MODE=disabled`;
+- bloqueio padrão via `PRINTORA_FIRMWARE_BUILD_MODE=disabled`;
 - confirmação textual `EXECUTE_LOCAL_BUILD_NO_FLASH`;
 - backup da `.config` antes de sobrescrever;
 - restauração da `.config` ao final;
@@ -867,8 +867,8 @@ Critério de aceite:
 Estado atual:
 
 - Backend serve `frontend/dist` quando disponível.
-- Criado `packaging/env/mayderprintlab.env.example`.
-- Criado `packaging/moonraker/update_manager_mayderprintlab.conf`.
+- Criado `packaging/env/printora.env.example`.
+- Criado `packaging/moonraker/update_manager_printora.conf`.
 - Criado `packaging/mainsail/navi.json`.
 - Criado `scripts/install_raspberry.sh` com dry-run padrão e `--apply` explícito.
 - Criada documentação `docs/INSTALL_RASPBERRY.md`.
@@ -1012,7 +1012,7 @@ Estado atual:
 
 Objetivo:
 
-Permitir rodar o MayderPrintLab em Raspberry, Manta/CB1/Linux, macOS, Windows e Docker com fluxos seguros.
+Permitir rodar o Printora em Raspberry, Manta/CB1/Linux, macOS, Windows e Docker com fluxos seguros.
 
 Escopo:
 
@@ -1071,14 +1071,14 @@ Estado atual:
 
 Objetivo:
 
-Permitir abrir a MayderPrintLab no macOS/Linux/Windows com um único comando ou duplo clique, sem depender de dois terminais separados.
+Permitir abrir a Printora no macOS/Linux/Windows com um único comando ou duplo clique, sem depender de dois terminais separados.
 
 Entregáveis:
 
 - `scripts/run_app.sh`;
-- `Abrir MayderPrintLab.command`;
+- `Abrir Printora.command`;
 - `scripts/run_app_windows.ps1`;
-- `Abrir MayderPrintLab.bat`;
+- `Abrir Printora.bat`;
 - preparação automática de venv/frontend quando ausente;
 - início do backend local servindo o frontend buildado;
 - modo foreground para atalho clicável manter a aplicação viva;
@@ -1163,7 +1163,7 @@ Estado atual:
 
 Objetivo:
 
-Organizar o MayderPrintLab como produto operacional, com navegação clara por domínio e contexto permanente da impressora selecionada.
+Organizar o Printora como produto operacional, com navegação clara por domínio e contexto permanente da impressora selecionada.
 
 Entregáveis:
 

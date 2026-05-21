@@ -10,9 +10,9 @@ FirmwareBuildMode = Literal["disabled", "local"]
 
 
 class Settings(BaseSettings):
-    app_name: str = "MayderPrintLab"
+    app_name: str = "Printora"
     moonraker_url: str = Field(default="http://127.0.0.1:7125")
-    data_dir: Path = Field(default=Path.home() / ".local/share/mayderprintlab")
+    data_dir: Path = Field(default=Path.home() / ".local/share/printora")
     frontend_dist_dir: Path = Field(default=Path(__file__).resolve().parents[2] / "frontend" / "dist")
     request_timeout_seconds: float = 5.0
     host_audit_mode: HostAuditMode = "disabled"
@@ -23,13 +23,13 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_file=".env",
-        env_prefix="MAYDER_PRINT_LAB_",
+        env_prefix="PRINTORA_",
         extra="ignore",
     )
 
     @property
     def database_path(self) -> Path:
-        return self.data_dir / "mayderprintlab.db"
+        return self.data_dir / "printora.db"
 
 
 @lru_cache

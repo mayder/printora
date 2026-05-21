@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${ROOT_DIR}/scripts/mpl_platform.sh"
 
 PYTHON_BIN="$(mpl_python)"
-DATA_DIR="${MAYDER_PRINT_LAB_DATA_DIR:-$(mpl_data_dir)}"
+DATA_DIR="${PRINTORA_DATA_DIR:-$(mpl_data_dir)}"
 APPLY="false"
 
 if [[ "${1:-}" == "--apply" ]]; then

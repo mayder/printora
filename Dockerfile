@@ -7,8 +7,8 @@ RUN npm run build
 
 FROM python:3.13-slim
 WORKDIR /app
-ENV MAYDER_PRINT_LAB_DATA_DIR=/data
-ENV MAYDER_PRINT_LAB_FRONTEND_DIST_DIR=/app/frontend/dist
+ENV PRINTORA_DATA_DIR=/data
+ENV PRINTORA_FRONTEND_DIST_DIR=/app/frontend/dist
 COPY backend/ ./backend/
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 RUN pip install --no-cache-dir -e ./backend

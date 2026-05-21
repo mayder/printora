@@ -476,7 +476,7 @@ class FirmwareBoardRepository:
             raise ValueError("unknown board preset")
         plan = _build_dry_run_plan(board, preset, payload)
         if mode != "local":
-            plan["message"] = "Build local bloqueado: MAYDER_PRINT_LAB_FIRMWARE_BUILD_MODE não está em local."
+            plan["message"] = "Build local bloqueado: PRINTORA_FIRMWARE_BUILD_MODE não está em local."
             return self._insert_build_run(board, "blocked_build_mode_disabled", plan)
         if payload.confirmation != "EXECUTE_LOCAL_BUILD_NO_FLASH":
             raise ValueError("invalid build confirmation")
@@ -797,7 +797,7 @@ def _build_local_build_preflight(
             "build_mode",
             "Modo de build local",
             mode == "local",
-            f"MAYDER_PRINT_LAB_FIRMWARE_BUILD_MODE={mode}",
+            f"PRINTORA_FIRMWARE_BUILD_MODE={mode}",
             "Build real bloqueado porque o modo local não está habilitado.",
         ),
         _preflight_check(

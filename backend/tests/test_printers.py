@@ -5,7 +5,7 @@ from app.printers import PrinterCreate, PrinterRepository, PrinterUpdate
 
 
 def test_create_and_list_multiple_printers(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = PrinterRepository(database_path)
 
@@ -33,7 +33,7 @@ def test_create_and_list_multiple_printers(tmp_path: Path) -> None:
 
 
 def test_update_printer_keeps_existing_values(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = PrinterRepository(database_path)
     created = repository.create_printer(
@@ -53,7 +53,7 @@ def test_update_printer_keeps_existing_values(tmp_path: Path) -> None:
 
 
 def test_printer_ssh_access_is_stored_without_exposing_credential(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = PrinterRepository(database_path)
 
@@ -88,7 +88,7 @@ def test_printer_ssh_access_is_stored_without_exposing_credential(tmp_path: Path
 
 
 def test_printer_ssh_access_can_be_updated_and_cleared(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = PrinterRepository(database_path)
     created = repository.create_printer(
@@ -119,7 +119,7 @@ def test_printer_ssh_access_can_be_updated_and_cleared(tmp_path: Path) -> None:
 
 
 def test_database_schema_is_idempotent(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
 
     initialize_database(database_path)
     initialize_database(database_path)
@@ -129,7 +129,7 @@ def test_database_schema_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_database_schema_includes_operation_action_history(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
 
     initialize_database(database_path)
 
@@ -154,7 +154,7 @@ def test_database_schema_includes_operation_action_history(tmp_path: Path) -> No
 
 
 def test_database_schema_repairs_legacy_app_events_table(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     with connect_database(database_path) as connection:
         connection.execute(
             """

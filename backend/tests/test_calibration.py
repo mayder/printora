@@ -18,7 +18,7 @@ from app.printers import PrinterCreate, PrinterRepository
 
 
 def test_calibration_catalog_is_seeded(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = CalibrationRepository(database_path)
 
@@ -45,7 +45,7 @@ def test_calibration_catalog_is_seeded(tmp_path: Path) -> None:
 
 
 def test_calibration_catalog_is_read_only_and_classified(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = CalibrationRepository(database_path)
 
@@ -59,7 +59,7 @@ def test_calibration_catalog_is_read_only_and_classified(tmp_path: Path) -> None
 
 
 def test_calibration_catalog_can_filter_by_category(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = CalibrationRepository(database_path)
 
@@ -70,7 +70,7 @@ def test_calibration_catalog_can_filter_by_category(tmp_path: Path) -> None:
 
 
 def test_create_calibration_run_is_scoped_by_printer(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -99,7 +99,7 @@ def test_create_calibration_run_is_scoped_by_printer(tmp_path: Path) -> None:
 
 
 def test_calibration_run_requires_gcode_review_for_gcode_tests(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -118,7 +118,7 @@ def test_calibration_run_requires_gcode_review_for_gcode_tests(tmp_path: Path) -
 
 
 def test_calibration_summary_recommends_unpassed_tests(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -144,7 +144,7 @@ def test_calibration_summary_recommends_unpassed_tests(tmp_path: Path) -> None:
 
 
 def test_calibration_sequence_plan_marks_completed_and_pending_steps(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -172,7 +172,7 @@ def test_calibration_sequence_plan_marks_completed_and_pending_steps(tmp_path: P
 
 
 def test_available_calibration_tests_hide_qgl_when_printer_does_not_support_it(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = CalibrationRepository(database_path)
 
@@ -193,7 +193,7 @@ def test_available_calibration_tests_hide_qgl_when_printer_does_not_support_it(t
 
 
 def test_available_calibration_tests_include_qgl_when_printer_supports_it(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = CalibrationRepository(database_path)
 
@@ -210,7 +210,7 @@ def test_available_calibration_tests_include_qgl_when_printer_supports_it(tmp_pa
 
 
 def test_available_calibration_tests_hide_gcode_outside_printer_volume(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = CalibrationRepository(database_path)
 
@@ -229,7 +229,7 @@ def test_available_calibration_tests_hide_gcode_outside_printer_volume(tmp_path:
 
 
 def test_calibration_preflight_never_releases_gcode_execution(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = CalibrationRepository(database_path)
     test = repository.get_test("probe_accuracy_center")
@@ -257,7 +257,7 @@ def test_calibration_preflight_never_releases_gcode_execution(tmp_path: Path) ->
 
 
 def test_calibration_preflight_blocks_while_printing(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = CalibrationRepository(database_path)
     test = repository.get_test("quad_gantry_level")
@@ -282,10 +282,10 @@ def test_calibration_preflight_blocks_while_printing(tmp_path: Path) -> None:
 
 
 def test_calibration_summary_endpoint_is_local_only_with_offline_printer(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("MAYDER_PRINT_LAB_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     get_settings.cache_clear()
     try:
-        initialize_database(tmp_path / "mayderprintlab.db")
+        initialize_database(tmp_path / "printora.db")
         with TestClient(app) as client:
             created = client.post(
                 "/api/printers",
@@ -308,11 +308,11 @@ def test_calibration_summary_endpoint_is_local_only_with_offline_printer(tmp_pat
 
 
 def test_calibration_preflight_endpoint_is_read_only_with_offline_printer(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("MAYDER_PRINT_LAB_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("MAYDER_PRINT_LAB_REQUEST_TIMEOUT_SECONDS", "0.05")
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("PRINTORA_REQUEST_TIMEOUT_SECONDS", "0.05")
     get_settings.cache_clear()
     try:
-        initialize_database(tmp_path / "mayderprintlab.db")
+        initialize_database(tmp_path / "printora.db")
         with TestClient(app) as client:
             created = client.post(
                 "/api/printers",
@@ -338,7 +338,7 @@ def test_calibration_preflight_endpoint_is_read_only_with_offline_printer(tmp_pa
 
 
 def test_calibration_execution_gate_requires_operator_review_and_confirmation(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = CalibrationRepository(database_path)
     test = repository.get_test("probe_accuracy_center")
@@ -369,7 +369,7 @@ def test_calibration_execution_gate_requires_operator_review_and_confirmation(tm
 
 
 def test_calibration_execution_gate_can_be_ready_for_supervised_gcode(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = CalibrationRepository(database_path)
     test = repository.get_test("probe_accuracy_center")
@@ -399,7 +399,7 @@ def test_calibration_execution_gate_can_be_ready_for_supervised_gcode(tmp_path: 
 
 
 def test_calibration_execution_attempt_persists_blocked_gate(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -430,11 +430,11 @@ def test_calibration_execution_attempt_persists_blocked_gate(tmp_path: Path) -> 
 
 
 def test_calibration_execute_endpoint_blocks_offline_without_sending_gcode(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("MAYDER_PRINT_LAB_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("MAYDER_PRINT_LAB_REQUEST_TIMEOUT_SECONDS", "0.05")
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("PRINTORA_REQUEST_TIMEOUT_SECONDS", "0.05")
     get_settings.cache_clear()
     try:
-        initialize_database(tmp_path / "mayderprintlab.db")
+        initialize_database(tmp_path / "printora.db")
         with TestClient(app) as client:
             created = client.post(
                 "/api/printers",
@@ -467,7 +467,7 @@ def test_calibration_execute_endpoint_blocks_offline_without_sending_gcode(tmp_p
 
 
 def test_calibration_run_requires_existing_test(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")

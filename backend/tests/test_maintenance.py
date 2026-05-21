@@ -16,7 +16,7 @@ from app.printers import PrinterCreate, PrinterRepository
 
 
 def test_create_and_list_maintenance_events(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -40,7 +40,7 @@ def test_create_and_list_maintenance_events(tmp_path: Path) -> None:
 
 
 def test_maintenance_history_is_scoped_by_printer(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     first = printer_repository.create_printer(PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125"))
@@ -54,7 +54,7 @@ def test_maintenance_history_is_scoped_by_printer(tmp_path: Path) -> None:
 
 
 def test_create_and_complete_preventive_task(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -81,7 +81,7 @@ def test_create_and_complete_preventive_task(tmp_path: Path) -> None:
 
 
 def test_maintenance_summary_counts_due_and_recommendations(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -107,7 +107,7 @@ def test_maintenance_summary_counts_due_and_recommendations(tmp_path: Path) -> N
 
 
 def test_maintenance_task_can_be_due_soon(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -129,7 +129,7 @@ def test_maintenance_task_can_be_due_soon(tmp_path: Path) -> None:
 
 
 def test_create_default_tasks_is_idempotent(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -145,10 +145,10 @@ def test_create_default_tasks_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_maintenance_summary_endpoint_is_local_only(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("MAYDER_PRINT_LAB_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     get_settings.cache_clear()
     try:
-        initialize_database(tmp_path / "mayderprintlab.db")
+        initialize_database(tmp_path / "printora.db")
         with TestClient(app) as client:
             created = client.post(
                 "/api/printers",
@@ -174,7 +174,7 @@ def test_maintenance_summary_endpoint_is_local_only(tmp_path, monkeypatch) -> No
 
 
 def test_complete_missing_task_returns_none(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = MaintenanceRepository(database_path)
 

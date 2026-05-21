@@ -142,7 +142,7 @@ Printer is ready
 
 ## Próximos Passos Seguros
 
-1. Transformar esta auditoria SSH em coletor read-only dentro do MayderPrintLab.
+1. Transformar esta auditoria SSH em coletor read-only dentro do Printora.
 2. Adicionar parser para logs recentes com resumo em vez de log bruto.
 3. Adicionar seção de limpeza sugerida para diretórios legados, sempre com confirmação.
 4. Adicionar monitor CAN histórico.

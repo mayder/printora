@@ -1,8 +1,8 @@
-# MayderPrintLab - Escopo
+# Printora - Escopo
 
 ## Visão
 
-MayderPrintLab é uma ferramenta externa para o ecossistema Klipper/Moonraker/Mainsail, inspirada no modelo do Spoolman: aplicação web própria, API própria, banco local, serviço systemd, integração com Moonraker e entrada no Mainsail via navegação customizada.
+Printora é uma ferramenta externa para o ecossistema Klipper/Moonraker/Mainsail, inspirada no modelo do Spoolman: aplicação web própria, API própria, banco local, serviço systemd, integração com Moonraker e entrada no Mainsail via navegação customizada.
 
 O objetivo é resolver uma lacuna comum em impressoras Klipper avançadas: operação, manutenção, auditoria, firmware e confiabilidade ficam espalhados entre logs, configs, SSH, macros, plugins, Update Manager e memória do usuário.
 
@@ -10,12 +10,12 @@ O projeto deve ajudar o usuário a manter a impressora saudável sem precisar se
 
 ## Modelo de Integração
 
-MayderPrintLab não deve tentar modificar o Mainsail como um plugin nativo. O Mainsail não possui um sistema completo de plugins para telas internas complexas.
+Printora não deve tentar modificar o Mainsail como um plugin nativo. O Mainsail não possui um sistema completo de plugins para telas internas complexas.
 
 O modelo correto é:
 
 ```text
-MayderPrintLab
+Printora
 ├── backend Python/FastAPI ou Node
 ├── banco SQLite local
 ├── frontend web
@@ -34,18 +34,18 @@ http://voron.local:8085
 Exemplo de banco local:
 
 ```text
-/home/pi/.local/share/mayderprintlab/mayderprintlab.db
+/home/pi/.local/share/printora/printora.db
 ```
 
 Exemplo de Update Manager:
 
 ```ini
-[update_manager mayderprintlab]
+[update_manager printora]
 type: git_repo
-path: /home/pi/MayderPrintLab
-origin: https://github.com/mayder/mayderprintlab.git
+path: /home/pi/Printora
+origin: https://github.com/mayder/printora.git
 primary_branch: main
-managed_services: mayderprintlab
+managed_services: printora
 ```
 
 ## Ideias Fortes Para A Comunidade
@@ -184,12 +184,12 @@ Não imprima ainda
 
 ## Diferencial
 
-A maioria das ferramentas atuais resolve uma área isolada: câmera, spool, update, timelapse. O MayderPrintLab deve resolver operação e confiabilidade.
+A maioria das ferramentas atuais resolve uma área isolada: câmera, spool, update, timelapse. O Printora deve resolver operação e confiabilidade.
 
 Resumo do produto:
 
 ```text
-MayderPrintLab
+Printora
 - Saúde
 - Updates
 - Backups
@@ -205,7 +205,7 @@ MayderPrintLab
 
 Um dos módulos principais será o Klipper Firmware Manager, pensado para transformar atualização de firmware em um fluxo seguro, repetível e documentado.
 
-Hoje atualizar firmware exige uma sequência manual, arriscada e fácil de esquecer. O MayderPrintLab deve permitir cadastrar as placas uma vez e depois atualizar por botão, com validação e rollback.
+Hoje atualizar firmware exige uma sequência manual, arriscada e fácil de esquecer. O Printora deve permitir cadastrar as placas uma vez e depois atualizar por botão, com validação e rollback.
 
 ### Cadastro De Placas
 
@@ -407,7 +407,7 @@ Printer state after restart: ready
 Nome escolhido:
 
 ```text
-MayderPrintLab
+Printora
 ```
 
 Subtítulo:

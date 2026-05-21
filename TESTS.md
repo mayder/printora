@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Definir validações mínimas para o MayderPrintLab.
+Definir validações mínimas para o Printora.
 
 ## Check Local
 
@@ -82,7 +82,7 @@ Validações:
 - dry-run de build exige placa cadastrada.
 - histórico de dry-run de build fica escopado por impressora.
 - preflight de build de firmware valida paths/tooling local de forma read-only e mantém execução bloqueada.
-- build local fica bloqueado quando `MAYDER_PRINT_LAB_FIRMWARE_BUILD_MODE` está desabilitado.
+- build local fica bloqueado quando `PRINTORA_FIRMWARE_BUILD_MODE` está desabilitado.
 - build local exige confirmação textual quando o modo local está habilitado.
 - dry-run de flash usa binário de build quando informado e não executa comandos.
 - dry-run de flash rejeita build de outra placa.
@@ -166,10 +166,10 @@ http://127.0.0.1:5178
 
 ### Auditoria Do Host
 
-- Validar `GET /api/audit/host-read-only` com `MAYDER_PRINT_LAB_HOST_AUDIT_MODE=disabled`.
+- Validar `GET /api/audit/host-read-only` com `PRINTORA_HOST_AUDIT_MODE=disabled`.
 - Validar parser de `systemctl`, CAN, Git e symlinks via testes unitários.
-- Validar em Raspberry com `MAYDER_PRINT_LAB_HOST_AUDIT_MODE=local`.
-- Validar em desenvolvimento com `MAYDER_PRINT_LAB_HOST_AUDIT_MODE=ssh` e chave SSH.
+- Validar em Raspberry com `PRINTORA_HOST_AUDIT_MODE=local`.
+- Validar em desenvolvimento com `PRINTORA_HOST_AUDIT_MODE=ssh` e chave SSH.
 - Confirmar que não há `restart`, `update`, `flash`, `rm`, `mv`, `cp` ou G-code no script read-only.
 
 ### Backups
@@ -294,9 +294,9 @@ Critérios:
 - Rodar `./scripts/install_raspberry.sh` sem `--apply`.
 - Confirmar que a saída mostra `DRY-RUN`.
 - Confirmar que nenhum serviço foi instalado/iniciado.
-- Revisar `packaging/systemd/mayderprintlab.service`.
+- Revisar `packaging/systemd/printora.service`.
 - Revisar `packaging/mainsail/navi.json`.
-- Revisar `packaging/moonraker/update_manager_mayderprintlab.conf`.
+- Revisar `packaging/moonraker/update_manager_printora.conf`.
 - Confirmar que `docs/INSTALL_RASPBERRY.md` contém rollback.
 
 ### Instalação Multiplataforma
@@ -308,11 +308,11 @@ Critérios:
 - Rodar `./scripts/run_app.sh --foreground --no-open` em terminal dedicado e confirmar que a aplicação permanece online enquanto o processo estiver aberto.
 - Rodar `./scripts/bootstrap_dev.sh` sem `--apply`.
 - Confirmar que a saída mostra `DRY-RUN`.
-- No macOS, confirmar data dir em `~/Library/Application Support/MayderPrintLab`.
+- No macOS, confirmar data dir em `~/Library/Application Support/Printora`.
 - Revisar `scripts/bootstrap_windows.ps1`.
 - Revisar `scripts/run_app_windows.ps1`.
 - No Windows, rodar `.\scripts\run_app_windows.ps1 --status`.
-- No Windows, abrir `Abrir MayderPrintLab.bat` e confirmar `GET http://127.0.0.1:8085/health`.
+- No Windows, abrir `Abrir Printora.bat` e confirmar `GET http://127.0.0.1:8085/health`.
 - Revisar `Dockerfile` e `docker-compose.yml`.
 - Confirmar que `docs/INSTALL_MULTIPLATFORM.md` documenta macOS, Linux, Windows, Docker, Raspberry e Manta/CB1.
 

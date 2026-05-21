@@ -12,7 +12,7 @@ from app.snapshots import (
 
 
 def test_create_and_list_moonraker_snapshot(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     snapshot_repository = SnapshotRepository(database_path)
@@ -66,7 +66,7 @@ def test_snapshot_summary_flags_dirty_repos() -> None:
 
 
 def test_snapshot_list_is_scoped_by_printer(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     snapshot_repository = SnapshotRepository(database_path)
@@ -85,7 +85,7 @@ def test_snapshot_list_is_scoped_by_printer(tmp_path: Path) -> None:
 
 
 def test_snapshot_list_by_type_filters_before_limit(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     snapshot_repository = SnapshotRepository(database_path)
@@ -103,7 +103,7 @@ def test_snapshot_list_by_type_filters_before_limit(tmp_path: Path) -> None:
 
 
 def test_snapshot_diff_reports_no_relevant_changes(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     snapshot_repository = SnapshotRepository(database_path)
@@ -123,7 +123,7 @@ def test_snapshot_diff_reports_no_relevant_changes(tmp_path: Path) -> None:
 
 
 def test_snapshot_diff_flags_blocking_moonraker_failure(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     snapshot_repository = SnapshotRepository(database_path)
@@ -145,7 +145,7 @@ def test_snapshot_diff_flags_blocking_moonraker_failure(tmp_path: Path) -> None:
 
 
 def test_snapshot_diff_flags_dirty_repo_as_risk(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     snapshot_repository = SnapshotRepository(database_path)
@@ -167,7 +167,7 @@ def test_snapshot_diff_flags_dirty_repo_as_risk(tmp_path: Path) -> None:
 
 
 def test_snapshot_diff_rejects_cross_printer_snapshots(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     snapshot_repository = SnapshotRepository(database_path)

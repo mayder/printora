@@ -15,7 +15,7 @@ from app.printers import PrinterCreate, PrinterRepository
 
 
 def test_list_board_presets_contains_common_voron_boards(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = FirmwareBoardRepository(database_path)
 
@@ -29,7 +29,7 @@ def test_list_board_presets_contains_common_voron_boards(tmp_path: Path) -> None
 
 
 def test_create_firmware_board_from_preset(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -54,7 +54,7 @@ def test_create_firmware_board_from_preset(tmp_path: Path) -> None:
 
 
 def test_firmware_recovery_plan_is_manual_and_blocked(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -80,7 +80,7 @@ def test_firmware_recovery_plan_is_manual_and_blocked(tmp_path: Path) -> None:
 
 
 def test_can_board_requires_uuid(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -95,7 +95,7 @@ def test_can_board_requires_uuid(tmp_path: Path) -> None:
 
 
 def test_firmware_boards_are_scoped_by_printer(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     first = printer_repository.create_printer(PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125"))
@@ -116,7 +116,7 @@ def test_firmware_boards_are_scoped_by_printer(tmp_path: Path) -> None:
 
 
 def test_create_firmware_build_dry_run_does_not_execute_commands(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -151,7 +151,7 @@ def test_create_firmware_build_dry_run_does_not_execute_commands(tmp_path: Path)
 
 
 def test_build_dry_run_requires_existing_board(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     repository = FirmwareBoardRepository(database_path)
 
@@ -160,7 +160,7 @@ def test_build_dry_run_requires_existing_board(tmp_path: Path) -> None:
 
 
 def test_local_build_preflight_is_read_only_and_blocked_by_default(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -196,7 +196,7 @@ def test_local_build_preflight_is_read_only_and_blocked_by_default(tmp_path: Pat
 
 
 def test_local_build_preflight_reports_ready_but_keeps_execution_blocked(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -232,7 +232,7 @@ def test_local_build_preflight_reports_ready_but_keeps_execution_blocked(tmp_pat
 
 
 def test_local_build_is_blocked_when_mode_disabled(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -261,7 +261,7 @@ def test_local_build_is_blocked_when_mode_disabled(tmp_path: Path) -> None:
 
 
 def test_local_build_requires_confirmation_when_enabled(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -287,7 +287,7 @@ def test_local_build_requires_confirmation_when_enabled(tmp_path: Path) -> None:
 
 
 def test_local_build_restores_config_and_copies_binary(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -331,7 +331,7 @@ def test_local_build_restores_config_and_copies_binary(tmp_path: Path) -> None:
 
 
 def test_create_firmware_flash_dry_run_uses_latest_build_plan(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -360,7 +360,7 @@ def test_create_firmware_flash_dry_run_uses_latest_build_plan(tmp_path: Path) ->
 
 
 def test_flash_dry_run_rejects_build_run_from_other_board(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -389,7 +389,7 @@ def test_flash_dry_run_rejects_build_run_from_other_board(tmp_path: Path) -> Non
 
 
 def test_flash_preflight_is_read_only_and_always_blocks_execution(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -426,7 +426,7 @@ def test_flash_preflight_is_read_only_and_always_blocks_execution(tmp_path: Path
 
 
 def test_flash_preflight_blocks_while_printing(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -459,7 +459,7 @@ def test_flash_preflight_blocks_while_printing(tmp_path: Path) -> None:
 
 
 def test_flash_execution_gate_is_always_blocked(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -486,7 +486,7 @@ def test_flash_execution_gate_is_always_blocked(tmp_path: Path) -> None:
 
 
 def test_flash_execution_gate_requires_confirmation(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")

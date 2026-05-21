@@ -70,7 +70,7 @@ def build_sanitized_report(
 ) -> SanitizedReport:
     sanitizer = Sanitizer()
     lines = [
-        "# Relatório sanitizado MayderPrintLab",
+        "# Relatório sanitizado Printora",
         "",
         "## Impressora",
         "",

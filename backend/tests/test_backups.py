@@ -16,7 +16,7 @@ from app.printers import PrinterCreate, PrinterRepository
 
 
 def test_create_backup_policy_and_dry_run(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     backup_repository = BackupRepository(database_path)
@@ -29,7 +29,7 @@ def test_create_backup_policy_and_dry_run(tmp_path: Path) -> None:
         BackupPolicyCreate(
             name="Configs",
             source_path="/home/pi/printer_data/config",
-            destination_path="/home/pi/printer_data/backups/mayderprintlab",
+            destination_path="/home/pi/printer_data/backups/printora",
         ),
     )
     run = backup_repository.create_dry_run(policy.id)
@@ -45,7 +45,7 @@ def test_create_backup_policy_and_dry_run(tmp_path: Path) -> None:
 
 
 def test_backup_history_is_scoped_by_printer(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     backup_repository = BackupRepository(database_path)
@@ -73,7 +73,7 @@ def test_execute_local_backup_creates_archive(tmp_path: Path) -> None:
     (source / "moonraker.log").write_text("ignore\n", encoding="utf-8")
     (source / "api_token.txt").write_text("ignore\n", encoding="utf-8")
     destination = tmp_path / "backups"
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     backup_repository = BackupRepository(database_path)
@@ -101,7 +101,7 @@ def test_execute_local_backup_creates_archive(tmp_path: Path) -> None:
 
 
 def test_execute_local_backup_is_blocked_for_dry_run_policy(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     backup_repository = BackupRepository(database_path)
@@ -121,7 +121,7 @@ def test_execute_local_backup_is_blocked_for_dry_run_policy(tmp_path: Path) -> N
 def test_execute_local_backup_rejects_destination_inside_source(tmp_path: Path) -> None:
     source = tmp_path / "config"
     source.mkdir()
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     backup_repository = BackupRepository(database_path)

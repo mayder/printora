@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Definir regras de segurança, prioridade, riscos e rollback para o MayderPrintLab.
+Definir regras de segurança, prioridade, riscos e rollback para o Printora.
 
 ## Princípios
 

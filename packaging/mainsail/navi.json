@@ -1,6 +1,6 @@
 [
   {
-    "name": "MayderPrintLab",
+    "name": "Printora",
     "icon": "mdi-printer-3d",
     "url": "http://voron.local:8085",
     "target": "_self"

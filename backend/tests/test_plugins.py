@@ -12,7 +12,7 @@ from app.snapshots import SnapshotRepository
 
 
 def test_plugin_audit_detects_update_manager_plugins(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -64,10 +64,10 @@ def test_plugin_audit_works_without_snapshot() -> None:
 
 
 def test_plugin_audit_endpoint_uses_snapshot_without_printer_online(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("MAYDER_PRINT_LAB_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     get_settings.cache_clear()
     try:
-        initialize_database(tmp_path / "mayderprintlab.db")
+        initialize_database(tmp_path / "printora.db")
         with TestClient(app) as client:
             created = client.post(
                 "/api/printers",
@@ -85,7 +85,7 @@ def test_plugin_audit_endpoint_uses_snapshot_without_printer_online(tmp_path, mo
                 "commits_behind_count": 0,
                 "full_version_string": "v0.1.0",
             }
-            SnapshotRepository(tmp_path / "mayderprintlab.db").create_snapshot(printer_id, "moonraker_status", payload)
+            SnapshotRepository(tmp_path / "printora.db").create_snapshot(printer_id, "moonraker_status", payload)
 
             response = client.get(f"/api/printers/{printer_id}/plugins/audit")
 

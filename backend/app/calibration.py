@@ -519,7 +519,7 @@ def _sequence_reason(test: CalibrationTestRecord, completed: bool) -> str:
         return "Pendente: revisar G-code manualmente antes de executar fora do app."
     if test.execution_mode == "read_only":
         return "Pendente: pode ser revisado offline ou por inspeção manual."
-    return "Pendente: execução manual, sem envio automático pelo MayderPrintLab."
+    return "Pendente: execução manual, sem envio automático pelo Printora."
 
 
 def build_available_calibration_tests(

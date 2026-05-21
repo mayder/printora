@@ -1,1 +1,1 @@
-"""MayderPrintLab backend package."""
+"""Printora backend package."""

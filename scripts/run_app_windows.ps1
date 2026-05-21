@@ -1,12 +1,12 @@
 $ErrorActionPreference = "Stop"
 
 $RootDir = Resolve-Path (Join-Path $PSScriptRoot "..")
-$HostName = if ($env:MAYDER_PRINT_LAB_HOST) { $env:MAYDER_PRINT_LAB_HOST } else { "127.0.0.1" }
-$Port = if ($env:MAYDER_PRINT_LAB_PORT) { $env:MAYDER_PRINT_LAB_PORT } else { "8085" }
+$HostName = if ($env:PRINTORA_HOST) { $env:PRINTORA_HOST } else { "127.0.0.1" }
+$Port = if ($env:PRINTORA_PORT) { $env:PRINTORA_PORT } else { "8085" }
 $Url = "http://${HostName}:${Port}"
-$DataDir = if ($env:MAYDER_PRINT_LAB_DATA_DIR) { $env:MAYDER_PRINT_LAB_DATA_DIR } else { Join-Path $env:LOCALAPPDATA "MayderPrintLab" }
+$DataDir = if ($env:PRINTORA_DATA_DIR) { $env:PRINTORA_DATA_DIR } else { Join-Path $env:LOCALAPPDATA "Printora" }
 $LogDir = Join-Path $DataDir "logs"
-$PidFile = Join-Path $DataDir "mayderprintlab.pid"
+$PidFile = Join-Path $DataDir "printora.pid"
 $LogFile = Join-Path $LogDir "app.log"
 $ErrorLogFile = Join-Path $LogDir "app.err.log"
 $NoOpen = $args -contains "--no-open"
@@ -58,11 +58,11 @@ function Stop-App {
     if ($process) {
         Stop-Process -Id $process.Id
         Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
-        Write-Host "MayderPrintLab parada."
+        Write-Host "Printora parada."
         return
     }
     Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
-    Write-Host "MayderPrintLab não estava rodando por este runner."
+    Write-Host "Printora não estava rodando por este runner."
 }
 
 if ($StopOnly) {
@@ -72,9 +72,9 @@ if ($StopOnly) {
 
 if ($StatusOnly) {
     if (Test-HttpOk) {
-        Write-Host "MayderPrintLab online em $Url"
+        Write-Host "Printora online em $Url"
     } else {
-        Write-Host "MayderPrintLab offline em $Url"
+        Write-Host "Printora offline em $Url"
     }
     exit 0
 }
@@ -82,7 +82,7 @@ if ($StatusOnly) {
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
 if (Test-HttpOk) {
-    Write-Host "MayderPrintLab já está online em $Url"
+    Write-Host "Printora já está online em $Url"
     if (-not $NoOpen) {
         Start-Process $Url
     }
@@ -113,14 +113,14 @@ if (-not (Test-Path $DistIndex)) {
     npm --prefix (Join-Path $RootDir "frontend") run build
 }
 
-$env:MAYDER_PRINT_LAB_DATA_DIR = $DataDir
-if (-not $env:MAYDER_PRINT_LAB_MOONRAKER_URL) {
-    $env:MAYDER_PRINT_LAB_MOONRAKER_URL = "http://voron.local:7125"
+$env:PRINTORA_DATA_DIR = $DataDir
+if (-not $env:PRINTORA_MOONRAKER_URL) {
+    $env:PRINTORA_MOONRAKER_URL = "http://voron.local:7125"
 }
 
 if ($Foreground) {
     $PID | Out-File -FilePath $PidFile -Encoding ascii
-    Write-Host "MayderPrintLab iniciando em $Url"
+    Write-Host "Printora iniciando em $Url"
     Write-Host "Log: terminal atual"
     if (-not $NoOpen) {
         Start-Job -ScriptBlock {
@@ -142,7 +142,7 @@ $arguments = @(
     "-NoProfile",
     "-ExecutionPolicy", "Bypass",
     "-Command",
-    "cd '$RootDir\backend'; `$env:MAYDER_PRINT_LAB_DATA_DIR='$DataDir'; `$env:MAYDER_PRINT_LAB_MOONRAKER_URL='$env:MAYDER_PRINT_LAB_MOONRAKER_URL'; & '$VenvPython' -m uvicorn app.main:app --host '$HostName' --port '$Port'"
+    "cd '$RootDir\backend'; `$env:PRINTORA_DATA_DIR='$DataDir'; `$env:PRINTORA_MOONRAKER_URL='$env:PRINTORA_MOONRAKER_URL'; & '$VenvPython' -m uvicorn app.main:app --host '$HostName' --port '$Port'"
 )
 
 $process = Start-Process -FilePath "powershell.exe" -ArgumentList $arguments -WindowStyle Hidden -RedirectStandardOutput $LogFile -RedirectStandardError $ErrorLogFile -PassThru
@@ -150,7 +150,7 @@ $process.Id | Out-File -FilePath $PidFile -Encoding ascii
 
 for ($i = 0; $i -lt 30; $i++) {
     if ((Test-HttpOk) -and (Get-Process -Id $process.Id -ErrorAction SilentlyContinue)) {
-        Write-Host "MayderPrintLab online em $Url"
+        Write-Host "Printora online em $Url"
         Write-Host "Log: $LogFile"
         if (-not $NoOpen) {
             Start-Process $Url
@@ -163,5 +163,5 @@ for ($i = 0; $i -lt 30; $i++) {
     Start-Sleep -Seconds 1
 }
 
-Write-Error "MayderPrintLab não subiu em $Url. Log: $LogFile"
+Write-Error "Printora não subiu em $Url. Log: $LogFile"
 exit 1

@@ -991,7 +991,7 @@ function App() {
   const [printerModalMode, setPrinterModalMode] = React.useState<"create" | "edit">("create");
   const [editingPrinterId, setEditingPrinterId] = React.useState<number | null>(null);
   const [theme, setTheme] = React.useState<ThemeMode>(() => {
-    const storedTheme = window.localStorage.getItem("mayderprintlab-theme");
+    const storedTheme = window.localStorage.getItem("printora-theme");
     return storedTheme === "light" ? "light" : "dark";
   });
   const [newPrinterName, setNewPrinterName] = React.useState("Voron - Mayder");
@@ -1106,7 +1106,7 @@ function App() {
   const [backupName, setBackupName] = React.useState("Config backup");
   const [backupSourcePath, setBackupSourcePath] = React.useState("/home/pi/printer_data/config");
   const [backupDestinationPath, setBackupDestinationPath] = React.useState(
-    "/home/pi/printer_data/backups/mayderprintlab",
+    "/home/pi/printer_data/backups/printora",
   );
   const [backupDryRunOnly, setBackupDryRunOnly] = React.useState(true);
   const [backupCompareBasePath, setBackupCompareBasePath] = React.useState("");
@@ -1625,10 +1625,10 @@ function App() {
           jsonrpc: "2.0",
           method: "server.connection.identify",
           params: {
-            client_name: "MayderPrintLab",
+            client_name: "Printora",
             version: "0.1.0",
             type: "web",
-            url: "https://github.com/mayderprintlab/mayder-print-lab",
+            url: "https://github.com/printora/printora",
           },
           id: 1,
         }),
@@ -2489,7 +2489,7 @@ function App() {
       const response = await fetch(`/api/maintenance/tasks/${taskId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: "Concluído pelo painel MayderPrintLab." }),
+        body: JSON.stringify({ notes: "Concluído pelo painel Printora." }),
       });
       if (!response.ok) {
         throw new Error(await response.text());
@@ -2694,7 +2694,7 @@ function App() {
 
   React.useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    window.localStorage.setItem("mayderprintlab-theme", theme);
+    window.localStorage.setItem("printora-theme", theme);
   }, [theme]);
 
   React.useEffect(() => {
@@ -2742,7 +2742,7 @@ function App() {
         <div className="brand">
           <div className="brand-mark">M</div>
           <div>
-            <strong>MayderPrintLab</strong>
+            <strong>Printora</strong>
             <span>Klipper Ops</span>
           </div>
         </div>
@@ -3086,7 +3086,7 @@ function App() {
                       <span>operação mutável</span>
                     </div>
                     <p>O Moonraker pode reiniciar serviços durante o update. Não execute se houver impressão em andamento.</p>
-                    <small>O MayderPrintLab vai abrir o log ao vivo do Moonraker e atualizar o status ao final.</small>
+                    <small>O Printora vai abrir o log ao vivo do Moonraker e atualizar o status ao final.</small>
                   </div>
                   <div className="modal-footer">
                     <button type="button" className="ghost-button" onClick={() => setUpdateDialog(null)}>
@@ -4757,7 +4757,7 @@ function App() {
               aria-label="Destino do backup"
               value={backupDestinationPath}
               onChange={(event) => setBackupDestinationPath(event.target.value)}
-              placeholder="/home/pi/printer_data/backups/mayderprintlab"
+              placeholder="/home/pi/printer_data/backups/printora"
             />
             <label className="inline-check">
               <input

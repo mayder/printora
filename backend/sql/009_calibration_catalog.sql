@@ -312,7 +312,7 @@ INSERT OR IGNORE INTO calibration_tests (
     'validacao_mecanica',
     'Inspeção mecânica guiada',
     'Confirmar correias, polias, mesa, toolhead, cabos e folgas antes de qualquer ajuste fino.',
-    'MayderPrintLab',
+    'Printora',
     'manual',
     'low',
     1,

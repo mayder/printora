@@ -1,6 +1,6 @@
 [project]
-name = "MayderPrintLab"
-root = "/Users/brenomayder/projects/mayder_print_lab"
+name = "Printora"
+root = "/Users/brenomayder/projects/printora"
 language = "pt-BR"
 
 [paths]

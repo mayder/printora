@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $RootDir = Resolve-Path (Join-Path $PSScriptRoot "..")
 $Apply = $args -contains "--apply"
-$DataDir = if ($env:MAYDER_PRINT_LAB_DATA_DIR) { $env:MAYDER_PRINT_LAB_DATA_DIR } else { Join-Path $env:LOCALAPPDATA "MayderPrintLab" }
+$DataDir = if ($env:PRINTORA_DATA_DIR) { $env:PRINTORA_DATA_DIR } else { Join-Path $env:LOCALAPPDATA "Printora" }
 
 function Invoke-OrPrint {
     param([string]$Command)

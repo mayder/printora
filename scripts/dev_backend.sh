@@ -5,6 +5,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=scripts/mpl_platform.sh
 source "${ROOT_DIR}/scripts/mpl_platform.sh"
 
-export MAYDER_PRINT_LAB_DATA_DIR="${MAYDER_PRINT_LAB_DATA_DIR:-$(mpl_data_dir)}"
+export PRINTORA_DATA_DIR="${PRINTORA_DATA_DIR:-$(mpl_data_dir)}"
 cd "${ROOT_DIR}/backend"
 exec "${ROOT_DIR}/backend/.venv/bin/python" -m uvicorn app.main:app --host 0.0.0.0 --port 8085 --reload

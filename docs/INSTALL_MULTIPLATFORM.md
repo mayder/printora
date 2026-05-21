@@ -1,6 +1,6 @@
 # Instalação Multiplataforma
 
-O MayderPrintLab suporta quatro modos de uso:
+O Printora suporta quatro modos de uso:
 
 - Raspberry/Manta/Linux com systemd;
 - Linux/macOS em modo desenvolvimento;
@@ -17,7 +17,7 @@ Abrir direto:
 ./scripts/run_app.sh
 ```
 
-No macOS também é possível abrir `Abrir MayderPrintLab.command` com duplo clique. A janela do terminal deve ficar aberta enquanto o app estiver em uso.
+No macOS também é possível abrir `Abrir Printora.command` com duplo clique. A janela do terminal deve ficar aberta enquanto o app estiver em uso.
 
 Dry-run:
 
@@ -49,12 +49,12 @@ Parar o processo iniciado pelo runner:
 ./scripts/run_app.sh --stop
 ```
 
-Quando usar `Abrir MayderPrintLab.command`, para parar basta fechar a janela do terminal ou pressionar `Ctrl+C`.
+Quando usar `Abrir Printora.command`, para parar basta fechar a janela do terminal ou pressionar `Ctrl+C`.
 
 No macOS, o banco padrão fica em:
 
 ```text
-~/Library/Application Support/MayderPrintLab
+~/Library/Application Support/Printora
 ```
 
 ## Raspberry, Manta, CB1 Ou Linux Com Systemd
@@ -81,7 +81,7 @@ Abrir direto no PowerShell:
 .\scripts\run_app_windows.ps1
 ```
 
-No Windows também é possível abrir `Abrir MayderPrintLab.bat` com duplo clique. A janela do PowerShell deve ficar aberta enquanto o app estiver em uso.
+No Windows também é possível abrir `Abrir Printora.bat` com duplo clique. A janela do PowerShell deve ficar aberta enquanto o app estiver em uso.
 
 Dry-run no PowerShell:
 
@@ -103,7 +103,7 @@ Parar processo em background iniciado pelo runner:
 .\scripts\run_app_windows.ps1 --stop
 ```
 
-Quando usar `Abrir MayderPrintLab.bat`, para parar basta fechar a janela do PowerShell ou pressionar `Ctrl+C`.
+Quando usar `Abrir Printora.bat`, para parar basta fechar a janela do PowerShell ou pressionar `Ctrl+C`.
 
 ## Docker Compose
 
@@ -119,7 +119,7 @@ URL:
 http://127.0.0.1:8085
 ```
 
-O volume `mayderprintlab-data` preserva o SQLite.
+O volume `printora-data` preserva o SQLite.
 
 ## Recomendação De Uso
 

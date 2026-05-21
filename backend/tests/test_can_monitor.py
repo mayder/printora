@@ -10,7 +10,7 @@ from app.printers import PrinterCreate, PrinterRepository
 
 
 def test_create_first_can_record_without_delta(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -28,7 +28,7 @@ def test_create_first_can_record_without_delta(tmp_path: Path) -> None:
 
 
 def test_can_record_warns_when_retries_increase(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -44,7 +44,7 @@ def test_can_record_warns_when_retries_increase(tmp_path: Path) -> None:
 
 
 def test_can_record_flags_problem_when_error_counter_increases(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -59,7 +59,7 @@ def test_can_record_flags_problem_when_error_counter_increases(tmp_path: Path) -
 
 
 def test_can_record_flags_problem_when_bus_state_is_stopped(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -73,7 +73,7 @@ def test_can_record_flags_problem_when_bus_state_is_stopped(tmp_path: Path) -> N
 
 
 def test_can_history_is_scoped_by_printer(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     first = printer_repository.create_printer(PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125"))
@@ -88,7 +88,7 @@ def test_can_history_is_scoped_by_printer(tmp_path: Path) -> None:
 
 
 def test_can_summary_reports_latest_interface_state(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -109,7 +109,7 @@ def test_can_summary_reports_latest_interface_state(tmp_path: Path) -> None:
 
 
 def test_can_summary_reports_no_data_explicitly(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -126,7 +126,7 @@ def test_can_summary_reports_no_data_explicitly(tmp_path: Path) -> None:
 
 
 def test_can_records_can_be_compared_as_offline_session(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -167,10 +167,10 @@ def test_parse_ip_link_can_output_extracts_counters() -> None:
 
 
 def test_can_endpoints_are_local_only_with_offline_printer(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("MAYDER_PRINT_LAB_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     get_settings.cache_clear()
     try:
-        initialize_database(tmp_path / "mayderprintlab.db")
+        initialize_database(tmp_path / "printora.db")
         with TestClient(app) as client:
             created = client.post(
                 "/api/printers",

@@ -44,4 +44,4 @@ fi
 python3 -m compileall -q backend/app backend/tests
 python3 -m json.tool frontend/package.json >/dev/null
 
-echo "MayderPrintLab checks passed."
+echo "Printora checks passed."

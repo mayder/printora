@@ -61,7 +61,7 @@ def test_sanitized_report_contains_summary_without_private_data() -> None:
     assert report.format == "markdown"
     assert report.data_state == "live"
     assert report.source == "<url>"
-    assert "# Relatório sanitizado MayderPrintLab" in report.markdown
+    assert "# Relatório sanitizado Printora" in report.markdown
     assert "- Moonraker: <url>" in report.markdown
     assert "- Fonte: <url>" in report.markdown
     assert "Pode imprimir com atenção" in report.markdown
@@ -74,11 +74,11 @@ def test_sanitized_report_contains_summary_without_private_data() -> None:
 
 
 def test_sanitized_report_route_uses_last_snapshot_when_moonraker_is_offline(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("MAYDER_PRINT_LAB_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("MAYDER_PRINT_LAB_REQUEST_TIMEOUT_SECONDS", "0.05")
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("PRINTORA_REQUEST_TIMEOUT_SECONDS", "0.05")
     get_settings.cache_clear()
     try:
-        initialize_database(tmp_path / "mayderprintlab.db")
+        initialize_database(tmp_path / "printora.db")
         with TestClient(app) as client:
             created = client.post(
                 "/api/printers",
@@ -91,7 +91,7 @@ def test_sanitized_report_route_uses_last_snapshot_when_moonraker_is_offline(tmp
             assert created.status_code == 200
             printer_id = created.json()["id"]
 
-            SnapshotRepository(tmp_path / "mayderprintlab.db").create_snapshot(
+            SnapshotRepository(tmp_path / "printora.db").create_snapshot(
                 printer_id=printer_id,
                 snapshot_type="moonraker_status",
                 payload={
@@ -177,10 +177,10 @@ def _backup_run() -> BackupRunRecord:
         status="completed",
         dry_run=False,
         source_path="/home/pi/printer_data/config",
-        destination_path="/home/pi/printer_data/backups/mayderprintlab",
+        destination_path="/home/pi/printer_data/backups/printora",
         include_patterns=["**/*.cfg"],
         exclude_patterns=["**/*secret*"],
         total_files=10,
         total_bytes=2000,
-        message="Backup criado em /home/pi/printer_data/backups/mayderprintlab/a.zip",
+        message="Backup criado em /home/pi/printer_data/backups/printora/a.zip",
     )

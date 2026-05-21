@@ -2,7 +2,7 @@
 
 ## Fonte De Verdade
 
-Este arquivo define o fluxo de desenvolvimento do MayderPrintLab.
+Este arquivo define o fluxo de desenvolvimento do Printora.
 
 Ordem de leitura obrigatória:
 

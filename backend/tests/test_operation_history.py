@@ -7,7 +7,7 @@ from app.printers import PrinterCreate, PrinterRepository
 
 
 def test_operation_action_preview_history_persists_dry_run(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -32,7 +32,7 @@ def test_operation_action_preview_history_persists_dry_run(tmp_path: Path) -> No
 
 
 def test_operation_action_preview_history_is_scoped_by_printer(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     first = printer_repository.create_printer(PrinterCreate(name="Voron A", moonraker_url="http://a.local:7125"))
@@ -48,7 +48,7 @@ def test_operation_action_preview_history_is_scoped_by_printer(tmp_path: Path) -
 
 
 def test_operation_execution_gate_persists_blocked_attempt(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -74,7 +74,7 @@ def test_operation_execution_gate_persists_blocked_attempt(tmp_path: Path) -> No
 
 
 def test_operation_execution_gate_blocks_wrong_confirmation(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -96,7 +96,7 @@ def test_operation_execution_gate_blocks_wrong_confirmation(tmp_path: Path) -> N
 
 
 def test_operation_execution_gate_records_offline_preflight(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -120,7 +120,7 @@ def test_operation_execution_gate_records_offline_preflight(tmp_path: Path) -> N
 
 
 def test_operation_execution_gate_records_printing_preflight(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer = PrinterRepository(database_path).create_printer(
         PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
@@ -148,7 +148,7 @@ def test_operation_execution_gate_records_printing_preflight(tmp_path: Path) -> 
 
 
 def test_operation_execution_attempts_are_listed_by_printer(tmp_path: Path) -> None:
-    database_path = tmp_path / "mayderprintlab.db"
+    database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     printer_repository = PrinterRepository(database_path)
     first = printer_repository.create_printer(PrinterCreate(name="Voron A", moonraker_url="http://a.local:7125"))

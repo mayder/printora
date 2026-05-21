@@ -1,7 +1,7 @@
 [project]
-name = "mayder-print-lab-backend"
+name = "printora-backend"
 version = "0.1.0"
-description = "Backend API for MayderPrintLab."
+description = "Backend API for Printora."
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115.0",

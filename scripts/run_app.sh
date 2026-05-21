@@ -5,12 +5,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=scripts/mpl_platform.sh
 source "${ROOT_DIR}/scripts/mpl_platform.sh"
 
-HOST="${MAYDER_PRINT_LAB_HOST:-127.0.0.1}"
-PORT="${MAYDER_PRINT_LAB_PORT:-8085}"
+HOST="${PRINTORA_HOST:-127.0.0.1}"
+PORT="${PRINTORA_PORT:-8085}"
 URL="http://${HOST}:${PORT}"
-DATA_DIR="${MAYDER_PRINT_LAB_DATA_DIR:-$(mpl_data_dir)}"
+DATA_DIR="${PRINTORA_DATA_DIR:-$(mpl_data_dir)}"
 LOG_DIR="${DATA_DIR}/logs"
-PID_FILE="${DATA_DIR}/mayderprintlab.pid"
+PID_FILE="${DATA_DIR}/printora.pid"
 LOG_FILE="${LOG_DIR}/app.log"
 OPEN_BROWSER="true"
 STOP_ONLY="false"
@@ -27,8 +27,8 @@ Uso:
   scripts/run_app.sh --stop     # para o processo iniciado por este runner
 
 Variáveis úteis:
-  MAYDER_PRINT_LAB_PORT=8085
-  MAYDER_PRINT_LAB_MOONRAKER_URL=http://voron.local:7125
+  PRINTORA_PORT=8085
+  PRINTORA_MOONRAKER_URL=http://voron.local:7125
 USAGE
 }
 
@@ -73,11 +73,11 @@ stop_app() {
   if pid_alive; then
     kill "$(cat "${PID_FILE}")"
     rm -f "${PID_FILE}"
-    echo "MayderPrintLab parada."
+    echo "Printora parada."
     return
   fi
   rm -f "${PID_FILE}"
-  echo "MayderPrintLab não estava rodando por este runner."
+  echo "Printora não estava rodando por este runner."
 }
 
 if [[ "${STOP_ONLY}" == "true" ]]; then
@@ -87,9 +87,9 @@ fi
 
 if [[ "${STATUS_ONLY}" == "true" ]]; then
   if http_ok; then
-    echo "MayderPrintLab online em ${URL}"
+    echo "Printora online em ${URL}"
   else
-    echo "MayderPrintLab offline em ${URL}"
+    echo "Printora offline em ${URL}"
   fi
   exit 0
 fi
@@ -97,7 +97,7 @@ fi
 mkdir -p "${LOG_DIR}"
 
 if http_ok; then
-  echo "MayderPrintLab já está online em ${URL}"
+  echo "Printora já está online em ${URL}"
   [[ "${OPEN_BROWSER}" == "true" ]] && open_url
   exit 0
 fi
@@ -123,12 +123,12 @@ if [[ ! -s "${ROOT_DIR}/frontend/dist/index.html" ]]; then
   npm --prefix "${ROOT_DIR}/frontend" run build
 fi
 
-export MAYDER_PRINT_LAB_DATA_DIR="${DATA_DIR}"
-export MAYDER_PRINT_LAB_MOONRAKER_URL="${MAYDER_PRINT_LAB_MOONRAKER_URL:-http://voron.local:7125}"
+export PRINTORA_DATA_DIR="${DATA_DIR}"
+export PRINTORA_MOONRAKER_URL="${PRINTORA_MOONRAKER_URL:-http://voron.local:7125}"
 
 if [[ "${FOREGROUND}" == "true" ]]; then
   echo "$$" >"${PID_FILE}"
-  echo "MayderPrintLab iniciando em ${URL}"
+  echo "Printora iniciando em ${URL}"
   echo "Log: terminal atual"
   if [[ "${OPEN_BROWSER}" == "true" ]]; then
     (sleep 2 && open_url) >/dev/null 2>&1 &
@@ -147,7 +147,7 @@ echo "$!" >"${PID_FILE}"
 
 for _ in $(seq 1 30); do
   if http_ok && pid_alive; then
-    echo "MayderPrintLab online em ${URL}"
+    echo "Printora online em ${URL}"
     echo "Log: ${LOG_FILE}"
     [[ "${OPEN_BROWSER}" == "true" ]] && open_url
     exit 0
@@ -158,6 +158,6 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 
-echo "MayderPrintLab não subiu em ${URL}." >&2
+echo "Printora não subiu em ${URL}." >&2
 echo "Log: ${LOG_FILE}" >&2
 exit 1

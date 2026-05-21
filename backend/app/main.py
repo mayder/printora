@@ -201,7 +201,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="MayderPrintLab", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Printora", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -219,7 +219,7 @@ if _frontend_assets_dir.is_dir():
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "app": "MayderPrintLab"}
+    return {"status": "ok", "app": "Printora"}
 
 
 @app.get("/")

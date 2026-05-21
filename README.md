@@ -1,8 +1,8 @@
-# MayderPrintLab
+# Printora
 
 Klipper firmware, maintenance and diagnostics toolkit.
 
-MayderPrintLab será uma aplicação externa para Klipper/Moonraker/Mainsail, com foco em:
+Printora será uma aplicação externa para Klipper/Moonraker/Mainsail, com foco em:
 
 - saúde da impressora;
 - auditoria de configuração;
@@ -34,7 +34,7 @@ Abrir local no macOS/Linux:
 ./scripts/run_app.sh
 ```
 
-Também existe o atalho clicável `Abrir MayderPrintLab.command` na raiz do projeto. Ele prepara o ambiente local quando necessário, inicia o backend em `http://127.0.0.1:8085` e abre o navegador. A janela do terminal deve ficar aberta enquanto o app estiver em uso.
+Também existe o atalho clicável `Abrir Printora.command` na raiz do projeto. Ele prepara o ambiente local quando necessário, inicia o backend em `http://127.0.0.1:8085` e abre o navegador. A janela do terminal deve ficar aberta enquanto o app estiver em uso.
 
 Abrir local no Windows:
 
@@ -42,7 +42,7 @@ Abrir local no Windows:
 .\scripts\run_app_windows.ps1
 ```
 
-Também existe o atalho clicável `Abrir MayderPrintLab.bat` na raiz do projeto. Ele prepara o ambiente local quando necessário, inicia o backend em `http://127.0.0.1:8085` e abre o navegador. A janela do PowerShell deve ficar aberta enquanto o app estiver em uso.
+Também existe o atalho clicável `Abrir Printora.bat` na raiz do projeto. Ele prepara o ambiente local quando necessário, inicia o backend em `http://127.0.0.1:8085` e abre o navegador. A janela do PowerShell deve ficar aberta enquanto o app estiver em uso.
 
 ## MVP Atual
 
@@ -50,7 +50,7 @@ O MVP inicial contém:
 
 - backend FastAPI em `backend/`;
 - frontend React/TypeScript em `frontend/`;
-- SQLite preparado em `~/.local/share/mayderprintlab`;
+- SQLite preparado em `~/.local/share/printora`;
 - cadastro local de múltiplas impressoras;
 - endpoints somente leitura para Moonraker;
 - checklist pós-update básico;
@@ -121,10 +121,10 @@ Endpoints iniciais:
 
 Artefatos principais:
 
-- `packaging/systemd/mayderprintlab.service`
-- `packaging/env/mayderprintlab.env.example`
+- `packaging/systemd/printora.service`
+- `packaging/env/printora.env.example`
 - `packaging/mainsail/navi.json`
-- `packaging/moonraker/update_manager_mayderprintlab.conf`
+- `packaging/moonraker/update_manager_printora.conf`
 - `scripts/install_raspberry.sh`
 - `docs/INSTALL_RASPBERRY.md`
 - `docs/INSTALL_MULTIPLATFORM.md`
@@ -144,7 +144,7 @@ Para aplicar em uma Raspberry depois de revisar:
 O script não inicia o serviço automaticamente. Revise `.env` antes:
 
 ```bash
-sudo systemctl start mayderprintlab.service
+sudo systemctl start printora.service
 curl -s http://127.0.0.1:8085/health
 ```
 
@@ -187,7 +187,7 @@ Windows PowerShell:
 
 ## Múltiplas Impressoras
 
-O banco SQLite já suporta várias impressoras no mesmo MayderPrintLab.
+O banco SQLite já suporta várias impressoras no mesmo Printora.
 
 Campos principais:
 
@@ -483,7 +483,7 @@ O executor local fica bloqueado por padrão.
 Para habilitar em uma instalação local controlada:
 
 ```bash
-MAYDER_PRINT_LAB_FIRMWARE_BUILD_MODE=local
+PRINTORA_FIRMWARE_BUILD_MODE=local
 ```
 
 Mesmo habilitado, a chamada exige confirmação textual:
@@ -581,7 +581,7 @@ GET /api/printers/{printer_id}/calibration/runs
 POST /api/printers/{printer_id}/calibration/runs
 ```
 
-Este registro não executa o teste. Ele apenas documenta o que o operador fez fisicamente ou via Mainsail/console fora do MayderPrintLab.
+Este registro não executa o teste. Ele apenas documenta o que o operador fez fisicamente ou via Mainsail/console fora do Printora.
 
 ## Auditoria Do Host
 
@@ -590,10 +590,10 @@ O coletor do host é read-only e vem desabilitado por padrão.
 Configuração por ambiente:
 
 ```bash
-MAYDER_PRINT_LAB_HOST_AUDIT_MODE=disabled
-MAYDER_PRINT_LAB_HOST_AUDIT_MODE=local
-MAYDER_PRINT_LAB_HOST_AUDIT_MODE=ssh
-MAYDER_PRINT_LAB_HOST_AUDIT_SSH_TARGET=pi@voron.local
+PRINTORA_HOST_AUDIT_MODE=disabled
+PRINTORA_HOST_AUDIT_MODE=local
+PRINTORA_HOST_AUDIT_MODE=ssh
+PRINTORA_HOST_AUDIT_SSH_TARGET=pi@voron.local
 ```
 
 Regras:

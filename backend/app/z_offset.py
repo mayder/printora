@@ -198,7 +198,7 @@ def build_z_offset_wizard_plan(
             ),
             ZOffsetWizardStep(
                 key="record",
-                title="Registrar no MayderPrintLab",
+                title="Registrar no Printora",
                 detail="Copie o valor final e salve neste histórico. Este app não altera printer.cfg.",
             ),
         ],

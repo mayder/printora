@@ -29,7 +29,7 @@ class BackupPolicyCreate(BaseModel):
     name: str = Field(default="Config backup", min_length=1, max_length=80)
     source_path: str = Field(default="/home/pi/printer_data/config", min_length=1, max_length=300)
     destination_path: str = Field(
-        default="/home/pi/printer_data/backups/mayderprintlab",
+        default="/home/pi/printer_data/backups/printora",
         min_length=1,
         max_length=300,
     )
@@ -251,7 +251,7 @@ class BackupRepository:
 
         files = _select_files(source_resolved, policy.include_patterns, policy.exclude_patterns)
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        archive_path = destination_resolved / f"mayderprintlab-backup-{policy.printer_id}-{policy.id}-{timestamp}.zip"
+        archive_path = destination_resolved / f"printora-backup-{policy.printer_id}-{policy.id}-{timestamp}.zip"
         total_bytes = 0
         with zipfile.ZipFile(archive_path, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
             for file_path in files:
@@ -469,7 +469,7 @@ def build_backup_restore_gate(payload: BackupRestoreExecuteRequest) -> BackupRes
         blocked=True,
         plan=plan,
         rollback_plan=[
-            "Nenhum arquivo foi extraído, sobrescrito ou removido pelo MayderPrintLab.",
+            "Nenhum arquivo foi extraído, sobrescrito ou removido pelo Printora.",
             "Restore real futuro deve criar backup automático do destino antes de sobrescrever qualquer arquivo.",
             "Restore real futuro deve validar Klipper depois da cópia e exigir restart confirmado separadamente.",
         ],

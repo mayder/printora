@@ -1,17 +1,17 @@
 services:
-  mayderprintlab:
+  printora:
     build: .
-    container_name: mayderprintlab
+    container_name: printora
     restart: unless-stopped
     ports:
       - "8085:8085"
     environment:
-      MAYDER_PRINT_LAB_MOONRAKER_URL: "http://host.docker.internal:7125"
-      MAYDER_PRINT_LAB_DATA_DIR: "/data"
-      MAYDER_PRINT_LAB_HOST_AUDIT_MODE: "disabled"
-      MAYDER_PRINT_LAB_FIRMWARE_BUILD_MODE: "disabled"
+      PRINTORA_MOONRAKER_URL: "http://host.docker.internal:7125"
+      PRINTORA_DATA_DIR: "/data"
+      PRINTORA_HOST_AUDIT_MODE: "disabled"
+      PRINTORA_FIRMWARE_BUILD_MODE: "disabled"
     volumes:
-      - mayderprintlab-data:/data
+      - printora-data:/data
 
 volumes:
-  mayderprintlab-data:
+  printora-data:

@@ -20,9 +20,9 @@ mpl_data_dir() {
   local os_name
   os_name="$(mpl_os)"
   case "${os_name}" in
-    macos) echo "${HOME}/Library/Application Support/MayderPrintLab" ;;
-    windows) echo "${LOCALAPPDATA:-${HOME}/AppData/Local}/MayderPrintLab" ;;
-    *) echo "${HOME}/.local/share/mayderprintlab" ;;
+    macos) echo "${HOME}/Library/Application Support/Printora" ;;
+    windows) echo "${LOCALAPPDATA:-${HOME}/AppData/Local}/Printora" ;;
+    *) echo "${HOME}/.local/share/printora" ;;
   esac
 }
 

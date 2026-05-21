@@ -178,11 +178,11 @@ def test_health_blocks_when_using_last_snapshot() -> None:
 
 
 def test_printer_health_uses_last_snapshot_when_moonraker_is_offline(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("MAYDER_PRINT_LAB_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("MAYDER_PRINT_LAB_REQUEST_TIMEOUT_SECONDS", "0.05")
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("PRINTORA_REQUEST_TIMEOUT_SECONDS", "0.05")
     get_settings.cache_clear()
     try:
-        initialize_database(tmp_path / "mayderprintlab.db")
+        initialize_database(tmp_path / "printora.db")
         with TestClient(app) as client:
             created = client.post(
                 "/api/printers",
@@ -195,7 +195,7 @@ def test_printer_health_uses_last_snapshot_when_moonraker_is_offline(tmp_path, m
             assert created.status_code == 200
             printer_id = created.json()["id"]
 
-            SnapshotRepository(tmp_path / "mayderprintlab.db").create_snapshot(
+            SnapshotRepository(tmp_path / "printora.db").create_snapshot(
                 printer_id=printer_id,
                 snapshot_type="moonraker_status",
                 payload={
