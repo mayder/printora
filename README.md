@@ -196,7 +196,7 @@ npm --prefix frontend run build
 ## Mais Documentação
 
 - Detalhes de recursos e endpoints: `docs/FEATURES.md`
-- Instalação multiplataforma: `docs/INSTALL_MULTIPLATFORM.md`
+- Instalação multiplataforma com comandos para macOS, Windows, Android, Raspberry/Linux e Docker: `docs/INSTALL_MULTIPLATFORM.md`
 - Instalação Raspberry/Mainsail/Moonraker: `docs/INSTALL_RASPBERRY.md`
 - Escopo: `ESCOPO.md`
 - Governança e segurança: `GOVERNANCA.md`
