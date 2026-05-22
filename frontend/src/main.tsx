@@ -6,6 +6,7 @@ import {
   Bell,
   Camera,
   CheckCircle2,
+  ClipboardCheck,
   Database,
   FileText,
   Gauge,
@@ -24,6 +25,7 @@ import {
   Server,
   Settings,
   ShieldCheck,
+  SkipForward,
   SlidersHorizontal,
   Sun,
   Wrench,
@@ -791,6 +793,17 @@ type CalibrationRunRecord = {
   photo_reference?: string | null;
 };
 
+type CalibrationResultFormConfig = {
+  summary: string;
+  observedLabel: string;
+  observedPlaceholder: string;
+  notesLabel: string;
+  notesPlaceholder: string;
+  showMaterial: boolean;
+  showPlate: boolean;
+  showNozzle: boolean;
+};
+
 type CalibrationSummary = {
   printer_id: number;
   safe_mode: string;
@@ -823,7 +836,7 @@ type CalibrationSequencePlan = {
     phase: string;
     test_key: string;
     title: string;
-    status: "completed" | "pending";
+    status: "completed" | "pending" | "skipped";
     risk_level: CalibrationTestRecord["risk_level"];
     execution_mode: CalibrationTestRecord["execution_mode"];
     reason: string;
@@ -1985,14 +1998,35 @@ function App() {
     }
   }
 
-  function openCalibrationResult(test: CalibrationTestRecord, showForm = false) {
+  function openCalibrationResult(
+    test: CalibrationTestRecord,
+    showForm = false,
+    resultStatus: CalibrationRunRecord["result_status"] = "passed",
+  ) {
+    const formConfig = getCalibrationResultFormConfig(test);
     setCalibrationTestKey(test.test_key);
     setCalibrationResultTestKey(test.test_key);
     setCalibrationResultFormOpen(showForm);
+    setCalibrationResultStatus(resultStatus);
     setCalibrationObservedValue("");
     setCalibrationNotes("");
     setCalibrationPhotoReference("");
     setCalibrationGcodeReviewed(test.gcode.length === 0);
+    if (!formConfig.showMaterial) {
+      setCalibrationMaterial("");
+    } else if (!calibrationMaterial.trim()) {
+      setCalibrationMaterial("PLA");
+    }
+    if (!formConfig.showPlate) {
+      setCalibrationPlateName("");
+    } else if (!calibrationPlateName.trim()) {
+      setCalibrationPlateName("Texturizada");
+    }
+    if (!formConfig.showNozzle) {
+      setCalibrationNozzle("");
+    } else if (!calibrationNozzle.trim()) {
+      setCalibrationNozzle("T0");
+    }
   }
 
   async function executeCalibrationGcode(confirmationOverride?: string) {
@@ -2722,6 +2756,9 @@ function App() {
   const calibrationHelpTest = calibrationTests.find((test) => test.test_key === calibrationHelpTestKey);
   const calibrationExecuteTest = calibrationTests.find((test) => test.test_key === calibrationExecuteTestKey);
   const calibrationResultTest = calibrationTests.find((test) => test.test_key === calibrationResultTestKey);
+  const calibrationResultFormConfig = calibrationResultTest
+    ? getCalibrationResultFormConfig(calibrationResultTest)
+    : null;
   const calibrationResultRuns = calibrationResultTest
     ? calibrationRuns.filter((run) => run.test_key === calibrationResultTest.test_key)
     : [];
@@ -2731,7 +2768,10 @@ function App() {
   const calibrationVisibleGcodeCount = calibrationTests.filter((test) => test.gcode.length > 0).length;
   const calibrationBlockedGcodeCount = calibrationHiddenTests.length;
   const calibrationRecommended = calibrationSummary?.recommended_next_tests.slice(0, 5) ?? [];
-  const calibrationSequencePreview = calibrationSequence?.steps ?? [];
+  const hiddenCalibrationKeys = new Set(calibrationHiddenTests.map((test) => test.test_key));
+  const calibrationSequencePreview = (calibrationSequence?.steps ?? []).filter((step) => !hiddenCalibrationKeys.has(step.test_key));
+  const visibleCalibrationCompletedSteps = calibrationSequencePreview.filter((step) => step.status === "completed" || step.status === "skipped").length;
+  const visibleCalibrationRecommendations = calibrationRecommended.filter((test) => !hiddenCalibrationKeys.has(test.test_key));
   const visibleCalibrationTests = calibrationTests.filter((test) => {
     if (testFilter === "executable") {
       return test.gcode.length > 0;
@@ -4460,6 +4500,7 @@ function App() {
               ) : null}
               {calibrationResultFormOpen ? (
                 <form className="test-result-form" onSubmit={(event) => void createCalibrationRun(event)}>
+                  {calibrationResultFormConfig ? <p className="muted">{calibrationResultFormConfig.summary}</p> : null}
                   <select
                     aria-label="Resultado do teste"
                     value={calibrationResultStatus}
@@ -4470,11 +4511,40 @@ function App() {
                     <option value="failed">falhou</option>
                     <option value="skipped">ignorado</option>
                   </select>
-                  <input value={calibrationMaterial} onChange={(event) => setCalibrationMaterial(event.target.value)} placeholder="Material" />
-                  <input value={calibrationPlateName} onChange={(event) => setCalibrationPlateName(event.target.value)} placeholder="Chapa" />
-                  <input value={calibrationNozzle} onChange={(event) => setCalibrationNozzle(event.target.value)} placeholder="Nozzle" />
-                  <input value={calibrationObservedValue} onChange={(event) => setCalibrationObservedValue(event.target.value)} placeholder="Valor observado" />
-                  <textarea value={calibrationNotes} onChange={(event) => setCalibrationNotes(event.target.value)} placeholder="Notas" />
+                  {calibrationResultFormConfig?.showMaterial ? (
+                    <label>
+                      <span>Material</span>
+                      <input value={calibrationMaterial} onChange={(event) => setCalibrationMaterial(event.target.value)} placeholder="Ex.: PLA, ABS, ASA" />
+                    </label>
+                  ) : null}
+                  {calibrationResultFormConfig?.showPlate ? (
+                    <label>
+                      <span>Chapa</span>
+                      <input value={calibrationPlateName} onChange={(event) => setCalibrationPlateName(event.target.value)} placeholder="Ex.: Texturizada, lisa, PEI" />
+                    </label>
+                  ) : null}
+                  {calibrationResultFormConfig?.showNozzle ? (
+                    <label>
+                      <span>Toolhead/nozzle</span>
+                      <input value={calibrationNozzle} onChange={(event) => setCalibrationNozzle(event.target.value)} placeholder="Ex.: T0, T1, 0.4" />
+                    </label>
+                  ) : null}
+                  <label>
+                    <span>{calibrationResultFormConfig?.observedLabel ?? "Valor observado"}</span>
+                    <input
+                      value={calibrationObservedValue}
+                      onChange={(event) => setCalibrationObservedValue(event.target.value)}
+                      placeholder={calibrationResultFormConfig?.observedPlaceholder ?? "Resumo objetivo do resultado"}
+                    />
+                  </label>
+                  <label>
+                    <span>{calibrationResultFormConfig?.notesLabel ?? "Notas"}</span>
+                    <textarea
+                      value={calibrationNotes}
+                      onChange={(event) => setCalibrationNotes(event.target.value)}
+                      placeholder={calibrationResultFormConfig?.notesPlaceholder ?? "Detalhes úteis para repetir ou investigar depois"}
+                    />
+                  </label>
                   <div className="modal-footer">
                     <button type="button" className="secondary-button" onClick={() => setCalibrationResultFormOpen(false)}>
                       Cancelar
@@ -4532,11 +4602,16 @@ function App() {
             <section className="calibration-recommendations calibration-roadmap-panel">
               <div className="section-heading-compact">
                 <strong>Sequência de calibração</strong>
-                <span>{calibrationSequence?.completed_steps ?? 0}/{calibrationSequence?.total_steps ?? 0} concluídos</span>
+                <span>{visibleCalibrationCompletedSteps}/{calibrationSequencePreview.length} visíveis tratados</span>
               </div>
               <p className="muted calibration-section-note">
-                Siga de cima para baixo. Cada linha abre orientação, execução segura ou registro manual.
+                Siga de cima para baixo quando fizer sentido. Itens com G-code somem sem leitura ao vivo; use Pular para seguir sem aprovar.
               </p>
+              {calibrationHiddenTests.length ? (
+                <p className="muted calibration-section-note">
+                  {calibrationHiddenTests.length} item(ns) que dependem da impressora online estão ocultos neste contexto.
+                </p>
+              ) : null}
               {calibrationSequencePreview.length === 0 ? <p className="muted">Aguardando sequência da impressora selecionada.</p> : null}
               <ol className="calibration-sequence-list">
                 {calibrationSequencePreview.map((step) => {
@@ -4552,18 +4627,49 @@ function App() {
                       </span>
                       <em>{hiddenReason ? "bloqueado" : formatCalibrationSequenceStatus(step.status)}</em>
                       <span className="calibration-step-actions">
-                        <button type="button" onClick={() => stepTest && setCalibrationHelpTestKey(stepTest.test_key)} disabled={!stepTest}>
-                          Ajuda
+                        <button
+                          type="button"
+                          className="icon-button calibration-action-icon"
+                          onClick={() => stepTest && setCalibrationHelpTestKey(stepTest.test_key)}
+                          disabled={!stepTest}
+                          aria-label={`Ajuda de ${step.title}`}
+                          title="Ajuda"
+                        >
+                          <HelpCircle size={16} />
                         </button>
                         {stepTest?.gcode.length ? (
-                          <button type="button" onClick={() => void openCalibrationExecute(stepTest)} disabled={!selectedPrinterId || loading || Boolean(hiddenReason)}>
-                            Executar
+                          <button
+                            type="button"
+                            className="icon-button calibration-action-icon"
+                            onClick={() => void openCalibrationExecute(stepTest)}
+                            disabled={!selectedPrinterId || loading || Boolean(hiddenReason)}
+                            aria-label={`Executar ${step.title}`}
+                            title="Executar"
+                          >
+                            <Play size={16} />
                           </button>
                         ) : (
-                          <button type="button" onClick={() => stepTest && openCalibrationResult(stepTest, true)} disabled={!selectedPrinterId || loading || !stepTest}>
-                            Registrar
+                          <button
+                            type="button"
+                            className="icon-button calibration-action-icon"
+                            onClick={() => stepTest && openCalibrationResult(stepTest, true)}
+                            disabled={!selectedPrinterId || loading || !stepTest}
+                            aria-label={`Registrar resultado de ${step.title}`}
+                            title="Registrar"
+                          >
+                            <ClipboardCheck size={16} />
                           </button>
                         )}
+                        <button
+                          type="button"
+                          className="icon-button calibration-action-icon"
+                          onClick={() => stepTest && openCalibrationResult(stepTest, true, "skipped")}
+                          disabled={!selectedPrinterId || loading || !stepTest}
+                          aria-label={`Pular ${step.title}`}
+                          title="Pular"
+                        >
+                          <SkipForward size={16} />
+                        </button>
                       </span>
                     </li>
                   );
@@ -4575,8 +4681,8 @@ function App() {
                 <strong>Próximo ajuste</strong>
                 <span>{calibrationVisibleGcodeCount} com G-code liberado(s)</span>
               </div>
-              {calibrationRecommended.length === 0 ? <p className="muted">Sem recomendações pendentes pelo histórico local.</p> : null}
-              {calibrationRecommended.map((test) => {
+              {visibleCalibrationRecommendations.length === 0 ? <p className="muted">Sem recomendações pendentes visíveis neste contexto.</p> : null}
+              {visibleCalibrationRecommendations.map((test) => {
                 const blockedReason = calibrationHiddenTests.find((hidden) => hidden.test_key === test.test_key)?.reason;
                 const availableTest = calibrationTests.find((candidate) => candidate.test_key === test.test_key);
                 return (
@@ -4588,16 +4694,37 @@ function App() {
                     <small>{formatCalibrationCategory(test.category)} · risco {formatRiskLevel(test.risk_level)}</small>
                     <small>{blockedReason ?? test.reason}</small>
                     <span className="calibration-next-actions">
-                      <button type="button" onClick={() => availableTest && setCalibrationHelpTestKey(availableTest.test_key)} disabled={!availableTest}>
-                        Ver orientação
+                      <button
+                        type="button"
+                        className="icon-button calibration-action-icon"
+                        onClick={() => availableTest && setCalibrationHelpTestKey(availableTest.test_key)}
+                        disabled={!availableTest}
+                        aria-label={`Ver orientação de ${test.title}`}
+                        title="Ver orientação"
+                      >
+                        <HelpCircle size={16} />
                       </button>
                       {availableTest?.gcode.length ? (
-                        <button type="button" onClick={() => void openCalibrationExecute(availableTest)} disabled={!selectedPrinterId || loading || Boolean(blockedReason)}>
-                          Executar com confirmação
+                        <button
+                          type="button"
+                          className="icon-button calibration-action-icon"
+                          onClick={() => void openCalibrationExecute(availableTest)}
+                          disabled={!selectedPrinterId || loading || Boolean(blockedReason)}
+                          aria-label={`Executar ${test.title} com confirmação`}
+                          title="Executar com confirmação"
+                        >
+                          <Play size={16} />
                         </button>
                       ) : (
-                        <button type="button" onClick={() => availableTest && openCalibrationResult(availableTest, true)} disabled={!selectedPrinterId || loading || !availableTest}>
-                          Registrar resultado
+                        <button
+                          type="button"
+                          className="icon-button calibration-action-icon"
+                          onClick={() => availableTest && openCalibrationResult(availableTest, true)}
+                          disabled={!selectedPrinterId || loading || !availableTest}
+                          aria-label={`Registrar resultado de ${test.title}`}
+                          title="Registrar resultado"
+                        >
+                          <ClipboardCheck size={16} />
                         </button>
                       )}
                     </span>
@@ -4612,7 +4739,7 @@ function App() {
           <div className="panel-heading">
             <div>
               <h2>Perfil aprovado de primeira camada</h2>
-              <p className="muted">Registre apenas quando uma impressão de teste ficou boa. Isso cria histórico por chapa, material e toolhead.</p>
+              <p className="muted">Registre apenas depois de aprovar a primeira camada. Futuramente este perfil deve ser sugerido pelos resultados acima.</p>
             </div>
             <strong>{formatLatestZOffset(zOffsetRecords[0])}</strong>
           </div>
@@ -5807,7 +5934,13 @@ function formatCalibrationTestTitle(testKey: string, tests: CalibrationTestRecor
 }
 
 function formatCalibrationSequenceStatus(status: CalibrationSequencePlan["steps"][number]["status"]) {
-  return status === "completed" ? "concluído" : "pendente";
+  if (status === "completed") {
+    return "concluído";
+  }
+  if (status === "skipped") {
+    return "pulado";
+  }
+  return "pendente";
 }
 
 function groupCalibrationSteps(steps: CalibrationSequencePlan["steps"]) {
@@ -5838,6 +5971,87 @@ function formatCalibrationPhase(phase: string) {
     "10_perifericos": "10. Periféricos",
   };
   return labels[phase] ?? phase.replace(/^[0-9]+_/, "").replaceAll("_", " ");
+}
+
+function getCalibrationResultFormConfig(test: CalibrationTestRecord): CalibrationResultFormConfig {
+  const base: CalibrationResultFormConfig = {
+    summary: "Registre o que foi verificado neste item. O histórico serve para liberar a próxima revisão com evidência local.",
+    observedLabel: "Resultado objetivo",
+    observedPlaceholder: "Ex.: aprovado sem folgas, range 0.012 mm, temperatura estável",
+    notesLabel: "Evidência e observações",
+    notesPlaceholder: "O que foi visto, corrigido, medido ou precisa ser revisado depois",
+    showMaterial: false,
+    showPlate: false,
+    showNozzle: false,
+  };
+  if (test.test_key === "mechanical_preflight" || test.category === "validacao_mecanica") {
+    return {
+      ...base,
+      summary: "Use este registro para confirmar a inspeção física antes de ajustes por software.",
+      observedLabel: "Resumo da inspeção",
+      observedPlaceholder: "Ex.: correias firmes, toolhead sem folga, cabos livres",
+      notesLabel: "Problemas encontrados ou correções feitas",
+      notesPlaceholder: "Ex.: reapertado parafuso X, cabo do toolhead reposicionado, sem ação necessária",
+    };
+  }
+  if (test.category === "temperatura") {
+    return {
+      ...base,
+      observedLabel: "Temperatura e estabilidade",
+      observedPlaceholder: "Ex.: 220 °C estável, overshoot baixo, mesa estabilizou em 60 °C",
+      notesLabel: "Condição do teste",
+      notesPlaceholder: "Material usado, tempo de estabilização, oscilação observada ou erro do Klipper",
+      showMaterial: true,
+    };
+  }
+  if (test.category === "primeira_camada") {
+    return {
+      ...base,
+      summary: "Este resultado deve refletir o teste real de primeira camada. Use o perfil aprovado abaixo só quando este teste estiver bom.",
+      observedLabel: "Z-offset/resultado visual",
+      observedPlaceholder: "Ex.: -0.295, linhas aderidas sem raspar",
+      notesLabel: "Aderência e aparência",
+      notesPlaceholder: "Uniformidade, cantos, excesso de esmagamento, limpeza da mesa e ajuste usado",
+      showMaterial: true,
+      showPlate: true,
+      showNozzle: true,
+    };
+  }
+  if (test.category === "material" || test.category === "extrusao" || test.category === "extrusao_base") {
+    return {
+      ...base,
+      observedLabel: "Valor medido ou escolhido",
+      observedPlaceholder: "Ex.: flow 0.96, PA 0.035, 18 mm3/s, extrusão real 49.6 mm",
+      notesLabel: "Material, perfil e evidência",
+      notesPlaceholder: "Marca/cor do filamento, perfil do slicer, peça usada, falhas ou aprovação visual",
+      showMaterial: true,
+      showPlate: test.category === "material",
+      showNozzle: true,
+    };
+  }
+  if (test.category === "probe" || test.category === "nivelamento") {
+    return {
+      ...base,
+      observedLabel: "Medição ou conclusão",
+      observedPlaceholder: "Ex.: probe repetível, QGL dentro da tolerância, offset XY conferido",
+      notesLabel: "Condição da mesa/probe",
+      notesPlaceholder: "Estado da chapa, bico limpo, range, retries, ajuste manual ou bloqueio encontrado",
+      showPlate: true,
+      showNozzle: true,
+    };
+  }
+  if (test.category === "movimento" || test.category === "qualidade" || test.category === "dimensional") {
+    return {
+      ...base,
+      observedLabel: "Medição ou artefato observado",
+      observedPlaceholder: "Ex.: sem ringing visível, X 20.02 mm, sem layer shift",
+      notesLabel: "Peça de teste e interpretação",
+      notesPlaceholder: "Velocidade, aceleração, medidas, foto/referência e próximos ajustes",
+      showMaterial: true,
+      showNozzle: true,
+    };
+  }
+  return base;
 }
 
 function confirmedWizardSteps(checks: Record<string, boolean>) {

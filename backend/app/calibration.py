@@ -287,7 +287,7 @@ class CalibrationRepository:
         category_counts = _count_by(tests, "category")
         risk_counts = _count_by(tests, "risk_level")
         execution_mode_counts = _count_by(tests, "execution_mode")
-        completed_keys = {run.test_key for run in runs if run.result_status == "passed"}
+        resolved_keys = {run.test_key for run in runs if run.result_status in {"passed", "skipped"}}
         recommended = [
             {
                 "test_key": test.test_key,
@@ -297,7 +297,7 @@ class CalibrationRepository:
                 "reason": "Ainda sem resultado aprovado para esta impressora.",
             }
             for test in tests
-            if test.test_key not in completed_keys
+            if test.test_key not in resolved_keys
         ][:5]
         return CalibrationSummary(
             printer_id=printer_id,
@@ -317,17 +317,19 @@ class CalibrationRepository:
     def sequence_plan(self, printer_id: int) -> CalibrationSequencePlan:
         tests = self.list_tests()
         runs = self.list_runs(printer_id, limit=500)
-        passed_keys = {run.test_key for run in runs if run.result_status == "passed"}
+        latest_result_by_key: dict[str, CalibrationResultStatus] = {}
+        for run in runs:
+            latest_result_by_key.setdefault(run.test_key, run.result_status)
         steps = [
             CalibrationSequenceStep(
                 order=index + 1,
                 phase=_phase_for_test(test),
                 test_key=test.test_key,
                 title=test.title,
-                status="completed" if test.test_key in passed_keys else "pending",
+                status=_sequence_status(latest_result_by_key.get(test.test_key)),
                 risk_level=test.risk_level,
                 execution_mode=test.execution_mode,
-                reason=_sequence_reason(test, test.test_key in passed_keys),
+                reason=_sequence_reason(test, latest_result_by_key.get(test.test_key)),
             )
             for index, test in enumerate(tests)
         ]
@@ -335,7 +337,7 @@ class CalibrationRepository:
             safe_mode="manual_sequence_no_gcode",
             printer_id=printer_id,
             total_steps=len(steps),
-            completed_steps=sum(1 for step in steps if step.status == "completed"),
+            completed_steps=sum(1 for step in steps if step.status in {"completed", "skipped"}),
             blocked_while_printing_count=sum(1 for test in tests if test.blocked_while_printing),
             steps=steps,
         )
@@ -512,9 +514,19 @@ def _phase_for_test(test: CalibrationTestRecord) -> str:
     return mapping.get(test.category, f"99_{test.category}")
 
 
-def _sequence_reason(test: CalibrationTestRecord, completed: bool) -> str:
-    if completed:
+def _sequence_status(result_status: CalibrationResultStatus | None) -> str:
+    if result_status == "passed":
+        return "completed"
+    if result_status == "skipped":
+        return "skipped"
+    return "pending"
+
+
+def _sequence_reason(test: CalibrationTestRecord, result_status: CalibrationResultStatus | None) -> str:
+    if result_status == "passed":
         return "Já existe resultado aprovado para esta impressora."
+    if result_status == "skipped":
+        return "Operador pulou este item; não conta como aprovado."
     if test.gcode:
         return "Pendente: revisar G-code manualmente antes de executar fora do app."
     if test.execution_mode == "read_only":

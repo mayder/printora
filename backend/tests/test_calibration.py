@@ -171,6 +171,31 @@ def test_calibration_sequence_plan_marks_completed_and_pending_steps(tmp_path: P
     assert all(step.phase for step in plan.steps)
 
 
+def test_calibration_sequence_plan_marks_skipped_without_recommending_it(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = CalibrationRepository(database_path)
+    repository.create_run(
+        printer.id,
+        CalibrationRunCreate(
+            test_key="mechanical_preflight",
+            result_status="skipped",
+            notes="Operador decidiu pular nesta rodada.",
+        ),
+    )
+
+    plan = repository.sequence_plan(printer.id)
+    summary = repository.summary(printer.id)
+
+    skipped = [step for step in plan.steps if step.status == "skipped"]
+    assert skipped[0].test_key == "mechanical_preflight"
+    assert plan.completed_steps == 1
+    assert all(item["test_key"] != "mechanical_preflight" for item in summary.recommended_next_tests)
+
+
 def test_available_calibration_tests_hide_qgl_when_printer_does_not_support_it(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)

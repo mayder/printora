@@ -2233,6 +2233,14 @@ label {
   white-space: nowrap;
 }
 
+.calibration-step-actions .calibration-action-icon,
+.calibration-next-actions .calibration-action-icon {
+  width: 34px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+}
+
 .calibration-next-row {
   display: grid;
   gap: 5px;
@@ -2291,6 +2299,10 @@ label {
 
 .calibration-sequence-row.completed em {
   color: var(--success);
+}
+
+.calibration-sequence-row.skipped em {
+  color: var(--warning);
 }
 
 .calibration-next-row.medium {
@@ -2550,6 +2562,17 @@ label {
   display: grid;
   gap: 10px;
   margin-top: 12px;
+}
+
+.test-result-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.test-result-form label span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .test-result-form textarea {
