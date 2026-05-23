@@ -30,6 +30,16 @@ Aplicacao completa:
 ./scripts/run_app.sh
 ```
 
+Instalação com boot automático:
+
+```bash
+./scripts/install_printora.sh
+./scripts/install_printora.sh --apply --yes
+```
+
+O instalador prepara dependências, usa Node local via `nvm` quando o Node global
+for antigo e configura o mecanismo de boot do ambiente atual.
+
 Updater local macOS/Linux/Raspberry:
 
 ```bash

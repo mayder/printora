@@ -1926,3 +1926,39 @@ Estado atual:
 - Scripts Android/Unix/Windows registram sucesso do run de rollback quando recebem `PRINTORA_UPDATE_RUN_ID`.
 - Testes automatizados cobrem confirmação obrigatória, path inseguro, histórico e mudança de status.
 - Validação real de rollback em Android/Unix/Windows físico ainda pendente.
+
+## PKG-26: Instalação 0.1.5 Com Boot Automático
+
+Objetivo:
+
+Simplificar a instalação do Printora e garantir que ele suba automaticamente após reinício do dispositivo, sem alterar dependências globais de serviços existentes como Spoolman.
+
+Entregáveis:
+
+- versão `0.1.5` no backend e frontend;
+- `scripts/ensure_node_runtime.sh` para preparar Node compatível via `nvm` por usuário quando necessário;
+- `scripts/install_printora.sh` como entrada simples de instalação;
+- `scripts/install_printora_autostart.sh` para Android/Termux, Linux/Raspberry e macOS;
+- `scripts/install_printora_windows.ps1` e `scripts/install_printora_autostart_windows.ps1` para Windows;
+- `packaging/systemd/printora.service` com `Restart=always`;
+- `scripts/run_app.sh` usando Node/npm local de `.printora-node-env` quando existir;
+- `scripts/install_raspberry.sh` usando Node local e reiniciando apenas `printora.service`;
+- documentação em `docs/INSTALL_MULTIPLATFORM.md`;
+- validação em `TESTES.md`.
+
+Critério de aceite:
+
+- instalação tem modo plano antes de aplicar;
+- `--apply` exige confirmação explícita (`--yes`);
+- Node antigo não troca o Node global;
+- Raspberry/Linux configura `systemd` com restart automático;
+- Android/Termux configura Termux:Boot e mantém `tmux` para app e mDNS;
+- macOS configura `launchd` com `KeepAlive`;
+- Windows configura tarefa agendada;
+- nenhum serviço de Klipper, Moonraker, Mainsail ou Spoolman é alterado;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado para macOS/Linux/Android/Windows em scripts separados.
+- Validação real em Raspberry, Android físico e Windows físico ainda pendente.

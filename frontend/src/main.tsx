@@ -1946,7 +1946,7 @@ function App() {
           method: "server.connection.identify",
           params: {
             client_name: "Printora",
-            version: "0.1.4",
+            version: "0.1.5",
             type: "web",
             url: "https://github.com/printora/printora",
           },

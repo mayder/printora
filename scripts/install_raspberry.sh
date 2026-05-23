@@ -63,9 +63,21 @@ fi
 run_or_print python3 -m venv "${TARGET_DIR}/backend/.venv"
 run_or_print "${TARGET_DIR}/backend/.venv/bin/pip" install -e "${TARGET_DIR}/backend"
 
-if command -v npm >/dev/null 2>&1; then
-  run_or_print npm --prefix "${TARGET_DIR}/frontend" install
-  run_or_print npm --prefix "${TARGET_DIR}/frontend" run build
+if [[ "${APPLY}" == "true" ]]; then
+  run_or_print "${TARGET_DIR}/scripts/ensure_node_runtime.sh" --apply
+else
+  run_or_print "${ROOT_DIR}/scripts/ensure_node_runtime.sh" --plan
+fi
+
+if [[ -f "${TARGET_DIR}/.printora-node-env" ]]; then
+  # shellcheck source=/dev/null
+  . "${TARGET_DIR}/.printora-node-env"
+fi
+NPM_BIN="${PRINTORA_NPM_BIN:-$(command -v npm 2>/dev/null || true)}"
+
+if [[ -n "${NPM_BIN}" ]]; then
+  run_or_print "${NPM_BIN}" --prefix "${TARGET_DIR}/frontend" install
+  run_or_print "${NPM_BIN}" --prefix "${TARGET_DIR}/frontend" run build
 elif [[ -f "${TARGET_DIR}/frontend/dist/index.html" ]]; then
   echo "npm não encontrado; usando frontend/dist já buildado em ${TARGET_DIR}/frontend/dist."
 else
@@ -96,6 +108,7 @@ run_or_print sudo cp "${SERVICE_TMP}" "${SERVICE_DST}"
 rm -f "${SERVICE_TMP}"
 run_or_print sudo systemctl daemon-reload
 run_or_print sudo systemctl enable printora.service
+run_or_print sudo systemctl restart printora.service
 
 run_or_print mkdir -p "$(dirname "${MAINSAIL_NAV_DST}")"
 if [[ -f "${MAINSAIL_NAV_DST}" ]]; then
@@ -115,5 +128,4 @@ sed -e "s#/home/pi/Printora#${TARGET_DIR}#g" "${UPDATE_MANAGER_SRC}" > "${UPDATE
 run_or_print cp "${UPDATE_MANAGER_TMP}" "${UPDATE_MANAGER_DST}"
 rm -f "${UPDATE_MANAGER_TMP}"
 
-echo "Instalação preparada. Iniciar manualmente depois de revisar .env:"
-echo "sudo systemctl start printora.service"
+echo "Instalação preparada. Serviço configurado para iniciar no boot e reiniciado no apply."

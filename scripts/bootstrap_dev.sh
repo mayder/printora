@@ -28,7 +28,22 @@ if [[ -z "${PYTHON_BIN}" ]]; then
   exit 1
 fi
 
-mpl_require_command npm
+if [[ "${APPLY}" == "true" ]]; then
+  "${ROOT_DIR}/scripts/ensure_node_runtime.sh" --apply
+else
+  "${ROOT_DIR}/scripts/ensure_node_runtime.sh" --plan
+fi
+
+if [[ -f "${ROOT_DIR}/.printora-node-env" ]]; then
+  # shellcheck source=/dev/null
+  . "${ROOT_DIR}/.printora-node-env"
+fi
+
+NPM_BIN="${PRINTORA_NPM_BIN:-$(command -v npm 2>/dev/null || true)}"
+if [[ -z "${NPM_BIN}" ]]; then
+  echo "npm não encontrado." >&2
+  exit 1
+fi
 
 echo "Sistema detectado: $(mpl_os)"
 echo "Data dir: ${DATA_DIR}"
@@ -39,8 +54,8 @@ fi
 run_or_print mkdir -p "${DATA_DIR}"
 run_or_print "${PYTHON_BIN}" -m venv "${ROOT_DIR}/backend/.venv"
 run_or_print "${ROOT_DIR}/backend/.venv/bin/pip" install -e "${ROOT_DIR}/backend[dev]"
-run_or_print npm --prefix "${ROOT_DIR}/frontend" install
-run_or_print npm --prefix "${ROOT_DIR}/frontend" run build
+run_or_print "${NPM_BIN}" --prefix "${ROOT_DIR}/frontend" install
+run_or_print "${NPM_BIN}" --prefix "${ROOT_DIR}/frontend" run build
 
 echo "Ambiente local preparado."
 echo "Backend: ${ROOT_DIR}/scripts/dev_backend.sh"

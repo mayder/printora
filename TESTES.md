@@ -59,6 +59,28 @@ Comando obrigatório antes de commit:
 ./check.sh
 ```
 
+## Instalação 0.1.5
+
+Validação offline:
+
+```bash
+./scripts/ensure_node_runtime.sh --plan
+./scripts/install_printora.sh --plan
+./scripts/install_printora_autostart.sh --plan
+```
+
+Aceite:
+
+- `--plan` não altera arquivos;
+- plano informa se usará Node atual ou Node 22 via `nvm`;
+- plano de autostart informa o mecanismo do ambiente atual;
+- `--apply --yes` prepara dependências e configura boot automático;
+- Linux/Raspberry usa `systemd` com `Restart=always`;
+- Android/Termux usa `Termux:Boot` e `tmux`;
+- macOS usa `launchd` com `KeepAlive`;
+- Windows usa tarefa agendada `Printora`;
+- Node antigo não substitui o Node global do sistema, preservando serviços como Spoolman.
+
 O check inicial valida:
 
 - existência dos documentos principais;

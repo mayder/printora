@@ -107,8 +107,17 @@ if [[ -z "${PYTHON_BIN}" ]]; then
   echo "Python não encontrado." >&2
   exit 1
 fi
-mpl_require_command npm
 mpl_require_command curl
+
+if [[ -f "${ROOT_DIR}/.printora-node-env" ]]; then
+  # shellcheck source=/dev/null
+  . "${ROOT_DIR}/.printora-node-env"
+fi
+NPM_BIN="${PRINTORA_NPM_BIN:-$(command -v npm 2>/dev/null || true)}"
+if [[ -z "${NPM_BIN}" ]]; then
+  echo "npm não encontrado. Rode scripts/bootstrap_dev.sh --apply para preparar Node local do Printora." >&2
+  exit 1
+fi
 
 if [[ ! -x "${ROOT_DIR}/backend/.venv/bin/python" ]]; then
   "${PYTHON_BIN}" -m venv "${ROOT_DIR}/backend/.venv"
@@ -116,11 +125,11 @@ if [[ ! -x "${ROOT_DIR}/backend/.venv/bin/python" ]]; then
 fi
 
 if [[ ! -d "${ROOT_DIR}/frontend/node_modules" ]]; then
-  npm --prefix "${ROOT_DIR}/frontend" install
+  "${NPM_BIN}" --prefix "${ROOT_DIR}/frontend" install
 fi
 
 if [[ ! -s "${ROOT_DIR}/frontend/dist/index.html" ]]; then
-  npm --prefix "${ROOT_DIR}/frontend" run build
+  "${NPM_BIN}" --prefix "${ROOT_DIR}/frontend" run build
 fi
 
 export PRINTORA_DATA_DIR="${DATA_DIR}"

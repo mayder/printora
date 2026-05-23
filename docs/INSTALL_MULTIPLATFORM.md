@@ -136,15 +136,19 @@ Se o macOS pedir ferramentas de linha de comando:
 xcode-select --install
 ```
 
-### Preparar O Printora
+### Instalar O Printora Com Boot Automático
 
 Na pasta do projeto:
 
 ```bash
 cd /caminho/para/Printora
-./scripts/bootstrap_dev.sh
-./scripts/bootstrap_dev.sh --apply
+./scripts/install_printora.sh
+./scripts/install_printora.sh --apply --yes
 ```
+
+O instalador prepara backend/frontend e configura `launchd` com `KeepAlive`.
+Se o Node global for antigo, o Printora instala Node 22 via `nvm` apenas para o
+usuário atual e grava `.printora-node-env`, sem trocar o Node do sistema.
 
 ### Rodar
 
@@ -215,13 +219,16 @@ Feche e reabra o PowerShell depois da instalação.
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
-### Preparar O Printora
+### Instalar O Printora Com Boot Automático
 
 ```powershell
 cd C:\caminho\para\Printora
-.\scripts\bootstrap_windows.ps1
-.\scripts\bootstrap_windows.ps1 --apply
+.\scripts\install_printora_windows.ps1
+.\scripts\install_printora_windows.ps1 --apply --yes
 ```
+
+O instalador registra a tarefa `Printora` no Agendador de Tarefas para iniciar
+no logon e reiniciar em caso de falha.
 
 ### Rodar
 
@@ -304,7 +311,7 @@ export HOME=/data/data/com.termux/files/home
 export PATH=\$PREFIX/bin:\$PATH
 yes | pkg update
 yes | pkg upgrade
-yes | pkg install python nodejs git openssh tmux rust clang make pkg-config
+yes | pkg install python nodejs git openssh tmux rust clang make pkg-config curl termux-api
 "'
 ```
 
@@ -353,22 +360,22 @@ chmod +x \$HOME/Printora/check.sh \$HOME/Printora/scripts/*.sh \$HOME/Printora/s
 "'
 ```
 
-### Instalar Backend No Android
+### Instalar E Configurar Boot Automático No Android
 
 ```bash
 adb shell 'run-as com.termux /data/data/com.termux/files/usr/bin/bash -lc "
 export PREFIX=/data/data/com.termux/files/usr
 export HOME=/data/data/com.termux/files/home
 export PATH=\$PREFIX/bin:\$PATH
-python -m pip install --user zeroconf
-cd \$HOME/Printora/backend
-python -m venv .venv
-. .venv/bin/activate
-pip install --upgrade pip
-pip install fastapi httpx pydantic pydantic-settings uvicorn
-pip install -e . --no-deps
+cd \$HOME/Printora
+PRINTORA_PORT=8069 PRINTORA_DATA_DIR=\$HOME/.local/share/printora ./scripts/install_printora.sh
+PRINTORA_PORT=8069 PRINTORA_DATA_DIR=\$HOME/.local/share/printora ./scripts/install_printora.sh --apply --yes
 "'
 ```
+
+O instalador cria `~/.termux/boot/start-printora`. Abra o app Termux:Boot uma vez
+e remova a otimização de bateria do Termux/Termux:Boot; sem isso, o Android pode
+bloquear processos em segundo plano após reinício.
 
 Observação: `pydantic-core` pode compilar no Android. Isso pode demorar alguns minutos.
 
@@ -447,12 +454,9 @@ sudo apt update
 sudo apt install -y python3 python3-venv python3-pip nodejs npm git rsync curl
 ```
 
-Se o Node.js do repositório for antigo, instale via NodeSource:
-
-```bash
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
-```
+Se o Node.js do repositório for antigo, não troque o Node global. O instalador do
+Printora usa `nvm` no usuário atual e deixa outros serviços, como Spoolman,
+usando o Node que já estavam usando.
 
 ### Clonar Ou Copiar O Projeto
 
@@ -473,7 +477,7 @@ cd /home/linaro/Printora
 ### Instalar Em Dry-run
 
 ```bash
-./scripts/install_raspberry.sh
+./scripts/install_printora.sh
 ```
 
 ### Aplicar
@@ -481,7 +485,7 @@ cd /home/linaro/Printora
 Raspberry com usuário `pi`:
 
 ```bash
-./scripts/install_raspberry.sh --apply
+./scripts/install_printora.sh --apply --yes
 ```
 
 CB1/Manta com usuário `linaro`:
