@@ -3459,6 +3459,11 @@ label {
   margin-top: 14px;
 }
 
+.release-list .collapsible-panel {
+  display: grid;
+  gap: 10px;
+}
+
 .release-row.installed {
   border-left-color: var(--success);
 }
@@ -3469,6 +3474,10 @@ label {
   margin-top: 16px;
   border-top: 1px solid var(--border-soft);
   padding-top: 14px;
+}
+
+.host-diagnostics-panel {
+  margin-top: 16px;
 }
 
 .panel-header-row.compact {

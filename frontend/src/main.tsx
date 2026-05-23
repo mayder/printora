@@ -1052,7 +1052,7 @@ const appSections: Array<{
     icon: Settings,
     label: "Configurações",
     detail: "Preferências, integrações e contexto da impressora ativa.",
-    purpose: "Ajustes do Printora, releases e auditoria do host onde o app roda.",
+    purpose: "Versão instalada, releases e updates do próprio Printora.",
   },
 ];
 
@@ -1115,6 +1115,12 @@ function App() {
   const [systemReleases, setSystemReleases] = React.useState<SystemReleasesResponse | null>(null);
   const [releaseLoading, setReleaseLoading] = React.useState(false);
   const [releaseError, setReleaseError] = React.useState<string | null>(null);
+  const displayedReleaseRows = React.useMemo(() => {
+    if (!systemReleases) {
+      return [];
+    }
+    return systemReleases.releases.filter((release) => release.tag !== systemReleases.latest_release?.tag);
+  }, [systemReleases]);
   const [selfUpdatePlan, setSelfUpdatePlan] = React.useState<SelfUpdatePlanResponse | null>(null);
   const [selfUpdateHistory, setSelfUpdateHistory] = React.useState<SelfUpdateRunRecord[]>([]);
   const [selfUpdateModalOpen, setSelfUpdateModalOpen] = React.useState(false);
@@ -1926,7 +1932,7 @@ function App() {
           method: "server.connection.identify",
           params: {
             client_name: "Printora",
-            version: "0.1.2",
+            version: "0.1.3",
             type: "web",
             url: "https://github.com/printora/printora",
           },
@@ -6215,21 +6221,24 @@ function App() {
             </div>
           ) : null}
           <div className="release-list">
-            {releaseLoading ? <p className="muted">Carregando releases de produção...</p> : null}
-            {!releaseLoading && systemReleases?.releases.length === 0 ? (
-              <p className="muted">Nenhuma release de produção retornada.</p>
-            ) : null}
-            {systemReleases?.releases.map((release) => (
-              <div key={release.tag} className={`release-row ${release.installed ? "installed" : ""}`}>
-                <div>
-                  <strong>{release.name}</strong>
-                  <span>
-                    {release.tag} · {release.published_at ?? "sem data"} · {release.installed ? "instalada" : release.channel}
-                  </span>
+            <details className="collapsible-panel">
+              <summary>Releases anteriores</summary>
+              {releaseLoading ? <p className="muted">Carregando releases de produção...</p> : null}
+              {!releaseLoading && displayedReleaseRows.length === 0 ? (
+                <p className="muted">Nenhuma release anterior para listar.</p>
+              ) : null}
+              {displayedReleaseRows.map((release) => (
+                <div key={release.tag} className={`release-row ${release.installed ? "installed" : ""}`}>
+                  <div>
+                    <strong>{release.name}</strong>
+                    <span>
+                      {release.tag} · {release.published_at ?? "sem data"} · {release.installed ? "instalada" : release.channel}
+                    </span>
+                  </div>
+                  <p>{release.changelog_summary || "Sem changelog informado."}</p>
                 </div>
-                <p>{release.changelog_summary || "Sem changelog informado."}</p>
-              </div>
-            ))}
+              ))}
+            </details>
           </div>
           <div className="self-update-history">
             <div className="panel-header-row compact">
@@ -6348,8 +6357,9 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide panel-section panel-monitoring panel-settings">
-          <h2>Auditoria do host</h2>
+        <details className="panel wide panel-section panel-monitoring panel-settings collapsible-panel host-diagnostics-panel">
+          <summary>Diagnóstico avançado do host</summary>
+          <p className="muted">Leitura técnica do computador onde o Printora roda. Use quando precisar investigar systemd, CAN, symlinks ou repositórios locais.</p>
           <strong className="summary">{hostAudit?.summary ?? "Aguardando dados"}</strong>
           <div className="audit-counts">
             <Badge icon={Settings} label="Modo" value={hostAudit?.mode ?? "-"} />
@@ -6376,7 +6386,7 @@ function App() {
               </div>
             ))}
           </div>
-        </article>
+        </details>
         </section>
       </div>
     </main>
