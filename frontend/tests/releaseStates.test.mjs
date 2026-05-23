@@ -79,14 +79,19 @@ assert.equal(
   false,
 );
 
-const source = await readFile(join(root, "src/main.tsx"), "utf8");
-assert.match(source, /void loadSystemReleases\(\);[\s\S]*await loadPrinters\(\);/);
-assert.doesNotMatch(source, /fetch\(["']\/api\/system\/releases["'],\s*\{/);
-assert.match(source, /\/api\/system\/update\/plan/);
-assert.match(source, /\/api\/system\/update\/apply/);
-assert.match(source, /\/api\/system\/update\/history/);
-assert.match(source, /ATUALIZAR PRINTORA/);
-assert.match(source, /Atualizar agora/);
-assert.match(source, /visibleSelfUpdateSteps/);
+const appSource = await readFile(join(root, "src/main.tsx"), "utf8");
+const appHookSource = await readFile(join(root, "src/hooks/usePrintoraApp.ts"), "utf8");
+const systemApiSource = await readFile(join(root, "src/services/systemApi.ts"), "utf8");
+const settingsScreenSource = await readFile(join(root, "src/screens/SettingsScreen.tsx"), "utf8");
+const selfUpdateModalSource = await readFile(join(root, "src/components/modals/SelfUpdateModal.tsx"), "utf8");
+
+assert.doesNotMatch(appSource, /fetch\(/);
+assert.match(appHookSource, /await Promise\.allSettled\(\[loadBoardPresets\(\), loadPrinters\(\)\]\);[\s\S]*void loadSystemReleases\(\);/);
+assert.match(systemApiSource, /\/api\/system\/update\/plan/);
+assert.match(systemApiSource, /\/api\/system\/update\/apply/);
+assert.match(systemApiSource, /\/api\/system\/update\/history/);
+assert.match(selfUpdateModalSource, /ATUALIZAR PRINTORA/);
+assert.match(settingsScreenSource, /Atualizar agora/);
+assert.match(selfUpdateModalSource, /visibleSelfUpdateSteps/);
 
 console.log("Frontend release states passed.");
