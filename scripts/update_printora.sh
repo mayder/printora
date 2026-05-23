@@ -449,7 +449,7 @@ build_frontend_if_needed() {
     return
   fi
   require_command npm
-  npm --prefix "${NEXT_DIR}/frontend" install
+  "${NEXT_DIR}/scripts/npm_frontend_install.sh" "${NEXT_DIR}/frontend" npm
   npm --prefix "${NEXT_DIR}/frontend" run build
 }
 

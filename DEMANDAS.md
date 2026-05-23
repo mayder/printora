@@ -1992,3 +1992,30 @@ Critério de aceite:
 Estado atual:
 
 - Implementado e validado localmente.
+
+## PKG-28: Retry Seguro Do Npm Install 0.1.7
+
+Objetivo:
+
+Evitar falha de instalação quando `frontend/node_modules` do Printora fica sujo por instalação anterior, interrupção ou troca de runtime Node.
+
+Entregáveis:
+
+- versão `0.1.7` no backend e frontend;
+- helper `scripts/npm_frontend_install.sh`;
+- retry automático quando `npm install` falha;
+- limpeza limitada a `frontend/node_modules` do Printora;
+- integração com bootstrap, instalador Raspberry/Linux, runner local e updater Android/Unix;
+- teste automatizado simulando `npm ERR! code ENOTEMPTY`.
+
+Critério de aceite:
+
+- erro `ENOTEMPTY` em `frontend/node_modules/caniuse-lite` não bloqueia a segunda tentativa;
+- `package-lock.json` permanece preservado;
+- Node/npm global do sistema não é alterado;
+- nenhum serviço externo é reiniciado ou modificado;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado e validado localmente.

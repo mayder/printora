@@ -92,6 +92,16 @@ Aceite do fluxo visual:
 - em execução, etapas pendentes ficam ocultas e entram na lista conforme o script marca cada etapa;
 - modal do updater não cria rolagem interna dentro da linha do tempo.
 
+## Instalador 0.1.7
+
+Aceite para dependências frontend:
+
+- `npm install` roda com o Node isolado do Printora quando `.printora-node-env` existir;
+- falha `npm ERR! code ENOTEMPTY` em `frontend/node_modules` não trava a instalação;
+- o retry limpa somente `frontend/node_modules` do Printora e não altera Node/npm global;
+- `package-lock.json` é preservado;
+- serviços externos, incluindo Spoolman, não são modificados.
+
 O check inicial valida:
 
 - existência dos documentos principais;

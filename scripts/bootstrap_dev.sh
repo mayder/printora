@@ -54,7 +54,7 @@ fi
 run_or_print mkdir -p "${DATA_DIR}"
 run_or_print "${PYTHON_BIN}" -m venv "${ROOT_DIR}/backend/.venv"
 run_or_print "${ROOT_DIR}/backend/.venv/bin/pip" install -e "${ROOT_DIR}/backend[dev]"
-run_or_print "${NPM_BIN}" --prefix "${ROOT_DIR}/frontend" install
+run_or_print "${ROOT_DIR}/scripts/npm_frontend_install.sh" "${ROOT_DIR}/frontend" "${NPM_BIN}"
 run_or_print "${NPM_BIN}" --prefix "${ROOT_DIR}/frontend" run build
 
 echo "Ambiente local preparado."

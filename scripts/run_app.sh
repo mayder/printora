@@ -125,7 +125,7 @@ if [[ ! -x "${ROOT_DIR}/backend/.venv/bin/python" ]]; then
 fi
 
 if [[ ! -d "${ROOT_DIR}/frontend/node_modules" ]]; then
-  "${NPM_BIN}" --prefix "${ROOT_DIR}/frontend" install
+  "${ROOT_DIR}/scripts/npm_frontend_install.sh" "${ROOT_DIR}/frontend" "${NPM_BIN}"
 fi
 
 if [[ ! -s "${ROOT_DIR}/frontend/dist/index.html" ]]; then
