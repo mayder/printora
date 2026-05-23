@@ -29,17 +29,16 @@ def test_create_android_termux_plan(tmp_path: Path) -> None:
     assert response.run.environment == "android_termux"
     assert response.run.status == "planned"
     assert [step.step_key for step in response.run.steps] == [
-        "detect_termux",
-        "validate_target",
+        "validate_environment",
         "backup_database",
         "backup_project",
         "checkout_release",
+        "preserve_venv",
         "install_backend",
         "apply_schema",
         "build_frontend",
         "restart_app",
         "validate_health",
-        "restart_mdns",
     ]
 
 
@@ -58,7 +57,7 @@ def test_create_unix_plan(tmp_path: Path) -> None:
     assert response.update_supported is True
     assert response.can_apply is True
     assert response.run.environment == "unix"
-    assert response.run.steps[0].step_key == "detect_unix"
+    assert response.run.steps[0].step_key == "validate_environment"
     assert response.run.steps[-1].step_key == "validate_health"
 
 
@@ -77,7 +76,7 @@ def test_create_windows_plan(tmp_path: Path) -> None:
     assert response.update_supported is True
     assert response.can_apply is True
     assert response.run.environment == "windows"
-    assert response.run.steps[0].step_key == "detect_windows"
+    assert response.run.steps[0].step_key == "validate_environment"
     assert response.run.steps[-1].step_key == "validate_health"
 
 

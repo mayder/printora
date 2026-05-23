@@ -122,6 +122,12 @@ export function selfUpdateProgressPercent(run: SelfUpdateRunRecord) {
   return base;
 }
 
+export function visibleSelfUpdateSteps(run: SelfUpdateRunRecord) {
+  if (run.status === "planned") return [];
+  if (run.status === "running") return run.steps.filter((step) => step.status !== "pending");
+  return run.steps;
+}
+
 export function selfUpdateStepDetail(step: SelfUpdateStepRecord) {
   if (step.status === "pending") return "Aguardando";
   if (step.status === "running") return "Em andamento";

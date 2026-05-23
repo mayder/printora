@@ -381,7 +381,6 @@ def apply_self_update(
         status="running",
         steps=_steps_for_environment(detected_environment),
     )
-    repository.mark_all_steps(run.id, "running", plan_stdout)
 
     if _should_detach_self_update(detected_environment, project_root):
         _start_update_script_detached(
@@ -773,32 +772,35 @@ def _optional_payload_str(payload: dict[str, Any], key: str) -> str | None:
 
 
 def _steps_for_environment(environment: UpdateEnvironment) -> list[tuple[str, str]]:
-    common = [
-        ("validate_target", "Validar release alvo"),
-        ("backup_database", "Planejar backup obrigatório do banco"),
-        ("backup_project", "Planejar preservação da versão atual do projeto"),
-        ("checkout_release", "Planejar checkout/download da release"),
-        ("install_backend", "Planejar reinstalação do backend"),
-        ("apply_schema", "Planejar aplicação segura dos scripts SQL"),
-        ("build_frontend", "Planejar build ou uso do frontend versionado"),
-        ("restart_app", "Planejar reinício do Printora"),
-        ("validate_health", "Planejar validação final de /health"),
+    android_steps: list[tuple[str, str]] = [
+        ("validate_environment", "Validar ambiente, projeto, data dir e tag remota"),
+        ("backup_database", "Criar backup obrigatório do printora.db"),
+        ("backup_project", "Preservar pasta atual como Printora.previous-update-<timestamp>"),
+        ("checkout_release", "Clonar release alvo em Printora.next"),
+        ("preserve_venv", "Preservar backend/.venv quando possível"),
+        ("install_backend", "Instalar backend editable sem dependências"),
+        ("apply_schema", "Inicializar backend para aplicar SQL idempotente"),
+        ("build_frontend", "Buildar frontend quando necessário"),
+        ("restart_app", "Reiniciar Printora e anúncio printora.local"),
+        ("validate_health", "Validar /health"),
+    ]
+    replace_project_later_steps: list[tuple[str, str]] = [
+        ("validate_environment", "Validar ambiente, projeto, data dir e tag remota"),
+        ("backup_database", "Criar backup obrigatório do printora.db"),
+        ("checkout_release", "Clonar release alvo em Printora.next"),
+        ("preserve_venv", "Preservar backend/.venv quando possível"),
+        ("install_backend", "Instalar backend editable sem dependências"),
+        ("apply_schema", "Inicializar backend para aplicar SQL idempotente"),
+        ("build_frontend", "Buildar frontend quando necessário"),
+        ("backup_project", "Preservar pasta atual como Printora.previous-update-<timestamp>"),
+        ("restart_app", "Reiniciar Printora"),
+        ("validate_health", "Validar /health"),
     ]
     if environment == "android_termux":
-        return [
-            ("detect_termux", "Detectar Termux, tmux, Python, Node e porta ativa"),
-            *common,
-            ("restart_mdns", "Planejar reinício do anúncio printora.local"),
-        ]
+        return android_steps
     if environment == "windows":
-        return [
-            ("detect_windows", "Detectar Python, npm, Git e PowerShell"),
-            *common,
-        ]
-    return [
-        ("detect_unix", "Detectar shell, Python, npm, Git e modo de restart"),
-        *common,
-    ]
+        return [(key, "Reiniciar pelo runner Windows") if key == "restart_app" else (key, title) for key, title in replace_project_later_steps]
+    return replace_project_later_steps
 
 
 def _rollback_steps_for_environment(environment: UpdateEnvironment) -> list[tuple[str, str]]:

@@ -33,7 +33,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | CAN | frontend | a mapear | Registro e comparacao de estado CAN | existente |
 | Z-offset/calibracao | frontend | a mapear | Registro e guia manual de calibracao | existente |
 | Firmware | frontend | a mapear | Presets, dry-run, build e fluxo protegido | existente |
-| Updates | frontend | a mapear | Releases, update, progresso, historico e rollback do Printora | existente |
+| Updates | frontend | a mapear | Releases, update com uma ação principal, progresso sob demanda, historico e rollback do Printora | existente |
 
 ## Pendencias de mapeamento
 

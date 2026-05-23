@@ -1962,3 +1962,33 @@ Estado atual:
 
 - Implementado para macOS/Linux/Android/Windows em scripts separados.
 - Validação real em Raspberry, Android físico e Windows físico ainda pendente.
+
+## PKG-27: Fluxo Visual Do Updater 0.1.6
+
+Objetivo:
+
+Remover ambiguidade entre planejar e atualizar, e deixar o modal do updater legível em desktop/mobile.
+
+Entregáveis:
+
+- versão `0.1.6` no backend e frontend;
+- tela de releases com apenas uma ação principal: `Atualizar agora`;
+- criação do plano mantida internamente antes do apply;
+- modal planejado sem linha do tempo;
+- linha do tempo visível apenas durante execução, falha, conclusão ou rollback;
+- etapas pendentes ocultas durante execução;
+- scripts Android/Unix marcando etapas conforme executam;
+- modal sem rolagem interna aninhada na lista de etapas;
+- testes frontend e backend atualizados.
+
+Critério de aceite:
+
+- usuário não vê dois botões para o mesmo fluxo;
+- usuário não vê timeline antes de iniciar o update;
+- etapas aparecem conforme saem de `pending`;
+- fechamento do modal não depende de rolar lista interna;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado e validado localmente.

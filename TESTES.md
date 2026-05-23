@@ -81,6 +81,17 @@ Aceite:
 - Windows usa tarefa agendada `Printora`;
 - Node antigo não substitui o Node global do sistema, preservando serviços como Spoolman.
 
+## Updater 0.1.6
+
+Aceite do fluxo visual:
+
+- tela de releases mostra apenas a ação `Atualizar agora` para nova release;
+- o plano obrigatório do backend continua sendo criado antes do apply, mas não aparece como botão separado;
+- modal planejado mostra revisão, backups previstos e confirmação, sem linha do tempo;
+- linha do tempo aparece somente durante update, falha, conclusão ou rollback;
+- em execução, etapas pendentes ficam ocultas e entram na lista conforme o script marca cada etapa;
+- modal do updater não cria rolagem interna dentro da linha do tempo.
+
 O check inicial valida:
 
 - existência dos documentos principais;

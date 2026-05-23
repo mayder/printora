@@ -138,6 +138,70 @@ with sqlite3.connect(db_path) as connection:
 PY
 }
 
+mark_step() {
+  local step_key="$1"
+  local status="$2"
+  local message="${3:-}"
+  [[ -n "$UPDATE_RUN_ID" ]] || return
+  [[ -f "$DB_PATH" ]] || return
+  PRINTORA_MARK_RUN_ID="$UPDATE_RUN_ID" \
+  PRINTORA_MARK_DB_PATH="$DB_PATH" \
+  PRINTORA_MARK_STEP_KEY="$step_key" \
+  PRINTORA_MARK_STEP_STATUS="$status" \
+  PRINTORA_MARK_STEP_MESSAGE="$message" \
+  "$(python_bin)" - <<'PY' || true
+import os
+import sqlite3
+
+db_path = os.environ["PRINTORA_MARK_DB_PATH"]
+run_id = int(os.environ["PRINTORA_MARK_RUN_ID"])
+step_key = os.environ["PRINTORA_MARK_STEP_KEY"]
+status = os.environ["PRINTORA_MARK_STEP_STATUS"]
+message = os.environ.get("PRINTORA_MARK_STEP_MESSAGE", "")[:4000] or None
+
+if status == "running":
+    sql = """
+        UPDATE app_update_steps
+        SET status = 'running',
+            started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
+            log_excerpt = COALESCE(?, log_excerpt)
+        WHERE run_id = ? AND step_key = ?
+        """
+elif status in {"succeeded", "skipped"}:
+    sql = """
+        UPDATE app_update_steps
+        SET status = ?,
+            started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
+            finished_at = CURRENT_TIMESTAMP,
+            log_excerpt = COALESCE(?, log_excerpt)
+        WHERE run_id = ? AND step_key = ?
+        """
+else:
+    sql = """
+        UPDATE app_update_steps
+        SET status = 'failed',
+            started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
+            finished_at = CURRENT_TIMESTAMP,
+            log_excerpt = COALESCE(?, log_excerpt)
+        WHERE run_id = ? AND step_key = ?
+        """
+
+with sqlite3.connect(db_path) as connection:
+    if status in {"succeeded", "skipped"}:
+        connection.execute(sql, (status, message, run_id, step_key))
+    else:
+        connection.execute(sql, (message, run_id, step_key))
+PY
+}
+
+mark_step_running() {
+  mark_step "$1" "running" "${2:-}"
+}
+
+mark_step_succeeded() {
+  mark_step "$1" "succeeded" "${2:-}"
+}
+
 on_error() {
   local exit_code="$1"
   local line_no="$2"
@@ -510,21 +574,41 @@ PY
 }
 
 apply_update() {
+  mark_step_running "validate_environment"
   validate_common_plan_inputs
+  mark_step_succeeded "validate_environment"
   local remote_url timestamp db_backup previous_path
   remote_url="$(project_remote_url)"
   timestamp="$(timestamp_utc)"
   previous_path="$(project_previous_path "$timestamp")"
+  mark_step_running "backup_database"
   db_backup="$(backup_database "$timestamp")"
+  mark_step_succeeded "backup_database" "$db_backup"
+  mark_step_running "checkout_release"
   clone_target_release "$remote_url"
+  mark_step_succeeded "checkout_release" "$NEXT_DIR"
+  mark_step_running "preserve_venv"
   preserve_venv
+  mark_step_succeeded "preserve_venv"
+  mark_step_running "install_backend"
   install_backend
+  mark_step_succeeded "install_backend"
+  mark_step_running "apply_schema"
   apply_schema
+  mark_step_succeeded "apply_schema"
+  mark_step_running "build_frontend"
   build_frontend_if_needed
+  mark_step_succeeded "build_frontend"
+  mark_step_running "backup_project"
   replace_project "$previous_path"
   PREVIOUS_PATH="$previous_path"
+  mark_step_succeeded "backup_project" "$previous_path"
+  mark_step_running "restart_app"
   restart_app
+  mark_step_succeeded "restart_app"
+  mark_step_running "validate_health"
   validate_health
+  mark_step_succeeded "validate_health"
   mark_run_succeeded "$UPDATE_RUN_ID" "$db_backup" "$previous_path"
   printf '{"status":"succeeded","mode":"apply","target_tag":'
   json_string "$TARGET_TAG"

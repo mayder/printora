@@ -86,7 +86,7 @@ assert.match(source, /\/api\/system\/update\/plan/);
 assert.match(source, /\/api\/system\/update\/apply/);
 assert.match(source, /\/api\/system\/update\/history/);
 assert.match(source, /ATUALIZAR PRINTORA/);
-assert.match(source, /Planejar update/);
 assert.match(source, /Atualizar agora/);
+assert.match(source, /visibleSelfUpdateSteps/);
 
 console.log("Frontend release states passed.");

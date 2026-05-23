@@ -50,6 +50,7 @@ import {
   selfUpdateRunClass,
   selfUpdateStepClass,
   selfUpdateStepDetail,
+  visibleSelfUpdateSteps,
 } from "./selfUpdate";
 import type {
   SelfUpdateApplyResponse,
@@ -1346,6 +1347,12 @@ function App() {
     }
   }
 
+  async function startSelfUpdateFlow() {
+    const plannedRun = selfUpdatePlan?.run;
+    if (plannedRun && plannedRun.target_tag === systemReleases?.latest_release?.tag && plannedRun.status === "planned") return void setSelfUpdateModalOpen(true);
+    await planSelfUpdate();
+  }
+
   async function applySelfUpdate() {
     const targetTag = selfUpdatePlan?.run.target_tag ?? systemReleases?.latest_release?.tag;
     if (!targetTag) {
@@ -1946,7 +1953,7 @@ function App() {
           method: "server.connection.identify",
           params: {
             client_name: "Printora",
-            version: "0.1.5",
+            version: "0.1.6",
             type: "web",
             url: "https://github.com/printora/printora",
           },
@@ -3732,24 +3739,22 @@ function App() {
                 <span>Banco: {selfUpdatePlan.run.backup_db_path ?? "~/.local/share/printora/backups/printora.db.before-update-&lt;timestamp&gt;"}</span>
                 <span>Projeto anterior: {selfUpdatePlan.run.previous_project_path ?? "~/Printora.previous-update-&lt;timestamp&gt;"}</span>
               </div>
-              <div className={`self-update-progress ${selfUpdatePlan.run.status === "running" ? "active" : ""}`}>
-                <div>
-                  <strong>Linha do tempo</strong>
-                  <span>{selfUpdateCompletedStepCount(selfUpdatePlan.run)} de {selfUpdatePlan.run.steps.length} etapas concluídas</span>
-                </div>
-                <div className="self-update-progress-track"><span style={{ width: `${selfUpdateProgressPercent(selfUpdatePlan.run)}%` }} /></div>
-              </div>
-              <div className="update-log-list">
-                {selfUpdatePlan.run.steps.map((step) => (
-                  <div key={step.id} className={`update-log-row ${selfUpdateStepClass(step.status)}`}>
-                    <time>{formatSelfUpdateStepStatus(step.status)}</time>
-                    <span>
-                      <strong>{step.title}</strong>
-                      <small>{selfUpdateStepDetail(step)}</small>
-                    </span>
+              {selfUpdatePlan.run.status !== "planned" && (
+                <>
+                  <div className={`self-update-progress ${selfUpdatePlan.run.status === "running" ? "active" : ""}`}>
+                    <div><strong>Linha do tempo</strong><span>{selfUpdateCompletedStepCount(selfUpdatePlan.run)} de {selfUpdatePlan.run.steps.length} etapas concluídas</span></div>
+                    <div className="self-update-progress-track"><span style={{ width: `${selfUpdateProgressPercent(selfUpdatePlan.run)}%` }} /></div>
                   </div>
-                ))}
-              </div>
+                  <div className="update-log-list self-update-log-list" aria-live="polite">
+                    {visibleSelfUpdateSteps(selfUpdatePlan.run).map((step) => (
+                      <div key={step.id} className={`update-log-row ${selfUpdateStepClass(step.status)}`}>
+                        <time>{formatSelfUpdateStepStatus(step.status)}</time>
+                        <span><strong>{step.title}</strong><small>{selfUpdateStepDetail(step)}</small></span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
               {selfUpdatePlan.update_supported && selfUpdatePlan.run.status === "planned" ? (
                 <div className="self-update-confirm">
                   <label>
@@ -6221,16 +6226,10 @@ function App() {
               <p>{systemReleases.latest_release.changelog_summary || "Sem changelog informado."}</p>
               {systemReleases.latest_release_available ? (
                 <div className="update-actions">
-                  <button type="button" className="secondary-button" onClick={() => void planSelfUpdate()} disabled={releaseLoading}>
-                    <ShieldCheck size={16} />
-                    Planejar update
+                  <button type="button" className="secondary-button" onClick={() => void startSelfUpdateFlow()} disabled={releaseLoading}>
+                    <ShieldAlert size={16} />
+                    Atualizar agora
                   </button>
-                  {selfUpdatePlan?.run.target_tag === systemReleases.latest_release.tag && selfUpdatePlan.update_supported ? (
-                    <button type="button" className="secondary-button" onClick={() => setSelfUpdateModalOpen(true)}>
-                      <ShieldAlert size={16} />
-                      Atualizar agora
-                    </button>
-                  ) : null}
                 </div>
               ) : null}
             </div>

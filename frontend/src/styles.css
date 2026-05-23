@@ -3554,6 +3554,11 @@ label {
   width: min(860px, 100%);
 }
 
+.self-update-modal-card .update-log-list {
+  max-height: none;
+  overflow: visible;
+}
+
 .self-update-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
