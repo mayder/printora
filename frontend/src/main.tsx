@@ -45,8 +45,11 @@ import {
   formatSelfUpdateStatus,
   formatSelfUpdateStepStatus,
   isSelfUpdateEnvironmentSupported,
+  selfUpdateCompletedStepCount,
+  selfUpdateProgressPercent,
   selfUpdateRunClass,
   selfUpdateStepClass,
+  selfUpdateStepDetail,
 } from "./selfUpdate";
 import type {
   SelfUpdateApplyResponse,
@@ -1373,8 +1376,11 @@ function App() {
         run: payload.run,
       });
       setSelfUpdateMessage(payload.message);
-      await pollSelfUpdateRun(payload.run.id);
+      const finalRun = await pollSelfUpdateRun(payload.run.id);
       await loadSelfUpdateHistory();
+      if (finalRun?.status === "succeeded" || finalRun?.status === "rolled_back") {
+        await loadSystemReleases();
+      }
     } catch (err) {
       setSelfUpdateConnectionLost(true);
       setSelfUpdateMessage(err instanceof Error ? err.message : "O Printora pode estar reiniciando. Aguarde e recarregue.");
@@ -1383,7 +1389,7 @@ function App() {
     }
   }
 
-  async function pollSelfUpdateRun(runId: number) {
+  async function pollSelfUpdateRun(runId: number): Promise<SelfUpdateRunRecord | null> {
     for (let attempt = 0; attempt < 20; attempt += 1) {
       try {
         const response = await fetch(`/api/system/update/runs/${runId}`);
@@ -1395,15 +1401,20 @@ function App() {
           current ? { ...current, run, message: current.message } : { safe_mode: "poll", update_supported: isSelfUpdateEnvironmentSupported(run.environment), can_apply: false, message: "Status atualizado.", run },
         );
         if (run.status !== "running") {
-          return;
+          return run;
         }
       } catch {
         setSelfUpdateConnectionLost(true);
         setSelfUpdateMessage("O Printora pode estar reiniciando. Aguarde e recarregue.");
-        return;
+        window.setTimeout(() => {
+          void loadSystemReleases();
+          void loadSelfUpdateHistory();
+        }, 8000);
+        return null;
       }
       await new Promise((resolve) => window.setTimeout(resolve, 2000));
     }
+    return null;
   }
 
   async function rollbackSelfUpdate(runId: number) {
@@ -1431,8 +1442,11 @@ function App() {
         run: payload.rollback_run,
       });
       setSelfUpdateMessage(payload.message);
-      await pollSelfUpdateRun(payload.rollback_run.id);
+      const finalRun = await pollSelfUpdateRun(payload.rollback_run.id);
       await loadSelfUpdateHistory();
+      if (finalRun?.status === "succeeded" || finalRun?.status === "rolled_back") {
+        await loadSystemReleases();
+      }
     } catch (err) {
       setSelfUpdateConnectionLost(true);
       setSelfUpdateMessage(err instanceof Error ? err.message : "O Printora pode estar reiniciando. Aguarde e recarregue.");
@@ -1932,7 +1946,7 @@ function App() {
           method: "server.connection.identify",
           params: {
             client_name: "Printora",
-            version: "0.1.3",
+            version: "0.1.4",
             type: "web",
             url: "https://github.com/printora/printora",
           },
@@ -3718,13 +3732,20 @@ function App() {
                 <span>Banco: {selfUpdatePlan.run.backup_db_path ?? "~/.local/share/printora/backups/printora.db.before-update-&lt;timestamp&gt;"}</span>
                 <span>Projeto anterior: {selfUpdatePlan.run.previous_project_path ?? "~/Printora.previous-update-&lt;timestamp&gt;"}</span>
               </div>
+              <div className={`self-update-progress ${selfUpdatePlan.run.status === "running" ? "active" : ""}`}>
+                <div>
+                  <strong>Linha do tempo</strong>
+                  <span>{selfUpdateCompletedStepCount(selfUpdatePlan.run)} de {selfUpdatePlan.run.steps.length} etapas concluídas</span>
+                </div>
+                <div className="self-update-progress-track"><span style={{ width: `${selfUpdateProgressPercent(selfUpdatePlan.run)}%` }} /></div>
+              </div>
               <div className="update-log-list">
                 {selfUpdatePlan.run.steps.map((step) => (
                   <div key={step.id} className={`update-log-row ${selfUpdateStepClass(step.status)}`}>
                     <time>{formatSelfUpdateStepStatus(step.status)}</time>
                     <span>
-                      {step.title}
-                      {step.log_excerpt ? ` · ${step.log_excerpt}` : ""}
+                      <strong>{step.title}</strong>
+                      <small>{selfUpdateStepDetail(step)}</small>
                     </span>
                   </div>
                 ))}

@@ -444,7 +444,7 @@ Critérios:
 - No Android/Termux, validar `scripts/android_update_printora.sh --plan --tag vX.Y.Z` e confirmar JSON parseável sem alteração de arquivos.
 - Validar `POST /api/system/update/apply` com confirmação `ATUALIZAR PRINTORA`, tag estável e ambiente Android/Termux, confirmando persistência de run/steps e histórico de sucesso ou falha.
 - Confirmar que `POST /api/system/update/apply` rejeita confirmação inválida, tag inválida e ambiente desconhecido.
-- Na tela Configurações, confirmar que release disponível mostra `Planejar update`, abre modal de plano, só habilita `Aplicar update` após digitar `ATUALIZAR PRINTORA`, faz polling do run e mostra histórico.
+- Na tela Configurações, confirmar que release disponível mostra `Planejar update`, abre modal de plano, só habilita `Aplicar update` após digitar `ATUALIZAR PRINTORA`, faz polling do run, mostra progresso sem despejar JSON bruto e atualiza releases/histórico automaticamente ao concluir.
 - Na tela Configurações, confirmar que `not_supported` exibe mensagem clara e não libera apply quebrado.
 - No Android/Termux físico, validar `scripts/android_update_printora.sh --apply --tag vX.Y.Z`, conferindo backup do banco em `~/.local/share/printora/backups`, pasta anterior `~/Printora.previous-update-<timestamp>`, restart das sessões `tmux` e `/health`.
 - Validação real Android/Termux em 2026-05-23:

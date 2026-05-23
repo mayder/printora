@@ -109,3 +109,25 @@ export function selfUpdateStepClass(status: SelfUpdateStepRecord["status"]) {
   if (status === "running") return "warning";
   return "";
 }
+
+export function selfUpdateCompletedStepCount(run: SelfUpdateRunRecord) {
+  return run.steps.filter((step) => step.status === "succeeded" || step.status === "skipped").length;
+}
+
+export function selfUpdateProgressPercent(run: SelfUpdateRunRecord) {
+  if (run.status === "succeeded" || run.status === "rolled_back") return 100;
+  if (run.steps.length === 0) return run.status === "running" ? 12 : 0;
+  const base = Math.round((selfUpdateCompletedStepCount(run) / run.steps.length) * 100);
+  if (run.status === "running") return Math.max(12, base);
+  return base;
+}
+
+export function selfUpdateStepDetail(step: SelfUpdateStepRecord) {
+  if (step.status === "pending") return "Aguardando";
+  if (step.status === "running") return "Em andamento";
+  if (step.status === "succeeded") return "Concluído";
+  if (step.status === "skipped") return "Ignorado";
+  const log = step.log_excerpt?.trim();
+  if (!log || log.startsWith("{") || log.includes('"steps"')) return "Falhou";
+  return log.length > 140 ? `${log.slice(0, 140)}...` : log;
+}
