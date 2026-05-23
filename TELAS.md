@@ -29,7 +29,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - A navegacao oficial fica em `frontend/src/app/navigation.ts`.
 - `frontend/src/main.tsx` deve permanecer apenas como bootstrap, shell de navegacao e composicao das telas.
 - Cada tela fica em um arquivo proprio em `frontend/src/screens`.
-- Estado, efeitos e orquestracao de API ficam em `frontend/src/hooks/usePrintoraApp.ts`.
+- Estado, efeitos e orquestracao de API ficam em hooks por dominio em `frontend/src/hooks/domains`; `frontend/src/hooks/usePrintoraApp.ts` apenas compoe shell, contexto e dominios.
 - Chamadas HTTP ficam isoladas por dominio em `frontend/src/services`.
 - Componentes reutilizados ficam em `frontend/src/components`.
 
@@ -45,9 +45,9 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Calibracao | `calibration` | `/?section=calibration`, `/#calibration` | `frontend/src/screens/CalibrationScreen.tsx` | Z-offset, wizard manual, registro de resultados e sequencia de calibracao | Exige impressora ativa online | existente |
 | Testes | `tests` | `/?section=tests`, `/#tests` | `frontend/src/screens/TestsScreen.tsx` | Centro de testes Voron, ajuda, preflight e execucao com confirmacao presencial | Exige impressora ativa online | existente |
 | Firmware | `firmware` | `/?section=firmware`, `/#firmware` | `frontend/src/screens/FirmwareScreen.tsx` | Placas, presets, dry-run, preflight, build, flash e plano de recuperacao | Exige impressora ativa online | existente |
-| Manutencao | `maintenance` | `/?section=maintenance`, `/#maintenance` | `frontend/src/screens/MaintenanceScreen.tsx` | Tarefas preventivas, diario, horas de impressao e backups locais por impressora | Exige impressora ativa local | existente |
-| Relatorios | `reports` | `/?section=reports`, `/#reports` | `frontend/src/screens/ReportsScreen.tsx` | Auditorias, snapshots, diffs, plugins e relatorio sanitizado | Exige impressora ativa online | existente |
-| Configuracoes | `settings` | `/?section=settings`, `/#settings` | `frontend/src/screens/SettingsScreen.tsx` | Versao instalada, releases, update/rollback do Printora e contexto de configuracao | Nao exige impressora ativa | existente |
+| Manutencao | `maintenance` | `/?section=maintenance`, `/#maintenance` | `frontend/src/screens/MaintenanceScreen.tsx` | Tarefas preventivas, diario e horas de impressao por impressora | Exige impressora ativa local | existente |
+| Relatorios | `reports` | `/?section=reports`, `/#reports` | `frontend/src/screens/ReportsScreen.tsx` | Health, relatorio sanitizado, backups, snapshots, diffs, Moonraker, Klipper e auditoria read-only da impressora | Exige impressora ativa online | existente |
+| Configuracoes | `settings` | `/?section=settings`, `/#settings` | `frontend/src/screens/SettingsScreen.tsx` | Registro tecnico CAN, releases, update/rollback do Printora e diagnostico avancado do host | Nao exige impressora ativa | existente |
 
 ## Componentes e modais por dominio
 
@@ -58,7 +58,34 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Impressoras | `frontend/src/components/modals/PrinterModal.tsx` | Cadastro, edicao, descoberta e teste de conexao |
 | Atualizacoes do Printora | `frontend/src/components/modals/SelfUpdateModal.tsx` | Plano, aplicacao e rollback do proprio Printora |
 | Atualizacoes da impressora | `frontend/src/components/modals/UpdateDialogModal.tsx` | Confirmacao e progresso de update via Moonraker |
-| Manutencao | `frontend/src/components/modals/MaintenanceModals.tsx` | Conclusao de tarefa e registro livre de manutencao |
+| Manutencao concluida | `frontend/src/components/modals/MaintenanceDoneModal.tsx` | Conclusao de tarefa preventiva e ajuste do proximo lembrete |
+| Manutencao livre | `frontend/src/components/modals/MaintenanceFreeModal.tsx` | Registro livre de manutencao, falha, ajuste ou nota |
+| Calibracao ajuda | `frontend/src/components/modals/CalibrationHelpModal.tsx` | Ajuda operacional de um teste de calibracao |
+| Calibracao execucao | `frontend/src/components/modals/CalibrationExecuteModal.tsx` | Preflight e confirmacao presencial para envio de G-code |
+| Calibracao resultado | `frontend/src/components/modals/CalibrationResultModal.tsx` | Historico e registro manual de resultado de calibracao |
+
+## Hooks e services
+
+| Dominio | Hook | Service |
+|---|---|---|
+| Shell/navegacao | `frontend/src/hooks/domains/useAppShell.ts` | Nao acessa API |
+| Impressoras | `frontend/src/hooks/domains/usePrinters.ts` | `frontend/src/services/printerApi.ts` |
+| Operacao | `frontend/src/hooks/domains/useOperation.ts` | `frontend/src/services/operationApi.ts` |
+| Atualizacoes da impressora | `frontend/src/hooks/domains/useUpdates.ts` | `frontend/src/services/updatesApi.ts` |
+| Calibracao e Z-offset | `frontend/src/hooks/domains/useCalibration.ts` | `frontend/src/services/calibrationApi.ts`, `frontend/src/services/zOffsetApi.ts` |
+| Firmware e plugins | `frontend/src/hooks/domains/useFirmware.ts` | `frontend/src/services/firmwareApi.ts`, `frontend/src/services/pluginApi.ts` |
+| Manutencao | `frontend/src/hooks/domains/useMaintenance.ts` | `frontend/src/services/maintenanceApi.ts` |
+| Relatorios, snapshots e backups | `frontend/src/hooks/domains/useReports.ts` | `frontend/src/services/reportsApi.ts`, `frontend/src/services/backupApi.ts`, `frontend/src/services/printerApi.ts` |
+| CAN e diagnostico | `frontend/src/hooks/domains/useSettings.ts` | `frontend/src/services/canApi.ts`, `frontend/src/services/diagnosticsApi.ts`, `frontend/src/services/printerApi.ts` |
+| Updates do Printora | `frontend/src/hooks/domains/useSelfUpdate.ts` | `frontend/src/services/systemApi.ts` |
+
+## Distribuicao de conteudo
+
+- Backups ficam em `reports`, junto de snapshots, comparacoes, relatorio sanitizado e evidencias diagnosticas.
+- Auditoria read-only da impressora fica em `reports`.
+- Diagnostico avancado do host fica em `settings`.
+- CAN de monitoramento fica em `monitoring` como leitura operacional; registro tecnico, parser e comparacao manual ficam em `settings`.
+- Updates da impressora ficam em `updates`; updates do proprio Printora ficam em `settings`.
 
 ## Estado de UI
 

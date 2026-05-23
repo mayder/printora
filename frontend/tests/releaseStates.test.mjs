@@ -81,12 +81,15 @@ assert.equal(
 
 const appSource = await readFile(join(root, "src/main.tsx"), "utf8");
 const appHookSource = await readFile(join(root, "src/hooks/usePrintoraApp.ts"), "utf8");
+const selfUpdateHookSource = await readFile(join(root, "src/hooks/domains/useSelfUpdate.ts"), "utf8");
 const systemApiSource = await readFile(join(root, "src/services/systemApi.ts"), "utf8");
 const settingsScreenSource = await readFile(join(root, "src/screens/SettingsScreen.tsx"), "utf8");
 const selfUpdateModalSource = await readFile(join(root, "src/components/modals/SelfUpdateModal.tsx"), "utf8");
 
 assert.doesNotMatch(appSource, /fetch\(/);
-assert.match(appHookSource, /await Promise\.allSettled\(\[loadBoardPresets\(\), loadPrinters\(\)\]\);[\s\S]*void loadSystemReleases\(\);/);
+assert.match(appHookSource, /await Promise\.allSettled\(\[firmware\.loadBoardPresets\(\), printers\.loadPrinters\(\)\]\);[\s\S]*void selfUpdate\.loadSystemReleases\(\);/);
+assert.match(selfUpdateHookSource, /async function loadSystemReleases\(\)/);
+assert.match(selfUpdateHookSource, /async function startSelfUpdateFlow\(\)/);
 assert.match(systemApiSource, /\/api\/system\/update\/plan/);
 assert.match(systemApiSource, /\/api\/system\/update\/apply/);
 assert.match(systemApiSource, /\/api\/system\/update\/history/);
