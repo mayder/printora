@@ -1,0 +1,277 @@
+import sqlite3
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+import app.self_update as self_update_module
+from app.config import get_settings
+from app.database import initialize_database
+from app.main import app
+from app.self_update import SelfUpdateRepository, UpdatePlanRequest, build_update_plan
+
+
+def test_create_android_termux_plan(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = SelfUpdateRepository(database_path)
+
+    response = build_update_plan(
+        repository=repository,
+        request=UpdatePlanRequest(target_tag="v0.1.1", source_url="https://github.com/mayder/printora"),
+        project_root=tmp_path / "Printora",
+        environment="android_termux",
+    )
+
+    assert response.safe_mode == "plan_only"
+    assert response.update_supported is True
+    assert response.can_apply is True
+    assert response.run.target_version == "0.1.1"
+    assert response.run.environment == "android_termux"
+    assert response.run.status == "planned"
+    assert [step.step_key for step in response.run.steps] == [
+        "detect_termux",
+        "validate_target",
+        "backup_database",
+        "backup_project",
+        "checkout_release",
+        "install_backend",
+        "apply_schema",
+        "build_frontend",
+        "restart_app",
+        "validate_health",
+        "restart_mdns",
+    ]
+
+
+def test_create_unix_plan(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = SelfUpdateRepository(database_path)
+
+    response = build_update_plan(
+        repository=repository,
+        request=UpdatePlanRequest(target_tag="v0.1.2"),
+        project_root=tmp_path / "Printora",
+        environment="unix",
+    )
+
+    assert response.update_supported is False
+    assert response.run.environment == "unix"
+    assert response.run.steps[0].step_key == "detect_unix"
+    assert response.run.steps[-1].step_key == "validate_health"
+
+
+def test_plan_rejects_unknown_environment(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = SelfUpdateRepository(database_path)
+
+    try:
+        build_update_plan(
+            repository=repository,
+            request=UpdatePlanRequest(target_tag="v0.1.1"),
+            project_root=tmp_path,
+            environment="unknown",
+        )
+    except ValueError as exc:
+        assert "Ambiente não suportado" in str(exc)
+    else:
+        raise AssertionError("unknown environment should be rejected")
+
+
+def test_update_history_lists_runs(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "android_termux")
+    get_settings.cache_clear()
+    try:
+        with TestClient(app) as client:
+            plan_response = client.post(
+                "/api/system/update/plan",
+                json={"target_tag": "v0.1.1", "source_url": "https://github.com/mayder/printora"},
+            )
+            history_response = client.get("/api/system/update/history")
+            run_response = client.get(f"/api/system/update/runs/{plan_response.json()['run']['id']}")
+
+        assert plan_response.status_code == 200
+        assert history_response.status_code == 200
+        assert run_response.status_code == 200
+        history = history_response.json()
+        run = run_response.json()
+        assert len(history["runs"]) == 1
+        assert history["runs"][0]["target_tag"] == "v0.1.1"
+        assert history["runs"][0]["steps"]
+        assert run["target_version"] == "0.1.1"
+        assert run["environment"] == "android_termux"
+    finally:
+        get_settings.cache_clear()
+
+
+def test_plan_endpoint_rejects_unknown_environment(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "unknown")
+    get_settings.cache_clear()
+    try:
+        with TestClient(app) as client:
+            response = client.post("/api/system/update/plan", json={"target_tag": "v0.1.1"})
+
+        assert response.status_code == 400
+        assert "Ambiente não suportado" in response.json()["detail"]
+    finally:
+        get_settings.cache_clear()
+
+
+def test_schema_versioning_includes_app_update_sql(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+
+    with sqlite3.connect(database_path) as connection:
+        scripts = [
+            row[0]
+            for row in connection.execute(
+                "SELECT script_name FROM schema_versions ORDER BY execution_order"
+            ).fetchall()
+        ]
+        run_table = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'app_update_runs'"
+        ).fetchone()
+        step_table = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'app_update_steps'"
+        ).fetchone()
+
+    assert scripts[-1] == "018_app_update_runs.sql"
+    assert run_table == ("app_update_runs",)
+    assert step_table == ("app_update_steps",)
+
+
+def test_apply_rejects_without_confirmation(tmp_path: Path, monkeypatch) -> None:
+    _configure_fixture_releases(tmp_path, monkeypatch)
+    monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "android_termux")
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/system/update/apply",
+                json={"target_tag": "v0.2.0", "confirmation_phrase": "ERRADO"},
+            )
+
+        assert response.status_code == 400
+        assert "Confirmação obrigatória" in response.json()["detail"]
+    finally:
+        get_settings.cache_clear()
+
+
+def test_apply_rejects_invalid_tag(tmp_path: Path, monkeypatch) -> None:
+    _configure_fixture_releases(tmp_path, monkeypatch)
+    monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "android_termux")
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/system/update/apply",
+                json={"target_tag": "main", "confirmation_phrase": "ATUALIZAR PRINTORA"},
+            )
+
+        assert response.status_code == 400
+        assert "Tag inválida" in response.json()["detail"]
+    finally:
+        get_settings.cache_clear()
+
+
+def test_apply_rejects_unsupported_environment(tmp_path: Path, monkeypatch) -> None:
+    script = _write_mock_update_script(tmp_path, exit_code=0)
+    _configure_fixture_releases(tmp_path, monkeypatch, script)
+    monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "unix")
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/system/update/apply",
+                json={"target_tag": "v0.2.0", "confirmation_phrase": "ATUALIZAR PRINTORA"},
+            )
+
+        assert response.status_code == 400
+        assert "not_supported" in response.json()["detail"]
+    finally:
+        get_settings.cache_clear()
+
+
+def test_apply_calls_mocked_android_script_and_persists_success(tmp_path: Path, monkeypatch) -> None:
+    script = _write_mock_update_script(tmp_path, exit_code=0)
+    _configure_fixture_releases(tmp_path, monkeypatch, script)
+    monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "android_termux")
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/system/update/apply",
+                json={"target_tag": "v0.2.0", "confirmation_phrase": "ATUALIZAR PRINTORA"},
+            )
+            history_response = client.get("/api/system/update/history")
+
+        assert response.status_code == 200
+        payload = response.json()
+        history = history_response.json()
+        assert payload["accepted"] is True
+        assert payload["run"]["status"] == "succeeded"
+        assert payload["run"]["backup_db_path"] == "/tmp/printora.db.before-update"
+        assert payload["run"]["previous_project_path"] == "/tmp/Printora.previous"
+        assert all(step["status"] == "succeeded" for step in payload["run"]["steps"])
+        assert history["runs"][0]["status"] == "succeeded"
+    finally:
+        get_settings.cache_clear()
+
+
+def test_apply_persists_failure_in_history(tmp_path: Path, monkeypatch) -> None:
+    script = _write_mock_update_script(tmp_path, exit_code=7)
+    _configure_fixture_releases(tmp_path, monkeypatch, script)
+    monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "android_termux")
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/system/update/apply",
+                json={"target_tag": "v0.2.0", "confirmation_phrase": "ATUALIZAR PRINTORA"},
+            )
+            history_response = client.get("/api/system/update/history")
+
+        assert response.status_code == 200
+        payload = response.json()
+        history = history_response.json()
+        assert payload["accepted"] is False
+        assert payload["run"]["status"] == "failed"
+        assert "mock failure" in payload["run"]["error_message"]
+        assert history["runs"][0]["status"] == "failed"
+        assert all(step["status"] == "failed" for step in payload["run"]["steps"])
+    finally:
+        get_settings.cache_clear()
+
+
+def _configure_fixture_releases(tmp_path: Path, monkeypatch, script_path: Path | None = None) -> None:
+    fixture = Path(__file__).parent / "fixtures" / "github_releases.json"
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("PRINTORA_RELEASE_SOURCE_MODE", "fixture")
+    monkeypatch.setenv("PRINTORA_RELEASE_FIXTURE_PATH", str(fixture))
+    if script_path is not None:
+        monkeypatch.setenv("PRINTORA_SELF_UPDATE_SCRIPT_PATH", str(script_path))
+    get_settings.cache_clear()
+
+
+def _write_mock_update_script(tmp_path: Path, *, exit_code: int) -> Path:
+    script = tmp_path / "android_update_printora.sh"
+    if exit_code == 0:
+        body = """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == "--plan" ]]; then
+  echo '{"status":"planned","steps":[{"key":"validate_environment"}]}'
+  exit 0
+fi
+echo '{"status":"succeeded","backup_db_path":"/tmp/printora.db.before-update","previous_project_path":"/tmp/Printora.previous","current_project_path":"/tmp/Printora"}'
+"""
+    else:
+        body = """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == "--plan" ]]; then
+  echo '{"status":"planned","steps":[{"key":"validate_environment"}]}'
+  exit 0
+fi
+echo '{"status":"failed","error":"mock failure"}'
+exit 7
+"""
+    script.write_text(body, encoding="utf-8")
+    script.chmod(0o755)
+    return script

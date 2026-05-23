@@ -8,6 +8,27 @@ O objetivo é resolver uma lacuna comum em impressoras Klipper avançadas: opera
 
 O projeto deve ajudar o usuário a manter a impressora saudável sem precisar ser especialista em Linux, systemd, CAN, Git, Klipper, Moonraker e firmware ao mesmo tempo.
 
+## Arquitetura real do projeto
+
+- Monorepo com backend Python/FastAPI em `backend/`.
+- Frontend Vite/React/TypeScript em `frontend/`.
+- Banco local SQLite gerenciado pelo backend.
+- Scripts operacionais e validadores na raiz em `scripts/`.
+- A raiz e a fonte de verdade para governanca, backlog, testes, decisoes, telas e runbook.
+
+## Nomenclatura oficial do projeto
+
+| Conceito | Nome usado | Onde fica | Observacao |
+|---|---|---|---|
+| Entrada HTTP | route/endpoint | `backend/app` | Manter fina, sem regra pesada |
+| Regra de aplicacao | service/function coesa | `backend/app` | Separar regra de transporte |
+| Persistencia | store/repository/sql helper | `backend/app`, `backend/sql` | Sem migrations |
+| Integracao externa | client/adapter | `backend/app/moonraker.py` e similares | Isolar Moonraker/Klipper/systemd |
+| Payload publico | request/response/schema | backend/frontend | Nao vazar entidade interna |
+| Tela | page/view/component | `frontend/src` | Sem regra de negocio pesada |
+| Estado de tela | state/view model/hook | `frontend/src` | Coordenar UI e API |
+| Teste | unit/contract/flow | `backend/tests`, `frontend/tests` | Fixtures controladas |
+
 ## Modelo de Integração
 
 Printora não deve tentar modificar o Mainsail como um plugin nativo. O Mainsail não possui um sistema completo de plugins para telas internas complexas.

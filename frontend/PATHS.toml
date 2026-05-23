@@ -1,0 +1,41 @@
+# Ponteiro do modulo frontend para o modelo oficial do monorepo.
+
+[project]
+name = "printora-frontend"
+root = "/Users/brenomayder/projects/printora/frontend"
+language = "pt-BR"
+stack = "Vite/React/TypeScript"
+module = "frontend"
+
+[monorepo]
+root = "/Users/brenomayder/projects/printora"
+paths = "../PATHS.toml"
+check = "../check.sh"
+
+[files]
+scope = "../ESCOPO.md"
+governance = "../GOVERNANCA.md"
+roadmap = "../QUALITY_ROADMAP.md"
+backlog = "../DEMANDAS.md"
+bugs = "../BUGS.md"
+screens = "../TELAS.md"
+tests = "../TESTES.md"
+decisions = "../DECISOES.md"
+runbook = "../RUNBOOK.md"
+readme = "../README.md"
+check = "../check.sh"
+
+[module_files]
+runtime = "src"
+tests = "tests"
+fixtures = "tests/fixtures"
+package = "package.json"
+public = "public"
+
+[rules]
+read_order = [
+  "../PATHS.toml",
+  "../QUALITY_ROADMAP.md",
+  "../GOVERNANCA.md",
+  "../DEMANDAS.md",
+]

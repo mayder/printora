@@ -1,0 +1,127 @@
+# Mapa oficial do monorepo para uso humano e por IA.
+
+[project]
+name = "Printora"
+root = "/Users/brenomayder/projects/printora"
+language = "pt-BR"
+type = "monorepo"
+
+[files]
+scope = "ESCOPO.md"
+governance = "GOVERNANCA.md"
+roadmap = "QUALITY_ROADMAP.md"
+backlog = "DEMANDAS.md"
+bugs = "BUGS.md"
+screens = "TELAS.md"
+tests = "TESTES.md"
+decisions = "DECISOES.md"
+runbook = "RUNBOOK.md"
+readme = "README.md"
+check = "./check.sh"
+mindmap_complete = "MAPA_MENTAL_MARKMAP.md"
+mindmap_executive = "MAPA_EXECUTIVO_MARKMAP.md"
+
+[rules]
+read_order = [
+  "PATHS.toml",
+  "QUALITY_ROADMAP.md",
+  "GOVERNANCA.md",
+  "DEMANDAS.md",
+]
+
+[modules]
+backend.root = "/Users/brenomayder/projects/printora/backend"
+backend.language = "Python"
+backend.framework = "FastAPI"
+backend.tests = "/Users/brenomayder/projects/printora/backend/tests"
+backend.sql = "/Users/brenomayder/projects/printora/backend/sql"
+
+frontend.root = "/Users/brenomayder/projects/printora/frontend"
+frontend.language = "TypeScript"
+frontend.framework = "Vite/React"
+frontend.tests = "/Users/brenomayder/projects/printora/frontend/tests"
+frontend.public = "/Users/brenomayder/projects/printora/frontend/public"
+
+[checks]
+required = [
+  "./check.sh",
+]
+
+[quality]
+max_file_lines = 7500
+max_function_lines = 60
+runtime_dirs = [
+  "backend/app",
+  "frontend/src",
+]
+docs_only_paths = [
+  "PATHS.toml",
+  "ESCOPO.md",
+  "GOVERNANCA.md",
+  "QUALITY_ROADMAP.md",
+  "DEMANDAS.md",
+  "BUGS.md",
+  "TELAS.md",
+  "TESTES.md",
+  "DECISOES.md",
+  "RUNBOOK.md",
+  "README.md",
+  "MAPA_MENTAL_MARKMAP.md",
+  "MAPA_EXECUTIVO_MARKMAP.md",
+]
+sql_dirs = [
+  "backend/sql",
+]
+forbid_runtime_patterns = [
+  "PKG-[0-9]+",
+  "Lote [0-9]+",
+]
+
+[quality.stack]
+language = "python+typescript"
+framework = "FastAPI + Vite/React"
+
+[quality.coverage]
+enabled = false
+min_lines = 0
+critical_min_lines = 0
+
+[quality.fixtures]
+dirs = [
+  "backend/tests/fixtures",
+  "frontend/tests/fixtures",
+]
+allow_production_dump = false
+require_deterministic_ids = true
+max_fixture_file_kb = 512
+forbid_fixture_name_patterns = [
+  "prod",
+  "production",
+  "dump-real",
+  "real-dump",
+]
+
+[quality.observability]
+enabled = true
+default_log_retention_days = 30
+audit_retention_days = 180
+prefer_existing_tables = true
+avoid_new_tables_without_justification = true
+require_cleanup_policy = true
+
+[quality.layering]
+enabled = true
+forbidden_imports = [
+  "domain->framework",
+  "service->controller",
+  "ui->http_direct",
+  "tests->production_side_effects",
+]
+
+[ai.reading]
+default = ["PATHS.toml"]
+package = ["PATHS.toml", "QUALITY_ROADMAP.md", "GOVERNANCA.md", "DEMANDAS.md"]
+bug = ["PATHS.toml", "BUGS.md", "TESTES.md"]
+ui = ["PATHS.toml", "TELAS.md", "TESTES.md"]
+architecture = ["PATHS.toml", "ESCOPO.md", "QUALITY_ROADMAP.md", "DECISOES.md"]
+operation = ["PATHS.toml", "GOVERNANCA.md", "RUNBOOK.md"]

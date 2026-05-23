@@ -55,6 +55,10 @@ Uma versão só pode ser considerada publicável se:
 - dados sensíveis não estiverem versionados;
 - o rollback mínimo estiver documentado.
 
+Migrations são proibidas. Toda alteração de banco deve ser entregue como script `.sql` idempotente em `backend/sql/`, com rollback e impacto documentados.
+
+Em branch `main` ou `hml`, a IA deve perguntar antes de editar quando o usuário não tiver autorizado explicitamente o uso da branch.
+
 ## Riscos Principais
 
 ### Firmware

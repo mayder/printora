@@ -1,0 +1,41 @@
+# Ponteiro do modulo backend para o modelo oficial do monorepo.
+
+[project]
+name = "printora-backend"
+root = "/Users/brenomayder/projects/printora/backend"
+language = "pt-BR"
+stack = "Python/FastAPI"
+module = "backend"
+
+[monorepo]
+root = "/Users/brenomayder/projects/printora"
+paths = "../PATHS.toml"
+check = "../check.sh"
+
+[files]
+scope = "../ESCOPO.md"
+governance = "../GOVERNANCA.md"
+roadmap = "../QUALITY_ROADMAP.md"
+backlog = "../DEMANDAS.md"
+bugs = "../BUGS.md"
+screens = "../TELAS.md"
+tests = "../TESTES.md"
+decisions = "../DECISOES.md"
+runbook = "../RUNBOOK.md"
+readme = "../README.md"
+check = "../check.sh"
+
+[module_files]
+runtime = "app"
+tests = "tests"
+fixtures = "tests/fixtures"
+sql = "sql"
+pyproject = "pyproject.toml"
+
+[rules]
+read_order = [
+  "../PATHS.toml",
+  "../QUALITY_ROADMAP.md",
+  "../GOVERNANCA.md",
+  "../DEMANDAS.md",
+]

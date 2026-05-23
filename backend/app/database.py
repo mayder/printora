@@ -17,7 +17,7 @@ class DatabaseSchemaError(RuntimeError):
 
 def initialize_database(database_path: Path) -> None:
     database_path.parent.mkdir(parents=True, exist_ok=True)
-    sql_files = sorted(SQL_DIR.glob("*.sql"))
+    sql_files = sorted(SQL_DIR.glob("[0-9]*.sql"))
     pending_files = _pending_sql_files(database_path, sql_files)
     backup_path: Path | None = None
     if database_path.exists() and pending_files:

@@ -27,6 +27,7 @@ import {
   Server,
   Settings,
   ShieldCheck,
+  ShieldAlert,
   SkipForward,
   SlidersHorizontal,
   Timer,
@@ -644,6 +645,55 @@ type UpdateActionResponse = {
   result: Record<string, unknown>;
 };
 
+type SelfUpdateStepRecord = {
+  id: number;
+  run_id: number;
+  step_key: string;
+  title: string;
+  status: "pending" | "running" | "succeeded" | "failed" | "skipped";
+  log_excerpt?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+};
+
+type SelfUpdateRunRecord = {
+  id: number;
+  target_version: string;
+  target_tag: string;
+  source_url?: string | null;
+  environment: "android_termux" | "unix" | "windows" | "unknown";
+  status: "planned" | "running" | "succeeded" | "failed" | "rolled_back";
+  started_at?: string | null;
+  finished_at?: string | null;
+  backup_db_path?: string | null;
+  backup_project_path?: string | null;
+  previous_project_path?: string | null;
+  current_project_path?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  steps: SelfUpdateStepRecord[];
+};
+
+type SelfUpdatePlanResponse = {
+  safe_mode: string;
+  update_supported: boolean;
+  can_apply: boolean;
+  message: string;
+  run: SelfUpdateRunRecord;
+};
+
+type SelfUpdateApplyResponse = {
+  accepted: boolean;
+  message: string;
+  run: SelfUpdateRunRecord;
+  script_stdout?: string | null;
+  script_stderr?: string | null;
+};
+
+type SelfUpdateHistoryResponse = {
+  runs: SelfUpdateRunRecord[];
+};
+
 type UpdateLogEntry = {
   id: number;
   time: string;
@@ -1098,6 +1148,13 @@ function App() {
   const [systemReleases, setSystemReleases] = React.useState<SystemReleasesResponse | null>(null);
   const [releaseLoading, setReleaseLoading] = React.useState(false);
   const [releaseError, setReleaseError] = React.useState<string | null>(null);
+  const [selfUpdatePlan, setSelfUpdatePlan] = React.useState<SelfUpdatePlanResponse | null>(null);
+  const [selfUpdateHistory, setSelfUpdateHistory] = React.useState<SelfUpdateRunRecord[]>([]);
+  const [selfUpdateModalOpen, setSelfUpdateModalOpen] = React.useState(false);
+  const [selfUpdateApplying, setSelfUpdateApplying] = React.useState(false);
+  const [selfUpdateConfirmation, setSelfUpdateConfirmation] = React.useState("");
+  const [selfUpdateMessage, setSelfUpdateMessage] = React.useState<string | null>(null);
+  const [selfUpdateConnectionLost, setSelfUpdateConnectionLost] = React.useState(false);
   const [updateActionResult, setUpdateActionResult] = React.useState<UpdateActionResponse | null>(null);
   const [updateDialog, setUpdateDialog] = React.useState<UpdateDialogState | null>(null);
   const [updateLogs, setUpdateLogs] = React.useState<UpdateLogEntry[]>([]);
@@ -1224,6 +1281,7 @@ function App() {
       ]);
       void loadGlobalDiagnostics();
       void loadSystemReleases();
+      void loadSelfUpdateHistory();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -1261,6 +1319,114 @@ function App() {
       setReleaseError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
       setReleaseLoading(false);
+    }
+  }
+
+  async function loadSelfUpdateHistory() {
+    try {
+      const response = await fetch("/api/system/update/history");
+      if (!response.ok) {
+        return;
+      }
+      const payload = (await response.json()) as SelfUpdateHistoryResponse;
+      setSelfUpdateHistory(payload.runs);
+    } catch {
+      // Histórico não deve bloquear o restante da tela.
+    }
+  }
+
+  async function planSelfUpdate() {
+    const targetTag = systemReleases?.latest_release?.tag;
+    if (!targetTag) {
+      return;
+    }
+    setSelfUpdateMessage(null);
+    setSelfUpdateConnectionLost(false);
+    setReleaseLoading(true);
+    try {
+      const response = await fetch("/api/system/update/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target_tag: targetTag,
+          source_url: systemReleases.latest_release?.url ?? null,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+      const payload = (await response.json()) as SelfUpdatePlanResponse;
+      setSelfUpdatePlan(payload);
+      setSelfUpdateConfirmation("");
+      setSelfUpdateModalOpen(true);
+      await loadSelfUpdateHistory();
+    } catch (err) {
+      setSelfUpdateMessage(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setReleaseLoading(false);
+    }
+  }
+
+  async function applySelfUpdate() {
+    const targetTag = selfUpdatePlan?.run.target_tag ?? systemReleases?.latest_release?.tag;
+    if (!targetTag) {
+      return;
+    }
+    setSelfUpdateApplying(true);
+    setSelfUpdateMessage(null);
+    setSelfUpdateConnectionLost(false);
+    try {
+      const response = await fetch("/api/system/update/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target_tag: targetTag,
+          source_url: systemReleases?.latest_release?.url ?? selfUpdatePlan?.run.source_url ?? null,
+          confirmation_phrase: selfUpdateConfirmation,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+      const payload = (await response.json()) as SelfUpdateApplyResponse;
+      setSelfUpdatePlan({
+        safe_mode: "apply",
+        update_supported: payload.run.environment === "android_termux",
+        can_apply: false,
+        message: payload.message,
+        run: payload.run,
+      });
+      setSelfUpdateMessage(payload.message);
+      await pollSelfUpdateRun(payload.run.id);
+      await loadSelfUpdateHistory();
+    } catch (err) {
+      setSelfUpdateConnectionLost(true);
+      setSelfUpdateMessage(err instanceof Error ? err.message : "O Printora pode estar reiniciando. Aguarde e recarregue.");
+    } finally {
+      setSelfUpdateApplying(false);
+    }
+  }
+
+  async function pollSelfUpdateRun(runId: number) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      try {
+        const response = await fetch(`/api/system/update/runs/${runId}`);
+        if (!response.ok) {
+          throw new Error(await readApiError(response));
+        }
+        const run = (await response.json()) as SelfUpdateRunRecord;
+        setSelfUpdatePlan((current) =>
+          current ? { ...current, run, message: current.message } : { safe_mode: "poll", update_supported: run.environment === "android_termux", can_apply: false, message: "Status atualizado.", run },
+        );
+        if (run.status !== "running") {
+          return;
+        }
+      } catch {
+        setSelfUpdateConnectionLost(true);
+        setSelfUpdateMessage("O Printora pode estar reiniciando. Aguarde e recarregue.");
+        return;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
     }
   }
 
@@ -3479,6 +3645,100 @@ function App() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        ) : null}
+
+        {selfUpdateModalOpen && selfUpdatePlan ? (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Update do Printora">
+            <div className="modal-card self-update-modal-card">
+              <div className="modal-header">
+                <div>
+                  <h2>
+                    <ShieldCheck size={20} />
+                    Update do Printora
+                  </h2>
+                  <p>
+                    {systemReleases?.installed_version ?? "-"} → {selfUpdatePlan.run.target_tag} ·{" "}
+                    {formatSelfUpdateEnvironment(selfUpdatePlan.run.environment)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => setSelfUpdateModalOpen(false)}
+                  disabled={selfUpdateApplying}
+                >
+                  <X size={16} />
+                  Fechar
+                </button>
+              </div>
+              <div className="self-update-summary">
+                <Metric label="Versão instalada" value={systemReleases?.installed_version ?? "-"} />
+                <Metric label="Versão alvo" value={selfUpdatePlan.run.target_tag} />
+                <Metric label="Ambiente" value={formatSelfUpdateEnvironment(selfUpdatePlan.run.environment)} />
+                <Metric label="Status" value={formatSelfUpdateStatus(selfUpdatePlan.run.status)} />
+              </div>
+              {selfUpdatePlan.update_supported ? (
+                <div className="action-result warning">
+                  <strong>Atenção</strong>
+                  <span>O Printora pode reiniciar durante o update. Se a conexão cair, aguarde e recarregue a página.</span>
+                </div>
+              ) : (
+                <div className="action-result warning">
+                  <strong>Ambiente sem apply automático</strong>
+                  <span>Este ambiente ainda não tem aplicação real de update habilitada pelo backend.</span>
+                </div>
+              )}
+              {selfUpdateConnectionLost ? (
+                <div className="action-result warning">
+                  <strong>O Printora pode estar reiniciando</strong>
+                  <span>Aguarde e recarregue.</span>
+                </div>
+              ) : null}
+              {selfUpdateMessage ? (
+                <div className="action-result">
+                  <strong>Status</strong>
+                  <span>{selfUpdateMessage}</span>
+                </div>
+              ) : null}
+              <div className="self-update-backups">
+                <strong>Backups previstos</strong>
+                <span>Banco: {selfUpdatePlan.run.backup_db_path ?? "~/.local/share/printora/backups/printora.db.before-update-&lt;timestamp&gt;"}</span>
+                <span>Projeto anterior: {selfUpdatePlan.run.previous_project_path ?? "~/Printora.previous-update-&lt;timestamp&gt;"}</span>
+              </div>
+              <div className="update-log-list">
+                {selfUpdatePlan.run.steps.map((step) => (
+                  <div key={step.id} className={`update-log-row ${selfUpdateStepClass(step.status)}`}>
+                    <time>{formatSelfUpdateStepStatus(step.status)}</time>
+                    <span>
+                      {step.title}
+                      {step.log_excerpt ? ` · ${step.log_excerpt}` : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {selfUpdatePlan.update_supported && selfUpdatePlan.run.status === "planned" ? (
+                <div className="self-update-confirm">
+                  <label>
+                    Confirmação
+                    <input
+                      value={selfUpdateConfirmation}
+                      onChange={(event) => setSelfUpdateConfirmation(event.target.value)}
+                      placeholder="ATUALIZAR PRINTORA"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={() => void applySelfUpdate()}
+                    disabled={selfUpdateApplying || selfUpdateConfirmation !== "ATUALIZAR PRINTORA"}
+                  >
+                    <ShieldAlert size={16} />
+                    Aplicar update
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -5906,6 +6166,26 @@ function App() {
                 </small>
               </div>
               <p>{systemReleases.latest_release.changelog_summary || "Sem changelog informado."}</p>
+              {systemReleases.latest_release_available ? (
+                <div className="update-actions">
+                  <button type="button" className="secondary-button" onClick={() => void planSelfUpdate()} disabled={releaseLoading}>
+                    <ShieldCheck size={16} />
+                    Planejar update
+                  </button>
+                  {selfUpdatePlan?.run.target_tag === systemReleases.latest_release.tag && selfUpdatePlan.update_supported ? (
+                    <button type="button" className="secondary-button" onClick={() => setSelfUpdateModalOpen(true)}>
+                      <ShieldAlert size={16} />
+                      Atualizar agora
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {selfUpdateMessage ? (
+            <div className={`action-result ${selfUpdateConnectionLost ? "warning" : ""}`}>
+              <strong>{selfUpdateConnectionLost ? "Conexão interrompida" : "Updater do Printora"}</strong>
+              <span>{selfUpdateMessage}</span>
             </div>
           ) : null}
           <div className="release-list">
@@ -5922,6 +6202,47 @@ function App() {
                   </span>
                 </div>
                 <p>{release.changelog_summary || "Sem changelog informado."}</p>
+              </div>
+            ))}
+          </div>
+          <div className="self-update-history">
+            <div className="panel-header-row compact">
+              <div>
+                <h3>Histórico de updates</h3>
+              </div>
+              <button type="button" className="ghost-button" onClick={() => void loadSelfUpdateHistory()}>
+                <History size={15} />
+                Recarregar
+              </button>
+            </div>
+            {selfUpdateHistory.length === 0 ? <p className="muted">Nenhum update do Printora registrado.</p> : null}
+            {selfUpdateHistory.slice(0, 5).map((run) => (
+              <div key={run.id} className={`update-row ${selfUpdateRunClass(run.status)}`}>
+                <div className="update-main">
+                  <div>
+                    <strong>#{run.id} · {run.target_tag}</strong>
+                    <span>
+                      {formatSelfUpdateStatus(run.status)} · {run.created_at}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => {
+                      setSelfUpdatePlan({
+                        safe_mode: "history",
+                        update_supported: run.environment === "android_termux",
+                        can_apply: false,
+                        message: "Detalhes do update registrado.",
+                        run,
+                      });
+                      setSelfUpdateModalOpen(true);
+                    }}
+                  >
+                    <FileText size={15} />
+                    Ver detalhes
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -6421,6 +6742,64 @@ function releasePanelClass(releases: SystemReleasesResponse | null) {
     return "warn";
   }
   return releases.update_status === "up_to_date" ? "ok" : "warn";
+}
+
+function formatSelfUpdateEnvironment(environment: SelfUpdateRunRecord["environment"]) {
+  const labels: Record<SelfUpdateRunRecord["environment"], string> = {
+    android_termux: "Android/Termux",
+    unix: "Unix/macOS/Linux",
+    windows: "Windows",
+    unknown: "desconhecido",
+  };
+  return labels[environment];
+}
+
+function formatSelfUpdateStatus(status: SelfUpdateRunRecord["status"]) {
+  const labels: Record<SelfUpdateRunRecord["status"], string> = {
+    planned: "planejado",
+    running: "em execução",
+    succeeded: "concluído",
+    failed: "falhou",
+    rolled_back: "rollback aplicado",
+  };
+  return labels[status];
+}
+
+function formatSelfUpdateStepStatus(status: SelfUpdateStepRecord["status"]) {
+  const labels: Record<SelfUpdateStepRecord["status"], string> = {
+    pending: "pendente",
+    running: "rodando",
+    succeeded: "ok",
+    failed: "falhou",
+    skipped: "pulado",
+  };
+  return labels[status];
+}
+
+function selfUpdateRunClass(status: SelfUpdateRunRecord["status"]) {
+  if (status === "succeeded") {
+    return "up_to_date";
+  }
+  if (status === "failed") {
+    return "warning";
+  }
+  if (status === "running") {
+    return "update_available";
+  }
+  return "";
+}
+
+function selfUpdateStepClass(status: SelfUpdateStepRecord["status"]) {
+  if (status === "succeeded") {
+    return "success";
+  }
+  if (status === "failed") {
+    return "error";
+  }
+  if (status === "running") {
+    return "warning";
+  }
+  return "";
 }
 
 function countPendingUpdates(status: UpdateStatusResponse | null) {

@@ -13,6 +13,30 @@ Por padrão, o Printora é conservador:
 - não faz flash de firmware pelo launcher rápido;
 - salva os dados locais em SQLite no computador onde a aplicação está rodando.
 
+## Modelo de trabalho
+
+Este monorepo usa `PATHS.toml` como mapa oficial para IA e humanos. A raiz concentra governanca, backlog, testes, telas, decisoes, runbook, mapas e check oficial.
+
+Arquivos principais:
+
+- `PATHS.toml`
+- `QUALITY_ROADMAP.md`
+- `GOVERNANCA.md`
+- `DEMANDAS.md`
+- `TESTES.md`
+- `BUGS.md`
+- `TELAS.md`
+- `DECISOES.md`
+- `RUNBOOK.md`
+- `MAPA_EXECUTIVO_MARKMAP.md`
+- `MAPA_MENTAL_MARKMAP.md`
+
+Validacao oficial:
+
+```bash
+./check.sh
+```
+
 ## O Que Clicar
 
 ### macOS

@@ -74,14 +74,19 @@ Mitigação:
 
 Atualizar backend, frontend e schema a partir da própria aplicação pode deixar o ambiente parcialmente atualizado se houver falha no meio do processo.
 
+Durante o update real no Android/Termux, a conexão HTTP que disparou `POST /api/system/update/apply` pode cair quando as sessões `tmux` forem reiniciadas, mesmo que o script finalize com sucesso.
+
+Validação real em 2026-05-23 encontrou e corrigiu um caso pior: quando o script era executado como filho direto do backend dentro do `tmux printora`, o `tmux kill-session -t printora` podia encerrar também o processo do update antes de marcar o run como `succeeded`.
+
 Mitigação:
 
 - plano read-only antes de aplicar;
 - backup obrigatório do `printora.db`;
-- execução por script externo ao processo web quando possível;
+- execução Android destacada do processo web antes do restart;
 - progresso persistido por etapa;
 - rollback explícito;
 - logs sanitizados.
+- UI deve orientar recarregar e consultar `/api/system/update/history` após queda de conexão durante restart.
 
 ### GitHub Releases Rate Limit E Cache
 

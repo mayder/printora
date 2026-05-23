@@ -29,6 +29,28 @@ def test_initialize_database_registers_sql_scripts_on_new_database(tmp_path: Pat
         assert app_version == ("Printora", "0.1.1", expected_scripts)
 
 
+def test_initialize_database_ignores_macos_appledouble_sql_files(tmp_path: Path, monkeypatch) -> None:
+    sql_dir = tmp_path / "sql"
+    sql_dir.mkdir()
+    for sql_file in database_module.SQL_DIR.glob("[0-9]*.sql"):
+        shutil.copy2(sql_file, sql_dir / sql_file.name)
+    (sql_dir / "._018_app_update_runs.sql").write_bytes(b"\x00\x05bad appledouble")
+    monkeypatch.setattr(database_module, "SQL_DIR", sql_dir)
+
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+
+    with sqlite3.connect(database_path) as connection:
+        scripts = [
+            row[0]
+            for row in connection.execute(
+                "SELECT script_name FROM schema_versions ORDER BY execution_order"
+            ).fetchall()
+        ]
+    assert "._018_app_update_runs.sql" not in scripts
+    assert scripts[-1] == "018_app_update_runs.sql"
+
+
 def test_initialize_database_is_idempotent_and_preserves_existing_data(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)
@@ -146,9 +168,13 @@ def test_system_version_endpoint_is_read_only(tmp_path: Path, monkeypatch) -> No
         assert payload["database_path"] == str(tmp_path / "printora.db")
         assert payload["schema_revision"] == _sql_script_count()
         assert payload["schema_current"]["revision"] == _sql_script_count()
-        assert payload["schema_current"]["latest_script"] == "017_maintenance_print_hours.sql"
+        assert payload["schema_current"]["latest_script"] == "018_app_update_runs.sql"
         assert payload["schema_scripts_applied"] == _sql_script_count()
         assert len(payload["applied_sql_scripts"]) == _sql_script_count()
+        assert any(
+            script["script_name"] == "018_app_update_runs.sql"
+            for script in payload["applied_sql_scripts"]
+        )
         assert payload["applied_sql_scripts"][0]["script_name"] == "000_schema_versioning.sql"
         assert set(payload["applied_sql_scripts"][0]) == {
             "script_name",

@@ -2,6 +2,7 @@ import asyncio
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -106,6 +107,17 @@ from app.releases import (
     build_releases_response,
     build_unavailable_releases_response,
 )
+from app.self_update import (
+    SelfUpdateRepository,
+    UpdateApplyRequest,
+    UpdateApplyResponse,
+    UpdateHistoryResponse,
+    UpdatePlanRequest,
+    UpdatePlanResponse,
+    UpdateRunRecord,
+    apply_self_update,
+    build_update_plan,
+)
 from app.snapshots import (
     SnapshotDiff,
     SnapshotDetail,
@@ -199,6 +211,10 @@ def get_firmware_board_repository(settings: Settings) -> FirmwareBoardRepository
 
 def get_calibration_repository(settings: Settings) -> CalibrationRepository:
     return CalibrationRepository(settings.database_path)
+
+
+def get_self_update_repository(settings: Settings) -> SelfUpdateRepository:
+    return SelfUpdateRepository(settings.database_path)
 
 
 @asynccontextmanager
@@ -300,6 +316,62 @@ async def system_update_status() -> dict[str, object]:
         "message": "PKG-21 apenas consulta releases; execução de update não está habilitada.",
         "release_error": releases.error,
     }
+
+
+@app.post("/api/system/update/plan")
+async def system_update_plan(payload: UpdatePlanRequest) -> UpdatePlanResponse:
+    settings = get_settings()
+    repository = get_self_update_repository(settings)
+    try:
+        return build_update_plan(
+            repository=repository,
+            request=payload,
+            project_root=Path(__file__).resolve().parents[2],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/system/update/history")
+async def system_update_history(limit: int = 20) -> UpdateHistoryResponse:
+    settings = get_settings()
+    repository = get_self_update_repository(settings)
+    return UpdateHistoryResponse(runs=repository.list_runs(limit=limit))
+
+
+@app.post("/api/system/update/apply")
+async def system_update_apply(payload: UpdateApplyRequest) -> UpdateApplyResponse:
+    settings = get_settings()
+    repository = get_self_update_repository(settings)
+    releases = await system_releases()
+    stable_tags = {
+        release.tag
+        for release in releases.releases
+        if not release.prerelease and not release.draft and release.channel == "stable"
+    }
+    try:
+        return apply_self_update(
+            repository=repository,
+            request=payload,
+            project_root=Path(__file__).resolve().parents[2],
+            script_path=settings.self_update_script_path,
+            stable_release_tags=stable_tags,
+            timeout_seconds=settings.self_update_timeout_seconds,
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        status_code = 409 if "Já existe update" in detail else 400
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+
+@app.get("/api/system/update/runs/{run_id}")
+async def system_update_run(run_id: int) -> UpdateRunRecord:
+    settings = get_settings()
+    repository = get_self_update_repository(settings)
+    run = repository.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="update run not found")
+    return run
 
 
 @app.get("/")

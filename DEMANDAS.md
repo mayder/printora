@@ -52,6 +52,12 @@
 - PKG-24: Updater Windows
 - PKG-25: Rollback, histórico e auditoria de updates do Printora
 
+## Política De Backlog
+
+### Quando criar pacote
+
+Criar pacote quando a demanda mudar contrato público, banco, segurança, operação crítica, UI de fluxo completo, integração externa, rollback ou exigir mais de um lote para entrega verificável.
+
 ## PKG-01: Base Do Projeto E Documentação Operacional
 
 Objetivo:
@@ -61,11 +67,11 @@ Criar estrutura mínima do projeto, escopo, governança, backlog, testes, bugs e
 Entregáveis:
 
 - `ESCOPO.md`
-- `CODEX_PATHS.toml`
+- `PATHS.toml`
 - `QUALITY_ROADMAP.md`
 - `GOVERNANCA.md`
 - `DEMANDAS.md`
-- `TESTS.md`
+- `TESTES.md`
 - `BUGS.md`
 - `check.sh`
 - `.gitignore`
@@ -1798,7 +1804,12 @@ Critério de aceite:
 
 Estado atual:
 
-- Pendente.
+- Parcial: base backend de plano/histórico implementada.
+- Criado schema SQLite para `app_update_runs` e `app_update_steps` em `backend/sql/018_app_update_runs.sql`.
+- Criados endpoints `POST /api/system/update/plan`, `GET /api/system/update/history` e `GET /api/system/update/runs/{run_id}`.
+- `plan` detecta ambiente `android_termux`, `unix`, `windows` ou `unknown`, persiste plano e etapas, e rejeita ambiente desconhecido.
+- Nenhum update real, checkout, backup, rebuild, restart ou alteração de arquivos é executado neste incremento.
+- Próximo incremento: implementar script Android/Termux real e conectar `apply` com confirmação explícita.
 
 ## PKG-23: Updater Android/Termux
 
@@ -1829,7 +1840,15 @@ Critério de aceite:
 
 Estado atual:
 
-- Pendente.
+- Parcial: script Android/Termux real criado em `scripts/android_update_printora.sh`.
+- `--plan` valida `git`, `tmux`, `python`, projeto local, banco/data dir e existência da tag no remoto, emitindo JSON sem alterar arquivos.
+- `--apply --tag vX.Y.Z` implementa backup obrigatório do banco, preservação da pasta atual, checkout da tag em `~/Printora.next`, reaproveitamento de `backend/.venv`, instalação editable do backend, aplicação de schema, build frontend quando necessário, restart de `tmux` e validação de `/health`.
+- `--rollback` preserva a pasta atual, restaura a pasta anterior, pode restaurar backup de banco informado, reinicia `tmux` e valida `/health`.
+- Teste automatizado cobre `--plan` com repositório Git temporário e `tmux` mockado.
+- Backend expõe `POST /api/system/update/apply`, valida confirmação `ATUALIZAR PRINTORA`, aceita somente tag de release estável, bloqueia ambiente não suportado e persiste sucesso/falha no histórico.
+- Tela Configurações exibe ação `Planejar update` quando há release disponível, modal de plano com steps, confirmação `ATUALIZAR PRINTORA`, chamada de `apply`, polling do run e histórico básico.
+- Validação real de `--apply` em Android físico concluída em 2026-05-23 via ADB/Termux para `v0.1.1`: backup do banco criado, pasta anterior preservada, app reiniciado, `/health` respondeu em `printora.local:8069`, versão passou para `0.1.1`, banco manteve impressoras e run ficou `succeeded` no SQLite.
+- Rollback real em Android físico ainda pendente.
 
 ## PKG-24: Updater Windows
 
@@ -1848,7 +1867,7 @@ Entregáveis:
 - reinício do processo iniciado pelo runner Windows;
 - validação final de `/health`;
 - logs em `%LOCALAPPDATA%\Printora\logs`;
-- testes manuais documentados em `TESTS.md`.
+- testes manuais documentados em `TESTES.md`.
 
 Critério de aceite:
 

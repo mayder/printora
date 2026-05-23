@@ -1,14 +1,41 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT_DIR"
+
+log() { echo "[check:printora] $*"; }
+fail() { echo "[check:printora] ERROR: $*" >&2; exit 1; }
+
+run_model_validations() {
+  local script
+  for script in \
+    scripts/validate-required-files.sh \
+    scripts/validate-paths.sh \
+    scripts/validate-docs.sh \
+    scripts/validate-rules.sh \
+    scripts/validate-no-secrets.sh \
+    scripts/validate-file-size.sh \
+    scripts/validate-no-runtime-pkg-names.sh \
+    scripts/validate-fixtures.sh \
+    scripts/validate-layering.sh \
+    scripts/validate-stack.sh; do
+    [[ -x "$script" ]] || fail "script obrigatorio ausente ou sem execucao: $script"
+    "$script"
+  done
+}
+
 required_files=(
-  "CODEX_PATHS.toml"
+  "PATHS.toml"
   "ESCOPO.md"
   "QUALITY_ROADMAP.md"
   "GOVERNANCA.md"
   "DEMANDAS.md"
-  "TESTS.md"
+  "TESTES.md"
   "BUGS.md"
+  "TELAS.md"
+  "DECISOES.md"
+  "RUNBOOK.md"
   "README.md"
   ".gitignore"
   "backend/pyproject.toml"
@@ -24,24 +51,37 @@ for file in "${required_files[@]}"; do
   fi
 done
 
-if ! grep -q 'check_script = "check.sh"' CODEX_PATHS.toml; then
-  echo "CODEX_PATHS.toml does not point to check.sh" >&2
-  exit 1
-fi
+run_model_validations
 
-if grep -RInE '(password|passwd|token|secret|api[_-]?key|private[_-]?key)\s*[:=]\s*[^ <]' . \
-  --exclude-dir=.git \
-  --exclude-dir=node_modules \
-  --exclude-dir=.venv \
-  --exclude-dir=dist \
-  --exclude-dir=build \
-  --exclude=check.sh \
-  --exclude=BUGS.md; then
-  echo "Potential secret found. Review before continuing." >&2
-  exit 1
-fi
-
+log "python compileall"
 python3 -m compileall -q backend/app backend/tests
+
+if [[ "${RUN_PYTHON_TESTS:-0}" == "1" ]]; then
+  log "pytest backend"
+  if command -v uv >/dev/null 2>&1; then
+    (cd backend && uv run pytest -q)
+  else
+    (cd backend && python3 -m pytest -q)
+  fi
+else
+  log "pytest backend pulado; use RUN_PYTHON_TESTS=1 ./check.sh"
+fi
+
+log "validando package.json"
 python3 -m json.tool frontend/package.json >/dev/null
 
-echo "Printora checks passed."
+if [[ "${RUN_FRONTEND_CHECKS:-0}" == "1" ]]; then
+  log "checks frontend"
+  if [[ -d frontend/node_modules ]]; then
+    (cd frontend && npm run build)
+    if node -e "const s=require('./frontend/package.json').scripts||{}; process.exit(s['test:releases']?0:1)"; then
+      (cd frontend && npm run test:releases)
+    fi
+  else
+    fail "frontend/node_modules ausente para RUN_FRONTEND_CHECKS=1"
+  fi
+else
+  log "checks frontend pesados pulados; use RUN_FRONTEND_CHECKS=1 ./check.sh"
+fi
+
+log "OK"
