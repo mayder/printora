@@ -1993,6 +1993,31 @@ Estado atual:
 
 - Implementado e validado localmente.
 
+## PKG-29: Frontend Pré-Buildado Para Instalação 0.1.8
+
+Objetivo:
+
+Evitar que a instalação em Raspberry dependa de build TypeScript/Vite local quando a release já pode entregar o frontend pronto.
+
+Entregáveis:
+
+- versão `0.1.8` no backend e frontend;
+- `frontend/dist` versionado na release;
+- bootstrap e instalador Raspberry pulam `npm install`/`npm run build` quando `frontend/dist/index.html` existe;
+- variável `PRINTORA_REBUILD_FRONTEND=1` para forçar rebuild quando necessário;
+- documentação de aceite em `TESTES.md`.
+
+Critério de aceite:
+
+- instalação nova no Raspberry não fica parada em `tsc -b && vite build` quando a release traz `frontend/dist`;
+- backend continua servindo o frontend de `frontend/dist`;
+- usuário ainda consegue forçar rebuild;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado e validado localmente.
+
 ## PKG-28: Retry Seguro Do Npm Install 0.1.7
 
 Objetivo:

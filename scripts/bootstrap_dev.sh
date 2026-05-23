@@ -54,8 +54,12 @@ fi
 run_or_print mkdir -p "${DATA_DIR}"
 run_or_print "${PYTHON_BIN}" -m venv "${ROOT_DIR}/backend/.venv"
 run_or_print "${ROOT_DIR}/backend/.venv/bin/pip" install -e "${ROOT_DIR}/backend[dev]"
-run_or_print "${ROOT_DIR}/scripts/npm_frontend_install.sh" "${ROOT_DIR}/frontend" "${NPM_BIN}"
-run_or_print "${NPM_BIN}" --prefix "${ROOT_DIR}/frontend" run build
+if [[ "${APPLY}" == "true" && -s "${ROOT_DIR}/frontend/dist/index.html" && "${PRINTORA_REBUILD_FRONTEND:-0}" != "1" ]]; then
+  echo "Frontend dist já existe; pulando npm install/build. Use PRINTORA_REBUILD_FRONTEND=1 para rebuildar."
+else
+  run_or_print "${ROOT_DIR}/scripts/npm_frontend_install.sh" "${ROOT_DIR}/frontend" "${NPM_BIN}"
+  run_or_print "${NPM_BIN}" --prefix "${ROOT_DIR}/frontend" run build
+fi
 
 echo "Ambiente local preparado."
 echo "Backend: ${ROOT_DIR}/scripts/dev_backend.sh"

@@ -75,7 +75,9 @@ if [[ -f "${TARGET_DIR}/.printora-node-env" ]]; then
 fi
 NPM_BIN="${PRINTORA_NPM_BIN:-$(command -v npm 2>/dev/null || true)}"
 
-if [[ -n "${NPM_BIN}" ]]; then
+if [[ -s "${TARGET_DIR}/frontend/dist/index.html" && "${PRINTORA_REBUILD_FRONTEND:-0}" != "1" ]]; then
+  echo "Frontend dist já existe; pulando npm install/build. Use PRINTORA_REBUILD_FRONTEND=1 para rebuildar."
+elif [[ -n "${NPM_BIN}" ]]; then
   run_or_print "${TARGET_DIR}/scripts/npm_frontend_install.sh" "${TARGET_DIR}/frontend" "${NPM_BIN}"
   run_or_print "${NPM_BIN}" --prefix "${TARGET_DIR}/frontend" run build
 elif [[ -f "${TARGET_DIR}/frontend/dist/index.html" ]]; then

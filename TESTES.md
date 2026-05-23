@@ -102,6 +102,15 @@ Aceite para dependências frontend:
 - `package-lock.json` é preservado;
 - serviços externos, incluindo Spoolman, não são modificados.
 
+## Instalador 0.1.8
+
+Aceite para Raspberry/Linux:
+
+- release inclui `frontend/dist` versionado;
+- instalador usa `frontend/dist/index.html` existente e pula `npm install`/`npm run build` por padrão;
+- build local só roda com `PRINTORA_REBUILD_FRONTEND=1` ou quando `frontend/dist` estiver ausente;
+- instalação não aparenta travar em `tsc -b && vite build` em Raspberry.
+
 O check inicial valida:
 
 - existência dos documentos principais;

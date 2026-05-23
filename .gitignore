@@ -16,6 +16,8 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+!frontend/dist/
+!frontend/dist/**
 
 # Local runtime data
 *.db
