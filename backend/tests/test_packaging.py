@@ -8,9 +8,9 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 def test_systemd_service_points_to_installed_backend() -> None:
     service = (ROOT_DIR / "packaging/systemd/printora.service").read_text()
 
-    assert "WorkingDirectory=/home/pi/Printora/backend" in service
+    assert "WorkingDirectory=/home/pi/Printora" in service
     assert "EnvironmentFile=-/home/pi/Printora/.env" in service
-    assert "uvicorn app.main:app --host 0.0.0.0 --port 8085" in service
+    assert "ExecStart=/home/pi/Printora/scripts/run_app.sh --foreground --no-open" in service
 
 
 def test_moonraker_update_manager_snippet_is_non_empty() -> None:

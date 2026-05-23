@@ -6,6 +6,26 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Alerta Vermelho Sem Causa Acionavel Na Home
+
+Sintoma:
+
+- a Home mostrava `Nao imprimir`, mas o operador precisava abrir a Central de alertas e interpretar listas tecnicas para saber qual bloqueio estava ativo e como agir.
+
+Causa:
+
+- a tela resumia apenas contadores de bloqueios/alertas e a Central exibia detalhe e acao como texto livre, sem separar causa, evidencia, orientacao e acao do sistema.
+
+Correção:
+
+- a Home passou a destacar o bloqueio ou alerta principal;
+- a Central de alertas passou a exibir `Por que aparece`, `Evidencia`, `Como resolver` e botoes de acao por item;
+- itens de health/checklist podem ser revalidados, updates podem abrir o fluxo do Update Manager e itens manuais abrem o diagnostico.
+
+Validação:
+
+- `npm run build` no frontend.
+
 ### Timeout No Envio De G-code De Calibração
 
 Sintoma:

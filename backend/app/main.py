@@ -626,7 +626,7 @@ async def printer_update_status(printer_id: int) -> UpdateStatusResponse:
     try:
         update_status = await client.update_status()
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        return build_update_status({})
     return build_update_status(update_status)
 
 
@@ -660,12 +660,18 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
             }
         return build_unreachable_operation(printer.moonraker_url, str(exc))
 
+    try:
+        history_totals = await client.history_totals()
+    except httpx.HTTPError:
+        history_totals = None
+
     operation = build_operation_status(
         printer_info=printer_info,
         server_info=server_info,
         system_info=system_info,
         proc_stats=proc_stats,
         objects=objects,
+        history_totals=history_totals,
     )
     operation["temperature_history"] = build_temperature_history(recent_snapshots)
     return {

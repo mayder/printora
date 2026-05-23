@@ -25,7 +25,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 
 | Tela | Modulo | Entrada | Objetivo | Status |
 |---|---|---|---|---|
-| Home operacional | frontend | `/` | Visao geral da impressora e atalhos seguros | existente |
+| Home operacional | frontend | `/` | Visao geral da impressora, horas impressas acumuladas e atalhos seguros | existente |
 | Auditoria | frontend | a mapear | Diagnostico read-only de ambiente Klipper/Moonraker | existente |
 | Snapshots | frontend | a mapear | Captura, listagem e comparacao de snapshots | existente |
 | Backups | frontend | a mapear | Plano, historico e operacao segura de backup | existente |
@@ -34,6 +34,17 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Z-offset/calibracao | frontend | a mapear | Registro e guia manual de calibracao | existente |
 | Firmware | frontend | a mapear | Presets, dry-run, build e fluxo protegido | existente |
 | Updates | frontend | a mapear | Releases, update com uma ação principal, progresso sob demanda, historico e rollback do Printora | existente |
+| Monitoramento | frontend | a mapear | Telemetria ao vivo de temperatura, progresso, sistema, fans e CAN sem formularios operacionais | existente |
+
+## Estado de UI
+
+- A impressora ativa deve ser preservada no navegador e restaurada ao recarregar a tela quando ainda existir no cadastro.
+- A Home operacional deve explicar o risco principal quando o estado for `Nao imprimir` ou `Monitorar`, exibindo causa, evidencia e acao segura.
+- A Central de alertas deve consolidar Health Check, Update Manager, checklist pos-update e auditoria com botoes de revalidacao, abertura do diagnostico ou fluxo de update quando aplicavel.
+- A tela Monitoramento deve ser leitura ao vivo para operador leigo: sem cadastro manual, sem checklist pos-update, sem auditoria tecnica e com graficos/indicadores que se atualizam automaticamente.
+- Formularios tecnicos de CAN devem ficar fora da tela Monitoramento.
+- Checklist pos-update deve aparecer na tela Atualizacoes.
+- Auditoria e diagnostico avancado do host devem ficar em telas de diagnostico/configuracao, nao como conteudo principal do Monitoramento.
 
 ## Pendencias de mapeamento
 

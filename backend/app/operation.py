@@ -33,6 +33,7 @@ def build_operation_status(
     system_info: dict[str, Any],
     proc_stats: dict[str, Any],
     objects: dict[str, Any],
+    history_totals: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     status = _object_status(objects)
     print_state = _text(_nested(status, ["print_stats", "state"]))
@@ -52,7 +53,10 @@ def build_operation_status(
         "capabilities": build_operation_capabilities(objects),
         "toolhead": _toolhead(status),
         "extruder": _extruder(status),
-        "miscellaneous": _miscellaneous(status),
+        "miscellaneous": {
+            **_miscellaneous(status),
+            "total_print_hours": _total_print_hours(history_totals),
+        },
     }
 
 
@@ -543,6 +547,18 @@ def _miscellaneous(status: dict[str, Any]) -> dict[str, Any]:
         "print_state": print_stats.get("state"),
         "filename": print_stats.get("filename"),
     }
+
+
+def _total_print_hours(history_totals: dict[str, Any] | None) -> float | None:
+    if not history_totals:
+        return None
+    job_totals = history_totals.get("job_totals")
+    if not isinstance(job_totals, dict):
+        return None
+    total_seconds = job_totals.get("total_print_time")
+    if not isinstance(total_seconds, int | float):
+        return None
+    return round(float(total_seconds) / 3600.0, 3)
 
 
 def _object_status(objects: dict[str, Any]) -> dict[str, Any]:

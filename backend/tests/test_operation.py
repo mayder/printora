@@ -27,6 +27,7 @@ def test_operation_status_is_read_only_and_groups_mainsail_like_panels() -> None
         server_info={"klippy_connected": True, "klippy_state": "ready", "moonraker_version": "v0.10.0"},
         system_info={"system_info": {"cpu_info": {"cpu_desc": "Raspberry Pi"}, "memory": {"available": 1234}}},
         proc_stats={"cpu_temp": 44.5, "system_load": 0.42},
+        history_totals={"job_totals": {"total_print_time": 44100}},
         objects={
             "status": {
                 "print_stats": {"state": "standby", "filename": "", "filament_used": 0},
@@ -47,6 +48,7 @@ def test_operation_status_is_read_only_and_groups_mainsail_like_panels() -> None
     assert result["toolhead"]["homed_axes"] == "xyz"
     assert result["extruder"]["extrusion_factor"] == 0.95
     assert result["miscellaneous"]["fans"][0]["name"] == "Fan"
+    assert result["miscellaneous"]["total_print_hours"] == 12.25
     assert result["actions"][0]["enabled"] is False
     assert result["actions"][0]["confirmation_required"] is True
     assert result["capabilities"]

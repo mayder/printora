@@ -39,6 +39,20 @@ import {
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useSelectedPrinterPreference } from "./selectedPrinterPreference";
+import {
+  buildAlertCenterItems,
+  type AlertCenterItem,
+  type AuditFinding,
+  type AuditResponse,
+  type ChecklistItem,
+  type ChecklistResponse,
+  type HealthItem,
+  type HealthResponse,
+  type UpdateComponent,
+  type UpdateStatusResponse,
+} from "./alertCenter";
+import { MonitoringDashboard } from "./MonitoringDashboard";
 import {
   canRollbackSelfUpdateRun,
   formatSelfUpdateEnvironment,
@@ -60,25 +74,6 @@ import type {
   SelfUpdateRunRecord,
 } from "./selfUpdate";
 import "./styles.css";
-
-type ChecklistItem = {
-  key: string;
-  title: string;
-  ok: boolean;
-  severity: string;
-  detail: string;
-  status: string;
-  source: string;
-};
-
-type ChecklistResponse = {
-  can_print: boolean;
-  data_state: string;
-  source: string;
-  error?: string | null;
-  summary: string;
-  items: ChecklistItem[];
-};
 
 type MoonrakerStatus = {
   connected: boolean;
@@ -165,54 +160,6 @@ type SnapshotDiff = {
   summary: string;
   highest_severity: "info" | "monitorar" | "risco" | "bloqueio";
   changes: SnapshotDiffItem[];
-};
-
-type AuditFinding = {
-  id: string;
-  title: string;
-  category: string;
-  classification: "corrigir_agora" | "monitorar" | "ignorar" | "precisa_confirmacao";
-  severity: "blocker" | "warning" | "info";
-  detail: string;
-  safe_action: string;
-};
-
-type AuditResponse = {
-  connected: boolean;
-  safe_mode: string;
-  data_state?: "live" | "last_snapshot" | "offline";
-  source?: string;
-  error?: string | null;
-  mode?: string;
-  executed?: boolean;
-  summary: string;
-  counts: Record<string, number>;
-  findings: AuditFinding[];
-  section_summary?: Record<string, unknown>;
-};
-
-type HealthItem = {
-  key: string;
-  title: string;
-  ok: boolean;
-  severity: "ok" | "info" | "warning" | "blocker";
-  detail: string;
-  action: string;
-};
-
-type HealthResponse = {
-  connected: boolean;
-  safe_mode: string;
-  data_state: string;
-  source: string;
-  error?: string | null;
-  printer_id: number;
-  moonraker_url: string;
-  decision: "ok_para_imprimir" | "monitorar" | "nao_imprimir";
-  summary: string;
-  metrics: Record<string, unknown>;
-  counts: Record<string, number>;
-  items: HealthItem[];
 };
 
 type OperationMetric = {
@@ -355,6 +302,7 @@ type OperationStatusResponse = {
     message?: string | null;
     print_state?: string | null;
     filename?: string | null;
+    total_print_hours?: number | null;
   };
 };
 
@@ -601,33 +549,6 @@ type PluginAuditResponse = {
   items: PluginAuditItem[];
 };
 
-type UpdateComponent = {
-  name: string;
-  title: string;
-  configured_type: string;
-  status: "up_to_date" | "update_available" | "warning" | "busy" | "unknown";
-  current_version?: string | null;
-  remote_version?: string | null;
-  full_version?: string | null;
-  is_dirty?: boolean | null;
-  is_valid?: boolean | null;
-  commits_behind_count: number;
-  package_count: number;
-  warnings: string[];
-  anomalies: string[];
-  can_update: boolean;
-};
-
-type UpdateStatusResponse = {
-  safe_mode: string;
-  busy: boolean;
-  github_requests_remaining?: number | null;
-  github_rate_limit?: number | null;
-  summary: string;
-  counts: Record<string, number>;
-  components: UpdateComponent[];
-};
-
 type ReleaseRecord = {
   tag: string;
   name: string;
@@ -670,15 +591,6 @@ type UpdateLogEntry = {
   time: string;
   level: "info" | "success" | "warning" | "error";
   message: string;
-};
-
-type AlertCenterItem = {
-  id: string;
-  source: string;
-  title: string;
-  detail: string;
-  action: string;
-  severity: "blocker" | "warning" | "info";
 };
 
 type UpdateDialogState = {
@@ -1006,8 +918,8 @@ const appSections: Array<{
     key: "monitoring",
     icon: Activity,
     label: "Monitoramento",
-    detail: "Health, logs, CAN, Moonraker, Klipper e host.",
-    purpose: "Analise saúde, logs e sinais técnicos antes de imprimir, atualizar ou diagnosticar falhas.",
+    detail: "Telemetria ao vivo da impressora.",
+    purpose: "Acompanhe em tempo real temperaturas, progresso, comunicação, fans, sistema e CAN da impressora ativa.",
   },
   {
     key: "updates",
@@ -1085,7 +997,7 @@ function getInitialSection(): AppSection {
 
 function App() {
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
-  const [selectedPrinterId, setSelectedPrinterId] = React.useState<number | null>(null);
+  const [selectedPrinterId, setSelectedPrinterId] = useSelectedPrinterPreference();
   const [activeSection, setActiveSection] = React.useState<AppSection>(() => getInitialSection());
   const [discovery, setDiscovery] = React.useState<PrinterDiscoveryResponse | null>(null);
   const [printerModalOpen, setPrinterModalOpen] = React.useState(false);
@@ -1235,9 +1147,7 @@ function App() {
   const [calibrationExecutionConfirmation, setCalibrationExecutionConfirmation] = React.useState("");
   const [backupName, setBackupName] = React.useState("Config backup");
   const [backupSourcePath, setBackupSourcePath] = React.useState("/home/pi/printer_data/config");
-  const [backupDestinationPath, setBackupDestinationPath] = React.useState(
-    "/home/pi/printer_data/backups/printora",
-  );
+  const [backupDestinationPath, setBackupDestinationPath] = React.useState("/home/pi/printer_data/backups/printora");
   const [backupDryRunOnly, setBackupDryRunOnly] = React.useState(true);
   const [backupCompareBasePath, setBackupCompareBasePath] = React.useState("");
   const [backupCompareTargetPath, setBackupCompareTargetPath] = React.useState("");
@@ -1254,10 +1164,7 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      await Promise.allSettled([
-        loadBoardPresets(),
-        loadPrinters(),
-      ]);
+      await Promise.allSettled([loadBoardPresets(), loadPrinters()]);
       void loadGlobalDiagnostics();
       void loadSystemReleases();
       void loadSelfUpdateHistory();
@@ -1469,7 +1376,7 @@ function App() {
     }
     const payload = (await response.json()) as { printers: PrinterRecord[] };
     setPrinters(payload.printers);
-    const nextSelected = selectedPrinterId ?? payload.printers[0]?.id ?? null;
+    const nextSelected = payload.printers.some((printer) => printer.id === selectedPrinterId) ? selectedPrinterId : payload.printers[0]?.id ?? null;
     setSelectedPrinterId(nextSelected);
     if (nextSelected) {
       await loadPrinterContext(nextSelected);
@@ -1527,11 +1434,13 @@ function App() {
     setAudit((await response.json()) as AuditResponse);
   }
 
-  async function loadOperationStatus(printerId: number) {
-    setOperationStatus(null);
-    setOperationActionPreview(null);
-    setOperationExecutionPhrase("");
-    setOperationExecutionAttempt(null);
+  async function loadOperationStatus(printerId: number, options?: { preserveData?: boolean }) {
+    if (!options?.preserveData) {
+      setOperationStatus(null);
+      setOperationActionPreview(null);
+      setOperationExecutionPhrase("");
+      setOperationExecutionAttempt(null);
+    }
     const response = await fetch(`/api/printers/${printerId}/operation/status`);
     if (!response.ok) {
       return;
@@ -1900,6 +1809,45 @@ function App() {
       await loadPrinterHealth(selectedPrinterId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleAlertCenterAction(item: AlertCenterItem) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    if (item.actionKind === "open_updates") {
+      setActiveSection("updates");
+      setAlertCenterOpen(false);
+      return;
+    }
+    if (item.actionKind === "run_update") {
+      setActiveSection("updates");
+      setAlertCenterOpen(false);
+      openUpdateDialog(item.target ?? "all");
+      return;
+    }
+    if (item.actionKind === "refresh_update") {
+      await refreshUpdateStatus(item.target);
+      return;
+    }
+    if (item.actionKind === "open_monitoring") {
+      setActiveSection("monitoring");
+      setAlertCenterOpen(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await Promise.allSettled([
+        loadPrinterChecklist(selectedPrinterId),
+        loadOperationStatus(selectedPrinterId),
+        loadPrinterAudit(selectedPrinterId),
+        loadPrinterHealth(selectedPrinterId),
+        loadUpdateStatus(selectedPrinterId),
+      ]);
     } finally {
       setLoading(false);
     }
@@ -3188,6 +3136,19 @@ function App() {
     }
   }, [activeSection, selectedPrinterId]);
 
+  React.useEffect(() => {
+    if (!selectedPrinterId || activeSection !== "monitoring") {
+      return;
+    }
+    void loadOperationStatus(selectedPrinterId, { preserveData: true });
+    const refreshId = window.setInterval(() => {
+      void loadOperationStatus(selectedPrinterId, { preserveData: true });
+      void loadPrinterHealth(selectedPrinterId);
+      void loadCanRecords(selectedPrinterId);
+    }, 5000);
+    return () => window.clearInterval(refreshId);
+  }, [activeSection, selectedPrinterId]);
+
   React.useEffect(() => () => closeUpdateSocket(), []);
 
   const activeSectionMeta = appSections.find((section) => section.key === activeSection) ?? appSections[0];
@@ -3249,9 +3210,10 @@ function App() {
   const ThemeIcon = theme === "dark" ? Sun : Moon;
   const alertCenterItems = buildAlertCenterItems({ health, updateStatus, checklist, audit });
   const alertCount = alertCenterItems.length;
+  const primaryRiskItem = alertCenterItems.find((item) => item.severity === "blocker") ?? alertCenterItems.find((item) => item.severity === "warning") ?? null;
   const latestSnapshot = snapshots[0];
   const moonrakerOnline = health?.connected ?? status?.connected ?? false;
-  const selectedPrinterOnline = Boolean(selectedPrinterId && moonrakerOnline);
+  const displayDecision = displayHealthDecision(health);
   const visibleNavGroups = React.useMemo(
     () =>
       navGroups
@@ -3259,7 +3221,7 @@ function App() {
           ...group,
           sections: group.sections.filter((sectionKey) => {
             if (onlinePrinterSections.has(sectionKey)) {
-              return selectedPrinterOnline;
+              return Boolean(selectedPrinterId);
             }
             if (selectedPrinterLocalSections.has(sectionKey)) {
               return Boolean(selectedPrinterId);
@@ -3268,11 +3230,12 @@ function App() {
           }),
         }))
         .filter((group) => group.sections.length > 0),
-    [selectedPrinterId, selectedPrinterOnline],
+    [selectedPrinterId],
   );
   const operationState = operationStatus?.miscellaneous.print_state ?? status?.printer?.state ?? health?.metrics.klipper_state ?? "-";
-  const riskClass = overviewRiskClass(health?.decision);
-  const riskLabel = formatDecision(health?.decision);
+  const totalPrintHours = operationStatus?.miscellaneous.total_print_hours;
+  const riskClass = overviewRiskClass(displayDecision);
+  const riskLabel = formatDecision(displayDecision);
   const lastReadingLabel = latestSnapshot
     ? `Snapshot #${latestSnapshot.id} · ${latestSnapshot.created_at}`
     : health?.data_state
@@ -3326,14 +3289,14 @@ function App() {
   const TopbarPrimaryIcon = topbarPrimaryAction.icon;
 
   React.useEffect(() => {
-    if (onlinePrinterSections.has(activeSection) && !selectedPrinterOnline) {
+    if (onlinePrinterSections.has(activeSection) && !selectedPrinterId) {
       setActiveSection("overview");
       return;
     }
     if (selectedPrinterLocalSections.has(activeSection) && !selectedPrinterId) {
       setActiveSection("overview");
     }
-  }, [activeSection, selectedPrinterId, selectedPrinterOnline]);
+  }, [activeSection, selectedPrinterId]);
 
   return (
     <main className="app-shell">
@@ -3502,10 +3465,29 @@ function App() {
                       {React.createElement(alertCenterIcon(item.severity), { size: 17 })}
                     </div>
                     <div>
-                      <strong>{item.title}</strong>
-                      <span>{item.source}</span>
-                      <p>{item.detail}</p>
-                      <small>{item.action}</small>
+                      <div className="alert-center-row-header">
+                        <div>
+                          <strong>{item.title}</strong>
+                          <span>{item.source}</span>
+                        </div>
+                        <button type="button" className="secondary-button compact" onClick={() => void handleAlertCenterAction(item)} disabled={loading}>
+                          {item.actionLabel}
+                        </button>
+                      </div>
+                      <dl className="alert-center-explain">
+                        <div>
+                          <dt>Por que aparece</dt>
+                          <dd>{item.reason}</dd>
+                        </div>
+                        <div>
+                          <dt>Evidência</dt>
+                          <dd>{item.detail}</dd>
+                        </div>
+                        <div>
+                          <dt>Como resolver</dt>
+                          <dd>{item.action}</dd>
+                        </div>
+                      </dl>
                     </div>
                   </div>
                 ))}
@@ -4132,6 +4114,7 @@ function App() {
               <p>{selectedPrinter?.moonraker_url ?? "Cadastre uma impressora para carregar status, snapshots e health check."}</p>
               <div className="overview-status-grid">
                 <Metric label="Estado" value={formatUnknown(operationState)} />
+                <Metric label="Horas impressas" value={typeof totalPrintHours === "number" ? formatHours(totalPrintHours) : "-"} />
                 <Metric label="Última leitura" value={lastReadingLabel} />
                 <Metric label="Origem" value={health?.data_state ? formatChecklistDataState(health.data_state) : "-"} />
                 <Metric label="Updates" value={String(countPendingUpdates(updateStatus))} />
@@ -4141,11 +4124,26 @@ function App() {
               <span>Risco atual</span>
               <strong>{riskLabel}</strong>
               <p>{health?.summary ?? "Sem health check carregado para a impressora ativa."}</p>
+              {primaryRiskItem ? (
+                <div className="overview-risk-main">
+                  <span>{primaryRiskItem.severity === "blocker" ? "Bloqueio principal" : "Alerta principal"}</span>
+                  <strong>{primaryRiskItem.title}</strong>
+                  <p>{primaryRiskItem.reason}</p>
+                  <button type="button" className="secondary-button compact" onClick={() => void handleAlertCenterAction(primaryRiskItem)} disabled={loading}>
+                    {primaryRiskItem.actionLabel}
+                  </button>
+                </div>
+              ) : null}
               <div className="overview-risk-counts">
                 <span>{health?.counts.blocker ?? 0} bloqueio(s)</span>
                 <span>{health?.counts.warning ?? 0} alerta(s)</span>
                 <span>{snapshots.length} snapshot(s)</span>
               </div>
+              {alertCount > 0 ? (
+                <button type="button" className="ghost-button compact" onClick={() => setAlertCenterOpen(true)}>
+                  Ver todos os alertas
+                </button>
+              ) : null}
             </div>
           </div>
           <div className="overview-quick-actions" aria-label="Ações rápidas">
@@ -4381,7 +4379,19 @@ function App() {
           </div>
         </article>
 
-        <article className={`panel wide health ${healthPanelClass(health?.decision)} panel-section panel-monitoring`}>
+        <MonitoringDashboard
+          selectedPrinterName={selectedPrinter?.name ?? "Impressora não selecionada"}
+          operationStatus={operationStatus}
+          health={health}
+          canSummary={canSummary}
+          canRecords={canRecords}
+          canComparison={canComparison}
+          loading={loading}
+          onRefresh={() => selectedPrinterId ? void loadOperationStatus(selectedPrinterId, { preserveData: true }) : undefined}
+          onCompareCan={() => void compareLatestCanRecords()}
+        />
+
+        <article className={`panel wide health ${healthPanelClass(health?.decision)} panel-section panel-reports`}>
           <div className="panel-heading">
             <h2>Health Check</h2>
             <strong>{health?.summary ?? "Aguardando dados"}</strong>
@@ -4514,9 +4524,9 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide panel-section panel-monitoring">
+        <article className="panel wide panel-section panel-settings">
           <div className="panel-heading">
-            <h2>Monitor CAN</h2>
+            <h2>Registro técnico CAN</h2>
             <strong>{formatCanAlert(canSummary?.overall_alert ?? canRecords[0]?.alert_level ?? "ok")}</strong>
           </div>
           <div className="can-summary">
@@ -4532,7 +4542,7 @@ function App() {
             </button>
           </div>
           {canSummary?.data_state === "no_data" ? (
-            <p className="muted">Nenhuma leitura CAN local registrada. Cole a saída de ip link ou preencha os contadores manualmente.</p>
+            <p className="muted">Nenhuma leitura CAN local registrada. Este formulário é técnico e não aparece na tela de monitoramento.</p>
           ) : null}
           {canComparison ? (
             <div className={`can-row ${canComparison.alert_level}`}>
@@ -6163,7 +6173,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel panel-section panel-monitoring">
+        <article className="panel panel-section panel-reports">
           <h2>Moonraker</h2>
           <Metric label="Conexão" value={status?.connected ? "Conectado" : "Desconectado"} />
           <Metric label="URL" value={status?.moonraker_url ?? "-"} />
@@ -6171,7 +6181,7 @@ function App() {
           <Metric label="Moonraker" value={status?.server?.moonraker_version ?? "-"} />
         </article>
 
-        <article className="panel panel-section panel-monitoring">
+        <article className="panel panel-section panel-reports">
           <h2>Klipper</h2>
           <Metric label="Estado" value={status?.printer?.state ?? "-"} />
           <Metric label="Mensagem" value={status?.printer?.state_message ?? "-"} />
@@ -6326,7 +6336,7 @@ function App() {
           </div>
         </article>
 
-        <article className={`panel ${checklist?.can_print ? "ok" : "warn"} panel-section panel-monitoring`}>
+        <article className={`panel ${checklist?.can_print ? "ok" : "warn"} panel-section panel-updates`}>
           <h2>Checklist pós-update</h2>
           <strong className="summary">{checklist?.summary ?? "Aguardando dados"}</strong>
           {checklist ? (
@@ -6348,7 +6358,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide panel-section panel-monitoring panel-reports">
+        <article className="panel wide panel-section panel-reports">
           <h2>Auditoria somente leitura</h2>
           <strong className="summary">{audit?.summary ?? "Aguardando dados"}</strong>
           {audit ? (
@@ -6377,7 +6387,7 @@ function App() {
           </div>
         </article>
 
-        <details className="panel wide panel-section panel-monitoring panel-settings collapsible-panel host-diagnostics-panel">
+        <details className="panel wide panel-section panel-settings collapsible-panel host-diagnostics-panel">
           <summary>Diagnóstico avançado do host</summary>
           <p className="muted">Leitura técnica do computador onde o Printora roda. Use quando precisar investigar systemd, CAN, symlinks ou repositórios locais.</p>
           <strong className="summary">{hostAudit?.summary ?? "Aguardando dados"}</strong>
@@ -6841,77 +6851,6 @@ function isUpdateTargetConfirmedUpdated(status: UpdateStatusResponse | null, tar
   return Boolean(component && !component.can_update && component.status === "up_to_date");
 }
 
-function buildAlertCenterItems({
-  health,
-  updateStatus,
-  checklist,
-  audit,
-}: {
-  health: HealthResponse | null;
-  updateStatus: UpdateStatusResponse | null;
-  checklist: ChecklistResponse | null;
-  audit: AuditResponse | null;
-}): AlertCenterItem[] {
-  const items: AlertCenterItem[] = [];
-
-  health?.items
-    .filter((item) => item.severity === "blocker" || item.severity === "warning")
-    .forEach((item) => {
-      items.push({
-        id: `health-${item.key}`,
-        source: "Health Check",
-        title: item.title,
-        detail: item.detail,
-        action: item.action,
-        severity: item.severity === "blocker" ? "blocker" : "warning",
-      });
-    });
-
-  updateStatus?.components
-    .filter((component) => component.can_update || component.status === "warning" || component.warnings.length > 0 || component.anomalies.length > 0)
-    .forEach((component) => {
-      items.push({
-        id: `update-${component.name}`,
-        source: "Update Manager",
-        title: component.title,
-        detail:
-          component.status === "warning"
-            ? [...component.warnings, ...component.anomalies].filter(Boolean).join(" · ") || "Componente com aviso no Update Manager."
-            : `${component.current_version ?? "-"} → ${component.remote_version ?? component.full_version ?? "-"}`,
-        action: component.can_update ? "Atualização disponível. Revise e execute pela tela Atualizações." : "Reanalise o componente antes de agir.",
-        severity: component.status === "warning" || component.anomalies.length > 0 ? "warning" : "info",
-      });
-    });
-
-  checklist?.items
-    .filter((item) => !item.ok)
-    .forEach((item) => {
-      items.push({
-        id: `checklist-${item.key}`,
-        source: "Checklist pós-update",
-        title: item.title,
-        detail: item.detail,
-        action: "Corrija este item antes de considerar a impressora pronta.",
-        severity: item.severity === "blocker" ? "blocker" : "warning",
-      });
-    });
-
-  audit?.findings
-    .filter((finding) => finding.severity === "blocker" || finding.severity === "warning")
-    .forEach((finding) => {
-      items.push({
-        id: `audit-${finding.id}`,
-        source: `Auditoria · ${finding.category}`,
-        title: finding.title,
-        detail: finding.detail,
-        action: finding.safe_action,
-        severity: finding.severity,
-      });
-    });
-
-  return items;
-}
-
 function alertCenterIcon(severity: AlertCenterItem["severity"]): LucideIcon {
   const icons: Record<AlertCenterItem["severity"], LucideIcon> = {
     blocker: AlertTriangle,
@@ -7277,6 +7216,16 @@ function formatDecision(decision: HealthResponse["decision"] | undefined) {
     return "Não imprimir";
   }
   return "-";
+}
+
+function displayHealthDecision(health: HealthResponse | null): HealthResponse["decision"] | undefined {
+  if (!health) {
+    return undefined;
+  }
+  const blockerItems = health.items.filter((item) => item.severity === "blocker");
+  const onlyPrintoraReadBlocked =
+    blockerItems.length > 0 && blockerItems.every((item) => item.key === "data_state" || item.key === "moonraker_unreachable");
+  return onlyPrintoraReadBlocked ? "monitorar" : health.decision;
 }
 
 function healthPanelClass(decision: HealthResponse["decision"] | undefined) {

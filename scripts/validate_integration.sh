@@ -27,7 +27,7 @@ require_file "packaging/moonraker/update_manager_printora.conf"
 require_file "scripts/install_raspberry.sh"
 require_file "docs/INSTALL_RASPBERRY.md"
 
-require_contains "packaging/systemd/printora.service" "ExecStart=/home/pi/Printora/backend/.venv/bin/python -m uvicorn"
+require_contains "packaging/systemd/printora.service" "ExecStart=/home/pi/Printora/scripts/run_app.sh --foreground --no-open"
 require_contains "packaging/env/printora.env.example" "PRINTORA_FIRMWARE_BUILD_MODE=disabled"
 require_contains "packaging/mainsail/navi.json" "Printora"
 require_contains "packaging/moonraker/update_manager_printora.conf" "[update_manager printora]"
