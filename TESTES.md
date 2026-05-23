@@ -443,7 +443,7 @@ Critérios:
 - No Android/Termux, confirmar que o updater preserva a porta configurada e reinicia as sessões `tmux`.
 - No Android/Termux, validar `scripts/android_update_printora.sh --plan --tag vX.Y.Z` e confirmar JSON parseável sem alteração de arquivos.
 - Validar `POST /api/system/update/apply` com confirmação `ATUALIZAR PRINTORA`, tag estável e ambiente Android/Termux, confirmando persistência de run/steps e histórico de sucesso ou falha.
-- Confirmar que `POST /api/system/update/apply` rejeita confirmação inválida, tag inválida e ambiente Unix/Windows enquanto não implementados.
+- Confirmar que `POST /api/system/update/apply` rejeita confirmação inválida, tag inválida e ambiente desconhecido.
 - Na tela Configurações, confirmar que release disponível mostra `Planejar update`, abre modal de plano, só habilita `Aplicar update` após digitar `ATUALIZAR PRINTORA`, faz polling do run e mostra histórico.
 - Na tela Configurações, confirmar que `not_supported` exibe mensagem clara e não libera apply quebrado.
 - No Android/Termux físico, validar `scripts/android_update_printora.sh --apply --tag vX.Y.Z`, conferindo backup do banco em `~/.local/share/printora/backups`, pasta anterior `~/Printora.previous-update-<timestamp>`, restart das sessões `tmux` e `/health`.
@@ -461,7 +461,25 @@ Critérios:
   - run 7 ficou `succeeded` diretamente no SQLite, com steps `succeeded`;
   - observação: ao atualizar para uma tag antiga que ainda não contém os endpoints `/api/system/update/*`, o polling HTTP pós-restart pode receber 404; a UI deve orientar recarregar/validar por `/health` e a próxima release versionada deve incluir os endpoints novos.
 - No Android/Termux físico, validar rollback com `scripts/android_update_printora.sh --rollback --previous-path ~/Printora.previous-update-<timestamp> --db-backup <backup>`.
-- No Windows, confirmar que o updater usa PowerShell com escopo de execução limitado ao processo.
+- No macOS/Linux/Raspberry, validar `scripts/update_printora.sh --plan --tag vX.Y.Z` com:
+  - macOS/local sem systemd;
+  - Linux/Raspberry com `printora.service` em systemd;
+  - Linux sem systemd com `tmux` ou `scripts/run_app.sh`.
+- No macOS/Linux/Raspberry, validar `scripts/update_printora.sh --apply --tag vX.Y.Z` em ambiente descartável, confirmando backup de banco, preservação da pasta anterior, checkout da tag, aplicação de SQL, build frontend e restart sem reiniciar Klipper/Moonraker.
+- Validar que backend aplica update em ambiente `unix` com confirmação `ATUALIZAR PRINTORA`, tag estável e histórico persistido.
+- Validar rollback Unix com `scripts/update_printora.sh --rollback --previous-path <previous> --db-backup <backup>`.
+- No Windows, validar `scripts/update_printora_windows.ps1 --Plan --Tag vX.Y.Z` e confirmar JSON parseável sem alteração de arquivos.
+- No Windows, validar `scripts/update_printora_windows.ps1 --Apply --Tag vX.Y.Z` em ambiente descartável, conferindo backup de `%LOCALAPPDATA%\Printora\printora.db`, pasta anterior `Printora.previous-update-<timestamp>`, reinstalação backend/frontend, runner Windows reiniciado e `/health`.
+- Validar que backend aplica update em ambiente `windows` com confirmação `ATUALIZAR PRINTORA`, tag estável e histórico persistido.
+- Validar rollback Windows com `scripts/update_printora_windows.ps1 --Rollback --PreviousPath <previous> --DbBackup <backup>`.
+- Confirmar que o updater Windows usa `ExecutionPolicy Bypass` somente no escopo do processo.
+- Validar `POST /api/system/update/rollback`:
+  - rejeita confirmação diferente de `ROLLBACK PRINTORA`;
+  - rejeita paths relativos, raiz, pasta atual do projeto e nomes que não pareçam backup de update;
+  - cria run auditável de rollback;
+  - marca o run original como `rolled_back` quando a execução síncrona conclui;
+  - mantém histórico e steps anteriores.
+- Na tela Configurações, confirmar que histórico mostra runs, detalhes, steps, logs sanitizados e botão `Rollback` somente para run `succeeded` com pasta anterior disponível.
 - Confirmar que logs de update não expõem credenciais, chaves SSH, tokens ou senhas.
 - Confirmar que rollback exige confirmação explícita e registra histórico.
 

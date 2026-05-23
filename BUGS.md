@@ -78,6 +78,8 @@ Durante o update real no Android/Termux, a conexão HTTP que disparou `POST /api
 
 Validação real em 2026-05-23 encontrou e corrigiu um caso pior: quando o script era executado como filho direto do backend dentro do `tmux printora`, o `tmux kill-session -t printora` podia encerrar também o processo do update antes de marcar o run como `succeeded`.
 
+Rollback é operação destrutiva sobre a pasta atual do projeto e pode restaurar um binário/código que ainda não contém os endpoints novos de histórico. O histórico SQLite não deve ser apagado e a UI deve tolerar queda de conexão durante restart.
+
 Mitigação:
 
 - plano read-only antes de aplicar;
@@ -85,6 +87,7 @@ Mitigação:
 - execução Android destacada do processo web antes do restart;
 - progresso persistido por etapa;
 - rollback explícito;
+- rollback exige `ROLLBACK PRINTORA`, paths absolutos seguros e backup gerado pelo updater;
 - logs sanitizados.
 - UI deve orientar recarregar e consultar `/api/system/update/history` após queda de conexão durante restart.
 

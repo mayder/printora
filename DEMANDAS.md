@@ -1804,12 +1804,14 @@ Critério de aceite:
 
 Estado atual:
 
-- Parcial: base backend de plano/histórico implementada.
+- Parcial: updater Unix implementado para macOS/Linux/Raspberry.
 - Criado schema SQLite para `app_update_runs` e `app_update_steps` em `backend/sql/018_app_update_runs.sql`.
 - Criados endpoints `POST /api/system/update/plan`, `GET /api/system/update/history` e `GET /api/system/update/runs/{run_id}`.
 - `plan` detecta ambiente `android_termux`, `unix`, `windows` ou `unknown`, persiste plano e etapas, e rejeita ambiente desconhecido.
-- Nenhum update real, checkout, backup, rebuild, restart ou alteração de arquivos é executado neste incremento.
-- Próximo incremento: implementar script Android/Termux real e conectar `apply` com confirmação explícita.
+- Criado `scripts/update_printora.sh` com `--plan`, `--apply` e `--rollback`, detectando macOS sem systemd, Linux/Raspberry com systemd e Linux sem systemd.
+- Backend aceita `apply` para ambiente `unix`, com confirmação `ATUALIZAR PRINTORA`, tag de release estável, histórico e bloqueio de concorrência.
+- Testes automatizados cobrem plano Unix com mocks/tempdir e aplicação Unix por script mockado.
+- Validação real Unix/Raspberry ainda pendente.
 
 ## PKG-23: Updater Android/Termux
 
@@ -1879,7 +1881,13 @@ Critério de aceite:
 
 Estado atual:
 
-- Pendente.
+- Parcial: script PowerShell criado em `scripts/update_printora_windows.ps1`.
+- `--Plan` valida Git, Python, npm, projeto local, banco/data dir e tag remota, emitindo JSON sem alterar arquivos.
+- `--Apply --Tag vX.Y.Z` implementa backup obrigatório do banco, preservação da pasta atual, checkout da tag em `Printora.next`, reaproveitamento de `backend\.venv`, instalação editable do backend, aplicação de schema, instalação/build frontend quando necessário, restart pelo runner Windows e validação de `/health`.
+- `--Rollback` preserva a pasta atual, restaura a pasta anterior, pode restaurar backup de banco informado, reinicia pelo runner Windows e valida `/health`.
+- Backend aceita `apply` para ambiente `windows`, com confirmação `ATUALIZAR PRINTORA`, tag de release estável, histórico e bloqueio de concorrência.
+- Testes automatizados cobrem plano Windows, aplicação Windows por script mockado e contrato mínimo do script PowerShell.
+- Validação real em Windows físico ainda pendente.
 
 ## PKG-25: Rollback, Histórico E Auditoria De Updates Do Printora
 
@@ -1911,4 +1919,10 @@ Critério de aceite:
 
 Estado atual:
 
-- Pendente.
+- Implementado endpoint `POST /api/system/update/rollback`.
+- Rollback por run exige confirmação `ROLLBACK PRINTORA`, localiza `previous_project_path` e `backup_db_path` do run, valida paths seguros e chama o script do ambiente (`android_termux`, `unix` ou `windows`).
+- Histórico mantém todos os runs; rollback cria run auditável próprio e, quando executado de forma síncrona, marca o run original como `rolled_back`.
+- Tela Configurações mostra histórico, detalhes do run, steps, logs sanitizados e botão de rollback quando há pasta anterior disponível.
+- Scripts Android/Unix/Windows registram sucesso do run de rollback quando recebem `PRINTORA_UPDATE_RUN_ID`.
+- Testes automatizados cobrem confirmação obrigatória, path inseguro, histórico e mudança de status.
+- Validação real de rollback em Android/Unix/Windows físico ainda pendente.

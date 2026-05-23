@@ -28,7 +28,10 @@ class Settings(BaseSettings):
     release_channel: str = "stable"
     release_fixture_path: Path | None = None
     release_request_timeout_seconds: float = 5.0
-    self_update_script_path: Path = Field(default=Path(__file__).resolve().parents[2] / "scripts" / "android_update_printora.sh")
+    self_update_script_path: Path | None = None
+    self_update_android_script_path: Path = Field(default=Path(__file__).resolve().parents[2] / "scripts" / "android_update_printora.sh")
+    self_update_unix_script_path: Path = Field(default=Path(__file__).resolve().parents[2] / "scripts" / "update_printora.sh")
+    self_update_windows_script_path: Path = Field(default=Path(__file__).resolve().parents[2] / "scripts" / "update_printora_windows.ps1")
     self_update_timeout_seconds: float = 900.0
 
     model_config = SettingsConfigDict(

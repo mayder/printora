@@ -55,9 +55,29 @@ def test_create_unix_plan(tmp_path: Path) -> None:
         environment="unix",
     )
 
-    assert response.update_supported is False
+    assert response.update_supported is True
+    assert response.can_apply is True
     assert response.run.environment == "unix"
     assert response.run.steps[0].step_key == "detect_unix"
+    assert response.run.steps[-1].step_key == "validate_health"
+
+
+def test_create_windows_plan(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = SelfUpdateRepository(database_path)
+
+    response = build_update_plan(
+        repository=repository,
+        request=UpdatePlanRequest(target_tag="v0.1.2"),
+        project_root=tmp_path / "Printora",
+        environment="windows",
+    )
+
+    assert response.update_supported is True
+    assert response.can_apply is True
+    assert response.run.environment == "windows"
+    assert response.run.steps[0].step_key == "detect_windows"
     assert response.run.steps[-1].step_key == "validate_health"
 
 
@@ -178,7 +198,7 @@ def test_apply_rejects_invalid_tag(tmp_path: Path, monkeypatch) -> None:
 def test_apply_rejects_unsupported_environment(tmp_path: Path, monkeypatch) -> None:
     script = _write_mock_update_script(tmp_path, exit_code=0)
     _configure_fixture_releases(tmp_path, monkeypatch, script)
-    monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "unix")
+    monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "unknown")
     try:
         with TestClient(app) as client:
             response = client.post(
@@ -188,6 +208,54 @@ def test_apply_rejects_unsupported_environment(tmp_path: Path, monkeypatch) -> N
 
         assert response.status_code == 400
         assert "not_supported" in response.json()["detail"]
+    finally:
+        get_settings.cache_clear()
+
+
+def test_apply_calls_mocked_unix_script_and_persists_success(tmp_path: Path, monkeypatch) -> None:
+    script = _write_mock_update_script(tmp_path, exit_code=0)
+    _configure_fixture_releases(tmp_path, monkeypatch, script)
+    monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "unix")
+    monkeypatch.setattr(self_update_module, "_should_detach_self_update", lambda environment, project_root: False)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/system/update/apply",
+                json={"target_tag": "v0.2.0", "confirmation_phrase": "ATUALIZAR PRINTORA"},
+            )
+            history_response = client.get("/api/system/update/history")
+
+        assert response.status_code == 200
+        payload = response.json()
+        history = history_response.json()
+        assert payload["accepted"] is True
+        assert payload["run"]["environment"] == "unix"
+        assert payload["run"]["status"] == "succeeded"
+        assert history["runs"][0]["status"] == "succeeded"
+    finally:
+        get_settings.cache_clear()
+
+
+def test_apply_calls_mocked_windows_script_and_persists_success(tmp_path: Path, monkeypatch) -> None:
+    script = _write_mock_update_script(tmp_path, exit_code=0)
+    _configure_fixture_releases(tmp_path, monkeypatch, script)
+    monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "windows")
+    monkeypatch.setattr(self_update_module, "_should_detach_self_update", lambda environment, project_root: False)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/system/update/apply",
+                json={"target_tag": "v0.2.0", "confirmation_phrase": "ATUALIZAR PRINTORA"},
+            )
+            history_response = client.get("/api/system/update/history")
+
+        assert response.status_code == 200
+        payload = response.json()
+        history = history_response.json()
+        assert payload["accepted"] is True
+        assert payload["run"]["environment"] == "windows"
+        assert payload["run"]["status"] == "succeeded"
+        assert history["runs"][0]["status"] == "succeeded"
     finally:
         get_settings.cache_clear()
 
@@ -241,6 +309,81 @@ def test_apply_persists_failure_in_history(tmp_path: Path, monkeypatch) -> None:
         get_settings.cache_clear()
 
 
+def test_rollback_rejects_without_confirmation(tmp_path: Path, monkeypatch) -> None:
+    script = _write_mock_update_script(tmp_path, exit_code=0)
+    run_id = _create_successful_update_run(tmp_path)
+    _configure_fixture_releases(tmp_path, monkeypatch, script)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/system/update/rollback",
+                json={"run_id": run_id, "confirmation_phrase": "ERRADO"},
+            )
+
+        assert response.status_code == 400
+        assert "Confirmação obrigatória" in response.json()["detail"]
+    finally:
+        get_settings.cache_clear()
+
+
+def test_rollback_rejects_unsafe_paths(tmp_path: Path, monkeypatch) -> None:
+    script = _write_mock_update_script(tmp_path, exit_code=0)
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = SelfUpdateRepository(database_path)
+    run = repository.create_run(
+        target_tag="v0.2.0",
+        source_url=None,
+        environment="unix",
+        current_project_path=str(tmp_path / "Printora"),
+        status="succeeded",
+        steps=[("done", "done")],
+    )
+    repository.finish_run(
+        run.id,
+        status="succeeded",
+        previous_project_path=str(tmp_path / "Printora"),
+        backup_db_path=str(tmp_path / "backups" / "printora.db.before-update-unsafe"),
+    )
+    _configure_fixture_releases(tmp_path, monkeypatch, script)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/system/update/rollback",
+                json={"run_id": run.id, "confirmation_phrase": "ROLLBACK PRINTORA"},
+            )
+
+        assert response.status_code == 400
+        assert "previous_project_path" in response.json()["detail"]
+    finally:
+        get_settings.cache_clear()
+
+
+def test_rollback_marks_source_run_and_creates_audit_run(tmp_path: Path, monkeypatch) -> None:
+    script = _write_mock_update_script(tmp_path, exit_code=0)
+    run_id = _create_successful_update_run(tmp_path)
+    _configure_fixture_releases(tmp_path, monkeypatch, script)
+    monkeypatch.setattr(self_update_module, "_should_detach_self_update", lambda environment, project_root: False)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/system/update/rollback",
+                json={"run_id": run_id, "confirmation_phrase": "ROLLBACK PRINTORA"},
+            )
+            history_response = client.get("/api/system/update/history")
+
+        assert response.status_code == 200
+        payload = response.json()
+        history = history_response.json()
+        assert payload["accepted"] is True
+        assert payload["source_run"]["status"] == "rolled_back"
+        assert payload["rollback_run"]["status"] == "succeeded"
+        assert history["runs"][0]["status"] == "succeeded"
+        assert any(run["status"] == "rolled_back" for run in history["runs"])
+    finally:
+        get_settings.cache_clear()
+
+
 def _configure_fixture_releases(tmp_path: Path, monkeypatch, script_path: Path | None = None) -> None:
     fixture = Path(__file__).parent / "fixtures" / "github_releases.json"
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
@@ -249,6 +392,34 @@ def _configure_fixture_releases(tmp_path: Path, monkeypatch, script_path: Path |
     if script_path is not None:
         monkeypatch.setenv("PRINTORA_SELF_UPDATE_SCRIPT_PATH", str(script_path))
     get_settings.cache_clear()
+
+
+def _create_successful_update_run(tmp_path: Path) -> int:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    previous_path = tmp_path / "Printora.previous-update-20260523T011445Z"
+    previous_path.mkdir()
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    backup_path = backup_dir / "printora.db.before-update-20260523T011445Z"
+    backup_path.write_text("backup", encoding="utf-8")
+    repository = SelfUpdateRepository(database_path)
+    run = repository.create_run(
+        target_tag="v0.2.0",
+        source_url=None,
+        environment="unix",
+        current_project_path=str(tmp_path / "Printora"),
+        status="succeeded",
+        steps=[("done", "done")],
+    )
+    repository.finish_run(
+        run.id,
+        status="succeeded",
+        previous_project_path=str(previous_path),
+        backup_project_path=str(previous_path),
+        backup_db_path=str(backup_path),
+    )
+    return run.id
 
 
 def _write_mock_update_script(tmp_path: Path, *, exit_code: int) -> Path:

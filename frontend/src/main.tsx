@@ -39,6 +39,22 @@ import {
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import {
+  canRollbackSelfUpdateRun,
+  formatSelfUpdateEnvironment,
+  formatSelfUpdateStatus,
+  formatSelfUpdateStepStatus,
+  isSelfUpdateEnvironmentSupported,
+  selfUpdateRunClass,
+  selfUpdateStepClass,
+} from "./selfUpdate";
+import type {
+  SelfUpdateApplyResponse,
+  SelfUpdateHistoryResponse,
+  SelfUpdatePlanResponse,
+  SelfUpdateRollbackResponse,
+  SelfUpdateRunRecord,
+} from "./selfUpdate";
 import "./styles.css";
 
 type ChecklistItem = {
@@ -645,55 +661,6 @@ type UpdateActionResponse = {
   result: Record<string, unknown>;
 };
 
-type SelfUpdateStepRecord = {
-  id: number;
-  run_id: number;
-  step_key: string;
-  title: string;
-  status: "pending" | "running" | "succeeded" | "failed" | "skipped";
-  log_excerpt?: string | null;
-  started_at?: string | null;
-  finished_at?: string | null;
-};
-
-type SelfUpdateRunRecord = {
-  id: number;
-  target_version: string;
-  target_tag: string;
-  source_url?: string | null;
-  environment: "android_termux" | "unix" | "windows" | "unknown";
-  status: "planned" | "running" | "succeeded" | "failed" | "rolled_back";
-  started_at?: string | null;
-  finished_at?: string | null;
-  backup_db_path?: string | null;
-  backup_project_path?: string | null;
-  previous_project_path?: string | null;
-  current_project_path?: string | null;
-  error_message?: string | null;
-  created_at: string;
-  steps: SelfUpdateStepRecord[];
-};
-
-type SelfUpdatePlanResponse = {
-  safe_mode: string;
-  update_supported: boolean;
-  can_apply: boolean;
-  message: string;
-  run: SelfUpdateRunRecord;
-};
-
-type SelfUpdateApplyResponse = {
-  accepted: boolean;
-  message: string;
-  run: SelfUpdateRunRecord;
-  script_stdout?: string | null;
-  script_stderr?: string | null;
-};
-
-type SelfUpdateHistoryResponse = {
-  runs: SelfUpdateRunRecord[];
-};
-
 type UpdateLogEntry = {
   id: number;
   time: string;
@@ -1152,7 +1119,9 @@ function App() {
   const [selfUpdateHistory, setSelfUpdateHistory] = React.useState<SelfUpdateRunRecord[]>([]);
   const [selfUpdateModalOpen, setSelfUpdateModalOpen] = React.useState(false);
   const [selfUpdateApplying, setSelfUpdateApplying] = React.useState(false);
+  const [selfUpdateRollingBack, setSelfUpdateRollingBack] = React.useState(false);
   const [selfUpdateConfirmation, setSelfUpdateConfirmation] = React.useState("");
+  const [selfUpdateRollbackConfirmation, setSelfUpdateRollbackConfirmation] = React.useState("");
   const [selfUpdateMessage, setSelfUpdateMessage] = React.useState<string | null>(null);
   const [selfUpdateConnectionLost, setSelfUpdateConnectionLost] = React.useState(false);
   const [updateActionResult, setUpdateActionResult] = React.useState<UpdateActionResponse | null>(null);
@@ -1358,6 +1327,7 @@ function App() {
       const payload = (await response.json()) as SelfUpdatePlanResponse;
       setSelfUpdatePlan(payload);
       setSelfUpdateConfirmation("");
+      setSelfUpdateRollbackConfirmation("");
       setSelfUpdateModalOpen(true);
       await loadSelfUpdateHistory();
     } catch (err) {
@@ -1391,7 +1361,7 @@ function App() {
       const payload = (await response.json()) as SelfUpdateApplyResponse;
       setSelfUpdatePlan({
         safe_mode: "apply",
-        update_supported: payload.run.environment === "android_termux",
+        update_supported: isSelfUpdateEnvironmentSupported(payload.run.environment),
         can_apply: false,
         message: payload.message,
         run: payload.run,
@@ -1416,7 +1386,7 @@ function App() {
         }
         const run = (await response.json()) as SelfUpdateRunRecord;
         setSelfUpdatePlan((current) =>
-          current ? { ...current, run, message: current.message } : { safe_mode: "poll", update_supported: run.environment === "android_termux", can_apply: false, message: "Status atualizado.", run },
+          current ? { ...current, run, message: current.message } : { safe_mode: "poll", update_supported: isSelfUpdateEnvironmentSupported(run.environment), can_apply: false, message: "Status atualizado.", run },
         );
         if (run.status !== "running") {
           return;
@@ -1427,6 +1397,41 @@ function App() {
         return;
       }
       await new Promise((resolve) => window.setTimeout(resolve, 2000));
+    }
+  }
+
+  async function rollbackSelfUpdate(runId: number) {
+    setSelfUpdateRollingBack(true);
+    setSelfUpdateMessage(null);
+    setSelfUpdateConnectionLost(false);
+    try {
+      const response = await fetch("/api/system/update/rollback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          run_id: runId,
+          confirmation_phrase: selfUpdateRollbackConfirmation,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+      const payload = (await response.json()) as SelfUpdateRollbackResponse;
+      setSelfUpdatePlan({
+        safe_mode: "rollback",
+        update_supported: isSelfUpdateEnvironmentSupported(payload.rollback_run.environment),
+        can_apply: false,
+        message: payload.message,
+        run: payload.rollback_run,
+      });
+      setSelfUpdateMessage(payload.message);
+      await pollSelfUpdateRun(payload.rollback_run.id);
+      await loadSelfUpdateHistory();
+    } catch (err) {
+      setSelfUpdateConnectionLost(true);
+      setSelfUpdateMessage(err instanceof Error ? err.message : "O Printora pode estar reiniciando. Aguarde e recarregue.");
+    } finally {
+      setSelfUpdateRollingBack(false);
     }
   }
 
@@ -1921,7 +1926,7 @@ function App() {
           method: "server.connection.identify",
           params: {
             client_name: "Printora",
-            version: "0.1.1",
+            version: "0.1.2",
             type: "web",
             url: "https://github.com/printora/printora",
           },
@@ -3667,7 +3672,7 @@ function App() {
                   type="button"
                   className="ghost-button"
                   onClick={() => setSelfUpdateModalOpen(false)}
-                  disabled={selfUpdateApplying}
+                  disabled={selfUpdateApplying || selfUpdateRollingBack}
                 >
                   <X size={16} />
                   Fechar
@@ -3736,6 +3741,27 @@ function App() {
                   >
                     <ShieldAlert size={16} />
                     Aplicar update
+                  </button>
+                </div>
+              ) : null}
+              {canRollbackSelfUpdateRun(selfUpdatePlan.run) ? (
+                <div className="self-update-confirm">
+                  <label>
+                    Confirmação de rollback
+                    <input
+                      value={selfUpdateRollbackConfirmation}
+                      onChange={(event) => setSelfUpdateRollbackConfirmation(event.target.value)}
+                      placeholder="ROLLBACK PRINTORA"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => void rollbackSelfUpdate(selfUpdatePlan.run.id)}
+                    disabled={selfUpdateRollingBack || selfUpdateRollbackConfirmation !== "ROLLBACK PRINTORA"}
+                  >
+                    <Undo2 size={16} />
+                    Aplicar rollback
                   </button>
                 </div>
               ) : null}
@@ -6229,9 +6255,11 @@ function App() {
                     type="button"
                     className="secondary-button"
                     onClick={() => {
+                      setSelfUpdateConfirmation("");
+                      setSelfUpdateRollbackConfirmation("");
                       setSelfUpdatePlan({
                         safe_mode: "history",
-                        update_supported: run.environment === "android_termux",
+                        update_supported: isSelfUpdateEnvironmentSupported(run.environment),
                         can_apply: false,
                         message: "Detalhes do update registrado.",
                         run,
@@ -6242,6 +6270,27 @@ function App() {
                     <FileText size={15} />
                     Ver detalhes
                   </button>
+                  {canRollbackSelfUpdateRun(run) ? (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => {
+                        setSelfUpdateConfirmation("");
+                        setSelfUpdateRollbackConfirmation("");
+                        setSelfUpdatePlan({
+                          safe_mode: "history",
+                          update_supported: isSelfUpdateEnvironmentSupported(run.environment),
+                          can_apply: false,
+                          message: "Revise os detalhes antes do rollback.",
+                          run,
+                        });
+                        setSelfUpdateModalOpen(true);
+                      }}
+                    >
+                      <Undo2 size={15} />
+                      Rollback
+                    </button>
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -6742,64 +6791,6 @@ function releasePanelClass(releases: SystemReleasesResponse | null) {
     return "warn";
   }
   return releases.update_status === "up_to_date" ? "ok" : "warn";
-}
-
-function formatSelfUpdateEnvironment(environment: SelfUpdateRunRecord["environment"]) {
-  const labels: Record<SelfUpdateRunRecord["environment"], string> = {
-    android_termux: "Android/Termux",
-    unix: "Unix/macOS/Linux",
-    windows: "Windows",
-    unknown: "desconhecido",
-  };
-  return labels[environment];
-}
-
-function formatSelfUpdateStatus(status: SelfUpdateRunRecord["status"]) {
-  const labels: Record<SelfUpdateRunRecord["status"], string> = {
-    planned: "planejado",
-    running: "em execução",
-    succeeded: "concluído",
-    failed: "falhou",
-    rolled_back: "rollback aplicado",
-  };
-  return labels[status];
-}
-
-function formatSelfUpdateStepStatus(status: SelfUpdateStepRecord["status"]) {
-  const labels: Record<SelfUpdateStepRecord["status"], string> = {
-    pending: "pendente",
-    running: "rodando",
-    succeeded: "ok",
-    failed: "falhou",
-    skipped: "pulado",
-  };
-  return labels[status];
-}
-
-function selfUpdateRunClass(status: SelfUpdateRunRecord["status"]) {
-  if (status === "succeeded") {
-    return "up_to_date";
-  }
-  if (status === "failed") {
-    return "warning";
-  }
-  if (status === "running") {
-    return "update_available";
-  }
-  return "";
-}
-
-function selfUpdateStepClass(status: SelfUpdateStepRecord["status"]) {
-  if (status === "succeeded") {
-    return "success";
-  }
-  if (status === "failed") {
-    return "error";
-  }
-  if (status === "running") {
-    return "warning";
-  }
-  return "";
 }
 
 function countPendingUpdates(status: UpdateStatusResponse | null) {

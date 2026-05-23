@@ -25,6 +25,11 @@ class UpdateApplyRequest(BaseModel):
     source_url: str | None = Field(default=None, max_length=500)
 
 
+class UpdateRollbackRequest(BaseModel):
+    run_id: int = Field(gt=0)
+    confirmation_phrase: str = Field(min_length=1, max_length=120)
+
+
 class UpdateStepRecord(BaseModel):
     id: int
     run_id: int
@@ -70,6 +75,15 @@ class UpdateApplyResponse(BaseModel):
     accepted: bool
     message: str
     run: UpdateRunRecord
+    script_stdout: str | None = None
+    script_stderr: str | None = None
+
+
+class UpdateRollbackResponse(BaseModel):
+    accepted: bool
+    message: str
+    source_run: UpdateRunRecord
+    rollback_run: UpdateRunRecord
     script_stdout: str | None = None
     script_stderr: str | None = None
 
@@ -206,6 +220,24 @@ class SelfUpdateRepository:
             raise RuntimeError("update run not found after finish")
         return record
 
+    def add_step(
+        self,
+        run_id: int,
+        *,
+        step_key: str,
+        title: str,
+        status: UpdateStepStatus,
+        log_excerpt: str | None = None,
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO app_update_steps (run_id, step_key, title, status, log_excerpt)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (run_id, step_key, title, status, log_excerpt),
+            )
+
     def list_runs(self, limit: int = 20) -> list[UpdateRunRecord]:
         clean_limit = max(1, min(limit, 100))
         with self._connect() as connection:
@@ -282,8 +314,8 @@ def build_update_plan(
         steps=_steps_for_environment(detected_environment),
     )
     return UpdatePlanResponse(
-        update_supported=detected_environment == "android_termux",
-        can_apply=detected_environment == "android_termux",
+        update_supported=detected_environment in {"android_termux", "unix", "windows"},
+        can_apply=detected_environment in {"android_termux", "unix", "windows"},
         message="Plano criado. Nenhum arquivo foi alterado.",
         run=run,
     )
@@ -294,23 +326,33 @@ def apply_self_update(
     repository: SelfUpdateRepository,
     request: UpdateApplyRequest,
     project_root: Path,
-    script_path: Path,
+    script_path: Path | None,
     stable_release_tags: set[str],
     timeout_seconds: float,
+    android_script_path: Path | None = None,
+    unix_script_path: Path | None = None,
+    windows_script_path: Path | None = None,
     environment: UpdateEnvironment | None = None,
 ) -> UpdateApplyResponse:
     _validate_confirmation(request.confirmation_phrase)
     _validate_release_tag(request.target_tag, stable_release_tags)
     detected_environment = environment or detect_update_environment()
-    if detected_environment != "android_termux":
-        raise ValueError(f"not_supported: update real disponível apenas no Android/Termux; ambiente atual={detected_environment}")
+    if detected_environment not in {"android_termux", "unix", "windows"}:
+        raise ValueError(f"not_supported: update real disponível apenas em Android/Termux, Unix e Windows; ambiente atual={detected_environment}")
     if repository.has_running_update():
         raise ValueError("Já existe update em execução.")
-    if not script_path.is_file():
-        raise ValueError(f"Script de update não encontrado: {script_path}")
+    selected_script_path = _script_path_for_environment(
+        detected_environment,
+        override_script_path=script_path,
+        android_script_path=android_script_path,
+        unix_script_path=unix_script_path,
+        windows_script_path=windows_script_path,
+    )
+    if not selected_script_path.is_file():
+        raise ValueError(f"Script de update não encontrado: {selected_script_path}")
 
     plan_result = _run_update_script(
-        script_path=script_path,
+        script_path=selected_script_path,
         mode="--plan",
         target_tag=request.target_tag,
         project_root=project_root,
@@ -341,9 +383,9 @@ def apply_self_update(
     )
     repository.mark_all_steps(run.id, "running", plan_stdout)
 
-    if _should_detach_android_apply(project_root):
+    if _should_detach_self_update(detected_environment, project_root):
         _start_update_script_detached(
-            script_path=script_path,
+            script_path=selected_script_path,
             mode="--apply",
             target_tag=request.target_tag,
             project_root=project_root,
@@ -352,14 +394,14 @@ def apply_self_update(
         run = repository.get_run(run.id) or run
         return UpdateApplyResponse(
             accepted=True,
-            message="Update Android/Termux iniciado. O Printora pode reiniciar; acompanhe pelo histórico.",
+            message="Update do Printora iniciado. O app pode reiniciar; acompanhe pelo histórico.",
             run=run,
             script_stdout=plan_stdout,
             script_stderr=plan_stderr,
         )
 
     apply_result = _run_update_script(
-        script_path=script_path,
+        script_path=selected_script_path,
         mode="--apply",
         target_tag=request.target_tag,
         project_root=project_root,
@@ -379,11 +421,122 @@ def apply_self_update(
             previous_project_path=_optional_payload_str(payload, "previous_project_path"),
             current_project_path=_optional_payload_str(payload, "current_project_path") or str(project_root),
         )
-        return UpdateApplyResponse(accepted=True, message="Update Android/Termux aplicado pelo script.", run=run, script_stdout=stdout, script_stderr=stderr)
+        return UpdateApplyResponse(accepted=True, message="Update do Printora aplicado pelo script.", run=run, script_stdout=stdout, script_stderr=stderr)
 
     repository.mark_all_steps(run.id, "failed", stdout or stderr)
     run = repository.finish_run(run.id, status="failed", error_message=stdout or stderr or "Falha ao aplicar update.")
-    return UpdateApplyResponse(accepted=False, message="Update Android/Termux falhou. Consulte histórico.", run=run, script_stdout=stdout, script_stderr=stderr)
+    return UpdateApplyResponse(accepted=False, message="Update do Printora falhou. Consulte histórico.", run=run, script_stdout=stdout, script_stderr=stderr)
+
+
+def rollback_self_update(
+    *,
+    repository: SelfUpdateRepository,
+    request: UpdateRollbackRequest,
+    project_root: Path,
+    script_path: Path | None,
+    timeout_seconds: float,
+    android_script_path: Path | None = None,
+    unix_script_path: Path | None = None,
+    windows_script_path: Path | None = None,
+) -> UpdateRollbackResponse:
+    _validate_rollback_confirmation(request.confirmation_phrase)
+    if repository.has_running_update():
+        raise ValueError("Já existe update em execução.")
+    source_run = repository.get_run(request.run_id)
+    if source_run is None:
+        raise ValueError("Run de update não encontrado.")
+    if source_run.status != "succeeded":
+        raise ValueError("Rollback permitido apenas para update concluído com sucesso.")
+    previous_path = _require_safe_previous_path(source_run.previous_project_path, project_root)
+    db_backup_path = _safe_optional_db_backup_path(source_run.backup_db_path, repository.database_path)
+    selected_script_path = _script_path_for_environment(
+        source_run.environment,
+        override_script_path=script_path,
+        android_script_path=android_script_path,
+        unix_script_path=unix_script_path,
+        windows_script_path=windows_script_path,
+    )
+    if not selected_script_path.is_file():
+        raise ValueError(f"Script de rollback não encontrado: {selected_script_path}")
+
+    rollback_run = repository.create_run(
+        target_tag=source_run.target_tag,
+        source_url=f"rollback_of:{source_run.id}",
+        environment=source_run.environment,
+        current_project_path=str(project_root),
+        status="running",
+        steps=_rollback_steps_for_environment(source_run.environment),
+    )
+    repository.mark_all_steps(rollback_run.id, "running", f"rollback_of={source_run.id}")
+
+    if _should_detach_self_update(source_run.environment, project_root):
+        _start_update_script_detached(
+            script_path=selected_script_path,
+            mode="--rollback",
+            target_tag=source_run.target_tag,
+            project_root=project_root,
+            run_id=rollback_run.id,
+            extra_args=_rollback_extra_args(source_run.id, previous_path, db_backup_path),
+        )
+        rollback_run = repository.get_run(rollback_run.id) or rollback_run
+        return UpdateRollbackResponse(
+            accepted=True,
+            message="Rollback do Printora iniciado. O app pode reiniciar; acompanhe pelo histórico.",
+            source_run=source_run,
+            rollback_run=rollback_run,
+        )
+
+    rollback_result = _run_update_script(
+        script_path=selected_script_path,
+        mode="--rollback",
+        target_tag=source_run.target_tag,
+        project_root=project_root,
+        timeout_seconds=timeout_seconds,
+        run_id=rollback_run.id,
+        extra_args=_rollback_extra_args(source_run.id, previous_path, db_backup_path),
+    )
+    stdout = sanitize_log(rollback_result.stdout)
+    stderr = sanitize_log(rollback_result.stderr)
+    if rollback_result.returncode == 0:
+        repository.mark_all_steps(rollback_run.id, "succeeded", stdout)
+        rollback_run = repository.finish_run(
+            rollback_run.id,
+            status="succeeded",
+            backup_db_path=db_backup_path,
+            previous_project_path=previous_path,
+            current_project_path=str(project_root),
+        )
+        source_run = repository.finish_run(source_run.id, status="rolled_back")
+        repository.add_step(
+            source_run.id,
+            step_key="rollback_completed",
+            title=f"Rollback registrado pelo run {rollback_run.id}",
+            status="succeeded",
+            log_excerpt=stdout,
+        )
+        return UpdateRollbackResponse(
+            accepted=True,
+            message="Rollback do Printora aplicado pelo script.",
+            source_run=source_run,
+            rollback_run=rollback_run,
+            script_stdout=stdout,
+            script_stderr=stderr,
+        )
+
+    repository.mark_all_steps(rollback_run.id, "failed", stdout or stderr)
+    rollback_run = repository.finish_run(
+        rollback_run.id,
+        status="failed",
+        error_message=stdout or stderr or "Falha ao aplicar rollback.",
+    )
+    return UpdateRollbackResponse(
+        accepted=False,
+        message="Rollback do Printora falhou. Consulte histórico.",
+        source_run=source_run,
+        rollback_run=rollback_run,
+        script_stdout=stdout,
+        script_stderr=stderr,
+    )
 
 
 def sanitize_log(value: str, max_length: int = 4000) -> str:
@@ -416,6 +569,11 @@ def _validate_confirmation(confirmation_phrase: str) -> None:
         raise ValueError("Confirmação obrigatória inválida.")
 
 
+def _validate_rollback_confirmation(confirmation_phrase: str) -> None:
+    if confirmation_phrase != "ROLLBACK PRINTORA":
+        raise ValueError("Confirmação obrigatória inválida.")
+
+
 def _validate_release_tag(target_tag: str, stable_release_tags: set[str]) -> None:
     if not target_tag or not re.fullmatch(r"v[0-9]+[.][0-9]+[.][0-9]+", target_tag):
         raise ValueError("Tag inválida para update.")
@@ -431,6 +589,7 @@ def _run_update_script(
     project_root: Path,
     timeout_seconds: float,
     run_id: int | None = None,
+    extra_args: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     import os
 
@@ -438,7 +597,7 @@ def _run_update_script(
     if run_id is not None:
         env["PRINTORA_UPDATE_RUN_ID"] = str(run_id)
     return subprocess.run(
-        ["bash", str(script_path), mode, "--tag", target_tag],
+        _update_script_command(script_path=script_path, mode=mode, target_tag=target_tag, extra_args=extra_args),
         cwd=str(project_root),
         env=env,
         text=True,
@@ -456,13 +615,14 @@ def _start_update_script_detached(
     target_tag: str,
     project_root: Path,
     run_id: int,
+    extra_args: list[str] | None = None,
 ) -> None:
     import os
 
     env = os.environ.copy()
     env["PRINTORA_UPDATE_RUN_ID"] = str(run_id)
     subprocess.Popen(
-        ["bash", str(script_path), mode, "--tag", target_tag],
+        _update_script_command(script_path=script_path, mode=mode, target_tag=target_tag, extra_args=extra_args),
         cwd=str(project_root),
         env=env,
         stdin=subprocess.DEVNULL,
@@ -473,10 +633,122 @@ def _start_update_script_detached(
     )
 
 
-def _should_detach_android_apply(project_root: Path) -> bool:
+def _script_path_for_environment(
+    environment: UpdateEnvironment,
+    *,
+    override_script_path: Path | None,
+    android_script_path: Path | None,
+    unix_script_path: Path | None,
+    windows_script_path: Path | None,
+) -> Path:
+    if override_script_path is not None:
+        return override_script_path
+    if environment == "android_termux" and android_script_path is not None:
+        return android_script_path
+    if environment == "unix" and unix_script_path is not None:
+        return unix_script_path
+    if environment == "windows" and windows_script_path is not None:
+        return windows_script_path
+    raise ValueError(f"Script de update não configurado para ambiente: {environment}")
+
+
+def _update_script_command(*, script_path: Path, mode: str, target_tag: str, extra_args: list[str] | None = None) -> list[str]:
+    clean_extra_args = extra_args or []
+    if script_path.suffix.lower() != ".ps1":
+        command = ["bash", str(script_path), mode]
+        if mode != "--rollback":
+            command.extend(["--tag", target_tag])
+        command.extend(clean_extra_args)
+        return command
+    executable = _powershell_executable()
+    powershell_mode = {
+        "--plan": "--Plan",
+        "--apply": "--Apply",
+        "--rollback": "--Rollback",
+    }.get(mode, mode)
+    command = [
+        executable,
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(script_path),
+        powershell_mode,
+    ]
+    if mode != "--rollback":
+        command.extend(["-Tag", target_tag])
+    command.extend(clean_extra_args)
+    return command
+
+
+def _powershell_executable() -> str:
+    import shutil
+
+    return shutil.which("pwsh") or shutil.which("powershell") or shutil.which("powershell.exe") or "powershell.exe"
+
+
+def _should_detach_self_update(environment: UpdateEnvironment, project_root: Path) -> bool:
     if sys.platform == "win32":
         return False
-    return str(project_root).startswith("/data/data/com.termux/")
+    project_path = str(project_root)
+    if environment == "android_termux":
+        return project_path.startswith("/data/data/com.termux/")
+    if environment == "unix":
+        return project_path.startswith(("/Users/", "/home/", "/opt/", "/srv/"))
+    if environment == "windows":
+        return sys.platform == "win32"
+    return False
+
+
+def _rollback_extra_args(source_run_id: int, previous_path: str, db_backup_path: str | None) -> list[str]:
+    args = ["--run-id", str(source_run_id), "--previous-path", previous_path]
+    if db_backup_path:
+        args.extend(["--db-backup", db_backup_path])
+    return args
+
+
+def _require_safe_previous_path(value: str | None, project_root: Path) -> str:
+    if value is None:
+        raise ValueError("Run não possui pasta anterior para rollback.")
+    path = _safe_absolute_path(value, "previous_project_path")
+    project_path = project_root.resolve(strict=False)
+    if path == project_path:
+        raise ValueError("previous_project_path não pode ser a pasta atual do projeto.")
+    if not path.name or "previous-update" not in path.name:
+        raise ValueError("previous_project_path não parece ser backup de update.")
+    if not path.exists():
+        raise ValueError(f"previous_project_path não existe: {path}")
+    return str(path)
+
+
+def _safe_optional_db_backup_path(value: str | None, database_path: Path) -> str | None:
+    if not value:
+        return None
+    path = _safe_absolute_path(value, "backup_db_path")
+    if "before-update" not in path.name:
+        raise ValueError("backup_db_path não parece ser backup de update.")
+    if not path.exists():
+        raise ValueError(f"backup_db_path não existe: {path}")
+    data_path = database_path.resolve(strict=False).parent
+    backup_parent = path.parent.resolve(strict=False)
+    allowed_parent = (data_path / "backups").resolve(strict=False)
+    if backup_parent != allowed_parent:
+        raise ValueError("backup_db_path fora da pasta de backups do Printora.")
+    return str(path)
+
+
+def _safe_absolute_path(value: str, label: str) -> Path:
+    if not value.strip():
+        raise ValueError(f"{label} vazio.")
+    raw = Path(value)
+    if not raw.is_absolute():
+        raise ValueError(f"{label} deve ser absoluto.")
+    if ".." in raw.parts:
+        raise ValueError(f"{label} contém segmento inseguro.")
+    path = raw.resolve(strict=False)
+    if path == Path(path.anchor):
+        raise ValueError(f"{label} não pode apontar para raiz.")
+    return path
 
 
 def _json_object_from_stdout(stdout: str) -> dict[str, Any]:
@@ -526,6 +798,23 @@ def _steps_for_environment(environment: UpdateEnvironment) -> list[tuple[str, st
     return [
         ("detect_unix", "Detectar shell, Python, npm, Git e modo de restart"),
         *common,
+    ]
+
+
+def _rollback_steps_for_environment(environment: UpdateEnvironment) -> list[tuple[str, str]]:
+    first_step = {
+        "android_termux": "Validar Termux, tmux, pasta anterior e backup de banco",
+        "unix": "Validar Unix, modo de restart, pasta anterior e backup de banco",
+        "windows": "Validar PowerShell, runner Windows, pasta anterior e backup de banco",
+        "unknown": "Validar ambiente de rollback",
+    }[environment]
+    return [
+        ("validate_rollback", first_step),
+        ("preserve_current", "Preservar pasta atual antes do rollback"),
+        ("restore_project", "Restaurar pasta anterior do projeto"),
+        ("restore_database", "Restaurar backup de banco quando informado"),
+        ("restart_app", "Reiniciar Printora"),
+        ("validate_health", "Validar /health após rollback"),
     ]
 
 

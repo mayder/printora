@@ -114,9 +114,13 @@ from app.self_update import (
     UpdateHistoryResponse,
     UpdatePlanRequest,
     UpdatePlanResponse,
+    UpdateRollbackRequest,
+    UpdateRollbackResponse,
     UpdateRunRecord,
     apply_self_update,
     build_update_plan,
+    detect_update_environment,
+    rollback_self_update,
 )
 from app.snapshots import (
     SnapshotDiff,
@@ -224,7 +228,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Printora", version="0.1.1", lifespan=lifespan)
+app = FastAPI(title="Printora", version="0.1.2", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -304,16 +308,19 @@ async def system_releases() -> ReleasesResponse:
 @app.get("/api/system/update/status")
 async def system_update_status() -> dict[str, object]:
     releases = await system_releases()
+    environment = detect_update_environment()
+    update_supported = environment in {"android_termux", "unix", "windows"}
     return {
         "safe_mode": "read_only",
-        "update_supported": False,
+        "update_supported": update_supported,
+        "environment": environment,
         "installed_version": releases.installed_version,
         "channel": releases.channel,
         "update_status": releases.update_status,
         "latest_release_available": releases.latest_release_available,
         "latest_release": releases.latest_release.model_dump() if releases.latest_release else None,
         "status": releases.status,
-        "message": "PKG-21 apenas consulta releases; execução de update não está habilitada.",
+        "message": "Update real disponível para Android/Termux, Unix e Windows." if update_supported else "Update real não suportado neste ambiente.",
         "release_error": releases.error,
     }
 
@@ -355,7 +362,31 @@ async def system_update_apply(payload: UpdateApplyRequest) -> UpdateApplyRespons
             request=payload,
             project_root=Path(__file__).resolve().parents[2],
             script_path=settings.self_update_script_path,
+            android_script_path=settings.self_update_android_script_path,
+            unix_script_path=settings.self_update_unix_script_path,
+            windows_script_path=settings.self_update_windows_script_path,
             stable_release_tags=stable_tags,
+            timeout_seconds=settings.self_update_timeout_seconds,
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        status_code = 409 if "Já existe update" in detail else 400
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+
+@app.post("/api/system/update/rollback")
+async def system_update_rollback(payload: UpdateRollbackRequest) -> UpdateRollbackResponse:
+    settings = get_settings()
+    repository = get_self_update_repository(settings)
+    try:
+        return rollback_self_update(
+            repository=repository,
+            request=payload,
+            project_root=Path(__file__).resolve().parents[2],
+            script_path=settings.self_update_script_path,
+            android_script_path=settings.self_update_android_script_path,
+            unix_script_path=settings.self_update_unix_script_path,
+            windows_script_path=settings.self_update_windows_script_path,
             timeout_seconds=settings.self_update_timeout_seconds,
         )
     except ValueError as exc:

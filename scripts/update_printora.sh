@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
 MODE=""
 TARGET_TAG=""
 RUN_ID=""
@@ -8,24 +11,25 @@ PREVIOUS_PATH=""
 DB_BACKUP_PATH=""
 UPDATE_RUN_ID="${PRINTORA_UPDATE_RUN_ID:-}"
 
-ROOT_DIR="${ROOT_DIR:-${HOME}/Printora}"
+ROOT_DIR="${ROOT_DIR:-${DEFAULT_ROOT_DIR}}"
 DATA_DIR="${PRINTORA_DATA_DIR:-${HOME}/.local/share/printora}"
 DB_PATH="${PRINTORA_DB_PATH:-${DATA_DIR}/printora.db}"
 BACKUP_DIR="${PRINTORA_BACKUP_DIR:-${DATA_DIR}/backups}"
-NEXT_DIR="${PRINTORA_NEXT_DIR:-${HOME}/Printora.next}"
-HTTP_PORT="${HTTP_PORT:-${PRINTORA_PORT:-8069}}"
-PUBLIC_PORT="${PUBLIC_PORT:-${HTTP_PORT}}"
-HOST_NAME="${HOST_NAME:-printora}"
+NEXT_DIR="${PRINTORA_NEXT_DIR:-${ROOT_DIR}.next}"
+HTTP_PORT="${HTTP_PORT:-${PRINTORA_PORT:-8085}}"
 HEALTH_URL="${PRINTORA_HEALTH_URL:-http://127.0.0.1:${HTTP_PORT}/health}"
 UPDATE_REMOTE_URL="${PRINTORA_UPDATE_REMOTE_URL:-}"
+SERVICE_NAME="${PRINTORA_SERVICE_NAME:-printora.service}"
+OS_OVERRIDE="${PRINTORA_UPDATE_OS_OVERRIDE:-}"
+SYSTEMD_OVERRIDE="${PRINTORA_UPDATE_SYSTEMD_OVERRIDE:-}"
 
 usage() {
   cat <<'USAGE'
 Uso:
-  scripts/android_update_printora.sh --plan --tag vX.Y.Z
-  scripts/android_update_printora.sh --apply --tag vX.Y.Z
-  scripts/android_update_printora.sh --rollback --previous-path /path/anterior [--db-backup /path/backup.db]
-  scripts/android_update_printora.sh --rollback --run-id ID --previous-path /path/anterior [--db-backup /path/backup.db]
+  scripts/update_printora.sh --plan --tag vX.Y.Z
+  scripts/update_printora.sh --apply --tag vX.Y.Z
+  scripts/update_printora.sh --rollback --previous-path /path/anterior [--db-backup /path/backup.db]
+  scripts/update_printora.sh --rollback --run-id ID --previous-path /path/anterior [--db-backup /path/backup.db]
 USAGE
 }
 
@@ -101,7 +105,7 @@ mark_run_failed() {
   PRINTORA_MARK_RUN_ID="$run_id" \
   PRINTORA_MARK_DB_PATH="$DB_PATH" \
   PRINTORA_MARK_ERROR_MESSAGE="$message" \
-  python - <<'PY' || true
+  "$(python_bin)" - <<'PY' || true
 import os
 import sqlite3
 
@@ -138,7 +142,7 @@ on_error() {
   local exit_code="$1"
   local line_no="$2"
   if [[ "$MODE" == "apply" && -n "$UPDATE_RUN_ID" ]]; then
-    mark_run_failed "$UPDATE_RUN_ID" "android_update_printora.sh falhou na linha ${line_no} com exit ${exit_code}"
+    mark_run_failed "$UPDATE_RUN_ID" "update_printora.sh falhou na linha ${line_no} com exit ${exit_code}"
   fi
 }
 
@@ -151,6 +155,75 @@ require_mode() {
 require_command() {
   local command_name="$1"
   command -v "$command_name" >/dev/null 2>&1 || fail_json "comando obrigatório não encontrado: ${command_name}"
+}
+
+python_bin() {
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s' "python3"
+    return
+  fi
+  if command -v python >/dev/null 2>&1; then
+    printf '%s' "python"
+  fi
+}
+
+detect_os() {
+  if [[ -n "$OS_OVERRIDE" ]]; then
+    printf '%s' "$OS_OVERRIDE"
+    return
+  fi
+  case "$(uname -s)" in
+    Darwin) printf '%s' "macos" ;;
+    Linux) printf '%s' "linux" ;;
+    *) printf '%s' "unknown" ;;
+  esac
+}
+
+has_systemd() {
+  if [[ -n "$SYSTEMD_OVERRIDE" ]]; then
+    [[ "$SYSTEMD_OVERRIDE" == "true" ]]
+    return
+  fi
+  [[ -d /run/systemd/system ]] && command -v systemctl >/dev/null 2>&1
+}
+
+systemd_scope() {
+  if ! has_systemd; then
+    printf '%s' "none"
+    return
+  fi
+  if systemctl --user list-unit-files "$SERVICE_NAME" >/dev/null 2>&1 || systemctl --user status "$SERVICE_NAME" >/dev/null 2>&1; then
+    printf '%s' "user"
+    return
+  fi
+  if systemctl list-unit-files "$SERVICE_NAME" >/dev/null 2>&1 || systemctl status "$SERVICE_NAME" >/dev/null 2>&1; then
+    printf '%s' "system"
+    return
+  fi
+  printf '%s' "none"
+}
+
+restart_mode() {
+  local os_name scope
+  os_name="$(detect_os)"
+  scope="$(systemd_scope)"
+  if [[ "$scope" != "none" ]]; then
+    printf 'systemd_%s' "$scope"
+    return
+  fi
+  if command -v tmux >/dev/null 2>&1 && tmux has-session -t printora >/dev/null 2>&1; then
+    printf '%s' "tmux"
+    return
+  fi
+  if [[ -x "${ROOT_DIR}/scripts/run_app.sh" ]]; then
+    printf '%s' "runner"
+    return
+  fi
+  if [[ "$os_name" == "macos" || "$os_name" == "linux" ]]; then
+    printf '%s' "manual"
+    return
+  fi
+  printf '%s' "unknown"
 }
 
 validate_safe_path() {
@@ -182,13 +255,17 @@ tag_exists_on_remote() {
 
 validate_common_plan_inputs() {
   require_command git
-  require_command tmux
-  require_command python
+  [[ -n "$(python_bin)" ]] || fail_json "comando obrigatório não encontrado: python3/python"
+  require_command curl
   validate_safe_path "$ROOT_DIR" "ROOT_DIR"
-  [[ -d "$ROOT_DIR" ]] || fail_json "diretório atual do projeto não existe: ${ROOT_DIR}"
+  [[ -d "$ROOT_DIR" ]] || fail_json "diretório do projeto não existe: ${ROOT_DIR}"
   [[ -f "$DB_PATH" || -d "$DATA_DIR" ]] || fail_json "banco SQLite ou data dir não existe: ${DB_PATH}"
   validate_tag
-  local remote_url
+  local os_name mode remote_url
+  os_name="$(detect_os)"
+  [[ "$os_name" == "macos" || "$os_name" == "linux" ]] || fail_json "sistema Unix não suportado: ${os_name}"
+  mode="$(restart_mode)"
+  [[ "$mode" != "unknown" ]] || fail_json "modo de restart não detectado"
   remote_url="$(project_remote_url)"
   if ! tag_exists_on_remote "$remote_url"; then
     fail_json "tag alvo não encontrada no repositório remoto: ${TARGET_TAG}"
@@ -197,16 +274,29 @@ validate_common_plan_inputs() {
 
 steps_json() {
   cat <<'JSON'
-[{"key":"validate_environment","title":"Validar git, tmux, python, projeto, data dir e tag remota"},{"key":"backup_database","title":"Criar backup obrigatório do printora.db"},{"key":"backup_project","title":"Preservar pasta atual como Printora.previous-update-<timestamp>"},{"key":"checkout_release","title":"Clonar release alvo em Printora.next"},{"key":"preserve_venv","title":"Preservar backend/.venv quando possível"},{"key":"install_backend","title":"Instalar backend editable sem dependências"},{"key":"apply_schema","title":"Inicializar backend para aplicar SQL idempotente"},{"key":"build_frontend","title":"Buildar frontend quando dist versionado não existir"},{"key":"restart_tmux","title":"Reiniciar sessões printora e printora-mdns"},{"key":"validate_health","title":"Validar /health"}]
+[{"key":"validate_environment","title":"Validar git, python, curl, projeto, data dir, restart e tag remota"},{"key":"backup_database","title":"Criar backup obrigatório do printora.db"},{"key":"backup_project","title":"Preservar pasta atual como Printora.previous-update-<timestamp>"},{"key":"checkout_release","title":"Clonar release alvo em Printora.next"},{"key":"preserve_venv","title":"Preservar backend/.venv quando possível"},{"key":"install_backend","title":"Instalar backend editable sem dependências"},{"key":"apply_schema","title":"Inicializar backend para aplicar SQL idempotente"},{"key":"build_frontend","title":"Buildar frontend quando dist versionado não existir"},{"key":"restart_app","title":"Reiniciar por systemd, tmux ou runner local"},{"key":"validate_health","title":"Validar /health"}]
 JSON
 }
 
 print_plan_json() {
-  local remote_url
+  local os_name mode remote_url systemd_available
+  os_name="$(detect_os)"
+  mode="$(restart_mode)"
   remote_url="$(project_remote_url)"
+  if has_systemd; then
+    systemd_available="true"
+  else
+    systemd_available="false"
+  fi
   printf '{"status":"planned","mode":"plan","target_tag":'
   json_string "$TARGET_TAG"
-  printf ',"environment":"android_termux","root_dir":'
+  printf ',"environment":"unix","platform":'
+  json_string "$os_name"
+  printf ',"restart_mode":'
+  json_string "$mode"
+  printf ',"systemd_available":'
+  json_bool "$systemd_available"
+  printf ',"root_dir":'
   json_string "$ROOT_DIR"
   printf ',"data_dir":'
   json_string "$DATA_DIR"
@@ -232,10 +322,10 @@ backend_python() {
     printf '%s' "${ROOT_DIR}/backend/.venv/bin/python"
     return
   fi
-  printf '%s' "python"
+  python_bin
 }
 
-copy_preserving() {
+move_preserving() {
   local source_path="$1"
   local target_path="$2"
   validate_safe_path "$source_path" "source_path"
@@ -265,8 +355,8 @@ clone_target_release() {
 }
 
 preserve_venv() {
-  if [[ -d "${PREVIOUS_PATH}/backend/.venv" && ! -e "${NEXT_DIR}/backend/.venv" ]]; then
-    mv "${PREVIOUS_PATH}/backend/.venv" "${NEXT_DIR}/backend/.venv"
+  if [[ -d "${ROOT_DIR}/backend/.venv" && ! -e "${NEXT_DIR}/backend/.venv" ]]; then
+    cp -a "${ROOT_DIR}/backend/.venv" "${NEXT_DIR}/backend/.venv"
   fi
 }
 
@@ -296,25 +386,71 @@ build_frontend_if_needed() {
   fi
   require_command npm
   npm --prefix "${NEXT_DIR}/frontend" install
-  (
-    cd "${NEXT_DIR}/frontend"
-    node node_modules/typescript/bin/tsc -b
-    node node_modules/vite/bin/vite.js build
-  )
+  npm --prefix "${NEXT_DIR}/frontend" run build
 }
 
-stop_tmux_sessions() {
+project_previous_path() {
+  local timestamp="$1"
+  local parent base
+  parent="$(dirname "$ROOT_DIR")"
+  base="$(basename "$ROOT_DIR")"
+  printf '%s/%s.previous-update-%s' "$parent" "$base" "$timestamp"
+}
+
+replace_project() {
+  local previous_path="$1"
+  local parent
+  parent="$(dirname "$ROOT_DIR")"
+  cd "$parent"
+  move_preserving "$ROOT_DIR" "$previous_path"
+  move_preserving "$NEXT_DIR" "$ROOT_DIR"
+}
+
+restart_systemd() {
+  local mode="$1"
+  case "$mode" in
+    systemd_user)
+      systemctl --user restart "$SERVICE_NAME"
+      ;;
+    systemd_system)
+      systemctl restart "$SERVICE_NAME"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+restart_tmux() {
   tmux kill-session -t printora 2>/dev/null || true
-  tmux kill-session -t printora-mdns 2>/dev/null || true
+  tmux new-session -d -s printora "cd '$ROOT_DIR' && PRINTORA_DATA_DIR='$DATA_DIR' PRINTORA_PORT='$HTTP_PORT' scripts/run_app.sh --no-open --foreground"
+}
+
+restart_runner() {
+  "${ROOT_DIR}/scripts/run_app.sh" --stop >/dev/null 2>&1 || true
+  PRINTORA_DATA_DIR="$DATA_DIR" PRINTORA_PORT="$HTTP_PORT" "${ROOT_DIR}/scripts/run_app.sh" --no-open
 }
 
 restart_app() {
-  tmux new-session -d -s printora "cd '$ROOT_DIR/backend' && export PRINTORA_DATA_DIR='$DATA_DIR' && . .venv/bin/activate && python -m uvicorn app.main:app --host 0.0.0.0 --port '$HTTP_PORT'"
-  tmux new-session -d -s printora-mdns "cd '$ROOT_DIR' && python scripts/android_mdns_printora.py --name '$HOST_NAME' --port '$PUBLIC_PORT'"
+  local mode
+  mode="$(restart_mode)"
+  case "$mode" in
+    systemd_user|systemd_system)
+      restart_systemd "$mode"
+      ;;
+    tmux)
+      restart_tmux
+      ;;
+    runner|manual)
+      restart_runner
+      ;;
+    *)
+      fail_json "modo de restart não suportado: ${mode}"
+      ;;
+  esac
 }
 
 validate_health() {
-  require_command curl
   for _ in $(seq 1 30); do
     if curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then
       return
@@ -329,12 +465,13 @@ mark_run_succeeded() {
   local db_backup="$2"
   local previous_path="$3"
   [[ -n "$run_id" ]] || return
+  [[ -f "$DB_PATH" ]] || return
   PRINTORA_MARK_RUN_ID="$run_id" \
   PRINTORA_MARK_DB_PATH="$DB_PATH" \
   PRINTORA_MARK_BACKUP_DB_PATH="$db_backup" \
   PRINTORA_MARK_PREVIOUS_PATH="$previous_path" \
   PRINTORA_MARK_CURRENT_PATH="$ROOT_DIR" \
-  python - <<'PY'
+  "$(python_bin)" - <<'PY' || true
 import os
 import sqlite3
 
@@ -374,21 +511,18 @@ PY
 
 apply_update() {
   validate_common_plan_inputs
-  require_command curl
   local remote_url timestamp db_backup previous_path
   remote_url="$(project_remote_url)"
   timestamp="$(timestamp_utc)"
-  previous_path="${HOME}/Printora.previous-update-${timestamp}"
+  previous_path="$(project_previous_path "$timestamp")"
   db_backup="$(backup_database "$timestamp")"
-  copy_preserving "$ROOT_DIR" "$previous_path"
-  PREVIOUS_PATH="$previous_path"
   clone_target_release "$remote_url"
   preserve_venv
   install_backend
   apply_schema
   build_frontend_if_needed
-  copy_preserving "$NEXT_DIR" "$ROOT_DIR"
-  stop_tmux_sessions
+  replace_project "$previous_path"
+  PREVIOUS_PATH="$previous_path"
   restart_app
   validate_health
   mark_run_succeeded "$UPDATE_RUN_ID" "$db_backup" "$previous_path"
@@ -413,12 +547,11 @@ rollback_update() {
   [[ -d "$PREVIOUS_PATH" ]] || fail_json "previous-path não existe: ${PREVIOUS_PATH}"
   local timestamp current_backup
   timestamp="$(timestamp_utc)"
-  current_backup="${HOME}/Printora.failed-update-${timestamp}"
-  stop_tmux_sessions
+  current_backup="$(dirname "$ROOT_DIR")/$(basename "$ROOT_DIR").failed-update-${timestamp}"
   if [[ -d "$ROOT_DIR" ]]; then
-    copy_preserving "$ROOT_DIR" "$current_backup"
+    move_preserving "$ROOT_DIR" "$current_backup"
   fi
-  copy_preserving "$PREVIOUS_PATH" "$ROOT_DIR"
+  move_preserving "$PREVIOUS_PATH" "$ROOT_DIR"
   if [[ -n "$DB_BACKUP_PATH" ]]; then
     [[ -f "$DB_BACKUP_PATH" ]] || fail_json "backup de banco não existe: ${DB_BACKUP_PATH}"
     mkdir -p "$BACKUP_DIR"

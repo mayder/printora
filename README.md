@@ -128,6 +128,16 @@ macOS/Linux:
 ./scripts/run_app.sh --stop
 ```
 
+Atualização local macOS/Linux/Raspberry:
+
+```bash
+./scripts/update_printora.sh --plan --tag v0.1.1
+./scripts/update_printora.sh --apply --tag v0.1.1
+./scripts/update_printora.sh --rollback --previous-path /caminho/Printora.previous-update-YYYYMMDDTHHMMSSZ
+```
+
+O updater cria backup do banco em `backups/printora.db.before-update-*`, preserva a pasta anterior do projeto e reinicia via `systemd`, `tmux` ou `scripts/run_app.sh`, conforme o host.
+
 Windows PowerShell:
 
 ```powershell
@@ -135,6 +145,16 @@ Windows PowerShell:
 .\scripts\run_app_windows.ps1 --status
 .\scripts\run_app_windows.ps1 --stop
 ```
+
+Atualização local Windows:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\update_printora_windows.ps1 --Plan --Tag v0.1.1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\update_printora_windows.ps1 --Apply --Tag v0.1.1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\update_printora_windows.ps1 --Rollback --PreviousPath C:\caminho\Printora.previous-update-YYYYMMDDTHHMMSSZ
+```
+
+O `ExecutionPolicy Bypass` fica restrito ao processo desse comando. O updater preserva `%LOCALAPPDATA%\Printora\printora.db` antes de alterar backend/frontend.
 
 Docker:
 

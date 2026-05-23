@@ -139,7 +139,8 @@ def test_system_update_status_endpoint_is_read_only_and_reports_outdated(tmp_pat
         payload = response.json()
         assert response.status_code == 200
         assert payload["safe_mode"] == "read_only"
-        assert payload["update_supported"] is False
+        assert payload["update_supported"] is True
+        assert payload["environment"] in {"android_termux", "unix"}
         assert payload["status"] == "ok"
         assert payload["update_status"] == "outdated"
         assert payload["channel"] == "stable"
