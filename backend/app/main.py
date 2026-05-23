@@ -1,6 +1,7 @@
 import asyncio
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -52,7 +53,7 @@ from app.can_monitor import (
 )
 from app.checklists import build_post_update_checklist, build_unavailable_post_update_checklist
 from app.config import Settings, get_settings
-from app.database import initialize_database
+from app.database import get_database_version_info, initialize_database
 from app.discovery import PrinterDiscoveryResponse, discover_moonraker_printers
 from app.firmware import (
     BoardPreset,
@@ -99,6 +100,12 @@ from app.operation_history import (
 from app.plugins import PluginAuditResponse, build_plugin_audit
 from app.printers import PrinterCreate, PrinterRecord, PrinterRepository, PrinterUpdate
 from app.reports import SanitizedReport, build_sanitized_report
+from app.releases import (
+    GitHubReleaseClient,
+    ReleasesResponse,
+    build_releases_response,
+    build_unavailable_releases_response,
+)
 from app.snapshots import (
     SnapshotDiff,
     SnapshotDetail,
@@ -201,7 +208,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Printora", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Printora", version="0.1.1", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -223,6 +230,76 @@ if _frontend_brand_dir.is_dir():
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "app": "Printora"}
+
+
+@app.get("/api/system/version")
+async def system_version() -> dict[str, object]:
+    settings = get_settings()
+    return get_database_version_info(settings.database_path, settings.data_dir)
+
+
+@app.get("/api/system/releases")
+async def system_releases() -> ReleasesResponse:
+    settings = get_settings()
+    if settings.release_source_mode == "disabled":
+        return build_unavailable_releases_response(
+            source=settings.release_source_mode,
+            channel=settings.release_channel,
+            status="disabled",
+        )
+    client = GitHubReleaseClient(
+        owner=settings.release_github_owner,
+        repo=settings.release_github_repo,
+        api_base_url=settings.release_github_api_base_url,
+        timeout_seconds=settings.release_request_timeout_seconds,
+        fixture_path=settings.release_fixture_path if settings.release_source_mode == "fixture" else None,
+    )
+    try:
+        raw_releases = await client.fetch_releases()
+    except httpx.HTTPStatusError as exc:
+        status = "rate_limited" if _is_github_rate_limit(exc.response) else "offline"
+        return build_unavailable_releases_response(
+            source=settings.release_source_mode,
+            channel=settings.release_channel,
+            status=status,
+            error=_github_http_error_detail(exc),
+        )
+    except httpx.HTTPError as exc:
+        return build_unavailable_releases_response(
+            source=settings.release_source_mode,
+            channel=settings.release_channel,
+            status="offline",
+            error=str(exc),
+        )
+    except (OSError, ValueError) as exc:
+        return build_unavailable_releases_response(
+            source=settings.release_source_mode,
+            channel=settings.release_channel,
+            status="error",
+            error=str(exc),
+        )
+    return build_releases_response(
+        raw_releases=raw_releases,
+        source=settings.release_source_mode,
+        channel=settings.release_channel,
+    )
+
+
+@app.get("/api/system/update/status")
+async def system_update_status() -> dict[str, object]:
+    releases = await system_releases()
+    return {
+        "safe_mode": "read_only",
+        "update_supported": False,
+        "installed_version": releases.installed_version,
+        "channel": releases.channel,
+        "update_status": releases.update_status,
+        "latest_release_available": releases.latest_release_available,
+        "latest_release": releases.latest_release.model_dump() if releases.latest_release else None,
+        "status": releases.status,
+        "message": "PKG-21 apenas consulta releases; execução de update não está habilitada.",
+        "release_error": releases.error,
+    }
 
 
 @app.get("/")
@@ -1169,20 +1246,28 @@ async def execute_calibration_test(
 
     sent_commands: list[str] = []
     results: list[dict[str, Any]] = []
-    try:
-        for command in gate.commands:
-            result = await client.gcode_script(command)
+    failed_command: str | None = None
+    for command in gate.commands:
+        result = await _send_and_monitor_gcode(client, command, settings.request_timeout_seconds)
+        results.append(result)
+        if result.get("accepted"):
             sent_commands.append(command)
-            results.append({"command": command, "result": result})
-    except httpx.HTTPError as exc:
+            continue
+        failed_command = command
+        break
+
+    if failed_command is not None:
+        status = "failed_partial" if sent_commands else "failed"
+        failed_result = results[-1] if results else {}
+        error_detail = str(failed_result.get("transport_error") or failed_result.get("monitor_error") or "sem detalhe")
         return repository.create_execution_attempt(
             printer_id=printer.id,
             test=test,
             gate=gate,
-            status="failed_partial" if sent_commands else "failed",
+            status=status,
             sent_commands=sent_commands,
             result=results,
-            message=f"Falha ao enviar G-code: {_http_error_detail(exc)}",
+            message=f"Falha ao confirmar G-code '{failed_command}': {error_detail}",
         )
 
     return repository.create_execution_attempt(
@@ -1192,7 +1277,7 @@ async def execute_calibration_test(
         status="executed",
         sent_commands=sent_commands,
         result=results,
-        message="G-code de calibração enviado pelo Moonraker com operador presente.",
+        message="G-code de calibração enviado e confirmado por monitoramento final do Moonraker.",
     )
 
 
@@ -1236,6 +1321,16 @@ async def create_maintenance_event(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.delete("/api/maintenance/events/{event_id}")
+async def delete_maintenance_event(event_id: int) -> MaintenanceEventRecord:
+    settings = get_settings()
+    maintenance_repository = get_maintenance_repository(settings)
+    event = maintenance_repository.delete_event(event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="maintenance event not found")
+    return event
+
+
 @app.get("/api/printers/{printer_id}/maintenance/tasks")
 async def list_maintenance_tasks(printer_id: int) -> dict[str, list[MaintenanceTaskRecord]]:
     settings = get_settings()
@@ -1243,6 +1338,7 @@ async def list_maintenance_tasks(printer_id: int) -> dict[str, list[MaintenanceT
     maintenance_repository = get_maintenance_repository(settings)
     if printer_repository.get_printer(printer_id) is None:
         raise HTTPException(status_code=404, detail="printer not found")
+    maintenance_repository.ensure_default_tasks(printer_id)
     return {"tasks": maintenance_repository.list_tasks(printer_id)}
 
 
@@ -1253,6 +1349,7 @@ async def maintenance_summary(printer_id: int) -> MaintenanceSummary:
     maintenance_repository = get_maintenance_repository(settings)
     if printer_repository.get_printer(printer_id) is None:
         raise HTTPException(status_code=404, detail="printer not found")
+    maintenance_repository.ensure_default_tasks(printer_id)
     return maintenance_repository.summary(printer_id)
 
 
@@ -1264,8 +1361,21 @@ async def create_maintenance_task(
     settings = get_settings()
     printer_repository = get_printer_repository(settings)
     maintenance_repository = get_maintenance_repository(settings)
-    if printer_repository.get_printer(printer_id) is None:
+    printer = printer_repository.get_printer(printer_id)
+    if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
+    if payload.interval_kind == "print_hours" and payload.last_done_at and payload.last_done_print_hours is None:
+        print_hours = await _read_printer_print_hours(printer.moonraker_url)
+        if print_hours is None:
+            raise HTTPException(status_code=400, detail="print hours unavailable")
+        payload.last_done_print_hours = print_hours
+        payload.last_print_hours_read_at = _now_iso()
+        maintenance_repository.update_current_print_hours(
+            printer_id,
+            print_hours,
+            read_at=payload.last_print_hours_read_at,
+            source="live",
+        )
     try:
         return maintenance_repository.create_task(printer_id, payload)
     except Exception as exc:
@@ -1282,17 +1392,95 @@ async def create_default_maintenance_tasks(printer_id: int) -> dict[str, list[Ma
     return {"tasks": maintenance_repository.create_default_tasks(printer_id)}
 
 
+@app.get("/api/printers/{printer_id}/maintenance/print-hours")
+async def refresh_maintenance_print_hours(printer_id: int) -> dict[str, object]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    maintenance_repository = get_maintenance_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return await _refresh_maintenance_print_hours(printer_id, printer_repository, maintenance_repository)
+
+
 @app.post("/api/maintenance/tasks/{task_id}/complete")
 async def complete_maintenance_task(
     task_id: int,
     payload: MaintenanceTaskComplete,
 ) -> MaintenanceEventRecord:
     settings = get_settings()
+    printer_repository = get_printer_repository(settings)
     maintenance_repository = get_maintenance_repository(settings)
+    task = maintenance_repository.get_task(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="maintenance task not found")
+    interval_kind = payload.next_interval_kind or task.interval_kind
+    if interval_kind == "print_hours" and payload.print_hours_at is None:
+        printer = printer_repository.get_printer(task.printer_id)
+        if printer is not None:
+            print_hours = await _read_printer_print_hours(printer.moonraker_url)
+            if print_hours is None:
+                raise HTTPException(status_code=400, detail="print hours unavailable")
+            payload.print_hours_at = print_hours
+            payload.print_hours_read_at = _now_iso()
+            maintenance_repository.update_current_print_hours(
+                task.printer_id,
+                print_hours,
+                read_at=payload.print_hours_read_at,
+                source="live",
+            )
     event = maintenance_repository.complete_task(task_id, payload)
     if event is None:
         raise HTTPException(status_code=404, detail="maintenance task not found")
     return event
+
+
+@app.delete("/api/maintenance/tasks/{task_id}/latest-event")
+async def delete_latest_maintenance_task_event(task_id: int) -> MaintenanceEventRecord:
+    settings = get_settings()
+    maintenance_repository = get_maintenance_repository(settings)
+    event = maintenance_repository.delete_latest_task_event(task_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="maintenance task event not found")
+    return event
+
+
+async def _refresh_maintenance_print_hours(
+    printer_id: int,
+    printer_repository: PrinterRepository,
+    maintenance_repository: MaintenanceRepository,
+) -> dict[str, object]:
+    tasks = maintenance_repository.list_tasks(printer_id)
+    printer = printer_repository.get_printer(printer_id)
+    if printer is None:
+        return {"available": False, "total_print_hours": None, "read_at": None, "source": "unavailable"}
+    print_hours = await _read_printer_print_hours(printer.moonraker_url)
+    if print_hours is None:
+        if any(task.current_print_hours is not None for task in tasks):
+            maintenance_repository.update_current_print_hours(printer_id, None, read_at=_now_iso(), source="cached")
+        return {"available": False, "total_print_hours": None, "read_at": None, "source": "unavailable"}
+    read_at = _now_iso()
+    maintenance_repository.update_current_print_hours(printer_id, print_hours, read_at=read_at, source="live")
+    return {"available": True, "total_print_hours": print_hours, "read_at": read_at, "source": "live"}
+
+
+async def _read_printer_print_hours(moonraker_url: str) -> float | None:
+    client = MoonrakerClient(moonraker_url, timeout_seconds=3.0)
+    try:
+        totals = await client.history_totals()
+    except Exception:
+        return None
+    job_totals = totals.get("job_totals")
+    if not isinstance(job_totals, dict):
+        return None
+    total_seconds = job_totals.get("total_print_time")
+    if not isinstance(total_seconds, int | float):
+        return None
+    # Limitação: não soma print_stats.print_duration em impressão ativa; isso exigiria combinar duas leituras.
+    return round(float(total_seconds) / 3600.0, 3)
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
 @app.get("/api/printers/{printer_id}/backup/policies")
@@ -1668,6 +1856,97 @@ async def _operation_execution_preflight(client: MoonrakerClient) -> dict[str, A
     }
 
 
+async def _send_and_monitor_gcode(
+    client: MoonrakerClient,
+    command: str,
+    request_timeout_seconds: float,
+) -> dict[str, Any]:
+    started_at = time.monotonic()
+    record: dict[str, Any] = {
+        "command": command,
+        "accepted": False,
+        "transport_status": "pending",
+        "monitor_status": "pending",
+    }
+    try:
+        record["gcode_store_before"] = await client.gcode_store(count=8)
+    except httpx.HTTPError as exc:
+        record["gcode_store_before_error"] = _http_error_detail(exc)
+
+    try:
+        record["submit_result"] = await client.gcode_script(
+            command,
+            timeout_seconds=max(request_timeout_seconds, 30.0),
+        )
+        record["transport_status"] = "ok"
+    except httpx.HTTPError as exc:
+        record["transport_status"] = "error"
+        record["transport_error"] = _http_error_detail(exc)
+
+    final_state = await _monitor_gcode_final_state(client)
+    record["final_state"] = final_state
+    record["monitor_status"] = "ok" if final_state.get("connected") else "error"
+    if final_state.get("error"):
+        record["monitor_error"] = final_state["error"]
+    record["duration_seconds"] = round(time.monotonic() - started_at, 3)
+
+    transport_ok = record["transport_status"] == "ok"
+    ready_after_send = bool(final_state.get("connected")) and _final_state_is_ready(final_state)
+    record["accepted"] = transport_ok or ready_after_send
+    if record["accepted"] and record["transport_status"] == "error":
+        record["transport_status"] = "accepted_after_monitoring"
+    return record
+
+
+async def _monitor_gcode_final_state(client: MoonrakerClient, *, timeout_seconds: float = 15.0) -> dict[str, Any]:
+    deadline = time.monotonic() + timeout_seconds
+    last_state: dict[str, Any] = {}
+    while True:
+        try:
+            printer_info = await client.printer_info()
+            server_info = await client.server_info()
+            available_objects = await client.printer_objects_list()
+            query_objects: dict[str, list[str]] = {"print_stats": ["state", "filename"]}
+            if "toolhead" in available_objects:
+                query_objects["toolhead"] = ["homed_axes", "position"]
+            objects = await client.printer_objects(query_objects)
+            status = objects.get("status", objects)
+            print_stats = status.get("print_stats") if isinstance(status, dict) else {}
+            toolhead = status.get("toolhead") if isinstance(status, dict) else {}
+            last_state = {
+                "connected": bool(server_info.get("klippy_connected", True)),
+                "klipper_state": printer_info.get("state"),
+                "klippy_state": server_info.get("klippy_state"),
+                "print_state": str(print_stats.get("state") or "") if isinstance(print_stats, dict) else "",
+                "filename": print_stats.get("filename") if isinstance(print_stats, dict) else None,
+                "homed_axes": toolhead.get("homed_axes") if isinstance(toolhead, dict) else None,
+                "position": toolhead.get("position") if isinstance(toolhead, dict) else None,
+            }
+            try:
+                last_state["gcode_store_after"] = await client.gcode_store(count=20)
+            except httpx.HTTPError as exc:
+                last_state["gcode_store_after_error"] = _http_error_detail(exc)
+            if _final_state_is_ready(last_state) or time.monotonic() >= deadline:
+                return last_state
+        except httpx.HTTPError as exc:
+            last_state = {
+                "connected": False,
+                "error": _http_error_detail(exc),
+            }
+            if time.monotonic() >= deadline:
+                return last_state
+        await asyncio.sleep(0.5)
+
+
+def _final_state_is_ready(state: dict[str, Any]) -> bool:
+    return (
+        bool(state.get("connected"))
+        and state.get("klipper_state") == "ready"
+        and state.get("klippy_state") == "ready"
+        and str(state.get("print_state") or "") in {"", "standby", "complete", "cancelled"}
+    )
+
+
 def _build_unreachable_audit(moonraker_url: str, exc: Exception) -> dict[str, Any]:
     return {
         "safe_mode": "read_only",
@@ -1774,6 +2053,21 @@ def _http_error_detail(exc: httpx.HTTPError) -> str:
             return f"Moonraker HTTP {exc.response.status_code}: {response_text}"
         return f"Moonraker HTTP {exc.response.status_code}"
     return str(exc)
+
+
+def _is_github_rate_limit(response: httpx.Response) -> bool:
+    if response.status_code == 429:
+        return True
+    if response.status_code == 403 and response.headers.get("x-ratelimit-remaining") == "0":
+        return True
+    return response.status_code == 403 and "rate limit" in response.text.lower()
+
+
+def _github_http_error_detail(exc: httpx.HTTPStatusError) -> str:
+    response_text = exc.response.text.strip()
+    if response_text:
+        return f"GitHub HTTP {exc.response.status_code}: {response_text}"
+    return f"GitHub HTTP {exc.response.status_code}"
 
 
 @app.get("/{frontend_path:path}")

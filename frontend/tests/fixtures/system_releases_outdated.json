@@ -1,0 +1,50 @@
+{
+  "safe_mode": "read_only",
+  "source": "fixture",
+  "status": "ok",
+  "channel": "stable",
+  "installed_version": "0.1.0",
+  "update_status": "outdated",
+  "latest_release_available": true,
+  "latest_release": {
+    "tag": "v0.2.0",
+    "name": "Printora 0.2.0",
+    "channel": "stable",
+    "changelog": "Correcoes de manutencao e configuracao.",
+    "changelog_summary": "Correcoes de manutencao e configuracao.",
+    "url": "https://github.com/mayder/printora/releases/tag/v0.2.0",
+    "published_at": "2026-05-21T18:00:00Z",
+    "prerelease": false,
+    "draft": false,
+    "installed": false
+  },
+  "releases": [
+    {
+      "tag": "v0.2.0",
+      "name": "Printora 0.2.0",
+      "channel": "stable",
+      "changelog": "Correcoes de manutencao e configuracao.",
+      "changelog_summary": "Correcoes de manutencao e configuracao.",
+      "url": "https://github.com/mayder/printora/releases/tag/v0.2.0",
+      "published_at": "2026-05-21T18:00:00Z",
+      "prerelease": false,
+      "draft": false,
+      "installed": false
+    },
+    {
+      "tag": "v0.1.0",
+      "name": "Printora 0.1.0",
+      "channel": "stable",
+      "changelog": "Primeira release publica.",
+      "changelog_summary": "Primeira release publica.",
+      "url": "https://github.com/mayder/printora/releases/tag/v0.1.0",
+      "published_at": "2026-05-20T12:00:00Z",
+      "prerelease": false,
+      "draft": false,
+      "installed": true
+    }
+  ],
+  "update_supported": false,
+  "message": "Release disponível para revisão.",
+  "error": null
+}

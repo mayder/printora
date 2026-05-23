@@ -1,0 +1,14 @@
+{
+  "safe_mode": "read_only",
+  "source": "github",
+  "status": "rate_limited",
+  "channel": "stable",
+  "installed_version": "0.1.0",
+  "update_status": "unknown",
+  "latest_release_available": false,
+  "latest_release": null,
+  "releases": [],
+  "update_supported": false,
+  "message": "Limite de consulta do GitHub atingido.",
+  "error": "GitHub HTTP 403: API rate limit exceeded"
+}

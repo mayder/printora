@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 HostAuditMode = Literal["disabled", "local", "ssh"]
 FirmwareBuildMode = Literal["disabled", "local"]
+ReleaseSourceMode = Literal["github", "fixture", "disabled"]
 
 
 class Settings(BaseSettings):
@@ -15,11 +16,18 @@ class Settings(BaseSettings):
     data_dir: Path = Field(default=Path.home() / ".local/share/printora")
     frontend_dist_dir: Path = Field(default=Path(__file__).resolve().parents[2] / "frontend" / "dist")
     request_timeout_seconds: float = 5.0
-    host_audit_mode: HostAuditMode = "disabled"
+    host_audit_mode: HostAuditMode = "local"
     host_audit_ssh_target: str = "pi@voron.local"
     host_audit_timeout_seconds: float = 12.0
     firmware_build_mode: FirmwareBuildMode = "disabled"
     firmware_build_timeout_seconds: float = 900.0
+    release_source_mode: ReleaseSourceMode = "github"
+    release_github_owner: str = "mayder"
+    release_github_repo: str = "printora"
+    release_github_api_base_url: str = "https://api.github.com"
+    release_channel: str = "stable"
+    release_fixture_path: Path | None = None
+    release_request_timeout_seconds: float = 5.0
 
     model_config = SettingsConfigDict(
         env_file=".env",

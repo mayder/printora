@@ -41,6 +41,10 @@ export PRINTORA_PORT=8085
 export PRINTORA_HOST=0.0.0.0
 export PRINTORA_MOONRAKER_URL=http://voron.local:7125
 export PRINTORA_DATA_DIR="$HOME/.local/share/printora"
+export PRINTORA_RELEASE_SOURCE_MODE=github
+export PRINTORA_RELEASE_GITHUB_OWNER=mayder
+export PRINTORA_RELEASE_GITHUB_REPO=printora
+export PRINTORA_RELEASE_CHANNEL=stable
 ```
 
 Windows PowerShell:
@@ -50,7 +54,23 @@ $env:PRINTORA_PORT="8085"
 $env:PRINTORA_HOST="0.0.0.0"
 $env:PRINTORA_MOONRAKER_URL="http://voron.local:7125"
 $env:PRINTORA_DATA_DIR="$env:LOCALAPPDATA\Printora"
+$env:PRINTORA_RELEASE_SOURCE_MODE="github"
+$env:PRINTORA_RELEASE_GITHUB_OWNER="mayder"
+$env:PRINTORA_RELEASE_GITHUB_REPO="printora"
+$env:PRINTORA_RELEASE_CHANNEL="stable"
 ```
+
+Variáveis de releases:
+
+- `PRINTORA_RELEASE_SOURCE_MODE`: `github`, `fixture` ou `disabled`. Padrão: `github`.
+- `PRINTORA_RELEASE_GITHUB_OWNER`: proprietário do repositório público no GitHub. Padrão: `mayder`.
+- `PRINTORA_RELEASE_GITHUB_REPO`: nome do repositório público. Padrão: `printora`.
+- `PRINTORA_RELEASE_GITHUB_API_BASE_URL`: base da API do GitHub. Padrão: `https://api.github.com`.
+- `PRINTORA_RELEASE_CHANNEL`: canal exibido na UI. Padrão: `stable`.
+- `PRINTORA_RELEASE_FIXTURE_PATH`: arquivo JSON local usado apenas para teste sem rede quando `PRINTORA_RELEASE_SOURCE_MODE=fixture`.
+- `PRINTORA_RELEASE_REQUEST_TIMEOUT_SECONDS`: timeout da consulta read-only. Padrão: `5`.
+
+Essas variáveis só controlam consulta de releases. Elas não aplicam update, não alteram banco e não exigem token para repositório público.
 
 ## Validação Comum
 
@@ -486,6 +506,10 @@ Exemplo:
 PRINTORA_MOONRAKER_URL=http://127.0.0.1:7125
 PRINTORA_DATA_DIR=/home/pi/.local/share/printora
 PRINTORA_FRONTEND_DIST_DIR=/home/pi/Printora/frontend/dist
+PRINTORA_RELEASE_SOURCE_MODE=github
+PRINTORA_RELEASE_GITHUB_OWNER=mayder
+PRINTORA_RELEASE_GITHUB_REPO=printora
+PRINTORA_RELEASE_CHANNEL=stable
 ```
 
 ### Iniciar Serviço

@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Bell,
   Camera,
+  CalendarDays,
   CheckCircle2,
   ClipboardCheck,
   Database,
@@ -13,6 +14,7 @@ import {
   HelpCircle,
   Home,
   History,
+  Hourglass,
   ListChecks,
   Menu,
   Moon,
@@ -27,7 +29,10 @@ import {
   ShieldCheck,
   SkipForward,
   SlidersHorizontal,
+  Timer,
   Sun,
+  Trash2,
+  Undo2,
   Wrench,
   X,
   Zap,
@@ -403,6 +408,8 @@ type MaintenanceEventRecord = {
   title: string;
   notes: string;
   created_at: string;
+  print_hours_at?: number | null;
+  print_hours_read_at?: string | null;
 };
 
 type MaintenanceTaskRecord = {
@@ -411,12 +418,22 @@ type MaintenanceTaskRecord = {
   name: string;
   component: string;
   interval_days: number;
+  interval_kind: "days" | "print_hours";
+  interval_value: number;
   last_done_at?: string | null;
+  last_done_print_hours?: number | null;
+  last_print_hours_read_at?: string | null;
+  current_print_hours?: number | null;
+  current_print_hours_read_at?: string | null;
+  current_print_hours_source?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  due_status: "due" | "soon" | "ok" | "unknown";
+  due_status: "due" | "soon" | "ok" | "unknown" | "not_validated" | "needs_review";
   days_until_due?: number | null;
+  print_hours_delta?: number | null;
+  print_hours_until_due?: number | null;
+  due_detail?: string | null;
 };
 
 type MaintenanceSummary = {
@@ -425,7 +442,16 @@ type MaintenanceSummary = {
   counts: Record<string, number>;
   due_components: string[];
   next_due_task?: MaintenanceTaskRecord | null;
-  recommended_tasks: Array<{ name: string; component: string; interval_days: number }>;
+  recommended_tasks: Array<{ name: string; component: string; interval_days: number; interval_kind?: "days" | "print_hours"; interval_value?: number }>;
+  print_hours_source?: string | null;
+  print_hours_read_at?: string | null;
+};
+
+type MaintenancePrintHoursStatus = {
+  available: boolean;
+  total_print_hours?: number | null;
+  read_at?: string | null;
+  source?: string | null;
 };
 
 type ZOffsetRecord = {
@@ -579,6 +605,34 @@ type UpdateStatusResponse = {
   summary: string;
   counts: Record<string, number>;
   components: UpdateComponent[];
+};
+
+type ReleaseRecord = {
+  tag: string;
+  name: string;
+  channel: string;
+  changelog: string;
+  changelog_summary: string;
+  url?: string | null;
+  published_at?: string | null;
+  prerelease: boolean;
+  draft: boolean;
+  installed: boolean;
+};
+
+type SystemReleasesResponse = {
+  safe_mode: string;
+  source: "github" | "fixture" | "disabled";
+  status: "ok" | "offline" | "rate_limited" | "disabled" | "error";
+  channel: string;
+  installed_version: string;
+  update_status: "up_to_date" | "outdated" | "unknown";
+  latest_release_available: boolean;
+  latest_release?: ReleaseRecord | null;
+  releases: ReleaseRecord[];
+  update_supported: boolean;
+  message: string;
+  error?: string | null;
 };
 
 type UpdateActionResponse = {
@@ -981,7 +1035,7 @@ const appSections: Array<{
     icon: Settings,
     label: "Configurações",
     detail: "Preferências, integrações e contexto da impressora ativa.",
-    purpose: "Centralize ajustes do app, seleção de impressora e integrações futuras.",
+    purpose: "Ajustes do Printora, releases e auditoria do host onde o app roda.",
   },
 ];
 
@@ -990,6 +1044,18 @@ const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Impressora ativa", sections: ["operation", "monitoring", "updates", "calibration", "tests", "firmware", "maintenance"] },
   { title: "Diagnóstico", sections: ["reports", "settings"] },
 ];
+
+const onlinePrinterSections = new Set<AppSection>([
+  "operation",
+  "monitoring",
+  "updates",
+  "calibration",
+  "tests",
+  "firmware",
+  "reports",
+]);
+
+const selectedPrinterLocalSections = new Set<AppSection>(["maintenance"]);
 
 function getInitialSection(): AppSection {
   const section = new URLSearchParams(window.location.search).get("section") ?? window.location.hash.replace("#", "");
@@ -1029,6 +1095,9 @@ function App() {
   const [operationExecutionPhrase, setOperationExecutionPhrase] = React.useState("");
   const [operationExecutionAttempt, setOperationExecutionAttempt] = React.useState<OperationActionExecutionAttempt | null>(null);
   const [updateStatus, setUpdateStatus] = React.useState<UpdateStatusResponse | null>(null);
+  const [systemReleases, setSystemReleases] = React.useState<SystemReleasesResponse | null>(null);
+  const [releaseLoading, setReleaseLoading] = React.useState(false);
+  const [releaseError, setReleaseError] = React.useState<string | null>(null);
   const [updateActionResult, setUpdateActionResult] = React.useState<UpdateActionResponse | null>(null);
   const [updateDialog, setUpdateDialog] = React.useState<UpdateDialogState | null>(null);
   const [updateLogs, setUpdateLogs] = React.useState<UpdateLogEntry[]>([]);
@@ -1046,6 +1115,7 @@ function App() {
   const [maintenanceEvents, setMaintenanceEvents] = React.useState<MaintenanceEventRecord[]>([]);
   const [maintenanceTasks, setMaintenanceTasks] = React.useState<MaintenanceTaskRecord[]>([]);
   const [maintenanceSummary, setMaintenanceSummary] = React.useState<MaintenanceSummary | null>(null);
+  const [maintenancePrintHours, setMaintenancePrintHours] = React.useState<MaintenancePrintHoursStatus | null>(null);
   const [zOffsetRecords, setZOffsetRecords] = React.useState<ZOffsetRecord[]>([]);
   const [canRecords, setCanRecords] = React.useState<CanBusRecord[]>([]);
   const [canSummary, setCanSummary] = React.useState<CanBusSummary | null>(null);
@@ -1078,13 +1148,19 @@ function App() {
   const [zOffsetWizardChecks, setZOffsetWizardChecks] = React.useState<Record<string, boolean>>({});
   const [zOffsetFormOpen, setZOffsetFormOpen] = React.useState(false);
   const [maintenanceEventType, setMaintenanceEventType] =
-    React.useState<MaintenanceEventRecord["event_type"]>("maintenance");
-  const [maintenanceComponent, setMaintenanceComponent] = React.useState("motion");
-  const [maintenanceTitle, setMaintenanceTitle] = React.useState("Lubrificação / inspeção");
+    React.useState<MaintenanceEventRecord["event_type"] | "">("");
+  const [maintenanceComponent, setMaintenanceComponent] = React.useState("");
+  const [maintenanceTitle, setMaintenanceTitle] = React.useState("");
   const [maintenanceNotes, setMaintenanceNotes] = React.useState("");
-  const [maintenanceTaskName, setMaintenanceTaskName] = React.useState("Limpar mesa");
-  const [maintenanceTaskComponent, setMaintenanceTaskComponent] = React.useState("bed");
-  const [maintenanceTaskIntervalDays, setMaintenanceTaskIntervalDays] = React.useState(30);
+  const [maintenanceDoneTask, setMaintenanceDoneTask] = React.useState<MaintenanceTaskRecord | null>(null);
+  const [maintenanceDoneNotes, setMaintenanceDoneNotes] = React.useState("");
+  const [maintenanceDoneIntervalKind, setMaintenanceDoneIntervalKind] = React.useState<"days" | "print_hours">("days");
+  const [maintenanceDoneIntervalValue, setMaintenanceDoneIntervalValue] = React.useState("");
+  const [maintenanceDoneDisableReminder, setMaintenanceDoneDisableReminder] = React.useState(false);
+  const [maintenanceFreeModalOpen, setMaintenanceFreeModalOpen] = React.useState(false);
+  const [maintenanceFreeReminderEnabled, setMaintenanceFreeReminderEnabled] = React.useState(false);
+  const [maintenanceFreeIntervalKind, setMaintenanceFreeIntervalKind] = React.useState<"days" | "print_hours">("days");
+  const [maintenanceFreeIntervalValue, setMaintenanceFreeIntervalValue] = React.useState("");
   const [zOffsetPlateName, setZOffsetPlateName] = React.useState("");
   const [zOffsetMaterial, setZOffsetMaterial] = React.useState("");
   const [zOffsetNozzle, setZOffsetNozzle] = React.useState("");
@@ -1142,26 +1218,49 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const statusResponse = await fetch("/api/moonraker/status");
-      const statusPayload = (await statusResponse.json()) as MoonrakerStatus;
-      setStatus(statusPayload);
-
-      const checklistResponse = await fetch("/api/checklist/post-update");
-      if (checklistResponse.ok) {
-        setChecklist((await checklistResponse.json()) as ChecklistResponse);
-      }
-
-      const hostAuditResponse = await fetch("/api/audit/host-read-only");
-      if (hostAuditResponse.ok) {
-        setHostAudit((await hostAuditResponse.json()) as AuditResponse);
-      }
-
-      await loadBoardPresets();
-      await loadPrinters();
+      await Promise.allSettled([
+        loadBoardPresets(),
+        loadPrinters(),
+      ]);
+      void loadGlobalDiagnostics();
+      void loadSystemReleases();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadGlobalDiagnostics() {
+    const [statusResponse, checklistResponse, hostAuditResponse] = await Promise.allSettled([
+      fetch("/api/moonraker/status"),
+      fetch("/api/checklist/post-update"),
+      fetch("/api/audit/host-read-only"),
+    ]);
+    if (statusResponse.status === "fulfilled" && statusResponse.value.ok) {
+      setStatus((await statusResponse.value.json()) as MoonrakerStatus);
+    }
+    if (checklistResponse.status === "fulfilled" && checklistResponse.value.ok) {
+      setChecklist((await checklistResponse.value.json()) as ChecklistResponse);
+    }
+    if (hostAuditResponse.status === "fulfilled" && hostAuditResponse.value.ok) {
+      setHostAudit((await hostAuditResponse.value.json()) as AuditResponse);
+    }
+  }
+
+  async function loadSystemReleases() {
+    setReleaseLoading(true);
+    setReleaseError(null);
+    try {
+      const response = await fetch("/api/system/releases");
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+      setSystemReleases((await response.json()) as SystemReleasesResponse);
+    } catch (err) {
+      setReleaseError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setReleaseLoading(false);
     }
   }
 
@@ -1180,24 +1279,36 @@ function App() {
   }
 
   async function loadPrinterContext(printerId: number) {
-    await loadPrinterChecklist(printerId);
-    await loadOperationStatus(printerId);
-    await loadOperationActionHistory(printerId);
-    await loadOperationExecutionHistory(printerId);
-    await loadPrinterAudit(printerId);
-    await loadSnapshots(printerId);
-    await loadPrinterHealth(printerId);
-    await loadUpdateStatus(printerId);
-    await loadBackups(printerId);
-    await loadMaintenance(printerId);
-    await loadZOffsets(printerId);
-    await loadCanRecords(printerId);
-    await loadPluginAudit(printerId);
-    await loadFirmwareBoards(printerId);
-    await loadFirmwareBuildRuns(printerId);
-    await loadFirmwareFlashRuns(printerId);
-    await loadCalibrationTests(printerId);
-    await loadCalibrationRuns(printerId);
+    await loadPrinterLocalContext(printerId);
+    void loadPrinterLiveContext(printerId);
+  }
+
+  async function loadPrinterLocalContext(printerId: number) {
+    await Promise.allSettled([
+      loadOperationActionHistory(printerId),
+      loadOperationExecutionHistory(printerId),
+      loadSnapshots(printerId),
+      loadBackups(printerId),
+      loadMaintenance(printerId),
+      loadZOffsets(printerId),
+      loadCanRecords(printerId),
+      loadPluginAudit(printerId),
+      loadFirmwareBoards(printerId),
+      loadFirmwareBuildRuns(printerId),
+      loadFirmwareFlashRuns(printerId),
+      loadCalibrationRuns(printerId),
+    ]);
+  }
+
+  async function loadPrinterLiveContext(printerId: number) {
+    await Promise.allSettled([
+      loadPrinterChecklist(printerId),
+      loadOperationStatus(printerId),
+      loadPrinterAudit(printerId),
+      loadPrinterHealth(printerId),
+      loadUpdateStatus(printerId),
+      loadCalibrationTests(printerId),
+    ]);
   }
 
   async function loadPrinterChecklist(printerId: number) {
@@ -1384,7 +1495,7 @@ function App() {
       const payload = {
         name: newPrinterName.trim(),
         moonraker_url: newPrinterUrl.trim(),
-        host_audit_mode: newPrinterSshHost && newPrinterSshUser ? "ssh" : "disabled",
+        host_audit_mode: newPrinterSshHost && newPrinterSshUser ? "ssh" : "local",
         ssh_host: newPrinterSshHost.trim() || null,
         ssh_port: newPrinterSshPort,
         ssh_username: newPrinterSshUser.trim() || null,
@@ -1644,7 +1755,7 @@ function App() {
           method: "server.connection.identify",
           params: {
             client_name: "Printora",
-            version: "0.1.0",
+            version: "0.1.1",
             type: "web",
             url: "https://github.com/printora/printora",
           },
@@ -1782,22 +1893,45 @@ function App() {
     }
   }
 
-  async function loadMaintenance(printerId: number) {
+  async function loadMaintenance(printerId: number, refreshPrintHours = true) {
     const [eventsResponse, tasksResponse, summaryResponse] = await Promise.all([
       fetch(`/api/printers/${printerId}/maintenance/events`),
       fetch(`/api/printers/${printerId}/maintenance/tasks`),
       fetch(`/api/printers/${printerId}/maintenance/summary`),
     ]);
+    let loadedTasks: MaintenanceTaskRecord[] | null = null;
+    let loadedSummary: MaintenanceSummary | null = null;
     if (eventsResponse.ok) {
       const payload = (await eventsResponse.json()) as { events: MaintenanceEventRecord[] };
       setMaintenanceEvents(payload.events);
     }
     if (tasksResponse.ok) {
       const payload = (await tasksResponse.json()) as { tasks: MaintenanceTaskRecord[] };
+      loadedTasks = payload.tasks;
       setMaintenanceTasks(payload.tasks);
     }
     if (summaryResponse.ok) {
-      setMaintenanceSummary((await summaryResponse.json()) as MaintenanceSummary);
+      loadedSummary = (await summaryResponse.json()) as MaintenanceSummary;
+      setMaintenanceSummary(loadedSummary);
+    }
+    if (loadedTasks?.length === 0 && loadedSummary && loadedSummary.recommended_tasks.length > 0) {
+      const response = await fetch(`/api/printers/${printerId}/maintenance/tasks/defaults`, { method: "POST" });
+      if (response.ok) {
+        await loadMaintenance(printerId);
+      }
+    }
+    if (refreshPrintHours) {
+      void fetch(`/api/printers/${printerId}/maintenance/print-hours`)
+        .then(async (response) => {
+          if (!response.ok) {
+            setMaintenancePrintHours({ available: false, total_print_hours: null, source: "unavailable" });
+            return undefined;
+          }
+          const payload = (await response.json()) as MaintenancePrintHoursStatus;
+          setMaintenancePrintHours(payload);
+          return loadMaintenance(printerId, false);
+        })
+        .catch(() => setMaintenancePrintHours({ available: false, total_print_hours: null, source: "unavailable" }));
     }
   }
 
@@ -2460,67 +2594,34 @@ function App() {
     setZOffsetWizardChecks((current) => ({ ...current, [key]: !current[key] }));
   }
 
-  async function createMaintenanceEvent(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedPrinterId) {
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/printers/${selectedPrinterId}/maintenance/events`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event_type: maintenanceEventType,
-          component: maintenanceComponent,
-          title: maintenanceTitle,
-          notes: maintenanceNotes,
-        }),
-      });
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-      setMaintenanceNotes("");
-      await loadMaintenance(selectedPrinterId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro desconhecido");
-    } finally {
-      setLoading(false);
-    }
+  function openMaintenanceDoneModal(task: MaintenanceTaskRecord) {
+    setMaintenanceDoneTask(task);
+    setMaintenanceDoneNotes("");
+    setMaintenanceDoneIntervalKind(task.interval_kind);
+    setMaintenanceDoneIntervalValue(task.is_active ? formatMaintenanceIntervalValue(task) : "");
+    setMaintenanceDoneDisableReminder(!task.is_active);
   }
 
-  async function createMaintenanceTask(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedPrinterId) {
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/printers/${selectedPrinterId}/maintenance/tasks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: maintenanceTaskName,
-          component: maintenanceTaskComponent,
-          interval_days: maintenanceTaskIntervalDays,
-        }),
-      });
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-      await loadMaintenance(selectedPrinterId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro desconhecido");
-    } finally {
-      setLoading(false);
-    }
+  function openMaintenanceFreeModal() {
+    setMaintenanceEventType("");
+    setMaintenanceComponent("");
+    setMaintenanceTitle("");
+    setMaintenanceNotes("");
+    setMaintenanceFreeReminderEnabled(false);
+    setMaintenanceFreeIntervalKind("days");
+    setMaintenanceFreeIntervalValue("");
+    setMaintenanceFreeModalOpen(true);
   }
 
-  async function completeMaintenanceTask(taskId: number) {
+  async function completeMaintenanceTask(
+    taskId: number,
+    notes = "Concluído pelo painel Printora.",
+    nextIntervalKind?: "days" | "print_hours" | null,
+    nextIntervalValue?: number | null,
+    disableReminder = false,
+  ): Promise<boolean> {
     if (!selectedPrinterId) {
-      return;
+      return false;
     }
     setLoading(true);
     setError(null);
@@ -2528,7 +2629,65 @@ function App() {
       const response = await fetch(`/api/maintenance/tasks/${taskId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: "Concluído pelo painel Printora." }),
+        body: JSON.stringify({
+          notes,
+          next_interval_kind: nextIntervalKind ?? null,
+          next_interval_value: nextIntervalValue ?? null,
+          next_interval_days: nextIntervalKind === "days" ? nextIntervalValue ?? null : null,
+          disable_reminder: disableReminder,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadMaintenance(selectedPrinterId);
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitMaintenanceDone(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!maintenanceDoneTask) {
+      return;
+    }
+    const interval = maintenanceDoneDisableReminder || !maintenanceDoneIntervalValue.trim()
+      ? null
+      : Number(maintenanceDoneIntervalValue);
+    if (!maintenanceDoneDisableReminder && maintenanceDoneIntervalKind === "print_hours" && !maintenancePrintHours?.available) {
+      setError("Horas de impressão indisponíveis. Ligue a impressora para usar lembrete por horas.");
+      return;
+    }
+    const completed = await completeMaintenanceTask(
+      maintenanceDoneTask.id,
+      maintenanceDoneNotes.trim() || "Manutenção realizada.",
+      maintenanceDoneDisableReminder || interval === null ? null : maintenanceDoneIntervalKind,
+      interval,
+      maintenanceDoneDisableReminder || !maintenanceDoneIntervalValue.trim(),
+    );
+    if (!completed) {
+      return;
+    }
+    setMaintenanceDoneTask(null);
+    setMaintenanceDoneNotes("");
+    setMaintenanceDoneIntervalKind("days");
+    setMaintenanceDoneIntervalValue("");
+    setMaintenanceDoneDisableReminder(false);
+  }
+
+  async function deleteLatestMaintenanceTaskEvent(taskId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/maintenance/tasks/${taskId}/latest-event`, {
+        method: "DELETE",
       });
       if (!response.ok) {
         throw new Error(await response.text());
@@ -2550,6 +2709,89 @@ function App() {
     try {
       const response = await fetch(`/api/printers/${selectedPrinterId}/maintenance/tasks/defaults`, {
         method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadMaintenance(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitMaintenanceFreeEvent(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedPrinterId || !maintenanceEventType || !maintenanceComponent.trim() || !maintenanceTitle.trim()) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const performedAt = new Date().toISOString();
+      const response = await fetch(`/api/printers/${selectedPrinterId}/maintenance/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_type: maintenanceEventType,
+          component: maintenanceComponent.trim(),
+          title: maintenanceTitle.trim(),
+          notes: maintenanceNotes,
+          performed_at: performedAt,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      const reminderValue = maintenanceFreeReminderEnabled && maintenanceFreeIntervalValue.trim()
+        ? Number(maintenanceFreeIntervalValue)
+        : null;
+      if (maintenanceFreeReminderEnabled && maintenanceFreeIntervalKind === "print_hours" && !maintenancePrintHours?.available) {
+        throw new Error("Horas de impressão indisponíveis. Ligue a impressora para usar lembrete por horas.");
+      }
+      if (reminderValue) {
+        const taskResponse = await fetch(`/api/printers/${selectedPrinterId}/maintenance/tasks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: maintenanceTitle,
+            component: maintenanceComponent.trim(),
+            interval_days: maintenanceFreeIntervalKind === "days" ? reminderValue : 30,
+            interval_kind: maintenanceFreeIntervalKind,
+            interval_value: reminderValue,
+            last_done_at: performedAt,
+          }),
+        });
+        if (!taskResponse.ok) {
+          throw new Error(await taskResponse.text());
+        }
+      }
+      setMaintenanceEventType("");
+      setMaintenanceComponent("");
+      setMaintenanceTitle("");
+      setMaintenanceNotes("");
+      setMaintenanceFreeReminderEnabled(false);
+      setMaintenanceFreeIntervalKind("days");
+      setMaintenanceFreeIntervalValue("");
+      setMaintenanceFreeModalOpen(false);
+      await loadMaintenance(selectedPrinterId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteMaintenanceEvent(eventId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/maintenance/events/${eventId}`, {
+        method: "DELETE",
       });
       if (!response.ok) {
         throw new Error(await response.text());
@@ -2788,6 +3030,10 @@ function App() {
     }
     return task.due_status === maintenanceFilter;
   });
+  const nextMaintenanceTask = maintenanceSummary?.next_due_task;
+  const maintenancePrintHoursAvailable =
+    maintenancePrintHours?.available && typeof maintenancePrintHours.total_print_hours === "number";
+  const maintenanceHoursDisabledMessage = "Horas de impressão indisponíveis. Ligue a impressora para habilitar.";
   const visibleFirmwareBoards = firmwareBoards.filter((board) => {
     if (firmwareFilter === "can") {
       return board.connection_type === "can" || board.connection_type === "usb_can_bridge";
@@ -2807,6 +3053,25 @@ function App() {
   const alertCount = alertCenterItems.length;
   const latestSnapshot = snapshots[0];
   const moonrakerOnline = health?.connected ?? status?.connected ?? false;
+  const selectedPrinterOnline = Boolean(selectedPrinterId && moonrakerOnline);
+  const visibleNavGroups = React.useMemo(
+    () =>
+      navGroups
+        .map((group) => ({
+          ...group,
+          sections: group.sections.filter((sectionKey) => {
+            if (onlinePrinterSections.has(sectionKey)) {
+              return selectedPrinterOnline;
+            }
+            if (selectedPrinterLocalSections.has(sectionKey)) {
+              return Boolean(selectedPrinterId);
+            }
+            return true;
+          }),
+        }))
+        .filter((group) => group.sections.length > 0),
+    [selectedPrinterId, selectedPrinterOnline],
+  );
   const operationState = operationStatus?.miscellaneous.print_state ?? status?.printer?.state ?? health?.metrics.klipper_state ?? "-";
   const riskClass = overviewRiskClass(health?.decision);
   const riskLabel = formatDecision(health?.decision);
@@ -2862,6 +3127,16 @@ function App() {
   })();
   const TopbarPrimaryIcon = topbarPrimaryAction.icon;
 
+  React.useEffect(() => {
+    if (onlinePrinterSections.has(activeSection) && !selectedPrinterOnline) {
+      setActiveSection("overview");
+      return;
+    }
+    if (selectedPrinterLocalSections.has(activeSection) && !selectedPrinterId) {
+      setActiveSection("overview");
+    }
+  }, [activeSection, selectedPrinterId, selectedPrinterOnline]);
+
   return (
     <main className="app-shell">
       <aside className={`sidebar ${mobileNavOpen ? "open" : ""}`} aria-label="Navegação principal">
@@ -2878,7 +3153,7 @@ function App() {
           </button>
         </div>
         <nav className="sidebar-nav">
-          {navGroups.map((group) => (
+          {visibleNavGroups.map((group) => (
             <div key={group.title} className="nav-group">
               <span className="nav-group-title">{group.title}</span>
               {group.sections.map((sectionKey) => {
@@ -2978,7 +3253,13 @@ function App() {
 
         <section className="page-helper">
           <strong>{activeSectionMeta.purpose}</strong>
-          <span>{selectedPrinter ? `Contexto atual: ${selectedPrinter.name}` : "Selecione uma impressora para carregar os dados por contexto."}</span>
+          <span>
+            {activeSection === "settings"
+              ? "Configuração global do Printora"
+              : selectedPrinter
+                ? `Contexto atual: ${selectedPrinter.name}`
+                : "Selecione uma impressora para carregar os dados por contexto."}
+          </span>
         </section>
         <button type="button" className="primary-button mobile-section-action" onClick={() => void topbarPrimaryAction.run()} disabled={topbarPrimaryAction.disabled}>
           <TopbarPrimaryIcon size={16} />
@@ -3192,7 +3473,7 @@ function App() {
                   <button type="button" className="ghost-button" onClick={() => setPrinterModalOpen(false)}>
                     Cancelar
                   </button>
-                  <button type="submit" className="primary-button" disabled={loading}>
+                  <button type="submit" className="primary-button" disabled={loading || (!maintenanceDoneDisableReminder && maintenanceDoneIntervalKind === "print_hours" && !maintenancePrintHoursAvailable)}>
                     <Plus size={16} />
                     {printerModalMode === "edit" ? "Salvar impressora" : "Cadastrar impressora"}
                   </button>
@@ -3297,6 +3578,230 @@ function App() {
           </div>
         ) : null}
 
+        {maintenanceDoneTask ? (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Registrar ${maintenanceDoneTask.name}`}>
+            <div className="modal-card maintenance-modal-card">
+              <div className="modal-header">
+                <div>
+                  <h2>{maintenanceDoneTask.name}</h2>
+                  <p>{selectedPrinter?.name ?? "Impressora"} · {formatLocalDateTime(new Date())}</p>
+                </div>
+                <button type="button" className="ghost-button" onClick={() => setMaintenanceDoneTask(null)}>
+                  <X size={16} />
+                  Fechar
+                </button>
+              </div>
+              <form className="maintenance-modal-form" onSubmit={(event) => void submitMaintenanceDone(event)}>
+                <div className="maintenance-selected-printer">
+                  <span>Impressora selecionada</span>
+                  <strong>{selectedPrinter?.name ?? "Impressora"}</strong>
+                  <small>{selectedPrinter?.moonraker_url ?? "-"}</small>
+                </div>
+                <div className="maintenance-modal-summary">
+                  <Metric label="Componente" value={maintenanceDoneTask.component} />
+                  <Metric label="Última" value={formatOptionalLocalDateTime(maintenanceDoneTask.last_done_at)} />
+                  <Metric label="Lembrete atual" value={maintenanceDoneTask.is_active ? formatMaintenanceInterval(maintenanceDoneTask) : "sem lembrete"} />
+                </div>
+                {maintenancePrintHoursAvailable ? (
+                  <div className="maintenance-print-hours-banner">
+                    <Timer size={16} />
+                    <span>Horas atuais de impressão</span>
+                    <strong>{formatHours(maintenancePrintHours.total_print_hours ?? 0)}</strong>
+                  </div>
+                ) : (
+                  <p className="maintenance-modal-hint">{maintenanceHoursDisabledMessage}</p>
+                )}
+                <label className="form-field">
+                  <span>Observação</span>
+                  <textarea
+                    value={maintenanceDoneNotes}
+                    onChange={(event) => setMaintenanceDoneNotes(event.target.value)}
+                    placeholder="O que foi feito, peça trocada, condição encontrada..."
+                  />
+                </label>
+                <p className="maintenance-modal-hint">
+                  Com o prazo preenchido, o Printora volta a avisar quando vencer. Se deixar vazio, esta rotina fica registrada e não gera novo lembrete.
+                </p>
+                <div className="form-grid two-columns">
+                  <label className="form-field">
+                    <span>Lembrar por</span>
+                    <select
+                      value={maintenanceDoneIntervalKind}
+                      onChange={(event) => {
+                        const value = event.target.value as "days" | "print_hours";
+                        if (value === "print_hours" && !maintenancePrintHoursAvailable) {
+                          return;
+                        }
+                        setMaintenanceDoneIntervalKind(value);
+                        setMaintenanceDoneDisableReminder(false);
+                      }}
+                      disabled={maintenanceDoneDisableReminder}
+                    >
+                      <option value="days">Dias</option>
+                      <option value="print_hours" disabled={!maintenancePrintHoursAvailable}>Horas de impressão</option>
+                    </select>
+                  </label>
+                  <label className="form-field">
+                    <span>Valor</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max={maintenanceDoneIntervalKind === "days" ? "3650" : "100000"}
+                      step={maintenanceDoneIntervalKind === "days" ? "1" : "0.1"}
+                      value={maintenanceDoneIntervalValue}
+                      onChange={(event) => {
+                        setMaintenanceDoneIntervalValue(event.target.value);
+                        setMaintenanceDoneDisableReminder(false);
+                      }}
+                      placeholder="Vazio para nunca lembrar"
+                      disabled={maintenanceDoneDisableReminder}
+                    />
+                  </label>
+                </div>
+                <div className="form-grid two-columns">
+                  <label className="inline-check maintenance-no-reminder">
+                    <input
+                      type="checkbox"
+                      checked={maintenanceDoneDisableReminder || !maintenanceDoneIntervalValue.trim()}
+                      onChange={(event) => {
+                        setMaintenanceDoneDisableReminder(event.target.checked);
+                        if (event.target.checked) {
+                          setMaintenanceDoneIntervalValue("");
+                        }
+                      }}
+                    />
+                    Não lembrar de novo
+                  </label>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="ghost-button" onClick={() => setMaintenanceDoneTask(null)}>
+                    <X size={16} />
+                    Cancelar
+                  </button>
+                  <button type="submit" className="primary-button" disabled={loading}>
+                    <CheckCircle2 size={16} />
+                    Confirmar manutenção
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        ) : null}
+
+        {maintenanceFreeModalOpen ? (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Registro livre de manutenção">
+            <div className="modal-card maintenance-modal-card">
+              <div className="modal-header">
+                <div>
+                  <h2>Registro livre</h2>
+                  <p>{selectedPrinter?.name ?? "Impressora"} · {formatLocalDateTime(new Date())}</p>
+                </div>
+                <button type="button" className="ghost-button" onClick={() => setMaintenanceFreeModalOpen(false)}>
+                  <X size={16} />
+                  Fechar
+                </button>
+              </div>
+              <form className="maintenance-modal-form" onSubmit={(event) => void submitMaintenanceFreeEvent(event)}>
+                <div className="maintenance-selected-printer">
+                  <span>Impressora selecionada</span>
+                  <strong>{selectedPrinter?.name ?? "Impressora"}</strong>
+                  <small>{selectedPrinter?.moonraker_url ?? "-"}</small>
+                </div>
+                <div className="form-grid two-columns">
+                  <label className="form-field">
+                    <span>Tipo</span>
+                    <select
+                      value={maintenanceEventType}
+                      onChange={(event) => setMaintenanceEventType(event.target.value as MaintenanceEventRecord["event_type"])}
+                      required
+                    >
+                      <option value="" disabled>
+                        Selecione o tipo
+                      </option>
+                      <option value="maintenance">manutenção</option>
+                      <option value="failure">falha</option>
+                      <option value="adjustment">ajuste</option>
+                      <option value="note">nota</option>
+                    </select>
+                  </label>
+                  <label className="form-field">
+                    <span>Componente</span>
+                    <input value={maintenanceComponent} onChange={(event) => setMaintenanceComponent(event.target.value)} required />
+                  </label>
+                </div>
+                <label className="form-field">
+                  <span>Título</span>
+                  <input value={maintenanceTitle} onChange={(event) => setMaintenanceTitle(event.target.value)} required />
+                </label>
+                <label className="form-field">
+                  <span>Notas</span>
+                  <textarea value={maintenanceNotes} onChange={(event) => setMaintenanceNotes(event.target.value)} />
+                </label>
+                <label className="inline-check maintenance-no-reminder">
+                  <input
+                    type="checkbox"
+                    checked={maintenanceFreeReminderEnabled}
+                    onChange={(event) => {
+                      setMaintenanceFreeReminderEnabled(event.target.checked);
+                      if (!event.target.checked) {
+                        setMaintenanceFreeIntervalValue("");
+                      }
+                    }}
+                  />
+                  Criar lembrete recorrente
+                </label>
+                {maintenanceFreeReminderEnabled ? (
+                  <div className="form-grid two-columns">
+                    <label className="form-field">
+                      <span>Lembrar por</span>
+                      <select
+                        value={maintenanceFreeIntervalKind}
+                        onChange={(event) => {
+                          const value = event.target.value as "days" | "print_hours";
+                          if (value === "print_hours" && !maintenancePrintHoursAvailable) {
+                            return;
+                          }
+                          setMaintenanceFreeIntervalKind(value);
+                        }}
+                      >
+                        <option value="days">Dias</option>
+                        <option value="print_hours" disabled={!maintenancePrintHoursAvailable}>Horas de impressão</option>
+                      </select>
+                    </label>
+                    <label className="form-field">
+                      <span>Valor</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max={maintenanceFreeIntervalKind === "days" ? "3650" : "100000"}
+                        step={maintenanceFreeIntervalKind === "days" ? "1" : "0.1"}
+                        value={maintenanceFreeIntervalValue}
+                        onChange={(event) => setMaintenanceFreeIntervalValue(event.target.value)}
+                        required={maintenanceFreeReminderEnabled}
+                      />
+                    </label>
+                  </div>
+                ) : null}
+                <p className="maintenance-modal-hint">
+                  {maintenancePrintHoursAvailable
+                    ? `Horas atuais de impressão: ${formatHours(maintenancePrintHours.total_print_hours ?? 0)}.`
+                    : `Sem lembrete recorrente, o registro fica apenas no histórico. ${maintenanceHoursDisabledMessage}`}
+                </p>
+                <div className="modal-footer">
+                  <button type="button" className="ghost-button" onClick={() => setMaintenanceFreeModalOpen(false)}>
+                    <X size={16} />
+                    Cancelar
+                  </button>
+                  <button type="submit" className="primary-button" disabled={loading || !maintenanceEventType || !maintenanceComponent.trim() || !maintenanceTitle.trim() || (maintenanceFreeReminderEnabled && maintenanceFreeIntervalKind === "print_hours" && !maintenancePrintHoursAvailable)}>
+                    <CheckCircle2 size={16} />
+                    Salvar registro
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        ) : null}
+
         <section className="grid">
         <article className="panel wide panel-section panel-overview">
           <div className="overview-hero">
@@ -3345,7 +3850,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel wide panel-section panel-printers panel-settings">
+        <article className="panel wide panel-section panel-printers">
           <div className="panel-heading">
             <div>
               <h2>Dashboard de impressoras</h2>
@@ -4312,18 +4817,20 @@ function App() {
           </div>
           {calibrationActivityCleared ? <p className="muted">Atividade recente limpa nesta sessão.</p> : null}
           {!calibrationActivityCleared && calibrationExecutionResult ? (
-            <div className={`test-history-row ${calibrationExecutionResult.status === "executed" ? "passed" : "warning"}`}>
+            <div className={`test-history-row ${calibrationExecutionRowClass(calibrationExecutionResult.status)}`}>
               <strong>{formatCalibrationExecutionStatus(calibrationExecutionResult.status)}</strong>
               <span>{calibrationExecutionResult.message || "Sem mensagem."}</span>
+              <small>{summarizeCalibrationExecutionFinalState(calibrationExecutionResult)}</small>
             </div>
           ) : null}
           {!calibrationActivityCleared &&
             calibrationExecutions.slice(0, 4).map((execution) => (
-              <div key={execution.id} className={`test-history-row ${execution.status === "executed" ? "passed" : "warning"}`}>
+              <div key={execution.id} className={`test-history-row ${calibrationExecutionRowClass(execution.status)}`}>
                 <strong>{formatCalibrationTestTitle(execution.test_key, calibrationTests)}</strong>
                 <span>
                   {formatCalibrationExecutionStatus(execution.status)} · {execution.created_at}
                 </span>
+                <small>{summarizeCalibrationExecutionFinalState(execution)}</small>
               </div>
             ))}
           {!calibrationActivityCleared &&
@@ -4427,15 +4934,34 @@ function App() {
                 </label>
               </div>
               {calibrationExecutionResult ? (
-                <div className={`test-history-row ${calibrationExecutionResult.status === "executed" ? "passed" : "warning"}`}>
-                  <strong>{calibrationExecutionResult.status}</strong>
+                <div className={`test-history-row ${calibrationExecutionRowClass(calibrationExecutionResult.status)}`}>
+                  <strong>{formatCalibrationExecutionStatus(calibrationExecutionResult.status)}</strong>
                   <span>{calibrationExecutionResult.message}</span>
+                  <small>{summarizeCalibrationExecutionFinalState(calibrationExecutionResult)}</small>
+                  <details>
+                    <summary>Retorno registrado</summary>
+                    <pre>{formatCalibrationExecutionResult(calibrationExecutionResult)}</pre>
+                  </details>
                 </div>
               ) : null}
               <div className="modal-footer">
                 <button type="button" className="secondary-button" onClick={() => setCalibrationExecuteTestKey(null)}>
                   Cancelar
                 </button>
+                {calibrationExecutionResult?.status === "executed" ? (
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={() => {
+                      setCalibrationExecuteTestKey(null);
+                      openCalibrationResult(calibrationExecuteTest, true, "passed");
+                      setCalibrationObservedValue(summarizeCalibrationExecutionFinalState(calibrationExecutionResult));
+                      setCalibrationNotes(buildCalibrationExecutionNotes(calibrationExecutionResult));
+                    }}
+                  >
+                    Registrar resultado
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="danger-button"
@@ -4466,12 +4992,13 @@ function App() {
               </div>
               <div className="test-result-history">
                 {calibrationResultExecutions.map((execution) => (
-                  <div key={`execution-${execution.id}`} className={`test-history-row ${execution.status === "executed" ? "passed" : "warning"}`}>
+                  <div key={`execution-${execution.id}`} className={`test-history-row ${calibrationExecutionRowClass(execution.status)}`}>
                     <strong>{formatCalibrationExecutionStatus(execution.status)}</strong>
                     <span>
                       {execution.created_at} · {execution.sent_commands.length} comando(s)
                     </span>
                     {execution.message ? <small>{execution.message}</small> : null}
+                    <small>{summarizeCalibrationExecutionFinalState(execution)}</small>
                   </div>
                 ))}
                 {calibrationResultRuns.map((run) => (
@@ -4877,141 +5404,175 @@ function App() {
         </article>
 
         <article className="panel wide panel-section panel-maintenance">
-          <div className="panel-heading">
-            <div>
-              <h2>Manutenção</h2>
-              <p className="muted">Diário local e tarefas preventivas por impressora.</p>
-            </div>
-            <strong>{maintenanceSummary?.counts.due ?? maintenanceTasks.filter((task) => task.due_status === "due").length} pendentes</strong>
-          </div>
-          <div className="maintenance-summary dense-toolbar">
-            <Badge label="Modo" value={maintenanceSummary?.safe_mode ?? "local_only"} />
-            <Badge label="Em breve" value={maintenanceSummary?.counts.soon ?? 0} />
-            <Badge label="Em dia" value={maintenanceSummary?.counts.ok ?? 0} />
-            <Badge label="Próxima" value={maintenanceSummary?.next_due_task?.name ?? "-"} />
-          </div>
-          <div className="dense-toolbar filter-toolbar" aria-label="Filtros de manutenção">
-            <button type="button" className={maintenanceFilter === "all" ? "active" : ""} onClick={() => setMaintenanceFilter("all")}>
-              Todas
-            </button>
-            <button type="button" className={maintenanceFilter === "due" ? "active" : ""} onClick={() => setMaintenanceFilter("due")}>
-              Pendentes
-            </button>
-            <button type="button" className={maintenanceFilter === "soon" ? "active" : ""} onClick={() => setMaintenanceFilter("soon")}>
-              Em breve
-            </button>
-            <button type="button" className={maintenanceFilter === "ok" ? "active" : ""} onClick={() => setMaintenanceFilter("ok")}>
-              Em dia
-            </button>
-          </div>
-          <div className="maintenance-layout">
-            <section>
-              <div className="maintenance-section-heading">
-                <h3>Tarefas preventivas</h3>
+          <div className="maintenance-workspace">
+            <section className="maintenance-hero">
+              <div>
+                <span className="section-kicker">Plano preventivo</span>
+                <h2>{selectedPrinter?.name ?? "Impressora"}</h2>
+                <p>
+                  {nextMaintenanceTask
+                    ? `${nextMaintenanceTask.name}: ${formatDueStatus(nextMaintenanceTask)}`
+                    : "Nenhuma rotina preventiva criada."}
+                </p>
+              </div>
+              <div className="maintenance-hero-actions">
+                {maintenancePrintHoursAvailable ? (
+                  <div className="maintenance-print-hours-chip">
+                    <Timer size={16} />
+                    <span>Total de impressão</span>
+                    <strong>{formatHours(maintenancePrintHours.total_print_hours ?? 0)}</strong>
+                  </div>
+                ) : null}
                 <button
                   type="button"
-                  className="secondary-button"
+                  className="primary-button"
                   onClick={() => void createDefaultMaintenanceTasks()}
                   disabled={!selectedPrinterId || loading || maintenanceSummary?.recommended_tasks.length === 0}
                 >
-                  Criar padrão
+                  <Plus size={16} />
+                  Recarregar catálogo
                 </button>
               </div>
-              <form className="maintenance-task-form" onSubmit={(event) => void createMaintenanceTask(event)}>
-                <input
-                  aria-label="Nome da tarefa preventiva"
-                  value={maintenanceTaskName}
-                  onChange={(event) => setMaintenanceTaskName(event.target.value)}
-                  placeholder="Tarefa"
-                />
-                <input
-                  aria-label="Componente da tarefa"
-                  value={maintenanceTaskComponent}
-                  onChange={(event) => setMaintenanceTaskComponent(event.target.value)}
-                  placeholder="Componente"
-                />
-                <input
-                  aria-label="Intervalo em dias"
-                  type="number"
-                  min="1"
-                  max="3650"
-                  value={maintenanceTaskIntervalDays}
-                  onChange={(event) => setMaintenanceTaskIntervalDays(Number(event.target.value))}
-                />
-                <button type="submit" disabled={!selectedPrinterId || loading}>
-                  Criar
-                </button>
-              </form>
-              <div className="maintenance-list">
-                <div className="list-table-header maintenance-row">
-                  <strong>Tarefa</strong>
-                  <span>Ação</span>
+            </section>
+
+            <div className="maintenance-status-grid">
+              <Metric label="Vencidas" value={String(maintenanceSummary?.counts.due ?? 0)} />
+              <Metric label="Próximas" value={String(maintenanceSummary?.counts.soon ?? 0)} />
+              <Metric label="Em dia" value={String(maintenanceSummary?.counts.ok ?? 0)} />
+              <Metric label="Registradas" value={String(maintenanceTasks.length)} />
+            </div>
+
+            <section className="maintenance-panel-card">
+              <div className="maintenance-section-heading">
+                <div>
+                  <h3>Rotinas preventivas</h3>
+                  <p className="muted">Cada rotina gera alerta quando vencer.</p>
                 </div>
-                {visibleMaintenanceTasks.length === 0 ? <p className="muted">Nenhuma tarefa preventiva para este filtro.</p> : null}
+                <div className="dense-toolbar filter-toolbar" aria-label="Filtros de manutenção">
+                  <button type="button" className={maintenanceFilter === "all" ? "active" : ""} onClick={() => setMaintenanceFilter("all")}>
+                    Todas
+                  </button>
+                  <button type="button" className={maintenanceFilter === "due" ? "active" : ""} onClick={() => setMaintenanceFilter("due")}>
+                    Vencidas
+                  </button>
+                  <button type="button" className={maintenanceFilter === "soon" ? "active" : ""} onClick={() => setMaintenanceFilter("soon")}>
+                    Próximas
+                  </button>
+                  <button type="button" className={maintenanceFilter === "ok" ? "active" : ""} onClick={() => setMaintenanceFilter("ok")}>
+                    Em dia
+                  </button>
+                </div>
+              </div>
+
+              {visibleMaintenanceTasks.length === 0 ? (
+                <div className="empty-maintenance-state">
+                  <strong>Nenhuma rotina neste filtro.</strong>
+                  <span>O catálogo padrão será carregado automaticamente para esta impressora.</span>
+                </div>
+              ) : null}
+
+              <div className="maintenance-card-grid">
                 {visibleMaintenanceTasks.map((task) => (
-                  <div key={task.id} className={`maintenance-row ${task.due_status}`}>
-                    <div>
+                  <article key={task.id} className={`maintenance-task-card ${task.is_active ? task.due_status : "inactive"}`}>
+                    <div className="maintenance-task-card-header">
+                      <span className={`status-pill ${task.is_active ? task.due_status : "inactive"}`}>{formatDueStatus(task)}</span>
                       <strong>{task.name}</strong>
-                      <span>{task.component} · a cada {task.interval_days} dias</span>
-                      <small>
-                        Última execução: {task.last_done_at ?? "nunca"} · {formatDueStatus(task)}
-                      </small>
                     </div>
-                    <button type="button" onClick={() => void completeMaintenanceTask(task.id)} disabled={loading}>
-                      Concluir
+                    <div className="maintenance-task-meta">
+                      <span>{task.component}</span>
+                      <span>{task.is_active ? formatMaintenanceInterval(task) : "Sem lembrete recorrente"}</span>
+                      <span>Última: {formatOptionalLocalDateTime(task.last_done_at)}</span>
+                      {task.interval_kind === "print_hours" ? (
+                        <>
+                          <span>Base: {formatOptionalHours(task.last_done_print_hours)}</span>
+                          <span>Atual: {formatOptionalHours(task.current_print_hours)}{task.current_print_hours_source === "cached" ? " · desatualizado" : ""}</span>
+                          <span>{formatPrintHoursDueLine(task)}</span>
+                        </>
+                      ) : null}
+                    </div>
+                    <div className="maintenance-card-actions">
+                      <button type="button" className="maintenance-done-button" onClick={() => openMaintenanceDoneModal(task)} disabled={loading}>
+                        <CheckCircle2 size={14} />
+                        Marcar feita
+                      </button>
+                      {task.last_done_at ? (
+                        <button
+                          type="button"
+                          className="ghost-button danger-ghost"
+                          onClick={() => void deleteLatestMaintenanceTaskEvent(task.id)}
+                          disabled={loading}
+                        >
+                          <Undo2 size={14} />
+                          Desfazer
+                        </button>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              {maintenanceSummary?.recommended_tasks.length ? (
+                <div className="maintenance-catalog-note">
+                  <strong>{maintenanceSummary.recommended_tasks.length} rotina(s) do catálogo ainda não foram ativadas.</strong>
+                  <button type="button" className="secondary-button" onClick={() => void createDefaultMaintenanceTasks()} disabled={!selectedPrinterId || loading}>
+                    Ativar restantes
+                  </button>
+                </div>
+              ) : null}
+            </section>
+
+            <section
+              className="maintenance-free-card"
+              role="button"
+              tabIndex={0}
+              onClick={() => openMaintenanceFreeModal()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  openMaintenanceFreeModal();
+                }
+              }}
+            >
+              <div>
+                <span className="section-kicker">Registro livre</span>
+                <h3>Falha, ajuste ou anotação</h3>
+                <p>Use para algo que não está no catálogo. Pode virar lembrete, se você definir um prazo.</p>
+              </div>
+              <button type="button" className="secondary-button" onClick={() => openMaintenanceFreeModal()}>
+                <Plus size={16} />
+                Adicionar registro
+              </button>
+            </section>
+
+            <section className="maintenance-panel-card">
+              <div className="maintenance-section-heading">
+                <div>
+                  <h3>Histórico</h3>
+                  <p className="muted">{maintenanceEvents.length} registro(s)</p>
+                </div>
+              </div>
+              <div className="maintenance-timeline">
+                {maintenanceEvents.length === 0 ? <p className="muted">Nenhum evento registrado.</p> : null}
+                {maintenanceEvents.map((event) => (
+                  <div key={event.id} className="maintenance-event-row">
+                    <div className="maintenance-event-content">
+                      <strong>{event.title}</strong>
+                      <span>
+                        {formatMaintenanceEventType(event.event_type)} · {event.component ?? "-"} · {formatLocalDateTime(event.performed_at)}
+                      </span>
+                      {event.notes ? <small>{event.notes}</small> : null}
+                    </div>
+                    <button
+                      type="button"
+                      className="ghost-button danger-ghost"
+                      onClick={() => void deleteMaintenanceEvent(event.id)}
+                      disabled={loading}
+                    >
+                      <Trash2 size={14} />
+                      Remover
                     </button>
                   </div>
                 ))}
               </div>
-            </section>
-            <section>
-              <h3>Diário</h3>
-              <form className="maintenance-event-form" onSubmit={(event) => void createMaintenanceEvent(event)}>
-                <select
-                  aria-label="Tipo de evento"
-                  value={maintenanceEventType}
-                  onChange={(event) => setMaintenanceEventType(event.target.value as MaintenanceEventRecord["event_type"])}
-                >
-                  <option value="maintenance">manutenção</option>
-                  <option value="failure">falha</option>
-                  <option value="adjustment">ajuste</option>
-                  <option value="note">nota</option>
-                </select>
-                <input
-                  aria-label="Componente do evento"
-                  value={maintenanceComponent}
-                  onChange={(event) => setMaintenanceComponent(event.target.value)}
-                  placeholder="Componente"
-                />
-                <input
-                  aria-label="Título do evento"
-                  value={maintenanceTitle}
-                  onChange={(event) => setMaintenanceTitle(event.target.value)}
-                  placeholder="Título"
-                />
-                <textarea
-                  aria-label="Notas do evento"
-                  value={maintenanceNotes}
-                  onChange={(event) => setMaintenanceNotes(event.target.value)}
-                  placeholder="Notas"
-                />
-                <button type="submit" disabled={!selectedPrinterId || loading}>
-                  Registrar
-                </button>
-              </form>
-              <details className="maintenance-list collapsible-panel">
-                <summary>Histórico do diário ({maintenanceEvents.length})</summary>
-                {maintenanceEvents.length === 0 ? <p className="muted">Nenhum evento registrado.</p> : null}
-                {maintenanceEvents.map((event) => (
-                  <div key={event.id} className="maintenance-event-row">
-                    <strong>{event.title}</strong>
-                    <span>
-                      {formatMaintenanceEventType(event.event_type)} · {event.component ?? "-"} · {event.performed_at}
-                    </span>
-                    {event.notes ? <small>{event.notes}</small> : null}
-                  </div>
-                ))}
-              </details>
             </section>
           </div>
         </article>
@@ -5047,7 +5608,7 @@ function App() {
           ) : null}
         </article>
 
-        <article className="panel wide panel-section panel-maintenance">
+        <article className="panel wide panel-section panel-reports">
           <div className="panel-heading">
             <h2>Backups</h2>
             <strong>Dry-run seguro</strong>
@@ -5284,7 +5845,7 @@ function App() {
           </div>
         </article>
 
-        <article className="panel panel-section panel-monitoring panel-settings">
+        <article className="panel panel-section panel-monitoring">
           <h2>Moonraker</h2>
           <Metric label="Conexão" value={status?.connected ? "Conectado" : "Desconectado"} />
           <Metric label="URL" value={status?.moonraker_url ?? "-"} />
@@ -5292,11 +5853,78 @@ function App() {
           <Metric label="Moonraker" value={status?.server?.moonraker_version ?? "-"} />
         </article>
 
-        <article className="panel panel-section panel-monitoring panel-settings">
+        <article className="panel panel-section panel-monitoring">
           <h2>Klipper</h2>
           <Metric label="Estado" value={status?.printer?.state ?? "-"} />
           <Metric label="Mensagem" value={status?.printer?.state_message ?? "-"} />
           <Metric label="Versão" value={status?.printer?.software_version ?? "-"} />
+        </article>
+
+        <article className={`panel wide panel-section panel-settings releases-panel ${releasePanelClass(systemReleases)}`}>
+          <div className="panel-header-row">
+            <div>
+              <h2>Releases do Printora</h2>
+              <p>{releaseLoading ? "Consultando GitHub Releases..." : systemReleases?.message ?? "Status ainda não carregado."}</p>
+            </div>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => void loadSystemReleases()}
+              disabled={releaseLoading}
+            >
+              <RefreshCw size={16} />
+              {releaseLoading ? "Verificando" : "Verificar releases"}
+            </button>
+          </div>
+          <div className="release-summary-grid">
+            <Metric label="Versão instalada" value={systemReleases?.installed_version ?? "-"} />
+            <Metric label="Última release" value={systemReleases?.latest_release?.tag ?? "-"} />
+            <Metric label="Canal" value={systemReleases?.channel ?? "-"} />
+            <Metric label="Status" value={formatReleaseUpdateStatus(systemReleases, releaseLoading, releaseError)} />
+          </div>
+          {releaseError ? (
+            <div className="action-result warning">
+              <strong>Erro de rede</strong>
+              <span>{releaseError}</span>
+            </div>
+          ) : null}
+          {systemReleases?.error ? (
+            <div className="action-result warning">
+              <strong>{formatReleaseSourceStatus(systemReleases.status)}</strong>
+              <span>{systemReleases.error}</span>
+            </div>
+          ) : null}
+          {systemReleases?.latest_release ? (
+            <div className="release-latest-card">
+              <div>
+                <span className={`status-pill ${releaseStatusPillClass(systemReleases)}`}>
+                  {formatReleaseUpdateStatus(systemReleases, false, null)}
+                </span>
+                <strong>{systemReleases.latest_release.name}</strong>
+                <small>
+                  {systemReleases.latest_release.tag} · {systemReleases.latest_release.published_at ?? "sem data"} · {systemReleases.latest_release.channel}
+                </small>
+              </div>
+              <p>{systemReleases.latest_release.changelog_summary || "Sem changelog informado."}</p>
+            </div>
+          ) : null}
+          <div className="release-list">
+            {releaseLoading ? <p className="muted">Carregando releases de produção...</p> : null}
+            {!releaseLoading && systemReleases?.releases.length === 0 ? (
+              <p className="muted">Nenhuma release de produção retornada.</p>
+            ) : null}
+            {systemReleases?.releases.map((release) => (
+              <div key={release.tag} className={`release-row ${release.installed ? "installed" : ""}`}>
+                <div>
+                  <strong>{release.name}</strong>
+                  <span>
+                    {release.tag} · {release.published_at ?? "sem data"} · {release.installed ? "instalada" : release.channel}
+                  </span>
+                </div>
+                <p>{release.changelog_summary || "Sem changelog informado."}</p>
+              </div>
+            ))}
+          </div>
         </article>
 
         <article className={`panel ${checklist?.can_print ? "ok" : "warn"} panel-section panel-monitoring`}>
@@ -5577,7 +6205,43 @@ function formatMaintenanceEventType(eventType: MaintenanceEventRecord["event_typ
   return labels[eventType];
 }
 
+function formatOptionalLocalDateTime(value?: string | null) {
+  return value ? formatLocalDateTime(value) : "nunca";
+}
+
+function formatLocalDateTime(value: string | Date) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return typeof value === "string" ? value : "-";
+  }
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(date);
+}
+
 function formatDueStatus(task: MaintenanceTaskRecord) {
+  if (!task.is_active) {
+    return "sem lembrete";
+  }
+  if (task.interval_kind === "print_hours") {
+    if (task.due_status === "due") {
+      return "pendente";
+    }
+    if (task.due_status === "soon") {
+      return `${formatHours(task.print_hours_until_due ?? 0)} restantes · atenção`;
+    }
+    if (task.due_status === "not_validated") {
+      return "aguardando horas";
+    }
+    if (task.due_status === "needs_review") {
+      return "base precisa revisão";
+    }
+    if (task.due_status === "unknown") {
+      return "status inválido";
+    }
+    return `${formatHours(task.print_hours_until_due ?? 0)} restantes`;
+  }
   if (task.due_status === "due") {
     return "pendente";
   }
@@ -5588,6 +6252,43 @@ function formatDueStatus(task: MaintenanceTaskRecord) {
     return "data inválida";
   }
   return `${task.days_until_due ?? "-"} dias restantes`;
+}
+
+function formatMaintenanceInterval(task: MaintenanceTaskRecord) {
+  if (task.interval_kind === "print_hours") {
+    return `A cada ${formatHours(task.interval_value)} de impressão`;
+  }
+  return `A cada ${Math.round(task.interval_value || task.interval_days)} dias`;
+}
+
+function formatMaintenanceIntervalValue(task: MaintenanceTaskRecord) {
+  const value = task.interval_kind === "print_hours" ? task.interval_value : task.interval_value || task.interval_days;
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(1)));
+}
+
+function formatPrintHoursDueLine(task: MaintenanceTaskRecord) {
+  if (task.due_status === "not_validated") {
+    return task.due_detail ?? "Aguardando leitura de horas";
+  }
+  if (task.due_status === "needs_review") {
+    return task.due_detail ?? "Base precisa revisão";
+  }
+  if (task.print_hours_until_due === null || task.print_hours_until_due === undefined) {
+    return task.due_detail ?? "Sem leitura de horas";
+  }
+  if (task.due_status === "due") {
+    const overdue = Math.max(0, (task.print_hours_delta ?? 0) - task.interval_value);
+    return `Vencida há ${formatHours(overdue)}`;
+  }
+  return `Faltam ${formatHours(task.print_hours_until_due)}`;
+}
+
+function formatOptionalHours(value?: number | null) {
+  return value === null || value === undefined ? "pendente" : formatHours(value);
+}
+
+function formatHours(value: number) {
+  return `${Number(value.toFixed(1))}h`;
 }
 
 function formatLatestZOffset(record: ZOffsetRecord | undefined) {
@@ -5661,6 +6362,65 @@ function formatUpdateStatus(status: UpdateComponent["status"]) {
     unknown: "desconhecido",
   };
   return labels[status];
+}
+
+function formatReleaseUpdateStatus(
+  releases: SystemReleasesResponse | null,
+  loading: boolean,
+  fetchError: string | null,
+) {
+  if (loading) {
+    return "carregando";
+  }
+  if (fetchError) {
+    return "erro de rede";
+  }
+  if (!releases) {
+    return "não carregado";
+  }
+  if (releases.status !== "ok") {
+    return formatReleaseSourceStatus(releases.status);
+  }
+  const labels: Record<SystemReleasesResponse["update_status"], string> = {
+    up_to_date: "já atualizado",
+    outdated: "update disponível",
+    unknown: releases.releases.length === 0 ? "sem release publicada" : "desconhecido",
+  };
+  return labels[releases.update_status];
+}
+
+function formatReleaseSourceStatus(status: SystemReleasesResponse["status"]) {
+  const labels: Record<SystemReleasesResponse["status"], string> = {
+    ok: "online",
+    offline: "GitHub offline",
+    rate_limited: "limite do GitHub",
+    disabled: "desabilitado",
+    error: "erro de rede",
+  };
+  return labels[status];
+}
+
+function releaseStatusPillClass(releases: SystemReleasesResponse | null) {
+  if (!releases || releases.status !== "ok") {
+    return "warning";
+  }
+  if (releases.update_status === "up_to_date") {
+    return "up_to_date";
+  }
+  if (releases.update_status === "outdated") {
+    return "update_available";
+  }
+  return "warning";
+}
+
+function releasePanelClass(releases: SystemReleasesResponse | null) {
+  if (!releases) {
+    return "";
+  }
+  if (releases.status !== "ok") {
+    return "warn";
+  }
+  return releases.update_status === "up_to_date" ? "ok" : "warn";
 }
 
 function countPendingUpdates(status: UpdateStatusResponse | null) {
@@ -5927,6 +6687,54 @@ function formatCalibrationExecutionStatus(status: string) {
     failed_partial: "falhou parcialmente",
   };
   return labels[status] ?? status;
+}
+
+function calibrationExecutionRowClass(status: string) {
+  if (status === "executed") {
+    return "passed";
+  }
+  if (status === "failed" || status === "failed_partial") {
+    return "failed";
+  }
+  return "warning";
+}
+
+function summarizeCalibrationExecutionFinalState(execution: CalibrationExecutionRecord) {
+  const finalState = latestCalibrationExecutionFinalState(execution);
+  if (!finalState) {
+    return `${execution.sent_commands.length}/${execution.commands.length} comando(s) confirmado(s)`;
+  }
+  const klipper = typeof finalState.klipper_state === "string" ? finalState.klipper_state : "-";
+  const klippy = typeof finalState.klippy_state === "string" ? finalState.klippy_state : "-";
+  const printState = typeof finalState.print_state === "string" && finalState.print_state ? finalState.print_state : "-";
+  const homedAxes = typeof finalState.homed_axes === "string" && finalState.homed_axes ? ` · homed ${finalState.homed_axes}` : "";
+  return `Final: Klipper ${klipper} · Klippy ${klippy} · print ${printState}${homedAxes}`;
+}
+
+function formatCalibrationExecutionResult(execution: CalibrationExecutionRecord) {
+  return JSON.stringify(execution.result, null, 2);
+}
+
+function buildCalibrationExecutionNotes(execution: CalibrationExecutionRecord) {
+  const commandText = execution.sent_commands.length ? execution.sent_commands.join(", ") : "-";
+  return [
+    execution.message,
+    summarizeCalibrationExecutionFinalState(execution),
+    `Comandos confirmados: ${commandText}`,
+    "Retorno final Moonraker:",
+    formatCalibrationExecutionResult(execution),
+  ].filter(Boolean).join("\n");
+}
+
+function latestCalibrationExecutionFinalState(execution: CalibrationExecutionRecord) {
+  for (let index = execution.result.length - 1; index >= 0; index -= 1) {
+    const item = execution.result[index];
+    const finalState = item.final_state;
+    if (finalState && typeof finalState === "object" && !Array.isArray(finalState)) {
+      return finalState as Record<string, unknown>;
+    }
+  }
+  return null;
 }
 
 function formatCalibrationTestTitle(testKey: string, tests: CalibrationTestRecord[]) {

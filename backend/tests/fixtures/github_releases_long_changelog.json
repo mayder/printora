@@ -1,0 +1,11 @@
+[
+  {
+    "tag_name": "v0.2.0",
+    "name": "Printora 0.2.0",
+    "body": "Correcoes de manutencao e configuracao. Ajustes no painel de releases. Validacao read-only do GitHub Releases. Mensagens para GitHub offline. Lista de releases de producao. Changelog resumido para caber no card. Sem botao de update. Sem chamada mutavel. Sem token obrigatorio para repositorio publico. Estado de ja atualizado quando a tag instalada e a ultima release coincidem.",
+    "html_url": "https://github.com/mayder/printora/releases/tag/v0.2.0",
+    "published_at": "2026-05-21T18:00:00Z",
+    "prerelease": false,
+    "draft": false
+  }
+]

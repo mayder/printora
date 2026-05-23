@@ -17,7 +17,7 @@ HostAuditMode = Literal["disabled", "local", "ssh"]
 class PrinterCreate(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     moonraker_url: HttpUrl
-    host_audit_mode: HostAuditMode = "disabled"
+    host_audit_mode: HostAuditMode = "local"
     host_audit_ssh_target: str | None = Field(default=None, max_length=160)
     ssh_host: str | None = Field(default=None, max_length=160)
     ssh_port: int = Field(default=22, ge=1, le=65535)

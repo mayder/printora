@@ -11,26 +11,35 @@ HostAuditMode = Literal["disabled", "local", "ssh"]
 
 READ_ONLY_SCRIPT = r"""
 set +e
+printf 'SECTION host\n'
+printf 'user='; id -un 2>&1
+printf 'uid='; id -u 2>&1
+printf 'kernel='; uname -a 2>&1
+printf 'pwd='; pwd 2>&1
+printf '\nSECTION runtime\n'
+python --version 2>&1 || python3 --version 2>&1 || true
+node --version 2>&1 || true
+npm --version 2>&1 || true
+printf '\nSECTION disk\n'
+df -h . "$HOME" 2>&1
 printf 'SECTION printer_info\n'
 curl -fsS http://127.0.0.1:7125/printer/info 2>&1
 printf '\nSECTION print_stats\n'
 curl -fsS 'http://127.0.0.1:7125/printer/objects/query?print_stats' 2>&1
-printf '\nSECTION disk\n'
-df -h / /home/pi /home/pi/printer_data 2>&1
 printf '\nSECTION systemctl_failed\n'
-systemctl --failed --no-pager 2>&1
+if command -v systemctl >/dev/null 2>&1; then systemctl --failed --no-pager 2>&1; else printf 'systemctl_unavailable\n'; fi
 printf '\nSECTION relevant_services\n'
-systemctl list-units --type=service --all --no-pager 2>&1 | egrep -i 'klipper|moonraker|mainsail|crowsnest|sonar|spoolman|ustreamer|webcam|camera|mayder|nginx' || true
+if command -v systemctl >/dev/null 2>&1; then systemctl list-units --type=service --all --no-pager 2>&1 | egrep -i 'klipper|moonraker|mainsail|crowsnest|sonar|spoolman|ustreamer|webcam|camera|mayder|nginx' || true; else printf 'systemctl_unavailable\n'; fi
 printf '\nSECTION can0\n'
-ip -details -statistics link show can0 2>&1
+if command -v ip >/dev/null 2>&1; then ip -details -statistics link show can0 2>&1; else printf 'can0_unavailable\n'; fi
 printf '\nSECTION active_includes\n'
-grep -RIn --include='*.cfg' '^\[include ' /home/pi/printer_data/config 2>&1 | grep -v '/backups/' | sed -n '1,220p'
+if [ -d /home/pi/printer_data/config ]; then grep -RIn --include='*.cfg' '^\[include ' /home/pi/printer_data/config 2>&1 | grep -v '/backups/' | sed -n '1,220p'; else printf 'printer_config_unavailable\n'; fi
 printf '\nSECTION active_legacy_refs\n'
-grep -RInE 'tapchanger|auto_speed|sonar|crowsnest|timelapse|tmc_autotune' /home/pi/printer_data/config --include='*.cfg' --exclude-dir=backups --exclude='printer-*.cfg' 2>&1 || true
+if [ -d /home/pi/printer_data/config ]; then grep -RInE 'tapchanger|auto_speed|sonar|crowsnest|timelapse|tmc_autotune' /home/pi/printer_data/config --include='*.cfg' --exclude-dir=backups --exclude='printer-*.cfg' 2>&1 || true; fi
 printf '\nSECTION active_broken_symlinks\n'
-find /home/pi/printer_data/config -path '*/backups/*' -prune -o -xtype l -print 2>&1
+if [ -d /home/pi/printer_data/config ]; then find /home/pi/printer_data/config -path '*/backups/*' -prune -o -xtype l -print 2>&1; fi
 printf '\nSECTION extras_symlinks\n'
-find /home/pi/klipper/klippy/extras -maxdepth 1 \( -type l -o -type f \) -printf '%M %p -> %l\n' 2>&1 | egrep -i 'ktc|tool|probe|tap|kamp|adaptive|led|auto|sonar|speed|timelapse|autotune' || true
+if [ -d /home/pi/klipper/klippy/extras ]; then find /home/pi/klipper/klippy/extras -maxdepth 1 \( -type l -o -type f \) -printf '%M %p -> %l\n' 2>&1 | egrep -i 'ktc|tool|probe|tap|kamp|adaptive|led|auto|sonar|speed|timelapse|autotune' || true; fi
 printf '\nSECTION config_git\n'
 if [ -d /home/pi/printer_data/config/.git ]; then git -C /home/pi/printer_data/config status --short --branch 2>&1; fi
 printf '\nSECTION repos\n'
@@ -242,7 +251,14 @@ def _audit_systemctl(findings: list[AuditFinding], section: str) -> None:
 
 
 def _audit_can(findings: list[AuditFinding], section: str) -> None:
-    if not section:
+    if (
+        not section
+        or "can0_unavailable" in section
+        or "Device \"can0\" does not exist" in section
+        or "Cannot find device \"can0\"" in section
+    ):
+        return
+    if "not found" in section.lower():
         findings.append(
             AuditFinding(
                 id="can0_missing",
@@ -256,6 +272,8 @@ def _audit_can(findings: list[AuditFinding], section: str) -> None:
         )
         return
     summary = parse_can_summary(section)
+    if summary["state"] is None:
+        return
     if summary["state"] not in {"ERROR-ACTIVE", "ACTIVE"}:
         findings.append(
             AuditFinding(

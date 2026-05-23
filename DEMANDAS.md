@@ -44,6 +44,13 @@
 - PKG-19K: Preflight read-only no gate operacional
 - PKG-19L: Compatibilidade genérica de ações operacionais
 - PKG-19M: Matriz de capacidade por impressora
+- PKG-19N: Preflight final por ação operacional
+- PKG-20: Versionamento interno e controle de schema
+- PKG-21: Releases do Printora na tela Configurações
+- PKG-22: Updater local para macOS, Linux e Raspberry
+- PKG-23: Updater Android/Termux
+- PKG-24: Updater Windows
+- PKG-25: Rollback, histórico e auditoria de updates do Printora
 
 ## PKG-01: Base Do Projeto E Documentação Operacional
 
@@ -481,6 +488,8 @@ Estado atual:
 - Tarefas cobrem lubrificação, correias, parafusos, fans, CAN, hotend/nozzle e limpeza de mesa.
 - Status cobre `due`, `soon`, `ok` e `unknown`.
 - Testes cobrem escopo por impressora, conclusão de tarefa, resumo, alertas e criação idempotente de tarefas padrão.
+- Manutenção preventiva ampliada para lembrete por `days` ou `print_hours`, com baseline lido de `/server/history/totals`, fallback tolerante quando Moonraker está offline e status `not_validated`/`needs_review`.
+- UI de Manutenção permite concluir rotina ou registro livre com lembrete por dias ou horas de impressão, mantendo registro sem lembrete quando solicitado.
 
 ## PKG-08: Assistente De Primeira Camada E Z-Offset
 
@@ -921,7 +930,7 @@ Critério de aceite futuro:
 Estado atual:
 
 - Implementado centro seguro com catálogo read-only e histórico manual por impressora.
-- Execução real de G-code permanece fora do escopo e bloqueada por contrato.
+- Execução real de G-code fica limitada ao gate supervisionado, com allowlist, preflight live e confirmação explícita.
 - UI mostra resumo, recomenda próximos testes sem aprovação, exibe G-code apenas para revisão e registra resultados manuais.
 - Backend rejeita resultado de teste com G-code sugerido se o usuário não confirmar revisão do G-code.
 - Implementada sequência recomendada offline por fase, marcando testes concluídos e pendentes por impressora.
@@ -932,6 +941,8 @@ Estado atual:
 - Implementado gate de execução real supervisionada por operador em `POST /api/printers/{printer_id}/calibration/execute`.
 - UI permite executar G-code catalogado somente com `G-code revisado`, `Operador presente` e confirmação `EXECUTE_CALIBRATION_GCODE`.
 - Execução real valida Moonraker/Klipper live, bloqueia impressão em andamento, bloqueia Klipper/Klippy não ready, bloqueia comandos fora da allowlist e registra exatamente comandos enviados.
+- Envio de G-code monitora o estado final da impressora após o POST; timeout de transporte não vira falha se Moonraker/Klipper voltarem `ready` e o estado final for confirmado.
+- O retorno final monitorado fica salvo no histórico de execução e pode preencher o modal de registro de resultado.
 - Histórico de tentativas de execução fica em `GET /api/printers/{printer_id}/calibration/executions`.
 - UI de Testes refeita para fluxo por cards: cada teste tem ação principal `Executar` ou `Registrar`, ajuda fica em modal via ícone de interrogação e detalhes técnicos deixam de poluir a tela principal.
 
@@ -1674,3 +1685,211 @@ Estado atual:
 - Frontend exibe suporte/desconhecido por ação.
 - Testes automatizados cobrem objetos genéricos, ausência de QGL e matriz preservada via snapshot.
 - Validação real confirmou matriz genérica nas duas impressoras: Voron 0.2 sem pressupor QGL e Voron 2.4 com QGL detectado; heaters/LED/fan tratados conforme objetos reais.
+
+## PKG-20: Versionamento Interno E Controle De Schema
+
+Status: implementado.
+
+Objetivo:
+
+Criar a base segura para updates do próprio Printora, permitindo aplicar scripts SQL novos sem perder dados locais.
+
+Entregáveis:
+
+- tabela SQLite `schema_versions`;
+- tabela SQLite `app_version`;
+- execução idempotente dos scripts `backend/sql/*.sql` com registro de versão aplicada;
+- backup automático de `printora.db` antes de qualquer atualização de schema;
+- validação de integridade após aplicar SQL;
+- endpoint read-only `GET /api/system/version`;
+- testes automatizados para banco novo, banco existente e reexecução sem duplicar dados.
+
+Critério de aceite:
+
+- não usa migrations;
+- todos os cambios de banco continuam em arquivos `.sql`;
+- reexecutar `initialize_database()` não perde dados;
+- update de schema cria backup antes de qualquer alteração;
+- falha de schema mantém banco anterior disponível para rollback;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado.
+- Implementado via SQL idempotente em `backend/sql/000_schema_versioning.sql`.
+- Implementado histórico de validação em `backend/sql/015_schema_integrity_checks.sql`.
+- `initialize_database()` registra scripts SQL aplicados em `schema_versions` com checksum e ordem.
+- `app_version` mantém versão instalada e revisão de schema aplicada.
+- Banco existente recebe backup local no mesmo `data_dir`, como `printora.<timestamp>.before-schema.db`, antes de scripts pendentes.
+- Falha durante aplicação de SQL restaura o arquivo original a partir do backup automático.
+- Validação pós-schema usa `PRAGMA integrity_check`, registra resultado em `schema_integrity_checks` e bloqueia conclusão quando falha.
+- Reexecução de `initialize_database()` não reaplica scripts já registrados, não duplica metadados e preserva dados existentes.
+- Endpoint read-only `GET /api/system/version` expõe versão, `data_dir`, caminho do banco, scripts aplicados, schema atual e última validação, sem conteúdo do banco.
+- Testes automatizados cobrem banco novo, banco existente legado, reexecução idempotente e endpoint de versão.
+
+## PKG-21: Releases Do Printora Na Tela Configurações
+
+Status: implementado.
+
+Objetivo:
+
+Permitir que o usuário veja, dentro do Printora, a versão instalada, releases disponíveis e changelog de produção.
+
+Entregáveis:
+
+- configuração de origem de releases por GitHub Releases;
+- endpoint `GET /api/system/releases`;
+- endpoint `GET /api/system/update/status`;
+- card em Configurações com versão instalada, última release e canal ativo;
+- lista visual das releases de produção;
+- exibição de changelog resumido;
+- estados de loading, offline, erro de rede e release já instalada;
+- testes automatizados com fixture de releases.
+
+Critério de aceite:
+
+- consulta de release é read-only;
+- não executa update automaticamente;
+- não usa credenciais obrigatórias para repositório público;
+- erro de GitHub/rede não quebra a aplicação;
+- UI mostra claramente quando o ambiente já está atualizado;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado.
+- Consulta de releases é read-only via GitHub Releases ou fixture local.
+- Variáveis de configuração adicionadas em Settings e `.env.example`, sem token obrigatório para repositório público.
+- `GET /api/system/releases` retorna versão instalada, canal, última release, lista de releases de produção, changelog resumido, status `up_to_date`, `outdated` ou `unknown` e estados `offline`, `rate_limited`, `disabled` ou `error` sem quebrar a aplicação.
+- `GET /api/system/update/status` permanece read-only, com `update_supported=false`.
+- UI em Configurações mostra card de releases, lista de produção, changelog resumido, estado de carregamento, erro de rede, GitHub offline/rate limit, já atualizado e update disponível.
+- A única ação da UI é `Verificar releases`; não há botão para aplicar update.
+- Nenhum update de backend, frontend ou banco é executado neste pacote.
+- Testes automatizados cobrem parse, latest release, endpoint, erro de rede/rate limit, fixtures frontend e ausência de chamada mutável.
+
+## PKG-22: Updater Local Para macOS, Linux E Raspberry
+
+Objetivo:
+
+Permitir atualizar backend, frontend e banco do Printora a partir da interface em hosts Unix com shell e, quando aplicável, systemd.
+
+Entregáveis:
+
+- script `scripts/update_printora.sh` com modo `--plan`, `--apply` e `--rollback`;
+- endpoint `POST /api/system/update/plan`;
+- endpoint `POST /api/system/update/apply`;
+- progresso persistido por etapa;
+- download/checkout de release por tag;
+- atualização de venv/backend;
+- atualização de dependências frontend e build;
+- aplicação segura de scripts SQL;
+- restart via systemd quando disponível;
+- restart por runner local quando não houver systemd;
+- testes automatizados para plano, falha e sucesso simulado.
+
+Critério de aceite:
+
+- update exige confirmação explícita na UI;
+- backup do banco é obrigatório antes de aplicar SQL;
+- plano mostra versão atual, versão alvo e comandos previstos;
+- falha não apaga `printora.db`;
+- Raspberry/systemd não reinicia Klipper nem Moonraker;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Pendente.
+
+## PKG-23: Updater Android/Termux
+
+Objetivo:
+
+Permitir atualizar uma instalação Android/Termux do Printora pela UI, respeitando as limitações de portas, tmux e ausência de systemd.
+
+Entregáveis:
+
+- script `scripts/android_update_printora.sh` com modo `--plan`, `--apply` e `--rollback`;
+- detecção de Termux, Python, Node, npm, Rust, clang, tmux e porta ativa;
+- atualização do projeto em `~/Printora`;
+- reaproveitamento seguro de `~/.local/share/printora/printora.db`;
+- backup obrigatório do banco antes de schema;
+- rebuild/reinstalação do backend quando necessário;
+- reinício das sessões `tmux` `printora` e `printora-mdns`;
+- manutenção da porta configurada, como `8069`;
+- validação final de `/health` e `/api/printers`;
+- testes documentados com fixture local.
+
+Critério de aceite:
+
+- não exige root;
+- não tenta usar portas abaixo de `1024` sem root;
+- update falho preserva banco e versão anterior quando possível;
+- UI mostra progresso até conclusão ou falha com ação de rollback;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Pendente.
+
+## PKG-24: Updater Windows
+
+Objetivo:
+
+Permitir atualizar a instalação Windows do Printora pela UI e por PowerShell, preservando banco e rebuildando backend/frontend.
+
+Entregáveis:
+
+- script `scripts/update_printora_windows.ps1` com `--Plan`, `--Apply` e `--Rollback`;
+- detecção de Python, npm, Git e PowerShell;
+- backup de `%LOCALAPPDATA%\Printora\printora.db`;
+- checkout/download da release;
+- atualização da venv;
+- `npm install` e `npm run build`;
+- reinício do processo iniciado pelo runner Windows;
+- validação final de `/health`;
+- logs em `%LOCALAPPDATA%\Printora\logs`;
+- testes manuais documentados em `TESTS.md`.
+
+Critério de aceite:
+
+- update exige confirmação explícita;
+- execução usa `ExecutionPolicy Bypass` somente no processo atual;
+- falha preserva banco e registra log acionável;
+- rollback documentado restaura banco e versão anterior quando possível;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Pendente.
+
+## PKG-25: Rollback, Histórico E Auditoria De Updates Do Printora
+
+Objetivo:
+
+Tornar updates do próprio Printora auditáveis, reversíveis e claros para o usuário.
+
+Entregáveis:
+
+- tabela SQLite `app_update_runs`;
+- tabela SQLite `app_update_steps`;
+- registro de versão anterior, versão alvo, plataforma, início, fim e status;
+- registro de caminho do backup do banco;
+- endpoint `GET /api/system/update/history`;
+- endpoint `POST /api/system/update/rollback`;
+- tela em Configurações com histórico de updates;
+- botão de rollback quando houver backup e versão anterior disponíveis;
+- relatório de falha com etapa, comando lógico, stderr sanitizado e próxima ação;
+- testes para histórico, rollback bloqueado e rollback permitido.
+
+Critério de aceite:
+
+- rollback nunca remove histórico;
+- logs não expõem segredos;
+- usuário consegue distinguir `atualizado`, `falhou` e `rollback aplicado`;
+- banco atual não é sobrescrito sem backup;
+- rollback exige confirmação explícita;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Pendente.

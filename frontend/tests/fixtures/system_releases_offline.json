@@ -1,0 +1,14 @@
+{
+  "safe_mode": "read_only",
+  "source": "github",
+  "status": "offline",
+  "channel": "stable",
+  "installed_version": "0.1.0",
+  "update_status": "unknown",
+  "latest_release_available": false,
+  "latest_release": null,
+  "releases": [],
+  "update_supported": false,
+  "message": "Não foi possível consultar releases agora.",
+  "error": "network down"
+}

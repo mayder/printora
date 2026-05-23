@@ -1,16 +1,60 @@
 import sqlite3
+import shutil
+import hashlib
+import json
 from pathlib import Path
+from datetime import datetime, timezone
+from importlib import metadata
 
 SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
+APP_NAME = "Printora"
+VERSIONING_SCRIPT = "000_schema_versioning.sql"
+
+
+class DatabaseSchemaError(RuntimeError):
+    pass
 
 
 def initialize_database(database_path: Path) -> None:
     database_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(database_path) as connection:
-        connection.execute("PRAGMA foreign_keys = ON")
-        _ensure_legacy_schema_compatibility(connection)
-        for sql_file in sorted(SQL_DIR.glob("*.sql")):
-            connection.executescript(sql_file.read_text())
+    sql_files = sorted(SQL_DIR.glob("*.sql"))
+    pending_files = _pending_sql_files(database_path, sql_files)
+    backup_path: Path | None = None
+    if database_path.exists() and pending_files:
+        backup_path = _backup_database(database_path)
+
+    try:
+        with sqlite3.connect(database_path) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+            _ensure_versioning_tables(connection)
+            _ensure_legacy_schema_compatibility(connection)
+            applied_scripts = _applied_scripts(connection)
+            for execution_order, sql_file in enumerate(sql_files, start=1):
+                checksum = _sql_checksum(sql_file)
+                applied_checksum = applied_scripts.get(sql_file.name)
+                if applied_checksum == checksum:
+                    continue
+                if applied_checksum is not None:
+                    raise DatabaseSchemaError(
+                        f"Script SQL já aplicado com checksum diferente: {sql_file.name}"
+                    )
+                connection.executescript(sql_file.read_text())
+                connection.execute(
+                    """
+                    INSERT INTO schema_versions (script_name, checksum_sha256, execution_order)
+                    VALUES (?, ?, ?)
+                    """,
+                    (sql_file.name, checksum, execution_order),
+                )
+            schema_revision = len(sql_files)
+            _upsert_app_version(connection, schema_revision)
+            _validate_database_integrity(connection, schema_revision)
+    except Exception as exc:
+        if backup_path is not None:
+            shutil.copy2(backup_path, database_path)
+        if isinstance(exc, DatabaseSchemaError):
+            raise
+        raise DatabaseSchemaError(f"Falha ao aplicar schema SQLite: {exc}") from exc
 
 
 def connect_database(database_path: Path) -> sqlite3.Connection:
@@ -20,11 +64,181 @@ def connect_database(database_path: Path) -> sqlite3.Connection:
     return connection
 
 
+def get_database_version_info(database_path: Path, data_dir: Path | None = None) -> dict[str, object]:
+    with connect_database(database_path) as connection:
+        app_version = connection.execute(
+            """
+            SELECT app_name, version, schema_revision, updated_at
+            FROM app_version
+            WHERE id = 1
+            """
+        ).fetchone()
+        applied_scripts = connection.execute(
+            """
+            SELECT script_name, execution_order, applied_at
+            FROM schema_versions
+            ORDER BY execution_order, script_name
+            """
+        ).fetchall()
+        latest_schema = connection.execute(
+            """
+            SELECT script_name, execution_order, applied_at
+            FROM schema_versions
+            ORDER BY execution_order DESC, script_name DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        latest_integrity = connection.execute(
+            """
+            SELECT status, result_json, checked_at
+            FROM schema_integrity_checks
+            ORDER BY checked_at DESC, id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        applied_count = len(applied_scripts)
+        schema_revision = app_version["schema_revision"] if app_version else 0
+        latest_validation = (
+            {
+                "status": latest_integrity["status"],
+                "result": json.loads(latest_integrity["result_json"]),
+                "checked_at": latest_integrity["checked_at"],
+            }
+            if latest_integrity
+            else None
+        )
+        return {
+            "app_name": app_version["app_name"] if app_version else APP_NAME,
+            "version": app_version["version"] if app_version else _installed_app_version(),
+            "data_dir": str(data_dir or database_path.parent),
+            "database_path": str(database_path),
+            "schema_revision": schema_revision,
+            "schema_current": {
+                "revision": schema_revision,
+                "latest_script": latest_schema["script_name"] if latest_schema else None,
+                "latest_execution_order": latest_schema["execution_order"] if latest_schema else None,
+                "latest_applied_at": latest_schema["applied_at"] if latest_schema else None,
+            },
+            "schema_scripts_applied": applied_count,
+            "applied_sql_scripts": [
+                {
+                    "script_name": row["script_name"],
+                    "execution_order": row["execution_order"],
+                    "applied_at": row["applied_at"],
+                }
+                for row in applied_scripts
+            ],
+            "latest_schema_script": latest_schema["script_name"] if latest_schema else None,
+            "latest_schema_applied_at": latest_schema["applied_at"] if latest_schema else None,
+            "latest_integrity_status": latest_integrity["status"] if latest_integrity else None,
+            "latest_integrity_result": json.loads(latest_integrity["result_json"]) if latest_integrity else None,
+            "latest_integrity_checked_at": latest_integrity["checked_at"] if latest_integrity else None,
+            "latest_validation": latest_validation,
+        }
+
+
 def _ensure_legacy_schema_compatibility(connection: sqlite3.Connection) -> None:
     if not _table_exists(connection, "app_events"):
         return
     if not _column_exists(connection, "app_events", "printer_id"):
         connection.execute("ALTER TABLE app_events ADD COLUMN printer_id INTEGER")
+
+
+def _ensure_versioning_tables(connection: sqlite3.Connection) -> None:
+    versioning_script = SQL_DIR / VERSIONING_SCRIPT
+    if not versioning_script.is_file():
+        raise DatabaseSchemaError(f"Script SQL obrigatório não encontrado: {VERSIONING_SCRIPT}")
+    connection.executescript(versioning_script.read_text())
+
+
+def _pending_sql_files(database_path: Path, sql_files: list[Path]) -> list[Path]:
+    if not database_path.exists():
+        return sql_files
+    try:
+        with sqlite3.connect(f"file:{database_path}?mode=ro", uri=True) as connection:
+            if not _table_exists(connection, "schema_versions"):
+                return sql_files
+            applied = _applied_scripts(connection)
+            pending: list[Path] = []
+            for sql_file in sql_files:
+                checksum = _sql_checksum(sql_file)
+                applied_checksum = applied.get(sql_file.name)
+                if applied_checksum is None:
+                    pending.append(sql_file)
+                elif applied_checksum != checksum:
+                    raise DatabaseSchemaError(
+                        f"Script SQL já aplicado com checksum diferente: {sql_file.name}"
+                    )
+            return pending
+    except sqlite3.DatabaseError as exc:
+        raise DatabaseSchemaError(f"Não foi possível ler o banco SQLite existente: {exc}") from exc
+
+
+def _applied_scripts(connection: sqlite3.Connection) -> dict[str, str]:
+    if not _table_exists(connection, "schema_versions"):
+        return {}
+    rows = connection.execute("SELECT script_name, checksum_sha256 FROM schema_versions").fetchall()
+    return {str(row[0]): str(row[1]) for row in rows}
+
+
+def _backup_database(database_path: Path) -> Path:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    backup_path = database_path.parent / f"{database_path.stem}.{timestamp}.before-schema{database_path.suffix}"
+    shutil.copy2(database_path, backup_path)
+    return backup_path
+
+
+def _upsert_app_version(connection: sqlite3.Connection, schema_revision: int) -> None:
+    version = _installed_app_version()
+    connection.execute(
+        """
+        INSERT INTO app_version (id, app_name, version, schema_revision)
+        VALUES (1, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            app_name = excluded.app_name,
+            version = excluded.version,
+            schema_revision = excluded.schema_revision,
+            updated_at = CASE
+                WHEN app_version.app_name != excluded.app_name
+                  OR app_version.version != excluded.version
+                  OR app_version.schema_revision != excluded.schema_revision
+                THEN CURRENT_TIMESTAMP
+                ELSE app_version.updated_at
+            END
+        """,
+        (APP_NAME, version, schema_revision),
+    )
+
+
+def _installed_app_version() -> str:
+    try:
+        return metadata.version("printora-backend")
+    except metadata.PackageNotFoundError:
+        return "0.1.0"
+
+
+def _validate_database_integrity(connection: sqlite3.Connection, schema_revision: int) -> None:
+    result = _run_integrity_check(connection)
+    status = "ok" if result == ["ok"] else "failed"
+    connection.execute(
+        """
+        INSERT INTO schema_integrity_checks (schema_revision, status, result_json)
+        VALUES (?, ?, ?)
+        """,
+        (schema_revision, status, json.dumps(result, ensure_ascii=False)),
+    )
+    if status != "ok":
+        connection.commit()
+        raise DatabaseSchemaError(f"Falha na integridade do SQLite: {'; '.join(result)}")
+
+
+def _run_integrity_check(connection: sqlite3.Connection) -> list[str]:
+    rows = connection.execute("PRAGMA integrity_check").fetchall()
+    return [str(row[0]) for row in rows] if rows else ["integrity_check não retornou resultado"]
+
+
+def _sql_checksum(sql_file: Path) -> str:
+    return hashlib.sha256(sql_file.read_bytes()).hexdigest()
 
 
 def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:

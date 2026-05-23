@@ -126,6 +126,11 @@ button:hover {
   background: rgb(217 81 93 / 0.2);
 }
 
+.danger-ghost {
+  border-color: rgb(217 81 93 / 0.38);
+  color: var(--danger);
+}
+
 button:disabled {
   cursor: wait;
   opacity: 0.7;
@@ -1734,6 +1739,270 @@ label {
   gap: 18px;
 }
 
+.maintenance-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.maintenance-hero,
+.maintenance-panel-card {
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 16px;
+}
+
+.maintenance-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-left: 4px solid var(--accent);
+}
+
+.maintenance-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.maintenance-print-hours-chip,
+.maintenance-print-hours-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--muted);
+  padding: 8px 10px;
+}
+
+.maintenance-print-hours-chip strong,
+.maintenance-print-hours-banner strong {
+  color: var(--text);
+}
+
+.maintenance-print-hours-chip svg,
+.maintenance-print-hours-banner svg {
+  color: var(--accent);
+}
+
+.maintenance-print-hours-banner {
+  justify-content: flex-start;
+}
+
+.maintenance-hero h2 {
+  margin: 4px 0 6px;
+  font-size: 22px;
+}
+
+.maintenance-hero p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.section-kicker {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.maintenance-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.maintenance-done-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(260px, 1fr) auto;
+  gap: 10px;
+}
+
+.maintenance-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.maintenance-task-card {
+  display: grid;
+  gap: 9px;
+  min-height: 142px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-1);
+  padding: 12px;
+}
+
+.maintenance-task-card.due {
+  border-color: var(--warning);
+}
+
+.maintenance-task-card.soon {
+  border-color: var(--accent);
+}
+
+.maintenance-task-card.inactive {
+  opacity: 0.76;
+}
+
+.maintenance-task-card-header {
+  display: grid;
+  gap: 7px;
+}
+
+.maintenance-task-card-header strong {
+  font-size: 14px;
+}
+
+.maintenance-task-meta {
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.maintenance-card-actions {
+  align-self: end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.maintenance-card-actions button {
+  min-height: 34px;
+  padding: 7px 9px;
+}
+
+.maintenance-done-button {
+  border-color: var(--border);
+  background: var(--secondary-bg);
+  color: var(--text);
+}
+
+.maintenance-done-button:hover {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.maintenance-done-button svg {
+  color: var(--accent);
+}
+
+.maintenance-create {
+  margin-top: 14px;
+}
+
+.maintenance-catalog-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-1);
+  padding: 12px;
+}
+
+.maintenance-free-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px dashed var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 16px;
+  cursor: pointer;
+}
+
+.maintenance-free-card h3 {
+  margin: 4px 0;
+}
+
+.maintenance-free-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.maintenance-modal-card {
+  max-width: 900px;
+}
+
+.maintenance-modal-form {
+  display: grid;
+  gap: 14px;
+}
+
+.maintenance-modal-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.maintenance-modal-summary .metric {
+  grid-template-columns: max-content minmax(96px, 1fr);
+  gap: 10px;
+}
+
+.maintenance-selected-printer {
+  display: grid;
+  gap: 2px;
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface-1);
+  padding: 10px 12px;
+}
+
+.maintenance-selected-printer span,
+.maintenance-selected-printer small {
+  color: var(--muted);
+}
+
+.maintenance-selected-printer span {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.maintenance-modal-hint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.maintenance-no-reminder {
+  align-self: end;
+  min-height: 42px;
+  justify-content: flex-start;
+}
+
+.empty-maintenance-state {
+  display: grid;
+  gap: 4px;
+  border: 1px dashed var(--border-soft);
+  border-radius: 8px;
+  padding: 14px;
+  color: var(--muted);
+}
+
+.empty-maintenance-state strong {
+  color: var(--text);
+}
+
+.maintenance-timeline {
+  display: grid;
+  gap: 8px;
+}
+
 .maintenance-layout h3 {
   margin: 0 0 12px;
   font-size: 15px;
@@ -1786,6 +2055,22 @@ label {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
+}
+
+.maintenance-event-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.maintenance-event-row button {
+  min-height: 34px;
+  padding: 7px 9px;
+}
+
+.maintenance-event-content {
+  min-width: 0;
 }
 
 .maintenance-row.due strong {
@@ -2451,7 +2736,7 @@ label {
 }
 
 .test-history-panel {
-  display: grid;
+  display: none;
   gap: 8px;
   background: var(--surface-1);
 }
@@ -2461,6 +2746,7 @@ label {
 }
 
 .section-calibration .test-history-panel {
+  display: grid;
   padding: 14px 18px;
 }
 
@@ -3026,6 +3312,23 @@ label {
   color: var(--muted);
 }
 
+.panel-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.panel-header-row h2 {
+  margin-bottom: 6px;
+}
+
+.panel-header-row p {
+  margin: 0;
+  color: var(--muted);
+}
+
 .update-list {
   display: grid;
   gap: 10px;
@@ -3095,6 +3398,69 @@ label {
 
 .update-actions button:disabled {
   cursor: default;
+}
+
+.release-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.release-summary-grid .metric {
+  grid-template-columns: minmax(0, 1fr);
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+  background: var(--surface-3);
+  padding: 10px 12px;
+}
+
+.release-latest-card,
+.release-row {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--status-neutral);
+  border-radius: 7px;
+  background: var(--surface-3);
+  padding: 12px;
+}
+
+.release-latest-card {
+  border-left-color: var(--accent);
+  margin-top: 12px;
+}
+
+.release-latest-card > div {
+  display: grid;
+  gap: 6px;
+}
+
+.release-latest-card strong,
+.release-row strong {
+  overflow-wrap: anywhere;
+}
+
+.release-latest-card small,
+.release-row span,
+.release-latest-card p,
+.release-row p {
+  color: var(--muted);
+}
+
+.release-latest-card p,
+.release-row p {
+  margin: 0;
+}
+
+.release-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.release-row.installed {
+  border-left-color: var(--success);
 }
 
 .badge {
@@ -3383,6 +3749,8 @@ label {
   .operation-execution-gate,
   .operation-history-heading,
   .operation-history-row,
+  .panel-header-row,
+  .release-summary-grid,
   .temperature-row,
   .temperature-history-row,
   .fan-row,
@@ -3404,7 +3772,12 @@ label {
   .maintenance-layout,
   .maintenance-task-form,
   .maintenance-summary,
+  .maintenance-status-grid,
+  .maintenance-card-grid,
+  .maintenance-card-actions,
+  .maintenance-modal-summary,
   .maintenance-row,
+  .maintenance-event-row,
   .can-form,
   .can-summary,
   .can-parser,
@@ -3435,6 +3808,11 @@ label {
   .snapshot-compare,
   .snapshot-row {
     grid-template-columns: 1fr;
+  }
+
+  .maintenance-free-card {
+    align-items: stretch;
+    display: grid;
   }
 
   .audit-counts {

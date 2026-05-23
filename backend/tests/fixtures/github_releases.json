@@ -1,0 +1,38 @@
+[
+  {
+    "tag_name": "v0.2.0",
+    "name": "Printora 0.2.0",
+    "body": "Correcoes de manutencao e configuracao.",
+    "html_url": "https://github.com/mayder/printora/releases/tag/v0.2.0",
+    "published_at": "2026-05-21T18:00:00Z",
+    "prerelease": false,
+    "draft": false
+  },
+  {
+    "tag_name": "v0.3.0-beta.1",
+    "name": "Printora 0.3.0 beta 1",
+    "body": "Pre-release para validacao local.",
+    "html_url": "https://github.com/mayder/printora/releases/tag/v0.3.0-beta.1",
+    "published_at": "2026-05-22T12:00:00Z",
+    "prerelease": true,
+    "draft": false
+  },
+  {
+    "tag_name": "v0.1.0",
+    "name": "Printora 0.1.0",
+    "body": "Primeira release publica.",
+    "html_url": "https://github.com/mayder/printora/releases/tag/v0.1.0",
+    "published_at": "2026-05-20T12:00:00Z",
+    "prerelease": false,
+    "draft": false
+  },
+  {
+    "tag_name": "v0.4.0",
+    "name": "Draft interno",
+    "body": "Nao deve aparecer.",
+    "html_url": "https://github.com/mayder/printora/releases/tag/v0.4.0",
+    "published_at": "2026-05-23T12:00:00Z",
+    "prerelease": false,
+    "draft": true
+  }
+]

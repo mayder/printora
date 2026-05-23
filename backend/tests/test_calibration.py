@@ -1,5 +1,7 @@
+import asyncio
 from pathlib import Path
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -13,7 +15,7 @@ from app.calibration import (
     build_calibration_preflight,
 )
 from app.database import initialize_database
-from app.main import app
+from app.main import app, _send_and_monitor_gcode
 from app.printers import PrinterCreate, PrinterRepository
 
 
@@ -489,6 +491,39 @@ def test_calibration_execute_endpoint_blocks_offline_without_sending_gcode(tmp_p
         assert "Moonraker/Klipper sem leitura ao vivo." in payload["block_reasons"]
     finally:
         get_settings.cache_clear()
+
+
+def test_gcode_send_timeout_is_confirmed_by_final_moonraker_state() -> None:
+    class TimeoutAfterAcceptClient:
+        async def gcode_store(self, count: int = 20):
+            return {"gcode_store": [{"message": "G28 concluído"}]}
+
+        async def gcode_script(self, script: str, *, timeout_seconds: float | None = None):
+            raise httpx.ReadTimeout("timed out after Moonraker accepted the command")
+
+        async def printer_info(self):
+            return {"state": "ready"}
+
+        async def server_info(self):
+            return {"klippy_connected": True, "klippy_state": "ready"}
+
+        async def printer_objects_list(self):
+            return ["print_stats", "toolhead"]
+
+        async def printer_objects(self, objects):
+            return {
+                "status": {
+                    "print_stats": {"state": "standby", "filename": ""},
+                    "toolhead": {"homed_axes": "xyz", "position": [0.0, 0.0, 10.0]},
+                }
+            }
+
+    result = asyncio.run(_send_and_monitor_gcode(TimeoutAfterAcceptClient(), "G28", 0.05))
+
+    assert result["accepted"] is True
+    assert result["transport_status"] == "accepted_after_monitoring"
+    assert result["final_state"]["klipper_state"] == "ready"
+    assert result["final_state"]["homed_axes"] == "xyz"
 
 
 def test_calibration_run_requires_existing_test(tmp_path: Path) -> None:

@@ -18,9 +18,15 @@ class MoonrakerClient:
         result = payload.get("result")
         return result if isinstance(result, dict) else payload
 
-    async def post_json(self, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def post_json(
+        self,
+        path: str,
+        payload: dict[str, Any] | None = None,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> dict[str, Any]:
         url = f"{self.base_url}/{path.lstrip('/')}"
-        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+        async with httpx.AsyncClient(timeout=timeout_seconds or self.timeout_seconds) as client:
             response = await client.post(url, json=payload) if payload is not None else await client.post(url)
             response.raise_for_status()
             response_payload = response.json()
@@ -30,8 +36,11 @@ class MoonrakerClient:
     async def printer_info(self) -> dict[str, Any]:
         return await self.get_json("/printer/info")
 
-    async def gcode_script(self, script: str) -> dict[str, Any]:
-        return await self.post_json("/printer/gcode/script", {"script": script})
+    async def gcode_script(self, script: str, *, timeout_seconds: float | None = None) -> dict[str, Any]:
+        return await self.post_json("/printer/gcode/script", {"script": script}, timeout_seconds=timeout_seconds)
+
+    async def gcode_store(self, count: int = 20) -> dict[str, Any]:
+        return await self.get_json(f"/server/gcode_store?count={count}")
 
     async def server_info(self) -> dict[str, Any]:
         return await self.get_json("/server/info")
@@ -57,6 +66,9 @@ class MoonrakerClient:
 
     async def system_info(self) -> dict[str, Any]:
         return await self.get_json("/machine/system_info")
+
+    async def history_totals(self) -> dict[str, Any]:
+        return await self.get_json("/server/history/totals")
 
     async def proc_stats(self) -> dict[str, Any]:
         return await self.get_json("/machine/proc_stats")

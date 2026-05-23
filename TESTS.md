@@ -28,6 +28,14 @@ Mudanças de banco devem ser feitas por scripts `.sql` idempotentes em `backend/
 Validações:
 
 - `initialize_database()` pode rodar mais de uma vez;
+- `initialize_database()` registra scripts SQL aplicados em `schema_versions`;
+- `initialize_database()` cria `app_version` com versão do app e revisão de schema;
+- `initialize_database()` preserva dados em banco existente e cria backup no mesmo `data_dir` antes de scripts pendentes;
+- falha durante aplicação de SQL restaura o banco original a partir do backup automático;
+- validação pós-schema usa `PRAGMA integrity_check` e registra resultado em `schema_integrity_checks`;
+- falha de `integrity_check` bloqueia conclusão de `initialize_database()`;
+- reexecutar `initialize_database()` não duplica registros de versão;
+- `GET /api/system/version` retorna versão do app, `data_dir`, caminho do banco, scripts SQL aplicados, schema atual e última validação sem conteúdo do banco;
 - tabelas multi-impressora existem;
 - endpoints não armazenam credenciais;
 - fixtures ficam em `backend/tests/fixtures/`.
@@ -96,6 +104,8 @@ Validações:
 - sequência de calibração marca testes concluídos e pendentes sem enviar G-code.
 - preflight de calibração usa leitura real Moonraker/Klipper, bloqueia durante impressão e nunca libera envio de G-code neste lote.
 - execução de calibração exige operador presente, revisão de G-code, confirmação textual, preflight live e registra comandos enviados.
+- execução de calibração monitora Moonraker/Klipper após o envio e trata timeout de transporte como sucesso quando o estado final fica confirmado.
+- retorno final da execução de calibração fica disponível para preencher o registro manual do resultado.
 - execução de calibração bloqueia Moonraker offline, impressão em andamento e comando fora da allowlist.
 - artefatos de systemd, Mainsail e Update Manager existem e apontam para serviço local.
 - instalador Raspberry roda em dry-run por padrão.
@@ -114,6 +124,12 @@ Validações:
 - histórico de temperatura por snapshot deve ser ordenado e não consultar Moonraker ao montar os pontos históricos.
 - matriz de capacidade deve usar objetos reais/último snapshot sem pressupor Voron específica, mantendo ações sem objeto conhecido como `unknown`.
 - preflight final por ação operacional deve usar leitura live, bloquear impressão em andamento, bloquear capacidade ausente e manter `can_execute=false`.
+- releases do Printora usam fixtures em `backend/tests/fixtures/` e `frontend/tests/fixtures/`.
+- `GET /api/system/releases` retorna `safe_mode=read_only`, versão instalada, canal, última release, changelog resumido e status `up_to_date`, `outdated` ou `unknown`.
+- `GET /api/system/update/status` é somente leitura e retorna `update_supported=false`.
+- falha de rede, GitHub offline ou rate limit retornam payload seguro e não quebram a aplicação.
+- a tela Configurações carrega o restante da UI mesmo quando releases falham.
+- a tela Configurações tem somente ação de verificação de releases/status e não chama rota mutável de update.
 
 Testes automatizados adicionais:
 
@@ -125,6 +141,7 @@ pytest
 
 ```bash
 cd frontend
+npm run test:releases
 npm run build
 ```
 
@@ -208,6 +225,31 @@ http://127.0.0.1:5178
 - Confirmar que itens do Update Manager aparecem como detectados.
 - Confirmar classificação de KTC-Easy/StealthChanger, KAMP, `led_effect`, Crowsnest, Sonar, Timelapse, Auto Speed, TapChanger e TMC Autotune.
 - Confirmar que nenhuma remoção, update, restart ou edição de config foi executada.
+
+### Releases Do Printora
+
+- Iniciar backend com fixture de update disponível:
+
+```bash
+PRINTORA_RELEASE_SOURCE_MODE=fixture \
+PRINTORA_RELEASE_FIXTURE_PATH=/Users/brenomayder/projects/printora/backend/tests/fixtures/github_releases.json \
+PRINTORA_DATA_DIR=/tmp/printora-releases-outdated \
+backend/.venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8091
+```
+
+- Abrir `http://127.0.0.1:8091`, entrar em Configurações e confirmar:
+  - card `Releases do Printora` aparece;
+  - versão instalada aparece;
+  - última release aparece como `v0.2.0`;
+  - canal aparece como `stable`;
+  - status aparece como `update disponível`;
+  - changelog resumido aparece;
+  - lista de releases de produção aparece;
+  - existe botão `Verificar releases`;
+  - não existe botão para atualizar/aplicar update.
+- Repetir com fixture `github_releases_current.json` e confirmar status `já atualizado`.
+- Simular rede indisponível ou rate limit e confirmar que Configurações, Moonraker, Klipper e demais painéis continuam visíveis.
+- Confirmar pelo DevTools/log do backend que a tela chama apenas `GET /api/system/releases` ou `GET /api/system/update/status` e não faz `POST`, `PUT` ou `DELETE` para rotas de update.
 
 ### Firmware Manager
 
@@ -315,6 +357,52 @@ Critérios:
 - No Windows, abrir `Abrir Printora.bat` e confirmar `GET http://127.0.0.1:8085/health`.
 - Revisar `Dockerfile` e `docker-compose.yml`.
 - Confirmar que `docs/INSTALL_MULTIPLATFORM.md` documenta macOS, Linux, Windows, Docker, Raspberry e Manta/CB1.
+
+### Updater Do Printora
+
+- Confirmar que `GET /api/system/version` retorna versão do app, caminho de dados e schema aplicado.
+- Confirmar que `GET /api/system/releases` funciona com fixture local e com rede indisponível.
+- Confirmar que a tela Configurações mostra versão instalada, última release e changelog.
+- Rodar plano de update e confirmar que nenhum arquivo é alterado.
+- Confirmar que o plano lista backup do banco, versão alvo, rebuild backend, rebuild frontend, aplicação SQL e restart.
+- Executar update em ambiente descartável com banco contendo duas impressoras.
+- Confirmar que `printora.db` é preservado e backup `before-update` é criado.
+- Confirmar que scripts SQL novos são aplicados uma única vez.
+- Confirmar que `/health` responde após o update.
+- Confirmar que `/api/printers` mantém as impressoras cadastradas.
+- Simular falha durante rebuild frontend e confirmar que o banco original permanece disponível.
+- Simular falha durante aplicação SQL e confirmar que o backup do banco está disponível.
+- No Android/Termux, confirmar que o updater preserva a porta configurada e reinicia as sessões `tmux`.
+- No Windows, confirmar que o updater usa PowerShell com escopo de execução limitado ao processo.
+- Confirmar que logs de update não expõem credenciais, chaves SSH, tokens ou senhas.
+- Confirmar que rollback exige confirmação explícita e registra histórico.
+
+### Endpoint De Versão Do Sistema
+
+- Iniciar o backend local.
+- Chamar `GET http://127.0.0.1:8085/api/system/version`.
+- Confirmar que a resposta inclui `app_name`, `version`, `data_dir`, `database_path`, `schema_current`, `applied_sql_scripts` e `latest_validation`.
+- Confirmar que `applied_sql_scripts` lista apenas nome do script, ordem de execução e data de aplicação.
+- Confirmar que `latest_validation.status` está `ok` e `latest_validation.result` contém `ok`.
+- Confirmar que a resposta não inclui conteúdo de tabelas operacionais, payloads JSON do banco, segredos, tokens ou credenciais.
+
+### PKG-20 Validado Em 2026-05-22
+
+Testes automatizados executados:
+
+- `cd backend && . .venv/bin/activate && pytest tests/test_schema_versioning.py`
+- `cd backend && . .venv/bin/activate && pytest tests/test_printers.py tests/test_schema_versioning.py`
+- `cd backend && . .venv/bin/activate && pytest`
+- `./check.sh`
+
+Validação manual/local executada:
+
+- Startup do FastAPI com `PRINTORA_DATA_DIR="$HOME/Library/Application Support/Printora"`.
+- Banco validado: `$HOME/Library/Application Support/Printora/printora.db`.
+- Impressoras antes do startup: 2.
+- Impressoras depois do startup: 2.
+- `GET /api/system/version` retornou `schema_current.revision=16` e `latest_validation.status=ok`.
+- Resultado: inicialização preservou as impressoras cadastradas e aplicou o schema versionado sem perda de dados.
 
 ## Critérios Para Não Avançar
 
