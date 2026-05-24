@@ -5,7 +5,12 @@ import threading
 import time
 from contextlib import closing
 
-from zeroconf import IPVersion, ServiceInfo, Zeroconf
+try:
+    from zeroconf import IPVersion, ServiceInfo, Zeroconf
+except ImportError:
+    IPVersion = None
+    ServiceInfo = None
+    Zeroconf = None
 
 MDNS_GROUP = "224.0.0.251"
 MDNS_PORT = 5353
@@ -111,17 +116,20 @@ def main() -> int:
     host = f"{args.name}.local."
     service_name = f"{args.name}._http._tcp.local."
     ip = local_ip()
-    zeroconf = Zeroconf(ip_version=IPVersion.V4Only)
     threading.Thread(target=mdns_hostname_responder, args=(args.name,), daemon=True).start()
-    info = ServiceInfo(
-        "_http._tcp.local.",
-        service_name,
-        addresses=[socket.inet_aton(ip)],
-        port=args.port,
-        properties={"path": "/"},
-        server=host,
-    )
-    zeroconf.register_service(info)
+    zeroconf = None
+    info = None
+    if Zeroconf and ServiceInfo and IPVersion:
+        zeroconf = Zeroconf(ip_version=IPVersion.V4Only)
+        info = ServiceInfo(
+            "_http._tcp.local.",
+            service_name,
+            addresses=[socket.inet_aton(ip)],
+            port=args.port,
+            properties={"path": "/"},
+            server=host,
+        )
+        zeroconf.register_service(info)
     print(f"announcing http://{args.name}.local:{args.port}/ at {ip}:{args.port}", flush=True)
     try:
         while True:
@@ -129,21 +137,23 @@ def main() -> int:
             current_ip = local_ip()
             if current_ip == ip:
                 continue
-            zeroconf.unregister_service(info)
             ip = current_ip
-            info = ServiceInfo(
-                "_http._tcp.local.",
-                service_name,
-                addresses=[socket.inet_aton(ip)],
-                port=args.port,
-                properties={"path": "/"},
-                server=host,
-            )
-            zeroconf.register_service(info)
+            if zeroconf and info and ServiceInfo:
+                zeroconf.unregister_service(info)
+                info = ServiceInfo(
+                    "_http._tcp.local.",
+                    service_name,
+                    addresses=[socket.inet_aton(ip)],
+                    port=args.port,
+                    properties={"path": "/"},
+                    server=host,
+                )
+                zeroconf.register_service(info)
             print(f"announcing http://{args.name}.local:{args.port}/ at {ip}:{args.port}", flush=True)
     finally:
-        zeroconf.unregister_service(info)
-        zeroconf.close()
+        if zeroconf and info:
+            zeroconf.unregister_service(info)
+            zeroconf.close()
 
 
 if __name__ == "__main__":

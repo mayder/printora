@@ -410,7 +410,7 @@ export function ReportsScreen(props: ReportsScreenProps) {
         <div className="report-section-heading">
           <div>
             <h2>Detalhes técnicos</h2>
-            <p>Dados para diagnóstico avançado, sem virar a leitura principal para o usuário leigo.</p>
+            <p>Estado bruto de Moonraker, Klipper e checklist usado para conferir a leitura resumida do relatório.</p>
           </div>
         </div>
         <div className="report-tech-grid">

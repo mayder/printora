@@ -1,11 +1,16 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -euo pipefail
 
-ROOT_DIR="${ROOT_DIR:-$HOME/Printora}"
+TERMUX_HOME="${TERMUX_HOME:-/data/data/com.termux/files/home}"
+if [[ ! -d "$TERMUX_HOME" ]]; then
+  TERMUX_HOME="$HOME"
+fi
+
+ROOT_DIR="${ROOT_DIR:-$TERMUX_HOME/Printora}"
 HTTP_PORT="${HTTP_PORT:-${PRINTORA_PORT:-8085}}"
 PUBLIC_PORT="${PUBLIC_PORT:-$HTTP_PORT}"
 HOST_NAME="${HOST_NAME:-printora}"
-DATA_DIR="${PRINTORA_DATA_DIR:-$HOME/.local/share/printora}"
+DATA_DIR="${PRINTORA_DATA_DIR:-$TERMUX_HOME/.local/share/printora}"
 MOONRAKER_URL="${PRINTORA_MOONRAKER_URL:-http://voron.local:7125}"
 
 cd "$ROOT_DIR"
