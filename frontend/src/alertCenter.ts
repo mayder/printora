@@ -117,23 +117,29 @@ export function buildAlertCenterItems({
   audit: AuditResponse | null;
 }): AlertCenterItem[] {
   const items: AlertCenterItem[] = [];
+  const printerOffline = Boolean(health && !health.connected);
 
   health?.items
     .filter((item) => item.severity === "blocker" || item.severity === "warning")
+    .filter((item) => !printerOffline || isPrinterReadProblem(item.key))
     .forEach((item) => {
-      const printoraReadProblem = item.key === "data_state" || item.key === "moonraker_unreachable";
+      const printoraReadProblem = isPrinterReadProblem(item.key);
       items.push({
         id: `health-${item.key}`,
         source: "Health Check",
-        title: item.title,
+        title: printerOffline && printoraReadProblem ? "Impressora offline" : item.title,
         detail: item.detail,
-        action: item.action,
+        action: printerOffline && printoraReadProblem ? "Ligue a impressora e revalide a conexão." : item.action,
         severity: item.severity === "blocker" && !printoraReadProblem ? "blocker" : "warning",
-        reason: healthAlertReason(item),
+        reason: printerOffline && printoraReadProblem ? "A impressora não está acessível agora; alertas que dependem dela ligada ficam ocultos." : healthAlertReason(item),
         actionLabel: printoraReadProblem ? "Revalidar conexão" : "Revalidar agora",
         actionKind: "revalidate",
       });
     });
+
+  if (printerOffline) {
+    return dedupeAlertCenterItems(items);
+  }
 
   updateStatus?.components
     .filter((component) => component.can_update || component.status === "warning" || component.warnings.length > 0 || component.anomalies.length > 0)
@@ -189,7 +195,15 @@ export function buildAlertCenterItems({
       });
     });
 
-  return items;
+  return dedupeAlertCenterItems(items);
+}
+
+function isPrinterReadProblem(key: string): boolean {
+  return key === "data_state" || key === "moonraker_unreachable";
+}
+
+function dedupeAlertCenterItems(items: AlertCenterItem[]): AlertCenterItem[] {
+  return items.filter((item, index, allItems) => allItems.findIndex((candidate) => candidate.id === item.id) === index);
 }
 
 function healthAlertReason(item: HealthItem): string {

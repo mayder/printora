@@ -6,6 +6,7 @@ type OverviewScreenProps = ScreenPropsFor<
   | "Plus"
   | "RefreshCw"
   | "ShieldCheck"
+  | "alertBlockerCount"
   | "alertCount"
   | "captureSnapshot"
   | "countPendingUpdates"
@@ -31,6 +32,7 @@ type OverviewScreenProps = ScreenPropsFor<
   | "status"
   | "totalPrintHours"
   | "updateStatus"
+  | "alertWarningCount"
 >;
 
 export function OverviewScreen(props: OverviewScreenProps) {
@@ -39,6 +41,7 @@ export function OverviewScreen(props: OverviewScreenProps) {
     Plus,
     RefreshCw,
     ShieldCheck,
+    alertBlockerCount,
     alertCount,
     captureSnapshot,
     countPendingUpdates,
@@ -64,6 +67,7 @@ export function OverviewScreen(props: OverviewScreenProps) {
     status,
     totalPrintHours,
     updateStatus,
+    alertWarningCount,
   } = props;
 
   return (
@@ -100,8 +104,8 @@ export function OverviewScreen(props: OverviewScreenProps) {
                 </div>
               ) : null}
               <div className="overview-risk-counts">
-                <span>{health?.counts.blocker ?? 0} bloqueio(s)</span>
-                <span>{health?.counts.warning ?? 0} alerta(s)</span>
+                <span>{alertBlockerCount} bloqueio(s)</span>
+                <span>{alertWarningCount} alerta(s)</span>
                 <span>{snapshots.length} snapshot(s)</span>
               </div>
               {alertCount > 0 ? (

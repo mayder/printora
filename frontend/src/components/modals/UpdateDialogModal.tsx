@@ -4,7 +4,7 @@ import type { ScreenPropsFor } from "../../screens/ScreenProps";
 export type UpdateDialogModalProps = ScreenPropsFor<
   | "RefreshCw"
   | "X"
-  | "closeUpdateSocket"
+  | "closeUpdateDialog"
   | "formatUpdatePhase"
   | "loadUpdateStatus"
   | "loading"
@@ -22,7 +22,7 @@ export function UpdateDialogModal(props: UpdateDialogModalProps) {
   const {
     RefreshCw,
     X,
-    closeUpdateSocket,
+    closeUpdateDialog,
     formatUpdatePhase,
     loadUpdateStatus,
     loading,
@@ -55,8 +55,7 @@ export function UpdateDialogModal(props: UpdateDialogModalProps) {
                   type="button"
                   className="ghost-button"
                   onClick={() => {
-                    closeUpdateSocket();
-                    setUpdateDialog(null);
+                    void closeUpdateDialog();
                   }}
                   disabled={updateDialog.phase === "running"}
                 >
@@ -118,8 +117,7 @@ export function UpdateDialogModal(props: UpdateDialogModalProps) {
                       type="button"
                       className="primary-button"
                       onClick={() => {
-                        closeUpdateSocket();
-                        setUpdateDialog(null);
+                        void closeUpdateDialog();
                       }}
                       disabled={updateDialog.phase === "running"}
                     >

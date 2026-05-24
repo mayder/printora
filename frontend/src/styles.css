@@ -3803,6 +3803,24 @@ label {
   cursor: default;
 }
 
+.section-updates .update-list {
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+}
+
+.section-updates .update-row {
+  align-content: start;
+  min-height: 148px;
+}
+
+.section-updates .update-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.post-update-checklist .checks {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .release-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3881,6 +3899,71 @@ label {
 
 .host-diagnostics-panel {
   margin-top: 16px;
+}
+
+.settings-advanced-panel {
+  align-self: start;
+  margin-top: 0;
+}
+
+.settings-advanced-summary {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.settings-advanced-summary span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.settings-advanced-summary strong {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+.help-icon-button {
+  width: 30px;
+  height: 30px;
+  color: var(--accent);
+}
+
+.settings-help-modal-card {
+  width: min(680px, 100%);
+}
+
+.settings-help-content {
+  display: grid;
+  gap: 10px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.settings-help-content p {
+  margin: 0;
+}
+
+.settings-help-content code {
+  color: var(--code-text);
+  background: var(--code-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.settings-advanced-panel .can-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-advanced-panel .can-parser,
+.settings-advanced-panel .can-form {
+  grid-template-columns: 1fr;
+}
+
+.settings-advanced-panel .panel-actions {
+  justify-content: flex-start;
 }
 
 .panel-header-row.compact {
@@ -4231,6 +4314,8 @@ label {
   .printer-toolbar,
   .printer-form,
   .overview-strip,
+  .section-updates .update-list,
+  .post-update-checklist .checks,
   .monitor-status-strip,
   .monitor-grid,
   .live-series,

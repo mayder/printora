@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Badge, Metric } from "../components/common";
 import type { ScreenPropsFor } from "./ScreenProps";
 
@@ -6,11 +7,13 @@ type SettingsScreenProps = ScreenPropsFor<
   | "AlertTriangle"
   | "FileText"
   | "History"
+  | "HelpCircle"
   | "RefreshCw"
   | "Settings"
   | "ShieldAlert"
   | "ShieldCheck"
   | "Undo2"
+  | "X"
   | "audit"
   | "canBitrate"
   | "canBusState"
@@ -74,11 +77,13 @@ export function SettingsScreen(props: SettingsScreenProps) {
     AlertTriangle,
     FileText,
     History,
+    HelpCircle,
     RefreshCw,
     Settings,
     ShieldAlert,
     ShieldCheck,
     Undo2,
+    X,
     audit,
     canBitrate,
     canBusState,
@@ -135,124 +140,45 @@ export function SettingsScreen(props: SettingsScreenProps) {
     status,
     systemReleases,
   } = props;
+  const [settingsHelpTopic, setSettingsHelpTopic] = useState<"can" | "host" | null>(null);
+
+  const helpTitle = settingsHelpTopic === "can" ? "Registro técnico CAN" : "Diagnóstico avançado do host";
 
   return (
     <>
-        <article className="panel wide panel-section panel-settings">
-          <div className="panel-heading">
-            <h2>Registro técnico CAN</h2>
-            <strong>{formatCanAlert(canSummary?.overall_alert ?? canRecords[0]?.alert_level ?? "ok")}</strong>
-          </div>
-          <div className="can-summary">
-            <Badge label="Modo" value={canSummary?.safe_mode ?? "manual_read_only"} />
-            <Badge label="Dados" value={canSummary?.data_state === "manual_records" ? "registros manuais" : "sem registros"} />
-            <Badge label="OK" value={canSummary?.counts.ok ?? 0} />
-            <Badge label="Monitorar" value={canSummary?.counts.monitorar ?? 0} />
-            <Badge label="Problemas" value={canSummary?.counts.problema ?? 0} />
-          </div>
-          <div className="panel-actions">
-            <button type="button" className="secondary-button" onClick={() => void compareLatestCanRecords()} disabled={!selectedPrinterId || loading || canRecords.length < 2}>
-              Comparar últimas leituras
-            </button>
-          </div>
-          {canSummary?.data_state === "no_data" ? (
-            <p className="muted">Nenhuma leitura CAN local registrada. Este formulário é técnico e não aparece na tela de monitoramento.</p>
-          ) : null}
-          {canComparison ? (
-            <div className={`can-row ${canComparison.alert_level}`}>
-              <strong>Comparação #{canComparison.before_record_id} → #{canComparison.after_record_id}</strong>
-              <span>
-                {canComparison.interface_name} · rx={canComparison.delta_rx_error} · tx={canComparison.delta_tx_error} · retries={canComparison.delta_tx_retries}
-              </span>
-              <small>{canComparison.diagnosis}</small>
-              <small>{canComparison.recommended_actions.join(" · ")}</small>
-            </div>
-          ) : null}
-          <div className="can-parser">
-            <textarea
-              aria-label="Saída bruta ip link CAN"
-              value={canRawOutput}
-              onChange={(event: any) => setCanRawOutput(event.target.value)}
-              placeholder="Cole aqui a saída de ip -details -statistics link show can0 para preencher os campos."
-            />
-            <button type="button" className="secondary-button" onClick={() => void parseCanRawOutput()} disabled={!selectedPrinterId || loading || !canRawOutput.trim()}>
-              Extrair leitura
-            </button>
-          </div>
-          <form className="can-form" onSubmit={(event: any) => void createCanRecord(event)}>
-            <input
-              aria-label="Interface CAN"
-              value={canInterfaceName}
-              onChange={(event: any) => setCanInterfaceName(event.target.value)}
-              placeholder="can0"
-            />
-            <input
-              aria-label="RX error"
-              type="number"
-              min="0"
-              value={canRxError}
-              onChange={(event: any) => setCanRxError(Number(event.target.value))}
-            />
-            <input
-              aria-label="TX error"
-              type="number"
-              min="0"
-              value={canTxError}
-              onChange={(event: any) => setCanTxError(Number(event.target.value))}
-            />
-            <input
-              aria-label="TX retries"
-              type="number"
-              min="0"
-              value={canTxRetries}
-              onChange={(event: any) => setCanTxRetries(Number(event.target.value))}
-            />
-            <input
-              aria-label="Estado do barramento"
-              value={canBusState}
-              onChange={(event: any) => setCanBusState(event.target.value)}
-              placeholder="ERROR-ACTIVE"
-            />
-            <input
-              aria-label="Bitrate CAN"
-              type="number"
-              min="1"
-              value={canBitrate}
-              onChange={(event: any) => setCanBitrate(Number(event.target.value))}
-            />
-            <textarea
-              aria-label="Notas CAN"
-              value={canNotes}
-              onChange={(event: any) => setCanNotes(event.target.value)}
-              placeholder="Ex.: leitura manual de ip -details -statistics link show can0"
-            />
-            <button type="submit" disabled={!selectedPrinterId || loading}>
-              Registrar
-            </button>
-          </form>
-          <div className="can-list">
-            {canRecords.length === 0 ? <p className="muted">Nenhuma leitura CAN registrada.</p> : null}
-            {canRecords.map((record: any) => (
-              <div key={record.id} className={`can-row ${record.alert_level}`}>
-                <strong>{formatCanAlert(record.alert_level)}</strong>
-                <span>
-                  {record.interface_name} · rx={record.rx_error} · tx={record.tx_error} · retries={record.tx_retries} ·{" "}
-                  {record.recorded_at}
-                </span>
-                <small>
-                  Delta rx={formatOptionalInt(record.delta_rx_error)} · tx={formatOptionalInt(record.delta_tx_error)} ·
-                  retries={formatOptionalInt(record.delta_tx_retries)}
-                </small>
-                <small>
-                  Estado: {record.bus_state ?? "-"} · bitrate: {record.bitrate ?? "-"}
-                </small>
-                <small>{record.diagnosis}</small>
-                {record.recommended_actions.length ? <small>{record.recommended_actions.join(" · ")}</small> : null}
-                {record.notes ? <small>{record.notes}</small> : null}
+        {settingsHelpTopic ? (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Ajuda: ${helpTitle}`}>
+            <div className="modal-card settings-help-modal-card">
+              <div className="modal-header">
+                <div>
+                  <h2>{helpTitle}</h2>
+                  <p>{settingsHelpTopic === "can" ? "Histórico técnico da comunicação CAN da impressora." : "Auditoria técnica do computador onde o Printora roda."}</p>
+                </div>
+                <button type="button" className="icon-button" onClick={() => setSettingsHelpTopic(null)} aria-label="Fechar ajuda">
+                  <X size={18} />
+                </button>
               </div>
-            ))}
+              {settingsHelpTopic === "can" ? (
+                <div className="settings-help-content">
+                  <p>Use para guardar uma leitura técnica da interface CAN e comparar se erros aumentaram depois de manutenção, update, troca de cabo ou troca de placa.</p>
+                  <p>O fluxo esperado é rodar <code>ip -details -statistics link show can0</code> no host, colar a saída, extrair a leitura e registrar.</p>
+                  <p>Indicadores como <code>rx</code>, <code>tx</code>, <code>retries</code>, estado do barramento e bitrate ajudam a separar falha de comunicação CAN de problema mecânico ou de configuração.</p>
+                </div>
+              ) : (
+                <div className="settings-help-content">
+                  <p>Use para verificar o ambiente Linux/Raspberry/host do Printora quando houver suspeita de problema estrutural fora da impressão.</p>
+                  <p>A auditoria olha sinais como systemd, CAN, symlinks, caminhos legados e repositórios locais. Ela não corrige nada sozinha.</p>
+                  <p>Se aparecerem itens em monitorar ou corrigir, investigue o detalhe antes de update, rollback ou manutenção longa.</p>
+                </div>
+              )}
+              <div className="modal-footer">
+                <button type="button" className="secondary-button" onClick={() => setSettingsHelpTopic(null)}>
+                  Fechar
+                </button>
+              </div>
+            </div>
           </div>
-        </article>
+        ) : null}
 
         <article className={`panel wide panel-section panel-settings releases-panel ${releasePanelClass(systemReleases)}`}>
           <div className="panel-header-row">
@@ -402,8 +328,152 @@ export function SettingsScreen(props: SettingsScreenProps) {
           </div>
         </article>
 
-        <details className="panel wide panel-section panel-settings collapsible-panel host-diagnostics-panel">
-          <summary>Diagnóstico avançado do host</summary>
+        <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel can-technical-panel">
+          <summary className="settings-advanced-summary">
+            <span>Registro técnico CAN</span>
+            <button
+              type="button"
+              className="icon-button help-icon-button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setSettingsHelpTopic("can");
+              }}
+              aria-label="Ajuda sobre Registro técnico CAN"
+              title="Ajuda"
+            >
+              <HelpCircle size={16} />
+            </button>
+            <strong>{formatCanAlert(canSummary?.overall_alert ?? canRecords[0]?.alert_level ?? "ok")}</strong>
+          </summary>
+          <div className="can-summary">
+            <Badge label="Modo" value={canSummary?.safe_mode ?? "manual_read_only"} />
+            <Badge label="Dados" value={canSummary?.data_state === "manual_records" ? "registros manuais" : "sem registros"} />
+            <Badge label="OK" value={canSummary?.counts.ok ?? 0} />
+            <Badge label="Monitorar" value={canSummary?.counts.monitorar ?? 0} />
+            <Badge label="Problemas" value={canSummary?.counts.problema ?? 0} />
+          </div>
+          <div className="panel-actions">
+            <button type="button" className="secondary-button" onClick={() => void compareLatestCanRecords()} disabled={!selectedPrinterId || loading || canRecords.length < 2}>
+              Comparar últimas leituras
+            </button>
+          </div>
+          {canSummary?.data_state === "no_data" ? (
+            <p className="muted">Nenhuma leitura CAN local registrada. Este formulário é técnico e não aparece na tela de monitoramento.</p>
+          ) : null}
+          {canComparison ? (
+            <div className={`can-row ${canComparison.alert_level}`}>
+              <strong>Comparação #{canComparison.before_record_id} → #{canComparison.after_record_id}</strong>
+              <span>
+                {canComparison.interface_name} · rx={canComparison.delta_rx_error} · tx={canComparison.delta_tx_error} · retries={canComparison.delta_tx_retries}
+              </span>
+              <small>{canComparison.diagnosis}</small>
+              <small>{canComparison.recommended_actions.join(" · ")}</small>
+            </div>
+          ) : null}
+          <div className="can-parser">
+            <textarea
+              aria-label="Saída bruta ip link CAN"
+              value={canRawOutput}
+              onChange={(event: any) => setCanRawOutput(event.target.value)}
+              placeholder="Cole aqui a saída de ip -details -statistics link show can0 para preencher os campos."
+            />
+            <button type="button" className="secondary-button" onClick={() => void parseCanRawOutput()} disabled={!selectedPrinterId || loading || !canRawOutput.trim()}>
+              Extrair leitura
+            </button>
+          </div>
+          <form className="can-form" onSubmit={(event: any) => void createCanRecord(event)}>
+            <input
+              aria-label="Interface CAN"
+              value={canInterfaceName}
+              onChange={(event: any) => setCanInterfaceName(event.target.value)}
+              placeholder="can0"
+            />
+            <input
+              aria-label="RX error"
+              type="number"
+              min="0"
+              value={canRxError}
+              onChange={(event: any) => setCanRxError(Number(event.target.value))}
+            />
+            <input
+              aria-label="TX error"
+              type="number"
+              min="0"
+              value={canTxError}
+              onChange={(event: any) => setCanTxError(Number(event.target.value))}
+            />
+            <input
+              aria-label="TX retries"
+              type="number"
+              min="0"
+              value={canTxRetries}
+              onChange={(event: any) => setCanTxRetries(Number(event.target.value))}
+            />
+            <input
+              aria-label="Estado do barramento"
+              value={canBusState}
+              onChange={(event: any) => setCanBusState(event.target.value)}
+              placeholder="ERROR-ACTIVE"
+            />
+            <input
+              aria-label="Bitrate CAN"
+              type="number"
+              min="1"
+              value={canBitrate}
+              onChange={(event: any) => setCanBitrate(Number(event.target.value))}
+            />
+            <textarea
+              aria-label="Notas CAN"
+              value={canNotes}
+              onChange={(event: any) => setCanNotes(event.target.value)}
+              placeholder="Ex.: leitura manual de ip -details -statistics link show can0"
+            />
+            <button type="submit" disabled={!selectedPrinterId || loading}>
+              Registrar
+            </button>
+          </form>
+          <div className="can-list">
+            {canRecords.length === 0 ? <p className="muted">Nenhuma leitura CAN registrada.</p> : null}
+            {canRecords.map((record: any) => (
+              <div key={record.id} className={`can-row ${record.alert_level}`}>
+                <strong>{formatCanAlert(record.alert_level)}</strong>
+                <span>
+                  {record.interface_name} · rx={record.rx_error} · tx={record.tx_error} · retries={record.tx_retries} ·{" "}
+                  {record.recorded_at}
+                </span>
+                <small>
+                  Delta rx={formatOptionalInt(record.delta_rx_error)} · tx={formatOptionalInt(record.delta_tx_error)} ·
+                  retries={formatOptionalInt(record.delta_tx_retries)}
+                </small>
+                <small>
+                  Estado: {record.bus_state ?? "-"} · bitrate: {record.bitrate ?? "-"}
+                </small>
+                <small>{record.diagnosis}</small>
+                {record.recommended_actions.length ? <small>{record.recommended_actions.join(" · ")}</small> : null}
+                {record.notes ? <small>{record.notes}</small> : null}
+              </div>
+            ))}
+          </div>
+        </details>
+
+        <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel host-diagnostics-panel">
+          <summary className="settings-advanced-summary">
+            <span>Diagnóstico avançado do host</span>
+            <button
+              type="button"
+              className="icon-button help-icon-button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setSettingsHelpTopic("host");
+              }}
+              aria-label="Ajuda sobre Diagnóstico avançado do host"
+              title="Ajuda"
+            >
+              <HelpCircle size={16} />
+            </button>
+          </summary>
           <p className="muted">Leitura técnica do computador onde o Printora roda. Use quando precisar investigar systemd, CAN, symlinks ou repositórios locais.</p>
           <strong className="summary">{hostAudit?.summary ?? "Aguardando dados"}</strong>
           <div className="audit-counts">

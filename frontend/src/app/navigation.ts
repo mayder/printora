@@ -118,6 +118,28 @@ export const onlinePrinterSections = new Set<AppSection>([
 
 export const selectedPrinterLocalSections = new Set<AppSection>(["maintenance"]);
 
+export type PrinterAvailability = "none" | "unknown" | "online" | "offline";
+
+export function canShowSection(sectionKey: AppSection, printerAvailability: PrinterAvailability) {
+  if (onlinePrinterSections.has(sectionKey)) {
+    return printerAvailability === "online";
+  }
+  if (selectedPrinterLocalSections.has(sectionKey)) {
+    return printerAvailability !== "none";
+  }
+  return true;
+}
+
+export function shouldRedirectSection(sectionKey: AppSection, printerAvailability: PrinterAvailability) {
+  if (onlinePrinterSections.has(sectionKey)) {
+    return printerAvailability === "none" || printerAvailability === "offline";
+  }
+  if (selectedPrinterLocalSections.has(sectionKey)) {
+    return printerAvailability === "none";
+  }
+  return false;
+}
+
 export function getInitialSection(): AppSection {
   const section = new URLSearchParams(window.location.search).get("section") ?? window.location.hash.replace("#", "");
   return appSections.some((candidate) => candidate.key === section) ? (section as AppSection) : "overview";

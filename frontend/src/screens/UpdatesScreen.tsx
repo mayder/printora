@@ -1,5 +1,6 @@
 import React from "react";
 import { Badge } from "../components/common";
+import type { UpdateComponent } from "../alertCenter";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type UpdatesScreenProps = ScreenPropsFor<
@@ -42,6 +43,8 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
     updateStatus,
     updateStatusIcon,
   } = props;
+  const pendingUpdateCount = updateStatus?.components.filter(isPendingUpdateComponent).length ?? 0;
+  const orderedComponents = orderUpdateComponents(updateStatus?.components ?? []);
 
   return (
     <>
@@ -61,15 +64,17 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                 <RefreshCw size={15} />
                 Reanalisar
               </button>
-              <button
-                type="button"
-                className="primary-button"
-                onClick={() => openUpdateDialog("all")}
-                disabled={!selectedPrinterId || loading || updateStatus?.busy}
-              >
-                <RefreshCw size={15} />
-                Atualizar tudo
-              </button>
+              {pendingUpdateCount > 1 ? (
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => openUpdateDialog("all")}
+                  disabled={!selectedPrinterId || loading || updateStatus?.busy}
+                >
+                  <RefreshCw size={15} />
+                  Atualizar tudo
+                </button>
+              ) : null}
             </div>
           </div>
           <div className="overview-strip">
@@ -86,7 +91,7 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
           ) : null}
           <div className="update-list">
             {updateStatus?.components.length === 0 ? <p className="muted">Nenhum componente retornado pelo Update Manager.</p> : null}
-            {updateStatus?.components.map((component: any) => (
+            {orderedComponents.map((component) => (
               <div key={component.name} className={`update-row ${component.status}`}>
                 <div className="update-main">
                   <div className="update-component-copy">
@@ -113,7 +118,7 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                     type="button"
                     className="secondary-button"
                     onClick={() => void refreshUpdateStatus(component.name)}
-                    disabled={!selectedPrinterId || loading || updateStatus.busy}
+                    disabled={!selectedPrinterId || loading || updateStatus?.busy}
                   >
                     <RefreshCw size={15} />
                     Reanalisar
@@ -123,7 +128,7 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                       type="button"
                       className="primary-button"
                       onClick={() => openUpdateDialog(component.name)}
-                      disabled={!selectedPrinterId || loading || updateStatus.busy}
+                      disabled={!selectedPrinterId || loading || updateStatus?.busy}
                     >
                       <RefreshCw size={15} />
                       Atualizar
@@ -140,7 +145,7 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
           </div>
         </article>
 
-        <article className={`panel ${checklist?.can_print ? "ok" : "warn"} panel-section panel-updates`}>
+        <article className={`panel wide ${checklist?.can_print ? "ok" : "warn"} panel-section panel-updates post-update-checklist`}>
           <h2>Checklist pós-update</h2>
           <strong className="summary">{checklist?.summary ?? "Aguardando dados"}</strong>
           {checklist ? (
@@ -165,4 +170,32 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
 
     </>
   );
+}
+
+function orderUpdateComponents(components: UpdateComponent[]): UpdateComponent[] {
+  return components
+    .map((component, index) => ({ component, index }))
+    .sort((left, right) => {
+      const leftPending = isPendingUpdateComponent(left.component);
+      const rightPending = isPendingUpdateComponent(right.component);
+      if (leftPending !== rightPending) {
+        return leftPending ? -1 : 1;
+      }
+      if (leftPending && rightPending) {
+        const scoreDelta = updateAgeScore(right.component) - updateAgeScore(left.component);
+        if (scoreDelta !== 0) {
+          return scoreDelta;
+        }
+      }
+      return left.index - right.index;
+    })
+    .map((item) => item.component);
+}
+
+function isPendingUpdateComponent(component: UpdateComponent): boolean {
+  return component.can_update || component.status === "update_available";
+}
+
+function updateAgeScore(component: UpdateComponent): number {
+  return component.commits_behind_count + component.package_count;
 }

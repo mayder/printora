@@ -32,6 +32,10 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Estado, efeitos e orquestracao de API ficam em hooks por dominio em `frontend/src/hooks/domains`; `frontend/src/hooks/usePrintoraApp.ts` apenas compoe shell, contexto e dominios.
 - Chamadas HTTP ficam isoladas por dominio em `frontend/src/services`.
 - Componentes reutilizados ficam em `frontend/src/components`.
+- Secoes que exigem impressora online sao ocultadas da navegacao quando a leitura de health da impressora ativa confirma Moonraker offline; se o usuario estiver nelas nesse momento, a SPA volta para `overview`.
+- Durante o carregamento inicial, secoes que exigem impressora online permanecem ocultas ate o health confirmar Moonraker online.
+- Com Moonraker offline, a Central de alertas exibe apenas o alerta de offline/conexao; pendencias que dependem da impressora ligada ou de snapshot antigo nao contam como alertas ativos atuais.
+- Enquanto a impressora ativa estiver offline, a SPA revalida status e health a cada 60 segundos para liberar as secoes online quando Moonraker voltar.
 
 ## Telas atuais
 
@@ -83,8 +87,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 
 - Backups ficam em `reports`, junto de snapshots, comparacoes, relatorio sanitizado e evidencias diagnosticas.
 - Auditoria read-only da impressora fica em `reports`.
-- Diagnostico avancado do host fica em `settings`.
-- CAN de monitoramento fica em `monitoring` como leitura operacional; registro tecnico, parser e comparacao manual ficam em `settings`.
+- Diagnostico avancado do host fica em `settings`, colapsado e com ajuda contextual por modal.
+- CAN de monitoramento fica em `monitoring` como leitura operacional; registro tecnico, parser e comparacao manual ficam em `settings`, colapsados e com ajuda contextual por modal.
 - Updates da impressora ficam em `updates`; updates do proprio Printora ficam em `settings`.
 
 ## Estado de UI
@@ -95,6 +99,10 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - A tela Monitoramento deve ser leitura ao vivo para operador leigo: sem cadastro manual, sem checklist pos-update, sem auditoria tecnica e com graficos/indicadores que se atualizam automaticamente.
 - Formularios tecnicos de CAN devem ficar fora da tela Monitoramento.
 - Checklist pos-update deve aparecer na tela Atualizacoes.
+- Na tela Atualizacoes, `Atualizar tudo` aparece somente quando houver mais de um componente atualizavel.
+- Na tela Atualizacoes, componentes com update pendente aparecem antes dos demais; entre pendentes, os mais atrasados por commits/pacotes ficam acima, preservando a ordem original quando empatar ou quando tudo estiver atualizado.
+- Na tela Atualizacoes, os componentes do Update Manager usam cards responsivos em duas ou tres colunas quando houver largura suficiente, e o checklist pos-update ocupa a largura total com duas colunas em telas medias/grandes.
+- Ao fechar o modal de update concluido ou revalidado, a tela Atualizacoes deve recarregar status do Update Manager, health, checklist, operacao e auditoria da impressora ativa.
 - Auditoria e diagnostico avancado do host devem ficar em telas de diagnostico/configuracao, nao como conteudo principal do Monitoramento.
 
 ## Pendencias de mapeamento

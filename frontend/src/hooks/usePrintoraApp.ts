@@ -35,7 +35,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { buildAlertCenterItems } from "../alertCenter";
+import { buildAlertCenterItems, type HealthResponse } from "../alertCenter";
 import * as formatters from "../utils/formatters";
 import * as selfUpdateHelpers from "../selfUpdate";
 import { useAppShell } from "./domains/useAppShell";
@@ -48,6 +48,7 @@ import { useReports } from "./domains/useReports";
 import { useSelfUpdate } from "./domains/useSelfUpdate";
 import { useSettings } from "./domains/useSettings";
 import { useUpdates } from "./domains/useUpdates";
+import type { PrinterAvailability } from "../app/navigation";
 
 const icons = {
   Activity,
@@ -145,14 +146,15 @@ export function usePrintoraApp() {
     setStatus: (value) => settings.setStatus(value),
   });
 
-  const shell = useAppShell(printers.selectedPrinterId);
+  settings = useSettings({ selectedPrinterId: printers.selectedPrinterId, setError, setLoading });
+  const printerAvailability = getPrinterAvailability(printers.selectedPrinterId, settings.health);
+  const shell = useAppShell(printerAvailability);
   operation = useOperation({
     selectedPrinterId: printers.selectedPrinterId,
     setActiveSection: shell.setActiveSection,
     setError,
     setLoading,
   });
-  settings = useSettings({ selectedPrinterId: printers.selectedPrinterId, setError, setLoading });
   reports = useReports({
     selectedPrinterId: printers.selectedPrinterId,
     loadPrinterHealth: settings.loadPrinterHealth,
@@ -220,6 +222,17 @@ export function usePrintoraApp() {
     return () => window.clearInterval(refreshId);
   }, [shell.activeSection, printers.selectedPrinterId]);
 
+  React.useEffect(() => {
+    if (!printers.selectedPrinterId || printerAvailability !== "offline") {
+      return;
+    }
+    const refreshId = window.setInterval(() => {
+      void operation.loadOperationStatus(printers.selectedPrinterId!, { preserveData: true });
+      void settings.loadPrinterHealth(printers.selectedPrinterId!);
+    }, 60000);
+    return () => window.clearInterval(refreshId);
+  }, [printerAvailability, printers.selectedPrinterId]);
+
   const alertCenterItems = buildAlertCenterItems({
     health: settings.health,
     updateStatus: updates.updateStatus,
@@ -227,6 +240,8 @@ export function usePrintoraApp() {
     audit: settings.audit,
   });
   const alertCount = alertCenterItems.length;
+  const alertBlockerCount = alertCenterItems.filter((item) => item.severity === "blocker").length;
+  const alertWarningCount = alertCenterItems.filter((item) => item.severity === "warning").length;
   const primaryRiskItem = alertCenterItems.find((item) => item.severity === "blocker") ?? alertCenterItems.find((item) => item.severity === "warning") ?? null;
   const latestSnapshot = reports.snapshots[0];
   const moonrakerOnline = settings.health?.connected ?? settings.status?.connected ?? false;
@@ -296,6 +311,8 @@ export function usePrintoraApp() {
     TopbarPrimaryIcon,
     alertCenterItems,
     alertCount,
+    alertBlockerCount,
+    alertWarningCount,
     bedTemperature,
     displayDecision,
     error,
@@ -343,6 +360,22 @@ export function usePrintoraApp() {
     topbarPrimaryAction,
     visibleNavGroups: shell.visibleNavGroups,
   };
+}
+
+function getPrinterAvailability(selectedPrinterId: number | null, health: HealthResponse | null): PrinterAvailability {
+  if (!selectedPrinterId) {
+    return "none";
+  }
+  if (!health) {
+    return "unknown";
+  }
+  if (!health.connected) {
+    return "offline";
+  }
+  if (health.printer_id !== selectedPrinterId) {
+    return "unknown";
+  }
+  return health.connected ? "online" : "offline";
 }
 
 export type PrintoraScreenProps = ReturnType<typeof usePrintoraApp>["screenProps"];

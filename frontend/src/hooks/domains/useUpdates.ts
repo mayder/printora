@@ -38,6 +38,7 @@ export function useUpdates(options: UseUpdatesOptions) {
   const [updateDialog, setUpdateDialog] = React.useState<UpdateDialogState | null>(null);
   const [updateLogs, setUpdateLogs] = React.useState<UpdateLogEntry[]>([]);
   const updateSocketRef = React.useRef<WebSocket | null>(null);
+  const updateSocketCompleteRef = React.useRef(false);
   const updateLogIdRef = React.useRef(0);
 
   async function loadUpdateStatus(printerId: number): Promise<UpdateStatusResponse | null> {
@@ -134,6 +135,7 @@ export function useUpdates(options: UseUpdatesOptions) {
     setError(null);
     setUpdateActionResult(null);
     setUpdateLogs([]);
+    updateSocketCompleteRef.current = false;
     updateLogIdRef.current = 0;
     setUpdateDialog({ open: true, target, label: selectedLabel, phase: "confirm" });
   }
@@ -141,6 +143,24 @@ export function useUpdates(options: UseUpdatesOptions) {
   function closeUpdateSocket() {
     updateSocketRef.current?.close();
     updateSocketRef.current = null;
+  }
+
+  async function refreshPostUpdateContext(printerId: number) {
+    await Promise.allSettled([
+      loadUpdateStatus(printerId),
+      loadPrinterHealth(printerId),
+      loadPrinterChecklist(printerId),
+      loadOperationStatus(printerId, { preserveData: true }),
+      loadPrinterAudit(printerId),
+    ]);
+  }
+
+  async function closeUpdateDialog() {
+    closeUpdateSocket();
+    setUpdateDialog(null);
+    if (selectedPrinterId) {
+      await refreshPostUpdateContext(selectedPrinterId);
+    }
   }
 
   function connectUpdateSocket(printer: PrinterRecord) {
@@ -182,6 +202,7 @@ export function useUpdates(options: UseUpdatesOptions) {
       }
       appendUpdateLog(updateMessage.complete ? "success" : "info", updateMessage.message);
       if (updateMessage.complete) {
+        updateSocketCompleteRef.current = true;
         setUpdateDialog((currentDialog) =>
           currentDialog && currentDialog.phase === "running" ? { ...currentDialog, phase: "done" } : currentDialog,
         );
@@ -207,9 +228,14 @@ export function useUpdates(options: UseUpdatesOptions) {
       const actionResult = (await response.json()) as UpdateActionResponse;
       setUpdateActionResult(actionResult);
       appendUpdateLog("success", actionResult.message);
-      await loadUpdateStatus(selectedPrinterId);
-      await loadPrinterHealth(selectedPrinterId);
-      setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "done" } : currentDialog));
+      const confirmedStatus = await pollUpdateCompletion(selectedPrinterId, target);
+      await refreshPostUpdateContext(selectedPrinterId);
+      if (updateSocketCompleteRef.current || isUpdateTargetConfirmedUpdated(confirmedStatus, target)) {
+        setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "done" } : currentDialog));
+      } else {
+        appendUpdateLog("warning", "Update solicitado, mas o status final ainda nao foi confirmado pelo Moonraker.");
+        setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "failed" } : currentDialog));
+      }
     } catch (err) {
       const latestStatus = await reloadUpdateStatusAfterUpdateError(selectedPrinterId, target);
       await loadPrinterHealth(selectedPrinterId);
@@ -260,11 +286,31 @@ export function useUpdates(options: UseUpdatesOptions) {
     return latestStatus;
   }
 
+  async function pollUpdateCompletion(printerId: number, target: string): Promise<UpdateStatusResponse | null> {
+    const retryDelaysMs = [2500, 5000, 8000, 12000, 16000];
+    let latestStatus: UpdateStatusResponse | null = null;
+    for (const retryDelayMs of retryDelaysMs) {
+      appendUpdateLog("info", "Aguardando o Moonraker confirmar o status final do update.");
+      await delay(retryDelayMs);
+      try {
+        latestStatus = await loadUpdateStatus(printerId);
+      } catch {
+        latestStatus = null;
+      }
+      await loadPrinterHealth(printerId);
+      if (isUpdateTargetConfirmedUpdated(latestStatus, target)) {
+        return latestStatus;
+      }
+    }
+    return latestStatus;
+  }
+
   React.useEffect(() => () => closeUpdateSocket(), []);
 
   return {
     appendUpdateLog,
     closeUpdateSocket,
+    closeUpdateDialog,
     connectUpdateSocket,
     handleAlertCenterAction,
     loadUpdateStatus,

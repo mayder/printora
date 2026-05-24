@@ -1,9 +1,9 @@
 import React from "react";
 import { Moon, Sun } from "lucide-react";
-import { appSections, getInitialSection, navGroups, onlinePrinterSections, selectedPrinterLocalSections, type AppSection } from "../../app/navigation";
+import { appSections, canShowSection, getInitialSection, navGroups, shouldRedirectSection, type AppSection, type PrinterAvailability } from "../../app/navigation";
 import type { ThemeMode } from "../../types";
 
-export function useAppShell(selectedPrinterId: number | null) {
+export function useAppShell(printerAvailability: PrinterAvailability) {
   const [activeSection, setActiveSection] = React.useState<AppSection>(() => getInitialSection());
   const [theme, setTheme] = React.useState<ThemeMode>(() => {
     const storedTheme = window.localStorage.getItem("printora-theme");
@@ -18,14 +18,10 @@ export function useAppShell(selectedPrinterId: number | null) {
   }, [theme]);
 
   React.useEffect(() => {
-    if (onlinePrinterSections.has(activeSection) && !selectedPrinterId) {
-      setActiveSection("overview");
-      return;
-    }
-    if (selectedPrinterLocalSections.has(activeSection) && !selectedPrinterId) {
+    if (shouldRedirectSection(activeSection, printerAvailability)) {
       setActiveSection("overview");
     }
-  }, [activeSection, selectedPrinterId]);
+  }, [activeSection, printerAvailability]);
 
   const activeSectionMeta = appSections.find((section) => section.key === activeSection) ?? appSections[0];
   const ActiveIcon = activeSectionMeta.icon;
@@ -35,18 +31,10 @@ export function useAppShell(selectedPrinterId: number | null) {
       navGroups
         .map((group) => ({
           ...group,
-          sections: group.sections.filter((sectionKey) => {
-            if (onlinePrinterSections.has(sectionKey)) {
-              return Boolean(selectedPrinterId);
-            }
-            if (selectedPrinterLocalSections.has(sectionKey)) {
-              return Boolean(selectedPrinterId);
-            }
-            return true;
-          }),
+          sections: group.sections.filter((sectionKey) => canShowSection(sectionKey, printerAvailability)),
         }))
         .filter((group) => group.sections.length > 0),
-    [selectedPrinterId],
+    [printerAvailability],
   );
 
   return {
