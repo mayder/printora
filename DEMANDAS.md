@@ -51,6 +51,11 @@
 - PKG-23: Updater Android/Termux
 - PKG-24: Updater Windows
 - PKG-25: Rollback, histórico e auditoria de updates do Printora
+- PKG-26: Instalação 0.1.5 com boot automático
+- PKG-27: Fluxo visual do updater 0.1.6
+- PKG-28: Retry seguro do npm install 0.1.7
+- PKG-29: Frontend pré-buildado para instalação 0.1.8
+- PKG-30: Catálogo completo de firmware de impressoras 3D
 
 ## Política De Backlog
 
@@ -2044,3 +2049,36 @@ Critério de aceite:
 Estado atual:
 
 - Implementado e validado localmente.
+
+## PKG-30: Catálogo Completo De Firmware De Impressoras 3D
+
+Objetivo:
+
+Criar uma base local completa, versionada e verificável para atualização de firmware de impressoras 3D, usando o guia Esoterical CANBus (`https://canbus.esoterical.online/`) como primeira fonte. O pacote deve cobrir MCU principal, placas CAN/USB-CAN, EBB/toolheads, Katapult, build, flash, atualização e troubleshooting sem obrigar o usuário a navegar no site.
+
+Entregáveis:
+
+- crawler/scraper controlado para varrer o índice completo do guia Esoterical CANBus;
+- manifesto versionado com URL, título, categoria, hash de conteúdo, data de captura e status de cada página catalogada;
+- catálogo JSON normalizado para MCUs principais, adaptadores CAN, mainboards/bridges USB-CAN, EBB/toolheads, fluxos de instalação, fluxos de atualização, Katapult, CAN speed e troubleshooting;
+- mapeamento entre placas do catálogo e presets locais do Firmware Manager;
+- classificação explícita de placas sem preset local para orientar criação futura de preset;
+- extração estruturada de MCU, método de conexão, modo de flash, bootloader/Katapult, comandos de validação, links de guia e observações de segurança;
+- testes que falham quando uma página conhecida do índice não estiver catalogada ou quando o schema JSON ficar inválido;
+- comando de atualização do catálogo em modo dry-run, sem alterar runtime automaticamente;
+- documentação em `TELAS.md`, `TESTES.md` e, se houver decisão estrutural relevante, `DECISOES.md`;
+- UI da tela Firmware consumindo apenas itens compatíveis com a impressora ativa, sem exibir presets genéricos como fluxo principal.
+
+Critério de aceite:
+
+- todas as páginas do menu público do guia entram no manifesto com status `catalogada`, `ignorada_com_motivo` ou `bloqueada_com_motivo`;
+- o catálogo permite identificar pelo menos categoria, vendor, modelo, role, conexão, MCU provável, preset local quando existir e URL de referência para cada hardware suportado pelo guia;
+- a tela Firmware continua exibindo somente placas detectadas/cadastradas da impressora ativa;
+- o catálogo não executa comandos de flash, build, update, SSH ou alteração de configuração durante a varredura;
+- o scraper respeita execução manual/dry-run, timeout, limite de domínio e saída determinística;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+- Existe base inicial manual em `backend/app/data/firmware_hardware_catalog.json`, mas ela não representa varredura completa do site.
