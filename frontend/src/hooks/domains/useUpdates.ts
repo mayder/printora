@@ -185,7 +185,7 @@ export function useUpdates(options: UseUpdatesOptions) {
           method: "server.connection.identify",
           params: {
             client_name: "Printora",
-            version: "0.1.9",
+            version: "0.1.10",
             type: "web",
             url: "https://github.com/printora/printora",
           },
