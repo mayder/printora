@@ -95,3 +95,21 @@ Antes de publicar:
 3. Conferir riscos e rollback em `GOVERNANCA.md`.
 4. Validar smoke do backend e frontend.
 5. Registrar decisao relevante em `DECISOES.md` quando houver mudanca de operacao, arquitetura ou rollback.
+6. Garantir que a versao foi atualizada no backend, frontend, lockfiles e frontend pre-buildado.
+7. Criar commit de release e tag anotada no formato `vX.Y.Z`.
+8. Publicar a branch e a tag no remoto.
+9. Criar a GitHub Release da tag publicada; a tela `Configuracoes > Releases do Printora` consulta GitHub Releases, nao apenas tags Git.
+10. Confirmar que `gh release list` mostra a nova versao como `Latest`.
+
+Exemplo para `v0.1.9`:
+
+```bash
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+git tag -a v0.1.9 -m "Printora v0.1.9"
+git push origin main
+git push origin v0.1.9
+gh release create v0.1.9 --title "Printora 0.1.9" --notes "Release v0.1.9"
+gh release list --limit 5
+```
+
+Se a GitHub Release nao for criada, o app pode continuar mostrando a release anterior como ultima disponivel mesmo com commit e tag locais corretos.

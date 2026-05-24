@@ -54,6 +54,8 @@ Uma versão só pode ser considerada publicável se:
 - fluxos perigosos tiverem confirmação e dry-run;
 - dados sensíveis não estiverem versionados;
 - o rollback mínimo estiver documentado.
+- a tag da versao estiver publicada no remoto;
+- a GitHub Release correspondente estiver criada, pois o verificador de releases do app usa GitHub Releases como fonte publica.
 
 Migrations são proibidas. Toda alteração de banco deve ser entregue como script `.sql` idempotente em `backend/sql/`, com rollback e impacto documentados.
 
