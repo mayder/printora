@@ -1,5 +1,7 @@
 from functools import lru_cache
+import os
 from pathlib import Path
+import platform
 from typing import Literal
 
 from pydantic import Field
@@ -13,7 +15,7 @@ ReleaseSourceMode = Literal["github", "fixture", "disabled"]
 class Settings(BaseSettings):
     app_name: str = "Printora"
     moonraker_url: str = Field(default="http://127.0.0.1:7125")
-    data_dir: Path = Field(default=Path.home() / ".local/share/printora")
+    data_dir: Path = Field(default_factory=lambda: _default_data_dir())
     frontend_dist_dir: Path = Field(default=Path(__file__).resolve().parents[2] / "frontend" / "dist")
     request_timeout_seconds: float = 5.0
     host_audit_mode: HostAuditMode = "local"
@@ -48,3 +50,11 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def _default_data_dir() -> Path:
+    if platform.system() == "Darwin":
+        return Path.home() / "Library/Application Support/Printora"
+    if platform.system() == "Windows":
+        return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / "Printora"
+    return Path.home() / ".local/share/printora"

@@ -6,6 +6,30 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Cadastro De Impressora Exibia Failed To Fetch
+
+Sintoma:
+
+- ao abrir o frontend local sem API acessível, a busca de impressoras mostrava apenas `Failed to fetch`;
+- em inicializações fora dos scripts oficiais, o backend podia usar o diretório SQLite Linux no macOS e abrir sem as impressoras já cadastradas.
+
+Causa:
+
+- a configuração padrão do backend não acompanhava o diretório operacional usado pelos runners no macOS;
+- a UI repassava o erro técnico cru do `fetch` para o operador.
+
+Correção:
+
+- o `data_dir` padrão agora usa `~/Library/Application Support/Printora` no macOS, `%LOCALAPPDATA%/Printora` no Windows e `~/.local/share/printora` no Linux;
+- erros de rede do frontend passam a orientar verificar o backend em `http://127.0.0.1:8085`.
+
+Validação:
+
+- `pytest tests/test_schema_versioning.py tests/test_printers.py tests/test_discovery.py -q`;
+- `npm --prefix frontend run build`;
+- `./check.sh`;
+- smoke local em `GET /api/printers` e `GET /api/printers/discover`.
+
 ### Tela De Atualizacoes Nao Revalidava Apos Fechar Modal
 
 Sintoma:
