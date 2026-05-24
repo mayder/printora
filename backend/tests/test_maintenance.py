@@ -408,6 +408,52 @@ def test_create_default_tasks_is_idempotent(tmp_path: Path) -> None:
     }
 
 
+def test_default_tasks_expose_print_hours_recommendation_without_changing_fallback_days(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = MaintenanceRepository(database_path)
+
+    tasks = repository.create_default_tasks(printer.id)
+    mesh = next(task for task in tasks if task.name == "Refazer malha da mesa")
+    cable = next(task for task in tasks if task.name == "Inspecionar conectores CAN/USB")
+
+    assert mesh.interval_kind == "days"
+    assert mesh.interval_value == 30
+    assert mesh.recommended_interval_kind == "print_hours"
+    assert mesh.recommended_interval_value == 200
+    assert cable.recommended_interval_kind is None
+    assert cable.recommended_interval_value is None
+
+
+def test_recommended_print_hours_becomes_effective_only_with_live_reading(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = MaintenanceRepository(database_path)
+    repository.create_default_tasks(printer.id)
+
+    repository.update_current_print_hours(printer.id, 2140.8, read_at=datetime.now(timezone.utc).isoformat(), source="live")
+    live_task = next(task for task in repository.list_tasks(printer.id) if task.name == "Inspecionar desgaste das correias")
+    live_summary = repository.summary(printer.id)
+
+    assert live_task.interval_kind == "print_hours"
+    assert live_task.interval_value == 250
+    assert live_task.due_status == "due"
+    assert live_task.due_detail == "Primeira execução pendente."
+    assert live_summary.counts["due"] == 33
+
+    repository.update_current_print_hours(printer.id, None, read_at=datetime.now(timezone.utc).isoformat(), source="cached")
+    cached_task = next(task for task in repository.list_tasks(printer.id) if task.name == "Inspecionar desgaste das correias")
+
+    assert cached_task.interval_kind == "days"
+    assert cached_task.interval_value == 60
+
+
 def test_maintenance_summary_endpoint_is_local_only(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     get_settings.cache_clear()

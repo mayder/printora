@@ -17,29 +17,29 @@ DEFAULT_PREVENTIVE_TASKS = [
     {"name": "Limpar superfície da mesa", "component": "mesa", "interval_days": 7},
     {"name": "Inspecionar adesão da mesa", "component": "mesa", "interval_days": 14},
     {"name": "Verificar nivelamento mecânico da mesa", "component": "mesa", "interval_days": 30},
-    {"name": "Revisar Z-offset aprovado", "component": "calibração", "interval_days": 30},
-    {"name": "Refazer malha da mesa", "component": "calibração", "interval_days": 30},
+    {"name": "Revisar Z-offset aprovado", "component": "calibração", "interval_days": 30, "recommended_interval_kind": "print_hours", "recommended_interval_value": 100},
+    {"name": "Refazer malha da mesa", "component": "calibração", "interval_days": 30, "recommended_interval_kind": "print_hours", "recommended_interval_value": 200},
     {"name": "Limpar poeira da estrutura", "component": "estrutura", "interval_days": 30},
     {"name": "Conferir parafusos estruturais", "component": "estrutura", "interval_days": 60},
     {"name": "Conferir esquadro da estrutura", "component": "estrutura", "interval_days": 90},
-    {"name": "Verificar tensão das correias", "component": "movimento", "interval_days": 30},
-    {"name": "Inspecionar desgaste das correias", "component": "movimento", "interval_days": 60},
-    {"name": "Lubrificar trilhos lineares", "component": "movimento", "interval_days": 45},
-    {"name": "Limpar trilhos e guias", "component": "movimento", "interval_days": 30},
-    {"name": "Inspecionar roldanas, polias e idlers", "component": "movimento", "interval_days": 60},
-    {"name": "Conferir aperto de polias nos motores", "component": "movimento", "interval_days": 60},
-    {"name": "Limpar bico externamente", "component": "hotend", "interval_days": 14},
-    {"name": "Inspecionar bico por desgaste ou entupimento", "component": "hotend", "interval_days": 30},
-    {"name": "Conferir aperto do hotend em temperatura segura", "component": "hotend", "interval_days": 90},
-    {"name": "Inspecionar vazamento de filamento no hotend", "component": "hotend", "interval_days": 30},
-    {"name": "Limpar engrenagens do extrusor", "component": "extrusor", "interval_days": 30},
-    {"name": "Verificar pressão/tensão do extrusor", "component": "extrusor", "interval_days": 30},
-    {"name": "Inspecionar tubo PTFE ou guia de filamento", "component": "filamento", "interval_days": 45},
-    {"name": "Limpar caminho do filamento", "component": "filamento", "interval_days": 30},
-    {"name": "Inspecionar sensor de filamento", "component": "filamento", "interval_days": 45},
-    {"name": "Limpar fans e dutos", "component": "refrigeração", "interval_days": 30},
-    {"name": "Verificar ruído ou folga dos fans", "component": "refrigeração", "interval_days": 30},
-    {"name": "Limpar filtro de ar ou carvão ativado", "component": "refrigeração", "interval_days": 30},
+    {"name": "Verificar tensão das correias", "component": "movimento", "interval_days": 30, "recommended_interval_kind": "print_hours", "recommended_interval_value": 100},
+    {"name": "Inspecionar desgaste das correias", "component": "movimento", "interval_days": 60, "recommended_interval_kind": "print_hours", "recommended_interval_value": 250},
+    {"name": "Lubrificar trilhos lineares", "component": "movimento", "interval_days": 45, "recommended_interval_kind": "print_hours", "recommended_interval_value": 100},
+    {"name": "Limpar trilhos e guias", "component": "movimento", "interval_days": 30, "recommended_interval_kind": "print_hours", "recommended_interval_value": 100},
+    {"name": "Inspecionar roldanas, polias e idlers", "component": "movimento", "interval_days": 60, "recommended_interval_kind": "print_hours", "recommended_interval_value": 250},
+    {"name": "Conferir aperto de polias nos motores", "component": "movimento", "interval_days": 60, "recommended_interval_kind": "print_hours", "recommended_interval_value": 250},
+    {"name": "Limpar bico externamente", "component": "hotend", "interval_days": 14, "recommended_interval_kind": "print_hours", "recommended_interval_value": 50},
+    {"name": "Inspecionar bico por desgaste ou entupimento", "component": "hotend", "interval_days": 30, "recommended_interval_kind": "print_hours", "recommended_interval_value": 100},
+    {"name": "Conferir aperto do hotend em temperatura segura", "component": "hotend", "interval_days": 90, "recommended_interval_kind": "print_hours", "recommended_interval_value": 300},
+    {"name": "Inspecionar vazamento de filamento no hotend", "component": "hotend", "interval_days": 30, "recommended_interval_kind": "print_hours", "recommended_interval_value": 100},
+    {"name": "Limpar engrenagens do extrusor", "component": "extrusor", "interval_days": 30, "recommended_interval_kind": "print_hours", "recommended_interval_value": 100},
+    {"name": "Verificar pressão/tensão do extrusor", "component": "extrusor", "interval_days": 30, "recommended_interval_kind": "print_hours", "recommended_interval_value": 100},
+    {"name": "Inspecionar tubo PTFE ou guia de filamento", "component": "filamento", "interval_days": 45, "recommended_interval_kind": "print_hours", "recommended_interval_value": 250},
+    {"name": "Limpar caminho do filamento", "component": "filamento", "interval_days": 30, "recommended_interval_kind": "print_hours", "recommended_interval_value": 100},
+    {"name": "Inspecionar sensor de filamento", "component": "filamento", "interval_days": 45, "recommended_interval_kind": "print_hours", "recommended_interval_value": 100},
+    {"name": "Limpar fans e dutos", "component": "refrigeração", "interval_days": 30, "recommended_interval_kind": "print_hours", "recommended_interval_value": 100},
+    {"name": "Verificar ruído ou folga dos fans", "component": "refrigeração", "interval_days": 30, "recommended_interval_kind": "print_hours", "recommended_interval_value": 100},
+    {"name": "Limpar filtro de ar ou carvão ativado", "component": "refrigeração", "interval_days": 30, "recommended_interval_kind": "print_hours", "recommended_interval_value": 100},
     {"name": "Inspecionar cabos do toolhead", "component": "elétrica", "interval_days": 30},
     {"name": "Inspecionar conectores CAN/USB", "component": "elétrica", "interval_days": 30},
     {"name": "Conferir fixação e alívio de tensão dos cabos", "component": "elétrica", "interval_days": 45},
@@ -121,6 +121,8 @@ class MaintenanceTaskRecord(BaseModel):
     print_hours_delta: float | None = None
     print_hours_until_due: float | None = None
     due_detail: str | None = None
+    recommended_interval_kind: MaintenanceIntervalKind | None = None
+    recommended_interval_value: float | None = None
 
 
 class MaintenanceSummary(BaseModel):
@@ -253,7 +255,7 @@ class MaintenanceRepository:
 
     def summary(self, printer_id: int) -> MaintenanceSummary:
         tasks = self.list_tasks(printer_id)
-        counts = {"due": 0, "soon": 0, "ok": 0, "unknown": 0, "inactive": 0}
+        counts = {"due": 0, "soon": 0, "ok": 0, "unknown": 0, "not_validated": 0, "needs_review": 0, "inactive": 0}
         for task in tasks:
             if not task.is_active:
                 counts["inactive"] += 1
@@ -385,7 +387,6 @@ class MaintenanceRepository:
                     current_print_hours_source = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE printer_id = ?
-                  AND interval_kind = 'print_hours'
                 """,
                 (print_hours, _clean_timestamp(read_at), source, printer_id),
             )
@@ -481,16 +482,27 @@ def _event_from_row(row) -> MaintenanceEventRecord:
 
 
 def _task_from_row(row) -> MaintenanceTaskRecord:
-    interval_kind: MaintenanceIntervalKind = row["interval_kind"] if row["interval_kind"] in {"days", "print_hours"} else "days"
-    interval_value = float(row["interval_value"] if row["interval_value"] is not None else row["interval_days"])
+    stored_interval_kind: MaintenanceIntervalKind = row["interval_kind"] if row["interval_kind"] in {"days", "print_hours"} else "days"
+    stored_interval_value = float(row["interval_value"] if row["interval_value"] is not None else row["interval_days"])
+    recommendation = _recommended_interval_for_task(str(row["name"]), str(row["component"]))
+    current_print_hours_source = row["current_print_hours_source"]
+    current_print_hours = row["current_print_hours"]
+    interval_kind, interval_value = _effective_interval(
+        stored_interval_kind=stored_interval_kind,
+        stored_interval_value=stored_interval_value,
+        recommended_interval_kind=recommendation[0],
+        recommended_interval_value=recommendation[1],
+        current_print_hours=current_print_hours,
+        current_print_hours_source=current_print_hours_source,
+    )
     due_status, days_until_due, print_hours_delta, print_hours_until_due, due_detail = _calculate_due_status(
         interval_kind=interval_kind,
         interval_value=interval_value,
         last_done_at=row["last_done_at"],
         interval_days=int(row["interval_days"]),
         last_done_print_hours=row["last_done_print_hours"],
-        current_print_hours=row["current_print_hours"],
-        current_print_hours_source=row["current_print_hours_source"],
+        current_print_hours=current_print_hours,
+        current_print_hours_source=current_print_hours_source,
     )
     return MaintenanceTaskRecord(
         id=int(row["id"]),
@@ -503,9 +515,9 @@ def _task_from_row(row) -> MaintenanceTaskRecord:
         last_done_at=row["last_done_at"],
         last_done_print_hours=row["last_done_print_hours"],
         last_print_hours_read_at=row["last_print_hours_read_at"],
-        current_print_hours=row["current_print_hours"],
+        current_print_hours=current_print_hours,
         current_print_hours_read_at=row["current_print_hours_read_at"],
-        current_print_hours_source=row["current_print_hours_source"],
+        current_print_hours_source=current_print_hours_source,
         is_active=bool(row["is_active"]),
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
@@ -514,7 +526,44 @@ def _task_from_row(row) -> MaintenanceTaskRecord:
         print_hours_delta=print_hours_delta,
         print_hours_until_due=print_hours_until_due,
         due_detail=due_detail,
+        recommended_interval_kind=recommendation[0],
+        recommended_interval_value=recommendation[1],
     )
+
+
+def _recommended_interval_for_task(
+    name: str,
+    component: str,
+) -> tuple[MaintenanceIntervalKind | None, float | None]:
+    key = (name.lower(), component.lower())
+    for task in DEFAULT_PREVENTIVE_TASKS:
+        if key != (str(task["name"]).lower(), str(task["component"]).lower()):
+            continue
+        kind = task.get("recommended_interval_kind")
+        value = task.get("recommended_interval_value")
+        if kind in {"days", "print_hours"} and value is not None:
+            return kind, float(value)
+        return None, None
+    return None, None
+
+
+def _effective_interval(
+    *,
+    stored_interval_kind: MaintenanceIntervalKind,
+    stored_interval_value: float,
+    recommended_interval_kind: MaintenanceIntervalKind | None,
+    recommended_interval_value: float | None,
+    current_print_hours: float | None,
+    current_print_hours_source: str | None,
+) -> tuple[MaintenanceIntervalKind, float]:
+    if (
+        recommended_interval_kind == "print_hours"
+        and recommended_interval_value is not None
+        and current_print_hours is not None
+        and current_print_hours_source == "live"
+    ):
+        return "print_hours", recommended_interval_value
+    return stored_interval_kind, stored_interval_value
 
 
 def _calculate_due_status(
@@ -528,6 +577,8 @@ def _calculate_due_status(
     current_print_hours_source: str | None,
 ) -> tuple[TaskDueStatus, int | None, float | None, float | None, str | None]:
     if interval_kind == "print_hours":
+        if not last_done_at and current_print_hours is not None and current_print_hours_source == "live":
+            return "due", None, None, None, "Primeira execução pendente."
         return _calculate_print_hours_due_status(
             interval_value, last_done_print_hours, current_print_hours, current_print_hours_source
         )

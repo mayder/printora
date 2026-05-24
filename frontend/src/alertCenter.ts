@@ -92,6 +92,19 @@ export type UpdateStatusResponse = {
   components: UpdateComponent[];
 };
 
+export type MaintenanceTaskAlert = {
+  id: number;
+  name: string;
+  component: string;
+  interval_kind: "days" | "print_hours";
+  interval_value: number;
+  due_status: "due" | "soon" | "ok" | "unknown" | "not_validated" | "needs_review";
+  days_until_due?: number | null;
+  print_hours_until_due?: number | null;
+  due_detail?: string | null;
+  is_active: boolean;
+};
+
 export type AlertCenterItem = {
   id: string;
   source: string;
@@ -101,7 +114,7 @@ export type AlertCenterItem = {
   severity: "blocker" | "warning" | "info";
   reason: string;
   actionLabel: string;
-  actionKind: "revalidate" | "open_updates" | "refresh_update" | "run_update" | "open_monitoring";
+  actionKind: "revalidate" | "open_updates" | "refresh_update" | "run_update" | "open_monitoring" | "open_maintenance";
   target?: string;
 };
 
@@ -110,11 +123,13 @@ export function buildAlertCenterItems({
   updateStatus,
   checklist,
   audit,
+  maintenanceTasks,
 }: {
   health: HealthResponse | null;
   updateStatus: UpdateStatusResponse | null;
   checklist: ChecklistResponse | null;
   audit: AuditResponse | null;
+  maintenanceTasks?: MaintenanceTaskAlert[];
 }): AlertCenterItem[] {
   const items: AlertCenterItem[] = [];
   const printerOffline = Boolean(health && !health.connected);
@@ -195,6 +210,23 @@ export function buildAlertCenterItems({
       });
     });
 
+  maintenanceTasks
+    ?.filter((task) => task.is_active)
+    .filter((task) => ["due", "soon", "not_validated", "needs_review"].includes(task.due_status))
+    .forEach((task) => {
+      items.push({
+        id: `maintenance-${task.id}`,
+        source: `Manutenção · ${task.component}`,
+        title: task.name,
+        detail: maintenanceAlertDetail(task),
+        action: maintenanceAlertAction(task),
+        severity: task.due_status === "due" ? "warning" : "info",
+        reason: maintenanceAlertReason(task),
+        actionLabel: "Abrir manutenção",
+        actionKind: "open_maintenance",
+      });
+    });
+
   return dedupeAlertCenterItems(items);
 }
 
@@ -258,4 +290,38 @@ function auditAlertReason(finding: AuditFinding): string {
     return "A auditoria somente leitura encontrou um achado que pode afetar a operação.";
   }
   return "A auditoria encontrou um achado que precisa de revisão técnica.";
+}
+
+function maintenanceAlertDetail(task: MaintenanceTaskAlert): string {
+  if (task.interval_kind === "print_hours") {
+    if (task.due_status === "soon") {
+      return `A cada ${formatHours(task.interval_value)} de impressão · faltam ${formatHours(task.print_hours_until_due ?? 0)}.`;
+    }
+    return `A cada ${formatHours(task.interval_value)} de impressão · ${task.due_detail ?? "pendência ativa"}.`;
+  }
+  if (task.due_status === "soon") {
+    return `A cada ${Math.round(task.interval_value)} dias · faltam ${task.days_until_due ?? "-"} dia(s).`;
+  }
+  return `A cada ${Math.round(task.interval_value)} dias · pendência ativa.`;
+}
+
+function maintenanceAlertReason(task: MaintenanceTaskAlert): string {
+  if (task.due_status === "not_validated" || task.due_status === "needs_review") {
+    return "A rotina usa horas de impressão, mas a base salva precisa ser registrada ou revisada.";
+  }
+  if (task.interval_kind === "print_hours") {
+    return "A rotina preventiva venceu ou está próxima pelo total de horas de impressão.";
+  }
+  return "A rotina preventiva venceu ou está próxima pelo prazo em dias.";
+}
+
+function maintenanceAlertAction(task: MaintenanceTaskAlert): string {
+  if (task.due_status === "not_validated" || task.due_status === "needs_review") {
+    return "Abra Manutenção, marque a rotina como feita quando executar e salve a leitura atual de horas como nova base.";
+  }
+  return "Abra Manutenção, execute a conferência indicada e registre a conclusão.";
+}
+
+function formatHours(value: number): string {
+  return `${Number(value.toFixed(1))}h`;
 }

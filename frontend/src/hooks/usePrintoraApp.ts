@@ -239,6 +239,7 @@ export function usePrintoraApp() {
     updateStatus: updates.updateStatus,
     checklist: settings.checklist,
     audit: settings.audit,
+    maintenanceTasks: maintenance.maintenanceTasks,
   });
   const alertCount = alertCenterItems.length;
   const alertBlockerCount = alertCenterItems.filter((item) => item.severity === "blocker").length;

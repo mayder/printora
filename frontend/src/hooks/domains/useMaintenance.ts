@@ -1,7 +1,6 @@
 import React from "react";
 import { maintenanceApi } from "../../services/maintenanceApi";
 import type { MaintenanceEventRecord, MaintenancePrintHoursStatus, MaintenanceSummary, MaintenanceTaskRecord } from "../../types";
-import { formatMaintenanceIntervalValue } from "../../utils/formatters";
 import type { SetError, SetLoading } from "./shared";
 import { unknownErrorMessage } from "./shared";
 
@@ -74,10 +73,25 @@ export function useMaintenance({ selectedPrinterId, setError, setLoading }: UseM
   }
 
   function openMaintenanceDoneModal(task: MaintenanceTaskRecord) {
+    const hasRecommendedPrintHours =
+      maintenancePrintHours?.available &&
+      typeof maintenancePrintHours.total_print_hours === "number" &&
+      task.recommended_interval_kind === "print_hours" &&
+      typeof task.recommended_interval_value === "number";
+    const intervalKind = hasRecommendedPrintHours ? "print_hours" : "days";
+    const intervalValue = hasRecommendedPrintHours
+      ? task.recommended_interval_value!
+      : task.interval_kind === "days"
+        ? task.interval_value || task.interval_days
+        : task.interval_days;
     setMaintenanceDoneTask(task);
     setMaintenanceDoneNotes("");
-    setMaintenanceDoneIntervalKind(task.interval_kind);
-    setMaintenanceDoneIntervalValue(task.is_active ? formatMaintenanceIntervalValue(task) : "");
+    setMaintenanceDoneIntervalKind(intervalKind);
+    setMaintenanceDoneIntervalValue(
+      task.is_active
+        ? formatMaintenanceRecommendedIntervalValue(intervalValue)
+        : "",
+    );
     setMaintenanceDoneDisableReminder(!task.is_active);
   }
 
@@ -327,4 +341,8 @@ export function useMaintenance({ selectedPrinterId, setError, setLoading }: UseM
     submitMaintenanceFreeEvent,
     visibleMaintenanceTasks,
   };
+}
+
+function formatMaintenanceRecommendedIntervalValue(value: number) {
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(1)));
 }

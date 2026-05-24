@@ -67,6 +67,11 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Calibracao execucao | `frontend/src/components/modals/CalibrationExecuteModal.tsx` | Preflight e confirmacao presencial para envio de G-code |
 | Calibracao resultado | `frontend/src/components/modals/CalibrationResultModal.tsx` | Historico e registro manual de resultado de calibracao |
 
+## Manutencao
+
+- Ao concluir uma rotina preventiva do catalogo, o modal usa horas de impressao como padrao quando a rotina tiver recomendacao por horas e a impressora ativa estiver com leitura de horas disponivel.
+- Se a impressora estiver offline ou sem leitura de horas, o modal preserva o padrao em dias para evitar bloqueio operacional.
+
 ## Hooks e services
 
 | Dominio | Hook | Service |

@@ -98,6 +98,11 @@ export function useUpdates(options: UseUpdatesOptions) {
       setAlertCenterOpen(false);
       return;
     }
+    if (item.actionKind === "open_maintenance") {
+      setActiveSection("maintenance");
+      setAlertCenterOpen(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {

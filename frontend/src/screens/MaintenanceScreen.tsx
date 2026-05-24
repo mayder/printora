@@ -151,7 +151,7 @@ export function MaintenanceScreen(props: MaintenanceScreenProps) {
                       <span>{task.component}</span>
                       <span>{task.is_active ? formatMaintenanceInterval(task) : "Sem lembrete recorrente"}</span>
                       <span>Última: {formatOptionalLocalDateTime(task.last_done_at)}</span>
-                      {task.interval_kind === "print_hours" ? (
+                      {task.interval_kind === "print_hours" && maintenancePrintHoursAvailable ? (
                         <>
                           <span>Base: {formatOptionalHours(task.last_done_print_hours)}</span>
                           <span>Atual: {formatOptionalHours(task.current_print_hours)}{task.current_print_hours_source === "cached" ? " · desatualizado" : ""}</span>

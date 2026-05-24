@@ -57,6 +57,9 @@ export function formatMaintenanceIntervalValue(task: MaintenanceTaskRecord) {
 }
 
 export function formatPrintHoursDueLine(task: MaintenanceTaskRecord) {
+  if (task.due_status === "due" && (task.last_done_print_hours === null || task.last_done_print_hours === undefined)) {
+    return task.due_detail ?? "Primeira execução pendente";
+  }
   if (task.due_status === "not_validated") {
     return task.due_detail ?? "Aguardando leitura de horas";
   }

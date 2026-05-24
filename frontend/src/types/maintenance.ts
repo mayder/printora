@@ -33,6 +33,8 @@ export type MaintenanceTaskRecord = {
   print_hours_delta?: number | null;
   print_hours_until_due?: number | null;
   due_detail?: string | null;
+  recommended_interval_kind?: "days" | "print_hours" | null;
+  recommended_interval_value?: number | null;
 };
 
 export type MaintenanceSummary = {
