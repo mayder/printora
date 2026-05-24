@@ -105,6 +105,10 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Atualizacoes, os componentes do Update Manager usam cards responsivos em duas ou tres colunas quando houver largura suficiente, e o checklist pos-update ocupa a largura total com duas colunas em telas medias/grandes.
 - Ao fechar o modal de update concluido ou revalidado, a tela Atualizacoes deve recarregar status do Update Manager, health, checklist, operacao e auditoria da impressora ativa.
 - Auditoria e diagnostico avancado do host devem ficar em telas de diagnostico/configuracao, nao como conteudo principal do Monitoramento.
+- Na tela Firmware, a visao principal deve ser guiada pela impressora selecionada: mostrar versoes de Klipper/Moonraker, componentes detectados no Update Manager e placas cadastradas daquela impressora; presets, catalogos e parametros tecnicos ficam colapsados em modo avancado.
+- Na tela Firmware, componentes/plugins nao detectados na impressora ativa nao devem aparecer na lista principal.
+- Na tela Firmware, o fluxo principal deve ser sequencial e simples: verificar contexto, validar build, gerar build, validar flash e preparar flash; execucao local bloqueada e gate de flash ficam em area avancada.
+- A referencia tecnica para catalogo CAN, presets e procedimentos de update/flash e o guia Esoterical CANBus (`https://canbus.esoterical.online/`), sem despejar o catalogo completo na UI do operador.
 
 ## Pendencias de mapeamento
 
