@@ -1,0 +1,77 @@
+from __future__ import annotations
+
+from app.routes.support import *
+
+router = APIRouter()
+
+
+@router.get("/api/printers/{printer_id}/reports/sanitized")
+async def sanitized_report(printer_id: int) -> SanitizedReport:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    snapshot_repository = get_snapshot_repository(settings)
+    backup_repository = get_backup_repository(settings)
+    printer = printer_repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    try:
+        printer_info, server_info, system_info, proc_stats = await _collect_status(client)
+        update_status = await client.update_status()
+        snapshots = snapshot_repository.list_snapshots_by_type(printer.id, "moonraker_status", limit=2)
+        latest_diff = _latest_snapshot_diff(snapshot_repository, printer.id, snapshots)
+        health_payload = {
+            "printer_id": printer.id,
+            "moonraker_url": printer.moonraker_url,
+            **build_printer_health(
+                printer_info=printer_info,
+                server_info=server_info,
+                update_status=update_status,
+                system_info=system_info,
+                proc_stats=proc_stats,
+                snapshots=snapshots,
+                latest_diff=latest_diff,
+                source=printer.moonraker_url,
+            ),
+        }
+    except httpx.HTTPError as exc:
+        snapshots = snapshot_repository.list_snapshots_by_type(printer.id, "moonraker_status", limit=2)
+        latest_diff = _latest_snapshot_diff(snapshot_repository, printer.id, snapshots)
+        latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
+        if latest_snapshot is not None:
+            payload = latest_snapshot.payload
+            health_payload = {
+                "printer_id": printer.id,
+                "moonraker_url": printer.moonraker_url,
+                **build_printer_health(
+                    printer_info=_dict(payload.get("printer_info")),
+                    server_info=_dict(payload.get("server_info")),
+                    update_status=_dict(payload.get("update_status")),
+                    system_info=_dict(payload.get("system_info")),
+                    proc_stats=_dict(payload.get("proc_stats")),
+                    snapshots=snapshots,
+                    latest_diff=latest_diff,
+                    data_state="last_snapshot",
+                    source=f"snapshot:{latest_snapshot.id}",
+                    error=str(exc),
+                ),
+            }
+        else:
+            health_payload = {
+                "printer_id": printer.id,
+                "moonraker_url": printer.moonraker_url,
+                **build_unreachable_health(printer.moonraker_url, str(exc)),
+            }
+
+    backup_runs = backup_repository.list_runs(printer.id, limit=5)
+    return build_sanitized_report(
+        printer=printer,
+        health=health_payload,
+        snapshots=snapshots,
+        latest_diff=latest_diff,
+        backup_runs=backup_runs,
+    )

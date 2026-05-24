@@ -4,7 +4,6 @@ import { appSections } from "./app/navigation";
 import { AppModals } from "./components/modals";
 import { OverviewScreen } from "./screens/OverviewScreen";
 import { PrintersScreen } from "./screens/PrintersScreen";
-import { OperationScreen } from "./screens/OperationScreen";
 import { MonitoringScreen } from "./screens/MonitoringScreen";
 import { UpdatesScreen } from "./screens/UpdatesScreen";
 import { CalibrationScreen } from "./screens/CalibrationScreen";
@@ -177,7 +176,6 @@ function App() {
         <section className="grid">
           <OverviewScreen {...screenProps} />
           <PrintersScreen {...screenProps} />
-          <OperationScreen {...screenProps} />
           <MonitoringScreen {...screenProps} />
           <ReportsScreen {...screenProps} />
           <UpdatesScreen {...screenProps} />

@@ -62,6 +62,14 @@ class PrinterRecord(BaseModel):
 
 
 @dataclass(frozen=True)
+class PrinterSshAccess:
+    host: str
+    port: int
+    username: str
+    credential: str | None
+
+
+@dataclass(frozen=True)
 class PrinterRepository:
     database_path: Path
 
@@ -93,6 +101,31 @@ class PrinterRepository:
                 (printer_id,),
             ).fetchone()
         return _record_from_row(row) if row else None
+
+    def get_ssh_access(self, printer_id: int) -> PrinterSshAccess | None:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT ssh_host, ssh_port, ssh_username, credential_blob, credential_configured
+                FROM printer_ssh_access
+                WHERE printer_id = ?
+                """,
+                (printer_id,),
+            ).fetchone()
+        if row is None or not row["ssh_host"] or not row["ssh_username"]:
+            return None
+        credential = None
+        if row["credential_blob"]:
+            try:
+                credential = _unprotect_credential(self.database_path, str(row["credential_blob"]))
+            except ValueError:
+                credential = None
+        return PrinterSshAccess(
+            host=str(row["ssh_host"]),
+            port=int(row["ssh_port"] or 22),
+            username=str(row["ssh_username"]),
+            credential=credential,
+        )
 
     def create_printer(self, payload: PrinterCreate) -> PrinterRecord:
         with connect_database(self.database_path) as connection:
@@ -275,6 +308,22 @@ def _protect_credential(database_path: Path, value: str) -> str:
         base64.urlsafe_b64encode(part).decode()
         for part in [nonce, payload, signature]
     )
+
+
+def _unprotect_credential(database_path: Path, protected_value: str) -> str:
+    if not protected_value.startswith("v1:"):
+        raise ValueError("unsupported credential format")
+    encoded_parts = protected_value.removeprefix("v1:").split(":")
+    if len(encoded_parts) != 3:
+        raise ValueError("invalid credential payload")
+    nonce, payload, signature = [base64.urlsafe_b64decode(part.encode()) for part in encoded_parts]
+    key = _load_or_create_local_key(database_path)
+    expected = hmac.new(key, nonce + payload, hashlib.sha256).digest()
+    if not hmac.compare_digest(signature, expected):
+        raise ValueError("invalid credential signature")
+    stream = _keystream(key, nonce, len(payload))
+    value_bytes = bytes(item ^ stream[index] for index, item in enumerate(payload))
+    return value_bytes.decode()
 
 
 def _load_or_create_local_key(database_path: Path) -> bytes:

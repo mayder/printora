@@ -1,0 +1,179 @@
+from __future__ import annotations
+
+from app.routes.support import *
+
+router = APIRouter()
+
+
+@router.get("/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok", "app": "Printora"}
+
+
+
+
+@router.get("/api/system/version")
+async def system_version() -> dict[str, object]:
+    settings = get_settings()
+    return get_database_version_info(settings.database_path, settings.data_dir)
+
+
+
+
+@router.get("/api/system/releases")
+async def system_releases() -> ReleasesResponse:
+    settings = get_settings()
+    if settings.release_source_mode == "disabled":
+        return build_unavailable_releases_response(
+            source=settings.release_source_mode,
+            channel=settings.release_channel,
+            status="disabled",
+        )
+    client = GitHubReleaseClient(
+        owner=settings.release_github_owner,
+        repo=settings.release_github_repo,
+        api_base_url=settings.release_github_api_base_url,
+        timeout_seconds=settings.release_request_timeout_seconds,
+        fixture_path=settings.release_fixture_path if settings.release_source_mode == "fixture" else None,
+    )
+    try:
+        raw_releases = await client.fetch_releases()
+    except httpx.HTTPStatusError as exc:
+        status = "rate_limited" if _is_github_rate_limit(exc.response) else "offline"
+        return build_unavailable_releases_response(
+            source=settings.release_source_mode,
+            channel=settings.release_channel,
+            status=status,
+            error=_github_http_error_detail(exc),
+        )
+    except httpx.HTTPError as exc:
+        return build_unavailable_releases_response(
+            source=settings.release_source_mode,
+            channel=settings.release_channel,
+            status="offline",
+            error=str(exc),
+        )
+    except (OSError, ValueError) as exc:
+        return build_unavailable_releases_response(
+            source=settings.release_source_mode,
+            channel=settings.release_channel,
+            status="error",
+            error=str(exc),
+        )
+    return build_releases_response(
+        raw_releases=raw_releases,
+        source=settings.release_source_mode,
+        channel=settings.release_channel,
+    )
+
+
+
+
+@router.get("/api/system/update/status")
+async def system_update_status() -> dict[str, object]:
+    releases = await system_releases()
+    environment = detect_update_environment()
+    update_supported = environment in {"android_termux", "unix", "windows"}
+    return {
+        "safe_mode": "read_only",
+        "update_supported": update_supported,
+        "environment": environment,
+        "installed_version": releases.installed_version,
+        "channel": releases.channel,
+        "update_status": releases.update_status,
+        "latest_release_available": releases.latest_release_available,
+        "latest_release": releases.latest_release.model_dump() if releases.latest_release else None,
+        "status": releases.status,
+        "message": "Update real disponível para Android/Termux, Unix e Windows." if update_supported else "Update real não suportado neste ambiente.",
+        "release_error": releases.error,
+    }
+
+
+
+
+@router.post("/api/system/update/plan")
+async def system_update_plan(payload: UpdatePlanRequest) -> UpdatePlanResponse:
+    settings = get_settings()
+    repository = get_self_update_repository(settings)
+    try:
+        return build_update_plan(
+            repository=repository,
+            request=payload,
+            project_root=Path(__file__).resolve().parents[3],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+
+
+@router.get("/api/system/update/history")
+async def system_update_history(limit: int = 20) -> UpdateHistoryResponse:
+    settings = get_settings()
+    repository = get_self_update_repository(settings)
+    return UpdateHistoryResponse(runs=repository.list_runs(limit=limit))
+
+
+
+
+@router.post("/api/system/update/apply")
+async def system_update_apply(payload: UpdateApplyRequest) -> UpdateApplyResponse:
+    settings = get_settings()
+    repository = get_self_update_repository(settings)
+    releases = await system_releases()
+    stable_tags = {
+        release.tag
+        for release in releases.releases
+        if not release.prerelease and not release.draft and release.channel == "stable"
+    }
+    try:
+        return apply_self_update(
+            repository=repository,
+            request=payload,
+            project_root=Path(__file__).resolve().parents[3],
+            script_path=settings.self_update_script_path,
+            android_script_path=settings.self_update_android_script_path,
+            unix_script_path=settings.self_update_unix_script_path,
+            windows_script_path=settings.self_update_windows_script_path,
+            stable_release_tags=stable_tags,
+            timeout_seconds=settings.self_update_timeout_seconds,
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        status_code = 409 if "Já existe update" in detail else 400
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+
+
+
+@router.post("/api/system/update/rollback")
+async def system_update_rollback(payload: UpdateRollbackRequest) -> UpdateRollbackResponse:
+    settings = get_settings()
+    repository = get_self_update_repository(settings)
+    try:
+        return rollback_self_update(
+            repository=repository,
+            request=payload,
+            project_root=Path(__file__).resolve().parents[3],
+            script_path=settings.self_update_script_path,
+            android_script_path=settings.self_update_android_script_path,
+            unix_script_path=settings.self_update_unix_script_path,
+            windows_script_path=settings.self_update_windows_script_path,
+            timeout_seconds=settings.self_update_timeout_seconds,
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        status_code = 409 if "Já existe update" in detail else 400
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+
+
+
+
+@router.get("/api/system/update/runs/{run_id}")
+async def system_update_run(run_id: int) -> UpdateRunRecord:
+    settings = get_settings()
+    repository = get_self_update_repository(settings)
+    run = repository.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="update run not found")
+    return run

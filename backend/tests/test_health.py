@@ -117,6 +117,28 @@ def test_health_warns_on_dirty_repo() -> None:
     assert any(item["key"] == "update_manager" and item["severity"] == "warning" for item in result["items"])
 
 
+def test_health_warns_but_does_not_block_on_slow_printora_network() -> None:
+    result = build_printer_health(
+        printer_info={"state": "ready", "state_message": "Printer is ready"},
+        server_info={
+            "klippy_connected": True,
+            "klippy_state": "ready",
+            "failed_components": [],
+            "warnings": [],
+        },
+        update_status={"version_info": {"klipper": {"is_dirty": False, "commits_behind_count": 0}}},
+        system_info={},
+        proc_stats={},
+        snapshots=[_snapshot(1)],
+        api_latency_ms=11_700,
+    )
+
+    latency = next(item for item in result["items"] if item["key"] == "api_latency")
+    assert result["decision"] == "monitorar"
+    assert latency["severity"] == "warning"
+    assert "não a impressão" in latency["action"]
+
+
 def test_health_blocks_on_latest_blocking_diff() -> None:
     result = build_printer_health(
         printer_info={"state": "ready", "state_message": "Printer is ready"},

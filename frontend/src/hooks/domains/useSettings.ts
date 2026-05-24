@@ -2,7 +2,7 @@ import React from "react";
 import { canApi } from "../../services/canApi";
 import { diagnosticsApi } from "../../services/diagnosticsApi";
 import { printerApi } from "../../services/printerApi";
-import type { MoonrakerStatus, CanBusRecord, CanBusRecordComparison, CanBusSummary } from "../../types";
+import type { MoonrakerStatus, CanBusRecord, CanBusRecordComparison, CanBusSummary, NetworkDiagnosticsResponse } from "../../types";
 import type { AuditResponse, ChecklistResponse, HealthResponse } from "../../alertCenter";
 import type { SetError, SetLoading } from "./shared";
 import { unknownErrorMessage } from "./shared";
@@ -19,6 +19,7 @@ export function useSettings({ selectedPrinterId, setError, setLoading }: UseSett
   const [audit, setAudit] = React.useState<AuditResponse | null>(null);
   const [hostAudit, setHostAudit] = React.useState<AuditResponse | null>(null);
   const [health, setHealth] = React.useState<HealthResponse | null>(null);
+  const [networkDiagnostics, setNetworkDiagnostics] = React.useState<NetworkDiagnosticsResponse | null>(null);
   const [canRecords, setCanRecords] = React.useState<CanBusRecord[]>([]);
   const [canSummary, setCanSummary] = React.useState<CanBusSummary | null>(null);
   const [canComparison, setCanComparison] = React.useState<CanBusRecordComparison | null>(null);
@@ -72,6 +73,15 @@ export function useSettings({ selectedPrinterId, setError, setLoading }: UseSett
       return;
     }
     setHealth((await response.json()) as HealthResponse);
+  }
+
+  async function loadPrinterNetworkDiagnostics(printerId: number) {
+    setNetworkDiagnostics(null);
+    const response = await printerApi.networkDiagnostics(printerId);
+    if (!response.ok) {
+      return;
+    }
+    setNetworkDiagnostics((await response.json()) as NetworkDiagnosticsResponse);
   }
 
   async function loadCanRecords(printerId: number) {
@@ -210,12 +220,14 @@ export function useSettings({ selectedPrinterId, setError, setLoading }: UseSett
     createCanRecord,
     findLatestComparableCanRecords,
     health,
+    networkDiagnostics,
     hostAudit,
     loadCanRecords,
     loadGlobalDiagnostics,
     loadPrinterAudit,
     loadPrinterChecklist,
     loadPrinterHealth,
+    loadPrinterNetworkDiagnostics,
     parseCanRawOutput,
     setAudit,
     setCanBitrate,

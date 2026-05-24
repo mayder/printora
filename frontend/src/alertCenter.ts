@@ -127,9 +127,9 @@ export function buildAlertCenterItems({
       items.push({
         id: `health-${item.key}`,
         source: "Health Check",
-        title: printerOffline && printoraReadProblem ? "Impressora offline" : item.title,
+        title: printerOffline && printoraReadProblem ? "Impressora offline" : healthAlertTitle(item),
         detail: item.detail,
-        action: printerOffline && printoraReadProblem ? "Ligue a impressora e revalide a conexão." : item.action,
+        action: printerOffline && printoraReadProblem ? "Ligue a impressora e revalide a conexão." : healthAlertAction(item),
         severity: item.severity === "blocker" && !printoraReadProblem ? "blocker" : "warning",
         reason: printerOffline && printoraReadProblem ? "A impressora não está acessível agora; alertas que dependem dela ligada ficam ocultos." : healthAlertReason(item),
         actionLabel: printoraReadProblem ? "Revalidar conexão" : "Revalidar agora",
@@ -206,7 +206,24 @@ function dedupeAlertCenterItems(items: AlertCenterItem[]): AlertCenterItem[] {
   return items.filter((item, index, allItems) => allItems.findIndex((candidate) => candidate.id === item.id) === index);
 }
 
+function healthAlertTitle(item: HealthItem): string {
+  if (item.key === "api_latency") {
+    return "Comunicação Printora ↔ Moonraker lenta";
+  }
+  return item.title;
+}
+
+function healthAlertAction(item: HealthItem): string {
+  if (item.key === "api_latency") {
+    return "Monitore antes de uma operação longa. Trate como problema se a demora for frequente, crescer muito ou vier junto de perda de conexão.";
+  }
+  return item.action;
+}
+
 function healthAlertReason(item: HealthItem): string {
+  if (item.key === "api_latency") {
+    return `A resposta levou ${item.detail}. Isso mede a ida e volta entre o Printora e o Moonraker pela rede local; como eles podem estar em dispositivos diferentes, alguma latência é esperada.`;
+  }
   if (item.severity === "blocker") {
     return "Este item impede a liberação segura da impressora no health check.";
   }

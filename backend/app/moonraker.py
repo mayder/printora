@@ -1,7 +1,14 @@
+import socket
+import time
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 from urllib.parse import quote, urlencode
 
 import httpx
+
+
+_LOCAL_DNS_CACHE_TTL_SECONDS = 600
+_local_dns_cache: dict[str, tuple[str, float]] = {}
 
 
 class MoonrakerClient:
@@ -10,9 +17,16 @@ class MoonrakerClient:
         self.timeout_seconds = timeout_seconds
 
     async def get_json(self, path: str) -> dict[str, Any]:
-        url = f"{self.base_url}/{path.lstrip('/')}"
+        url, headers = _build_fast_local_url(self.base_url, path)
         async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-            response = await client.get(url)
+            try:
+                response = await client.get(url, headers=headers)
+            except httpx.HTTPError:
+                if headers:
+                    _forget_cached_local_address(self.base_url)
+                    response = await client.get(f"{self.base_url}/{path.lstrip('/')}")
+                else:
+                    raise
             response.raise_for_status()
             payload = response.json()
         result = payload.get("result")
@@ -25,9 +39,17 @@ class MoonrakerClient:
         *,
         timeout_seconds: float | None = None,
     ) -> dict[str, Any]:
-        url = f"{self.base_url}/{path.lstrip('/')}"
+        url, headers = _build_fast_local_url(self.base_url, path)
         async with httpx.AsyncClient(timeout=timeout_seconds or self.timeout_seconds) as client:
-            response = await client.post(url, json=payload) if payload is not None else await client.post(url)
+            try:
+                response = await client.post(url, json=payload, headers=headers) if payload is not None else await client.post(url, headers=headers)
+            except httpx.HTTPError:
+                if headers:
+                    _forget_cached_local_address(self.base_url)
+                    original_url = f"{self.base_url}/{path.lstrip('/')}"
+                    response = await client.post(original_url, json=payload) if payload is not None else await client.post(original_url)
+                else:
+                    raise
             response.raise_for_status()
             response_payload = response.json()
         result = response_payload.get("result")
@@ -81,3 +103,44 @@ class MoonrakerClient:
     async def printer_objects(self, objects: dict[str, list[str]]) -> dict[str, Any]:
         query = urlencode({name: ",".join(fields) for name, fields in objects.items()})
         return await self.get_json(f"/printer/objects/query?{query}")
+
+
+def _build_fast_local_url(base_url: str, path: str) -> tuple[str, dict[str, str] | None]:
+    clean_path = path.lstrip("/")
+    parsed = urlparse(base_url)
+    host = parsed.hostname or ""
+    if parsed.scheme != "http" or not host.endswith(".local"):
+        return f"{base_url.rstrip('/')}/{clean_path}", None
+    address = _cached_local_address(host)
+    if address is None:
+        return f"{base_url.rstrip('/')}/{clean_path}", None
+    netloc = f"{address}:{parsed.port}" if parsed.port else address
+    url = urlunparse(parsed._replace(netloc=netloc, path=f"/{clean_path}", params="", query="", fragment=""))
+    return url, {"Host": parsed.netloc}
+
+
+def _cached_local_address(host: str) -> str | None:
+    cached = _local_dns_cache.get(host)
+    now = time.monotonic()
+    if cached and cached[1] > now:
+        return cached[0]
+    try:
+        records = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    except OSError:
+        return None
+    addresses = []
+    for record in records:
+        address = record[4][0]
+        if address not in addresses:
+            addresses.append(address)
+    address = next((item for item in addresses if ":" not in item), None)
+    if address is None:
+        return None
+    _local_dns_cache[host] = (address, now + _LOCAL_DNS_CACHE_TTL_SECONDS)
+    return address
+
+
+def _forget_cached_local_address(base_url: str) -> None:
+    host = urlparse(base_url).hostname
+    if host:
+        _local_dns_cache.pop(host, None)

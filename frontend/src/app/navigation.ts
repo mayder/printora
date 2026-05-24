@@ -1,10 +1,9 @@
-import { Activity, FileText, Gauge, Home, ListChecks, Printer, RefreshCw, Settings, SlidersHorizontal, Wrench, Zap } from "lucide-react";
+import { Activity, FileText, Home, ListChecks, Printer, RefreshCw, Settings, SlidersHorizontal, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
   | "overview"
   | "printers"
-  | "operation"
   | "monitoring"
   | "updates"
   | "calibration"
@@ -36,18 +35,11 @@ export const appSections: Array<{
     purpose: "Gerencie as impressoras cadastradas e defina qual delas controla o contexto do restante do sistema.",
   },
   {
-    key: "operation",
-    icon: Gauge,
-    label: "Operação",
-    detail: "Painéis read-only no estilo Mainsail.",
-    purpose: "Acompanhe estado operacional, temperaturas, toolhead, extrusor e periféricos sem enviar comandos para a impressora.",
-  },
-  {
     key: "monitoring",
     icon: Activity,
-    label: "Monitoramento",
-    detail: "Telemetria ao vivo da impressora.",
-    purpose: "Acompanhe em tempo real temperaturas, progresso, comunicação, fans, sistema e CAN da impressora ativa.",
+    label: "Operação",
+    detail: "Operação e telemetria ao vivo da impressora.",
+    purpose: "Acompanhe em tempo real temperaturas, movimento, extrusor, sistema, CAN e ações protegidas da impressora ativa.",
   },
   {
     key: "updates",
@@ -102,12 +94,11 @@ export const appSections: Array<{
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Principal", sections: ["overview", "printers"] },
-  { title: "Impressora ativa", sections: ["operation", "monitoring", "updates", "calibration", "tests", "firmware", "maintenance"] },
+  { title: "Impressora ativa", sections: ["monitoring", "updates", "calibration", "tests", "firmware", "maintenance"] },
   { title: "Diagnóstico", sections: ["reports", "settings"] },
 ];
 
 export const onlinePrinterSections = new Set<AppSection>([
-  "operation",
   "monitoring",
   "updates",
   "calibration",
@@ -142,5 +133,6 @@ export function shouldRedirectSection(sectionKey: AppSection, printerAvailabilit
 
 export function getInitialSection(): AppSection {
   const section = new URLSearchParams(window.location.search).get("section") ?? window.location.hash.replace("#", "");
+  if (section === "operation") return "monitoring";
   return appSections.some((candidate) => candidate.key === section) ? (section as AppSection) : "overview";
 }

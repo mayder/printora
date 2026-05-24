@@ -1,51 +1,18 @@
 import React from "react";
-import { Activity, AlertTriangle, Database, Gauge, Radio, RefreshCw, Thermometer, Wind } from "lucide-react";
-
-type OperationMetric = {
-  label: string;
-  value: unknown;
-  unit?: string | null;
-};
-
-type OperationTemperature = {
-  name: string;
-  temperature?: number | null;
-  target?: number | null;
-  power?: number | null;
-};
-
-type OperationFan = {
-  name: string;
-  speed?: number | null;
-  rpm?: number | null;
-};
-
-type OperationTemperatureHistoryRow = {
-  snapshot_id: number | null;
-  created_at: string;
-  readings: Array<{
-    name: string;
-    temperature?: number | null;
-  }>;
-};
-
-type OperationStatusResponse = {
-  connected: boolean;
-  data_state: "live" | "offline" | "fixture" | "last_snapshot";
-  summary: string;
-  error?: string;
-  system_loads: OperationMetric[];
-  temperatures: OperationTemperature[];
-  temperature_history: OperationTemperatureHistoryRow[];
-  miscellaneous: {
-    fans?: OperationFan[];
-    progress?: number | null;
-    message?: string | null;
-    print_state?: string | null;
-    filename?: string | null;
-    total_print_hours?: number | null;
-  };
-};
+import { Activity, AlertTriangle, Crosshair, Database, Gauge, Radio, RefreshCw, ShieldCheck, SlidersHorizontal, Thermometer, Wind, Zap } from "lucide-react";
+import { OperationActionParameterFields } from "./components/common/OperationActionParameterFields";
+import type {
+  OperationAction,
+  OperationActionExecutionAttempt,
+  OperationActionPreview,
+  OperationActionPreviewRecord,
+  OperationCapability,
+  OperationFan,
+  OperationMetric,
+  OperationStatusResponse,
+  OperationTemperature,
+  OperationTemperatureHistoryRow,
+} from "./types";
 
 type HealthResponse = {
   decision: "ok_para_imprimir" | "monitorar" | "nao_imprimir";
@@ -83,35 +50,63 @@ type CanBusRecordComparison = {
 export function MonitoringDashboard({
   selectedPrinterName,
   operationStatus,
+  operationActionHistory,
+  operationActionParameters,
+  operationActionPreview,
+  operationExecutionAttempt,
+  operationExecutionHistory,
+  operationExecutionPhrase,
   health,
   canSummary,
   canRecords,
   canComparison,
   loading,
   onRefresh,
+  onLoadOfflineFixture,
   onCompareCan,
+  onPreviewAction,
+  onPreflightAction,
+  onActionParameterChange,
+  onExecutionPhraseChange,
+  onValidateExecutionGate,
 }: {
   selectedPrinterName: string;
   operationStatus: OperationStatusResponse | null;
+  operationActionHistory: OperationActionPreviewRecord[];
+  operationActionParameters: Record<string, Record<string, string>>;
+  operationActionPreview: OperationActionPreview | null;
+  operationExecutionAttempt: OperationActionExecutionAttempt | null;
+  operationExecutionHistory: OperationActionExecutionAttempt[];
+  operationExecutionPhrase: string;
   health: HealthResponse | null;
   canSummary: CanBusSummary | null;
   canRecords: CanBusRecord[];
   canComparison: CanBusRecordComparison | null;
   loading: boolean;
   onRefresh: () => void;
+  onLoadOfflineFixture: () => void | Promise<void>;
   onCompareCan: () => void;
+  onPreviewAction: (action: OperationAction) => void | Promise<void>;
+  onPreflightAction: (action: OperationAction) => void | Promise<void>;
+  onActionParameterChange: (actionId: string, parameterName: string, value: string) => void;
+  onExecutionPhraseChange: (value: string) => void;
+  onValidateExecutionGate: () => void | Promise<void>;
 }) {
   const temperatureSeries = buildTemperatureSeries(operationStatus?.temperature_history ?? [], operationStatus?.temperatures ?? []);
   const fans = operationStatus?.miscellaneous.fans ?? [];
   const latestCanRecords = canRecords.slice(0, 4);
   const hotend = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("extruder"));
   const bed = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("bed"));
+  const actions = operationStatus?.actions ?? [];
+  const capabilities = operationStatus?.capabilities ?? [];
+  const toolheadFacts = buildToolheadFacts(operationStatus);
+  const extruderFacts = buildExtruderFacts(operationStatus);
 
   return (
     <article className="panel wide panel-section panel-monitoring monitoring-dashboard">
       <div className="panel-heading monitoring-heading">
         <div>
-          <h2>Monitoramento em tempo real</h2>
+          <h2>Operação em tempo real</h2>
           <p className="muted">{operationStatus?.summary ?? "Aguardando leitura da impressora selecionada."}</p>
         </div>
         <div className="panel-actions">
@@ -120,13 +115,20 @@ export function MonitoringDashboard({
             <RefreshCw size={15} />
             Atualizar agora
           </button>
+          <button type="button" className="secondary-button" onClick={() => void onLoadOfflineFixture()} disabled={loading}>
+            <Database size={15} />
+            Exemplo offline
+          </button>
         </div>
       </div>
 
       <div className="monitor-status-strip">
         <MonitorBadge icon={Radio} label="Impressora" value={selectedPrinterName} tone={operationStatus?.connected ? "ok" : "danger"} />
+        <MonitorBadge icon={Radio} label="Moonraker" value={operationStatus?.connected ? "online" : "offline"} tone={operationStatus?.connected ? "ok" : "danger"} />
         <MonitorBadge icon={Gauge} label="Estado" value={operationStatus?.miscellaneous.print_state ?? "-"} tone={operationStatus?.connected ? "ok" : "warning"} />
         <MonitorBadge icon={AlertTriangle} label="Risco" value={formatDecision(health?.decision)} tone={healthTone(health?.decision)} />
+        <MonitorBadge icon={ShieldCheck} label="Modo" value={operationStatus?.safe_mode ?? "read only"} />
+        <MonitorBadge icon={Zap} label="Comandos" value={operationStatus?.can_send_commands ? "habilitados" : "bloqueados"} tone={operationStatus?.can_send_commands ? "warning" : "ok"} />
         <MonitorBadge icon={Thermometer} label="Hotend" value={formatTemperature(hotend?.temperature)} />
         <MonitorBadge icon={Thermometer} label="Mesa" value={formatTemperature(bed?.temperature)} />
         <MonitorBadge icon={Database} label="Origem" value={formatDataState(operationStatus?.data_state)} />
@@ -138,6 +140,20 @@ export function MonitoringDashboard({
           <span>{operationStatus.error ?? "Sem leitura ao vivo. Verifique se a impressora está ligada e na rede."}</span>
         </div>
       ) : null}
+      {operationStatus?.data_state === "fixture" ? (
+        <div className="monitor-note">
+          <Database size={17} />
+          <span>Dados simulados para validar layout com a impressora desligada. Nenhum endpoint da impressora foi chamado.</span>
+        </div>
+      ) : null}
+      {operationStatus?.data_state === "last_snapshot" ? (
+        <div className="monitor-note">
+          <Database size={17} />
+          <span>
+            Último estado conhecido: snapshot #{operationStatus.last_snapshot?.id ?? "-"} de {operationStatus.last_snapshot?.created_at ?? "-"}.
+          </span>
+        </div>
+      ) : null}
 
       <div className="monitor-grid">
         <section className="monitor-card monitor-card-wide">
@@ -146,6 +162,22 @@ export function MonitoringDashboard({
             <h3>Temperaturas</h3>
           </div>
           <TemperatureMonitor temperatures={operationStatus?.temperatures ?? []} series={temperatureSeries} />
+        </section>
+
+        <section className="monitor-card">
+          <div className="monitor-card-title">
+            <Crosshair size={18} />
+            <h3>Toolhead</h3>
+          </div>
+          <FactGrid items={toolheadFacts} />
+        </section>
+
+        <section className="monitor-card">
+          <div className="monitor-card-title">
+            <SlidersHorizontal size={18} />
+            <h3>Extrusor</h3>
+          </div>
+          <FactGrid items={extruderFacts} />
         </section>
 
         <section className="monitor-card">
@@ -233,6 +265,30 @@ export function MonitoringDashboard({
             ))}
           </div>
         </section>
+
+        <section className="monitor-card monitor-card-wide operation-command-center">
+          <div className="monitor-card-title">
+            <ShieldCheck size={18} />
+            <h3>Ações protegidas</h3>
+          </div>
+          <OperationActions
+            actions={actions}
+            capabilities={capabilities}
+            values={operationActionParameters}
+            preview={operationActionPreview}
+            executionAttempt={operationExecutionAttempt}
+            executionHistory={operationExecutionHistory}
+            actionHistory={operationActionHistory}
+            confirmationPhrase={operationExecutionPhrase}
+            loading={loading}
+            canSendCommands={Boolean(operationStatus?.can_send_commands)}
+            onPreview={onPreviewAction}
+            onPreflight={onPreflightAction}
+            onParameterChange={onActionParameterChange}
+            onPhraseChange={onExecutionPhraseChange}
+            onValidateExecutionGate={onValidateExecutionGate}
+          />
+        </section>
       </div>
     </article>
   );
@@ -258,6 +314,161 @@ function MonitorBadge({
   );
 }
 
+function FactGrid({ items }: { items: Array<{ label: string; value: string }> }) {
+  return (
+    <div className="operation-fact-grid">
+      {items.map((item) => (
+        <div key={item.label} className="operation-fact">
+          <span>{item.label}</span>
+          <strong>{item.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function OperationActions({
+  actions,
+  capabilities,
+  values,
+  preview,
+  executionAttempt,
+  executionHistory,
+  actionHistory,
+  confirmationPhrase,
+  loading,
+  canSendCommands,
+  onPreview,
+  onPreflight,
+  onParameterChange,
+  onPhraseChange,
+  onValidateExecutionGate,
+}: {
+  actions: OperationAction[];
+  capabilities: OperationCapability[];
+  values: Record<string, Record<string, string>>;
+  preview: OperationActionPreview | null;
+  executionAttempt: OperationActionExecutionAttempt | null;
+  executionHistory: OperationActionExecutionAttempt[];
+  actionHistory: OperationActionPreviewRecord[];
+  confirmationPhrase: string;
+  loading: boolean;
+  canSendCommands: boolean;
+  onPreview: (action: OperationAction) => void | Promise<void>;
+  onPreflight: (action: OperationAction) => void | Promise<void>;
+  onParameterChange: (actionId: string, parameterName: string, value: string) => void;
+  onPhraseChange: (value: string) => void;
+  onValidateExecutionGate: () => void | Promise<void>;
+}) {
+  const recentExecutions = executionHistory.slice(0, 3);
+  const recentPreviews = actionHistory.slice(0, 3);
+
+  return (
+    <div className="operation-actions-layout">
+      <div className="operation-capabilities">
+        {capabilities.length === 0 ? <p className="muted">Sem capabilities retornadas para esta impressora.</p> : null}
+        {capabilities.map((capability) => (
+          <div key={capability.action_id} className={`operation-capability ${capability.status}`}>
+            <strong>{capability.action_id}</strong>
+            <span>{formatCapabilityStatus(capability.status)}</span>
+            <small>{capability.reason}</small>
+          </div>
+        ))}
+      </div>
+
+      <div className="operation-actions">
+        {actions.length === 0 ? <p className="muted">Nenhuma ação operacional retornada pelo backend.</p> : null}
+        {actions.map((action) => (
+          <div key={action.id} className="operation-action-card">
+            <span>
+              <strong>{action.label}</strong>
+              <code>{action.id}</code>
+            </span>
+            <small>
+              {action.group} · risco {action.risk}
+              {action.block_reason ? ` · ${action.block_reason}` : ""}
+            </small>
+            <OperationActionParameterFields action={action} values={values[action.id] ?? {}} onChange={onParameterChange} />
+            <div className="operation-action-buttons">
+              <button type="button" className="secondary-button compact" onClick={() => void onPreflight(action)} disabled={loading}>
+                Validar
+              </button>
+              <button type="button" className="secondary-button compact" onClick={() => void onPreview(action)} disabled={loading}>
+                Prévia
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {preview ? (
+        <div className="operation-preview">
+          <div>
+            <strong>{preview.action.label}</strong>
+            <span>{preview.executable ? "Executável após confirmação" : "Bloqueada"}</span>
+          </div>
+          {preview.blockers.length > 0 ? (
+            <ul>
+              {preview.blockers.map((blocker) => (
+                <li key={blocker}>{blocker}</li>
+              ))}
+            </ul>
+          ) : null}
+          <pre>{preview.command_preview.length ? preview.command_preview.join("\n") : "Sem comandos planejados."}</pre>
+          <div className="operation-execution-gate">
+            <label>
+              <span>Confirmação</span>
+              <input
+                value={confirmationPhrase}
+                onChange={(event) => onPhraseChange(event.target.value)}
+                placeholder={preview.confirmation_phrase}
+                disabled={!preview.executable || !canSendCommands}
+              />
+            </label>
+            <button type="button" className="primary-button" onClick={() => void onValidateExecutionGate()} disabled={loading || !preview.executable || !canSendCommands}>
+              Executar
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {executionAttempt ? (
+        <div className="operation-execution-result">
+          <strong>Última tentativa: {executionAttempt.status}</strong>
+          <span>{executionAttempt.block_reason || (executionAttempt.confirmation_matched ? "Confirmação validada." : "Confirmação não validada.")}</span>
+          <small>{executionAttempt.created_at}</small>
+        </div>
+      ) : null}
+
+      <div className="operation-history">
+        <div className="operation-history-heading">
+          <strong>Histórico recente</strong>
+          <span>Prévia</span>
+          <span>Execução</span>
+        </div>
+        {(recentPreviews.length || recentExecutions.length) ? (
+          Array.from({ length: Math.max(recentPreviews.length, recentExecutions.length) }).map((_, index) => {
+            const previewRow = recentPreviews[index];
+            const executionRow = recentExecutions[index];
+            return (
+              <div key={`${previewRow?.id ?? "p"}-${executionRow?.id ?? "e"}-${index}`} className="operation-history-row">
+                <div>
+                  <strong>{previewRow?.action_label ?? executionRow?.action_id ?? "-"}</strong>
+                  <small>{previewRow?.created_at ?? executionRow?.created_at ?? "-"}</small>
+                </div>
+                <span>{previewRow ? (previewRow.executable ? "executável" : "bloqueada") : "-"}</span>
+                <span>{executionRow?.status ?? "-"}</span>
+              </div>
+            );
+          })
+        ) : (
+          <p className="muted">Sem histórico operacional recente.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TemperatureMonitor({ temperatures, series }: { temperatures: OperationTemperature[]; series: TemperatureSeries[] }) {
   const maxTemperature = Math.max(
     60,
@@ -275,6 +486,7 @@ function TemperatureMonitor({ temperatures, series }: { temperatures: OperationT
           <span role="columnheader">Estado</span>
           <span role="columnheader">Atual</span>
           <span role="columnheader">Alvo</span>
+          <span role="columnheader">Potência</span>
         </div>
         {temperatures.length === 0 ? <p className="muted">Nenhum heater ou sensor retornado pelo Moonraker.</p> : null}
         {temperatures.map((item, index) => (
@@ -286,6 +498,7 @@ function TemperatureMonitor({ temperatures, series }: { temperatures: OperationT
             <strong role="cell">{temperatureState(item)}</strong>
             <strong role="cell">{formatTemperature(item.temperature)}</strong>
             <span className="temperature-target" role="cell">{formatTemperature(item.target)}</span>
+            <span role="cell">{formatPercent(item.power)}</span>
           </div>
         ))}
       </div>
@@ -435,6 +648,51 @@ function normalizeMeterPercent(value: number | null, unit?: string | null) {
   if (value === null || Number.isNaN(value)) return 0;
   if (unit === "%" || value <= 1) return Math.max(0, Math.min(100, value <= 1 ? value * 100 : value));
   return Math.max(0, Math.min(100, value));
+}
+
+function buildToolheadFacts(operationStatus: OperationStatusResponse | null) {
+  const toolhead = operationStatus?.toolhead ?? {};
+  return [
+    { label: "Posição", value: formatPosition(toolhead.position) },
+    { label: "Home", value: formatUnknown(toolhead.homed_axes) },
+    { label: "Velocidade máx.", value: formatOperationValue(toolhead.max_velocity, "mm/s") },
+    { label: "Aceleração máx.", value: formatOperationValue(toolhead.max_accel, "mm/s²") },
+    { label: "Speed factor", value: formatPercent(toolhead.speed_factor) },
+  ];
+}
+
+function buildExtruderFacts(operationStatus: OperationStatusResponse | null) {
+  const extruder = operationStatus?.extruder ?? {};
+  return [
+    { label: "Pressure advance", value: formatUnknown(extruder.pressure_advance) },
+    { label: "Smooth time", value: formatOperationValue(extruder.smooth_time, "s") },
+    { label: "Extrusion factor", value: formatPercent(extruder.extrusion_factor) },
+    { label: "Filamento usado", value: formatOperationValue(extruder.filament_used, "mm") },
+  ];
+}
+
+function formatPosition(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((item) => formatOperationValue(item)).join(" / ");
+  }
+  return formatUnknown(value);
+}
+
+function formatPercent(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "-";
+  return `${Number((value * 100).toFixed(1))} %`;
+}
+
+function formatUnknown(value: unknown) {
+  if (value === null || value === undefined || value === "") return "-";
+  if (Array.isArray(value)) return value.join(", ");
+  return String(value);
+}
+
+function formatCapabilityStatus(status: OperationCapability["status"]) {
+  if (status === "supported") return "Suportada";
+  if (status === "blocked") return "Bloqueada";
+  return "Indefinida";
 }
 
 function formatDecision(decision?: HealthResponse["decision"]) {

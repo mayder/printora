@@ -43,14 +43,13 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 |---|---|---|---|---|---|---|
 | Visao geral | `overview` | `/`, `/?section=overview`, `/#overview` | `frontend/src/screens/OverviewScreen.tsx` | Dashboard geral da frota e da impressora selecionada, com risco principal, horas acumuladas e atalhos seguros | Opcional | existente |
 | Impressoras | `printers` | `/?section=printers`, `/#printers` | `frontend/src/screens/PrintersScreen.tsx` | Cadastro, descoberta, teste de conexao e selecao da impressora ativa | Nao exige impressora ativa | existente |
-| Operacao | `operation` | `/?section=operation`, `/#operation` | `frontend/src/screens/OperationScreen.tsx` | Painel operacional read-only, temperaturas, toolhead, extrusor, fans e acoes protegidas | Exige impressora ativa online | existente |
-| Monitoramento | `monitoring` | `/?section=monitoring`, `/#monitoring` | `frontend/src/screens/MonitoringScreen.tsx` | Telemetria ao vivo de temperatura, progresso, sistema, fans e CAN sem formularios operacionais | Exige impressora ativa online | existente |
+| Operacao | `monitoring` | `/?section=monitoring`, `/#monitoring`; legado `/?section=operation` redireciona para esta tela | `frontend/src/screens/MonitoringScreen.tsx` + `frontend/src/MonitoringDashboard.tsx` | Operacao ao vivo com temperaturas, toolhead, extrusor, progresso, sistema, fans, CAN e acoes protegidas | Exige impressora ativa online | existente |
 | Atualizacoes | `updates` | `/?section=updates`, `/#updates` | `frontend/src/screens/UpdatesScreen.tsx` | Update Manager da impressora, checklist pos-update, update com confirmacao, progresso e historico | Exige impressora ativa online | existente |
 | Calibracao | `calibration` | `/?section=calibration`, `/#calibration` | `frontend/src/screens/CalibrationScreen.tsx` | Z-offset, wizard manual, registro de resultados e sequencia de calibracao | Exige impressora ativa online | existente |
 | Testes | `tests` | `/?section=tests`, `/#tests` | `frontend/src/screens/TestsScreen.tsx` | Centro de testes Voron, ajuda, preflight e execucao com confirmacao presencial | Exige impressora ativa online | existente |
 | Firmware | `firmware` | `/?section=firmware`, `/#firmware` | `frontend/src/screens/FirmwareScreen.tsx` | Inventario de MCUs/placas detectadas, associacao ao modelo fisico, build, flash planejado e referencia CANBus | Exige impressora ativa online | existente |
 | Manutencao | `maintenance` | `/?section=maintenance`, `/#maintenance` | `frontend/src/screens/MaintenanceScreen.tsx` | Tarefas preventivas, diario e horas de impressao por impressora | Exige impressora ativa local | existente |
-| Relatorios | `reports` | `/?section=reports`, `/#reports` | `frontend/src/screens/ReportsScreen.tsx` | Health, relatorio sanitizado, backups, snapshots, diffs, Moonraker, Klipper e auditoria read-only da impressora | Exige impressora ativa online | existente |
+| Relatorios | `reports` | `/?section=reports`, `/#reports` | `frontend/src/screens/ReportsScreen.tsx` + `frontend/src/screens/reports/*` | Relatorio leigo da impressora com decisao de imprimir, motivo, metricas explicadas, diagnostico de rede/DNS/SSH read-only, snapshots, relatorio sanitizado, backup/restore seguro e auditoria read-only | Exige impressora ativa online | existente |
 | Configuracoes | `settings` | `/?section=settings`, `/#settings` | `frontend/src/screens/SettingsScreen.tsx` | Registro tecnico CAN, releases, update/rollback do Printora e diagnostico avancado do host | Nao exige impressora ativa | existente |
 
 ## Componentes e modais por dominio
@@ -87,8 +86,13 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 
 - Backups ficam em `reports`, junto de snapshots, comparacoes, relatorio sanitizado e evidencias diagnosticas.
 - Auditoria read-only da impressora fica em `reports`.
+- Na tela Relatorios, a leitura principal deve explicar para usuario leigo se pode imprimir, por que nao imprimir quando houver bloqueio e qual acao segura seguir.
+- Na tela Relatorios, latencia deve ser apresentada como comunicacao Printora-Moonraker na rede local, nao como falha generica de API.
+- Na tela Relatorios, lentidao de comunicacao Printora-Moonraker deve ser monitoramento, nao bloqueio de impressao, quando Klipper e Moonraker estao saudaveis na Raspberry.
+- Na tela Relatorios, quando houver SSH configurado para a impressora, o diagnostico de rede pode executar somente comandos read-only para comparar DNS local do Android, URL cadastrada, IP direto e Moonraker local na Raspberry.
+- Na tela Relatorios, formularios tecnicos de backup, comparacao, restore e relatorio sanitizado devem abrir em modal; a tela principal e leitura diagnostica, nao cadastro.
 - Diagnostico avancado do host fica em `settings`, colapsado e com ajuda contextual por modal.
-- CAN de monitoramento fica em `monitoring` como leitura operacional; registro tecnico, parser e comparacao manual ficam em `settings`, colapsados e com ajuda contextual por modal.
+- CAN de operacao fica em `monitoring` como leitura operacional; registro tecnico, parser e comparacao manual ficam em `settings`, colapsados e com ajuda contextual por modal.
 - Updates da impressora ficam em `updates`; updates do proprio Printora ficam em `settings`.
 - Na tela Configuracoes, `Releases anteriores` e `Historico de updates` ficam como blocos colapsados lado a lado, no mesmo padrao dos blocos tecnicos.
 
@@ -97,9 +101,10 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - A impressora ativa deve ser preservada no navegador e restaurada ao recarregar a tela quando ainda existir no cadastro.
 - A Home operacional deve explicar o risco principal quando o estado for `Nao imprimir` ou `Monitorar`, exibindo causa, evidencia e acao segura.
 - A Central de alertas deve consolidar Health Check, Update Manager, checklist pos-update e auditoria com botoes de revalidacao, abertura do diagnostico ou fluxo de update quando aplicavel.
-- A tela Monitoramento deve ser leitura ao vivo para operador leigo: sem cadastro manual, sem checklist pos-update, sem auditoria tecnica e com graficos/indicadores que se atualizam automaticamente.
-- Na tela Monitoramento, temperaturas devem aparecer em tabela compacta com estado, atual e alvo, acompanhadas de um unico grafico combinado de evolucao por sensor/heater.
-- Formularios tecnicos de CAN devem ficar fora da tela Monitoramento.
+- A tela Operacao deve ser leitura ao vivo para operador leigo: sem cadastro manual, sem checklist pos-update, sem auditoria tecnica e com graficos/indicadores que se atualizam automaticamente.
+- Na tela Operacao, temperaturas devem aparecer em tabela compacta com estado, atual, alvo e potencia, acompanhadas de um unico grafico combinado de evolucao por sensor/heater.
+- Na tela Operacao, toolhead, extrusor, progresso, sistema, fans e CAN devem ficar na mesma tela para evitar duplicidade entre menus.
+- Formularios tecnicos de CAN devem ficar fora da tela Operacao.
 - Checklist pos-update deve aparecer na tela Atualizacoes.
 - Na tela Atualizacoes, `Atualizar tudo` aparece somente quando houver mais de um componente atualizavel.
 - Na tela Atualizacoes, componentes com update pendente aparecem antes dos demais; entre pendentes, os mais atrasados por commits/pacotes ficam acima, preservando a ordem original quando empatar ou quando tudo estiver atualizado.

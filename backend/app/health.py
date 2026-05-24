@@ -303,17 +303,17 @@ def _check_api_latency(items: list[HealthItem], api_latency_ms: float | None) ->
     ok = True
     action = "Sem ação."
     if api_latency_ms >= 5_000:
-        severity = "blocker"
+        severity = "warning"
         ok = False
-        action = "Validar rede/Moonraker antes de considerar nova impressão."
+        action = "Monitorar a rede do Printora. Isso afeta ações do app, não a impressão já controlada pelo Klipper na Raspberry."
     elif api_latency_ms >= 1_500:
         severity = "warning"
         ok = False
-        action = "Monitorar latência da API antes de operação longa."
+        action = "Monitorar a rede do Printora antes de ações longas pelo app."
     items.append(
         HealthItem(
             key="api_latency",
-            title="Latência da API Moonraker",
+            title="Comunicação Printora ↔ Moonraker lenta",
             ok=ok,
             severity=severity,
             detail=f"{api_latency_ms:.0f} ms",

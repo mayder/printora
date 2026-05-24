@@ -122,6 +122,7 @@ export function usePrintoraApp() {
       operation.loadOperationStatus(printerId),
       settings.loadPrinterAudit(printerId),
       settings.loadPrinterHealth(printerId),
+      settings.loadPrinterNetworkDiagnostics(printerId),
       updates.loadUpdateStatus(printerId),
       calibration.loadCalibrationTests(printerId),
     ]);

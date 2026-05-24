@@ -890,7 +890,7 @@ label {
 .monitor-status-strip,
 .can-monitor-header {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
   gap: 10px;
 }
 
@@ -937,7 +937,8 @@ label {
   border-left-color: var(--danger);
 }
 
-.monitor-warning {
+.monitor-warning,
+.monitor-note {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
   gap: 10px;
@@ -948,6 +949,17 @@ label {
   background: var(--danger-soft);
   color: var(--danger);
   padding: 11px 12px;
+}
+
+.monitor-note {
+  border-color: var(--border-soft);
+  border-left-color: var(--accent);
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.monitor-note span {
+  color: var(--muted);
 }
 
 .monitor-grid {
@@ -1000,7 +1012,7 @@ label {
 
 .temperature-table-row {
   display: grid;
-  grid-template-columns: minmax(190px, 1.2fr) minmax(86px, 0.6fr) minmax(86px, 0.55fr) minmax(80px, 0.5fr);
+  grid-template-columns: minmax(180px, 1.2fr) minmax(86px, 0.55fr) minmax(82px, 0.5fr) minmax(82px, 0.5fr) minmax(82px, 0.5fr);
   gap: 12px;
   align-items: center;
   min-height: 42px;
@@ -1167,6 +1179,35 @@ label {
   overflow-wrap: anywhere;
 }
 
+.operation-fact-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.operation-fact {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.8fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 8px;
+}
+
+.operation-fact:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.operation-fact span {
+  color: var(--muted);
+}
+
+.operation-fact strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
 .load-meter {
   display: grid;
   gap: 6px;
@@ -1201,6 +1242,22 @@ label {
 .can-monitor-header {
   grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   align-items: stretch;
+}
+
+.operation-command-center {
+  grid-column: 1 / -1;
+}
+
+.operation-actions-layout {
+  display: grid;
+  gap: 12px;
+}
+
+.operation-action-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-self: end;
 }
 
 .monitor-can-comparison,
@@ -3836,19 +3893,6 @@ label {
   color: var(--muted);
 }
 
-.report-preview {
-  max-height: 420px;
-  overflow: auto;
-  border: 1px solid var(--border-soft);
-  border-radius: 6px;
-  background: var(--code-bg);
-  color: var(--code-text);
-  padding: 14px;
-  line-height: 1.45;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
 .redaction-list {
   display: flex;
   flex-wrap: wrap;
@@ -4658,6 +4702,14 @@ label {
   .can-monitor-header,
   .overview-hero,
   .overview-status-grid,
+  .section-reports .report-hero,
+  .section-reports .report-status-grid,
+  .section-reports .report-metric-grid,
+  .section-reports .report-reason-grid,
+  .section-reports .report-snapshot-layout,
+  .section-reports .report-backup-grid,
+  .section-reports .report-tech-grid,
+  .section-reports .report-list-row,
   .operation-grid,
   .operation-capabilities,
   .operation-actions,

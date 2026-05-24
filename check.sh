@@ -21,7 +21,7 @@ run_model_validations() {
     scripts/validate-layering.sh \
     scripts/validate-stack.sh; do
     [[ -x "$script" ]] || fail "script obrigatorio ausente ou sem execucao: $script"
-    "$script"
+    bash "$script"
   done
 }
 

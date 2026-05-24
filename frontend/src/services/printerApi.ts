@@ -24,4 +24,5 @@ export const printerApi = {
   snapshotDiff: (printerId: number, fromSnapshotId: number, toSnapshotId: number) =>
     apiResponse(`/api/printers/${printerId}/snapshots/diff?from_id=${fromSnapshotId}&to_id=${toSnapshotId}`),
   health: (printerId: number) => apiResponse(`/api/printers/${printerId}/health`),
+  networkDiagnostics: (printerId: number) => apiResponse(`/api/printers/${printerId}/network-diagnostics`),
 };

@@ -73,7 +73,7 @@ export function useOperation({ selectedPrinterId, setActiveSection, setError, se
       setOperationActionPreview(null);
       setOperationExecutionPhrase("");
       setOperationExecutionAttempt(null);
-      setActiveSection("operation");
+      setActiveSection("monitoring");
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
