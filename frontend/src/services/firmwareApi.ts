@@ -2,6 +2,7 @@ import { apiResponse } from "./http";
 
 export const firmwareApi = {
   boardPresets: () => apiResponse("/api/firmware/board-presets"),
+  hardwareInventory: (printerId: number) => apiResponse(`/api/printers/${printerId}/firmware/hardware-inventory`),
   boards: (printerId: number) => apiResponse(`/api/printers/${printerId}/firmware/boards`),
   buildRuns: (printerId: number) => apiResponse(`/api/printers/${printerId}/firmware/build-runs`),
   flashRuns: (printerId: number) => apiResponse(`/api/printers/${printerId}/firmware/flash-runs`),

@@ -74,7 +74,7 @@ export const appSections: Array<{
     key: "firmware",
     icon: Zap,
     label: "Firmware",
-    detail: "Placas, presets, dry-runs de build/flash e auditoria de mods.",
+    detail: "Inventario de MCUs, associacao de placas, build e flash planejado.",
     purpose: "Gerencie MCUs, presets, builds e flash planejado para a impressora ativa.",
   },
   {

@@ -1,0 +1,239 @@
+{
+  "source": {
+    "name": "Esoterical CANBus Guide",
+    "url": "https://canbus.esoterical.online/",
+    "retrieved_at": "2026-05-24",
+    "notes": [
+      "Catalogo local para orientar build, flash e troubleshooting sem depender de navegacao externa em runtime.",
+      "O guia organiza o fluxo por adaptador CAN, placa principal/bridge, toolhead, atualizacao e troubleshooting."
+    ]
+  },
+  "workflows": [
+    {
+      "id": "new_canbus_build",
+      "title": "Instalacao CANBus nova",
+      "url": "https://canbus.esoterical.online/Getting_Started.html",
+      "steps": ["preparar can0", "escolher adaptador CAN", "flash mainboard/bridge", "flash toolhead", "validar UUIDs", "finalizar Klipper"]
+    },
+    {
+      "id": "existing_canbus_update",
+      "title": "Atualizacao de CANBus existente",
+      "url": "https://canbus.esoterical.online/updating.html",
+      "steps": ["identificar placa", "gerar Klipper", "validar UUID/serial", "flash via Katapult/DFU", "reiniciar Klipper", "validar printer/info"]
+    }
+  ],
+  "hardware": [
+    {
+      "id": "btt_u2c_v2_1",
+      "vendor": "BigTreeTech",
+      "name": "U2C v2.1",
+      "role": "can_adapter",
+      "connection": "dedicated_usb_can",
+      "guide_url": "https://canbus.esoterical.online/can_adapter/common_can_adapters/BigTreeTech%20U2C%20v2.1/README.html",
+      "known_mcus": [],
+      "preset_ids": []
+    },
+    {
+      "id": "makerbase_utc_1_0",
+      "vendor": "Makerbase",
+      "name": "UTC 1.0",
+      "role": "can_adapter",
+      "connection": "dedicated_usb_can",
+      "guide_url": "https://canbus.esoterical.online/can_adapter/common_can_adapters/Makerbase%20UTC%201.0/README.html",
+      "known_mcus": [],
+      "preset_ids": []
+    },
+    {
+      "id": "mellow_fly_utoc",
+      "vendor": "Mellow",
+      "name": "Fly UTOC",
+      "role": "can_adapter",
+      "connection": "dedicated_usb_can",
+      "guide_url": "https://canbus.esoterical.online/can_adapter/common_can_adapters/Mellow%20Fly%20UTOC/README.html",
+      "known_mcus": [],
+      "preset_ids": []
+    },
+    {
+      "id": "btt_octopus",
+      "vendor": "BigTreeTech",
+      "name": "Octopus",
+      "role": "mainboard",
+      "connection": "usb_can_bridge",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Octopus/README.html",
+      "known_mcus": ["stm32f446", "stm32f429", "stm32f407", "stm32h723"],
+      "preset_ids": ["btt_octopus_v1_1_f446_usb_can"]
+    },
+    {
+      "id": "btt_octopus_pro_v1_1",
+      "vendor": "BigTreeTech",
+      "name": "Octopus Pro v1.1",
+      "role": "mainboard",
+      "connection": "usb_can_bridge",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Octopus%20Pro%20v1.1/README.html",
+      "known_mcus": ["stm32f446", "stm32h723"],
+      "preset_ids": ["btt_octopus_pro_f446_usb_can", "btt_octopus_pro_h723_usb_can"]
+    },
+    {
+      "id": "btt_kraken",
+      "vendor": "BigTreeTech",
+      "name": "Kraken",
+      "role": "mainboard",
+      "connection": "usb_can_bridge",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Kraken/README.html",
+      "known_mcus": ["stm32h723"],
+      "preset_ids": []
+    },
+    {
+      "id": "btt_manta_m8p_v2",
+      "vendor": "BigTreeTech",
+      "name": "Manta M8P V2.0",
+      "role": "mainboard",
+      "connection": "usb_can_bridge",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Manta%20M8P%20V2.0/README.html",
+      "known_mcus": ["stm32h723"],
+      "preset_ids": []
+    },
+    {
+      "id": "fysetc_spider",
+      "vendor": "Fysetc",
+      "name": "Spider",
+      "role": "mainboard",
+      "connection": "usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20V1.0/README.html",
+      "known_mcus": ["stm32f446"],
+      "preset_ids": ["fysetc_spider_f446_usb"]
+    },
+    {
+      "id": "btt_ebb36_gen2",
+      "vendor": "BigTreeTech",
+      "name": "EBB36 Gen2",
+      "role": "toolhead",
+      "connection": "can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20EBB36%20Gen2/README.html",
+      "known_mcus": ["stm32g0b1"],
+      "preset_ids": ["btt_ebb36_g0b1_can"]
+    },
+    {
+      "id": "btt_ebb36_v1_2",
+      "vendor": "BigTreeTech",
+      "name": "EBB36 V1.2",
+      "role": "toolhead",
+      "connection": "can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20EBB36%20V1.2/README.html",
+      "known_mcus": ["stm32g0b1"],
+      "preset_ids": ["btt_ebb36_g0b1_can"]
+    },
+    {
+      "id": "btt_ebb42_gen2",
+      "vendor": "BigTreeTech",
+      "name": "EBB42 Gen2",
+      "role": "toolhead",
+      "connection": "can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20EBB42%20Gen2/README.html",
+      "known_mcus": ["stm32g0b1"],
+      "preset_ids": ["btt_ebb42_g0b1_can"]
+    },
+    {
+      "id": "btt_sb2209_rp2040",
+      "vendor": "BigTreeTech",
+      "name": "SB2209 RP2040",
+      "role": "toolhead",
+      "connection": "can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20SB2209%20(RP2040)/README.html",
+      "known_mcus": ["rp2040"],
+      "preset_ids": ["btt_sb2209_rp2040_can"]
+    },
+    {
+      "id": "btt_sb2240_rp2040",
+      "vendor": "BigTreeTech",
+      "name": "SB2240 RP2040",
+      "role": "toolhead",
+      "connection": "can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20SB2209%20and%20SB2240/README.html",
+      "known_mcus": ["rp2040"],
+      "preset_ids": ["btt_sb2240_rp2040_can"]
+    },
+    {
+      "id": "fysetc_sb_can_th",
+      "vendor": "Fysetc",
+      "name": "SB-CAN-TH",
+      "role": "toolhead",
+      "connection": "can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Fysetc%20SB-CAN-TH/README.html",
+      "known_mcus": ["stm32g0b1"],
+      "preset_ids": ["fysetc_sb_can_g0b1"]
+    },
+    {
+      "id": "mellow_fly_sht36_sht42",
+      "vendor": "Mellow",
+      "name": "Fly SHT36/SHT42",
+      "role": "toolhead",
+      "connection": "can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Mellow%20Fly%20SHT36%20and%20SHT42/README.html",
+      "known_mcus": ["stm32g0b1"],
+      "preset_ids": ["mellow_fly_sht36_v2_g0b1_can"]
+    },
+    {
+      "id": "mellow_fly_sb2040",
+      "vendor": "Mellow",
+      "name": "Fly SB2040",
+      "role": "toolhead",
+      "connection": "can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Mellow%20Fly%20SB2040v1%20v2/README.html",
+      "known_mcus": ["rp2040"],
+      "preset_ids": ["mellow_fly_sb2040_rp2040_can"]
+    }
+  ],
+  "known_hardware_without_local_preset": {
+    "mainboards": [
+      "BigTreeTech Manta E3EZ",
+      "BigTreeTech Manta M5P V1.0",
+      "BigTreeTech Manta M8P V1.1",
+      "BigTreeTech Octopus Max EZ",
+      "BigTreeTech Octopus X7 (Troodon)",
+      "BigTreeTech SKR Pico",
+      "BigTreeTech SKR-3",
+      "BigTreeTech SKR-3 EZ",
+      "BigTreeTech SKRat v1.0",
+      "Fysetc Hexa Distro Fusion",
+      "Fysetc Spider King",
+      "Fysetc Spider Pro",
+      "Fysetc Spider v2.2",
+      "Fysetc Spider v2.3",
+      "Fysetc Spider v3.0",
+      "Fysetc Spider v3.0 H7",
+      "LDO Leviathan v1.2",
+      "LDO Leviathan v1.3",
+      "MKS Monster8 v2",
+      "Mellow FLY-D5P",
+      "Mellow FLY-Micro4",
+      "Mellow Fly-Super8",
+      "Mellow Fly-Super8 Pro H723"
+    ],
+    "toolheads": [
+      "AFC-Lite for Boxturtle",
+      "AFC-Pro",
+      "BigTreeTech Eddy Duo",
+      "BigTreeTech MMB v1.0",
+      "BigTreeTech MMB v2.0",
+      "DragonDinghy",
+      "Fysetc H36",
+      "Fysetc H36 v2.0",
+      "Fysetc PITB V1.0",
+      "Fysetc PITB V2.0",
+      "Fysetc SB Combo V2",
+      "MKS THR36 V1.0",
+      "Mellow Fly ERCF",
+      "Mellow Fly SB2040v3",
+      "Mellow Fly SHT36v2",
+      "Mellow Fly SHT36v3"
+    ]
+  },
+  "troubleshooting": [
+    {"id": "no_can0_interface", "title": "No can0 Interface", "url": "https://canbus.esoterical.online/troubleshooting/no_can0.html"},
+    {"id": "no_uuid", "title": "No UUID", "url": "https://canbus.esoterical.online/troubleshooting/no_uuid.html"},
+    {"id": "klipper_fails_to_start", "title": "Klipper Fails to Start", "url": "https://canbus.esoterical.online/troubleshooting/klipper_fails_to_start.html"},
+    {"id": "lost_communication_to_mcu", "title": "Lost Communications to mcu", "url": "https://canbus.esoterical.online/troubleshooting/lost_communication_to_mcu.html"},
+    {"id": "termination_resistor_info", "title": "Termination Resistor Info", "url": "https://canbus.esoterical.online/troubleshooting/termination_resistor_info.html"}
+  ]
+}

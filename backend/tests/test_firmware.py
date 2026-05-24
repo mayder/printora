@@ -11,6 +11,7 @@ from app.firmware import (
     FirmwareFlashDryRunCreate,
     FirmwareFlashExecuteCreate,
 )
+from app.firmware_catalog import build_firmware_hardware_inventory, catalog_counts, match_catalog_for_mcu
 from app.printers import PrinterCreate, PrinterRepository
 
 
@@ -26,6 +27,38 @@ def test_list_board_presets_contains_common_voron_boards(tmp_path: Path) -> None
     assert "btt_sb2209_rp2040_can" in preset_ids
     assert "mellow_fly_sht36_v2_g0b1_can" in preset_ids
     assert "fysetc_spider_f446_usb" in preset_ids
+
+
+def test_esoterical_catalog_contains_core_can_hardware() -> None:
+    counts = catalog_counts()
+
+    assert counts["hardware_with_guides"] >= 10
+    assert match_catalog_for_mcu(mcu_name="EBBCan", mcu_version="stm32g0b1 firmware")
+    assert any(match.id == "btt_octopus" for match in match_catalog_for_mcu(mcu_name="mcu", mcu_version="stm32f446 firmware"))
+
+
+def test_firmware_inventory_detects_klipper_mcus_without_manual_board() -> None:
+    inventory = build_firmware_hardware_inventory(
+        printer_id=1,
+        registered_boards=[],
+        object_names=["mcu", "mcu EBBCan", "configfile"],
+        object_payload={
+            "status": {
+                "mcu": {"mcu_version": "stm32f446"},
+                "mcu EBBCan": {"mcu_version": "stm32g0b1"},
+                "configfile": {
+                    "settings": {
+                        "mcu": {"canbus_uuid": "abc123"},
+                        "mcu EBBCan": {"canbus_uuid": "def456", "canbus_interface": "can0"},
+                    }
+                },
+            }
+        },
+    )
+
+    assert inventory.items[0].role == "mainboard"
+    assert any(item.name == "EBBCan" and item.can_uuid == "def456" for item in inventory.items)
+    assert "detectada" in inventory.summary
 
 
 def test_create_firmware_board_from_preset(tmp_path: Path) -> None:

@@ -1,6 +1,5 @@
 import React from "react";
 import { firmwareApi } from "../../services/firmwareApi";
-import { pluginApi } from "../../services/pluginApi";
 import type {
   BoardPreset,
   FirmwareBoardRecord,
@@ -8,8 +7,8 @@ import type {
   FirmwareBuildRunRecord,
   FirmwareFlashPreflight,
   FirmwareFlashRunRecord,
+  FirmwareHardwareInventory,
   FirmwareRecoveryPlan,
-  PluginAuditResponse,
 } from "../../types";
 import type { SetError, SetLoading } from "./shared";
 import { unknownErrorMessage } from "./shared";
@@ -21,8 +20,8 @@ type UseFirmwareOptions = {
 };
 
 export function useFirmware({ selectedPrinterId, setError, setLoading }: UseFirmwareOptions) {
-  const [pluginAudit, setPluginAudit] = React.useState<PluginAuditResponse | null>(null);
   const [boardPresets, setBoardPresets] = React.useState<BoardPreset[]>([]);
+  const [firmwareHardwareInventory, setFirmwareHardwareInventory] = React.useState<FirmwareHardwareInventory | null>(null);
   const [firmwareBoards, setFirmwareBoards] = React.useState<FirmwareBoardRecord[]>([]);
   const [firmwareBuildRuns, setFirmwareBuildRuns] = React.useState<FirmwareBuildRunRecord[]>([]);
   const [firmwareFlashRuns, setFirmwareFlashRuns] = React.useState<FirmwareFlashRunRecord[]>([]);
@@ -42,14 +41,6 @@ export function useFirmware({ selectedPrinterId, setError, setLoading }: UseFirm
   const [firmwareFlashBinaryPath, setFirmwareFlashBinaryPath] = React.useState("");
   const [firmwareFlashConfirmation, setFirmwareFlashConfirmation] = React.useState("");
 
-  async function loadPluginAudit(printerId: number) {
-    const response = await pluginApi.audit(printerId);
-    if (!response.ok) {
-      return;
-    }
-    setPluginAudit((await response.json()) as PluginAuditResponse);
-  }
-
   async function loadBoardPresets() {
     const response = await firmwareApi.boardPresets();
     if (!response.ok) {
@@ -57,6 +48,14 @@ export function useFirmware({ selectedPrinterId, setError, setLoading }: UseFirm
     }
     const payload = (await response.json()) as { presets: BoardPreset[] };
     setBoardPresets(payload.presets);
+  }
+
+  async function loadFirmwareHardwareInventory(printerId: number) {
+    const response = await firmwareApi.hardwareInventory(printerId);
+    if (!response.ok) {
+      return;
+    }
+    setFirmwareHardwareInventory((await response.json()) as FirmwareHardwareInventory);
   }
 
   async function loadFirmwareBoards(printerId: number) {
@@ -106,7 +105,7 @@ export function useFirmware({ selectedPrinterId, setError, setLoading }: UseFirm
         throw new Error(await response.text());
       }
       setFirmwareBoardNotes("");
-      await loadFirmwareBoards(selectedPrinterId);
+      await Promise.allSettled([loadFirmwareBoards(selectedPrinterId), loadFirmwareHardwareInventory(selectedPrinterId)]);
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
@@ -295,6 +294,7 @@ export function useFirmware({ selectedPrinterId, setError, setLoading }: UseFirm
     firmwareFlashConfirmation,
     firmwareFlashPreflight,
     firmwareFlashRuns,
+    firmwareHardwareInventory,
     firmwareKlipperPath,
     firmwareOutputRoot,
     firmwareRecoveryPlan,
@@ -302,9 +302,8 @@ export function useFirmware({ selectedPrinterId, setError, setLoading }: UseFirm
     loadFirmwareBoards,
     loadFirmwareBuildRuns,
     loadFirmwareFlashRuns,
+    loadFirmwareHardwareInventory,
     loadFirmwareRecoveryPlan,
-    loadPluginAudit,
-    pluginAudit,
     setBoardPresets,
     setFirmwareBoardCanInterface,
     setFirmwareBoardCanUuid,
@@ -321,10 +320,10 @@ export function useFirmware({ selectedPrinterId, setError, setLoading }: UseFirm
     setFirmwareFlashConfirmation,
     setFirmwareFlashPreflight,
     setFirmwareFlashRuns,
+    setFirmwareHardwareInventory,
     setFirmwareKlipperPath,
     setFirmwareOutputRoot,
     setFirmwareRecoveryPlan,
-    setPluginAudit,
     validateFirmwareBuildPreflight,
     validateFirmwareFlashGate,
     validateFirmwareFlashPreflight,

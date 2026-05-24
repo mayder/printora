@@ -108,7 +108,7 @@ export function usePrintoraApp() {
       maintenance.loadMaintenance(printerId),
       calibration.loadZOffsets(printerId),
       settings.loadCanRecords(printerId),
-      firmware.loadPluginAudit(printerId),
+      firmware.loadFirmwareHardwareInventory(printerId),
       firmware.loadFirmwareBoards(printerId),
       firmware.loadFirmwareBuildRuns(printerId),
       firmware.loadFirmwareFlashRuns(printerId),

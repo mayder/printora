@@ -48,7 +48,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Atualizacoes | `updates` | `/?section=updates`, `/#updates` | `frontend/src/screens/UpdatesScreen.tsx` | Update Manager da impressora, checklist pos-update, update com confirmacao, progresso e historico | Exige impressora ativa online | existente |
 | Calibracao | `calibration` | `/?section=calibration`, `/#calibration` | `frontend/src/screens/CalibrationScreen.tsx` | Z-offset, wizard manual, registro de resultados e sequencia de calibracao | Exige impressora ativa online | existente |
 | Testes | `tests` | `/?section=tests`, `/#tests` | `frontend/src/screens/TestsScreen.tsx` | Centro de testes Voron, ajuda, preflight e execucao com confirmacao presencial | Exige impressora ativa online | existente |
-| Firmware | `firmware` | `/?section=firmware`, `/#firmware` | `frontend/src/screens/FirmwareScreen.tsx` | Placas, presets, dry-run, preflight, build, flash e plano de recuperacao | Exige impressora ativa online | existente |
+| Firmware | `firmware` | `/?section=firmware`, `/#firmware` | `frontend/src/screens/FirmwareScreen.tsx` | Inventario de MCUs/placas detectadas, associacao ao modelo fisico, build, flash planejado e referencia CANBus | Exige impressora ativa online | existente |
 | Manutencao | `maintenance` | `/?section=maintenance`, `/#maintenance` | `frontend/src/screens/MaintenanceScreen.tsx` | Tarefas preventivas, diario e horas de impressao por impressora | Exige impressora ativa local | existente |
 | Relatorios | `reports` | `/?section=reports`, `/#reports` | `frontend/src/screens/ReportsScreen.tsx` | Health, relatorio sanitizado, backups, snapshots, diffs, Moonraker, Klipper e auditoria read-only da impressora | Exige impressora ativa online | existente |
 | Configuracoes | `settings` | `/?section=settings`, `/#settings` | `frontend/src/screens/SettingsScreen.tsx` | Registro tecnico CAN, releases, update/rollback do Printora e diagnostico avancado do host | Nao exige impressora ativa | existente |
@@ -77,7 +77,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Operacao | `frontend/src/hooks/domains/useOperation.ts` | `frontend/src/services/operationApi.ts` |
 | Atualizacoes da impressora | `frontend/src/hooks/domains/useUpdates.ts` | `frontend/src/services/updatesApi.ts` |
 | Calibracao e Z-offset | `frontend/src/hooks/domains/useCalibration.ts` | `frontend/src/services/calibrationApi.ts`, `frontend/src/services/zOffsetApi.ts` |
-| Firmware e plugins | `frontend/src/hooks/domains/useFirmware.ts` | `frontend/src/services/firmwareApi.ts`, `frontend/src/services/pluginApi.ts` |
+| Firmware | `frontend/src/hooks/domains/useFirmware.ts` | `frontend/src/services/firmwareApi.ts` |
 | Manutencao | `frontend/src/hooks/domains/useMaintenance.ts` | `frontend/src/services/maintenanceApi.ts` |
 | Relatorios, snapshots e backups | `frontend/src/hooks/domains/useReports.ts` | `frontend/src/services/reportsApi.ts`, `frontend/src/services/backupApi.ts`, `frontend/src/services/printerApi.ts` |
 | CAN e diagnostico | `frontend/src/hooks/domains/useSettings.ts` | `frontend/src/services/canApi.ts`, `frontend/src/services/diagnosticsApi.ts`, `frontend/src/services/printerApi.ts` |
@@ -106,10 +106,11 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Atualizacoes, os componentes do Update Manager usam cards responsivos em duas ou tres colunas quando houver largura suficiente, e o checklist pos-update ocupa a largura total com duas colunas em telas medias/grandes.
 - Ao fechar o modal de update concluido ou revalidado, a tela Atualizacoes deve recarregar status do Update Manager, health, checklist, operacao e auditoria da impressora ativa.
 - Auditoria e diagnostico avancado do host devem ficar em telas de diagnostico/configuracao, nao como conteudo principal do Monitoramento.
-- Na tela Firmware, a visao principal deve ser guiada pela impressora selecionada: mostrar versoes de Klipper/Moonraker, componentes detectados no Update Manager e placas cadastradas daquela impressora; presets, catalogos e parametros tecnicos ficam colapsados em modo avancado.
-- Na tela Firmware, componentes/plugins nao detectados na impressora ativa nao devem aparecer na lista principal.
-- Na tela Firmware, o fluxo principal deve ser sequencial e simples: verificar contexto, validar build, gerar build, validar flash e preparar flash; execucao local bloqueada e gate de flash ficam em area avancada.
-- A referencia tecnica para catalogo CAN, presets e procedimentos de update/flash e o guia Esoterical CANBus (`https://canbus.esoterical.online/`), sem despejar o catalogo completo na UI do operador.
+- Na tela Firmware, a visao principal deve ser guiada pela impressora selecionada: mostrar versoes de Klipper/Moonraker, MCUs/placas detectadas pelo Klipper, placas ja associadas ao modelo fisico e proximas acoes de build/flash.
+- Na tela Firmware, componentes/plugins do Update Manager nao aparecem no conteudo principal; eles pertencem a Atualizacoes ou diagnostico, nao ao inventario de firmware.
+- Na tela Firmware, presets e catalogos genericos nao devem aparecer como lista principal. O usuario deve ver primeiro o que existe na impressora e associar cada MCU detectada ao modelo fisico real uma unica vez.
+- Na tela Firmware, o fluxo principal deve ser sequencial e simples: verificar placas, associar modelo fisico quando necessario, validar build, gerar build, validar flash e preparar flash.
+- A referencia tecnica para catalogo CAN, presets e procedimentos de update/flash e o guia Esoterical CANBus (`https://canbus.esoterical.online/`); o catalogo local deve ser estruturado em dados do projeto e usado para orientar a tela sem depender de navegacao externa em runtime.
 
 ## Pendencias de mapeamento
 

@@ -2755,6 +2755,7 @@ label {
 
 .firmware-workspace {
   gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .section-firmware .firmware-workspace {
@@ -2768,8 +2769,10 @@ label {
 
 .firmware-status-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
+  min-width: 0;
+  width: 100%;
 }
 
 .firmware-focus-grid,
@@ -2777,6 +2780,13 @@ label {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
   gap: 14px;
+  min-width: 0;
+}
+
+.firmware-status-grid > *,
+.firmware-focus-grid > *,
+.firmware-result-grid > * {
+  min-width: 0;
 }
 
 .firmware-card,
@@ -2896,12 +2906,40 @@ label {
   align-items: center;
 }
 
+.firmware-board-card.detected {
+  border-left: 3px solid var(--warning);
+}
+
+.firmware-board-card.registered {
+  border-left: 3px solid var(--success);
+}
+
 .firmware-board-meta {
   min-width: 220px;
 }
 
 .firmware-board-meta small {
   display: block;
+}
+
+.firmware-target-detail {
+  display: grid;
+  gap: 4px;
+  min-width: min(360px, 100%);
+  color: var(--muted);
+}
+
+.firmware-target-detail a,
+.firmware-catalog-summary a {
+  color: var(--accent);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.firmware-catalog-summary {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
 }
 
 .firmware-empty-state {
@@ -2918,10 +2956,36 @@ label {
   gap: 10px;
   align-items: start;
   margin: 14px 0;
+  min-width: 0;
 }
 
 .firmware-board-form textarea {
   min-height: 42px;
+}
+
+.firmware-board-form.guided label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  min-width: 0;
+}
+
+.firmware-board-form.guided label > input,
+.firmware-board-form.guided label > select,
+.firmware-board-form.guided label > textarea {
+  width: 100%;
+}
+
+.firmware-board-form.guided {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  width: 100%;
+}
+
+.firmware-board-form.guided button {
+  align-self: end;
+  min-height: 38px;
 }
 
 .firmware-board-list,
