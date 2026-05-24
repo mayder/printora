@@ -1,5 +1,3 @@
-# Printora
-
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="identidade/printora-logo-horizontal-dark-bg.png">
