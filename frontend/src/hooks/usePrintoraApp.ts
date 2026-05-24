@@ -124,7 +124,6 @@ export function usePrintoraApp() {
       operation.loadOperationStatus(printerId),
       settings.loadPrinterAudit(printerId),
       settings.loadPrinterHealth(printerId),
-      settings.loadPrinterNetworkDiagnostics(printerId),
       updates.loadUpdateStatus(printerId),
       calibration.loadCalibrationTests(printerId),
     ]);
@@ -187,7 +186,6 @@ export function usePrintoraApp() {
     try {
       await Promise.allSettled([firmware.loadBoardPresets(), printers.loadPrinters()]);
       void settings.loadGlobalDiagnostics();
-      void selfUpdate.loadSystemReleases();
       void selfUpdate.loadSelfUpdateHistory();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
@@ -209,6 +207,15 @@ export function usePrintoraApp() {
     if (shell.activeSection === "calibration") {
       void operation.loadOperationStatus(printers.selectedPrinterId);
       void calibration.loadZOffsets(printers.selectedPrinterId);
+    }
+  }, [shell.activeSection, printers.selectedPrinterId]);
+
+  React.useEffect(() => {
+    if (shell.activeSection === "settings" && !selfUpdate.systemReleases && !selfUpdate.releaseLoading) {
+      void selfUpdate.loadSystemReleases();
+    }
+    if (shell.activeSection === "reports" && printers.selectedPrinterId) {
+      void settings.loadPrinterNetworkDiagnostics(printers.selectedPrinterId);
     }
   }, [shell.activeSection, printers.selectedPrinterId]);
 
@@ -236,8 +243,9 @@ export function usePrintoraApp() {
     return () => window.clearInterval(refreshId);
   }, [printerAvailability, printers.selectedPrinterId]);
 
+  const liveOperationHealth = buildLiveOperationHealth(settings.health, operation.operationStatus);
   const alertCenterItems = buildAlertCenterItems({
-    health: settings.health,
+    health: liveOperationHealth,
     updateStatus: updates.updateStatus,
     checklist: settings.checklist,
     audit: settings.audit,
@@ -248,8 +256,8 @@ export function usePrintoraApp() {
   const alertWarningCount = alertCenterItems.filter((item) => item.severity === "warning").length;
   const primaryRiskItem = alertCenterItems.find((item) => item.severity === "blocker") ?? alertCenterItems.find((item) => item.severity === "warning") ?? null;
   const latestSnapshot = reports.snapshots[0];
-  const moonrakerOnline = settings.health?.connected ?? settings.status?.connected ?? false;
-  const displayDecision = formatters.displayHealthDecision(settings.health);
+  const moonrakerOnline = operation.operationStatus?.connected ?? liveOperationHealth?.connected ?? settings.status?.connected ?? false;
+  const displayDecision = formatters.displayHealthDecision(liveOperationHealth);
   const operationState = operation.operationStatus?.miscellaneous.print_state ?? settings.status?.printer?.state ?? settings.health?.metrics.klipper_state ?? "-";
   const totalPrintHours = operation.operationStatus?.miscellaneous.total_print_hours;
   const riskClass = formatters.overviewRiskClass(displayDecision);
@@ -327,6 +335,7 @@ export function usePrintoraApp() {
     displayDecision,
     error,
     handleAlertCenterAction: updates.handleAlertCenterAction,
+    health: liveOperationHealth,
     hotendTemperature,
     lastReadingLabel,
     latestSnapshot,
@@ -386,6 +395,28 @@ function getPrinterAvailability(selectedPrinterId: number | null, health: Health
     return "unknown";
   }
   return health.connected ? "online" : "offline";
+}
+
+function buildLiveOperationHealth(
+  health: HealthResponse | null,
+  operationStatus: { connected: boolean; data_state: string; printer_id: number } | null,
+): HealthResponse | null {
+  if (!health || !operationStatus?.connected || operationStatus.printer_id !== health.printer_id) {
+    return health;
+  }
+  if (health.connected && health.data_state === "live") {
+    return health;
+  }
+  return {
+    ...health,
+    connected: true,
+    data_state: "live",
+    source: operationStatus.data_state === "live" ? "operation/status" : health.source,
+    error: null,
+    decision: health.decision === "nao_imprimir" ? "monitorar" : health.decision,
+    summary: health.summary === "Não imprima ainda" ? "Monitorar" : health.summary,
+    items: health.items.filter((item) => item.key !== "data_state" && item.key !== "moonraker_unreachable"),
+  };
 }
 
 export type PrintoraScreenProps = ReturnType<typeof usePrintoraApp>["screenProps"];

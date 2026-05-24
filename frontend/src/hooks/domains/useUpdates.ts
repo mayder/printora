@@ -65,8 +65,8 @@ export function useUpdates(options: UseUpdatesOptions) {
         throw new Error(await readApiError(response));
       }
       setUpdateActionResult((await response.json()) as UpdateActionResponse);
-      await loadUpdateStatus(selectedPrinterId);
-      await loadPrinterHealth(selectedPrinterId);
+      window.setTimeout(() => void refreshPostUpdateContext(selectedPrinterId), 2500);
+      window.setTimeout(() => void refreshPostUpdateContext(selectedPrinterId), 15000);
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {

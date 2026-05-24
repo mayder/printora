@@ -20,18 +20,22 @@ async def refresh_printer_update_status(
         base_url=printer.moonraker_url,
         timeout_seconds=settings.request_timeout_seconds,
     )
-    try:
-        result = await client.refresh_update_status(payload.name)
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    asyncio.create_task(_refresh_update_status_background(client, payload.name, max(settings.request_timeout_seconds, 30.0)))
     return UpdateActionResponse(
         safe_mode="moonraker_update_manager",
         action="refresh",
         target=payload.name or "all",
         accepted=True,
-        message="Atualização de status solicitada ao Moonraker.",
-        result=result,
+        message="Reanalise solicitada ao Moonraker. O status sera atualizado em segundo plano.",
+        result={"scheduled": True},
     )
+
+
+async def _refresh_update_status_background(client: MoonrakerClient, name: str | None, timeout_seconds: float) -> None:
+    try:
+        await client.refresh_update_status(name, timeout_seconds=timeout_seconds)
+    except httpx.HTTPError:
+        return
 
 
 

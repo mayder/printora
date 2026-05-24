@@ -70,9 +70,9 @@ class MoonrakerClient:
     async def update_status(self) -> dict[str, Any]:
         return await self.get_json("/machine/update/status")
 
-    async def refresh_update_status(self, name: str | None = None) -> dict[str, Any]:
+    async def refresh_update_status(self, name: str | None = None, *, timeout_seconds: float | None = None) -> dict[str, Any]:
         path = f"/machine/update/refresh?name={quote(name)}" if name else "/machine/update/refresh"
-        return await self.post_json(path)
+        return await self.post_json(path, timeout_seconds=timeout_seconds)
 
     async def update_all(self) -> dict[str, Any]:
         return await self.post_json("/machine/update/full")

@@ -150,8 +150,11 @@ async def printer_health(printer_id: int) -> dict[str, Any]:
     )
     started_at = time.perf_counter()
     try:
-        printer_info, server_info, system_info, proc_stats = await _collect_status(client)
-        update_status = await client.update_status()
+        collected_status, update_status = await asyncio.gather(
+            _collect_status(client),
+            client.update_status(),
+        )
+        printer_info, server_info, system_info, proc_stats = collected_status
     except httpx.HTTPError as exc:
         latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
         if latest_snapshot is not None:
@@ -209,11 +212,25 @@ async def printer_network_diagnostics(printer_id: int) -> dict[str, Any]:
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
     ssh_access = repository.get_ssh_access(printer_id)
-    return await build_network_diagnostics(
-        printer=printer,
-        ssh_access=ssh_access,
-        timeout_seconds=max(settings.request_timeout_seconds, settings.host_audit_timeout_seconds),
-    )
+    try:
+        return await build_network_diagnostics(
+            printer=printer,
+            ssh_access=ssh_access,
+            timeout_seconds=max(settings.request_timeout_seconds, settings.host_audit_timeout_seconds),
+        )
+    except Exception as exc:
+        return {
+            "safe_mode": "read_only",
+            "printer_id": printer.id,
+            "moonraker_url": printer.moonraker_url,
+            "host": printer.moonraker_url,
+            "dns": {"ok": False, "duration_ms": None, "addresses": [], "error": str(exc)},
+            "ping": {"ok": False, "error": "diagnostico nao concluido"},
+            "configured_http": {"ok": False, "url": printer.moonraker_url, "status_code": None, "total_ms": None, "error": str(exc)},
+            "direct_ip_http": None,
+            "ssh": None,
+            "recommendation": "Diagnostico de rede nao concluiu. Tente novamente; a falha nao bloqueia o restante do Printora.",
+        }
 
 
 

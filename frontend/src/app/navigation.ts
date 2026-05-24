@@ -112,7 +112,6 @@ export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Principal", sections: ["overview", "printers"] },
   { title: "Impressora ativa", sections: ["monitoring", "updates", "calibration", "tests", "firmware", "maintenance"] },
   { title: "Diagnóstico", sections: ["reports", "settings"] },
-  { title: "Projeto", sections: ["about"] },
 ];
 
 export const onlinePrinterSections = new Set<AppSection>([

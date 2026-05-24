@@ -272,10 +272,12 @@ def _now_iso() -> str:
 
 
 async def _collect_status(client: MoonrakerClient) -> tuple[dict[str, Any], ...]:
-    printer_info = await client.printer_info()
-    server_info = await client.server_info()
-    system_info = await client.system_info()
-    proc_stats = await client.proc_stats()
+    printer_info, server_info, system_info, proc_stats = await asyncio.gather(
+        client.printer_info(),
+        client.server_info(),
+        client.system_info(),
+        client.proc_stats(),
+    )
     return printer_info, server_info, system_info, proc_stats
 
 
