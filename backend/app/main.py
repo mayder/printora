@@ -71,6 +71,7 @@ from app.firmware import (
     FirmwareFlashRunRecord,
     FirmwareRecoveryPlan,
 )
+from app.firmware_catalog import FirmwareHardwareInventory, build_firmware_hardware_inventory
 from app.health import build_printer_health, build_unreachable_health
 from app.host_audit import collect_host_audit, summarize_sections
 from app.maintenance import (
@@ -1057,6 +1058,32 @@ async def list_firmware_boards(printer_id: int) -> dict[str, list[FirmwareBoardR
     if printer_repository.get_printer(printer_id) is None:
         raise HTTPException(status_code=404, detail="printer not found")
     return {"boards": firmware_repository.list_boards(printer_id)}
+
+
+@app.get("/api/printers/{printer_id}/firmware/hardware-inventory")
+async def firmware_hardware_inventory(printer_id: int) -> FirmwareHardwareInventory:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    firmware_repository = get_firmware_board_repository(settings)
+    printer = printer_repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    try:
+        object_names = await client.printer_objects_list()
+        query_objects = _firmware_inventory_query_objects(object_names)
+        object_payload = await client.printer_objects(query_objects) if query_objects else {"status": {}}
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Moonraker indisponível para inventário de firmware: {exc}") from exc
+    return build_firmware_hardware_inventory(
+        printer_id=printer_id,
+        registered_boards=firmware_repository.list_boards(printer_id),
+        object_names=object_names,
+        object_payload=object_payload,
+    )
 
 
 @app.post("/api/printers/{printer_id}/firmware/boards")
@@ -2153,6 +2180,16 @@ def _latest_snapshot_diff(
     if len(snapshots) < 2:
         return None
     return snapshot_repository.diff_snapshots(printer_id, snapshots[1].id, snapshots[0].id)
+
+
+def _firmware_inventory_query_objects(object_names: list[str]) -> dict[str, list[str]]:
+    objects: dict[str, list[str]] = {}
+    for name in object_names:
+        if name == "mcu" or name.startswith("mcu "):
+            objects[name] = ["mcu_version", "mcu_build_versions"]
+    if "configfile" in object_names:
+        objects["configfile"] = ["settings"]
+    return objects
 
 
 def _http_error_detail(exc: httpx.HTTPError) -> str:

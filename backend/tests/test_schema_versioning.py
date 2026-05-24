@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.database as database_module
-from app.config import get_settings
+from app.config import _default_data_dir, get_settings
 from app.database import DatabaseSchemaError, initialize_database
 from app.main import app
 
@@ -190,6 +190,12 @@ def test_system_version_endpoint_is_read_only(tmp_path: Path, monkeypatch) -> No
         assert "payload_json" not in str(payload)
     finally:
         get_settings.cache_clear()
+
+
+def test_default_data_dir_uses_macos_application_support(monkeypatch) -> None:
+    monkeypatch.setattr("app.config.platform.system", lambda: "Darwin")
+
+    assert _default_data_dir() == Path.home() / "Library/Application Support/Printora"
 
 
 def test_initialize_database_records_successful_integrity_check(tmp_path: Path) -> None:

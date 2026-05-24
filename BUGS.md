@@ -6,6 +6,95 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Cadastro De Impressora Exibia Failed To Fetch
+
+Sintoma:
+
+- ao abrir o frontend local sem API acessível, a busca de impressoras mostrava apenas `Failed to fetch`;
+- em inicializações fora dos scripts oficiais, o backend podia usar o diretório SQLite Linux no macOS e abrir sem as impressoras já cadastradas.
+
+Causa:
+
+- a configuração padrão do backend não acompanhava o diretório operacional usado pelos runners no macOS;
+- a UI repassava o erro técnico cru do `fetch` para o operador.
+
+Correção:
+
+- o `data_dir` padrão agora usa `~/Library/Application Support/Printora` no macOS, `%LOCALAPPDATA%/Printora` no Windows e `~/.local/share/printora` no Linux;
+- erros de rede do frontend passam a orientar verificar o backend em `http://127.0.0.1:8085`.
+
+Validação:
+
+- `pytest tests/test_schema_versioning.py tests/test_printers.py tests/test_discovery.py -q`;
+- `npm --prefix frontend run build`;
+- `./check.sh`;
+- smoke local em `GET /api/printers` e `GET /api/printers/discover`.
+
+### Tela De Atualizacoes Nao Revalidava Apos Fechar Modal
+
+Sintoma:
+
+- depois de um update chegar ao fim no modal, fechar a janela podia deixar a tela com estado antigo ate recarregar o navegador;
+- `Atualizar tudo` continuava aparecendo mesmo com zero ou apenas um componente atualizavel;
+- lista de componentes e checklist pos-update ocupavam largura demais em telas grandes.
+
+Causa:
+
+- o fechamento do modal apenas encerrava a janela, sem revalidar o contexto vivo da impressora;
+- a acao global nao considerava a quantidade de itens atualizaveis;
+- a tela usava linhas em largura total para todos os componentes.
+
+Correção:
+
+- fechamento do modal passou a recarregar Update Manager, health, checklist, operacao e auditoria;
+- confirmacao pos-update aguarda revalidacoes do Moonraker antes de marcar o fluxo como concluido;
+- `Atualizar tudo` aparece somente com mais de um item atualizavel;
+- componentes viraram cards responsivos e o checklist pos-update ocupa a largura total com duas colunas quando houver espaco.
+
+Validação:
+
+- `npm run build` no frontend.
+
+### Menus De Impressora Online Visiveis Com Moonraker Offline
+
+Sintoma:
+
+- quando a impressora ativa estava desligada, o menu ainda exibia secoes que dependem do Moonraker online, como operacao, monitoramento, atualizacoes, calibracao, testes, firmware e relatorios.
+
+Causa:
+
+- a navegacao verificava apenas se havia impressora selecionada, sem considerar o estado real de conectividade retornado pelo health da impressora ativa.
+
+Correção:
+
+- a regra de navegacao passou a diferenciar impressora nao selecionada, conectividade desconhecida, online e offline;
+- secoes que exigem Moonraker online ficam ocultas quando o health confirma offline;
+- se uma dessas secoes estiver ativa e a impressora ficar offline, a SPA retorna para `overview`.
+
+Validação:
+
+- `npm run build` no frontend.
+
+### Alertas Inflados Com Impressora Offline
+
+Sintoma:
+
+- com Moonraker offline, a Central de alertas ainda contava checklist, auditoria e achados de snapshot antigo como alertas ativos da impressora.
+
+Causa:
+
+- a UI consolidava todos os itens carregados sem diferenciar alerta do estado atual offline de pendencias que exigem a impressora ligada para validação.
+
+Correção:
+
+- quando o health confirma impressora offline, a Central mostra apenas o alerta de offline/conexão;
+- alertas dependentes de leitura ao vivo ou snapshot antigo ficam ocultos ate a conexão voltar;
+- os contadores da Home passaram a usar a lista efetiva de alertas exibidos.
+
+Validação:
+
+- `npm run build` no frontend.
+
 ### Alerta Vermelho Sem Causa Acionavel Na Home
 
 Sintoma:

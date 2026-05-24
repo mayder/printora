@@ -981,7 +981,7 @@ label {
   font-size: 1rem;
 }
 
-.live-chart-list,
+.temperature-monitor,
 .load-list,
 .fan-monitor-list,
 .can-monitor-list,
@@ -990,43 +990,144 @@ label {
   gap: 10px;
 }
 
-.live-series {
+.temperature-table {
   display: grid;
-  grid-template-columns: minmax(140px, 0.35fr) minmax(180px, 1fr) 34px;
-  gap: 10px;
-  align-items: center;
-  border-top: 1px solid var(--border-soft);
-  padding-top: 10px;
-}
-
-.live-series-label {
-  display: grid;
-  gap: 2px;
-}
-
-.live-series-label span,
-.live-series-unit {
-  color: var(--muted);
-}
-
-.live-chart {
-  width: 100%;
-  height: 84px;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
-  background: linear-gradient(180deg, rgb(34 211 238 / 0.08), transparent);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.temperature-table-row {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.2fr) minmax(86px, 0.6fr) minmax(86px, 0.55fr) minmax(80px, 0.5fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 42px;
+  border-top: 1px solid var(--border-soft);
+  padding: 8px 12px;
+}
+
+.temperature-table-row:first-child {
+  border-top: 0;
+}
+
+.temperature-table-head {
+  min-height: 32px;
+  background: rgb(148 163 184 / 0.05);
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.temperature-name {
+  display: inline-flex;
+  min-width: 0;
+  gap: 9px;
+  align-items: center;
+}
+
+.temperature-name i,
+.temperature-legend i {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--series-color);
+  box-shadow: 0 0 10px var(--series-color);
+}
+
+.temperature-name strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.temperature-target {
+  width: fit-content;
+  min-width: 58px;
+  justify-self: start;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface-3);
+  padding: 4px 8px;
+  color: var(--text);
+  text-align: right;
+}
+
+.combined-temperature-chart {
+  display: grid;
+  gap: 8px;
+  min-height: 260px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 12px;
+}
+
+.combined-temperature-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.combined-temperature-plot {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 8px;
+  min-height: 185px;
+}
+
+.combined-temperature-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1;
+  text-align: right;
+}
+
+.combined-temperature-plot svg {
+  width: 100%;
+  height: 185px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-3);
   overflow: visible;
 }
 
-.live-chart polyline {
+.combined-temperature-plot polyline {
   fill: none;
-  stroke: var(--accent);
+  stroke: var(--series-color);
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 3;
+  stroke-width: 2.2;
   vector-effect: non-scaling-stroke;
-  stroke-dasharray: 220;
-  animation: monitor-flow 2.4s linear infinite;
+}
+
+.temperature-grid-line {
+  stroke: rgb(148 163 184 / 0.18);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.temperature-grid-line.vertical {
+  stroke: rgb(148 163 184 / 0.11);
+}
+
+.temperature-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 12px;
+}
+
+.temperature-legend span {
+  display: inline-flex;
+  max-width: 100%;
+  gap: 6px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.8rem;
 }
 
 .radial-progress {
@@ -2652,16 +2753,239 @@ label {
   margin: 0;
 }
 
+.firmware-workspace {
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.section-firmware .firmware-workspace {
+  display: grid;
+}
+
+.firmware-hero {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.firmware-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+}
+
+.firmware-focus-grid,
+.firmware-result-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+  gap: 14px;
+  min-width: 0;
+}
+
+.firmware-status-grid > *,
+.firmware-focus-grid > *,
+.firmware-result-grid > * {
+  min-width: 0;
+}
+
+.firmware-card,
+.firmware-board-card,
+.firmware-result-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 14px;
+}
+
+.firmware-card.primary-flow {
+  border-left: 3px solid var(--accent);
+}
+
+.firmware-card-heading,
+.firmware-section-heading,
+.firmware-board-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.firmware-card-heading > div,
+.firmware-section-heading > div,
+.firmware-board-card > div {
+  display: grid;
+  gap: 3px;
+}
+
+.firmware-card-heading span,
+.firmware-board-summary,
+.firmware-board-meta,
+.firmware-component-row span,
+.firmware-component-row small,
+.firmware-result-card span,
+.firmware-check-list,
+.firmware-empty-state p {
+  color: var(--muted);
+}
+
+.firmware-card-heading > .status-pill {
+  align-self: flex-start;
+  min-height: 26px;
+  width: auto;
+  max-width: 140px;
+  border-radius: 999px;
+  padding: 5px 9px;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.firmware-board-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.firmware-board-summary span {
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--secondary-bg);
+  padding: 5px 9px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.firmware-step-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.firmware-component-list,
+.firmware-board-cards,
+.firmware-check-list {
+  display: grid;
+  gap: 8px;
+}
+
+.firmware-component-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-left: 3px solid var(--success);
+  border-top: 1px solid var(--border-soft);
+  padding: 9px 10px;
+}
+
+.firmware-component-row strong,
+.firmware-component-row span {
+  display: block;
+}
+
+.firmware-component-row > div {
+  min-width: 0;
+}
+
+.firmware-component-row.warning,
+.firmware-result-card.warning {
+  border-left-color: var(--warning);
+}
+
+.firmware-result-card.ok {
+  border-left: 3px solid var(--success);
+}
+
+.firmware-board-section {
+  display: grid;
+  gap: 12px;
+}
+
+.firmware-board-card {
+  align-items: center;
+}
+
+.firmware-board-card.detected {
+  border-left: 3px solid var(--warning);
+}
+
+.firmware-board-card.registered {
+  border-left: 3px solid var(--success);
+}
+
+.firmware-board-meta {
+  min-width: 220px;
+}
+
+.firmware-board-meta small {
+  display: block;
+}
+
+.firmware-target-detail {
+  display: grid;
+  gap: 4px;
+  min-width: min(360px, 100%);
+  color: var(--muted);
+}
+
+.firmware-target-detail a,
+.firmware-catalog-summary a {
+  color: var(--accent);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.firmware-catalog-summary {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.firmware-empty-state {
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--warning);
+  border-radius: 8px;
+  background: var(--warning-soft);
+  padding: 12px;
+}
+
 .firmware-board-form {
   display: grid;
   grid-template-columns: minmax(130px, 0.7fr) minmax(260px, 1.4fr) minmax(140px, 0.7fr) 90px minmax(200px, 1fr) minmax(220px, 1fr) auto;
   gap: 10px;
   align-items: start;
   margin: 14px 0;
+  min-width: 0;
 }
 
 .firmware-board-form textarea {
   min-height: 42px;
+}
+
+.firmware-board-form.guided label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  min-width: 0;
+}
+
+.firmware-board-form.guided label > input,
+.firmware-board-form.guided label > select,
+.firmware-board-form.guided label > textarea {
+  width: 100%;
+}
+
+.firmware-board-form.guided {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  width: 100%;
+}
+
+.firmware-board-form.guided button {
+  align-self: end;
+  min-height: 38px;
 }
 
 .firmware-board-list,
@@ -3803,6 +4127,24 @@ label {
   cursor: default;
 }
 
+.section-updates .update-list {
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+}
+
+.section-updates .update-row {
+  align-content: start;
+  min-height: 148px;
+}
+
+.section-updates .update-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.post-update-checklist .checks {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .release-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3859,28 +4201,104 @@ label {
 .release-list {
   display: grid;
   gap: 10px;
-  margin-top: 14px;
-}
-
-.release-list .collapsible-panel {
-  display: grid;
-  gap: 10px;
 }
 
 .release-row.installed {
   border-left-color: var(--success);
 }
 
-.self-update-history {
-  display: grid;
-  gap: 10px;
-  margin-top: 16px;
-  border-top: 1px solid var(--border-soft);
-  padding-top: 14px;
+.compact-summary-action {
+  min-height: 30px;
+  padding: 5px 9px;
 }
 
 .host-diagnostics-panel {
   margin-top: 16px;
+}
+
+.settings-advanced-panel {
+  align-self: start;
+  margin-top: 0;
+}
+
+.panel-section.settings-advanced-panel {
+  display: none;
+}
+
+.section-settings .panel-section.settings-advanced-panel {
+  display: block;
+}
+
+.section-settings .self-update-history[open] {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-advanced-panel.release-history-panel,
+.settings-advanced-panel.self-update-history,
+.settings-advanced-panel.can-technical-panel,
+.settings-advanced-panel.host-diagnostics-panel {
+  grid-column: span 6;
+}
+
+.settings-advanced-summary {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.settings-advanced-summary span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.settings-advanced-summary strong {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+.help-icon-button {
+  width: 30px;
+  height: 30px;
+  color: var(--accent);
+}
+
+.settings-help-modal-card {
+  width: min(680px, 100%);
+}
+
+.settings-help-content {
+  display: grid;
+  gap: 10px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.settings-help-content p {
+  margin: 0;
+}
+
+.settings-help-content code {
+  color: var(--code-text);
+  background: var(--code-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.settings-advanced-panel .can-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-advanced-panel .can-parser,
+.settings-advanced-panel .can-form {
+  grid-template-columns: 1fr;
+}
+
+.settings-advanced-panel .panel-actions {
+  justify-content: flex-start;
 }
 
 .panel-header-row.compact {
@@ -4231,9 +4649,12 @@ label {
   .printer-toolbar,
   .printer-form,
   .overview-strip,
+  .section-updates .update-list,
+  .post-update-checklist .checks,
   .monitor-status-strip,
   .monitor-grid,
-  .live-series,
+  .temperature-table-row,
+  .combined-temperature-plot,
   .can-monitor-header,
   .overview-hero,
   .overview-status-grid,
@@ -4279,6 +4700,11 @@ label {
   .plugin-actions,
   .plugin-summary,
   .plugin-row,
+  .firmware-status-grid,
+  .firmware-focus-grid,
+  .firmware-result-grid,
+  .firmware-section-heading,
+  .firmware-board-card,
   .firmware-board-form,
   .firmware-board-row,
   .firmware-build-controls,
@@ -4303,6 +4729,12 @@ label {
   .snapshot-compare,
   .snapshot-row {
     grid-template-columns: 1fr;
+  }
+
+  .firmware-section-heading,
+  .firmware-board-card,
+  .firmware-component-row {
+    display: grid;
   }
 
   .maintenance-free-card {

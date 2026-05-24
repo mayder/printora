@@ -79,14 +79,36 @@ assert.equal(
   false,
 );
 
-const source = await readFile(join(root, "src/main.tsx"), "utf8");
-assert.match(source, /void loadSystemReleases\(\);[\s\S]*await loadPrinters\(\);/);
-assert.doesNotMatch(source, /fetch\(["']\/api\/system\/releases["'],\s*\{/);
-assert.match(source, /\/api\/system\/update\/plan/);
-assert.match(source, /\/api\/system\/update\/apply/);
-assert.match(source, /\/api\/system\/update\/history/);
-assert.match(source, /ATUALIZAR PRINTORA/);
-assert.match(source, /Atualizar agora/);
-assert.match(source, /visibleSelfUpdateSteps/);
+const appSource = await readFile(join(root, "src/main.tsx"), "utf8");
+const appHookSource = await readFile(join(root, "src/hooks/usePrintoraApp.ts"), "utf8");
+const alertCenterSource = await readFile(join(root, "src/alertCenter.ts"), "utf8");
+const navigationSource = await readFile(join(root, "src/app/navigation.ts"), "utf8");
+const overviewScreenSource = await readFile(join(root, "src/screens/OverviewScreen.tsx"), "utf8");
+const selfUpdateHookSource = await readFile(join(root, "src/hooks/domains/useSelfUpdate.ts"), "utf8");
+const systemApiSource = await readFile(join(root, "src/services/systemApi.ts"), "utf8");
+const settingsScreenSource = await readFile(join(root, "src/screens/SettingsScreen.tsx"), "utf8");
+const selfUpdateModalSource = await readFile(join(root, "src/components/modals/SelfUpdateModal.tsx"), "utf8");
+
+assert.doesNotMatch(appSource, /fetch\(/);
+assert.match(appHookSource, /await Promise\.allSettled\(\[firmware\.loadBoardPresets\(\), printers\.loadPrinters\(\)\]\);[\s\S]*void selfUpdate\.loadSystemReleases\(\);/);
+assert.match(appHookSource, /function getPrinterAvailability\([\s\S]*return health\.connected \? "online" : "offline";/);
+assert.match(appHookSource, /if \(!health\.connected\) \{[\s\S]*return "offline";[\s\S]*\}/);
+assert.match(appHookSource, /printerAvailability !== "offline"/);
+assert.match(appHookSource, /window\.setInterval\(\(\) => \{[\s\S]*settings\.loadPrinterHealth\(printers\.selectedPrinterId!\);[\s\S]*\}, 60000\);/);
+assert.match(alertCenterSource, /const printerOffline = Boolean\(health && !health\.connected\);/);
+assert.match(alertCenterSource, /if \(printerOffline\) \{[\s\S]*return dedupeAlertCenterItems\(items\);[\s\S]*\}/);
+assert.match(overviewScreenSource, /alertBlockerCount/);
+assert.doesNotMatch(overviewScreenSource, /health\?\.counts\.blocker/);
+assert.match(navigationSource, /export type PrinterAvailability = "none" \| "unknown" \| "online" \| "offline";/);
+assert.match(navigationSource, /return printerAvailability === "online";/);
+assert.match(navigationSource, /return printerAvailability === "none" \|\| printerAvailability === "offline";/);
+assert.match(selfUpdateHookSource, /async function loadSystemReleases\(\)/);
+assert.match(selfUpdateHookSource, /async function startSelfUpdateFlow\(\)/);
+assert.match(systemApiSource, /\/api\/system\/update\/plan/);
+assert.match(systemApiSource, /\/api\/system\/update\/apply/);
+assert.match(systemApiSource, /\/api\/system\/update\/history/);
+assert.match(selfUpdateModalSource, /ATUALIZAR PRINTORA/);
+assert.match(settingsScreenSource, /Atualizar agora/);
+assert.match(selfUpdateModalSource, /visibleSelfUpdateSteps/);
 
 console.log("Frontend release states passed.");
