@@ -1,0 +1,285 @@
+.firmware-workspace {
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.section-firmware .firmware-workspace {
+  display: grid;
+}
+
+.firmware-hero {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.firmware-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+}
+
+.firmware-focus-grid,
+.firmware-result-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+  gap: 14px;
+  min-width: 0;
+}
+
+.firmware-status-grid > *,
+.firmware-focus-grid > *,
+.firmware-result-grid > * {
+  min-width: 0;
+}
+
+.firmware-card,
+.firmware-board-card,
+.firmware-result-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 14px;
+}
+
+.firmware-card.primary-flow {
+  border-left: 3px solid var(--accent);
+}
+
+.firmware-card-heading,
+.firmware-section-heading,
+.firmware-board-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.firmware-card-heading > div,
+.firmware-section-heading > div,
+.firmware-board-card > div {
+  display: grid;
+  gap: 3px;
+}
+
+.firmware-card-heading span,
+.firmware-board-summary,
+.firmware-board-meta,
+.firmware-component-row span,
+.firmware-component-row small,
+.firmware-result-card span,
+.firmware-check-list,
+.firmware-empty-state p {
+  color: var(--muted);
+}
+
+.firmware-card-heading > .status-pill {
+  align-self: flex-start;
+  min-height: 26px;
+  width: auto;
+  max-width: 140px;
+  border-radius: 999px;
+  padding: 5px 9px;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.firmware-board-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.firmware-board-summary span {
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--secondary-bg);
+  padding: 5px 9px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.firmware-step-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.firmware-component-list,
+.firmware-board-cards,
+.firmware-check-list {
+  display: grid;
+  gap: 8px;
+}
+
+.firmware-component-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-left: 3px solid var(--success);
+  border-top: 1px solid var(--border-soft);
+  padding: 9px 10px;
+}
+
+.firmware-component-row strong,
+.firmware-component-row span {
+  display: block;
+}
+
+.firmware-component-row > div {
+  min-width: 0;
+}
+
+.firmware-component-row.warning,
+.firmware-result-card.warning {
+  border-left-color: var(--warning);
+}
+
+.firmware-result-card.ok {
+  border-left: 3px solid var(--success);
+}
+
+.firmware-board-section {
+  display: grid;
+  gap: 12px;
+}
+
+.firmware-board-card {
+  align-items: center;
+}
+
+.firmware-board-card.detected {
+  border-left: 3px solid var(--warning);
+}
+
+.firmware-board-card.registered {
+  border-left: 3px solid var(--success);
+}
+
+.firmware-board-meta {
+  min-width: 220px;
+}
+
+.firmware-board-meta small {
+  display: block;
+}
+
+.firmware-target-detail {
+  display: grid;
+  gap: 4px;
+  min-width: min(360px, 100%);
+  color: var(--muted);
+}
+
+.firmware-target-detail a,
+.firmware-catalog-summary a {
+  color: var(--accent);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.firmware-catalog-summary {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.firmware-empty-state {
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--warning);
+  border-radius: 8px;
+  background: var(--warning-soft);
+  padding: 12px;
+}
+
+.firmware-board-form {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.7fr) minmax(260px, 1.4fr) minmax(140px, 0.7fr) 90px minmax(200px, 1fr) minmax(220px, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  margin: 14px 0;
+  min-width: 0;
+}
+
+.firmware-board-form textarea {
+  min-height: 42px;
+}
+
+.firmware-board-form.guided label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  min-width: 0;
+}
+
+.firmware-board-form.guided label > input,
+.firmware-board-form.guided label > select,
+.firmware-board-form.guided label > textarea {
+  width: 100%;
+}
+
+.firmware-board-form.guided {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  width: 100%;
+}
+
+.firmware-board-form.guided button {
+  align-self: end;
+  min-height: 38px;
+}
+
+.firmware-board-list,
+.firmware-run-list,
+.preset-list {
+  display: grid;
+  gap: 8px;
+}
+
+.firmware-run-list {
+  opacity: 0.9;
+}
+
+.firmware-board-row {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.2fr) minmax(180px, 0.8fr) minmax(220px, 1fr);
+  gap: 12px;
+  border-left: 3px solid var(--success);
+  border-top: 1px solid var(--border-soft);
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+}
+
+.firmware-board-row span,
+.firmware-board-row small,
+.firmware-run-row small,
+.preset-row span,
+.preset-row small {
+  display: block;
+  color: var(--muted);
+}
+
+.firmware-board-row button {
+  margin-top: 8px;
+}
+
+.firmware-build-controls {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) minmax(230px, 1fr) minmax(250px, 1fr) minmax(260px, 1fr);
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.firmware-run-row {
+  border-top: 1px solid var(--border-soft);
+  padding: 8px 0;
+}
+
+.firmware-run-row summary {
+  cursor: pointer;
+  font-weight: 700;
+}

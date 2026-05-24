@@ -1,0 +1,63 @@
+.backup-list,
+.backup-runs {
+  display: grid;
+  gap: 8px;
+}
+
+.backup-runs {
+  margin-top: 16px;
+  opacity: 0.9;
+}
+
+.backup-runs h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.backup-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(240px, 1fr) auto;
+  gap: 12px;
+  border-top: 1px solid var(--border-soft);
+  padding: 10px 0;
+  align-items: center;
+}
+
+.backup-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: end;
+}
+
+.inline-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  align-self: center;
+}
+
+.inline-check input {
+  width: auto;
+}
+
+.backup-run-row {
+  display: grid;
+  grid-template-columns: 180px 160px minmax(0, 1fr);
+  gap: 12px;
+  border-top: 1px solid var(--border-soft);
+  padding: 8px 0;
+  align-items: start;
+}
+
+.backup-row div,
+.backup-run-row {
+  overflow-wrap: anywhere;
+}
+
+.backup-row span,
+.backup-row small,
+.backup-run-row span,
+.backup-run-row small {
+  display: block;
+  color: var(--muted);
+}

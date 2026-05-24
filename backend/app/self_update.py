@@ -167,6 +167,53 @@ class SelfUpdateRepository:
             ).fetchone()
         return row is not None
 
+    def reconcile_interrupted_updates(self, *, installed_version: str, stale_after_minutes: int = 30) -> int:
+        clean_installed_version = _normalize_version(installed_version)
+        stale_interval = f"-{max(1, stale_after_minutes)} minutes"
+        reconciled = 0
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT *,
+                    COALESCE(started_at, created_at) <= datetime('now', ?) AS is_stale
+                FROM app_update_runs
+                WHERE status = 'running'
+                ORDER BY created_at, id
+                """,
+                (stale_interval,),
+            ).fetchall()
+            for row in rows:
+                target_matches = clean_installed_version in {
+                    _normalize_version(str(row["target_version"])),
+                    _normalize_version(str(row["target_tag"])),
+                }
+                if target_matches:
+                    _finish_interrupted_run(
+                        connection,
+                        run_id=int(row["id"]),
+                        run_status="succeeded",
+                        step_status="skipped",
+                        message=(
+                            "Update reconciliado apos reinicio: a versao instalada "
+                            f"{installed_version} ja corresponde ao alvo {row['target_tag']}."
+                        ),
+                    )
+                    reconciled += 1
+                    continue
+                if bool(row["is_stale"]):
+                    _finish_interrupted_run(
+                        connection,
+                        run_id=int(row["id"]),
+                        run_status="failed",
+                        step_status="failed",
+                        message=(
+                            "Update em execucao ficou orfao apos reinicio e a versao instalada "
+                            f"{installed_version} nao corresponde ao alvo {row['target_tag']}."
+                        ),
+                    )
+                    reconciled += 1
+        return reconciled
+
     def mark_all_steps(self, run_id: int, status: UpdateStepStatus, log_excerpt: str | None = None) -> None:
         with self._connect() as connection:
             connection.execute(
@@ -334,11 +381,14 @@ def apply_self_update(
     windows_script_path: Path | None = None,
     environment: UpdateEnvironment | None = None,
 ) -> UpdateApplyResponse:
+    from app.releases import installed_app_version
+
     _validate_confirmation(request.confirmation_phrase)
     _validate_release_tag(request.target_tag, stable_release_tags)
     detected_environment = environment or detect_update_environment()
     if detected_environment not in {"android_termux", "unix", "windows"}:
         raise ValueError(f"not_supported: update real disponível apenas em Android/Termux, Unix e Windows; ambiente atual={detected_environment}")
+    repository.reconcile_interrupted_updates(installed_version=installed_app_version())
     if repository.has_running_update():
         raise ValueError("Já existe update em execução.")
     selected_script_path = _script_path_for_environment(
@@ -438,7 +488,10 @@ def rollback_self_update(
     unix_script_path: Path | None = None,
     windows_script_path: Path | None = None,
 ) -> UpdateRollbackResponse:
+    from app.releases import installed_app_version
+
     _validate_rollback_confirmation(request.confirmation_phrase)
+    repository.reconcile_interrupted_updates(installed_version=installed_app_version())
     if repository.has_running_update():
         raise ValueError("Já existe update em execução.")
     source_run = repository.get_run(request.run_id)
@@ -764,6 +817,41 @@ def _json_object_from_stdout(stdout: str) -> dict[str, Any]:
         if isinstance(payload, dict):
             return payload
     return {}
+
+
+def _finish_interrupted_run(
+    connection: sqlite3.Connection,
+    *,
+    run_id: int,
+    run_status: UpdateRunStatus,
+    step_status: UpdateStepStatus,
+    message: str,
+) -> None:
+    connection.execute(
+        """
+        UPDATE app_update_runs
+        SET status = ?,
+            finished_at = CURRENT_TIMESTAMP,
+            error_message = COALESCE(error_message, ?)
+        WHERE id = ? AND status = 'running'
+        """,
+        (run_status, message, run_id),
+    )
+    connection.execute(
+        """
+        UPDATE app_update_steps
+        SET status = ?,
+            started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
+            finished_at = CURRENT_TIMESTAMP,
+            log_excerpt = COALESCE(log_excerpt, ?)
+        WHERE run_id = ? AND status IN ('pending', 'running')
+        """,
+        (step_status, message[:4000], run_id),
+    )
+
+
+def _normalize_version(value: str) -> str:
+    return value.strip().lower().removeprefix("v")
 
 
 def _optional_payload_str(payload: dict[str, Any], key: str) -> str | None:

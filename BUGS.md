@@ -6,6 +6,29 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Update Do Printora Ficava Travado Em Execucao Apos Reboot
+
+Sintoma:
+
+- apos update do Printora em Raspberry, desligar/religar a maquina podia deixar um run antigo como `em execução`;
+- mesmo com a versão instalada já atualizada, uma nova tentativa de update era bloqueada por `Já existe update em execução`.
+
+Causa:
+
+- o histórico persistido dependia do script finalizar e marcar o run como concluído;
+- reboot ou queda de energia durante o script podia interromper a marcação final, mantendo o registro `running` no SQLite.
+
+Correção:
+
+- endpoints de histórico, detalhe, apply e rollback reconciliam runs `running` antes de responder;
+- se a versão instalada já corresponde ao alvo do run, o registro órfão é fechado como `succeeded`;
+- se a versão não corresponde ao alvo, o registro só é fechado como `failed` quando estiver antigo o suficiente para ser considerado órfão.
+
+Validação:
+
+- `pytest tests/test_update_self.py -q` no backend;
+- `./check.sh`.
+
 ### Cadastro De Impressora Exibia Failed To Fetch
 
 Sintoma:

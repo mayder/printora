@@ -1,0 +1,355 @@
+.maintenance-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.maintenance-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.maintenance-hero,
+.maintenance-panel-card {
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 16px;
+}
+
+.maintenance-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-left: 4px solid var(--accent);
+}
+
+.maintenance-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.maintenance-print-hours-chip,
+.maintenance-print-hours-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--muted);
+  padding: 8px 10px;
+}
+
+.maintenance-print-hours-chip strong,
+.maintenance-print-hours-banner strong {
+  color: var(--text);
+}
+
+.maintenance-print-hours-chip svg,
+.maintenance-print-hours-banner svg {
+  color: var(--accent);
+}
+
+.maintenance-print-hours-banner {
+  justify-content: flex-start;
+}
+
+.maintenance-hero h2 {
+  margin: 4px 0 6px;
+  font-size: 22px;
+}
+
+.maintenance-hero p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.section-kicker {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.maintenance-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.maintenance-done-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(260px, 1fr) auto;
+  gap: 10px;
+}
+
+.maintenance-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.maintenance-task-card {
+  display: grid;
+  gap: 9px;
+  min-height: 142px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-1);
+  padding: 12px;
+}
+
+.maintenance-task-card.due {
+  border-color: var(--warning);
+}
+
+.maintenance-task-card.soon {
+  border-color: var(--accent);
+}
+
+.maintenance-task-card.inactive {
+  opacity: 0.76;
+}
+
+.maintenance-task-card-header {
+  display: grid;
+  gap: 7px;
+}
+
+.maintenance-task-card-header strong {
+  font-size: 14px;
+}
+
+.maintenance-task-meta {
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.maintenance-card-actions {
+  align-self: end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.maintenance-card-actions button {
+  min-height: 34px;
+  padding: 7px 9px;
+}
+
+.maintenance-done-button {
+  border-color: var(--border);
+  background: var(--secondary-bg);
+  color: var(--text);
+}
+
+.maintenance-done-button:hover {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.maintenance-done-button svg {
+  color: var(--accent);
+}
+
+.maintenance-create {
+  margin-top: 14px;
+}
+
+.maintenance-catalog-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-1);
+  padding: 12px;
+}
+
+.maintenance-free-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px dashed var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 16px;
+  cursor: pointer;
+}
+
+.maintenance-free-card h3 {
+  margin: 4px 0;
+}
+
+.maintenance-free-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.maintenance-modal-card {
+  max-width: 900px;
+}
+
+.maintenance-modal-form {
+  display: grid;
+  gap: 14px;
+}
+
+.maintenance-modal-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.maintenance-modal-summary .metric {
+  grid-template-columns: max-content minmax(96px, 1fr);
+  gap: 10px;
+}
+
+.maintenance-selected-printer {
+  display: grid;
+  gap: 2px;
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface-1);
+  padding: 10px 12px;
+}
+
+.maintenance-selected-printer span,
+.maintenance-selected-printer small {
+  color: var(--muted);
+}
+
+.maintenance-selected-printer span {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.maintenance-modal-hint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.maintenance-no-reminder {
+  align-self: end;
+  min-height: 42px;
+  justify-content: flex-start;
+}
+
+.empty-maintenance-state {
+  display: grid;
+  gap: 4px;
+  border: 1px dashed var(--border-soft);
+  border-radius: 8px;
+  padding: 14px;
+  color: var(--muted);
+}
+
+.empty-maintenance-state strong {
+  color: var(--text);
+}
+
+.maintenance-timeline {
+  display: grid;
+  gap: 8px;
+}
+
+.maintenance-layout h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+.maintenance-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+
+.maintenance-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.maintenance-section-heading h3 {
+  margin: 0;
+}
+
+.maintenance-task-form,
+.maintenance-event-form {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.maintenance-task-form {
+  grid-template-columns: minmax(150px, 1fr) minmax(120px, 0.8fr) 110px auto;
+}
+
+.maintenance-list {
+  display: grid;
+  gap: 8px;
+}
+
+.maintenance-row,
+.maintenance-event-row {
+  border-top: 1px solid var(--border-soft);
+  padding: 10px 0;
+  overflow-wrap: anywhere;
+}
+
+.maintenance-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.maintenance-event-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.maintenance-event-row button {
+  min-height: 34px;
+  padding: 7px 9px;
+}
+
+.maintenance-event-content {
+  min-width: 0;
+}
+
+.maintenance-row.due strong {
+  color: var(--warning);
+}
+
+.maintenance-row.soon strong {
+  color: var(--accent);
+}
+
+.maintenance-row span,
+.maintenance-row small,
+.maintenance-event-row span,
+.maintenance-event-row small {
+  display: block;
+  color: var(--muted);
+}

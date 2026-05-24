@@ -14,6 +14,18 @@ import { ReportsScreen } from "./screens/ReportsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { usePrintoraApp } from "./hooks/usePrintoraApp";
 import "./styles.css";
+import "./styles/overview.css";
+import "./styles/monitoring.css";
+import "./styles/operation.css";
+import "./styles/printers.css";
+import "./styles/modals.css";
+import "./styles/backups.css";
+import "./styles/maintenance.css";
+import "./styles/settings.css";
+import "./styles/firmware.css";
+import "./styles/calibration.css";
+import "./styles/tests.css";
+import "./styles/reports.css";
 
 function App() {
   const {

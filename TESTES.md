@@ -248,6 +248,7 @@ Validações:
 - plano do updater do próprio Printora cria histórico em `app_update_runs` e etapas em `app_update_steps` sem alterar arquivos.
 - plano do updater detecta Android/Termux e Unix, e rejeita ambiente desconhecido.
 - histórico do updater lista runs e permite abrir um run com suas etapas.
+- histórico/apply/rollback do updater reconciliam run `running` órfão após reboot: fecha como sucesso se a versão instalada já for o alvo, e como falha somente quando estiver antigo e a versão não bater.
 
 Testes automatizados adicionais:
 

@@ -1,0 +1,425 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 0.62);
+  padding: 28px;
+}
+
+.modal-card {
+  width: min(980px, 100%);
+  max-height: min(820px, calc(100vh - 56px));
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  box-shadow: 0 24px 80px var(--shadow-strong);
+  padding: 18px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+}
+
+.modal-header h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 6px;
+}
+
+.modal-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.modal-actions span {
+  color: var(--muted);
+}
+
+.connection-test-box {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.connection-test-row {
+  display: grid;
+  grid-template-columns: 120px 90px 1fr;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--border-soft);
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 10px 12px;
+}
+
+.connection-test-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.connection-test-row small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.connection-test-row.ok {
+  border-left-color: var(--success);
+}
+
+.connection-test-row.failed {
+  border-left-color: var(--danger);
+}
+
+.connection-test-row.idle {
+  border-left-color: var(--accent);
+}
+
+.printer-access-form {
+  display: grid;
+  gap: 16px;
+}
+
+.form-section {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 14px;
+}
+
+.form-section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: baseline;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 10px;
+}
+
+.form-section-heading span,
+.form-note {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.form-grid {
+  display: grid;
+  gap: 12px;
+  align-items: end;
+}
+
+.two-columns {
+  grid-template-columns: minmax(220px, 0.9fr) minmax(340px, 1.1fr);
+}
+
+.ssh-grid {
+  grid-template-columns: minmax(220px, 1fr) minmax(90px, 0.28fr) minmax(180px, 0.7fr) minmax(220px, 0.9fr);
+}
+
+.form-field {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.form-field span {
+  letter-spacing: 0.02em;
+}
+
+.form-field input {
+  min-height: 38px;
+  font-size: 13px;
+}
+
+.compact-field input {
+  text-align: center;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+
+.modal-footer button {
+  min-width: 150px;
+}
+
+.update-modal-card {
+  width: min(820px, 100%);
+}
+
+.alert-center-card {
+  width: min(880px, 100%);
+}
+
+.alert-center-list {
+  display: grid;
+  gap: 10px;
+  max-height: 520px;
+  overflow: auto;
+}
+
+.alert-center-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px;
+}
+
+.alert-center-row-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.alert-center-row.blocker {
+  border-left-color: var(--danger);
+}
+
+.alert-center-row.warning {
+  border-left-color: var(--warning);
+}
+
+.alert-center-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.alert-center-row.blocker .alert-center-icon {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.alert-center-row.warning .alert-center-icon {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.alert-center-row strong,
+.alert-center-row span,
+.alert-center-row p,
+.alert-center-row small {
+  display: block;
+}
+
+.alert-center-row span,
+.alert-center-row small {
+  color: var(--muted);
+}
+
+.alert-center-row p {
+  margin: 7px 0 4px;
+}
+
+.alert-center-explain {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.alert-center-explain div {
+  display: grid;
+  gap: 2px;
+}
+
+.alert-center-explain dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.alert-center-explain dd {
+  margin: 0;
+  color: var(--text);
+}
+
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 24px;
+  text-align: center;
+}
+
+.update-confirm-box {
+  display: grid;
+  gap: 14px;
+}
+
+.update-progress-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 11px 13px;
+  margin-bottom: 14px;
+}
+
+.update-progress-status.done {
+  border-left-color: var(--success);
+}
+
+.update-progress-status.failed {
+  border-left-color: var(--danger);
+}
+
+.update-progress-status.running svg {
+  animation: spin 1.1s linear infinite;
+}
+
+.update-log-list {
+  display: grid;
+  max-height: 380px;
+  overflow: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.self-update-progress {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px;
+}
+
+.self-update-progress > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+}
+
+.self-update-progress > div:first-child strong {
+  color: var(--text);
+}
+
+.self-update-progress-track {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+
+.self-update-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  transition: width 280ms ease;
+}
+
+.self-update-progress.active .self-update-progress-track span {
+  background-size: 220% 100%;
+  animation: update-progress-pulse 1.1s linear infinite;
+}
+
+.update-log-row {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 12px;
+  border-bottom: 1px solid var(--border-soft);
+  padding: 10px 12px;
+}
+
+.update-log-row:last-child {
+  border-bottom: 0;
+}
+
+.update-log-row time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.update-log-row span {
+  display: grid;
+  gap: 3px;
+  overflow-wrap: anywhere;
+}
+
+.update-log-row span small {
+  color: var(--muted);
+}
+
+.update-log-row.success span strong {
+  color: var(--success);
+}
+
+.update-log-row.warning span strong {
+  color: var(--warning);
+}
+
+.update-log-row.error span strong {
+  color: var(--danger);
+}
+
+.update-log-row.warning {
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+
+@keyframes update-progress-pulse {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: 220% 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ghost-button {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--text);
+}

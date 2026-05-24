@@ -111,6 +111,7 @@ async def system_update_plan(payload: UpdatePlanRequest) -> UpdatePlanResponse:
 async def system_update_history(limit: int = 20) -> UpdateHistoryResponse:
     settings = get_settings()
     repository = get_self_update_repository(settings)
+    repository.reconcile_interrupted_updates(installed_version=installed_app_version())
     return UpdateHistoryResponse(runs=repository.list_runs(limit=limit))
 
 
@@ -120,6 +121,7 @@ async def system_update_history(limit: int = 20) -> UpdateHistoryResponse:
 async def system_update_apply(payload: UpdateApplyRequest) -> UpdateApplyResponse:
     settings = get_settings()
     repository = get_self_update_repository(settings)
+    repository.reconcile_interrupted_updates(installed_version=installed_app_version())
     releases = await system_releases()
     stable_tags = {
         release.tag
@@ -150,6 +152,7 @@ async def system_update_apply(payload: UpdateApplyRequest) -> UpdateApplyRespons
 async def system_update_rollback(payload: UpdateRollbackRequest) -> UpdateRollbackResponse:
     settings = get_settings()
     repository = get_self_update_repository(settings)
+    repository.reconcile_interrupted_updates(installed_version=installed_app_version())
     try:
         return rollback_self_update(
             repository=repository,
@@ -173,6 +176,7 @@ async def system_update_rollback(payload: UpdateRollbackRequest) -> UpdateRollba
 async def system_update_run(run_id: int) -> UpdateRunRecord:
     settings = get_settings()
     repository = get_self_update_repository(settings)
+    repository.reconcile_interrupted_updates(installed_version=installed_app_version())
     run = repository.get_run(run_id)
     if run is None:
         raise HTTPException(status_code=404, detail="update run not found")

@@ -1,0 +1,339 @@
+.panel-operation .overview-strip {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.operation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.operation-panel {
+  min-width: 0;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+
+.operation-panel h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.operation-state {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 7px;
+  background: var(--surface-3);
+  padding: 11px 12px;
+  margin-bottom: 14px;
+}
+
+.operation-state.offline {
+  border-left-color: var(--warning);
+}
+
+.operation-state.fixture {
+  border-left-color: var(--accent);
+}
+
+.operation-state.last-snapshot {
+  border-left-color: var(--success);
+}
+
+.operation-state span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.wide-operation-panel {
+  grid-column: 1 / -1;
+}
+
+.temperature-list,
+.fan-list,
+.temperature-history {
+  display: grid;
+  gap: 10px;
+}
+
+.operation-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.operation-action-card {
+  display: grid;
+  gap: 8px;
+  min-height: 128px;
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+  background: var(--surface-3);
+  color: var(--text);
+  padding: 12px;
+  text-align: left;
+}
+
+.operation-action-card span {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.operation-action-card small,
+.operation-action-card em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.operation-action-card code {
+  width: fit-content;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface-2);
+  padding: 4px 6px;
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.operation-action-params {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.operation-action-params label {
+  display: grid;
+  gap: 4px;
+}
+
+.operation-action-params span,
+.operation-action-no-params {
+  color: var(--muted);
+}
+
+.operation-action-params input,
+.operation-action-params select {
+  min-width: 0;
+  width: 100%;
+}
+
+.operation-action-card button {
+  justify-content: center;
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
+.operation-capabilities {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.operation-capability {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-3);
+  padding: 10px;
+}
+
+.operation-capability.supported {
+  border-left-color: var(--success);
+}
+
+.operation-capability.blocked {
+  border-left-color: var(--danger);
+}
+
+.operation-capability.unknown {
+  border-left-color: var(--warning);
+}
+
+.operation-capability span,
+.operation-capability small {
+  color: var(--muted);
+}
+
+.operation-preview {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--warning);
+  border-radius: 7px;
+  background: var(--surface-3);
+  margin-top: 12px;
+  padding: 12px;
+}
+
+.operation-preview div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.operation-preview span,
+.operation-preview small,
+.operation-preview li {
+  color: var(--muted);
+}
+
+.operation-preview pre {
+  overflow: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface-2);
+  margin: 0;
+  padding: 10px;
+  color: var(--text);
+}
+
+.operation-preview ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.operation-execution-gate {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.operation-execution-gate label {
+  display: grid;
+  gap: 6px;
+}
+
+.operation-execution-gate input {
+  min-width: 0;
+}
+
+.operation-execution-result {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--warning);
+  border-radius: 6px;
+  background: var(--surface-2);
+  padding: 10px;
+}
+
+.operation-execution-result span,
+.operation-execution-result small {
+  color: var(--muted);
+}
+
+.operation-history {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  opacity: 0.9;
+}
+
+.operation-history-heading,
+.operation-history-row {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.8fr) minmax(160px, 1fr) minmax(180px, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.operation-history-heading {
+  color: var(--muted);
+}
+
+.operation-history-row {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 8px;
+}
+
+.operation-history-row div {
+  display: grid;
+  gap: 3px;
+}
+
+.operation-history-row span,
+.operation-history-row small {
+  color: var(--muted);
+}
+
+.operation-history-row code {
+  overflow-wrap: anywhere;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface-2);
+  padding: 4px 6px;
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.temperature-history-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.35fr) minmax(180px, 1fr);
+  gap: 14px;
+  align-items: center;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 10px;
+}
+
+.temperature-history-label {
+  display: grid;
+  gap: 3px;
+}
+
+.temperature-history-label span {
+  color: var(--muted);
+}
+
+.temperature-sparkline {
+  display: flex;
+  align-items: end;
+  gap: 4px;
+  min-height: 58px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface-3);
+  padding: 8px;
+}
+
+.temperature-sparkline span {
+  flex: 1;
+  min-width: 8px;
+  border-radius: 4px 4px 2px 2px;
+  background: var(--accent);
+}
+
+.temperature-row,
+.fan-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(120px, 0.8fr) minmax(90px, 0.6fr);
+  gap: 10px;
+  align-items: center;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 10px;
+}
+
+.temperature-row span,
+.temperature-row small,
+.fan-row span,
+.fan-row small {
+  color: var(--muted);
+}

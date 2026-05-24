@@ -125,6 +125,62 @@ def test_update_history_lists_runs(tmp_path: Path, monkeypatch) -> None:
         get_settings.cache_clear()
 
 
+def test_reconcile_running_update_succeeds_when_installed_version_matches(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = SelfUpdateRepository(database_path)
+    run = repository.create_run(
+        target_tag="v0.1.9",
+        source_url=None,
+        environment="unix",
+        current_project_path=str(tmp_path / "Printora"),
+        status="running",
+        steps=[("install_backend", "Instalar backend editable sem dependências")],
+    )
+
+    reconciled = repository.reconcile_interrupted_updates(installed_version="0.1.9")
+    updated = repository.get_run(run.id)
+
+    assert reconciled == 1
+    assert updated is not None
+    assert updated.status == "succeeded"
+    assert updated.finished_at is not None
+    assert "versao instalada 0.1.9 ja corresponde" in (updated.error_message or "")
+    assert updated.steps[0].status == "skipped"
+
+
+def test_reconcile_running_update_fails_only_when_stale_and_version_mismatches(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = SelfUpdateRepository(database_path)
+    run = repository.create_run(
+        target_tag="v0.2.0",
+        source_url=None,
+        environment="unix",
+        current_project_path=str(tmp_path / "Printora"),
+        status="running",
+        steps=[("install_backend", "Instalar backend editable sem dependências")],
+    )
+
+    assert repository.reconcile_interrupted_updates(installed_version="0.1.9") == 0
+    assert repository.get_run(run.id).status == "running"  # type: ignore[union-attr]
+
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            "UPDATE app_update_runs SET started_at = datetime('now', '-45 minutes') WHERE id = ?",
+            (run.id,),
+        )
+
+    reconciled = repository.reconcile_interrupted_updates(installed_version="0.1.9")
+    updated = repository.get_run(run.id)
+
+    assert reconciled == 1
+    assert updated is not None
+    assert updated.status == "failed"
+    assert "ficou orfao" in (updated.error_message or "")
+    assert updated.steps[0].status == "failed"
+
+
 def test_plan_endpoint_rejects_unknown_environment(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "unknown")

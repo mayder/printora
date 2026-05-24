@@ -1,0 +1,143 @@
+.overview-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.overview-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.34fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.overview-status-card,
+.overview-risk-card {
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 18px;
+}
+
+.overview-status-card h2 {
+  margin: 14px 0 6px;
+  font-size: 28px;
+}
+
+.overview-status-card p,
+.overview-risk-card p {
+  margin: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+
+.overview-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 18px;
+  margin-top: 18px;
+}
+
+.overview-risk-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  border-left: 4px solid var(--warning);
+}
+
+.overview-risk-card.ok {
+  border-left-color: var(--success);
+}
+
+.overview-risk-card.warn {
+  border-left-color: var(--warning);
+}
+
+.overview-risk-card.danger {
+  border-left-color: var(--danger);
+}
+
+.overview-risk-card.unknown {
+  border-left-color: var(--muted);
+}
+
+.overview-risk-card > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.overview-risk-card > strong {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.overview-risk-card.ok > strong {
+  color: var(--success);
+}
+
+.overview-risk-card.warn > strong {
+  color: var(--warning);
+}
+
+.overview-risk-card.danger > strong {
+  color: var(--danger);
+}
+
+.overview-risk-main {
+  display: grid;
+  gap: 7px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 10px;
+}
+
+.overview-risk-main span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.overview-risk-main strong {
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.overview-risk-main p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.overview-risk-main .secondary-button {
+  justify-self: start;
+}
+
+.overview-risk-counts {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.overview-risk-counts span {
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+
+.overview-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}

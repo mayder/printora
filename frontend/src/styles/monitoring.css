@@ -1,0 +1,431 @@
+.section-monitoring .monitoring-dashboard {
+  display: grid;
+  gap: 16px;
+}
+
+.monitoring-heading {
+  align-items: start;
+}
+
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  border: 1px solid rgb(52 211 153 / 0.35);
+  border-radius: 999px;
+  background: rgb(52 211 153 / 0.1);
+  color: var(--success);
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.monitor-status-strip,
+.can-monitor-header {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 10px;
+}
+
+.monitor-badge {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 8px;
+  align-items: center;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 10px;
+}
+
+.monitor-badge svg {
+  grid-row: span 2;
+  color: var(--accent);
+}
+
+.monitor-badge span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.monitor-badge strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monitor-badge.ok {
+  border-left-color: var(--success);
+}
+
+.monitor-badge.warning {
+  border-left-color: var(--warning);
+}
+
+.monitor-badge.danger {
+  border-left-color: var(--danger);
+}
+
+.monitor-warning,
+.monitor-note {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  border: 1px solid rgb(217 81 93 / 0.35);
+  border-left: 3px solid var(--danger);
+  border-radius: 8px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  padding: 11px 12px;
+}
+
+.monitor-note {
+  border-color: var(--border-soft);
+  border-left-color: var(--accent);
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.monitor-note span {
+  color: var(--muted);
+}
+
+.monitor-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.monitor-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 14px;
+}
+
+.monitor-card-wide {
+  grid-column: span 2;
+}
+
+.monitor-card-title {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.monitor-card-title h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.temperature-monitor,
+.load-list,
+.fan-monitor-list,
+.can-monitor-list,
+.monitor-facts {
+  display: grid;
+  gap: 10px;
+}
+
+.temperature-table {
+  display: grid;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.temperature-table-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(86px, 0.55fr) minmax(82px, 0.5fr) minmax(82px, 0.5fr) minmax(82px, 0.5fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 42px;
+  border-top: 1px solid var(--border-soft);
+  padding: 8px 12px;
+}
+
+.temperature-table-row:first-child {
+  border-top: 0;
+}
+
+.temperature-table-head {
+  min-height: 32px;
+  background: rgb(148 163 184 / 0.05);
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.temperature-name {
+  display: inline-flex;
+  min-width: 0;
+  gap: 9px;
+  align-items: center;
+}
+
+.temperature-name i,
+.temperature-legend i {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--series-color);
+  box-shadow: 0 0 10px var(--series-color);
+}
+
+.temperature-name strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.temperature-target {
+  width: fit-content;
+  min-width: 58px;
+  justify-self: start;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface-3);
+  padding: 4px 8px;
+  color: var(--text);
+  text-align: right;
+}
+
+.combined-temperature-chart {
+  display: grid;
+  gap: 8px;
+  min-height: 260px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 12px;
+}
+
+.combined-temperature-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.combined-temperature-plot {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 8px;
+  min-height: 185px;
+}
+
+.combined-temperature-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1;
+  text-align: right;
+}
+
+.combined-temperature-plot svg {
+  width: 100%;
+  height: 185px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-3);
+  overflow: visible;
+}
+
+.combined-temperature-plot polyline {
+  fill: none;
+  stroke: var(--series-color);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.temperature-grid-line {
+  stroke: rgb(148 163 184 / 0.18);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.temperature-grid-line.vertical {
+  stroke: rgb(148 163 184 / 0.11);
+}
+
+.temperature-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 12px;
+}
+
+.temperature-legend span {
+  display: inline-flex;
+  max-width: 100%;
+  gap: 6px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.radial-progress {
+  --progress: 0%;
+  display: grid;
+  place-items: center;
+  width: 132px;
+  height: 132px;
+  justify-self: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, var(--surface-3) 0 58%, transparent 59%),
+    conic-gradient(var(--accent) var(--progress), var(--surface-hover) 0);
+}
+
+.radial-progress strong {
+  font-size: 1.8rem;
+}
+
+.radial-progress span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.monitor-facts {
+  grid-template-columns: 90px minmax(0, 1fr);
+}
+
+.monitor-facts span {
+  color: var(--muted);
+}
+
+.monitor-facts strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.operation-fact-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.operation-fact {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.8fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 8px;
+}
+
+.operation-fact:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.operation-fact span {
+  color: var(--muted);
+}
+
+.operation-fact strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.load-meter {
+  display: grid;
+  gap: 6px;
+}
+
+.load-meter div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.load-meter span,
+.load-meter small {
+  color: var(--muted);
+}
+
+.load-meter-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-hover);
+}
+
+.load-meter-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 240ms ease;
+}
+
+.can-monitor-header {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  align-items: stretch;
+}
+
+.operation-command-center {
+  grid-column: 1 / -1;
+}
+
+.operation-actions-layout {
+  display: grid;
+  gap: 12px;
+}
+
+.operation-action-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-self: end;
+}
+
+.monitor-can-comparison,
+.can-monitor-row {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--success);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 10px;
+}
+
+.monitor-can-comparison.monitorar,
+.can-monitor-row.monitorar {
+  border-left-color: var(--warning);
+}
+
+.monitor-can-comparison.problema,
+.can-monitor-row.problema {
+  border-left-color: var(--danger);
+}
+
+.can-monitor-row span,
+.can-monitor-row small,
+.monitor-can-comparison span,
+.monitor-can-comparison small {
+  color: var(--muted);
+}
+
+@keyframes monitor-flow {
+  from {
+    stroke-dashoffset: 220;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}

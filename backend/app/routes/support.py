@@ -109,6 +109,7 @@ from app.releases import (
     ReleasesResponse,
     build_releases_response,
     build_unavailable_releases_response,
+    installed_app_version,
 )
 from app.self_update import (
     SelfUpdateRepository,

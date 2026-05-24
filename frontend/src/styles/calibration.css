@@ -1,0 +1,560 @@
+.z-offset-form {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 120px 120px 140px minmax(260px, 1.5fr) auto;
+  gap: 10px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.z-offset-form label {
+  display: grid;
+  gap: 5px;
+}
+
+.z-offset-form label span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.z-offset-form textarea {
+  min-height: 42px;
+}
+
+.z-offset-form-actions {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+  padding-top: 21px;
+}
+
+.firmware-run-detail,
+.calibration-detail {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.firmware-run-detail ol,
+.calibration-detail ol {
+  margin: 0;
+  padding-left: 22px;
+  color: var(--muted);
+}
+
+.firmware-run-detail pre,
+.calibration-detail pre {
+  margin: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  padding: 10px;
+  background: var(--code-bg);
+  color: var(--code-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.calibration-list {
+  display: grid;
+  gap: 8px;
+}
+
+.calibration-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.calibration-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+  align-items: start;
+}
+
+.calibration-dashboard-grid-wide {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.34fr);
+}
+
+.calibration-flow-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.32fr);
+  gap: 14px;
+  margin-top: 12px;
+  align-items: start;
+}
+
+.calibration-roadmap-panel,
+.calibration-next-panel,
+.calibration-action-panel {
+  align-self: start;
+}
+
+.calibration-section-note {
+  margin: 6px 0 10px;
+}
+
+.calibration-sequence-list {
+  display: grid;
+  gap: 0;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.calibration-phase-grid {
+  display: grid;
+  gap: 0;
+  margin-top: 8px;
+}
+
+.calibration-phase-card {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.24fr) minmax(0, 1fr);
+  gap: 12px;
+  border-top: 1px solid var(--border-soft);
+  padding: 10px 0;
+}
+
+.calibration-phase-card > div:first-child {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  position: sticky;
+  top: 10px;
+}
+
+.calibration-phase-card > div:first-child strong {
+  font-size: 14px;
+}
+
+.calibration-phase-card > div:first-child span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.calibration-phase-card ol {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.section-heading-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 26px;
+}
+
+.section-heading-compact span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.calibration-sequence-row,
+.calibration-next-row {
+  min-width: 0;
+}
+
+.calibration-sequence-row {
+  display: grid;
+  grid-template-columns: 30px minmax(110px, 0.18fr) minmax(0, 1fr) 78px auto;
+  gap: 10px;
+  align-items: center;
+  border-top: 1px solid var(--border-soft);
+  padding: 9px 0;
+}
+
+.calibration-sequence-row:hover {
+  background: var(--surface-3);
+}
+
+.calibration-step-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.calibration-step-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.calibration-step-phase {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.calibration-step-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.calibration-sequence-row small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.calibration-sequence-row em,
+.calibration-next-row em {
+  display: inline-flex;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.calibration-step-actions,
+.calibration-next-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.calibration-step-actions button,
+.calibration-next-actions button {
+  min-height: 30px;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+
+.calibration-step-actions .calibration-action-icon,
+.calibration-next-actions .calibration-action-icon {
+  width: 34px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+}
+
+.calibration-next-row {
+  display: grid;
+  gap: 5px;
+  border-top: 1px solid var(--border-soft);
+  padding: 10px 0 10px 10px;
+}
+
+.calibration-next-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.calibration-next-title strong {
+  min-width: 0;
+}
+
+.calibration-action-panel {
+  position: sticky;
+  top: 14px;
+}
+
+.calibration-fine-tune-panel .wizard-actions {
+  margin-bottom: 10px;
+}
+
+.calibration-fine-tune-panel .z-offset-form {
+  grid-template-columns: minmax(160px, 1fr) 120px 120px 140px minmax(260px, 1.5fr) auto;
+}
+
+.first-layer-empty-state {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  border-top: 1px solid var(--border-soft);
+  padding: 12px 0 4px;
+  margin-bottom: 10px;
+}
+
+.first-layer-empty-state div {
+  display: grid;
+  gap: 4px;
+}
+
+.first-layer-empty-state span {
+  color: var(--muted);
+}
+
+.calibration-next-row small {
+  display: block;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.calibration-sequence-row.completed em {
+  color: var(--success);
+}
+
+.calibration-sequence-row.skipped em {
+  color: var(--warning);
+}
+
+.calibration-next-row.medium {
+  border-left: 3px solid var(--warning);
+  padding-left: 10px;
+}
+
+.calibration-next-row.high {
+  border-left: 3px solid var(--danger);
+  padding-left: 10px;
+}
+
+.calibration-next-row.low {
+  border-left: 3px solid var(--success);
+  padding-left: 10px;
+}
+
+.calibration-recommendations {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface-3);
+  padding: 12px;
+}
+
+.calibration-recommendations div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.calibration-run-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) minmax(120px, 0.7fr) repeat(5, minmax(110px, 0.7fr)) minmax(130px, 0.7fr);
+  gap: 10px;
+  align-items: start;
+  margin: 14px 0;
+}
+
+.calibration-run-form textarea {
+  grid-column: 1 / -2;
+  min-height: 46px;
+}
+
+.inline-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+}
+
+.inline-check input {
+  width: auto;
+}
+
+.calibration-run-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.calibration-run-row {
+  border-left: 3px solid var(--status-neutral);
+  border-top: 1px solid var(--border-soft);
+  padding: 10px 12px;
+}
+
+.calibration-run-row.passed {
+  border-left-color: var(--success);
+}
+
+.calibration-run-row.warning {
+  border-left-color: var(--warning);
+}
+
+.calibration-run-row.failed {
+  border-left-color: var(--danger);
+}
+
+.calibration-run-row.skipped {
+  border-left-color: var(--status-neutral);
+}
+
+.calibration-run-row span,
+.calibration-run-row small {
+  display: block;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.calibration-row {
+  border-top: 1px solid var(--border-soft);
+  padding: 10px 0;
+}
+
+.calibration-row.low {
+  border-left: 3px solid var(--success);
+  padding-left: 12px;
+}
+
+.calibration-row.medium {
+  border-left: 3px solid var(--warning);
+  padding-left: 12px;
+}
+
+.calibration-row.high {
+  border-left: 3px solid var(--danger);
+  padding-left: 12px;
+}
+
+.calibration-row summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.calibration-row summary span,
+.calibration-row summary small,
+.calibration-row em,
+.calibration-detail small,
+.calibration-detail p {
+  color: var(--muted);
+}
+
+.calibration-row summary small {
+  display: block;
+  margin-top: 4px;
+}
+
+.calibration-row em {
+  font-style: normal;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.preset-details {
+  margin-top: 14px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 12px;
+}
+
+.preset-details summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.preset-list {
+  margin-top: 10px;
+}
+
+.preset-row {
+  border-top: 1px solid var(--border-soft);
+  padding: 10px 0;
+  overflow-wrap: anywhere;
+}
+
+.wizard-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.wizard-actions span {
+  color: var(--muted);
+}
+
+.z-offset-wizard {
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--success);
+  border-radius: 6px;
+  background: var(--surface-3);
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.z-offset-wizard.monitorar {
+  border-left-color: var(--warning);
+}
+
+.z-offset-wizard.revisar {
+  border-left-color: var(--danger);
+}
+
+.z-offset-wizard > div:first-child {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.z-offset-wizard span,
+.z-offset-wizard small {
+  color: var(--muted);
+}
+
+.wizard-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.wizard-steps {
+  display: grid;
+  gap: 8px;
+}
+
+.wizard-step {
+  grid-template-columns: 18px minmax(0, 1fr);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 8px;
+}
+
+.wizard-step input {
+  width: auto;
+  margin-top: 3px;
+}
+
+.wizard-step code {
+  display: inline-block;
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 6px;
+  color: var(--code-text);
+  background: var(--code-bg);
+}
+
+.z-offset-list {
+  display: grid;
+  gap: 8px;
+}
+
+.z-offset-row {
+  border-left: 3px solid var(--success);
+  border-top: 1px solid var(--border-soft);
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+}
+
+.z-offset-row.monitorar {
+  border-left-color: var(--warning);
+}
+
+.z-offset-row.revisar {
+  border-left-color: var(--danger);
+}
+
+.z-offset-row span,
+.z-offset-row small {
+  display: block;
+  color: var(--muted);
+}
