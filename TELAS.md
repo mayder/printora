@@ -98,6 +98,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - A Home operacional deve explicar o risco principal quando o estado for `Nao imprimir` ou `Monitorar`, exibindo causa, evidencia e acao segura.
 - A Central de alertas deve consolidar Health Check, Update Manager, checklist pos-update e auditoria com botoes de revalidacao, abertura do diagnostico ou fluxo de update quando aplicavel.
 - A tela Monitoramento deve ser leitura ao vivo para operador leigo: sem cadastro manual, sem checklist pos-update, sem auditoria tecnica e com graficos/indicadores que se atualizam automaticamente.
+- Na tela Monitoramento, temperaturas devem aparecer em tabela compacta com estado, atual e alvo, acompanhadas de um unico grafico combinado de evolucao por sensor/heater.
 - Formularios tecnicos de CAN devem ficar fora da tela Monitoramento.
 - Checklist pos-update deve aparecer na tela Atualizacoes.
 - Na tela Atualizacoes, `Atualizar tudo` aparece somente quando houver mais de um componente atualizavel.
