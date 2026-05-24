@@ -1,109 +1,120 @@
 # Printora
 
-![Printora logo](frontend/public/brand/printora-logo-horizontal-color.png)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="identidade/printora-logo-horizontal-dark-bg.png">
+    <img src="identidade/printora-logo-horizontal-color.png" alt="Printora" width="620">
+  </picture>
+</p>
 
-Printora é uma aplicação web local para impressoras Klipper/Moonraker.
+Printora é uma aplicação web local para acompanhar, diagnosticar e manter impressoras 3D com Klipper/Moonraker.
 
-Ela ajuda com saúde da impressora, auditorias read-only, snapshots, backups, manutenção, histórico de CAN, Z-offset, registros de calibração e planejamento seguro de firmware.
+O foco é segurança operacional: ler o estado real da impressora, registrar histórico, gerar evidências e reduzir risco antes de updates, manutenção, ajustes ou planejamento de firmware.
+
+## Para Que Serve
+
+- cadastrar e selecionar múltiplas impressoras Klipper/Moonraker;
+- acompanhar visão geral, health check e alertas;
+- visualizar operação ao vivo da impressora ativa;
+- consultar Update Manager e checklist pós-update;
+- registrar manutenção preventiva, diário técnico e horas de impressão;
+- capturar snapshots read-only e comparar mudanças;
+- gerar relatórios sanitizados para compartilhar sem expor dados sensíveis;
+- acompanhar histórico CAN, Z-offset e calibração;
+- planejar build e flash de firmware com fluxo conservador.
+
+## Estado Atual
+
+Esta versão é local, gratuita e ainda está em teste.
 
 Por padrão, o Printora é conservador:
 
 - não envia G-code pelo launcher rápido;
 - não reinicia Klipper, Moonraker ou systemd pelo launcher rápido;
 - não faz flash de firmware pelo launcher rápido;
-- salva os dados locais em SQLite no computador onde a aplicação está rodando.
+- salva os dados em SQLite no computador ou dispositivo onde a aplicação está rodando.
 
-## Modelo de trabalho
-
-Este monorepo usa `PATHS.toml` como mapa oficial para IA e humanos. A raiz concentra governanca, backlog, testes, telas, decisoes, runbook, mapas e check oficial.
-
-Arquivos principais:
-
-- `PATHS.toml`
-- `QUALITY_ROADMAP.md`
-- `GOVERNANCA.md`
-- `DEMANDAS.md`
-- `TESTES.md`
-- `BUGS.md`
-- `TELAS.md`
-- `DECISOES.md`
-- `RUNBOOK.md`
-- `MAPA_EXECUTIVO_MARKMAP.md`
-- `MAPA_MENTAL_MARKMAP.md`
-
-Validacao oficial:
-
-```bash
-./check.sh
-```
-
-## O Que Clicar
-
-### macOS
-
-1. Abra a pasta do projeto.
-2. Dê duplo clique em:
-
-```text
-Abrir Printora.command
-```
-
-3. Mantenha a janela do Terminal aberta.
-4. O navegador deve abrir:
-
-```text
-http://127.0.0.1:8085
-```
-
-Para parar o Printora, pressione `Ctrl+C` nessa janela do Terminal ou feche a janela.
-
-Se o macOS bloquear o arquivo, rode uma vez dentro da pasta do projeto:
-
-```bash
-chmod +x "Abrir Printora.command" scripts/run_app.sh
-```
-
-Depois dê duplo clique em `Abrir Printora.command` de novo.
-
-### Windows
-
-1. Abra a pasta do projeto.
-2. Dê duplo clique em:
-
-```text
-Abrir Printora.bat
-```
-
-3. Mantenha a janela do PowerShell aberta.
-4. O navegador deve abrir:
-
-```text
-http://127.0.0.1:8085
-```
-
-Para parar o Printora, pressione `Ctrl+C` nessa janela do PowerShell ou feche a janela.
-
-Se o Windows bloquear a execução do script, abra o PowerShell na pasta do projeto e rode:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_app_windows.ps1
-```
+O fluxo de firmware é uma das prioridades do projeto. A meta inicial é simplificar atualização e planejamento seguro de MCU, EBB e placas relacionadas, mas as etapas críticas continuam protegidas por dry-run, validação e confirmação.
 
 ## Requisitos
 
-Para macOS, Linux e Windows:
-
 - Python 3.11 ou mais novo;
 - Node.js e npm;
-- acesso de rede ao Moonraker da impressora, se quiser dados ao vivo.
+- acesso de rede ao Moonraker da impressora para dados ao vivo.
 
-URL padrão da impressora usada pelo launcher:
+URL padrão usada pelos atalhos locais:
 
 ```text
 http://voron.local:7125
 ```
 
-Para trocar a URL antes de abrir:
+## Uso Rápido
+
+### macOS
+
+1. Abra a pasta do projeto.
+2. Dê duplo clique em `Abrir Printora.command`.
+3. Mantenha a janela do Terminal aberta.
+4. Abra `http://127.0.0.1:8085`.
+
+Se o macOS bloquear o arquivo:
+
+```bash
+chmod +x "Abrir Printora.command" scripts/run_app.sh
+```
+
+### Windows
+
+1. Abra a pasta do projeto.
+2. Dê duplo clique em `Abrir Printora.bat`.
+3. Mantenha a janela do PowerShell aberta.
+4. Abra `http://127.0.0.1:8085`.
+
+Se o Windows bloquear a execução:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_app_windows.ps1
+```
+
+### Linux, Raspberry Ou Android/Termux
+
+Consulte o guia completo:
+
+```text
+docs/INSTALL_MULTIPLATFORM.md
+```
+
+## Comandos Manuais
+
+macOS/Linux:
+
+```bash
+./scripts/run_app.sh
+./scripts/run_app.sh --status
+./scripts/run_app.sh --stop
+```
+
+Windows PowerShell:
+
+```powershell
+.\scripts\run_app_windows.ps1
+.\scripts\run_app_windows.ps1 --status
+.\scripts\run_app_windows.ps1 --stop
+```
+
+Docker:
+
+```bash
+docker compose up --build
+```
+
+Depois abra:
+
+```text
+http://127.0.0.1:8085
+```
+
+## Configurar Moonraker
 
 macOS/Linux:
 
@@ -118,94 +129,22 @@ $env:PRINTORA_MOONRAKER_URL="http://sua-impressora.local:7125"
 .\scripts\run_app_windows.ps1
 ```
 
-## Comandos Manuais
-
-macOS/Linux:
-
-```bash
-./scripts/run_app.sh
-./scripts/run_app.sh --status
-./scripts/run_app.sh --stop
-```
-
-Atualização local macOS/Linux/Raspberry:
-
-```bash
-./scripts/update_printora.sh --plan --tag v0.1.1
-./scripts/update_printora.sh --apply --tag v0.1.1
-./scripts/update_printora.sh --rollback --previous-path /caminho/Printora.previous-update-YYYYMMDDTHHMMSSZ
-```
-
-O updater cria backup do banco em `backups/printora.db.before-update-*`, preserva a pasta anterior do projeto e reinicia via `systemd`, `tmux` ou `scripts/run_app.sh`, conforme o host.
-
-Windows PowerShell:
-
-```powershell
-.\scripts\run_app_windows.ps1
-.\scripts\run_app_windows.ps1 --status
-.\scripts\run_app_windows.ps1 --stop
-```
-
-Atualização local Windows:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\update_printora_windows.ps1 --Plan --Tag v0.1.1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\update_printora_windows.ps1 --Apply --Tag v0.1.1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\update_printora_windows.ps1 --Rollback --PreviousPath C:\caminho\Printora.previous-update-YYYYMMDDTHHMMSSZ
-```
-
-O `ExecutionPolicy Bypass` fica restrito ao processo desse comando. O updater preserva `%LOCALAPPDATA%\Printora\printora.db` antes de alterar backend/frontend.
-
-Docker:
-
-```bash
-docker compose up --build
-```
-
-Depois abra:
-
-```text
-http://127.0.0.1:8085
-```
-
-## Instalação Na Raspberry Ou Mainsail
-
-O instalador Raspberry/systemd é separado dos atalhos locais de duplo clique.
-
-Dry-run:
-
-```bash
-./scripts/install_raspberry.sh
-```
-
-Aplicar depois de revisar:
-
-```bash
-./scripts/install_raspberry.sh --apply
-```
-
-Guia completo:
-
-```text
-docs/INSTALL_RASPBERRY.md
-```
+Também é possível cadastrar impressoras pela interface.
 
 ## Onde Ficam Os Dados
-
-Pastas padrão:
 
 - macOS: `~/Library/Application Support/Printora`
 - Windows: `%LOCALAPPDATA%\Printora`
 - Linux: `~/.local/share/printora`
 - Docker: volume `printora-data`
 
-O banco SQLite se chama:
+Banco local:
 
 ```text
 printora.db
 ```
 
-## Como Validar
+## Validação
 
 Health check:
 
@@ -219,7 +158,7 @@ Resposta esperada:
 {"status":"ok","app":"Printora"}
 ```
 
-Checks do projeto:
+Check oficial do projeto:
 
 ```bash
 ./check.sh
@@ -237,12 +176,39 @@ Build do frontend:
 npm --prefix frontend run build
 ```
 
-## Mais Documentação
+## Estrutura Do Repositório
 
-- Detalhes de recursos e endpoints: `docs/FEATURES.md`
-- Instalação multiplataforma com comandos para macOS, Windows, Android, Raspberry/Linux e Docker: `docs/INSTALL_MULTIPLATFORM.md`
+`PATHS.toml` é o mapa oficial do monorepo. Ele define raízes, arquivos principais, checks, módulos e regras de qualidade usadas para manter backend, frontend, documentação e scripts alinhados.
+
+Arquivos principais:
+
+- `PATHS.toml`: mapa oficial do projeto;
+- `QUALITY_ROADMAP.md`: fluxo de desenvolvimento e critérios de qualidade;
+- `GOVERNANCA.md`: segurança, riscos, release gates e rollback;
+- `DEMANDAS.md`: backlog de pacotes e entregas;
+- `TELAS.md`: telas, rotas e estados da interface;
+- `TESTES.md`: estratégia de validação;
+- `RUNBOOK.md`: operação local, diagnóstico e publicação;
+- `MAPA_EXECUTIVO_MARKMAP.md`: mapa mental executivo;
+- `MAPA_MENTAL_MARKMAP.md`: mapa mental completo.
+
+## Licença
+
+Printora é open source sob a licença MIT. Veja `LICENSE`.
+
+O software é fornecido sem garantia. Operações em impressoras, firmware, Moonraker, Klipper, systemd ou arquivos de configuração devem ser revisadas pelo usuário antes de execução real.
+
+## Links
+
+- Projeto: <https://github.com/mayder/printora>
+- Autor: <https://www.linkedin.com/in/brenomayder/>
+- Instagram: <https://www.instagram.com/brenomayder>
+
+## Documentação
+
+- Recursos e endpoints: `docs/FEATURES.md`
+- Instalação multiplataforma: `docs/INSTALL_MULTIPLATFORM.md`
 - Instalação Raspberry/Mainsail/Moonraker: `docs/INSTALL_RASPBERRY.md`
-- Escopo: `ESCOPO.md`
 - Governança e segurança: `GOVERNANCA.md`
-- Workflow de desenvolvimento: `QUALITY_ROADMAP.md`
-- Backlog: `DEMANDAS.md`
+- Testes: `TESTES.md`
+- Runbook: `RUNBOOK.md`

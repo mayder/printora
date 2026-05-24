@@ -570,7 +570,9 @@ label {
 .section-firmware .panel-firmware,
 .section-maintenance .panel-maintenance,
 .section-reports .panel-reports,
-.section-settings .panel-settings {
+.section-settings .panel-settings,
+.section-about .panel-about,
+.section-license .panel-license {
   display: block;
 }
 
@@ -1245,6 +1247,10 @@ label {
   }
 
   .topbar-alert {
+    width: 100%;
+  }
+
+  .topbar-info {
     width: 100%;
   }
 

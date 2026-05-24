@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { Bell, Menu, X } from "lucide-react";
+import { Bell, Info, Menu, X } from "lucide-react";
 import { appSections } from "./app/navigation";
 import { AppModals } from "./components/modals";
 import { OverviewScreen } from "./screens/OverviewScreen";
@@ -12,6 +12,8 @@ import { FirmwareScreen } from "./screens/FirmwareScreen";
 import { MaintenanceScreen } from "./screens/MaintenanceScreen";
 import { ReportsScreen } from "./screens/ReportsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { AboutScreen } from "./screens/AboutScreen";
+import { LicenseScreen } from "./screens/LicenseScreen";
 import { usePrintoraApp } from "./hooks/usePrintoraApp";
 import "./styles.css";
 import "./styles/overview.css";
@@ -26,6 +28,7 @@ import "./styles/firmware.css";
 import "./styles/calibration.css";
 import "./styles/tests.css";
 import "./styles/reports.css";
+import "./styles/about.css";
 
 function App() {
   const {
@@ -119,6 +122,15 @@ function App() {
             </div>
           </div>
           <div className="topbar-actions">
+            <button
+              type="button"
+              className={`icon-button topbar-info ${activeSection === "about" || activeSection === "license" ? "active" : ""}`}
+              title="Sobre o Printora"
+              aria-label="Sobre o Printora"
+              onClick={() => setActiveSection("about")}
+            >
+              <Info size={17} />
+            </button>
             <label className="topbar-printer context-select" aria-label="Impressora ativa">
               <select
                 value={selectedPrinterId ?? ""}
@@ -171,6 +183,10 @@ function App() {
           <span>
             {activeSection === "settings"
               ? "Configuração global do Printora"
+              : activeSection === "about"
+                ? "Autoria, roadmap público e identidade do projeto"
+                : activeSection === "license"
+                  ? "Uso open source com limites de responsabilidade"
               : selectedPrinter
                 ? `Contexto atual: ${selectedPrinter.name}`
                 : "Selecione uma impressora para carregar os dados por contexto."}
@@ -196,6 +212,8 @@ function App() {
           <TestsScreen {...screenProps} />
           <CalibrationScreen {...screenProps} />
           <MaintenanceScreen {...screenProps} />
+          <AboutScreen {...screenProps} />
+          <LicenseScreen {...screenProps} />
         </section>
       </div>
     </main>

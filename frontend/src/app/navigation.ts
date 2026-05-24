@@ -1,4 +1,4 @@
-import { Activity, FileText, Home, ListChecks, Printer, RefreshCw, Settings, SlidersHorizontal, Wrench, Zap } from "lucide-react";
+import { Activity, FileText, Home, Info, ListChecks, Printer, RefreshCw, Scale, Settings, SlidersHorizontal, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
@@ -11,7 +11,9 @@ export type AppSection =
   | "firmware"
   | "maintenance"
   | "reports"
-  | "settings";
+  | "settings"
+  | "about"
+  | "license";
 
 export const appSections: Array<{
   key: AppSection;
@@ -90,12 +92,27 @@ export const appSections: Array<{
     detail: "Preferências, integrações e contexto da impressora ativa.",
     purpose: "Versão instalada, releases e updates do próprio Printora.",
   },
+  {
+    key: "about",
+    icon: Info,
+    label: "Sobre",
+    detail: "Autoria, proposta do projeto e próximos passos.",
+    purpose: "Conheça o Printora, seu autor, as funcionalidades atuais e a visão de evolução do produto.",
+  },
+  {
+    key: "license",
+    icon: Scale,
+    label: "Licença",
+    detail: "Condições de uso, responsabilidade e garantia.",
+    purpose: "Leia os termos de uso open source, limitações de responsabilidade e cuidados operacionais.",
+  },
 ];
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Principal", sections: ["overview", "printers"] },
   { title: "Impressora ativa", sections: ["monitoring", "updates", "calibration", "tests", "firmware", "maintenance"] },
   { title: "Diagnóstico", sections: ["reports", "settings"] },
+  { title: "Projeto", sections: ["about"] },
 ];
 
 export const onlinePrinterSections = new Set<AppSection>([

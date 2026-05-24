@@ -13,6 +13,7 @@ import {
   HelpCircle,
   History,
   Hourglass,
+  Info,
   Menu,
   Moon,
   Play,
@@ -64,6 +65,7 @@ const icons = {
   HelpCircle,
   History,
   Hourglass,
+  Info,
   Menu,
   Moon,
   Play,
@@ -286,6 +288,12 @@ export function usePrintoraApp() {
         disabled: loading,
         run: () => (printers.selectedPrinter ? printers.openEditPrinterModal(printers.selectedPrinter) : printers.openCreatePrinterModal()),
       };
+    }
+    if (shell.activeSection === "about") {
+      return { icon: ShieldCheck, label: "Licença", disabled: loading, run: () => shell.setActiveSection("license") };
+    }
+    if (shell.activeSection === "license") {
+      return { icon: Info, label: "Sobre", disabled: loading, run: () => shell.setActiveSection("about") };
     }
     return {
       icon: RefreshCw,
