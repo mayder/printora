@@ -405,6 +405,7 @@ def apply_self_update(
         script_path=selected_script_path,
         mode="--plan",
         target_tag=request.target_tag,
+        source_url=request.source_url,
         project_root=project_root,
         timeout_seconds=timeout_seconds,
     )
@@ -437,6 +438,7 @@ def apply_self_update(
             script_path=selected_script_path,
             mode="--apply",
             target_tag=request.target_tag,
+            source_url=request.source_url,
             project_root=project_root,
             run_id=run.id,
         )
@@ -453,6 +455,7 @@ def apply_self_update(
         script_path=selected_script_path,
         mode="--apply",
         target_tag=request.target_tag,
+        source_url=request.source_url,
         project_root=project_root,
         timeout_seconds=timeout_seconds,
         run_id=run.id,
@@ -526,6 +529,7 @@ def rollback_self_update(
             script_path=selected_script_path,
             mode="--rollback",
             target_tag=source_run.target_tag,
+            source_url=None,
             project_root=project_root,
             run_id=rollback_run.id,
             extra_args=_rollback_extra_args(source_run.id, previous_path, db_backup_path),
@@ -542,6 +546,7 @@ def rollback_self_update(
         script_path=selected_script_path,
         mode="--rollback",
         target_tag=source_run.target_tag,
+        source_url=None,
         project_root=project_root,
         timeout_seconds=timeout_seconds,
         run_id=rollback_run.id,
@@ -638,6 +643,7 @@ def _run_update_script(
     script_path: Path,
     mode: str,
     target_tag: str,
+    source_url: str | None,
     project_root: Path,
     timeout_seconds: float,
     run_id: int | None = None,
@@ -646,6 +652,8 @@ def _run_update_script(
     import os
 
     env = os.environ.copy()
+    if source_url:
+        env["PRINTORA_UPDATE_REMOTE_URL"] = source_url
     if run_id is not None:
         env["PRINTORA_UPDATE_RUN_ID"] = str(run_id)
     return subprocess.run(
@@ -665,6 +673,7 @@ def _start_update_script_detached(
     script_path: Path,
     mode: str,
     target_tag: str,
+    source_url: str | None,
     project_root: Path,
     run_id: int,
     extra_args: list[str] | None = None,
@@ -672,6 +681,8 @@ def _start_update_script_detached(
     import os
 
     env = os.environ.copy()
+    if source_url:
+        env["PRINTORA_UPDATE_REMOTE_URL"] = source_url
     env["PRINTORA_UPDATE_RUN_ID"] = str(run_id)
     subprocess.Popen(
         _update_script_command(script_path=script_path, mode=mode, target_tag=target_tag, extra_args=extra_args),

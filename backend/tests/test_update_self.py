@@ -258,7 +258,11 @@ def test_apply_rejects_unsupported_environment(tmp_path: Path, monkeypatch) -> N
         with TestClient(app) as client:
             response = client.post(
                 "/api/system/update/apply",
-                json={"target_tag": "v0.2.0", "confirmation_phrase": "ATUALIZAR PRINTORA"},
+                json={
+                    "target_tag": "v0.2.0",
+                    "source_url": "https://github.com/mayder/printora/releases/tag/v0.2.0",
+                    "confirmation_phrase": "ATUALIZAR PRINTORA",
+                },
             )
 
         assert response.status_code == 400
@@ -276,7 +280,11 @@ def test_apply_calls_mocked_unix_script_and_persists_success(tmp_path: Path, mon
         with TestClient(app) as client:
             response = client.post(
                 "/api/system/update/apply",
-                json={"target_tag": "v0.2.0", "confirmation_phrase": "ATUALIZAR PRINTORA"},
+                json={
+                    "target_tag": "v0.2.0",
+                    "source_url": "https://github.com/mayder/printora/releases/tag/v0.2.0",
+                    "confirmation_phrase": "ATUALIZAR PRINTORA",
+                },
             )
             history_response = client.get("/api/system/update/history")
 
@@ -300,7 +308,11 @@ def test_apply_calls_mocked_windows_script_and_persists_success(tmp_path: Path, 
         with TestClient(app) as client:
             response = client.post(
                 "/api/system/update/apply",
-                json={"target_tag": "v0.2.0", "confirmation_phrase": "ATUALIZAR PRINTORA"},
+                json={
+                    "target_tag": "v0.2.0",
+                    "source_url": "https://github.com/mayder/printora/releases/tag/v0.2.0",
+                    "confirmation_phrase": "ATUALIZAR PRINTORA",
+                },
             )
             history_response = client.get("/api/system/update/history")
 
@@ -336,6 +348,30 @@ def test_apply_calls_mocked_android_script_and_persists_success(tmp_path: Path, 
         assert payload["run"]["previous_project_path"] == "/tmp/Printora.previous"
         assert all(step["status"] == "succeeded" for step in payload["run"]["steps"])
         assert history["runs"][0]["status"] == "succeeded"
+    finally:
+        get_settings.cache_clear()
+
+
+def test_apply_passes_release_url_to_script_env(tmp_path: Path, monkeypatch) -> None:
+    script = _write_env_check_update_script(tmp_path)
+    _configure_fixture_releases(tmp_path, monkeypatch, script)
+    monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "android_termux")
+    monkeypatch.setattr(self_update_module, "_should_detach_self_update", lambda environment, project_root: False)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/system/update/apply",
+                json={
+                    "target_tag": "v0.2.0",
+                    "source_url": "https://github.com/mayder/printora/releases/tag/v0.2.0",
+                    "confirmation_phrase": "ATUALIZAR PRINTORA",
+                },
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["accepted"] is True
+        assert payload["run"]["status"] == "succeeded"
     finally:
         get_settings.cache_clear()
 
@@ -499,5 +535,26 @@ echo '{"status":"failed","error":"mock failure"}'
 exit 7
 """
     script.write_text(body, encoding="utf-8")
+    script.chmod(0o755)
+    return script
+
+
+def _write_env_check_update_script(tmp_path: Path) -> Path:
+    script = tmp_path / "android_update_printora.sh"
+    script.write_text(
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${PRINTORA_UPDATE_REMOTE_URL:-}" != "https://github.com/mayder/printora/releases/tag/v0.2.0" ]]; then
+  echo '{"status":"failed","error":"missing remote env"}'
+  exit 9
+fi
+if [[ "$1" == "--plan" ]]; then
+  echo '{"status":"planned","steps":[{"key":"validate_environment"}]}'
+  exit 0
+fi
+echo '{"status":"succeeded","backup_db_path":"/tmp/printora.db.before-update","previous_project_path":"/tmp/Printora.previous","current_project_path":"/tmp/Printora"}'
+""",
+        encoding="utf-8",
+    )
     script.chmod(0o755)
     return script

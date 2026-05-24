@@ -305,10 +305,18 @@ validate_tag() {
 
 project_remote_url() {
   if [[ -n "$UPDATE_REMOTE_URL" ]]; then
-    printf '%s' "$UPDATE_REMOTE_URL"
+    normalize_remote_url "$UPDATE_REMOTE_URL"
     return
   fi
   git -C "$ROOT_DIR" remote get-url origin 2>/dev/null || true
+}
+
+normalize_remote_url() {
+  local remote_url="$1"
+  if [[ "$remote_url" =~ ^https://github[.]com/[^/]+/[^/]+/releases/tag/ ]]; then
+    remote_url="${remote_url%%/releases/tag/*}.git"
+  fi
+  printf '%s' "$remote_url"
 }
 
 tag_exists_on_remote() {

@@ -82,10 +82,17 @@ function Test-Tag {
 }
 
 function Get-RemoteUrl {
-    if ($UpdateRemoteUrl) { return $UpdateRemoteUrl }
+    if ($UpdateRemoteUrl) { return Convert-RemoteUrl $UpdateRemoteUrl }
     $remote = & git -C $RootDir remote get-url origin 2>$null
     if ($LASTEXITCODE -ne 0) { return "" }
     return ($remote | Select-Object -First 1)
+}
+
+function Convert-RemoteUrl([string]$RemoteUrl) {
+    if ($RemoteUrl -match '^https://github[.]com/[^/]+/[^/]+/releases/tag/') {
+        return (($RemoteUrl -replace '/releases/tag/.*$', '') + '.git')
+    }
+    return $RemoteUrl
 }
 
 function Test-RemoteTag([string]$RemoteUrl) {
