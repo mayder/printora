@@ -2652,6 +2652,10 @@ label {
   margin: 0;
 }
 
+.section-firmware .firmware-workspace {
+  display: grid;
+}
+
 .firmware-board-form {
   display: grid;
   grid-template-columns: minmax(130px, 0.7fr) minmax(260px, 1.4fr) minmax(140px, 0.7fr) 90px minmax(200px, 1fr) minmax(220px, 1fr) auto;
@@ -3877,24 +3881,15 @@ label {
 .release-list {
   display: grid;
   gap: 10px;
-  margin-top: 14px;
-}
-
-.release-list .collapsible-panel {
-  display: grid;
-  gap: 10px;
 }
 
 .release-row.installed {
   border-left-color: var(--success);
 }
 
-.self-update-history {
-  display: grid;
-  gap: 10px;
-  margin-top: 16px;
-  border-top: 1px solid var(--border-soft);
-  padding-top: 14px;
+.compact-summary-action {
+  min-height: 30px;
+  padding: 5px 9px;
 }
 
 .host-diagnostics-panel {
@@ -3904,6 +3899,26 @@ label {
 .settings-advanced-panel {
   align-self: start;
   margin-top: 0;
+}
+
+.panel-section.settings-advanced-panel {
+  display: none;
+}
+
+.section-settings .panel-section.settings-advanced-panel {
+  display: block;
+}
+
+.section-settings .self-update-history[open] {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-advanced-panel.release-history-panel,
+.settings-advanced-panel.self-update-history,
+.settings-advanced-panel.can-technical-panel,
+.settings-advanced-panel.host-diagnostics-panel {
+  grid-column: span 6;
 }
 
 .settings-advanced-summary {

@@ -90,6 +90,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Diagnostico avancado do host fica em `settings`, colapsado e com ajuda contextual por modal.
 - CAN de monitoramento fica em `monitoring` como leitura operacional; registro tecnico, parser e comparacao manual ficam em `settings`, colapsados e com ajuda contextual por modal.
 - Updates da impressora ficam em `updates`; updates do proprio Printora ficam em `settings`.
+- Na tela Configuracoes, `Releases anteriores` e `Historico de updates` ficam como blocos colapsados lado a lado, no mesmo padrao dos blocos tecnicos.
 
 ## Estado de UI
 

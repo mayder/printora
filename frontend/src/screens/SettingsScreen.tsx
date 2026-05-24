@@ -242,46 +242,77 @@ export function SettingsScreen(props: SettingsScreenProps) {
               <span>{selfUpdateMessage}</span>
             </div>
           ) : null}
+        </article>
+
+        <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel release-history-panel">
+          <summary className="settings-advanced-summary">
+            <span>Releases anteriores</span>
+          </summary>
           <div className="release-list">
-            <details className="collapsible-panel">
-              <summary>Releases anteriores</summary>
-              {releaseLoading ? <p className="muted">Carregando releases de produção...</p> : null}
-              {!releaseLoading && displayedReleaseRows.length === 0 ? (
-                <p className="muted">Nenhuma release anterior para listar.</p>
-              ) : null}
-              {displayedReleaseRows.map((release: any) => (
-                <div key={release.tag} className={`release-row ${release.installed ? "installed" : ""}`}>
-                  <div>
-                    <strong>{release.name}</strong>
-                    <span>
-                      {release.tag} · {release.published_at ?? "sem data"} · {release.installed ? "instalada" : release.channel}
-                    </span>
-                  </div>
-                  <p>{release.changelog_summary || "Sem changelog informado."}</p>
+            {releaseLoading ? <p className="muted">Carregando releases de produção...</p> : null}
+            {!releaseLoading && displayedReleaseRows.length === 0 ? (
+              <p className="muted">Nenhuma release anterior para listar.</p>
+            ) : null}
+            {displayedReleaseRows.map((release: any) => (
+              <div key={release.tag} className={`release-row ${release.installed ? "installed" : ""}`}>
+                <div>
+                  <strong>{release.name}</strong>
+                  <span>
+                    {release.tag} · {release.published_at ?? "sem data"} · {release.installed ? "instalada" : release.channel}
+                  </span>
                 </div>
-              ))}
-            </details>
-          </div>
-          <div className="self-update-history">
-            <div className="panel-header-row compact">
-              <div>
-                <h3>Histórico de updates</h3>
+                <p>{release.changelog_summary || "Sem changelog informado."}</p>
               </div>
-              <button type="button" className="ghost-button" onClick={() => void loadSelfUpdateHistory()}>
-                <History size={15} />
-                Recarregar
-              </button>
-            </div>
-            {selfUpdateHistory.length === 0 ? <p className="muted">Nenhum update do Printora registrado.</p> : null}
-            {selfUpdateHistory.slice(0, 5).map((run: any) => (
-              <div key={run.id} className={`update-row ${selfUpdateRunClass(run.status)}`}>
-                <div className="update-main">
-                  <div>
-                    <strong>#{run.id} · {run.target_tag}</strong>
-                    <span>
-                      {formatSelfUpdateStatus(run.status)} · {run.created_at}
-                    </span>
-                  </div>
+            ))}
+          </div>
+        </details>
+
+        <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel self-update-history">
+          <summary className="settings-advanced-summary">
+            <span>Histórico de updates</span>
+            <button
+              type="button"
+              className="secondary-button compact-summary-action"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void loadSelfUpdateHistory();
+              }}
+            >
+              <History size={15} />
+              Recarregar
+            </button>
+          </summary>
+          {selfUpdateHistory.length === 0 ? <p className="muted">Nenhum update do Printora registrado.</p> : null}
+          {selfUpdateHistory.slice(0, 5).map((run: any) => (
+            <div key={run.id} className={`update-row ${selfUpdateRunClass(run.status)}`}>
+              <div className="update-main">
+                <div>
+                  <strong>#{run.id} · {run.target_tag}</strong>
+                  <span>
+                    {formatSelfUpdateStatus(run.status)} · {run.created_at}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    setSelfUpdateConfirmation("");
+                    setSelfUpdateRollbackConfirmation("");
+                    setSelfUpdatePlan({
+                      safe_mode: "history",
+                      update_supported: isSelfUpdateEnvironmentSupported(run.environment),
+                      can_apply: false,
+                      message: "Detalhes do update registrado.",
+                      run,
+                    });
+                    setSelfUpdateModalOpen(true);
+                  }}
+                >
+                  <FileText size={15} />
+                  Ver detalhes
+                </button>
+                {canRollbackSelfUpdateRun(run) ? (
                   <button
                     type="button"
                     className="secondary-button"
@@ -292,41 +323,20 @@ export function SettingsScreen(props: SettingsScreenProps) {
                         safe_mode: "history",
                         update_supported: isSelfUpdateEnvironmentSupported(run.environment),
                         can_apply: false,
-                        message: "Detalhes do update registrado.",
+                        message: "Revise os detalhes antes do rollback.",
                         run,
                       });
                       setSelfUpdateModalOpen(true);
                     }}
                   >
-                    <FileText size={15} />
-                    Ver detalhes
+                    <Undo2 size={15} />
+                    Rollback
                   </button>
-                  {canRollbackSelfUpdateRun(run) ? (
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => {
-                        setSelfUpdateConfirmation("");
-                        setSelfUpdateRollbackConfirmation("");
-                        setSelfUpdatePlan({
-                          safe_mode: "history",
-                          update_supported: isSelfUpdateEnvironmentSupported(run.environment),
-                          can_apply: false,
-                          message: "Revise os detalhes antes do rollback.",
-                          run,
-                        });
-                        setSelfUpdateModalOpen(true);
-                      }}
-                    >
-                      <Undo2 size={15} />
-                      Rollback
-                    </button>
-                  ) : null}
-                </div>
+                ) : null}
               </div>
-            ))}
-          </div>
-        </article>
+            </div>
+          ))}
+        </details>
 
         <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel can-technical-panel">
           <summary className="settings-advanced-summary">
