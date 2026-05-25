@@ -127,6 +127,7 @@ Aceite:
 - `scripts/unlock_update.sh` cria backup do `printora.db` e marca updates `running` como `failed`;
 - `POST /api/system/update/reconcile` reconcilia update `running` antigo e retorna contagem de runs ainda em execução;
 - tela `Configurações > Histórico de updates` tem ação para reconciliar updates travados.
+- scripts de update validam `/openapi.json` após restart para confirmar que o backend reiniciado está na versão alvo, evitando frontend novo com backend antigo.
 
 O check inicial valida:
 

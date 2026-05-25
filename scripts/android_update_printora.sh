@@ -17,6 +17,7 @@ HTTP_PORT="${HTTP_PORT:-${PRINTORA_PORT:-8069}}"
 PUBLIC_PORT="${PUBLIC_PORT:-${HTTP_PORT}}"
 HOST_NAME="${HOST_NAME:-printora}"
 HEALTH_URL="${PRINTORA_HEALTH_URL:-http://127.0.0.1:${HTTP_PORT}/health}"
+VERSION_URL="${PRINTORA_VERSION_URL:-http://127.0.0.1:${HTTP_PORT}/openapi.json}"
 UPDATE_REMOTE_URL="${PRINTORA_UPDATE_REMOTE_URL:-}"
 
 usage() {
@@ -388,12 +389,36 @@ restart_app() {
 validate_health() {
   require_command curl
   for _ in $(seq 1 30); do
-    if curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then
+    if curl -fsS "$HEALTH_URL" >/dev/null 2>&1 && validate_running_version; then
       return
     fi
     sleep 1
   done
-  fail_json "Printora não respondeu em ${HEALTH_URL}"
+  fail_json "Printora não respondeu com a versão ${TARGET_TAG} em ${HEALTH_URL}"
+}
+
+validate_running_version() {
+  local expected_version
+  expected_version="${TARGET_TAG#v}"
+  PRINTORA_VERSION_URL="$VERSION_URL" \
+  PRINTORA_EXPECTED_VERSION="$expected_version" \
+  python - <<'PY'
+import json
+import os
+import urllib.request
+
+url = os.environ["PRINTORA_VERSION_URL"]
+expected = os.environ["PRINTORA_EXPECTED_VERSION"]
+
+try:
+    with urllib.request.urlopen(url, timeout=2) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+except Exception:
+    raise SystemExit(1)
+
+actual = str(payload.get("info", {}).get("version", "")).strip().removeprefix("v")
+raise SystemExit(0 if actual == expected else 1)
+PY
 }
 
 mark_run_succeeded() {

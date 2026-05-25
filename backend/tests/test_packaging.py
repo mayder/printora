@@ -39,6 +39,20 @@ def test_multiplatform_bootstrap_artifacts_exist() -> None:
     assert (ROOT_DIR / "docs/INSTALL_MULTIPLATFORM.md").is_file()
 
 
+def test_update_scripts_validate_running_version_after_restart() -> None:
+    unix_script = (ROOT_DIR / "scripts/update_printora.sh").read_text()
+    android_script = (ROOT_DIR / "scripts/android_update_printora.sh").read_text()
+    windows_script = (ROOT_DIR / "scripts/update_printora_windows.ps1").read_text()
+
+    assert "openapi.json" in unix_script
+    assert "validate_running_version" in unix_script
+    assert "processo antigo ainda responde" in unix_script
+    assert "openapi.json" in android_script
+    assert "validate_running_version" in android_script
+    assert "openapi.json" in windows_script
+    assert "Test-RunningVersion" in windows_script
+
+
 def test_docker_compose_uses_safe_defaults() -> None:
     compose = (ROOT_DIR / "docker-compose.yml").read_text()
 
