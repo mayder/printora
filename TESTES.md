@@ -489,7 +489,7 @@ Critérios:
 - No Windows, rodar `.\scripts\run_app_windows.ps1 --status`.
 - No Windows, abrir `Abrir Printora.bat` e confirmar `GET http://127.0.0.1:8069/health`.
 - Revisar `Dockerfile` e `docker-compose.yml`.
-- Confirmar que `docs/INSTALL_MULTIPLATFORM.md` documenta macOS, Linux, Windows, Docker, Raspberry e Manta/CB1.
+- Confirmar que `README.md` direciona para guias públicos separados por sistema operacional e que `docs/INSTALL_MULTIPLATFORM.md` funciona como índice.
 
 ### Updater Do Printora
 

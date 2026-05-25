@@ -12,5 +12,8 @@ while IFS= read -r file; do
   fi
 done < <(find . -maxdepth 1 -type f -name '*.md' -print)
 
-grep -F "PATHS.toml" README.md >/dev/null || fail "README.md deve explicar PATHS.toml"
-grep -F "MAPA_MENTAL_MARKMAP.md" README.md >/dev/null || fail "README.md deve citar mapa mental"
+grep -F "Printora é" README.md >/dev/null || fail "README.md deve apresentar o projeto"
+grep -F "docs/INSTALL_MACOS.md" README.md >/dev/null || fail "README.md deve apontar para guia macOS"
+grep -F "docs/INSTALL_WINDOWS.md" README.md >/dev/null || fail "README.md deve apontar para guia Windows"
+grep -F "docs/INSTALL_ANDROID_TERMUX.md" README.md >/dev/null || fail "README.md deve apontar para guia Android/Termux"
+grep -F "docs/INSTALL_LINUX_RASPBERRY.md" README.md >/dev/null || fail "README.md deve apontar para guia Linux/Raspberry"
