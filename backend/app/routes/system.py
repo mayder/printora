@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+from app.install_diagnostics import InstallationDiagnosticsResponse, build_installation_diagnostics
 from app.routes.support import *
 
 router = APIRouter()
@@ -16,6 +19,15 @@ async def health() -> dict[str, str]:
 async def system_version() -> dict[str, object]:
     settings = get_settings()
     return get_database_version_info(settings.database_path, settings.data_dir)
+
+
+@router.get("/api/system/install-diagnostics")
+async def system_install_diagnostics() -> InstallationDiagnosticsResponse:
+    settings = get_settings()
+    return build_installation_diagnostics(
+        settings=settings,
+        project_root=Path(__file__).resolve().parents[3],
+    )
 
 
 

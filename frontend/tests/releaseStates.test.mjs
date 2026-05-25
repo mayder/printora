@@ -107,8 +107,11 @@ assert.match(selfUpdateHookSource, /async function startSelfUpdateFlow\(\)/);
 assert.match(systemApiSource, /\/api\/system\/update\/plan/);
 assert.match(systemApiSource, /\/api\/system\/update\/apply/);
 assert.match(systemApiSource, /\/api\/system\/update\/history/);
+assert.match(systemApiSource, /\/api\/system\/install-diagnostics/);
 assert.match(selfUpdateModalSource, /ATUALIZAR PRINTORA/);
 assert.match(settingsScreenSource, /Atualizar agora/);
+assert.match(settingsScreenSource, /Diagnóstico da instalação/);
+assert.match(settingsScreenSource, /Copiar diagnóstico/);
 assert.match(selfUpdateModalSource, /visibleSelfUpdateSteps/);
 
 console.log("Frontend release states passed.");

@@ -122,6 +122,8 @@ Aceite:
 - instalador atualiza `pip`, `setuptools` e `wheel` dentro da venv local antes de instalar o backend;
 - `scripts/install_printora_autostart.sh --apply --yes` valida `/health` depois de configurar o boot;
 - `scripts/doctor_install.sh` roda sem alterar arquivos de app e mostra Python, Node, porta, banco, serviço e logs;
+- `GET /api/system/install-diagnostics` retorna diagnóstico copiável com versão, ambiente, porta, paths, checks e ação sugerida;
+- tela `Configurações > Diagnóstico da instalação` permite recarregar e copiar o diagnóstico técnico;
 - `scripts/unlock_update.sh` cria backup do `printora.db` e marca updates `running` como `failed`;
 - `POST /api/system/update/reconcile` reconcilia update `running` antigo e retorna contagem de runs ainda em execução;
 - tela `Configurações > Histórico de updates` tem ação para reconciliar updates travados.

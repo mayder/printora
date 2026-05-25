@@ -153,6 +153,7 @@
 
 .settings-advanced-panel.release-history-panel,
 .settings-advanced-panel.self-update-history,
+.settings-advanced-panel.install-diagnostics-panel,
 .settings-advanced-panel.can-technical-panel,
 .settings-advanced-panel.host-diagnostics-panel {
   grid-column: span 6;
@@ -216,6 +217,75 @@
 
 .settings-advanced-panel .panel-actions {
   justify-content: flex-start;
+}
+
+.install-diagnostics-panel[open] {
+  display: grid;
+  gap: 12px;
+}
+
+.install-diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.install-diagnostics-meta {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.install-diagnostics-list {
+  display: grid;
+  gap: 8px;
+}
+
+.install-diagnostic-row {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--status-neutral);
+  border-radius: 7px;
+  background: var(--surface-3);
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+}
+
+.install-diagnostic-row.ok {
+  border-left-color: var(--success);
+}
+
+.install-diagnostic-row.warning {
+  border-left-color: var(--warning);
+}
+
+.install-diagnostic-row.error {
+  border-left-color: var(--danger);
+}
+
+.install-diagnostic-row div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.install-diagnostic-row span,
+.install-diagnostic-row p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.install-diagnostic-row code {
+  display: block;
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  background: var(--code-bg);
+  color: var(--code-text);
+  padding: 6px 8px;
+  white-space: pre-wrap;
 }
 
 .panel-header-row.compact {

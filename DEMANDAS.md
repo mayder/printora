@@ -2068,6 +2068,8 @@ Entregáveis:
 - upgrade local de `pip`, `setuptools` e `wheel` antes de instalar o backend editable;
 - validação pós-autostart com `/health` e orientação para `doctor_install.sh`;
 - `scripts/doctor_install.sh` para diagnóstico de Python, Node, porta, banco, serviço e logs;
+- endpoint `GET /api/system/install-diagnostics` com diagnóstico copiável;
+- painel em Configurações para recarregar e copiar diagnóstico da instalação;
 - `scripts/unlock_update.sh` com backup automático do SQLite antes de marcar runs órfãos como `failed`;
 - endpoint `POST /api/system/update/reconcile` para reconciliar updates antigos travados;
 - botão `Reconciliar travados` no histórico de updates;

@@ -36,6 +36,9 @@ Diagnostico de instalacao:
 PRINTORA_PORT=8069 ./scripts/doctor_install.sh
 ```
 
+Pela interface, use `Configuracoes > Diagnostico da instalacao` para recarregar
+checks locais e copiar um resumo tecnico para suporte.
+
 Instalação com boot automático:
 
 ```bash

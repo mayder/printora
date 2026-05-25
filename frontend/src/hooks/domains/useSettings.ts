@@ -2,7 +2,8 @@ import React from "react";
 import { canApi } from "../../services/canApi";
 import { diagnosticsApi } from "../../services/diagnosticsApi";
 import { printerApi } from "../../services/printerApi";
-import type { MoonrakerStatus, CanBusRecord, CanBusRecordComparison, CanBusSummary, NetworkDiagnosticsResponse } from "../../types";
+import { systemApi } from "../../services/systemApi";
+import type { MoonrakerStatus, CanBusRecord, CanBusRecordComparison, CanBusSummary, InstallationDiagnosticsResponse, NetworkDiagnosticsResponse } from "../../types";
 import type { AuditResponse, ChecklistResponse, HealthResponse } from "../../alertCenter";
 import type { SetError, SetLoading } from "./shared";
 import { unknownErrorMessage } from "./shared";
@@ -18,6 +19,7 @@ export function useSettings({ selectedPrinterId, setError, setLoading }: UseSett
   const [checklist, setChecklist] = React.useState<ChecklistResponse | null>(null);
   const [audit, setAudit] = React.useState<AuditResponse | null>(null);
   const [hostAudit, setHostAudit] = React.useState<AuditResponse | null>(null);
+  const [installDiagnostics, setInstallDiagnostics] = React.useState<InstallationDiagnosticsResponse | null>(null);
   const [health, setHealth] = React.useState<HealthResponse | null>(null);
   const [networkDiagnostics, setNetworkDiagnostics] = React.useState<NetworkDiagnosticsResponse | null>(null);
   const [canRecords, setCanRecords] = React.useState<CanBusRecord[]>([]);
@@ -33,10 +35,11 @@ export function useSettings({ selectedPrinterId, setError, setLoading }: UseSett
   const [canRawOutput, setCanRawOutput] = React.useState("");
 
   async function loadGlobalDiagnostics() {
-    const [statusResponse, checklistResponse, hostAuditResponse] = await Promise.allSettled([
+    const [statusResponse, checklistResponse, hostAuditResponse, installDiagnosticsResponse] = await Promise.allSettled([
       diagnosticsApi.moonrakerStatus(),
       diagnosticsApi.postUpdateChecklist(),
       diagnosticsApi.hostReadOnlyAudit(),
+      systemApi.installDiagnostics(),
     ]);
     if (statusResponse.status === "fulfilled" && statusResponse.value.ok) {
       setStatus((await statusResponse.value.json()) as MoonrakerStatus);
@@ -47,6 +50,17 @@ export function useSettings({ selectedPrinterId, setError, setLoading }: UseSett
     if (hostAuditResponse.status === "fulfilled" && hostAuditResponse.value.ok) {
       setHostAudit((await hostAuditResponse.value.json()) as AuditResponse);
     }
+    if (installDiagnosticsResponse.status === "fulfilled" && installDiagnosticsResponse.value.ok) {
+      setInstallDiagnostics((await installDiagnosticsResponse.value.json()) as InstallationDiagnosticsResponse);
+    }
+  }
+
+  async function loadInstallDiagnostics() {
+    const response = await systemApi.installDiagnostics();
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    setInstallDiagnostics((await response.json()) as InstallationDiagnosticsResponse);
   }
 
   async function loadPrinterChecklist(printerId: number) {
@@ -222,8 +236,10 @@ export function useSettings({ selectedPrinterId, setError, setLoading }: UseSett
     health,
     networkDiagnostics,
     hostAudit,
+    installDiagnostics,
     loadCanRecords,
     loadGlobalDiagnostics,
+    loadInstallDiagnostics,
     loadPrinterAudit,
     loadPrinterChecklist,
     loadPrinterHealth,
