@@ -102,6 +102,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - CAN de operacao fica em `monitoring` como leitura operacional; registro tecnico, parser e comparacao manual ficam em `settings`, colapsados e com ajuda contextual por modal.
 - Updates da impressora ficam em `updates`; updates do proprio Printora ficam em `settings`.
 - Na tela Configuracoes, `Releases anteriores` e `Historico de updates` ficam como blocos colapsados lado a lado, no mesmo padrao dos blocos tecnicos.
+- No `Historico de updates`, a acao `Reconciliar travados` deve revalidar runs orfaos antigos sem apagar historico e liberar novo update quando nao houver execucao real em andamento.
 - A tela Sobre deve ser acessivel pelo icone de informacao no topo em todas as telas; por enquanto nao aparece no menu lateral.
 - A tela Sobre deve promover o autor, exibir LinkedIn, Instagram, GitHub do projeto, motivacao, funcionalidades atuais, aviso de teste, versao sem custo, roadmap online futuro e opcoes de marca.
 - A tela Licenca deve ser acessivel a partir da tela Sobre e deixar claro o uso open source, ausencia de garantia e responsabilidade do usuario em operacoes criticas.

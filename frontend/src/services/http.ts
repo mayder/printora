@@ -25,8 +25,8 @@ function apiInput(input: RequestInfo | URL): RequestInfo | URL {
     return new URL(input, apiBaseUrl).toString();
   }
   if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-    if (window.location.port && window.location.port !== "8085") {
-      return new URL(input, "http://127.0.0.1:8085").toString();
+    if (window.location.port && window.location.port !== "8069") {
+      return new URL(input, "http://127.0.0.1:8069").toString();
     }
   }
   return input;

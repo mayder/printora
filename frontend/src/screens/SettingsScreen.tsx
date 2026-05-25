@@ -47,12 +47,14 @@ type SettingsScreenProps = ScreenPropsFor<
   | "parseCanRawOutput"
   | "releaseError"
   | "releaseLoading"
+  | "reconcileSelfUpdateHistory"
   | "releasePanelClass"
   | "releaseStatusPillClass"
   | "selectedPrinterId"
   | "selfUpdateConnectionLost"
   | "selfUpdateHistory"
   | "selfUpdateMessage"
+  | "selfUpdateReconciling"
   | "selfUpdateRunClass"
   | "setCanBitrate"
   | "setCanBusState"
@@ -117,12 +119,14 @@ export function SettingsScreen(props: SettingsScreenProps) {
     parseCanRawOutput,
     releaseError,
     releaseLoading,
+    reconcileSelfUpdateHistory,
     releasePanelClass,
     releaseStatusPillClass,
     selectedPrinterId,
     selfUpdateConnectionLost,
     selfUpdateHistory,
     selfUpdateMessage,
+    selfUpdateReconciling,
     selfUpdateRunClass,
     setCanBitrate,
     setCanBusState,
@@ -281,6 +285,19 @@ export function SettingsScreen(props: SettingsScreenProps) {
             >
               <History size={15} />
               Recarregar
+            </button>
+            <button
+              type="button"
+              className="secondary-button compact-summary-action"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void reconcileSelfUpdateHistory();
+              }}
+              disabled={selfUpdateReconciling}
+            >
+              <RefreshCw size={15} />
+              {selfUpdateReconciling ? "Reconciliando" : "Reconciliar travados"}
             </button>
           </summary>
           {selfUpdateHistory.length === 0 ? <p className="muted">Nenhum update do Printora registrado.</p> : null}

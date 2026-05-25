@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $RootDir = Resolve-Path (Join-Path $PSScriptRoot "..")
 $HostName = if ($env:PRINTORA_HOST) { $env:PRINTORA_HOST } else { "127.0.0.1" }
-$Port = if ($env:PRINTORA_PORT) { $env:PRINTORA_PORT } else { "8085" }
+$Port = if ($env:PRINTORA_PORT) { $env:PRINTORA_PORT } else { "8069" }
 $Url = "http://${HostName}:${Port}"
 $DataDir = if ($env:PRINTORA_DATA_DIR) { $env:PRINTORA_DATA_DIR } else { Join-Path $env:LOCALAPPDATA "Printora" }
 $LogDir = Join-Path $DataDir "logs"

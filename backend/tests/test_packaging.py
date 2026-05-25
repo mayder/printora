@@ -25,7 +25,7 @@ def test_mainsail_navigation_links_to_local_service() -> None:
     navigation = (ROOT_DIR / "packaging/mainsail/navi.json").read_text()
 
     assert "Printora" in navigation
-    assert "http://voron.local:8085" in navigation
+    assert "http://voron.local:8069" in navigation
 
 
 def test_multiplatform_bootstrap_artifacts_exist() -> None:
@@ -42,7 +42,7 @@ def test_multiplatform_bootstrap_artifacts_exist() -> None:
 def test_docker_compose_uses_safe_defaults() -> None:
     compose = (ROOT_DIR / "docker-compose.yml").read_text()
 
-    assert "8085:8085" in compose
+    assert "8069:8069" in compose
     assert "PRINTORA_HOST_AUDIT_MODE: \"disabled\"" in compose
     assert "PRINTORA_FIRMWARE_BUILD_MODE: \"disabled\"" in compose
     assert "printora-data:/data" in compose

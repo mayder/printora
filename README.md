@@ -34,6 +34,49 @@ Por padrão, o Printora é conservador:
 
 O fluxo de firmware é uma das prioridades do projeto. A meta inicial é simplificar atualização e planejamento seguro de MCU, EBB e placas relacionadas, mas as etapas críticas continuam protegidas por dry-run, validação e confirmação.
 
+## Instalação Recomendada
+
+Não use o ZIP do GitHub como caminho principal. Clone com Git para preservar o fluxo de update.
+
+### macOS
+
+```bash
+xcode-select --install
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew install git python node
+cd "$HOME"
+git clone https://github.com/mayder/printora.git
+cd printora
+chmod +x "Abrir Printora.command" scripts/*.sh
+PRINTORA_PORT=8069 ./scripts/install_printora.sh --apply --yes
+```
+
+Abrir:
+
+```text
+http://127.0.0.1:8069
+```
+
+Se o Mac já tiver um Python antigo, não remova esse Python. O instalador procura um Python `3.11+` compatível, inclusive Homebrew, e usa apenas a venv local `backend/.venv`.
+
+### Diagnóstico De Instalação
+
+```bash
+cd "$HOME/printora"
+PRINTORA_PORT=8069 ./scripts/doctor_install.sh
+```
+
+### Destravar Update Órfão
+
+Use somente quando a tela mostrar update preso em `em execução` e bloquear novas versões.
+
+```bash
+cd "$HOME/printora"
+./scripts/unlock_update.sh
+PRINTORA_PORT=8069 ./scripts/run_app.sh --stop
+PRINTORA_PORT=8069 ./scripts/run_app.sh --no-open
+```
+
 ## Requisitos
 
 - Python 3.11 ou mais novo;
@@ -46,14 +89,14 @@ URL padrão usada pelos atalhos locais:
 http://voron.local:7125
 ```
 
-## Uso Rápido
+## Uso Rápido Local
 
 ### macOS
 
 1. Abra a pasta do projeto.
 2. Dê duplo clique em `Abrir Printora.command`.
 3. Mantenha a janela do Terminal aberta.
-4. Abra `http://127.0.0.1:8085`.
+4. Abra `http://127.0.0.1:8069`.
 
 Se o macOS bloquear o arquivo:
 
@@ -66,7 +109,7 @@ chmod +x "Abrir Printora.command" scripts/run_app.sh
 1. Abra a pasta do projeto.
 2. Dê duplo clique em `Abrir Printora.bat`.
 3. Mantenha a janela do PowerShell aberta.
-4. Abra `http://127.0.0.1:8085`.
+4. Abra `http://127.0.0.1:8069`.
 
 Se o Windows bloquear a execução:
 
@@ -109,7 +152,7 @@ docker compose up --build
 Depois abra:
 
 ```text
-http://127.0.0.1:8085
+http://127.0.0.1:8069
 ```
 
 ## Configurar Moonraker
@@ -147,7 +190,7 @@ printora.db
 Health check:
 
 ```bash
-curl http://127.0.0.1:8085/health
+curl http://127.0.0.1:8069/health
 ```
 
 Resposta esperada:

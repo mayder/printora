@@ -2,7 +2,7 @@
   {
     "name": "Printora",
     "icon": "mdi-printer-3d",
-    "url": "http://voron.local:8085",
+    "url": "http://voron.local:8069",
     "target": "_self"
   }
 ]

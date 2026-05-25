@@ -30,6 +30,12 @@ Aplicacao completa:
 ./scripts/run_app.sh
 ```
 
+Diagnostico de instalacao:
+
+```bash
+PRINTORA_PORT=8069 ./scripts/doctor_install.sh
+```
+
 Instalação com boot automático:
 
 ```bash
@@ -38,7 +44,18 @@ Instalação com boot automático:
 ```
 
 O instalador prepara dependências, usa Node local via `nvm` quando o Node global
-for antigo e configura o mecanismo de boot do ambiente atual.
+for antigo, procura Python 3.11+ sem remover Python antigo do usuario e configura
+o mecanismo de boot do ambiente atual. A porta padrao do Printora e `8069`.
+
+Destravar update local orfao:
+
+```bash
+./scripts/unlock_update.sh
+```
+
+O script cria backup do `printora.db` no mesmo diretorio antes de marcar runs
+`running` como `failed`. A UI tambem possui acao para reconciliar updates
+travados em `Configuracoes > Historico de updates`.
 
 Updater local macOS/Linux/Raspberry:
 

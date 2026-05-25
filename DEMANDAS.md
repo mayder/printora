@@ -56,6 +56,7 @@
 - PKG-28: Retry seguro do npm install 0.1.7
 - PKG-29: Frontend pré-buildado para instalação 0.1.8
 - PKG-30: Catálogo completo de firmware de impressoras 3D
+- PKG-31: Instalação resiliente e recuperação de updates travados
 
 ## Política De Backlog
 
@@ -1109,8 +1110,8 @@ Entregáveis:
 
 Critério de aceite:
 
-- `scripts/run_app.sh --no-open` sobe `http://127.0.0.1:8085`;
-- `scripts/run_app_windows.ps1 --no-open` sobe `http://127.0.0.1:8085` no Windows;
+- `scripts/run_app.sh --no-open` sobe `http://127.0.0.1:8069`;
+- `scripts/run_app_windows.ps1 --no-open` sobe `http://127.0.0.1:8069` no Windows;
 - `GET /health` responde `ok`;
 - `scripts/run_app.sh --stop` para o processo iniciado pelo runner;
 - `scripts/run_app_windows.ps1 --stop` para o processo iniciado pelo runner no Windows;
@@ -1127,7 +1128,7 @@ Entregáveis:
 - `Dockerfile`;
 - `docker-compose.yml`;
 - volume persistente para SQLite;
-- porta `8085`.
+- porta `8069`.
 
 Estado atual:
 
@@ -2049,6 +2050,37 @@ Critério de aceite:
 Estado atual:
 
 - Implementado e validado localmente.
+
+## PKG-31: Instalação Resiliente E Recuperação De Updates Travados
+
+Objetivo:
+
+Reduzir falhas de instalação em macOS, Linux, Android/Termux e Windows e dar ao usuário um caminho oficial para diagnosticar instalação e destravar update órfão sem SQL manual.
+
+Entregáveis:
+
+- porta padrão real `8069` em scripts, docs, frontend e empacotamento;
+- seleção automática de Python `3.11+` sem remover Python antigo do usuário;
+- recriação automática de venv local quando ela foi criada com Python incompatível;
+- upgrade local de `pip`, `setuptools` e `wheel` antes de instalar o backend editable;
+- validação pós-autostart com `/health` e orientação para `doctor_install.sh`;
+- `scripts/doctor_install.sh` para diagnóstico de Python, Node, porta, banco, serviço e logs;
+- `scripts/unlock_update.sh` com backup automático do SQLite antes de marcar runs órfãos como `failed`;
+- endpoint `POST /api/system/update/reconcile` para reconciliar updates antigos travados;
+- botão `Reconciliar travados` no histórico de updates;
+- README e guia multiplataforma revisados.
+
+Critério de aceite:
+
+- usuário com Python antigo e Python novo no mesmo macOS consegue instalar sem trocar o Python global;
+- instalação usa `8069` por padrão;
+- update travado antigo deixa de bloquear novo update via UI ou script oficial;
+- nenhum histórico é apagado sem backup;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Em implementação nesta branch.
 
 ## PKG-30: Catálogo Completo De Firmware De Impressoras 3D
 

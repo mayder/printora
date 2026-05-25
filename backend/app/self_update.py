@@ -71,6 +71,14 @@ class UpdateHistoryResponse(BaseModel):
     runs: list[UpdateRunRecord]
 
 
+class UpdateReconcileResponse(BaseModel):
+    safe_mode: str = "metadata_only"
+    reconciled: int
+    running_updates: int
+    message: str
+    runs: list[UpdateRunRecord]
+
+
 class UpdateApplyResponse(BaseModel):
     accepted: bool
     message: str
@@ -161,11 +169,14 @@ class SelfUpdateRepository:
         return record
 
     def has_running_update(self) -> bool:
+        return self.count_running_updates() > 0
+
+    def count_running_updates(self) -> int:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT 1 FROM app_update_runs WHERE status = 'running' LIMIT 1"
+                "SELECT COUNT(*) FROM app_update_runs WHERE status = 'running'"
             ).fetchone()
-        return row is not None
+        return int(row[0])
 
     def reconcile_interrupted_updates(self, *, installed_version: str, stale_after_minutes: int = 30) -> int:
         clean_installed_version = _normalize_version(installed_version)

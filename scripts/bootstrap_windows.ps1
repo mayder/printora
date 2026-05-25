@@ -33,5 +33,5 @@ Invoke-OrPrint "npm --prefix '$RootDir\frontend' install"
 Invoke-OrPrint "npm --prefix '$RootDir\frontend' run build"
 
 Write-Host "Ambiente local preparado."
-Write-Host "Backend: backend\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8085"
+Write-Host "Backend: backend\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8069"
 Write-Host "Frontend: npm --prefix frontend run dev"

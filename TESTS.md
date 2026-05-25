@@ -220,7 +220,7 @@ cd backend
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -e ".[dev]"
-uvicorn app.main:app --host 0.0.0.0 --port 8085 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8069 --reload
 ```
 
 Frontend:
@@ -411,7 +411,7 @@ Critérios:
 
 - Rodar `./scripts/run_app.sh --status`.
 - Rodar `./scripts/run_app.sh --no-open`.
-- Confirmar `GET http://127.0.0.1:8085/health`.
+- Confirmar `GET http://127.0.0.1:8069/health`.
 - Rodar `./scripts/run_app.sh --stop`.
 - Rodar `./scripts/run_app.sh --foreground --no-open` em terminal dedicado e confirmar que a aplicação permanece online enquanto o processo estiver aberto.
 - Rodar `./scripts/bootstrap_dev.sh` sem `--apply`.
@@ -420,7 +420,7 @@ Critérios:
 - Revisar `scripts/bootstrap_windows.ps1`.
 - Revisar `scripts/run_app_windows.ps1`.
 - No Windows, rodar `.\scripts\run_app_windows.ps1 --status`.
-- No Windows, abrir `Abrir Printora.bat` e confirmar `GET http://127.0.0.1:8085/health`.
+- No Windows, abrir `Abrir Printora.bat` e confirmar `GET http://127.0.0.1:8069/health`.
 - Revisar `Dockerfile` e `docker-compose.yml`.
 - Confirmar que `docs/INSTALL_MULTIPLATFORM.md` documenta macOS, Linux, Windows, Docker, Raspberry e Manta/CB1.
 
@@ -486,7 +486,7 @@ Critérios:
 ### Endpoint De Versão Do Sistema
 
 - Iniciar o backend local.
-- Chamar `GET http://127.0.0.1:8085/api/system/version`.
+- Chamar `GET http://127.0.0.1:8069/api/system/version`.
 - Confirmar que a resposta inclui `app_name`, `version`, `data_dir`, `database_path`, `schema_current`, `applied_sql_scripts` e `latest_validation`.
 - Confirmar que `applied_sql_scripts` lista apenas nome do script, ordem de execução e data de aplicação.
 - Confirmar que `latest_validation.status` está `ok` e `latest_validation.result` contém `ok`.

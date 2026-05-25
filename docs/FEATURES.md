@@ -117,7 +117,7 @@ O script não inicia o serviço automaticamente. Revise `.env` antes:
 
 ```bash
 sudo systemctl start printora.service
-curl -s http://127.0.0.1:8085/health
+curl -s http://127.0.0.1:8069/health
 ```
 
 ## Instalação Multiplataforma
@@ -586,7 +586,7 @@ cd backend
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -e ".[dev]"
-uvicorn app.main:app --host 0.0.0.0 --port 8085 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8069 --reload
 ```
 
 Frontend local:

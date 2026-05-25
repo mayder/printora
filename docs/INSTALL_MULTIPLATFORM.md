@@ -7,7 +7,7 @@ O Printora roda como uma aplicação web local:
 - backend Python/FastAPI;
 - frontend React/Vite buildado em `frontend/dist`;
 - banco SQLite local `printora.db`;
-- porta padrão `8085`, ajustável por `PRINTORA_PORT`.
+- porta padrão `8069`, ajustável por `PRINTORA_PORT`.
 
 Nenhum passo abaixo executa G-code, reinicia Klipper/Moonraker ou altera firmware. Integrações com impressoras devem continuar seguindo `GOVERNANCA.md`.
 
@@ -16,14 +16,14 @@ Nenhum passo abaixo executa G-code, reinicia Klipper/Moonraker ou altera firmwar
 URL padrão local:
 
 ```text
-http://127.0.0.1:8085
+http://127.0.0.1:8069
 ```
 
 Em rede local, use o IP ou nome do host:
 
 ```text
-http://NOME-DO-HOST.local:8085
-http://IP-DO-HOST:8085
+http://NOME-DO-HOST.local:8069
+http://IP-DO-HOST:8069
 ```
 
 Portas abaixo de `1024` exigem root/admin no Linux/Android. Sem root no Android, use uma porta alta, por exemplo:
@@ -37,7 +37,7 @@ http://printora.local:8069
 macOS/Linux/Android:
 
 ```bash
-export PRINTORA_PORT=8085
+export PRINTORA_PORT=8069
 export PRINTORA_HOST=0.0.0.0
 export PRINTORA_MOONRAKER_URL=http://voron.local:7125
 export PRINTORA_DATA_DIR="$HOME/.local/share/printora"
@@ -50,7 +50,7 @@ export PRINTORA_RELEASE_CHANNEL=stable
 Windows PowerShell:
 
 ```powershell
-$env:PRINTORA_PORT="8085"
+$env:PRINTORA_PORT="8069"
 $env:PRINTORA_HOST="0.0.0.0"
 $env:PRINTORA_MOONRAKER_URL="http://voron.local:7125"
 $env:PRINTORA_DATA_DIR="$env:LOCALAPPDATA\Printora"
@@ -77,7 +77,7 @@ Essas variáveis só controlam consulta de releases. Elas não aplicam update, n
 Depois de iniciar:
 
 ```bash
-curl -s http://127.0.0.1:8085/health
+curl -s http://127.0.0.1:8069/health
 ```
 
 Resposta esperada:
@@ -89,7 +89,7 @@ Resposta esperada:
 Listar impressoras:
 
 ```bash
-curl -s http://127.0.0.1:8085/api/printers | python -m json.tool
+curl -s http://127.0.0.1:8069/api/printers | python -m json.tool
 ```
 
 Rodar check do projeto:
@@ -100,79 +100,56 @@ Rodar check do projeto:
 
 ## macOS
 
-### Verificar Dependências
-
-```bash
-python3 --version
-npm --version
-git --version
-curl --version
-```
-
-Requisitos:
-
-- Python `3.11+`;
-- Node.js/npm;
-- Git;
-- curl.
-
-### Instalar Dependências Ausentes
-
-Instalar Homebrew se não existir:
-
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
-Instalar pacotes:
-
-```bash
-brew install python node git
-```
-
-Se o macOS pedir ferramentas de linha de comando:
+### Caminho Recomendado
 
 ```bash
 xcode-select --install
-```
-
-### Instalar O Printora Com Boot Automático
-
-Na pasta do projeto:
-
-```bash
-cd /caminho/para/Printora
-./scripts/install_printora.sh
-./scripts/install_printora.sh --apply --yes
-```
-
-O instalador prepara backend/frontend e configura `launchd` com `KeepAlive`.
-Se o Node global for antigo, o Printora instala Node 22 via `nvm` apenas para o
-usuário atual e grava `.printora-node-env`, sem trocar o Node do sistema.
-
-### Rodar
-
-```bash
-cd /caminho/para/Printora
-PRINTORA_HOST=0.0.0.0 PRINTORA_PORT=8085 ./scripts/run_app.sh --no-open
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew install git python node
+cd "$HOME"
+git clone https://github.com/mayder/printora.git
+cd printora
+chmod +x "Abrir Printora.command" scripts/*.sh
+PRINTORA_PORT=8069 ./scripts/install_printora.sh --apply --yes
 ```
 
 Abrir:
 
 ```text
-http://127.0.0.1:8085
+http://127.0.0.1:8069
 ```
 
-Parar:
+### Python Antigo No Mesmo Mac
+
+Não remova o Python antigo do usuário. O instalador procura automaticamente um
+Python `3.11+`, incluindo instalações Homebrew como
+`/usr/local/opt/python@3.14/bin/python3` ou
+`/opt/homebrew/opt/python@3.14/bin/python3`, e cria a venv local em
+`backend/.venv`.
+
+Para forçar um Python específico só para o Printora:
 
 ```bash
-./scripts/run_app.sh --stop
+PRINTORA_PYTHON_BIN=/usr/local/opt/python@3.14/bin/python3 PRINTORA_PORT=8069 ./scripts/install_printora.sh --apply --yes
 ```
 
-Ver status:
+### Diagnóstico
 
 ```bash
-./scripts/run_app.sh --status
+PRINTORA_PORT=8069 ./scripts/doctor_install.sh
+```
+
+### Rodar Manualmente
+
+```bash
+PRINTORA_HOST=0.0.0.0 PRINTORA_PORT=8069 ./scripts/run_app.sh --no-open
+```
+
+### Parar E Status
+
+```bash
+PRINTORA_PORT=8069 ./scripts/run_app.sh --status
+PRINTORA_PORT=8069 ./scripts/run_app.sh --stop
 ```
 
 Dados locais:
@@ -180,6 +157,19 @@ Dados locais:
 ```text
 ~/Library/Application Support/Printora/printora.db
 ```
+
+### Alternativa Com ZIP
+
+```bash
+curl -L -o "$HOME/Downloads/printora.zip" https://github.com/mayder/printora/archive/refs/heads/main.zip
+cd "$HOME/Downloads"
+unzip printora.zip
+cd printora-main
+chmod +x "Abrir Printora.command" scripts/*.sh
+PRINTORA_PORT=8069 ./scripts/install_printora.sh --apply --yes
+```
+
+ZIP funciona para instalação inicial, mas Git é preferível para updates.
 
 ## Windows
 
@@ -235,14 +225,14 @@ no logon e reiniciar em caso de falha.
 ```powershell
 cd C:\caminho\para\Printora
 $env:PRINTORA_HOST="0.0.0.0"
-$env:PRINTORA_PORT="8085"
+$env:PRINTORA_PORT="8069"
 .\scripts\run_app_windows.ps1 --no-open
 ```
 
 Abrir:
 
 ```text
-http://127.0.0.1:8085
+http://127.0.0.1:8069
 ```
 
 Parar:
@@ -265,7 +255,7 @@ Dados locais:
 
 ## Android Com Termux
 
-Este modo transforma o Android em host local da aplicação. Sem root, use porta alta (`8069`, `8085`, etc.). Porta `69` ou `80` não funciona sem root.
+Este modo transforma o Android em host local da aplicação. Sem root, use porta alta (`8069`). Porta `69` ou `80` não funciona sem root.
 
 ### Verificar ADB No Mac/Linux
 
@@ -426,7 +416,7 @@ Sem root, portas abaixo de `1024` falham com `PermissionError`. Com root/Magisk 
 ```bash
 cd ~/Printora
 ./scripts/android_enable_port80_root.sh
-HTTP_PORT=8085 PUBLIC_PORT=80 ./scripts/android_start_printora.sh
+HTTP_PORT=8069 PUBLIC_PORT=80 ./scripts/android_start_printora.sh
 ```
 
 ## Raspberry Pi, Manta, CB1 Ou Linux Com Systemd
@@ -494,7 +484,7 @@ CB1/Manta com usuário `linaro`:
 PRINTORA_INSTALL_USER=linaro \
 PRINTORA_INSTALL_HOME=/home/linaro \
 PRINTORA_INSTALL_DIR=/home/linaro/Printora \
-PRINTORA_PUBLIC_URL=http://voron-02-pro.local:8085 \
+PRINTORA_PUBLIC_URL=http://voron-02-pro.local:8069 \
 ./scripts/install_raspberry.sh --apply
 ```
 
@@ -521,7 +511,7 @@ PRINTORA_RELEASE_CHANNEL=stable
 ```bash
 sudo systemctl start printora.service
 sudo systemctl status printora.service --no-pager
-curl -s http://127.0.0.1:8085/health
+curl -s http://127.0.0.1:8069/health
 ```
 
 ### Logs
@@ -596,7 +586,7 @@ docker compose up --build
 Abrir:
 
 ```text
-http://127.0.0.1:8085
+http://127.0.0.1:8069
 ```
 
 Rodar em background:
@@ -667,13 +657,13 @@ PY
 Porta ocupada:
 
 ```bash
-lsof -nP -iTCP:8085 -sTCP:LISTEN
+lsof -nP -iTCP:8069 -sTCP:LISTEN
 ```
 
 Backend responde:
 
 ```bash
-curl -v http://127.0.0.1:8085/health
+curl -v http://127.0.0.1:8069/health
 ```
 
 Frontend build existe:

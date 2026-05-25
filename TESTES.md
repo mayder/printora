@@ -111,6 +111,20 @@ Aceite para Raspberry/Linux:
 - build local só roda com `PRINTORA_REBUILD_FRONTEND=1` ou quando `frontend/dist` estiver ausente;
 - instalação não aparenta travar em `tsc -b && vite build` em Raspberry.
 
+## Instalação Resiliente E Recuperação De Update
+
+Aceite:
+
+- porta padrão do Printora é `8069` em runner, instalador, frontend, Docker e documentação;
+- `scripts/bootstrap_dev.sh --apply` seleciona Python `3.11+` mesmo quando `python3` global é antigo;
+- venv `backend/.venv` criada com Python incompatível é recriada;
+- instalador atualiza `pip`, `setuptools` e `wheel` dentro da venv local antes de instalar o backend;
+- `scripts/install_printora_autostart.sh --apply --yes` valida `/health` depois de configurar o boot;
+- `scripts/doctor_install.sh` roda sem alterar arquivos de app e mostra Python, Node, porta, banco, serviço e logs;
+- `scripts/unlock_update.sh` cria backup do `printora.db` e marca updates `running` como `failed`;
+- `POST /api/system/update/reconcile` reconcilia update `running` antigo e retorna contagem de runs ainda em execução;
+- tela `Configurações > Histórico de updates` tem ação para reconciliar updates travados.
+
 O check inicial valida:
 
 - existência dos documentos principais;
@@ -273,7 +287,7 @@ cd backend
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -e ".[dev]"
-uvicorn app.main:app --host 0.0.0.0 --port 8085 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8069 --reload
 ```
 
 Frontend:
@@ -464,7 +478,7 @@ Critérios:
 
 - Rodar `./scripts/run_app.sh --status`.
 - Rodar `./scripts/run_app.sh --no-open`.
-- Confirmar `GET http://127.0.0.1:8085/health`.
+- Confirmar `GET http://127.0.0.1:8069/health`.
 - Rodar `./scripts/run_app.sh --stop`.
 - Rodar `./scripts/run_app.sh --foreground --no-open` em terminal dedicado e confirmar que a aplicação permanece online enquanto o processo estiver aberto.
 - Rodar `./scripts/bootstrap_dev.sh` sem `--apply`.
@@ -473,7 +487,7 @@ Critérios:
 - Revisar `scripts/bootstrap_windows.ps1`.
 - Revisar `scripts/run_app_windows.ps1`.
 - No Windows, rodar `.\scripts\run_app_windows.ps1 --status`.
-- No Windows, abrir `Abrir Printora.bat` e confirmar `GET http://127.0.0.1:8085/health`.
+- No Windows, abrir `Abrir Printora.bat` e confirmar `GET http://127.0.0.1:8069/health`.
 - Revisar `Dockerfile` e `docker-compose.yml`.
 - Confirmar que `docs/INSTALL_MULTIPLATFORM.md` documenta macOS, Linux, Windows, Docker, Raspberry e Manta/CB1.
 
@@ -539,7 +553,7 @@ Critérios:
 ### Endpoint De Versão Do Sistema
 
 - Iniciar o backend local.
-- Chamar `GET http://127.0.0.1:8085/api/system/version`.
+- Chamar `GET http://127.0.0.1:8069/api/system/version`.
 - Confirmar que a resposta inclui `app_name`, `version`, `data_dir`, `database_path`, `schema_current`, `applied_sql_scripts` e `latest_validation`.
 - Confirmar que `applied_sql_scripts` lista apenas nome do script, ordem de execução e data de aplicação.
 - Confirmar que `latest_validation.status` está `ok` e `latest_validation.result` contém `ok`.

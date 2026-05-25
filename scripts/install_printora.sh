@@ -33,7 +33,7 @@ print_dependency_plan() {
     return
   fi
   if [[ "$(uname -s)" == "Darwin" ]]; then
-    echo "Dependências macOS esperadas: python3 git curl; Node será validado e isolado via nvm se necessário."
+    echo "Dependências macOS esperadas: Python 3.11+, git e curl; Node será validado e isolado via nvm se necessário."
   fi
 }
 

@@ -56,6 +56,14 @@ export type SelfUpdateHistoryResponse = {
   runs: SelfUpdateRunRecord[];
 };
 
+export type SelfUpdateReconcileResponse = {
+  safe_mode: string;
+  reconciled: number;
+  running_updates: number;
+  message: string;
+  runs: SelfUpdateRunRecord[];
+};
+
 export function formatSelfUpdateEnvironment(environment: SelfUpdateRunRecord["environment"]) {
   const labels: Record<SelfUpdateRunRecord["environment"], string> = {
     android_termux: "Android/Termux",

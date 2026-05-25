@@ -4,7 +4,7 @@ $RootDir = Resolve-Path (Join-Path $PSScriptRoot "..")
 $Apply = $args -contains "--apply"
 $Yes = $args -contains "--yes" -or $env:PRINTORA_ASSUME_YES -eq "1"
 $TaskName = "Printora"
-$Port = if ($env:PRINTORA_PORT) { $env:PRINTORA_PORT } else { "8085" }
+$Port = if ($env:PRINTORA_PORT) { $env:PRINTORA_PORT } else { "8069" }
 $DataDir = if ($env:PRINTORA_DATA_DIR) { $env:PRINTORA_DATA_DIR } else { Join-Path $env:LOCALAPPDATA "Printora" }
 $Runner = Join-Path $RootDir "scripts\run_app_windows.ps1"
 
