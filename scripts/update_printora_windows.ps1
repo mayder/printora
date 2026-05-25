@@ -48,6 +48,7 @@ $BackupDir = if ($env:PRINTORA_BACKUP_DIR) { $env:PRINTORA_BACKUP_DIR } else { J
 $NextDir = if ($env:PRINTORA_NEXT_DIR) { $env:PRINTORA_NEXT_DIR } else { "$RootDir.next" }
 $Port = if ($env:PRINTORA_PORT) { $env:PRINTORA_PORT } else { "8069" }
 $HealthUrl = if ($env:PRINTORA_HEALTH_URL) { $env:PRINTORA_HEALTH_URL } else { "http://127.0.0.1:$Port/health" }
+$VersionUrl = if ($env:PRINTORA_VERSION_URL) { $env:PRINTORA_VERSION_URL } else { "http://127.0.0.1:$Port/openapi.json" }
 $UpdateRemoteUrl = if ($env:PRINTORA_UPDATE_REMOTE_URL) { $env:PRINTORA_UPDATE_REMOTE_URL } else { "" }
 $LogDir = Join-Path $DataDir "logs"
 $UpdateRunId = if ($env:PRINTORA_UPDATE_RUN_ID) { $env:PRINTORA_UPDATE_RUN_ID } else { "" }
@@ -248,12 +249,23 @@ function Validate-Health {
     for ($i = 0; $i -lt 30; $i++) {
         try {
             $response = Invoke-WebRequest -Uri $HealthUrl -UseBasicParsing -TimeoutSec 2
-            if ($response.StatusCode -eq 200) { return }
+            if ($response.StatusCode -eq 200 -and (Test-RunningVersion)) { return }
         } catch {
             Start-Sleep -Seconds 1
         }
     }
-    Fail-Json "Printora não respondeu em $HealthUrl"
+    Fail-Json "Printora não respondeu com a versão $TargetTag em $HealthUrl"
+}
+
+function Test-RunningVersion {
+    try {
+        $payload = Invoke-RestMethod -Uri $VersionUrl -TimeoutSec 2
+        $actual = [string]$payload.info.version
+        $expected = $TargetTag.TrimStart("v")
+        return $actual.TrimStart("v") -eq $expected
+    } catch {
+        return $false
+    }
 }
 
 function Mark-RunSucceeded([string]$RunIdValue, [string]$DbBackup, [string]$PreviousProjectPath) {

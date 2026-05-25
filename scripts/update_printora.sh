@@ -18,6 +18,7 @@ BACKUP_DIR="${PRINTORA_BACKUP_DIR:-${DATA_DIR}/backups}"
 NEXT_DIR="${PRINTORA_NEXT_DIR:-${ROOT_DIR}.next}"
 HTTP_PORT="${HTTP_PORT:-${PRINTORA_PORT:-8069}}"
 HEALTH_URL="${PRINTORA_HEALTH_URL:-http://127.0.0.1:${HTTP_PORT}/health}"
+VERSION_URL="${PRINTORA_VERSION_URL:-http://127.0.0.1:${HTTP_PORT}/openapi.json}"
 UPDATE_REMOTE_URL="${PRINTORA_UPDATE_REMOTE_URL:-}"
 SERVICE_NAME="${PRINTORA_SERVICE_NAME:-printora.service}"
 OS_OVERRIDE="${PRINTORA_UPDATE_OS_OVERRIDE:-}"
@@ -500,7 +501,40 @@ restart_tmux() {
 
 restart_runner() {
   "${ROOT_DIR}/scripts/run_app.sh" --stop >/dev/null 2>&1 || true
+  ensure_port_offline
   PRINTORA_DATA_DIR="$DATA_DIR" PRINTORA_PORT="$HTTP_PORT" "${ROOT_DIR}/scripts/run_app.sh" --no-open
+}
+
+ensure_port_offline() {
+  for _ in $(seq 1 5); do
+    if ! curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then
+      return
+    fi
+    sleep 1
+  done
+  if command -v lsof >/dev/null 2>&1; then
+    local pids
+    pids="$(lsof -tiTCP:"${HTTP_PORT}" -sTCP:LISTEN 2>/dev/null | tr '\n' ' ' || true)"
+    if [[ -n "$pids" ]]; then
+      kill $pids 2>/dev/null || true
+      for _ in $(seq 1 10); do
+        if ! curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then
+          return
+        fi
+        sleep 1
+      done
+    fi
+  fi
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -k "${HTTP_PORT}/tcp" >/dev/null 2>&1 || true
+    for _ in $(seq 1 10); do
+      if ! curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then
+        return
+      fi
+      sleep 1
+    done
+  fi
+  fail_json "processo antigo ainda responde em ${HEALTH_URL}; pare o Printora manualmente e rode o updater novamente"
 }
 
 restart_app() {
@@ -524,12 +558,36 @@ restart_app() {
 
 validate_health() {
   for _ in $(seq 1 30); do
-    if curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then
+    if curl -fsS "$HEALTH_URL" >/dev/null 2>&1 && validate_running_version; then
       return
     fi
     sleep 1
   done
-  fail_json "Printora não respondeu em ${HEALTH_URL}"
+  fail_json "Printora não respondeu com a versão ${TARGET_TAG} em ${HEALTH_URL}"
+}
+
+validate_running_version() {
+  local expected_version
+  expected_version="${TARGET_TAG#v}"
+  PRINTORA_VERSION_URL="$VERSION_URL" \
+  PRINTORA_EXPECTED_VERSION="$expected_version" \
+  "$(python_bin)" - <<'PY'
+import json
+import os
+import urllib.request
+
+url = os.environ["PRINTORA_VERSION_URL"]
+expected = os.environ["PRINTORA_EXPECTED_VERSION"]
+
+try:
+    with urllib.request.urlopen(url, timeout=2) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+except Exception:
+    raise SystemExit(1)
+
+actual = str(payload.get("info", {}).get("version", "")).strip().removeprefix("v")
+raise SystemExit(0 if actual == expected else 1)
+PY
 }
 
 mark_run_succeeded() {
