@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $RootDir = Resolve-Path (Join-Path $PSScriptRoot "..")
 $HostName = if ($env:PRINTORA_HOST) { $env:PRINTORA_HOST } else { "127.0.0.1" }
-$Port = if ($env:PRINTORA_PORT) { $env:PRINTORA_PORT } else { "8085" }
+$Port = if ($env:PRINTORA_PORT) { $env:PRINTORA_PORT } else { "8069" }
 $Url = "http://${HostName}:${Port}"
 $DataDir = if ($env:PRINTORA_DATA_DIR) { $env:PRINTORA_DATA_DIR } else { Join-Path $env:LOCALAPPDATA "Printora" }
 $LogDir = Join-Path $DataDir "logs"
@@ -65,6 +65,36 @@ function Stop-App {
     Write-Host "Printora não estava rodando por este runner."
 }
 
+function Test-PythonSupported {
+    param(
+        [string]$Command,
+        [string[]]$Arguments = @()
+    )
+    try {
+        & $Command @Arguments -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" 2>$null
+        return $LASTEXITCODE -eq 0
+    } catch {
+        return $false
+    }
+}
+
+function Get-CompatiblePython {
+    $candidates = @(
+        @{ Command = "python"; Arguments = @() },
+        @{ Command = "python3"; Arguments = @() },
+        @{ Command = "py"; Arguments = @("-3.14") },
+        @{ Command = "py"; Arguments = @("-3.13") },
+        @{ Command = "py"; Arguments = @("-3.12") },
+        @{ Command = "py"; Arguments = @("-3.11") }
+    )
+    foreach ($candidate in $candidates) {
+        if ((Get-Command $candidate.Command -ErrorAction SilentlyContinue) -and (Test-PythonSupported $candidate.Command $candidate.Arguments)) {
+            return $candidate
+        }
+    }
+    return $null
+}
+
 if ($StopOnly) {
     Stop-App
     exit 0
@@ -89,9 +119,6 @@ if (Test-HttpOk) {
     exit 0
 }
 
-if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-    throw "Python não encontrado."
-}
 if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
     throw "npm não encontrado."
 }
@@ -101,7 +128,12 @@ $VenvPip = Join-Path $RootDir "backend\.venv\Scripts\pip.exe"
 $DistIndex = Join-Path $RootDir "frontend\dist\index.html"
 
 if (-not (Test-Path $VenvPython)) {
-    python -m venv (Join-Path $RootDir "backend\.venv")
+    $Python = Get-CompatiblePython
+    if (-not $Python) {
+        throw "Python 3.11+ não encontrado."
+    }
+    & $Python.Command @($Python.Arguments + @("-m", "venv", (Join-Path $RootDir "backend\.venv")))
+    & $VenvPython -m pip install --upgrade pip setuptools wheel
     & $VenvPip install -e "$RootDir\backend[dev]"
 }
 

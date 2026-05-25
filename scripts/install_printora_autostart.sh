@@ -7,7 +7,7 @@ source "${ROOT_DIR}/scripts/mpl_platform.sh"
 
 MODE="plan"
 YES="false"
-PORT="${PRINTORA_PORT:-8085}"
+PORT="${PRINTORA_PORT:-8069}"
 HOST="${PRINTORA_HOST:-0.0.0.0}"
 DATA_DIR="${PRINTORA_DATA_DIR:-$(mpl_data_dir)}"
 HOST_NAME="${HOST_NAME:-printora}"
@@ -23,6 +23,14 @@ Configura o Printora para subir no boot:
   Linux/Raspberry: systemd com Restart=always
   macOS: launchd com KeepAlive
 USAGE
+}
+
+health_url() {
+  if [[ "${HOST}" == "0.0.0.0" ]]; then
+    echo "http://127.0.0.1:${PORT}/health"
+  else
+    echo "http://${HOST}:${PORT}/health"
+  fi
 }
 
 is_termux() {
@@ -88,6 +96,8 @@ PRINTORA_DATA_DIR="$DATA_DIR" PRINTORA_PORT="$PORT" HTTP_PORT="$PORT" PUBLIC_POR
 SH
     chmod +x "$HOME/.termux/boot/start-printora"
     echo "Termux:Boot configurado. Abra o app Termux:Boot uma vez e remova otimização de bateria do Termux/Termux:Boot."
+    PRINTORA_DATA_DIR="$DATA_DIR" PRINTORA_PORT="$PORT" HTTP_PORT="$PORT" PUBLIC_PORT="$PORT" HOST_NAME="$HOST_NAME" \
+      scripts/android_start_printora.sh >> "$DATA_DIR/logs/install-start.log" 2>&1 || true
     ;;
   linux)
     if ! mpl_has_systemd; then
@@ -151,11 +161,25 @@ SERVICE
 PLIST
     launchctl unload "$HOME/Library/LaunchAgents/com.printora.app.plist" >/dev/null 2>&1 || true
     launchctl load "$HOME/Library/LaunchAgents/com.printora.app.plist"
+    launchctl kickstart -k "gui/$(id -u)/com.printora.app" >/dev/null 2>&1 || true
     ;;
   *)
     echo "Plataforma sem autostart suportado: $kind" >&2
     exit 1
     ;;
 esac
+
+for _ in $(seq 1 20); do
+  if curl -fsS "$(health_url)" >/dev/null 2>&1; then
+    echo "Printora online em $(health_url)"
+    break
+  fi
+  sleep 1
+done
+
+if ! curl -fsS "$(health_url)" >/dev/null 2>&1; then
+  echo "Autostart configurado, mas o Printora não respondeu em $(health_url)." >&2
+  echo "Rode scripts/doctor_install.sh para ver logs e diagnóstico." >&2
+fi
 
 echo "Autostart do Printora configurado."

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-HTTP_PORT="${HTTP_PORT:-8085}"
+HTTP_PORT="${HTTP_PORT:-8069}"
 
 if ! command -v su >/dev/null 2>&1; then
   echo "root indisponivel: su nao encontrado" >&2

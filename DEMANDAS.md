@@ -56,6 +56,8 @@
 - PKG-28: Retry seguro do npm install 0.1.7
 - PKG-29: Frontend pré-buildado para instalação 0.1.8
 - PKG-30: Catálogo completo de firmware de impressoras 3D
+- PKG-31: Instalação resiliente e recuperação de updates travados
+- PKG-32: Desktop App macOS/Windows
 
 ## Política De Backlog
 
@@ -1109,8 +1111,8 @@ Entregáveis:
 
 Critério de aceite:
 
-- `scripts/run_app.sh --no-open` sobe `http://127.0.0.1:8085`;
-- `scripts/run_app_windows.ps1 --no-open` sobe `http://127.0.0.1:8085` no Windows;
+- `scripts/run_app.sh --no-open` sobe `http://127.0.0.1:8069`;
+- `scripts/run_app_windows.ps1 --no-open` sobe `http://127.0.0.1:8069` no Windows;
 - `GET /health` responde `ok`;
 - `scripts/run_app.sh --stop` para o processo iniciado pelo runner;
 - `scripts/run_app_windows.ps1 --stop` para o processo iniciado pelo runner no Windows;
@@ -1127,7 +1129,7 @@ Entregáveis:
 - `Dockerfile`;
 - `docker-compose.yml`;
 - volume persistente para SQLite;
-- porta `8085`.
+- porta `8069`.
 
 Estado atual:
 
@@ -1945,6 +1947,7 @@ Entregáveis:
 - `scripts/install_printora.sh` como entrada simples de instalação;
 - `scripts/install_printora_autostart.sh` para Android/Termux, Linux/Raspberry e macOS;
 - `scripts/install_printora_windows.ps1` e `scripts/install_printora_autostart_windows.ps1` para Windows;
+- instaladores públicos assistidos por plataforma (`scripts/install-macos.sh`, `scripts/install-linux.sh`, `scripts/install-android-termux.sh`, `scripts/install-windows.ps1`) verificando dependências, mostrando itens OK e perguntando antes de instalar ausentes;
 - `packaging/systemd/printora.service` com `Restart=always`;
 - `scripts/run_app.sh` usando Node/npm local de `.printora-node-env` quando existir;
 - `scripts/install_raspberry.sh` usando Node local e reiniciando apenas `printora.service`;
@@ -1966,6 +1969,7 @@ Critério de aceite:
 Estado atual:
 
 - Implementado para macOS/Linux/Android/Windows em scripts separados.
+- Adicionados instaladores públicos assistidos com banner, cores quando suportado pelo terminal e ícone ASCII de sucesso.
 - Validação real em Raspberry, Android físico e Windows físico ainda pendente.
 
 ## PKG-27: Fluxo Visual Do Updater 0.1.6
@@ -2049,6 +2053,82 @@ Critério de aceite:
 Estado atual:
 
 - Implementado e validado localmente.
+
+## PKG-31: Instalação Resiliente E Recuperação De Updates Travados
+
+Objetivo:
+
+Reduzir falhas de instalação em macOS, Linux, Android/Termux e Windows e dar ao usuário um caminho oficial para diagnosticar instalação e destravar update órfão sem SQL manual.
+
+Entregáveis:
+
+- porta padrão real `8069` em scripts, docs, frontend e empacotamento;
+- seleção automática de Python `3.11+` sem remover Python antigo do usuário;
+- recriação automática de venv local quando ela foi criada com Python incompatível;
+- upgrade local de `pip`, `setuptools` e `wheel` antes de instalar o backend editable;
+- validação pós-autostart com `/health` e orientação para `doctor_install.sh`;
+- `scripts/doctor_install.sh` para diagnóstico de Python, Node, porta, banco, serviço e logs;
+- endpoint `GET /api/system/install-diagnostics` com diagnóstico copiável;
+- painel em Configurações para recarregar e copiar diagnóstico da instalação;
+- `scripts/unlock_update.sh` com backup automático do SQLite antes de marcar runs órfãos como `failed`;
+- endpoint `POST /api/system/update/reconcile` para reconciliar updates antigos travados;
+- botão `Reconciliar travados` no histórico de updates;
+- README e guia multiplataforma revisados.
+
+Critério de aceite:
+
+- usuário com Python antigo e Python novo no mesmo macOS consegue instalar sem trocar o Python global;
+- instalação usa `8069` por padrão;
+- update travado antigo deixa de bloquear novo update via UI ou script oficial;
+- nenhum histórico é apagado sem backup;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Em implementação nesta branch.
+
+## PKG-32: Desktop App macOS/Windows
+
+Objetivo:
+
+Entregar o Printora como aplicativo desktop instalável para macOS e Windows, com duplo clique, janela própria e backend local iniciado automaticamente, reduzindo dependência de Terminal, navegador externo, Python/Node globais e instruções manuais.
+
+Entregáveis:
+
+- shell desktop para macOS e Windows, preferencialmente Tauri;
+- empacotamento do frontend buildado dentro do aplicativo;
+- backend local iniciado e supervisionado pelo app desktop em `127.0.0.1:8069`;
+- encerramento controlado do backend ao fechar o app, quando ele tiver sido iniciado pelo app;
+- detecção de porta ocupada com mensagem acionável;
+- tela de erro local quando o backend não subir;
+- armazenamento de dados no diretório operacional já definido (`Application Support/Printora` no macOS e `%LOCALAPPDATA%\Printora` no Windows);
+- logs locais acessíveis para suporte;
+- ícone, nome do aplicativo e metadados de versão;
+- build inicial sem assinatura para validação local;
+- documentação de instalação/uso no `README.md`, `RUNBOOK.md` e guia multiplataforma;
+- validação mínima no `TESTES.md`.
+
+Critério de aceite:
+
+- no macOS, o usuário abre `Printora.app` por duplo clique e a UI carrega sem Terminal;
+- no Windows, o usuário abre `Printora.exe` por duplo clique e a UI carrega sem PowerShell;
+- o app não exige que o usuário altere Python ou Node globais;
+- o backend responde em `/health` antes da janela ser considerada pronta;
+- falha de inicialização mostra causa e caminho de log;
+- banco local existente é preservado;
+- fechamento do app não mata processo externo que não foi iniciado por ele;
+- `./check.sh` passa.
+
+Fora de escopo neste pacote:
+
+- assinatura/notarização macOS;
+- assinatura de código Windows;
+- auto-update completo do aplicativo desktop;
+- instalador público `.dmg`, `.msi` ou `.exe` assinado.
+
+Estado atual:
+
+- Planejado.
 
 ## PKG-30: Catálogo Completo De Firmware De Impressoras 3D
 

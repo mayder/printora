@@ -118,6 +118,7 @@ from app.self_update import (
     UpdateHistoryResponse,
     UpdatePlanRequest,
     UpdatePlanResponse,
+    UpdateReconcileResponse,
     UpdateRollbackRequest,
     UpdateRollbackResponse,
     UpdateRunRecord,

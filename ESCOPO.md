@@ -49,7 +49,7 @@ Printora
 Exemplo de URL local:
 
 ```text
-http://voron.local:8085
+http://voron.local:8069
 ```
 
 Exemplo de banco local:

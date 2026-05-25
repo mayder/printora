@@ -27,15 +27,38 @@ mpl_data_dir() {
 }
 
 mpl_python() {
-  if command -v python3 >/dev/null 2>&1; then
-    echo "python3"
-    return
-  fi
-  if command -v python >/dev/null 2>&1; then
-    echo "python"
-    return
-  fi
+  local candidate
+  for candidate in \
+    "${PRINTORA_PYTHON_BIN:-}" \
+    python3.14 \
+    python3.13 \
+    python3.12 \
+    python3.11 \
+    /opt/homebrew/opt/python@3.14/bin/python3 \
+    /opt/homebrew/opt/python@3.13/bin/python3 \
+    /opt/homebrew/opt/python@3.12/bin/python3 \
+    /opt/homebrew/opt/python@3.11/bin/python3 \
+    /usr/local/opt/python@3.14/bin/python3 \
+    /usr/local/opt/python@3.13/bin/python3 \
+    /usr/local/opt/python@3.12/bin/python3 \
+    /usr/local/opt/python@3.11/bin/python3 \
+    python3 \
+    python; do
+    [[ -n "${candidate}" ]] || continue
+    if command -v "${candidate}" >/dev/null 2>&1 && mpl_python_supported "${candidate}"; then
+      command -v "${candidate}"
+      return
+    fi
+  done
   echo ""
+}
+
+mpl_python_supported() {
+  local python_bin="$1"
+  "${python_bin}" - <<'PY' >/dev/null 2>&1
+import sys
+raise SystemExit(0 if sys.version_info >= (3, 11) else 1)
+PY
 }
 
 mpl_require_command() {

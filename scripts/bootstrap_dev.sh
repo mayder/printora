@@ -24,7 +24,7 @@ run_or_print() {
 }
 
 if [[ -z "${PYTHON_BIN}" ]]; then
-  echo "Python não encontrado." >&2
+  echo "Python 3.11+ não encontrado. Instale com Homebrew, pyenv ou defina PRINTORA_PYTHON_BIN." >&2
   exit 1
 fi
 
@@ -52,7 +52,12 @@ if [[ "${APPLY}" != "true" ]]; then
 fi
 
 run_or_print mkdir -p "${DATA_DIR}"
+if [[ -x "${ROOT_DIR}/backend/.venv/bin/python" ]] && ! mpl_python_supported "${ROOT_DIR}/backend/.venv/bin/python"; then
+  echo "Venv do backend usa Python incompatível; recriando com ${PYTHON_BIN}."
+  run_or_print rm -rf "${ROOT_DIR}/backend/.venv"
+fi
 run_or_print "${PYTHON_BIN}" -m venv "${ROOT_DIR}/backend/.venv"
+run_or_print "${ROOT_DIR}/backend/.venv/bin/python" -m pip install --upgrade pip setuptools wheel
 run_or_print "${ROOT_DIR}/backend/.venv/bin/pip" install -e "${ROOT_DIR}/backend[dev]"
 if [[ "${APPLY}" == "true" && -s "${ROOT_DIR}/frontend/dist/index.html" && "${PRINTORA_REBUILD_FRONTEND:-0}" != "1" ]]; then
   echo "Frontend dist já existe; pulando npm install/build. Use PRINTORA_REBUILD_FRONTEND=1 para rebuildar."

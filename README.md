@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-Printora é uma aplicação web local para acompanhar, diagnosticar e manter impressoras 3D com Klipper/Moonraker.
+Printora é uma aplicação local para acompanhar, diagnosticar e manter impressoras 3D com Klipper/Moonraker.
 
 O foco é segurança operacional: ler o estado real da impressora, registrar histórico, gerar evidências e reduzir risco antes de updates, manutenção, ajustes ou planejamento de firmware.
 
@@ -32,167 +32,76 @@ Por padrão, o Printora é conservador:
 - não faz flash de firmware pelo launcher rápido;
 - salva os dados em SQLite no computador ou dispositivo onde a aplicação está rodando.
 
-O fluxo de firmware é uma das prioridades do projeto. A meta inicial é simplificar atualização e planejamento seguro de MCU, EBB e placas relacionadas, mas as etapas críticas continuam protegidas por dry-run, validação e confirmação.
+## Instalação
 
-## Requisitos
+A porta padrão é:
 
-- Python 3.11 ou mais novo;
-- Node.js e npm;
-- acesso de rede ao Moonraker da impressora para dados ao vivo.
+```text
+http://127.0.0.1:8069
+```
 
-URL padrão usada pelos atalhos locais:
+Escolha o guia do seu sistema:
+
+- [macOS](docs/INSTALL_MACOS.md)
+- [Windows](docs/INSTALL_WINDOWS.md)
+- [Android com Termux](docs/INSTALL_ANDROID_TERMUX.md)
+- [Linux/Raspberry/CB1/Manta](docs/INSTALL_LINUX_RASPBERRY.md)
+- [Docker](docs/INSTALL_DOCKER.md)
+
+Para instalação local, prefira clonar com Git em vez de baixar o ZIP do GitHub. Isso preserva o fluxo de update.
+
+Os guias usam instaladores assistidos que verificam o ambiente, mostram o que já está OK e perguntam antes de instalar dependências ausentes.
+
+## Configurar Impressora
+
+Depois de abrir o Printora, cadastre a URL Moonraker da impressora pela interface.
+
+Exemplo:
 
 ```text
 http://voron.local:7125
 ```
 
-## Uso Rápido
-
-### macOS
-
-1. Abra a pasta do projeto.
-2. Dê duplo clique em `Abrir Printora.command`.
-3. Mantenha a janela do Terminal aberta.
-4. Abra `http://127.0.0.1:8085`.
-
-Se o macOS bloquear o arquivo:
-
-```bash
-chmod +x "Abrir Printora.command" scripts/run_app.sh
-```
-
-### Windows
-
-1. Abra a pasta do projeto.
-2. Dê duplo clique em `Abrir Printora.bat`.
-3. Mantenha a janela do PowerShell aberta.
-4. Abra `http://127.0.0.1:8085`.
-
-Se o Windows bloquear a execução:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_app_windows.ps1
-```
-
-### Linux, Raspberry Ou Android/Termux
-
-Consulte o guia completo:
-
-```text
-docs/INSTALL_MULTIPLATFORM.md
-```
-
-## Comandos Manuais
-
-macOS/Linux:
-
-```bash
-./scripts/run_app.sh
-./scripts/run_app.sh --status
-./scripts/run_app.sh --stop
-```
-
-Windows PowerShell:
-
-```powershell
-.\scripts\run_app_windows.ps1
-.\scripts\run_app_windows.ps1 --status
-.\scripts\run_app_windows.ps1 --stop
-```
-
-Docker:
-
-```bash
-docker compose up --build
-```
-
-Depois abra:
-
-```text
-http://127.0.0.1:8085
-```
-
-## Configurar Moonraker
-
-macOS/Linux:
+Também é possível iniciar o app com uma URL padrão:
 
 ```bash
 PRINTORA_MOONRAKER_URL=http://sua-impressora.local:7125 ./scripts/run_app.sh
 ```
 
-Windows PowerShell:
+## Dados Locais
 
-```powershell
-$env:PRINTORA_MOONRAKER_URL="http://sua-impressora.local:7125"
-.\scripts\run_app_windows.ps1
-```
-
-Também é possível cadastrar impressoras pela interface.
-
-## Onde Ficam Os Dados
+O banco local é `printora.db`.
 
 - macOS: `~/Library/Application Support/Printora`
 - Windows: `%LOCALAPPDATA%\Printora`
-- Linux: `~/.local/share/printora`
+- Linux/Raspberry: `~/.local/share/printora`
+- Android/Termux: `~/.local/share/printora`
 - Docker: volume `printora-data`
 
-Banco local:
+## Diagnóstico
 
-```text
-printora.db
-```
-
-## Validação
-
-Health check:
+Se a instalação não abrir:
 
 ```bash
-curl http://127.0.0.1:8085/health
+PRINTORA_PORT=8069 ./scripts/doctor_install.sh
 ```
 
-Resposta esperada:
-
-```json
-{"status":"ok","app":"Printora"}
-```
-
-Check oficial do projeto:
+Se um update local ficar travado em `em execução`, use a ação `Atualizar status` no histórico de updates. Em instalações antigas, antes dessa ação existir, use:
 
 ```bash
-./check.sh
+./scripts/unlock_update.sh
 ```
 
-Testes do backend:
+## Documentação Pública
 
-```bash
-backend/.venv/bin/python -m pytest backend/tests
-```
-
-Build do frontend:
-
-```bash
-npm --prefix frontend run build
-```
-
-## Estrutura Do Repositório
-
-`PATHS.toml` é o mapa oficial do monorepo. Ele define raízes, arquivos principais, checks, módulos e regras de qualidade usadas para manter backend, frontend, documentação e scripts alinhados.
-
-Arquivos principais:
-
-- `PATHS.toml`: mapa oficial do projeto;
-- `QUALITY_ROADMAP.md`: fluxo de desenvolvimento e critérios de qualidade;
-- `GOVERNANCA.md`: segurança, riscos, release gates e rollback;
-- `DEMANDAS.md`: backlog de pacotes e entregas;
-- `TELAS.md`: telas, rotas e estados da interface;
-- `TESTES.md`: estratégia de validação;
-- `RUNBOOK.md`: operação local, diagnóstico e publicação;
-- `MAPA_EXECUTIVO_MARKMAP.md`: mapa mental executivo;
-- `MAPA_MENTAL_MARKMAP.md`: mapa mental completo.
+- [Escopo do projeto](ESCOPO.md)
+- [Backlog de funcionalidades](DEMANDAS.md)
+- [Recursos e endpoints](docs/FEATURES.md)
+- [Instalação por plataforma](docs/INSTALL_MULTIPLATFORM.md)
 
 ## Licença
 
-Printora é open source sob a licença MIT. Veja `LICENSE`.
+Printora é open source sob a licença MIT. Veja [LICENSE](LICENSE).
 
 O software é fornecido sem garantia. Operações em impressoras, firmware, Moonraker, Klipper, systemd ou arquivos de configuração devem ser revisadas pelo usuário antes de execução real.
 
@@ -201,12 +110,3 @@ O software é fornecido sem garantia. Operações em impressoras, firmware, Moon
 - Projeto: <https://github.com/mayder/printora>
 - Autor: <https://www.linkedin.com/in/brenomayder/>
 - Instagram: <https://www.instagram.com/brenomayder>
-
-## Documentação
-
-- Recursos e endpoints: `docs/FEATURES.md`
-- Instalação multiplataforma: `docs/INSTALL_MULTIPLATFORM.md`
-- Instalação Raspberry/Mainsail/Moonraker: `docs/INSTALL_RASPBERRY.md`
-- Governança e segurança: `GOVERNANCA.md`
-- Testes: `TESTES.md`
-- Runbook: `RUNBOOK.md`

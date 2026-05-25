@@ -50,7 +50,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Firmware | `firmware` | `/?section=firmware`, `/#firmware` | `frontend/src/screens/FirmwareScreen.tsx` | Inventario de MCUs/placas detectadas, associacao ao modelo fisico, build, flash planejado e referencia CANBus | Exige impressora ativa online | existente |
 | Manutencao | `maintenance` | `/?section=maintenance`, `/#maintenance` | `frontend/src/screens/MaintenanceScreen.tsx` | Tarefas preventivas, diario e horas de impressao por impressora | Exige impressora ativa local | existente |
 | Relatorios | `reports` | `/?section=reports`, `/#reports` | `frontend/src/screens/ReportsScreen.tsx` + `frontend/src/screens/reports/*` | Relatorio leigo da impressora com decisao de imprimir, motivo, metricas explicadas, diagnostico de rede/DNS/SSH read-only, snapshots, relatorio sanitizado, backup/restore seguro e auditoria read-only | Exige impressora ativa online | existente |
-| Configuracoes | `settings` | `/?section=settings`, `/#settings` | `frontend/src/screens/SettingsScreen.tsx` | Registro tecnico CAN, releases, update/rollback do Printora e diagnostico avancado do host | Nao exige impressora ativa | existente |
+| Configuracoes | `settings` | `/?section=settings`, `/#settings` | `frontend/src/screens/SettingsScreen.tsx` | Registro tecnico CAN, releases, update/rollback do Printora, diagnostico da instalacao e diagnostico avancado do host | Nao exige impressora ativa | existente |
 | Sobre | `about` | `/?section=about`, `/#about` | `frontend/src/screens/AboutScreen.tsx` | Apresentacao do autor, motivacao do projeto, funcionalidades, roadmap publico, redes sociais e identidade visual | Nao exige impressora ativa | existente |
 | Licenca | `license` | `/?section=license`, `/#license` | `frontend/src/screens/LicenseScreen.tsx` | Resumo de licenca open source, limites de garantia e responsabilidade operacional | Nao exige impressora ativa | existente |
 
@@ -86,7 +86,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Firmware | `frontend/src/hooks/domains/useFirmware.ts` | `frontend/src/services/firmwareApi.ts` |
 | Manutencao | `frontend/src/hooks/domains/useMaintenance.ts` | `frontend/src/services/maintenanceApi.ts` |
 | Relatorios, snapshots e backups | `frontend/src/hooks/domains/useReports.ts` | `frontend/src/services/reportsApi.ts`, `frontend/src/services/backupApi.ts`, `frontend/src/services/printerApi.ts` |
-| CAN e diagnostico | `frontend/src/hooks/domains/useSettings.ts` | `frontend/src/services/canApi.ts`, `frontend/src/services/diagnosticsApi.ts`, `frontend/src/services/printerApi.ts` |
+| CAN e diagnostico | `frontend/src/hooks/domains/useSettings.ts` | `frontend/src/services/canApi.ts`, `frontend/src/services/diagnosticsApi.ts`, `frontend/src/services/printerApi.ts`, `frontend/src/services/systemApi.ts` |
 | Updates do Printora | `frontend/src/hooks/domains/useSelfUpdate.ts` | `frontend/src/services/systemApi.ts` |
 
 ## Distribuicao de conteudo
@@ -99,9 +99,11 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Relatorios, quando houver SSH configurado para a impressora, o diagnostico de rede pode executar somente comandos read-only para comparar DNS local do Android, URL cadastrada, IP direto e Moonraker local na Raspberry.
 - Na tela Relatorios, formularios tecnicos de backup, comparacao, restore e relatorio sanitizado devem abrir em modal; a tela principal e leitura diagnostica, nao cadastro.
 - Diagnostico avancado do host fica em `settings`, colapsado e com ajuda contextual por modal.
+- Diagnostico da instalacao fica em `settings`, colapsado, com refresh manual e acao para copiar um resumo tecnico sanitizado.
 - CAN de operacao fica em `monitoring` como leitura operacional; registro tecnico, parser e comparacao manual ficam em `settings`, colapsados e com ajuda contextual por modal.
 - Updates da impressora ficam em `updates`; updates do proprio Printora ficam em `settings`.
 - Na tela Configuracoes, `Releases anteriores` e `Historico de updates` ficam como blocos colapsados lado a lado, no mesmo padrao dos blocos tecnicos.
+- No `Historico de updates`, a acao `Reconciliar travados` deve revalidar runs orfaos antigos sem apagar historico e liberar novo update quando nao houver execucao real em andamento.
 - A tela Sobre deve ser acessivel pelo icone de informacao no topo em todas as telas; por enquanto nao aparece no menu lateral.
 - A tela Sobre deve promover o autor, exibir LinkedIn, Instagram, GitHub do projeto, motivacao, funcionalidades atuais, aviso de teste, versao sem custo, roadmap online futuro e opcoes de marca.
 - A tela Licenca deve ser acessivel a partir da tela Sobre e deixar claro o uso open source, ausencia de garantia e responsabilidade do usuario em operacoes criticas.

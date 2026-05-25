@@ -8,7 +8,7 @@ source "${ROOT_DIR}/scripts/mpl_platform.sh"
 INSTALL_USER="${PRINTORA_INSTALL_USER:-${USER:-pi}}"
 INSTALL_HOME="${PRINTORA_INSTALL_HOME:-$(eval echo "~${INSTALL_USER}")}"
 TARGET_DIR="${PRINTORA_INSTALL_DIR:-${INSTALL_HOME}/Printora}"
-PUBLIC_URL="${PRINTORA_PUBLIC_URL:-http://$(hostname):8085}"
+PUBLIC_URL="${PRINTORA_PUBLIC_URL:-http://$(hostname):8069}"
 SERVICE_SRC="${ROOT_DIR}/packaging/systemd/printora.service"
 SERVICE_DST="/etc/systemd/system/printora.service"
 ENV_SRC="${ROOT_DIR}/packaging/env/printora.env.example"
@@ -117,7 +117,7 @@ if [[ -f "${MAINSAIL_NAV_DST}" ]]; then
   run_or_print cp "${MAINSAIL_NAV_DST}" "${MAINSAIL_NAV_DST}.before-printora"
 fi
 MAINSAIL_NAV_TMP="$(mktemp)"
-sed -e "s#http://voron.local:8085#${PUBLIC_URL}#g" "${MAINSAIL_NAV_SRC}" > "${MAINSAIL_NAV_TMP}"
+sed -e "s#http://voron.local:8069#${PUBLIC_URL}#g" "${MAINSAIL_NAV_SRC}" > "${MAINSAIL_NAV_TMP}"
 run_or_print cp "${MAINSAIL_NAV_TMP}" "${MAINSAIL_NAV_DST}"
 rm -f "${MAINSAIL_NAV_TMP}"
 

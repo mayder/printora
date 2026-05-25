@@ -110,7 +110,7 @@ def mdns_hostname_responder(name: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", default="printora")
-    parser.add_argument("--port", type=int, default=8085)
+    parser.add_argument("--port", type=int, default=8069)
     args = parser.parse_args()
 
     host = f"{args.name}.local."

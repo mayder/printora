@@ -195,6 +195,39 @@ def test_plan_endpoint_rejects_unknown_environment(tmp_path: Path, monkeypatch) 
         get_settings.cache_clear()
 
 
+def test_reconcile_endpoint_marks_stale_running_update_failed(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        database_path = tmp_path / "printora.db"
+        initialize_database(database_path)
+        repository = SelfUpdateRepository(database_path)
+        run = repository.create_run(
+            target_tag="v9.9.9",
+            source_url=None,
+            environment="unix",
+            current_project_path=str(tmp_path / "Printora"),
+            status="running",
+            steps=[("install_backend", "Instalar backend editable sem dependências")],
+        )
+        with sqlite3.connect(database_path) as connection:
+            connection.execute(
+                "UPDATE app_update_runs SET started_at = datetime('now', '-5 minutes') WHERE id = ?",
+                (run.id,),
+            )
+
+        with TestClient(app) as client:
+            response = client.post("/api/system/update/reconcile")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["reconciled"] == 1
+        assert payload["running_updates"] == 0
+        assert payload["runs"][0]["status"] == "failed"
+    finally:
+        get_settings.cache_clear()
+
+
 def test_schema_versioning_includes_app_update_sql(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)

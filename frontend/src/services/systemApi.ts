@@ -1,8 +1,10 @@
 import { apiResponse } from "./http";
 
 export const systemApi = {
+  installDiagnostics: () => apiResponse("/api/system/install-diagnostics"),
   releases: () => apiResponse("/api/system/releases"),
   updateHistory: () => apiResponse("/api/system/update/history"),
+  reconcileUpdate: () => apiResponse("/api/system/update/reconcile", { method: "POST" }),
   planUpdate: (body: unknown) =>
     apiResponse("/api/system/update/plan", {
       method: "POST",

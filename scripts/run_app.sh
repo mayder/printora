@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${ROOT_DIR}/scripts/mpl_platform.sh"
 
 HOST="${PRINTORA_HOST:-127.0.0.1}"
-PORT="${PRINTORA_PORT:-8085}"
+PORT="${PRINTORA_PORT:-8069}"
 URL="http://${HOST}:${PORT}"
 DATA_DIR="${PRINTORA_DATA_DIR:-$(mpl_data_dir)}"
 LOG_DIR="${DATA_DIR}/logs"
@@ -27,7 +27,7 @@ Uso:
   scripts/run_app.sh --stop     # para o processo iniciado por este runner
 
 Variáveis úteis:
-  PRINTORA_PORT=8085
+  PRINTORA_PORT=8069
   PRINTORA_MOONRAKER_URL=http://voron.local:7125
 USAGE
 }
@@ -104,7 +104,7 @@ fi
 
 PYTHON_BIN="$(mpl_python)"
 if [[ -z "${PYTHON_BIN}" ]]; then
-  echo "Python não encontrado." >&2
+  echo "Python 3.11+ não encontrado. Instale um Python compatível ou defina PRINTORA_PYTHON_BIN." >&2
   exit 1
 fi
 mpl_require_command curl
@@ -119,8 +119,14 @@ if [[ -z "${NPM_BIN}" ]]; then
   exit 1
 fi
 
+if [[ -x "${ROOT_DIR}/backend/.venv/bin/python" ]] && ! mpl_python_supported "${ROOT_DIR}/backend/.venv/bin/python"; then
+  echo "Venv do backend usa Python incompatível; recriando com ${PYTHON_BIN}."
+  rm -rf "${ROOT_DIR}/backend/.venv"
+fi
+
 if [[ ! -x "${ROOT_DIR}/backend/.venv/bin/python" ]]; then
   "${PYTHON_BIN}" -m venv "${ROOT_DIR}/backend/.venv"
+  "${ROOT_DIR}/backend/.venv/bin/python" -m pip install --upgrade pip setuptools wheel
   "${ROOT_DIR}/backend/.venv/bin/pip" install -e "${ROOT_DIR}/backend[dev]"
 fi
 

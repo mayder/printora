@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+from app.install_diagnostics import InstallationDiagnosticsResponse, build_installation_diagnostics
 from app.routes.support import *
 
 router = APIRouter()
@@ -16,6 +19,15 @@ async def health() -> dict[str, str]:
 async def system_version() -> dict[str, object]:
     settings = get_settings()
     return get_database_version_info(settings.database_path, settings.data_dir)
+
+
+@router.get("/api/system/install-diagnostics")
+async def system_install_diagnostics() -> InstallationDiagnosticsResponse:
+    settings = get_settings()
+    return build_installation_diagnostics(
+        settings=settings,
+        project_root=Path(__file__).resolve().parents[3],
+    )
 
 
 
@@ -113,6 +125,28 @@ async def system_update_history(limit: int = 20) -> UpdateHistoryResponse:
     repository = get_self_update_repository(settings)
     repository.reconcile_interrupted_updates(installed_version=installed_app_version())
     return UpdateHistoryResponse(runs=repository.list_runs(limit=limit))
+
+
+@router.post("/api/system/update/reconcile")
+async def system_update_reconcile() -> UpdateReconcileResponse:
+    settings = get_settings()
+    repository = get_self_update_repository(settings)
+    reconciled = repository.reconcile_interrupted_updates(
+        installed_version=installed_app_version(),
+        stale_after_minutes=1,
+    )
+    running_updates = repository.count_running_updates()
+    message = (
+        "Status de update reconciliado."
+        if reconciled
+        else "Nenhum update órfão antigo para reconciliar."
+    )
+    return UpdateReconcileResponse(
+        reconciled=reconciled,
+        running_updates=running_updates,
+        message=message,
+        runs=repository.list_runs(limit=20),
+    )
 
 
 

@@ -7,6 +7,7 @@ import {
   type SelfUpdateApplyResponse,
   type SelfUpdateHistoryResponse,
   type SelfUpdatePlanResponse,
+  type SelfUpdateReconcileResponse,
   type SelfUpdateRollbackResponse,
   type SelfUpdateRunRecord,
 } from "../../selfUpdate";
@@ -19,6 +20,7 @@ export function useSelfUpdate() {
   const [selfUpdateHistory, setSelfUpdateHistory] = React.useState<SelfUpdateRunRecord[]>([]);
   const [selfUpdateModalOpen, setSelfUpdateModalOpen] = React.useState(false);
   const [selfUpdateApplying, setSelfUpdateApplying] = React.useState(false);
+  const [selfUpdateReconciling, setSelfUpdateReconciling] = React.useState(false);
   const [selfUpdateRollingBack, setSelfUpdateRollingBack] = React.useState(false);
   const [selfUpdateConfirmation, setSelfUpdateConfirmation] = React.useState("");
   const [selfUpdateRollbackConfirmation, setSelfUpdateRollbackConfirmation] = React.useState("");
@@ -58,6 +60,26 @@ export function useSelfUpdate() {
       setSelfUpdateHistory(payload.runs);
     } catch {
       // Histórico não deve bloquear o restante da tela.
+    }
+  }
+
+  async function reconcileSelfUpdateHistory() {
+    setSelfUpdateReconciling(true);
+    setSelfUpdateMessage(null);
+    setSelfUpdateConnectionLost(false);
+    try {
+      const response = await systemApi.reconcileUpdate();
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+      const payload = (await response.json()) as SelfUpdateReconcileResponse;
+      setSelfUpdateHistory(payload.runs);
+      setSelfUpdateMessage(payload.message);
+      await loadSystemReleases();
+    } catch (err) {
+      setSelfUpdateMessage(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setSelfUpdateReconciling(false);
     }
   }
 
@@ -206,6 +228,7 @@ export function useSelfUpdate() {
     pollSelfUpdateRun,
     releaseError,
     releaseLoading,
+    reconcileSelfUpdateHistory,
     rollbackSelfUpdate,
     selfUpdateApplying,
     selfUpdateConfirmation,
@@ -214,6 +237,7 @@ export function useSelfUpdate() {
     selfUpdateMessage,
     selfUpdateModalOpen,
     selfUpdatePlan,
+    selfUpdateReconciling,
     selfUpdateRollbackConfirmation,
     selfUpdateRollingBack,
     setReleaseError,
@@ -225,6 +249,7 @@ export function useSelfUpdate() {
     setSelfUpdateMessage,
     setSelfUpdateModalOpen,
     setSelfUpdatePlan,
+    setSelfUpdateReconciling,
     setSelfUpdateRollbackConfirmation,
     setSelfUpdateRollingBack,
     setSystemReleases,

@@ -32,7 +32,7 @@ cd /home/linaro/Printora
 PRINTORA_INSTALL_USER=linaro \
 PRINTORA_INSTALL_HOME=/home/linaro \
 PRINTORA_INSTALL_DIR=/home/linaro/Printora \
-PRINTORA_PUBLIC_URL=http://voron-02-pro.local:8085 \
+PRINTORA_PUBLIC_URL=http://voron-02-pro.local:8069 \
 ./scripts/install_raspberry.sh --apply
 ```
 
@@ -53,7 +53,7 @@ Ele não inicia o serviço automaticamente. Depois de revisar `.env`:
 ```bash
 sudo systemctl start printora.service
 sudo systemctl status printora.service --no-pager
-curl -s http://127.0.0.1:8085/health
+curl -s http://127.0.0.1:8069/health
 ```
 
 ## Mainsail

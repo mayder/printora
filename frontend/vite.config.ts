@@ -6,8 +6,8 @@ export default defineConfig({
   server: {
     port: 5178,
     proxy: {
-      "/api": "http://127.0.0.1:8085",
-      "/health": "http://127.0.0.1:8085"
+      "/api": "http://127.0.0.1:8069",
+      "/health": "http://127.0.0.1:8069"
     }
   }
 });

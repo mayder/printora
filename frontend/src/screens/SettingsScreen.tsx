@@ -5,6 +5,7 @@ import type { ScreenPropsFor } from "./ScreenProps";
 type SettingsScreenProps = ScreenPropsFor<
   | "Activity"
   | "AlertTriangle"
+  | "ClipboardCheck"
   | "FileText"
   | "History"
   | "HelpCircle"
@@ -40,6 +41,8 @@ type SettingsScreenProps = ScreenPropsFor<
   | "formatSelfUpdateStatus"
   | "formatUnknown"
   | "hostAudit"
+  | "installDiagnostics"
+  | "loadInstallDiagnostics"
   | "isSelfUpdateEnvironmentSupported"
   | "loadSelfUpdateHistory"
   | "loadSystemReleases"
@@ -47,12 +50,14 @@ type SettingsScreenProps = ScreenPropsFor<
   | "parseCanRawOutput"
   | "releaseError"
   | "releaseLoading"
+  | "reconcileSelfUpdateHistory"
   | "releasePanelClass"
   | "releaseStatusPillClass"
   | "selectedPrinterId"
   | "selfUpdateConnectionLost"
   | "selfUpdateHistory"
   | "selfUpdateMessage"
+  | "selfUpdateReconciling"
   | "selfUpdateRunClass"
   | "setCanBitrate"
   | "setCanBusState"
@@ -75,6 +80,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
   const {
     Activity,
     AlertTriangle,
+    ClipboardCheck,
     FileText,
     History,
     HelpCircle,
@@ -110,6 +116,8 @@ export function SettingsScreen(props: SettingsScreenProps) {
     formatSelfUpdateStatus,
     formatUnknown,
     hostAudit,
+    installDiagnostics,
+    loadInstallDiagnostics,
     isSelfUpdateEnvironmentSupported,
     loadSelfUpdateHistory,
     loadSystemReleases,
@@ -117,12 +125,14 @@ export function SettingsScreen(props: SettingsScreenProps) {
     parseCanRawOutput,
     releaseError,
     releaseLoading,
+    reconcileSelfUpdateHistory,
     releasePanelClass,
     releaseStatusPillClass,
     selectedPrinterId,
     selfUpdateConnectionLost,
     selfUpdateHistory,
     selfUpdateMessage,
+    selfUpdateReconciling,
     selfUpdateRunClass,
     setCanBitrate,
     setCanBusState,
@@ -141,6 +151,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
     systemReleases,
   } = props;
   const [settingsHelpTopic, setSettingsHelpTopic] = useState<"can" | "host" | null>(null);
+  const [installDiagnosticCopied, setInstallDiagnosticCopied] = useState(false);
 
   const helpTitle = settingsHelpTopic === "can" ? "Registro técnico CAN" : "Diagnóstico avançado do host";
 
@@ -282,6 +293,19 @@ export function SettingsScreen(props: SettingsScreenProps) {
               <History size={15} />
               Recarregar
             </button>
+            <button
+              type="button"
+              className="secondary-button compact-summary-action"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void reconcileSelfUpdateHistory();
+              }}
+              disabled={selfUpdateReconciling}
+            >
+              <RefreshCw size={15} />
+              {selfUpdateReconciling ? "Reconciliando" : "Reconciliar travados"}
+            </button>
           </summary>
           {selfUpdateHistory.length === 0 ? <p className="muted">Nenhum update do Printora registrado.</p> : null}
           {selfUpdateHistory.slice(0, 5).map((run: any) => (
@@ -312,6 +336,17 @@ export function SettingsScreen(props: SettingsScreenProps) {
                   <FileText size={15} />
                   Ver detalhes
                 </button>
+                {run.status === "running" ? (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => void reconcileSelfUpdateHistory()}
+                    disabled={selfUpdateReconciling}
+                  >
+                    <RefreshCw size={15} />
+                    {selfUpdateReconciling ? "Reconciliando" : "Atualizar status"}
+                  </button>
+                ) : null}
                 {canRollbackSelfUpdateRun(run) ? (
                   <button
                     type="button"
@@ -336,6 +371,68 @@ export function SettingsScreen(props: SettingsScreenProps) {
               </div>
             </div>
           ))}
+        </details>
+
+        <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel install-diagnostics-panel">
+          <summary className="settings-advanced-summary">
+            <span>Diagnóstico da instalação</span>
+            <button
+              type="button"
+              className="secondary-button compact-summary-action"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void loadInstallDiagnostics();
+              }}
+            >
+              <RefreshCw size={15} />
+              Atualizar
+            </button>
+            <button
+              type="button"
+              className="secondary-button compact-summary-action"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!installDiagnostics?.copy_text) {
+                  return;
+                }
+                void navigator.clipboard.writeText(installDiagnostics.copy_text).then(() => {
+                  setInstallDiagnosticCopied(true);
+                  window.setTimeout(() => setInstallDiagnosticCopied(false), 1800);
+                });
+              }}
+              disabled={!installDiagnostics?.copy_text}
+            >
+              <ClipboardCheck size={15} />
+              {installDiagnosticCopied ? "Copiado" : "Copiar diagnóstico"}
+            </button>
+          </summary>
+          <p className="muted">Use este painel quando a instalação, atualização ou inicialização local não estiver clara.</p>
+          <strong className="summary">{installDiagnostics?.summary ?? "Aguardando diagnóstico"}</strong>
+          <div className="install-diagnostics-grid">
+            <Badge icon={Settings} label="Versão" value={installDiagnostics?.installed_version ?? "-"} />
+            <Badge icon={Activity} label="Ambiente" value={installDiagnostics?.environment ?? "-"} />
+            <Badge icon={ShieldCheck} label="OK" value={installDiagnostics?.counts.ok ?? 0} />
+            <Badge icon={AlertTriangle} label="Atenção" value={(installDiagnostics?.counts.warning ?? 0) + (installDiagnostics?.counts.error ?? 0)} />
+          </div>
+          <div className="install-diagnostics-meta">
+            <span>Porta: {installDiagnostics?.port ?? "-"}</span>
+            <span>Dados: {installDiagnostics?.data_dir ?? "-"}</span>
+            <span>Banco: {installDiagnostics?.database_path ?? "-"}</span>
+          </div>
+          <div className="install-diagnostics-list">
+            {installDiagnostics?.items.map((item: any) => (
+              <div key={item.key} className={`install-diagnostic-row ${item.status}`}>
+                <div>
+                  <strong>{item.label}</strong>
+                  <span>{item.status}</span>
+                </div>
+                <p>{item.detail}</p>
+                {item.command ? <code>{item.command}</code> : null}
+              </div>
+            ))}
+          </div>
         </details>
 
         <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel can-technical-panel">

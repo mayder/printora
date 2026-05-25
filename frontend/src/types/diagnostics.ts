@@ -49,3 +49,31 @@ export type NetworkDiagnosticsResponse = {
   } | null;
   recommendation: string;
 };
+
+export type InstallDiagnosticItem = {
+  key: string;
+  label: string;
+  status: "ok" | "warning" | "error" | string;
+  detail: string;
+  command?: string | null;
+};
+
+export type InstallationDiagnosticsResponse = {
+  safe_mode: "read_only";
+  summary: string;
+  platform: string;
+  environment: string;
+  installed_version: string;
+  hostname: string;
+  project_root: string;
+  data_dir: string;
+  database_path: string;
+  port: string;
+  counts: {
+    ok: number;
+    warning: number;
+    error: number;
+  };
+  items: InstallDiagnosticItem[];
+  copy_text: string;
+};

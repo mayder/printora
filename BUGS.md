@@ -6,6 +6,32 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Instalacao Falhava Com Python Antigo Ou Update Orfao
+
+Sintoma:
+
+- em macOS com Python global antigo, a instalacao criava `backend/.venv` com Python incompatível e falhava no backend;
+- algumas instrucoes e scripts ainda apontavam para `8085`, enquanto a porta operacional combinada era `8069`;
+- update interrompido podia permanecer como `em execução` e bloquear novas versoes ate intervencao manual no SQLite.
+
+Causa:
+
+- selecao de Python considerava primeiro `python3`, sem validar `>=3.11`;
+- venv antiga nao era recriada automaticamente;
+- recuperacao de update orfao existia no backend, mas faltava acao explicita para o usuario e script operacional oficial.
+
+Correção:
+
+- scripts passam a selecionar Python `3.11+`, preservando Python antigo do usuario;
+- venv local incompatível e recriada;
+- padrao `8069` aplicado em scripts, docs, frontend e empacotamento;
+- adicionados `scripts/doctor_install.sh`, `scripts/unlock_update.sh`, endpoint de reconciliacao e botao `Reconciliar travados`.
+
+Validação:
+
+- teste automatizado do endpoint `POST /api/system/update/reconcile`;
+- `./check.sh`.
+
 ### Update Do Printora Ficava Travado Em Execucao Apos Reboot
 
 Sintoma:
@@ -44,7 +70,7 @@ Causa:
 Correção:
 
 - o `data_dir` padrão agora usa `~/Library/Application Support/Printora` no macOS, `%LOCALAPPDATA%/Printora` no Windows e `~/.local/share/printora` no Linux;
-- erros de rede do frontend passam a orientar verificar o backend em `http://127.0.0.1:8085`.
+- erros de rede do frontend passam a orientar verificar o backend em `http://127.0.0.1:8069`.
 
 Validação:
 
