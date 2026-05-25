@@ -116,6 +116,7 @@ Aceite para Raspberry/Linux:
 Aceite:
 
 - porta padrão do Printora é `8069` em runner, instalador, frontend, Docker e documentação;
+- instaladores públicos por plataforma (`install-macos.sh`, `install-linux.sh`, `install-android-termux.sh`, `install-windows.ps1`) verificam dependências, mostram itens OK e perguntam antes de instalar ausentes;
 - `scripts/bootstrap_dev.sh --apply` seleciona Python `3.11+` mesmo quando `python3` global é antigo;
 - venv `backend/.venv` criada com Python incompatível é recriada;
 - instalador atualiza `pip`, `setuptools` e `wheel` dentro da venv local antes de instalar o backend;

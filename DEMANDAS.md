@@ -1947,6 +1947,7 @@ Entregáveis:
 - `scripts/install_printora.sh` como entrada simples de instalação;
 - `scripts/install_printora_autostart.sh` para Android/Termux, Linux/Raspberry e macOS;
 - `scripts/install_printora_windows.ps1` e `scripts/install_printora_autostart_windows.ps1` para Windows;
+- instaladores públicos assistidos por plataforma (`scripts/install-macos.sh`, `scripts/install-linux.sh`, `scripts/install-android-termux.sh`, `scripts/install-windows.ps1`) verificando dependências, mostrando itens OK e perguntando antes de instalar ausentes;
 - `packaging/systemd/printora.service` com `Restart=always`;
 - `scripts/run_app.sh` usando Node/npm local de `.printora-node-env` quando existir;
 - `scripts/install_raspberry.sh` usando Node local e reiniciando apenas `printora.service`;
@@ -1968,6 +1969,7 @@ Critério de aceite:
 Estado atual:
 
 - Implementado para macOS/Linux/Android/Windows em scripts separados.
+- Adicionados instaladores públicos assistidos com banner, cores quando suportado pelo terminal e ícone ASCII de sucesso.
 - Validação real em Raspberry, Android físico e Windows físico ainda pendente.
 
 ## PKG-27: Fluxo Visual Do Updater 0.1.6

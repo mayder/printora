@@ -50,6 +50,8 @@ Escolha o guia do seu sistema:
 
 Para instalação local, prefira clonar com Git em vez de baixar o ZIP do GitHub. Isso preserva o fluxo de update.
 
+Os guias usam instaladores assistidos que verificam o ambiente, mostram o que já está OK e perguntam antes de instalar dependências ausentes.
+
 ## Configurar Impressora
 
 Depois de abrir o Printora, cadastre a URL Moonraker da impressora pela interface.

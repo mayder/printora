@@ -5,14 +5,33 @@ Use este guia para instalar o Printora no Windows.
 ## Requisitos
 
 - Windows com PowerShell;
-- Python `3.11+`;
-- Node.js/npm;
-- Git;
+- `winget` ou dependências instaladas manualmente;
+- internet para baixar dependências ausentes;
 - acesso de rede ao Moonraker da impressora.
 
-## Instalar Dependências
+## Instalação Recomendada
 
-Abra o PowerShell e rode:
+Abra o PowerShell:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+cd $HOME
+git clone https://github.com/mayder/printora.git
+cd printora
+.\scripts\install-windows.ps1
+```
+
+O instalador verifica Python `3.11+`, Git, Node.js/npm e pergunta antes de instalar o que estiver faltando via `winget`.
+
+Abrir:
+
+```text
+http://127.0.0.1:8069
+```
+
+## Instalar Dependências Manualmente
+
+Use apenas se quiser preparar o Windows antes de rodar o instalador.
 
 ```powershell
 winget install --id Python.Python.3.13 -e
@@ -22,13 +41,7 @@ winget install --id Git.Git -e
 
 Feche e reabra o PowerShell.
 
-## Liberar Execução Nesta Sessão
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-```
-
-## Instalar O Printora
+## Instalar O Printora Manualmente
 
 ```powershell
 cd $HOME
@@ -36,12 +49,6 @@ git clone https://github.com/mayder/printora.git
 cd printora
 $env:PRINTORA_PORT="8069"
 .\scripts\install_printora_windows.ps1 --apply --yes
-```
-
-Abrir:
-
-```text
-http://127.0.0.1:8069
 ```
 
 ## Rodar Manualmente

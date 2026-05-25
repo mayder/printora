@@ -39,13 +39,23 @@ PRINTORA_PORT=8069 ./scripts/doctor_install.sh
 Instalação com boot automático:
 
 ```bash
-./scripts/install_printora.sh
-./scripts/install_printora.sh --apply --yes
+./scripts/install-macos.sh
+./scripts/install-linux.sh
+./scripts/install-android-termux.sh
 ```
 
-O instalador prepara dependências, usa Node local via `nvm` quando o Node global
-for antigo, procura Python 3.11+ sem remover Python antigo do usuario e configura
-o mecanismo de boot do ambiente atual. A porta padrao do Printora e `8069`.
+No Windows:
+
+```powershell
+.\scripts\install-windows.ps1
+```
+
+Os instaladores publicos verificam o ambiente, exibem o que ja esta OK e
+perguntam antes de instalar dependencias ausentes. O instalador interno
+`scripts/install_printora.sh --apply --yes` continua existindo para automacao.
+Ele prepara dependencias, usa Node local via `nvm` quando o Node global for
+antigo, procura Python 3.11+ sem remover Python antigo do usuario e configura o
+mecanismo de boot do ambiente atual. A porta padrao do Printora e `8069`.
 
 Destravar update local orfao:
 

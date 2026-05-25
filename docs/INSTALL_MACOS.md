@@ -5,12 +5,30 @@ Use este guia para instalar o Printora em um Mac.
 ## Requisitos
 
 - macOS com Terminal;
-- Git;
-- Python `3.11+`;
-- Node.js/npm;
+- internet para baixar dependências ausentes;
 - acesso de rede ao Moonraker da impressora.
 
-## Instalar Dependências
+## Instalação Recomendada
+
+```bash
+cd "$HOME"
+git clone https://github.com/mayder/printora.git
+cd printora
+chmod +x "Abrir Printora.command" scripts/*.sh
+./scripts/install-macos.sh
+```
+
+O instalador verifica Command Line Tools, Homebrew, Git, Python `3.11+`, Node.js/npm e pergunta antes de instalar o que estiver faltando.
+
+Abrir:
+
+```text
+http://127.0.0.1:8069
+```
+
+## Instalar Dependências Manualmente
+
+Use apenas se quiser preparar o Mac antes de rodar o instalador.
 
 ```bash
 xcode-select --install
@@ -20,7 +38,7 @@ brew install git python node
 
 Se o Mac já tiver um Python antigo usado por outro sistema, não remova esse Python. O instalador do Printora procura um Python `3.11+` compatível e usa somente a venv local `backend/.venv`.
 
-## Instalar O Printora
+## Instalar O Printora Manualmente
 
 ```bash
 cd "$HOME"
@@ -28,12 +46,6 @@ git clone https://github.com/mayder/printora.git
 cd printora
 chmod +x "Abrir Printora.command" scripts/*.sh
 PRINTORA_PORT=8069 ./scripts/install_printora.sh --apply --yes
-```
-
-Abrir:
-
-```text
-http://127.0.0.1:8069
 ```
 
 ## Forçar Um Python Específico
@@ -89,5 +101,5 @@ cd "$HOME/Downloads"
 unzip printora.zip
 cd printora-main
 chmod +x "Abrir Printora.command" scripts/*.sh
-PRINTORA_PORT=8069 ./scripts/install_printora.sh --apply --yes
+./scripts/install-macos.sh
 ```

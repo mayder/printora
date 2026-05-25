@@ -4,25 +4,12 @@ Use este guia para instalar o Printora em Linux com `systemd`, Raspberry Pi, CB1
 
 ## Requisitos
 
-- Python `3.11+`;
-- `python3-venv`;
-- Node.js/npm;
-- Git;
-- curl;
-- systemd.
+- Linux com `systemd`;
+- `sudo` para instalar dependências;
+- internet para baixar dependências ausentes;
+- acesso de rede ao Moonraker da impressora.
 
-## Instalar Dependências
-
-Debian/Raspberry Pi OS:
-
-```bash
-sudo apt update
-sudo apt install -y python3 python3-venv python3-pip nodejs npm git rsync curl
-```
-
-Se o Node.js do sistema for antigo, não troque o Node global. O instalador usa Node isolado via `nvm` quando necessário.
-
-## Clonar O Projeto
+## Instalação Recomendada
 
 Raspberry com usuário `pi`:
 
@@ -30,6 +17,8 @@ Raspberry com usuário `pi`:
 cd /home/pi
 git clone https://github.com/mayder/printora.git Printora
 cd /home/pi/Printora
+chmod +x check.sh scripts/*.sh scripts/*.py
+./scripts/install-linux.sh
 ```
 
 CB1/Manta com usuário `linaro`:
@@ -38,9 +27,24 @@ CB1/Manta com usuário `linaro`:
 cd /home/linaro
 git clone https://github.com/mayder/printora.git Printora
 cd /home/linaro/Printora
+chmod +x check.sh scripts/*.sh scripts/*.py
+./scripts/install-linux.sh
 ```
 
-## Instalar
+O instalador verifica `systemd`, Python `3.11+`, Git, curl, rsync, pkg-config, make e Node.js/npm. Se faltar algo, ele pergunta antes de instalar via `apt`.
+
+Se o Node.js do sistema for antigo, não troque o Node global. O instalador do Printora usa Node isolado via `nvm` quando necessário.
+
+## Instalar Dependências Manualmente
+
+Debian/Raspberry Pi OS:
+
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip nodejs npm git rsync curl pkg-config build-essential
+```
+
+## Instalar Manualmente
 
 ```bash
 PRINTORA_PORT=8069 ./scripts/install_printora.sh --apply --yes
