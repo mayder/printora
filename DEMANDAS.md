@@ -57,6 +57,7 @@
 - PKG-29: Frontend pré-buildado para instalação 0.1.8
 - PKG-30: Catálogo completo de firmware de impressoras 3D
 - PKG-31: Instalação resiliente e recuperação de updates travados
+- PKG-32: Desktop App macOS/Windows
 
 ## Política De Backlog
 
@@ -2081,6 +2082,49 @@ Critério de aceite:
 Estado atual:
 
 - Em implementação nesta branch.
+
+## PKG-32: Desktop App macOS/Windows
+
+Objetivo:
+
+Entregar o Printora como aplicativo desktop instalável para macOS e Windows, com duplo clique, janela própria e backend local iniciado automaticamente, reduzindo dependência de Terminal, navegador externo, Python/Node globais e instruções manuais.
+
+Entregáveis:
+
+- shell desktop para macOS e Windows, preferencialmente Tauri;
+- empacotamento do frontend buildado dentro do aplicativo;
+- backend local iniciado e supervisionado pelo app desktop em `127.0.0.1:8069`;
+- encerramento controlado do backend ao fechar o app, quando ele tiver sido iniciado pelo app;
+- detecção de porta ocupada com mensagem acionável;
+- tela de erro local quando o backend não subir;
+- armazenamento de dados no diretório operacional já definido (`Application Support/Printora` no macOS e `%LOCALAPPDATA%\Printora` no Windows);
+- logs locais acessíveis para suporte;
+- ícone, nome do aplicativo e metadados de versão;
+- build inicial sem assinatura para validação local;
+- documentação de instalação/uso no `README.md`, `RUNBOOK.md` e guia multiplataforma;
+- validação mínima no `TESTES.md`.
+
+Critério de aceite:
+
+- no macOS, o usuário abre `Printora.app` por duplo clique e a UI carrega sem Terminal;
+- no Windows, o usuário abre `Printora.exe` por duplo clique e a UI carrega sem PowerShell;
+- o app não exige que o usuário altere Python ou Node globais;
+- o backend responde em `/health` antes da janela ser considerada pronta;
+- falha de inicialização mostra causa e caminho de log;
+- banco local existente é preservado;
+- fechamento do app não mata processo externo que não foi iniciado por ele;
+- `./check.sh` passa.
+
+Fora de escopo neste pacote:
+
+- assinatura/notarização macOS;
+- assinatura de código Windows;
+- auto-update completo do aplicativo desktop;
+- instalador público `.dmg`, `.msi` ou `.exe` assinado.
+
+Estado atual:
+
+- Planejado.
 
 ## PKG-30: Catálogo Completo De Firmware De Impressoras 3D
 

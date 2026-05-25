@@ -329,6 +329,17 @@ export function SettingsScreen(props: SettingsScreenProps) {
                   <FileText size={15} />
                   Ver detalhes
                 </button>
+                {run.status === "running" ? (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => void reconcileSelfUpdateHistory()}
+                    disabled={selfUpdateReconciling}
+                  >
+                    <RefreshCw size={15} />
+                    {selfUpdateReconciling ? "Reconciliando" : "Atualizar status"}
+                  </button>
+                ) : null}
                 {canRollbackSelfUpdateRun(run) ? (
                   <button
                     type="button"
