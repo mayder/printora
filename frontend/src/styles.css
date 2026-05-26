@@ -828,6 +828,74 @@ label {
   color: var(--muted);
 }
 
+.toast-viewport {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 35;
+  display: grid;
+  width: min(380px, calc(100vw - 36px));
+  gap: 10px;
+}
+
+.toast {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface-2);
+  box-shadow: 0 16px 44px var(--shadow-strong);
+  padding: 12px;
+}
+
+.toast.success {
+  border-left-color: var(--success);
+}
+
+.toast.warning {
+  border-left-color: var(--warning);
+}
+
+.toast.danger {
+  border-left-color: var(--danger);
+}
+
+.toast > svg {
+  color: var(--accent);
+}
+
+.toast.success > svg {
+  color: var(--success);
+}
+
+.toast.warning > svg {
+  color: var(--warning);
+}
+
+.toast.danger > svg {
+  color: var(--danger);
+}
+
+.toast strong,
+.toast p {
+  overflow-wrap: anywhere;
+}
+
+.toast p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.toast .icon-button {
+  width: 28px;
+  height: 28px;
+}
+
 .panel-header-row {
   display: flex;
   justify-content: space-between;

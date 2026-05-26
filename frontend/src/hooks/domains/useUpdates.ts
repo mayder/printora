@@ -3,6 +3,7 @@ import { updatesApi } from "../../services/updatesApi";
 import { readApiError } from "../../services/http";
 import { delay, isUpdateTargetConfirmedUpdated, moonrakerWebsocketUrl, parseMoonrakerUpdateMessage } from "../../utils/formatters";
 import type { PrinterRecord, UpdateActionResponse, UpdateDialogState, UpdateLogEntry } from "../../types";
+import type { ConfirmActionOptions, ShowToastOptions } from "../../types";
 import type { AlertCenterItem, UpdateComponent, UpdateStatusResponse } from "../../alertCenter";
 import type { SetActiveSection, SetError, SetLoading } from "./shared";
 import { unknownErrorMessage } from "./shared";
@@ -19,6 +20,8 @@ type UseUpdatesOptions = {
   loadPrinterHealth: (printerId: number) => Promise<void>;
   setActiveSection: SetActiveSection;
   setAlertCenterOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  confirmAction: (options: ConfirmActionOptions) => Promise<boolean>;
+  showToast: (options: ShowToastOptions) => void;
   setError: SetError;
   setLoading: SetLoading;
 };
@@ -33,6 +36,8 @@ export function useUpdates(options: UseUpdatesOptions) {
     loadPrinterHealth,
     setActiveSection,
     setAlertCenterOpen,
+    confirmAction,
+    showToast,
     setError,
     setLoading,
   } = options;
@@ -81,9 +86,13 @@ export function useUpdates(options: UseUpdatesOptions) {
     if (!selectedPrinterId) {
       return;
     }
-    const confirmed = window.confirm(
-      `Silenciar alerta desta versão de ${component.title}?\n\n${component.current_version ?? "-"} → ${component.remote_version ?? component.full_version ?? "-"}\n\nO alerta volta automaticamente quando surgir outra versão.`,
-    );
+    const confirmed = await confirmAction({
+      tone: "warning",
+      title: "Silenciar versão",
+      detail: `Silenciar alertas desta versão de ${component.title}. O card continua com as ações disponíveis.`,
+      evidence: `${component.current_version ?? "-"} → ${component.remote_version ?? component.full_version ?? "-"}`,
+      confirmLabel: "Silenciar versão",
+    });
     if (!confirmed) {
       return;
     }
@@ -99,8 +108,15 @@ export function useUpdates(options: UseUpdatesOptions) {
         throw new Error(await readApiError(response));
       }
       await refreshPostUpdateContext(selectedPrinterId);
+      showToast({
+        tone: "success",
+        title: "Versão silenciada",
+        detail: "O alerta volta automaticamente quando surgir outra versão.",
+      });
     } catch (err) {
-      setError(unknownErrorMessage(err));
+      const message = unknownErrorMessage(err);
+      setError(message);
+      showToast({ tone: "danger", title: "Falha ao silenciar versão", detail: message });
     } finally {
       setLoading(false);
     }
@@ -119,8 +135,15 @@ export function useUpdates(options: UseUpdatesOptions) {
         throw new Error(await readApiError(response));
       }
       await refreshPostUpdateContext(selectedPrinterId);
+      showToast({
+        tone: "success",
+        title: "Alerta reativado",
+        detail: `${component.title} voltou a contar nos alertas ativos.`,
+      });
     } catch (err) {
-      setError(unknownErrorMessage(err));
+      const message = unknownErrorMessage(err);
+      setError(message);
+      showToast({ tone: "danger", title: "Falha ao reativar alerta", detail: message });
     } finally {
       setLoading(false);
     }

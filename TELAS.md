@@ -115,6 +115,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - A impressora ativa deve ser preservada no navegador e restaurada ao recarregar a tela quando ainda existir no cadastro.
 - A Home operacional deve explicar o risco principal quando o estado for `Nao imprimir` ou `Monitorar`, exibindo causa, evidencia e acao segura.
 - A Central de alertas deve consolidar Health Check, Update Manager, checklist pos-update e auditoria com botoes de revalidacao, abertura do diagnostico ou fluxo de update quando aplicavel.
+- Confirmacoes de decisao devem usar modal proprio do Printora; feedback temporario de sucesso/falha deve usar toast. Dialogos nativos do navegador (`alert`/`confirm`) nao devem aparecer na UI operacional.
 - A tela Operacao deve ser leitura ao vivo para operador leigo: sem cadastro manual, sem checklist pos-update, sem auditoria tecnica e com graficos/indicadores que se atualizam automaticamente.
 - Na tela Operacao, temperaturas devem aparecer em tabela compacta com estado, atual, alvo e potencia, acompanhadas de um unico grafico combinado de evolucao por sensor/heater.
 - Na tela Operacao, toolhead, extrusor, progresso, sistema, fans e CAN devem ficar na mesma tela para evitar duplicidade entre menus.

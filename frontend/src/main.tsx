@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { Bell, Info, Menu, X } from "lucide-react";
 import { appSections } from "./app/navigation";
 import { AppModals } from "./components/modals";
+import { ToastViewport } from "./components/ToastViewport";
 import { OverviewScreen } from "./screens/OverviewScreen";
 import { PrintersScreen } from "./screens/PrintersScreen";
 import { MonitoringScreen } from "./screens/MonitoringScreen";
@@ -51,6 +52,8 @@ function App() {
     theme,
     topbarAlertTone,
     topbarPrimaryAction,
+    toasts,
+    dismissToast,
     visibleNavGroups,
   } = usePrintoraApp();
 
@@ -228,6 +231,7 @@ function App() {
         {error ? <section className="alert danger">{error}</section> : null}
 
         <AppModals {...screenProps} />
+        <ToastViewport toasts={toasts} dismissToast={dismissToast} />
 
         <section className="grid">
           {activeScreen}

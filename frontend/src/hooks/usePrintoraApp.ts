@@ -50,6 +50,7 @@ import { useSelfUpdate } from "./domains/useSelfUpdate";
 import { useSettings } from "./domains/useSettings";
 import { useUpdates } from "./domains/useUpdates";
 import type { PrinterAvailability } from "../app/navigation";
+import type { ConfirmActionOptions, ConfirmDialogState, ShowToastOptions, ToastRecord } from "../types";
 
 const icons = {
   Activity,
@@ -92,6 +93,17 @@ const icons = {
 export function usePrintoraApp() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = React.useState<ConfirmDialogState>({
+    open: false,
+    tone: "info",
+    title: "",
+    detail: "",
+    confirmLabel: "Confirmar",
+    cancelLabel: "Cancelar",
+  });
+  const [toasts, setToasts] = React.useState<ToastRecord[]>([]);
+  const confirmResolverRef = React.useRef<((confirmed: boolean) => void) | null>(null);
+  const toastIdRef = React.useRef(0);
 
   let operation: ReturnType<typeof useOperation>;
   let settings: ReturnType<typeof useSettings>;
@@ -100,6 +112,47 @@ export function usePrintoraApp() {
   let calibration: ReturnType<typeof useCalibration>;
   let maintenance: ReturnType<typeof useMaintenance>;
   let updates: ReturnType<typeof useUpdates>;
+
+  function confirmAction(options: ConfirmActionOptions): Promise<boolean> {
+    confirmResolverRef.current?.(false);
+    setConfirmDialog({
+      open: true,
+      tone: options.tone ?? "info",
+      title: options.title,
+      detail: options.detail,
+      evidence: options.evidence,
+      confirmLabel: options.confirmLabel ?? "Confirmar",
+      cancelLabel: options.cancelLabel ?? "Cancelar",
+    });
+    return new Promise((resolve) => {
+      confirmResolverRef.current = resolve;
+    });
+  }
+
+  function resolveConfirmDialog(confirmed: boolean) {
+    confirmResolverRef.current?.(confirmed);
+    confirmResolverRef.current = null;
+    setConfirmDialog((currentDialog) => ({ ...currentDialog, open: false }));
+  }
+
+  function showToast(options: ShowToastOptions) {
+    const id = toastIdRef.current + 1;
+    toastIdRef.current = id;
+    setToasts((currentToasts) => [
+      ...currentToasts,
+      {
+        id,
+        tone: options.tone ?? "info",
+        title: options.title,
+        detail: options.detail,
+      },
+    ].slice(-4));
+    window.setTimeout(() => dismissToast(id), 5000);
+  }
+
+  function dismissToast(toastId: number) {
+    setToasts((currentToasts) => currentToasts.filter((toast) => toast.id !== toastId));
+  }
 
   async function loadPrinterLocalContext(printerId: number) {
     await Promise.allSettled([
@@ -176,6 +229,8 @@ export function usePrintoraApp() {
     loadPrinterHealth: settings.loadPrinterHealth,
     setActiveSection: shell.setActiveSection,
     setAlertCenterOpen: shell.setAlertCenterOpen,
+    confirmAction,
+    showToast,
     setError,
     setLoading,
   });
@@ -329,7 +384,9 @@ export function usePrintoraApp() {
     alertBlockerCount,
     alertWarningCount,
     bedTemperature,
+    confirmDialog,
     displayDecision,
+    dismissToast,
     error,
     handleAlertCenterAction: updates.handleAlertCenterAction,
     health: liveOperationHealth,
@@ -346,11 +403,13 @@ export function usePrintoraApp() {
     primaryRiskItem,
     riskClass,
     riskLabel,
+    resolveConfirmDialog,
     setError,
     setLoading,
     topbarAlertTone,
     topbarPrimaryAction,
     totalPrintHours,
+    toasts,
   };
 
   return {
@@ -374,6 +433,8 @@ export function usePrintoraApp() {
     theme: shell.theme,
     topbarAlertTone,
     topbarPrimaryAction,
+    toasts,
+    dismissToast,
     visibleNavGroups: shell.visibleNavGroups,
   };
 }
