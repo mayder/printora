@@ -77,6 +77,55 @@ export function useUpdates(options: UseUpdatesOptions) {
     }
   }
 
+  async function silenceUpdateAlert(component: UpdateComponent) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    const confirmed = window.confirm(
+      `Silenciar alerta desta versão de ${component.title}?\n\n${component.current_version ?? "-"} → ${component.remote_version ?? component.full_version ?? "-"}\n\nO alerta volta automaticamente quando surgir outra versão.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setUpdateActionResult(null);
+    try {
+      const response = await updatesApi.silence(selectedPrinterId, {
+        target: component.name,
+        reason: "Usuário decidiu aguardar próxima versão.",
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+      await refreshPostUpdateContext(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function clearUpdateAlertSilence(component: UpdateComponent) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setUpdateActionResult(null);
+    try {
+      const response = await updatesApi.clearSilence(selectedPrinterId, { target: component.name });
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+      await refreshPostUpdateContext(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleAlertCenterAction(item: AlertCenterItem) {
     if (!selectedPrinterId) {
       return;
@@ -390,6 +439,8 @@ export function useUpdates(options: UseUpdatesOptions) {
     openRollbackDialog,
     openUpdateDialog,
     refreshUpdateStatus,
+    silenceUpdateAlert,
+    clearUpdateAlertSilence,
     reloadUpdateStatusAfterUpdateError,
     runUpdate,
     runRollback,

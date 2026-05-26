@@ -85,6 +85,8 @@ export type UpdateComponent = {
   risk_level: "normal" | "caution" | "high";
   risk_reason?: string | null;
   requires_confirmation: boolean;
+  alert_silenced: boolean;
+  alert_silence_id?: number | null;
 };
 
 export type UpdateStatusResponse = {
@@ -162,6 +164,7 @@ export function buildAlertCenterItems({
   }
 
   updateStatus?.components
+    .filter((component) => !component.alert_silenced)
     .filter((component) => component.can_update || component.status === "warning" || component.warnings.length > 0 || component.anomalies.length > 0)
     .forEach((component) => {
       items.push({

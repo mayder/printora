@@ -873,6 +873,11 @@ label {
   border-left-color: var(--success);
 }
 
+.update-row.silenced {
+  border-left-color: var(--status-neutral);
+  opacity: 0.86;
+}
+
 .update-main {
   display: flex;
   justify-content: space-between;
@@ -902,7 +907,8 @@ label {
 .update-main span,
 .update-main small,
 .update-warning,
-.update-rollback-note {
+.update-rollback-note,
+.update-silenced-note {
   color: var(--muted);
   margin-top: 4px;
 }

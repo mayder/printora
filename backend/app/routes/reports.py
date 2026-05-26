@@ -24,6 +24,10 @@ async def sanitized_report(printer_id: int) -> SanitizedReport:
         update_status = await client.update_status()
         snapshots = snapshot_repository.list_snapshots_by_type(printer.id, "moonraker_status", limit=2)
         latest_diff = _latest_snapshot_diff(snapshot_repository, printer.id, snapshots)
+        update_status = apply_update_alert_silences(
+            update_status,
+            get_update_alert_silence_repository(settings).list_for_printer(printer.id),
+        )
         health_payload = {
             "printer_id": printer.id,
             "moonraker_url": printer.moonraker_url,
@@ -44,13 +48,17 @@ async def sanitized_report(printer_id: int) -> SanitizedReport:
         latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
         if latest_snapshot is not None:
             payload = latest_snapshot.payload
+            update_status = apply_update_alert_silences(
+                _dict(payload.get("update_status")),
+                get_update_alert_silence_repository(settings).list_for_printer(printer.id),
+            )
             health_payload = {
                 "printer_id": printer.id,
                 "moonraker_url": printer.moonraker_url,
                 **build_printer_health(
                     printer_info=_dict(payload.get("printer_info")),
                     server_info=_dict(payload.get("server_info")),
-                    update_status=_dict(payload.get("update_status")),
+                    update_status=update_status,
                     system_info=_dict(payload.get("system_info")),
                     proc_stats=_dict(payload.get("proc_stats")),
                     snapshots=snapshots,

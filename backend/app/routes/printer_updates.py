@@ -38,6 +38,86 @@ async def _refresh_update_status_background(client: MoonrakerClient, name: str |
         return
 
 
+@router.post("/api/printers/{printer_id}/updates/silences")
+async def silence_printer_update_alert(
+    printer_id: int,
+    payload: UpdateSilenceRequest,
+) -> UpdateSilenceResponse:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    printer = repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+
+    component_name, component_payload = await _current_update_component_payload(settings, printer.moonraker_url, payload.target)
+    silence = get_update_alert_silence_repository(settings).silence_component(
+        printer_id,
+        component_name,
+        component_payload,
+        reason=payload.reason,
+    )
+    return UpdateSilenceResponse(
+        safe_mode="moonraker_update_manager",
+        target=component_name,
+        silenced=True,
+        message="Alerta desta versão silenciado. Ele volta automaticamente quando a versão mudar.",
+        silence_id=silence.id,
+    )
+
+
+@router.post("/api/printers/{printer_id}/updates/silences/clear")
+async def clear_printer_update_alert_silence(
+    printer_id: int,
+    payload: UpdateSilenceRequest,
+) -> UpdateSilenceResponse:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    printer = repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+
+    component_name = payload.target.strip()
+    version_key: str | None = None
+    try:
+        component_name, component_payload = await _current_update_component_payload(settings, printer.moonraker_url, component_name)
+        version_key = update_component_version_key(component_name, component_payload)
+    except HTTPException:
+        version_key = None
+    removed = get_update_alert_silence_repository(settings).delete_matching(printer_id, component_name, version_key)
+    return UpdateSilenceResponse(
+        safe_mode="moonraker_update_manager",
+        target=component_name,
+        silenced=False,
+        message="Alerta reativado." if removed else "Nenhum silêncio ativo encontrado para este componente.",
+        silence_id=None,
+    )
+
+
+async def _current_update_component_payload(
+    settings: Settings,
+    moonraker_url: str,
+    target: str,
+) -> tuple[str, dict[str, Any]]:
+    component_name = target.strip()
+    if component_name == "all":
+        raise HTTPException(status_code=400, detail="silêncio deve ser por componente")
+    client = MoonrakerClient(
+        base_url=moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    try:
+        update_status = await client.update_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=_http_error_detail(exc)) from exc
+    version_info = update_status.get("version_info")
+    if not isinstance(version_info, dict):
+        raise HTTPException(status_code=409, detail="Update Manager não retornou version_info")
+    component_payload = version_info.get(component_name)
+    if not isinstance(component_payload, dict):
+        raise HTTPException(status_code=404, detail="componente não encontrado no Update Manager")
+    return component_name, component_payload
+
+
 
 
 @router.post("/api/printers/{printer_id}/updates/run")

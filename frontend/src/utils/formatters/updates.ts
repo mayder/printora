@@ -77,7 +77,7 @@ export function countPendingUpdates(status: UpdateStatusResponse | null) {
   if (!status) {
     return "-";
   }
-  return status.components.filter((component) => component.can_update || component.status === "update_available").length;
+  return status.components.filter((component) => !component.alert_silenced && (component.can_update || component.status === "update_available")).length;
 }
 
 export function isUpdateTargetConfirmedUpdated(status: UpdateStatusResponse | null, target: string) {

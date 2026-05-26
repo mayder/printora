@@ -13,9 +13,11 @@ type UpdatesScreenProps = ScreenPropsFor<
   | "formatChecklistDataState"
   | "formatUpdateStatus"
   | "loading"
+  | "clearUpdateAlertSilence"
   | "openRollbackDialog"
   | "openUpdateDialog"
   | "refreshUpdateStatus"
+  | "silenceUpdateAlert"
   | "selectedPrinter"
   | "selectedPrinterId"
   | "status"
@@ -35,9 +37,11 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
     formatChecklistDataState,
     formatUpdateStatus,
     loading,
+    clearUpdateAlertSilence,
     openRollbackDialog,
     openUpdateDialog,
     refreshUpdateStatus,
+    silenceUpdateAlert,
     selectedPrinter,
     selectedPrinterId,
     status,
@@ -45,8 +49,8 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
     updateStatus,
     updateStatusIcon,
   } = props;
-  const pendingUpdateCount = updateStatus?.components.filter(isPendingUpdateComponent).length ?? 0;
-  const riskyPendingCount = updateStatus?.components.filter((component) => component.can_update && component.requires_confirmation).length ?? 0;
+  const pendingUpdateCount = updateStatus?.components.filter((component) => !component.alert_silenced && isPendingUpdateComponent(component)).length ?? 0;
+  const riskyPendingCount = updateStatus?.components.filter((component) => !component.alert_silenced && component.can_update && component.requires_confirmation).length ?? 0;
   const orderedComponents = orderUpdateComponents(updateStatus?.components ?? []);
 
   return (
@@ -81,8 +85,8 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
             </div>
           </div>
           <div className="overview-strip">
-            <Badge icon={RefreshCw} label="Pendentes" value={updateStatus?.counts.update_available ?? 0} />
-            <Badge icon={AlertTriangle} label="Alertas" value={updateStatus?.counts.warning ?? 0} />
+            <Badge icon={RefreshCw} label="Pendentes" value={updateStatus?.components.filter((component) => !component.alert_silenced && component.status === "update_available").length ?? 0} />
+            <Badge icon={AlertTriangle} label="Alertas" value={updateStatus?.components.filter((component) => !component.alert_silenced && component.status === "warning").length ?? 0} />
             <Badge icon={CheckCircle2} label="Atualizados" value={updateStatus?.counts.up_to_date ?? 0} />
             <Badge icon={Gauge} label="Estado" value={updateStatus?.busy ? "ocupado" : updateStatus?.summary ?? "-"} />
           </div>
@@ -95,7 +99,7 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
           <div className="update-list">
             {updateStatus?.components.length === 0 ? <p className="muted">Nenhum componente retornado pelo Update Manager.</p> : null}
             {orderedComponents.map((component) => (
-              <div key={component.name} className={`update-row ${component.status}`}>
+              <div key={component.name} className={`update-row ${component.status} ${component.alert_silenced ? "silenced" : ""}`}>
                 <div className="update-main">
                   <div className="update-component-copy">
                     <strong className="update-title">
@@ -109,8 +113,15 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                       {component.configured_type} · behind {component.commits_behind_count} · packages {component.package_count}
                     </small>
                   </div>
-                  <span className={`status-pill ${component.status}`}>{formatUpdateStatus(component.status)}</span>
+                  <span className={`status-pill ${component.alert_silenced ? "silenced" : component.status}`}>
+                    {component.alert_silenced ? "versão silenciada" : formatUpdateStatus(component.status)}
+                  </span>
                 </div>
+                {component.alert_silenced ? (
+                  <small className="update-silenced-note">
+                    Alerta e contadores suspensos para esta versão. As ações continuam disponíveis.
+                  </small>
+                ) : null}
                 {component.warnings.length || component.anomalies.length ? (
                   <small className="update-warning">
                     {[...component.warnings, ...component.anomalies].join(" · ")}
@@ -160,6 +171,27 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                     >
                       <RefreshCw size={15} />
                       Rollback
+                    </button>
+                  ) : null}
+                  {component.alert_silenced ? (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => void clearUpdateAlertSilence(component)}
+                      disabled={!selectedPrinterId || loading || updateStatus?.busy}
+                    >
+                      <AlertTriangle size={15} />
+                      Reativar alerta
+                    </button>
+                  ) : component.can_update || component.status === "warning" || component.warnings.length || component.anomalies.length ? (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => void silenceUpdateAlert(component)}
+                      disabled={!selectedPrinterId || loading || updateStatus?.busy}
+                    >
+                      <AlertTriangle size={15} />
+                      Silenciar versão
                     </button>
                   ) : null}
                 </div>

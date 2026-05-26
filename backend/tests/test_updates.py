@@ -1,4 +1,13 @@
-from app.updates import build_update_status, risky_update_components, update_route_for_target
+from app.updates import (
+    UpdateAlertSilenceRepository,
+    UpdateAlertSilence,
+    apply_update_alert_silences,
+    build_update_status,
+    risky_update_components,
+    update_component_version_key,
+    update_route_for_target,
+)
+from app.database import connect_database, initialize_database
 
 
 def test_build_update_status_detects_available_updates() -> None:
@@ -121,3 +130,77 @@ def test_risky_update_components_finds_high_risk_target_and_all_updates() -> Non
     assert [item.name for item in risky_update_components(result, "all")] == ["klipper", "klipper-toolchanger-easy"]
     assert [item.name for item in risky_update_components(result, "klipper")] == ["klipper"]
     assert risky_update_components(result, "mainsail") == []
+
+
+def test_build_update_status_marks_silenced_component_without_counting_alert() -> None:
+    raw_status = {
+        "version_info": {
+            "mainsail": {
+                "configured_type": "web",
+                "version": "v2.17.0",
+                "remote_version": "v2.17.1",
+                "commits_behind_count": 1,
+                "is_dirty": False,
+                "is_valid": True,
+            }
+        }
+    }
+    version_key = update_component_version_key("mainsail", raw_status["version_info"]["mainsail"])
+    apply_update_alert_silences(
+        raw_status,
+        [
+            UpdateAlertSilence(
+                id=7,
+                printer_id=1,
+                component_name="mainsail",
+                version_key=version_key,
+                current_version="v2.17.0",
+                remote_version="v2.17.1",
+                full_version=None,
+                reason=None,
+                created_at="2026-05-26 00:00:00",
+                updated_at="2026-05-26 00:00:00",
+            )
+        ],
+    )
+
+    result = build_update_status(raw_status)
+
+    assert result.summary == "Updates silenciados"
+    assert result.counts["update_available"] == 0
+    assert result.counts["silenced"] == 1
+    assert result.components[0].can_update is True
+    assert result.components[0].alert_silenced is True
+    assert result.components[0].alert_silence_id == 7
+
+
+def test_update_silence_expires_when_remote_version_changes() -> None:
+    old_payload = {"version": "v2.17.0", "remote_version": "v2.17.1", "commits_behind_count": 1}
+    new_payload = {"version": "v2.17.0", "remote_version": "v2.17.2", "commits_behind_count": 2}
+
+    assert update_component_version_key("mainsail", old_payload) != update_component_version_key("mainsail", new_payload)
+
+
+def test_update_alert_silence_repository_persists_by_version_key(tmp_path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    with connect_database(database_path) as connection:
+        cursor = connection.execute(
+            "INSERT INTO printers (name, moonraker_url) VALUES (?, ?)",
+            ("Voron", "http://voron.local:7125"),
+        )
+        printer_id = int(cursor.lastrowid)
+    repository = UpdateAlertSilenceRepository(database_path)
+    component = {
+        "version": "v0.13.0-662",
+        "remote_version": "v0.13.0-686",
+        "commits_behind_count": 24,
+    }
+
+    silence = repository.silence_component(printer_id, "klipper", component, "aguardar próxima versão")
+
+    assert silence.component_name == "klipper"
+    assert silence.reason == "aguardar próxima versão"
+    assert repository.get_matching(printer_id, "klipper", update_component_version_key("klipper", component)) is not None
+    assert repository.delete_matching(printer_id, "klipper", silence.version_key) == 1
+    assert repository.list_for_printer(printer_id) == []

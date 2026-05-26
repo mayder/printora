@@ -77,6 +77,31 @@ def test_post_update_checklist_reports_update_manager_warnings() -> None:
     assert update_manager["status"] == "warning"
 
 
+def test_post_update_checklist_ignores_silenced_update_manager_version() -> None:
+    result = build_post_update_checklist(
+        printer_info={"state": "ready"},
+        server_info={
+            "klippy_connected": True,
+            "klippy_state": "ready",
+            "failed_components": [],
+            "warnings": [],
+        },
+        update_status={
+            "version_info": {
+                "klipper": {
+                    "is_dirty": False,
+                    "commits_behind_count": 2,
+                    "printora_alert_silenced": True,
+                }
+            }
+        },
+    )
+
+    update_manager = next(item for item in result["items"] if item["key"] == "update_manager")
+    assert update_manager["ok"] is True
+    assert update_manager["status"] == "ok"
+
+
 def test_unavailable_post_update_checklist_blocks_printing() -> None:
     result = build_unavailable_post_update_checklist(
         data_state="offline",

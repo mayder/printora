@@ -52,10 +52,14 @@ async def printer_read_only_audit(printer_id: int) -> dict[str, Any]:
         latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
         if latest_snapshot is not None:
             payload = latest_snapshot.payload
+            update_status = apply_update_alert_silences(
+                _dict(payload.get("update_status")),
+                get_update_alert_silence_repository(settings).list_for_printer(printer.id),
+            )
             audit = build_read_only_audit(
                 printer_info=_dict(payload.get("printer_info")),
                 server_info=_dict(payload.get("server_info")),
-                update_status=_dict(payload.get("update_status")),
+                update_status=update_status,
                 system_info=_dict(payload.get("system_info")),
                 proc_stats=_dict(payload.get("proc_stats")),
                 data_state="last_snapshot",
@@ -69,6 +73,10 @@ async def printer_read_only_audit(printer_id: int) -> dict[str, Any]:
             }
         return _build_unreachable_audit(printer.moonraker_url, exc)
 
+    update_status = apply_update_alert_silences(
+        update_status,
+        get_update_alert_silence_repository(settings).list_for_printer(printer.id),
+    )
     audit = build_read_only_audit(
         printer_info=printer_info,
         server_info=server_info,

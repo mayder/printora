@@ -25,6 +25,7 @@
 - PKG-12: Firmware Manager - build e dry-run
 - PKG-13: Firmware Manager - flash controlado
 - PKG-14: Integração Mainsail e Update Manager
+- PKG-14A: Silêncio de versão do Update Manager
 - PKG-15: Centro de calibração e testes Voron
 - PKG-16: Instalador multiplataforma
 - PKG-16E: Launcher local plug and play
@@ -896,6 +897,28 @@ Estado atual:
 - Criada documentação `docs/INSTALL_RASPBERRY.md`.
 - Criado e validado `scripts/validate_integration.sh` para checar systemd, `.env`, Mainsail, Update Manager e documentação sem aplicar instalação.
 - Teste automatizado cobre o validador offline.
+
+## PKG-14A: Silêncio De Versão Do Update Manager
+
+Objetivo:
+
+Permitir que o usuário suspenda alertas de uma versão específica de qualquer componente do Update Manager sem bloquear a ação manual de atualizar depois.
+
+Critério de aceite:
+
+- silêncio é por impressora, componente e identidade concreta da versão;
+- nova versão remota, atraso, pacote, warning ou anomalia reativa o alerta automaticamente;
+- card da tela Atualizações permanece visível com `Reanalisar`, `Atualizar`, `Rollback` quando existir e `Reativar alerta`;
+- Home, topbar, Central de alertas, Health Check, Checklist pós-update, Auditoria e Relatórios não contam versão silenciada como alerta ativo;
+- `./check.sh` passa no fechamento.
+
+Estado atual:
+
+- Implementado com tabela SQLite `update_alert_silences`.
+- Endpoints criados para silenciar e reativar alerta por componente.
+- Agregadores de update, health, checklist, auditoria e relatório respeitam o silêncio ativo.
+- UI da tela Atualizações mantém ações disponíveis e exibe estado `versão silenciada`.
+- Testes automatizados cobrem chave de versão, expiração, persistência e filtros nos agregadores.
 
 ## PKG-15: Centro De Calibração E Testes Voron
 

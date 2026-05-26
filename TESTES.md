@@ -363,6 +363,13 @@ http://127.0.0.1:5178
 - Confirmar classificação de KTC-Easy/StealthChanger, KAMP, `led_effect`, Crowsnest, Sonar, Timelapse, Auto Speed, TapChanger e TMC Autotune.
 - Confirmar que nenhuma remoção, update, restart ou edição de config foi executada.
 
+### Atualizacoes Da Impressora
+
+- Silenciar uma versao pendente de qualquer componente do Update Manager e confirmar que o card continua com `Reanalisar`, `Atualizar` e `Rollback` quando aplicavel.
+- Confirmar que a versao silenciada sai dos contadores da Home, topbar, Central de alertas, Health Check, Checklist pos-update, Auditoria e Relatorios.
+- Reativar o alerta e confirmar que os contadores voltam.
+- Simular nova versao remota, pacote, atraso, warning ou anomalia e confirmar que o silencio anterior nao se aplica.
+
 ### Releases Do Printora
 
 - Iniciar backend com fixture de update disponível:

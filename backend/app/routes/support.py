@@ -138,12 +138,17 @@ from app.updates import (
     RISK_UPDATE_CONFIRMATION_PHRASE,
     ROLLBACK_CONFIRMATION_PHRASE,
     UpdateActionResponse,
+    UpdateAlertSilenceRepository,
     UpdateRefreshRequest,
+    UpdateSilenceRequest,
+    UpdateSilenceResponse,
     PrinterUpdateRollbackRequest,
     UpdateRunRequest,
     UpdateStatusResponse,
+    apply_update_alert_silences,
     build_update_status,
     risky_update_components,
+    update_component_version_key,
     update_route_for_target,
 )
 from app.z_offset import (
@@ -228,6 +233,10 @@ def get_calibration_repository(settings: Settings) -> CalibrationRepository:
 
 def get_self_update_repository(settings: Settings) -> SelfUpdateRepository:
     return SelfUpdateRepository(settings.database_path)
+
+
+def get_update_alert_silence_repository(settings: Settings) -> UpdateAlertSilenceRepository:
+    return UpdateAlertSilenceRepository(settings.database_path)
 
 
 async def _refresh_maintenance_print_hours(
