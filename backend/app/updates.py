@@ -66,6 +66,13 @@ class UpdateRefreshRequest(BaseModel):
 
 class UpdateSilenceRequest(BaseModel):
     target: str = Field(min_length=1, max_length=80)
+    current_version: str | None = Field(default=None, max_length=160)
+    remote_version: str | None = Field(default=None, max_length=160)
+    full_version: str | None = Field(default=None, max_length=240)
+    commits_behind_count: int = Field(default=0, ge=0)
+    package_count: int = Field(default=0, ge=0)
+    warnings: list[str] = Field(default_factory=list)
+    anomalies: list[str] = Field(default_factory=list)
     reason: str | None = Field(default=None, max_length=240)
 
 

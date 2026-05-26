@@ -227,3 +227,41 @@ def test_update_silence_routes_are_registered_and_unknown_api_post_returns_404(t
         assert response.json()["detail"] == "api route not found"
     finally:
         get_settings.cache_clear()
+
+
+def test_update_silence_route_persists_displayed_version_without_moonraker_lookup(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        settings = get_settings()
+        initialize_database(settings.database_path)
+        with connect_database(settings.database_path) as connection:
+            cursor = connection.execute(
+                "INSERT INTO printers (name, moonraker_url) VALUES (?, ?)",
+                ("Voron", "http://unresolvable-printer.local:7125"),
+            )
+            printer_id = int(cursor.lastrowid)
+
+        payload = {
+            "target": "klipper",
+            "current_version": "v0.13.0-662",
+            "remote_version": "v0.13.0-686",
+            "commits_behind_count": 24,
+            "package_count": 0,
+            "warnings": [],
+            "anomalies": [],
+            "reason": "aguardar próxima versão",
+        }
+        with TestClient(app) as client:
+            response = client.post(f"/api/printers/{printer_id}/updates/silences", json=payload)
+
+        assert response.status_code == 200
+        assert response.json()["silenced"] is True
+        repository = UpdateAlertSilenceRepository(settings.database_path)
+        silences = repository.list_for_printer(printer_id)
+        assert len(silences) == 1
+        assert silences[0].component_name == "klipper"
+        assert silences[0].current_version == "v0.13.0-662"
+        assert silences[0].remote_version == "v0.13.0-686"
+    finally:
+        get_settings.cache_clear()

@@ -112,6 +112,13 @@ export function useUpdates(options: UseUpdatesOptions) {
     try {
       const response = await updatesApi.silence(selectedPrinterId, {
         target: component.name,
+        current_version: component.current_version,
+        remote_version: component.remote_version,
+        full_version: component.full_version,
+        commits_behind_count: component.commits_behind_count,
+        package_count: component.package_count,
+        warnings: component.warnings,
+        anomalies: component.anomalies,
         reason: "Usuário decidiu aguardar próxima versão.",
       }, {
         signal: controller.signal,
@@ -130,7 +137,7 @@ export function useUpdates(options: UseUpdatesOptions) {
       });
     } catch (err) {
       const message = err instanceof DOMException && err.name === "AbortError"
-        ? "Tempo esgotado ao silenciar versão. Verifique se o backend e o Moonraker responderam e tente novamente."
+        ? "Tempo esgotado ao silenciar versão. Verifique se o backend respondeu e tente novamente."
         : unknownErrorMessage(err);
       setError(message);
       showToast({ tone: "danger", title: "Falha ao silenciar versão", detail: message });
@@ -152,7 +159,16 @@ export function useUpdates(options: UseUpdatesOptions) {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), UPDATE_ALERT_ACTION_TIMEOUT_MS);
     try {
-      const response = await updatesApi.clearSilence(selectedPrinterId, { target: component.name }, { signal: controller.signal });
+      const response = await updatesApi.clearSilence(selectedPrinterId, {
+        target: component.name,
+        current_version: component.current_version,
+        remote_version: component.remote_version,
+        full_version: component.full_version,
+        commits_behind_count: component.commits_behind_count,
+        package_count: component.package_count,
+        warnings: component.warnings,
+        anomalies: component.anomalies,
+      }, { signal: controller.signal });
       if (!response.ok) {
         if (response.status === 405) {
           throw new Error("Backend ainda não carregou a rota de silêncio. Reinicie o Printora e tente novamente.");
@@ -167,7 +183,7 @@ export function useUpdates(options: UseUpdatesOptions) {
       });
     } catch (err) {
       const message = err instanceof DOMException && err.name === "AbortError"
-        ? "Tempo esgotado ao reativar alerta. Verifique se o backend e o Moonraker responderam e tente novamente."
+        ? "Tempo esgotado ao reativar alerta. Verifique se o backend respondeu e tente novamente."
         : unknownErrorMessage(err);
       setError(message);
       showToast({ tone: "danger", title: "Falha ao reativar alerta", detail: message });

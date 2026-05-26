@@ -369,6 +369,7 @@ http://127.0.0.1:5178
 - Confirmar que `Atualizar` usa icone diferente de `Reanalisar` e visual secundario alinhado a `Marcar feita` da Manutencao.
 - Confirmar que o silencio abre modal visual do Printora, sem `confirm` nativo do navegador.
 - Confirmar que, apos confirmar o silencio, o card do componente mostra estado de execucao e o botao muda para `Silenciando...` ate a requisicao concluir ou falhar.
+- Confirmar que a rota de silencio persiste a versao exibida no card sem consultar Moonraker, inclusive quando o host configurado nao resolve.
 - Confirmar que sucesso/falha de silencio e reativacao aparece como toast temporario.
 - Confirmar que a versao silenciada sai dos contadores da Home, topbar, Central de alertas, Health Check, Checklist pos-update, Auditoria e Relatorios.
 - Reativar o alerta e confirmar que os contadores voltam.
