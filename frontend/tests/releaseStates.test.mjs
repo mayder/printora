@@ -106,6 +106,8 @@ assert.match(updatesHookSource, /showToast\(\{[\s\S]*title: "Versão silenciada"
 assert.match(feedbackTypesSource, /export type ConfirmActionOptions/);
 assert.match(updatesScreenSource, /ArrowUpCircle/);
 assert.match(updatesScreenSource, /className="update-run-button"/);
+assert.match(updatesScreenSource, /Silenciando\.\.\./);
+assert.match(updatesScreenSource, /update-row-busy/);
 assert.match(overviewScreenSource, /alertBlockerCount/);
 assert.doesNotMatch(overviewScreenSource, /health\?\.counts\.blocker/);
 assert.match(navigationSource, /export type PrinterAvailability = "none" \| "unknown" \| "online" \| "offline";/);

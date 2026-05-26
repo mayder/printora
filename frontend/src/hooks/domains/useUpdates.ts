@@ -10,6 +10,12 @@ import { unknownErrorMessage } from "./shared";
 
 const RISK_UPDATE_CONFIRMATION_PHRASE = "ATUALIZAR COM RISCO";
 const ROLLBACK_CONFIRMATION_PHRASE = "ROLLBACK UPDATE";
+const UPDATE_ALERT_ACTION_TIMEOUT_MS = 20000;
+
+type PendingUpdateAction = {
+  kind: "silence" | "clear_silence";
+  target: string;
+} | null;
 
 type UseUpdatesOptions = {
   selectedPrinter: PrinterRecord | undefined;
@@ -45,6 +51,7 @@ export function useUpdates(options: UseUpdatesOptions) {
   const [updateActionResult, setUpdateActionResult] = React.useState<UpdateActionResponse | null>(null);
   const [updateDialog, setUpdateDialog] = React.useState<UpdateDialogState | null>(null);
   const [updateLogs, setUpdateLogs] = React.useState<UpdateLogEntry[]>([]);
+  const [pendingUpdateAction, setPendingUpdateAction] = React.useState<PendingUpdateAction>(null);
   const updateSocketRef = React.useRef<WebSocket | null>(null);
   const updateSocketCompleteRef = React.useRef(false);
   const updateLogIdRef = React.useRef(0);
@@ -97,12 +104,17 @@ export function useUpdates(options: UseUpdatesOptions) {
       return;
     }
     setLoading(true);
+    setPendingUpdateAction({ kind: "silence", target: component.name });
     setError(null);
     setUpdateActionResult(null);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), UPDATE_ALERT_ACTION_TIMEOUT_MS);
     try {
       const response = await updatesApi.silence(selectedPrinterId, {
         target: component.name,
         reason: "Usuário decidiu aguardar próxima versão.",
+      }, {
+        signal: controller.signal,
       });
       if (!response.ok) {
         if (response.status === 405) {
@@ -117,10 +129,14 @@ export function useUpdates(options: UseUpdatesOptions) {
         detail: "O alerta volta automaticamente quando surgir outra versão.",
       });
     } catch (err) {
-      const message = unknownErrorMessage(err);
+      const message = err instanceof DOMException && err.name === "AbortError"
+        ? "Tempo esgotado ao silenciar versão. Verifique se o backend e o Moonraker responderam e tente novamente."
+        : unknownErrorMessage(err);
       setError(message);
       showToast({ tone: "danger", title: "Falha ao silenciar versão", detail: message });
     } finally {
+      window.clearTimeout(timeoutId);
+      setPendingUpdateAction(null);
       setLoading(false);
     }
   }
@@ -130,10 +146,13 @@ export function useUpdates(options: UseUpdatesOptions) {
       return;
     }
     setLoading(true);
+    setPendingUpdateAction({ kind: "clear_silence", target: component.name });
     setError(null);
     setUpdateActionResult(null);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), UPDATE_ALERT_ACTION_TIMEOUT_MS);
     try {
-      const response = await updatesApi.clearSilence(selectedPrinterId, { target: component.name });
+      const response = await updatesApi.clearSilence(selectedPrinterId, { target: component.name }, { signal: controller.signal });
       if (!response.ok) {
         if (response.status === 405) {
           throw new Error("Backend ainda não carregou a rota de silêncio. Reinicie o Printora e tente novamente.");
@@ -147,10 +166,14 @@ export function useUpdates(options: UseUpdatesOptions) {
         detail: `${component.title} voltou a contar nos alertas ativos.`,
       });
     } catch (err) {
-      const message = unknownErrorMessage(err);
+      const message = err instanceof DOMException && err.name === "AbortError"
+        ? "Tempo esgotado ao reativar alerta. Verifique se o backend e o Moonraker responderam e tente novamente."
+        : unknownErrorMessage(err);
       setError(message);
       showToast({ tone: "danger", title: "Falha ao reativar alerta", detail: message });
     } finally {
+      window.clearTimeout(timeoutId);
+      setPendingUpdateAction(null);
       setLoading(false);
     }
   }
@@ -483,6 +506,7 @@ export function useUpdates(options: UseUpdatesOptions) {
     updateLogs,
     updateSocketRef,
     updateStatus,
+    pendingUpdateAction,
   };
 }
 

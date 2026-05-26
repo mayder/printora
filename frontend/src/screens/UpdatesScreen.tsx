@@ -8,6 +8,7 @@ type UpdatesScreenProps = ScreenPropsFor<
   | "ArrowUpCircle"
   | "CheckCircle2"
   | "Gauge"
+  | "Hourglass"
   | "RefreshCw"
   | "checklist"
   | "checklistDotClass"
@@ -17,6 +18,7 @@ type UpdatesScreenProps = ScreenPropsFor<
   | "clearUpdateAlertSilence"
   | "openRollbackDialog"
   | "openUpdateDialog"
+  | "pendingUpdateAction"
   | "refreshUpdateStatus"
   | "silenceUpdateAlert"
   | "selectedPrinter"
@@ -33,6 +35,7 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
     ArrowUpCircle,
     CheckCircle2,
     Gauge,
+    Hourglass,
     RefreshCw,
     checklist,
     checklistDotClass,
@@ -42,6 +45,7 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
     clearUpdateAlertSilence,
     openRollbackDialog,
     openUpdateDialog,
+    pendingUpdateAction,
     refreshUpdateStatus,
     silenceUpdateAlert,
     selectedPrinter,
@@ -102,6 +106,12 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
             {updateStatus?.components.length === 0 ? <p className="muted">Nenhum componente retornado pelo Update Manager.</p> : null}
             {orderedComponents.map((component) => (
               <div key={component.name} className={`update-row ${component.status} ${component.alert_silenced ? "silenced" : ""}`}>
+                {pendingUpdateAction?.target === component.name ? (
+                  <div className="update-row-busy" role="status">
+                    <Hourglass size={14} />
+                    {pendingUpdateAction.kind === "silence" ? "Silenciando versão..." : "Reativando alerta..."}
+                  </div>
+                ) : null}
                 <div className="update-main">
                   <div className="update-component-copy">
                     <strong className="update-title">
@@ -182,8 +192,8 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                       onClick={() => void clearUpdateAlertSilence(component)}
                       disabled={!selectedPrinterId || loading || updateStatus?.busy}
                     >
-                      <AlertTriangle size={15} />
-                      Reativar alerta
+                      {pendingUpdateAction?.kind === "clear_silence" && pendingUpdateAction.target === component.name ? <Hourglass className="button-busy-icon" size={15} /> : <AlertTriangle size={15} />}
+                      {pendingUpdateAction?.kind === "clear_silence" && pendingUpdateAction.target === component.name ? "Reativando..." : "Reativar alerta"}
                     </button>
                   ) : component.can_update || component.status === "warning" || component.warnings.length || component.anomalies.length ? (
                     <button
@@ -192,8 +202,8 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                       onClick={() => void silenceUpdateAlert(component)}
                       disabled={!selectedPrinterId || loading || updateStatus?.busy}
                     >
-                      <AlertTriangle size={15} />
-                      Silenciar versão
+                      {pendingUpdateAction?.kind === "silence" && pendingUpdateAction.target === component.name ? <Hourglass className="button-busy-icon" size={15} /> : <AlertTriangle size={15} />}
+                      {pendingUpdateAction?.kind === "silence" && pendingUpdateAction.target === component.name ? "Silenciando..." : "Silenciar versão"}
                     </button>
                   ) : null}
                 </div>

@@ -20,14 +20,16 @@ export const updatesApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
-  silence: (printerId: number, body: unknown) =>
+  silence: (printerId: number, body: unknown, init?: RequestInit) =>
     apiResponse(`/api/printers/${printerId}/updates/silences`, {
+      ...init,
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
-  clearSilence: (printerId: number, body: unknown) =>
+  clearSilence: (printerId: number, body: unknown, init?: RequestInit) =>
     apiResponse(`/api/printers/${printerId}/updates/silences/clear`, {
+      ...init,
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
