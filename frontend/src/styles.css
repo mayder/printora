@@ -901,9 +901,28 @@ label {
 
 .update-main span,
 .update-main small,
-.update-warning {
+.update-warning,
+.update-rollback-note {
   color: var(--muted);
   margin-top: 4px;
+}
+
+.update-risk {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.update-risk svg {
+  flex: 0 0 auto;
+  color: var(--warning);
 }
 
 .update-actions {
@@ -914,6 +933,26 @@ label {
 
 .update-actions button:disabled {
   cursor: default;
+}
+
+.confirmation-field {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.confirmation-field span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.confirmation-field input {
+  min-height: 40px;
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+  background: var(--surface-3);
+  color: var(--text);
+  padding: 8px 10px;
 }
 
 .section-updates .update-list {

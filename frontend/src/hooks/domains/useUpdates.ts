@@ -3,9 +3,12 @@ import { updatesApi } from "../../services/updatesApi";
 import { readApiError } from "../../services/http";
 import { delay, isUpdateTargetConfirmedUpdated, moonrakerWebsocketUrl, parseMoonrakerUpdateMessage } from "../../utils/formatters";
 import type { PrinterRecord, UpdateActionResponse, UpdateDialogState, UpdateLogEntry } from "../../types";
-import type { AlertCenterItem, UpdateStatusResponse } from "../../alertCenter";
+import type { AlertCenterItem, UpdateComponent, UpdateStatusResponse } from "../../alertCenter";
 import type { SetActiveSection, SetError, SetLoading } from "./shared";
 import { unknownErrorMessage } from "./shared";
+
+const RISK_UPDATE_CONFIRMATION_PHRASE = "ATUALIZAR COM RISCO";
+const ROLLBACK_CONFIRMATION_PHRASE = "ROLLBACK UPDATE";
 
 type UseUpdatesOptions = {
   selectedPrinter: PrinterRecord | undefined;
@@ -137,12 +140,43 @@ export function useUpdates(options: UseUpdatesOptions) {
       return;
     }
     const selectedLabel = target === "all" ? "todos os componentes" : target;
+    const riskyComponents = riskyComponentsForTarget(target, updateStatus);
     setError(null);
     setUpdateActionResult(null);
     setUpdateLogs([]);
     updateSocketCompleteRef.current = false;
     updateLogIdRef.current = 0;
-    setUpdateDialog({ open: true, target, label: selectedLabel, phase: "confirm" });
+    setUpdateDialog({
+      open: true,
+      target,
+      label: selectedLabel,
+      action: "update",
+      phase: "confirm",
+      requiresConfirmation: riskyComponents.length > 0,
+      confirmationPhrase: "",
+      riskReason: riskyComponents.map((component) => `${component.title}: ${component.risk_reason ?? "risco operacional alto"}`).join(" "),
+    });
+  }
+
+  function openRollbackDialog(component: UpdateComponent) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setError(null);
+    setUpdateActionResult(null);
+    setUpdateLogs([]);
+    updateSocketCompleteRef.current = false;
+    updateLogIdRef.current = 0;
+    setUpdateDialog({
+      open: true,
+      target: component.name,
+      label: component.title,
+      action: "rollback",
+      phase: "confirm",
+      requiresConfirmation: true,
+      confirmationPhrase: "",
+      riskReason: `Voltar ${component.title} para ${component.rollback_version ?? "a versão anterior"} usando o rollback do Moonraker.`,
+    });
   }
 
   function closeUpdateSocket() {
@@ -226,7 +260,8 @@ export function useUpdates(options: UseUpdatesOptions) {
     setError(null);
     setUpdateActionResult(null);
     try {
-      const response = await updatesApi.run(selectedPrinterId, { target });
+      const confirmationPhrase = updateDialog?.target === target ? updateDialog.confirmationPhrase : "";
+      const response = await updatesApi.run(selectedPrinterId, { target, confirmation_phrase: confirmationPhrase });
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
@@ -266,6 +301,39 @@ export function useUpdates(options: UseUpdatesOptions) {
         setError(errorMessage);
         setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "failed" } : currentDialog));
       }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function runRollback(target: string) {
+    if (!selectedPrinterId || !selectedPrinter) {
+      return;
+    }
+    const confirmationPhrase = updateDialog?.target === target ? updateDialog.confirmationPhrase : "";
+    setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "running" } : currentDialog));
+    connectUpdateSocket(selectedPrinter);
+    appendUpdateLog("info", `Solicitando rollback de ${target}.`);
+    setLoading(true);
+    setError(null);
+    setUpdateActionResult(null);
+    try {
+      const response = await updatesApi.rollback(selectedPrinterId, { target, confirmation_phrase: confirmationPhrase });
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+      const actionResult = (await response.json()) as UpdateActionResponse;
+      setUpdateActionResult(actionResult);
+      appendUpdateLog("success", actionResult.message);
+      await delay(2500);
+      await refreshPostUpdateContext(selectedPrinterId);
+      setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "done" } : currentDialog));
+    } catch (err) {
+      const errorMessage = unknownErrorMessage(err);
+      appendUpdateLog("error", errorMessage);
+      setError(errorMessage);
+      await refreshPostUpdateContext(selectedPrinterId);
+      setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "failed" } : currentDialog));
     } finally {
       setLoading(false);
     }
@@ -319,10 +387,12 @@ export function useUpdates(options: UseUpdatesOptions) {
     connectUpdateSocket,
     handleAlertCenterAction,
     loadUpdateStatus,
+    openRollbackDialog,
     openUpdateDialog,
     refreshUpdateStatus,
     reloadUpdateStatusAfterUpdateError,
     runUpdate,
+    runRollback,
     setUpdateActionResult,
     setUpdateDialog,
     setUpdateLogs,
@@ -334,4 +404,15 @@ export function useUpdates(options: UseUpdatesOptions) {
     updateSocketRef,
     updateStatus,
   };
+}
+
+function riskyComponentsForTarget(target: string, status: UpdateStatusResponse | null): UpdateComponent[] {
+  if (!status) {
+    return [];
+  }
+  const candidates =
+    target === "all"
+      ? status.components.filter((component) => component.can_update)
+      : status.components.filter((component) => component.name === target && component.can_update);
+  return candidates.filter((component) => component.requires_confirmation);
 }

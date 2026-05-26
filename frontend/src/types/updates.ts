@@ -28,7 +28,7 @@ export type SystemReleasesResponse = {
 
 export type UpdateActionResponse = {
   safe_mode: string;
-  action: "refresh" | "update";
+  action: "refresh" | "update" | "rollback";
   target: string;
   accepted: boolean;
   message: string;
@@ -46,5 +46,9 @@ export type UpdateDialogState = {
   open: boolean;
   target: string;
   label: string;
+  action: "update" | "rollback";
   phase: "confirm" | "running" | "done" | "failed";
+  requiresConfirmation: boolean;
+  confirmationPhrase: string;
+  riskReason?: string | null;
 };

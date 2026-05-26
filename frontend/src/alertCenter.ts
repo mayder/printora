@@ -80,6 +80,11 @@ export type UpdateComponent = {
   warnings: string[];
   anomalies: string[];
   can_update: boolean;
+  rollback_version?: string | null;
+  can_rollback: boolean;
+  risk_level: "normal" | "caution" | "high";
+  risk_reason?: string | null;
+  requires_confirmation: boolean;
 };
 
 export type UpdateStatusResponse = {
@@ -168,11 +173,13 @@ export function buildAlertCenterItems({
             ? [...component.warnings, ...component.anomalies].filter(Boolean).join(" · ") || "Componente com aviso no Update Manager."
             : `${component.current_version ?? "-"} → ${component.remote_version ?? component.full_version ?? "-"}`,
         action: component.can_update
-          ? "Atualização disponível. Revise o plano e execute pelo Update Manager quando a impressora estiver parada."
+          ? component.requires_confirmation
+            ? "Atualização de risco alto. Revise compatibilidade e tenha rollback antes de continuar."
+            : "Atualização disponível. Revise o plano e execute pelo Update Manager quando a impressora estiver parada."
           : "Reanalise o componente. Se continuar com aviso, revisar o repositório antes de imprimir ou atualizar.",
         severity: component.status === "warning" || component.anomalies.length > 0 ? "warning" : "info",
         reason: updateAlertReason(component),
-        actionLabel: component.can_update ? "Atualizar componente" : "Reanalisar",
+        actionLabel: component.can_update ? (component.requires_confirmation ? "Revisar update" : "Atualizar componente") : "Reanalisar",
         actionKind: component.can_update ? "run_update" : "refresh_update",
         target: component.name,
       });
@@ -263,6 +270,9 @@ function healthAlertReason(item: HealthItem): string {
 }
 
 function updateAlertReason(component: UpdateComponent): string {
+  if (component.requires_confirmation) {
+    return component.risk_reason ?? "Este componente exige confirmação porque pode quebrar compatibilidade operacional.";
+  }
   if (component.can_update) {
     return "Há versão nova disponível no Update Manager para este componente.";
   }

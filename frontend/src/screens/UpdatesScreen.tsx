@@ -13,6 +13,7 @@ type UpdatesScreenProps = ScreenPropsFor<
   | "formatChecklistDataState"
   | "formatUpdateStatus"
   | "loading"
+  | "openRollbackDialog"
   | "openUpdateDialog"
   | "refreshUpdateStatus"
   | "selectedPrinter"
@@ -34,6 +35,7 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
     formatChecklistDataState,
     formatUpdateStatus,
     loading,
+    openRollbackDialog,
     openUpdateDialog,
     refreshUpdateStatus,
     selectedPrinter,
@@ -44,6 +46,7 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
     updateStatusIcon,
   } = props;
   const pendingUpdateCount = updateStatus?.components.filter(isPendingUpdateComponent).length ?? 0;
+  const riskyPendingCount = updateStatus?.components.filter((component) => component.can_update && component.requires_confirmation).length ?? 0;
   const orderedComponents = orderUpdateComponents(updateStatus?.components ?? []);
 
   return (
@@ -72,7 +75,7 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                   disabled={!selectedPrinterId || loading || updateStatus?.busy}
                 >
                   <RefreshCw size={15} />
-                  Atualizar tudo
+                  {riskyPendingCount > 0 ? "Atualizar tudo com risco" : "Atualizar tudo"}
                 </button>
               ) : null}
             </div>
@@ -113,6 +116,15 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                     {[...component.warnings, ...component.anomalies].join(" · ")}
                   </small>
                 ) : null}
+                {component.requires_confirmation ? (
+                  <div className="update-risk">
+                    <AlertTriangle size={15} />
+                    <span>{component.risk_reason ?? "Atualizacao de risco alto exige confirmacao explicita."}</span>
+                  </div>
+                ) : null}
+                {component.can_rollback ? (
+                  <small className="update-rollback-note">Rollback disponível para {component.rollback_version}.</small>
+                ) : null}
                 <div className="update-actions">
                   <button
                     type="button"
@@ -139,6 +151,17 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                       Atualizado
                     </button>
                   )}
+                  {component.can_rollback ? (
+                    <button
+                      type="button"
+                      className="danger-button"
+                      onClick={() => openRollbackDialog(component)}
+                      disabled={!selectedPrinterId || loading || updateStatus?.busy}
+                    >
+                      <RefreshCw size={15} />
+                      Rollback
+                    </button>
+                  ) : null}
                 </div>
               </div>
             ))}

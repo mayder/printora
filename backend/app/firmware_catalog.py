@@ -101,11 +101,11 @@ def build_firmware_hardware_inventory(
     object_payload: dict[str, Any],
 ) -> FirmwareHardwareInventory:
     items = [_registered_board_item(board) for board in registered_boards]
-    registered_mcu_names = {_normalize(item.mcu_name or item.name) for item in items}
+    registered_identities = _registered_identity_keys(items)
     for mcu_name in _mcu_object_names(object_names):
-        if _normalize(mcu_name) in registered_mcu_names:
-            continue
         item = _detected_mcu_item(mcu_name, object_payload)
+        if _hardware_identity_keys(item) & registered_identities:
+            continue
         items.append(item)
     items = sorted(items, key=lambda item: (_role_order(item.role), item.name.lower()))
     detected_count = sum(1 for item in items if item.status == "detected")
@@ -120,6 +120,23 @@ def build_firmware_hardware_inventory(
         catalog_counts=catalog_counts(),
         items=items,
     )
+
+
+def _registered_identity_keys(items: list[FirmwareHardwareItem]) -> set[str]:
+    identities: set[str] = set()
+    for item in items:
+        identities.update(_hardware_identity_keys(item))
+    return identities
+
+
+def _hardware_identity_keys(item: FirmwareHardwareItem) -> set[str]:
+    identities = {f"name:{_normalize(item.name)}"}
+    if item.mcu_name:
+        identities.add(f"mcu:{_normalize(item.mcu_name)}")
+        identities.add(f"name:{_normalize(_display_mcu_name(item.mcu_name))}")
+    if item.can_uuid:
+        identities.add(f"can:{_normalize(item.can_uuid)}")
+    return {identity for identity in identities if not identity.endswith(":")}
 
 
 def _catalog_hardware() -> list[FirmwareCatalogHardware]:

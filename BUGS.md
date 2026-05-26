@@ -6,6 +6,30 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Firmware Duplicava Placa Detectada E Navegacao Mantinha Painel Antigo
+
+Sintoma:
+
+- ao associar uma MCU detectada ao modelo fisico, a tela Firmware passava a mostrar a placa cadastrada e a mesma MCU detectada como se fosse outra placa;
+- em alguns fluxos, depois de abrir Diagnostico da instalacao, clicar em Calibracao, Testes, Firmware ou Manutencao podia manter o painel anterior visivel.
+
+Causa:
+
+- o inventario comparava placa cadastrada e MCU detectada principalmente pelo nome de MCU/preset, sem casar UUID CAN e nome exibido pelo Klipper;
+- a SPA renderizava todas as telas ao mesmo tempo e dependia de CSS para ocultar as inativas.
+
+Correção:
+
+- inventario de firmware agora deduplica placas cadastradas por UUID CAN, nome exibido e MCU;
+- cadastro de placa ficou idempotente por UUID CAN ou nome dentro da mesma impressora;
+- seletor de Modelo fisico sempre mantém todos os presets disponíveis, priorizando os sugeridos sem esconder os demais;
+- shell renderiza somente a tela ativa.
+
+Validação:
+
+- testes focados de firmware;
+- build do frontend.
+
 ### Instalacao Falhava Com Python Antigo Ou Update Orfao
 
 Sintoma:

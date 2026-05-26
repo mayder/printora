@@ -86,6 +86,9 @@ class MoonrakerClient:
     async def update_client(self, name: str) -> dict[str, Any]:
         return await self.post_json(f"/machine/update/client?name={quote(name)}")
 
+    async def rollback_update(self, name: str) -> dict[str, Any]:
+        return await self.post_json("/machine/update/rollback", {"name": name})
+
     async def system_info(self) -> dict[str, Any]:
         return await self.get_json("/machine/system_info")
 

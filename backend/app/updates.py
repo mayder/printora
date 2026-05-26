@@ -3,8 +3,11 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
-UpdateAction = Literal["refresh", "update"]
+UpdateAction = Literal["refresh", "update", "rollback"]
+UpdateRiskLevel = Literal["normal", "caution", "high"]
 UpdateStatus = Literal["up_to_date", "update_available", "warning", "busy", "unknown"]
+RISK_UPDATE_CONFIRMATION_PHRASE = "ATUALIZAR COM RISCO"
+ROLLBACK_CONFIRMATION_PHRASE = "ROLLBACK UPDATE"
 
 
 class UpdateComponent(BaseModel):
@@ -22,6 +25,11 @@ class UpdateComponent(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     anomalies: list[str] = Field(default_factory=list)
     can_update: bool = True
+    rollback_version: str | None = None
+    can_rollback: bool = False
+    risk_level: UpdateRiskLevel = "normal"
+    risk_reason: str | None = None
+    requires_confirmation: bool = False
 
 
 class UpdateStatusResponse(BaseModel):
@@ -36,6 +44,12 @@ class UpdateStatusResponse(BaseModel):
 
 class UpdateRunRequest(BaseModel):
     target: str = Field(min_length=1, max_length=80)
+    confirmation_phrase: str | None = Field(default=None, max_length=120)
+
+
+class PrinterUpdateRollbackRequest(BaseModel):
+    target: str = Field(min_length=1, max_length=80)
+    confirmation_phrase: str = Field(min_length=1, max_length=120)
 
 
 class UpdateRefreshRequest(BaseModel):
@@ -90,6 +104,15 @@ def build_update_status(raw_status: dict[str, Any]) -> UpdateStatusResponse:
     )
 
 
+def risky_update_components(status: UpdateStatusResponse, target: str) -> list[UpdateComponent]:
+    clean_target = target.strip()
+    if clean_target == "all":
+        candidates = [item for item in status.components if item.can_update]
+    else:
+        candidates = [item for item in status.components if item.name == clean_target and item.can_update]
+    return [item for item in candidates if item.requires_confirmation]
+
+
 def update_route_for_target(target: str) -> tuple[str, str]:
     clean_target = target.strip()
     if clean_target == "all":
@@ -108,6 +131,7 @@ def _build_component(name: str, payload: dict[str, Any]) -> UpdateComponent:
     package_count = _optional_int(payload.get("package_count")) or 0
     current_version = _optional_str(payload.get("version"))
     remote_version = _optional_str(payload.get("remote_version"))
+    rollback_version = _optional_str(payload.get("rollback_version"))
     is_dirty = _optional_bool(payload.get("is_dirty"))
     is_valid = _optional_bool(payload.get("is_valid"))
 
@@ -120,6 +144,9 @@ def _build_component(name: str, payload: dict[str, Any]) -> UpdateComponent:
         status = "up_to_date"
     else:
         status = "unknown"
+
+    risk_level, risk_reason = _update_risk(name)
+    requires_confirmation = status in {"update_available", "warning"} and risk_level == "high"
 
     return UpdateComponent(
         name=name,
@@ -136,7 +163,27 @@ def _build_component(name: str, payload: dict[str, Any]) -> UpdateComponent:
         warnings=warnings,
         anomalies=anomalies,
         can_update=status in {"update_available", "warning"},
+        rollback_version=rollback_version,
+        can_rollback=bool(rollback_version and rollback_version != current_version),
+        risk_level=risk_level,
+        risk_reason=risk_reason,
+        requires_confirmation=requires_confirmation,
     )
+
+
+def _update_risk(name: str) -> tuple[UpdateRiskLevel, str | None]:
+    normalized = name.lower().replace("_", "-")
+    if normalized == "klipper":
+        return (
+            "high",
+            "Klipper pode quebrar compatibilidade com extras, plugins de toolchanger, probe, macros e módulos customizados.",
+        )
+    if "toolchanger" in normalized or normalized.startswith("ktc"):
+        return (
+            "high",
+            "Plugin de toolchanger depende de APIs internas do Klipper; versões incompatíveis podem impedir o Klipper de iniciar.",
+        )
+    return "normal", None
 
 
 def _component_sort_key(name: str) -> tuple[int, str]:

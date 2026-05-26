@@ -53,6 +53,7 @@ async def run_printer_update(printer_id: int, payload: UpdateRunRequest) -> Upda
         base_url=printer.moonraker_url,
         timeout_seconds=settings.request_timeout_seconds,
     )
+    await _guard_risky_update(client, target, payload.confirmation_phrase)
     try:
         if target == "all":
             result = await client.update_all()
@@ -71,4 +72,56 @@ async def run_printer_update(printer_id: int, payload: UpdateRunRequest) -> Upda
         accepted=True,
         message=f"Update solicitado ao Moonraker via {route}.",
         result=result,
+    )
+
+
+@router.post("/api/printers/{printer_id}/updates/rollback")
+async def rollback_printer_update(printer_id: int, payload: PrinterUpdateRollbackRequest) -> UpdateActionResponse:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    printer = repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+
+    target = payload.target.strip()
+    if target == "all":
+        raise HTTPException(status_code=400, detail="rollback deve ser executado por componente")
+    if payload.confirmation_phrase.strip() != ROLLBACK_CONFIRMATION_PHRASE:
+        raise HTTPException(status_code=409, detail=f"rollback exige confirmação literal: {ROLLBACK_CONFIRMATION_PHRASE}")
+
+    client = MoonrakerClient(
+        base_url=printer.moonraker_url,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+    try:
+        result = await client.rollback_update(target)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=_http_error_detail(exc)) from exc
+    return UpdateActionResponse(
+        safe_mode="moonraker_update_manager",
+        action="rollback",
+        target=target,
+        accepted=True,
+        message=f"Rollback de {target} solicitado ao Moonraker.",
+        result=result,
+    )
+
+
+async def _guard_risky_update(client: MoonrakerClient, target: str, confirmation_phrase: str | None) -> None:
+    try:
+        status = build_update_status(await client.update_status())
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=_http_error_detail(exc)) from exc
+    risky_components = risky_update_components(status, target)
+    if not risky_components:
+        return
+    if (confirmation_phrase or "").strip() == RISK_UPDATE_CONFIRMATION_PHRASE:
+        return
+    component_names = ", ".join(item.title for item in risky_components)
+    raise HTTPException(
+        status_code=409,
+        detail=(
+            f"Update de risco alto bloqueado para {component_names}. "
+            f"Para continuar, confirme literalmente: {RISK_UPDATE_CONFIRMATION_PHRASE}"
+        ),
     )

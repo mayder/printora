@@ -13,6 +13,15 @@ MaintenanceIntervalKind = Literal["days", "print_hours"]
 TaskDueStatus = Literal["due", "soon", "ok", "unknown", "not_validated", "needs_review"]
 
 
+def _help(how_to: list[str], why: str, prevents: list[str], recommendation: str) -> dict[str, Any]:
+    return {
+        "how_to": how_to,
+        "why": why,
+        "prevents": prevents,
+        "recommendation": recommendation,
+    }
+
+
 DEFAULT_PREVENTIVE_TASKS = [
     {"name": "Limpar superfície da mesa", "component": "mesa", "interval_days": 7},
     {"name": "Inspecionar adesão da mesa", "component": "mesa", "interval_days": 14},
@@ -48,6 +57,349 @@ DEFAULT_PREVENTIVE_TASKS = [
     {"name": "Conferir spool holder e caminho até a impressora", "component": "acessórios", "interval_days": 30},
     {"name": "Revisar macros e perfil do slicer após mudanças", "component": "software", "interval_days": 90},
 ]
+
+
+MAINTENANCE_HELP_BY_TASK = {
+    "limpar superfície da mesa": _help(
+        [
+            "Remova a chapa quando o material permitir e espere a superfície chegar a uma temperatura segura.",
+            "Retire restos de plástico com espátula adequada, sem riscar a superfície.",
+            "Limpe gordura e poeira com o método compatível com a chapa usada.",
+            "Reinstale a chapa bem assentada e valide a primeira camada em uma área pequena.",
+        ],
+        "A superfície da mesa define a aderência inicial. Gordura, poeira e resíduo de filamento mudam o Z real e prejudicam a primeira camada.",
+        ["Peça soltando no meio da impressão.", "Warping por baixa aderência.", "Ajuste errado de Z-offset para compensar sujeira."],
+        "Faça antes de peças longas, troca de material ou sempre que tocar na mesa com a mão.",
+    ),
+    "inspecionar adesão da mesa": _help(
+        [
+            "Observe marcas de desgaste, zonas brilhantes, bolhas, riscos profundos ou pontos onde a peça costuma soltar.",
+            "Faça uma linha ou quadrado curto de teste nas áreas mais usadas da chapa.",
+            "Compare centro e cantos para saber se o problema é sujeira, chapa ou nivelamento.",
+        ],
+        "A aderência pode cair mesmo com a mesa limpa, principalmente em chapas gastas ou materiais exigentes.",
+        ["Falha repetida no mesmo ponto da chapa.", "Perda de peças grandes depois de várias horas.", "Diagnóstico errado de fluxo ou temperatura."],
+        "Se uma região falhar duas vezes, limpe novamente, gire a chapa se possível ou troque a superfície.",
+    ),
+    "verificar nivelamento mecânico da mesa": _help(
+        [
+            "Aqueça a impressora nas condições normais de uso.",
+            "Confirme se chapa e base estão bem assentadas e sem sujeira entre elas.",
+            "Execute a rotina de nivelamento aplicável ao modelo e observe se algum canto fica fora do padrão.",
+            "Após ajuste mecânico, refaça a malha ou a validação de primeira camada.",
+        ],
+        "Nivelamento mecânico ruim força o firmware a compensar demais e reduz a margem da primeira camada.",
+        ["Primeira camada boa em um canto e ruim em outro.", "Mesh muito inclinada.", "Bico raspando ou imprimindo alto em regiões diferentes."],
+        "Mexa mecanicamente só quando houver desvio claro; pequenas variações podem ser tratadas pela malha.",
+    ),
+    "revisar z-offset aprovado": _help(
+        [
+            "Limpe bico e mesa antes de medir.",
+            "Aqueça mesa e hotend como em uma impressão real.",
+            "Rode a rotina de Z-offset e compare com o último valor aprovado.",
+            "Faça uma primeira camada curta para validar se as linhas aderem sem raspar.",
+        ],
+        "Z-offset muda com bico, chapa, temperatura e manutenção mecânica. Valor antigo pode deixar de representar a distância real.",
+        ["Bico riscando a chapa.", "Primeira camada solta.", "Compensação errada depois de troca de bico ou chapa."],
+        "Revalide após trocar bico, chapa, hotend, probe ou depois de colisão.",
+    ),
+    "refazer malha da mesa": _help(
+        [
+            "Aqueça a mesa e aguarde estabilizar.",
+            "Garanta que a chapa esteja limpa e travada na posição correta.",
+            "Execute a geração de malha com a configuração usada normalmente.",
+            "Salve ou aplique conforme o fluxo da impressora e valide com primeira camada.",
+        ],
+        "A malha representa a geometria atual da superfície. Mudanças térmicas ou mecânicas tornam a malha antiga menos confiável.",
+        ["Primeira camada irregular em regiões específicas.", "Compensação antiga após manutenção.", "Problemas de aderência sem causa aparente."],
+        "Refaça após troca de chapa, ajuste de mesa, colisão ou mudanças relevantes de temperatura de trabalho.",
+    ),
+    "limpar poeira da estrutura": _help(
+        [
+            "Desligue a impressora se for limpar perto de eletrônica ou fans.",
+            "Use pincel macio, ar controlado ou pano seco para tirar poeira de perfis, cantos e painéis.",
+            "Não empurre sujeira para trilhos, rolamentos, fonte ou placas.",
+        ],
+        "Poeira acumulada entra em fans, trilhos e conectores, aumentando ruído, desgaste e aquecimento.",
+        ["Fan perdendo fluxo.", "Sujeira em trilhos.", "Aquecimento e mau contato por acúmulo em eletrônica."],
+        "Faça com mais frequência em ambiente aberto, oficina ou quando imprimir materiais que soltam pó.",
+    ),
+    "conferir parafusos estruturais": _help(
+        [
+            "Com a impressora parada, pressione levemente pontos da estrutura e procure folga.",
+            "Verifique parafusos de perfis, painéis, suportes e peças impressas críticas.",
+            "Reaperte apenas parafusos frouxos; não force roscas em alumínio ou plástico.",
+        ],
+        "Parafuso frouxo vira vibração e perda de repetibilidade, especialmente em impressoras rápidas.",
+        ["Ringing por vibração.", "Peça impressa trincando por esforço.", "Desalinhamento progressivo da estrutura."],
+        "Se vários parafusos estavam frouxos, faça uma validação curta de movimento depois.",
+    ),
+    "conferir esquadro da estrutura": _help(
+        [
+            "Meça diagonais ou use referência mecânica compatível com o modelo.",
+            "Procure diferença entre lados, torção em painéis e desalinhamento de eixos.",
+            "Corrija em pequenos passos e valide movimento livre depois de cada ajuste.",
+        ],
+        "Esquadro ruim afeta geometria, movimento e acabamento mesmo quando firmware e slicer parecem corretos.",
+        ["Peças fora de medida.", "Movimento com esforço desigual.", "Correções artificiais no slicer para problema mecânico."],
+        "Faça depois de transporte, desmontagem, colisão ou troca de partes estruturais.",
+    ),
+    "verificar tensão das correias": _help(
+        [
+            "Com a máquina parada, compare a tensão entre lados equivalentes.",
+            "Procure correia frouxa, muito esticada ou com som/deflexão diferente entre eixos.",
+            "Ajuste em pequenos passos e mova o eixo para confirmar que não ficou pesado.",
+        ],
+        "Tensão incorreta altera resposta do movimento e qualidade das paredes.",
+        ["Layer shift.", "Ringing excessivo.", "Desgaste de rolamentos, idlers e motores por tensão alta."],
+        "Depois de ajustar, rode uma peça de teste curta antes de imprimir algo longo.",
+    ),
+    "inspecionar desgaste das correias": _help(
+        [
+            "Examine dentes, laterais e regiões próximas a polias/idlers.",
+            "Procure fios soltos, rachaduras, marcas brilhantes ou desgaste lateral.",
+            "Verifique se a correia está alinhada e não raspa em flange ou peça impressa.",
+        ],
+        "Correia desgastada pode falhar sem aviso e costuma dar sinais antes de romper.",
+        ["Perda de passo por dente danificado.", "Rompimento durante impressão.", "Desgaste acelerado por desalinhamento."],
+        "Troque a correia se houver fibra exposta, dente danificado ou desgaste lateral consistente.",
+    ),
+    "lubrificar trilhos lineares": _help(
+        [
+            "Limpe sujeira superficial antes de aplicar lubrificante.",
+            "Use lubrificante compatível com o trilho e aplique pouca quantidade.",
+            "Movimente o eixo algumas vezes para distribuir.",
+            "Remova excesso para não capturar poeira.",
+        ],
+        "Lubrificação correta reduz atrito e desgaste nos carros lineares.",
+        ["Movimento áspero.", "Ruído em trilhos.", "Desgaste prematuro de guia e patins."],
+        "Não misture lubrificantes sem limpar antes; excesso também prejudica.",
+    ),
+    "limpar trilhos e guias": _help(
+        [
+            "Passe pano sem fiapos na região exposta dos trilhos.",
+            "Remova poeira e resíduos antes que entrem no carro linear.",
+            "Movimente o eixo para acessar outras regiões e repita a limpeza.",
+        ],
+        "Trilho sujo transforma poeira em abrasivo e aumenta esforço de movimento.",
+        ["Risco no trilho.", "Ponto duro no movimento.", "Falha de qualidade por atrito variável."],
+        "Limpe antes de lubrificar; lubrificante sobre sujeira piora o desgaste.",
+    ),
+    "inspecionar roldanas, polias e idlers": _help(
+        [
+            "Gire idlers e polias com cuidado e procure ruído, folga ou resistência.",
+            "Verifique se parafusos e espaçadores estão firmes.",
+            "Observe se a correia corre centralizada e sem raspar.",
+        ],
+        "Polias e idlers guiam a correia; qualquer folga vira erro de movimento.",
+        ["Correia comendo lateral.", "Ruído e vibração.", "Layer shift ou irregularidade em paredes."],
+        "Substitua rolamento/idler se houver ruído áspero ou folga perceptível.",
+    ),
+    "conferir aperto de polias nos motores": _help(
+        [
+            "Desligue motores e acesse as polias com segurança.",
+            "Confira se o grub screw está apertado no plano correto do eixo quando aplicável.",
+            "Procure marca de polia escorregando no eixo.",
+        ],
+        "Polia frouxa causa deslocamento intermitente difícil de diferenciar de perda de passo.",
+        ["Layer shift aleatório.", "Dimensão inconsistente.", "Diagnóstico errado de corrente de motor."],
+        "Use trava rosca adequada se o modelo recomendar e houver recorrência.",
+    ),
+    "limpar bico externamente": _help(
+        [
+            "Aqueça o hotend a temperatura segura para amolecer resíduo, se necessário.",
+            "Use escova adequada e evite curto em termistor/aquecedor.",
+            "Remova plástico carbonizado em volta do bico e do bloco.",
+        ],
+        "Resíduo no bico pode cair na peça, grudar na primeira camada ou virar blob.",
+        ["Marcas queimadas na peça.", "Filamento acumulando no bico.", "Falha de primeira camada por material preso."],
+        "Nunca force cabo de termistor ou heater durante a limpeza.",
+    ),
+    "inspecionar bico por desgaste ou entupimento": _help(
+        [
+            "Observe se o filamento extrudado sai reto e com diâmetro consistente.",
+            "Procure ponta ovalizada, arranhada ou com resíduo interno.",
+            "Compare qualidade de parede/topo com uma impressão curta conhecida.",
+        ],
+        "Bico gasto ou parcialmente entupido altera fluxo e precisão.",
+        ["Subextrusão.", "Linhas largas ou irregulares.", "Peças frágeis por fluxo inconsistente."],
+        "Troque o bico se o problema persistir após limpeza e calibração de fluxo.",
+    ),
+    "conferir aperto do hotend em temperatura segura": _help(
+        [
+            "Aqueça conforme recomendação do hotend e use ferramenta correta.",
+            "Segure o bloco de forma adequada para não torcer heatbreak.",
+            "Confira bico/heatbreak sem aplicar força excessiva.",
+        ],
+        "Hotend mal apertado pode vazar filamento entre bico, bloco e heatbreak.",
+        ["Blob envolvendo o hotend.", "Vazamento lento de filamento.", "Dano ao heatbreak por aperto frio/incorreto."],
+        "Faça só quando souber o procedimento do hotend; se houver dúvida, não force.",
+    ),
+    "inspecionar vazamento de filamento no hotend": _help(
+        [
+            "Remova o silicone sock se existir e estiver frio o suficiente.",
+            "Procure filamento acima do bloco, em volta do bico e na rosca.",
+            "Se houver vazamento, pare e planeje limpeza/reaperto antes de imprimir.",
+        ],
+        "Vazamento pequeno cresce rápido e pode cobrir heater, termistor e cabos.",
+        ["Blob grande no hotend.", "Falha térmica por termistor deslocado.", "Dano em cabos do aquecedor."],
+        "Não marque como feita se houver filamento subindo pela rosca.",
+    ),
+    "limpar engrenagens do extrusor": _help(
+        [
+            "Retire o filamento e abra o acesso ao conjunto tracionador.",
+            "Remova pó de filamento dos dentes com escova pequena.",
+            "Confira se as engrenagens estão alinhadas com o caminho do filamento.",
+        ],
+        "Pó nos dentes reduz tração e faz o extrusor moer filamento.",
+        ["Subextrusão intermitente.", "Filamento moído.", "Falha em retrações e velocidades altas."],
+        "Depois da limpeza, faça extrusão manual curta para confirmar avanço uniforme.",
+    ),
+    "verificar pressão/tensão do extrusor": _help(
+        [
+            "Carregue filamento comum e observe a marca deixada pela engrenagem.",
+            "Ajuste a pressão em pequenos passos conforme o extrusor.",
+            "Teste extrusão e retração curta sem esmagar o filamento.",
+        ],
+        "Pressão baixa escorrega; pressão alta deforma o filamento e aumenta atrito.",
+        ["Cliques no extrusor.", "Filamento ovalizado.", "Subextrusão em velocidade maior."],
+        "Ajuste por material se necessário, principalmente flexíveis.",
+    ),
+    "inspecionar tubo ptfe ou guia de filamento": _help(
+        [
+            "Remova o filamento e confira se o tubo/guia está preso e alinhado.",
+            "Procure ponta ovalizada, corte torto, desgaste interno ou curva fechada.",
+            "Substitua o trecho se houver atrito, marca profunda ou folga.",
+        ],
+        "Guia gasto ou mal alinhado aumenta esforço do extrusor e pode raspar o filamento.",
+        ["Subextrusão por atrito.", "Filamento quebrando.", "Sensor ou extrusor recebendo filamento desalinhado."],
+        "Cortes de PTFE devem ser retos e bem assentados.",
+    ),
+    "limpar caminho do filamento": _help(
+        [
+            "Siga o caminho do spool até o extrusor.",
+            "Remova poeira, pedaços de filamento e pontos de atrito.",
+            "Confirme que guias, tubos e entradas estão alinhados.",
+        ],
+        "Caminho sujo ou com atrito cria falhas que parecem problema de hotend.",
+        ["Tranco no extrusor.", "Subextrusão em peças longas.", "Desgaste de filamento antes do extrusor."],
+        "Puxe o filamento manualmente; a resistência deve ser baixa e constante.",
+    ),
+    "inspecionar sensor de filamento": _help(
+        [
+            "Acione o sensor com e sem filamento e confira a mudança de estado.",
+            "Veja se o filamento passa centralizado e sem raspar.",
+            "Limpe poeira ou fragmentos que possam prender a chave/encoder.",
+        ],
+        "Sensor sujo ou desalinhado pode falhar quando o filamento realmente acaba ou pausar sem motivo.",
+        ["Pausa falsa.", "Fim de filamento não detectado.", "Atrito extra antes do extrusor."],
+        "Valide no software se o estado muda antes de confiar em impressão longa.",
+    ),
+    "limpar fans e dutos": _help(
+        [
+            "Desligue a impressora antes de encostar em fans.",
+            "Remova poeira das pás, grades e dutos sem forçar o eixo.",
+            "Confira se nenhum cabo encosta nas pás.",
+            "Ligue os fans e observe ruído e fluxo.",
+        ],
+        "Fans sujos perdem fluxo e podem travar, afetando hotend, peça e eletrônica.",
+        ["Heat creep.", "Pontes e overhangs ruins.", "Superaquecimento de eletrônica."],
+        "Se houver ruído áspero ou fan demorando a partir, planeje troca.",
+    ),
+    "verificar ruído ou folga dos fans": _help(
+        [
+            "Acione cada fan separadamente quando possível.",
+            "Escute vibração, raspagem, partida lenta ou variação de rotação.",
+            "Confira fixação, duto trincado e cabo próximo às pás.",
+        ],
+        "Ruído é um aviso comum antes de fan travar ou perder eficiência.",
+        ["Falha de refrigeração no meio da impressão.", "Vibração passando para a peça.", "Dano por cabo encostando na hélice."],
+        "Troque fan com folga no eixo, partida irregular ou ruído persistente.",
+    ),
+    "limpar filtro de ar ou carvão ativado": _help(
+        [
+            "Desligue o sistema de exaustão/filtragem.",
+            "Remova poeira externa e confira se o fluxo de ar não está bloqueado.",
+            "Troque ou regenere o elemento filtrante conforme o material usado e o tipo do filtro.",
+        ],
+        "Filtro saturado reduz fluxo e deixa odores/partículas circulando mais tempo.",
+        ["Câmara com fluxo ruim.", "Cheiro forte em ABS/ASA.", "Fan trabalhando forçado."],
+        "Para ABS/ASA frequente, encurte o intervalo e registre a troca do elemento.",
+    ),
+    "inspecionar cabos do toolhead": _help(
+        [
+            "Mova o toolhead por todo o curso com a impressora parada.",
+            "Observe dobra, tensão, ponto pegando, malha rompida ou conector mexendo.",
+            "Confira alívio de tensão e folga suficiente nos extremos do movimento.",
+        ],
+        "Cabos do toolhead sofrem movimento constante e falham de forma intermitente antes de romper.",
+        ["Perda de comunicação CAN/USB.", "Falha de heater, termistor ou fan em posição específica.", "Cabo rompendo durante impressão."],
+        "Se a falha aparece só em uma posição, suspeite de cabo antes de firmware.",
+    ),
+    "inspecionar conectores can/usb": _help(
+        [
+            "Desligue a impressora antes de tocar nos conectores.",
+            "Confira encaixe, trava, folga, oxidação e esforço no cabo.",
+            "Verifique se o cabo não puxa o conector quando o eixo se move.",
+        ],
+        "Conector frouxo causa quedas intermitentes difíceis de reproduzir.",
+        ["Lost communication to MCU.", "Falha CAN aleatória.", "Reset de placa durante movimento."],
+        "Não use conector com folga mecânica perceptível em produção.",
+    ),
+    "conferir fixação e alívio de tensão dos cabos": _help(
+        [
+            "Veja todos os pontos onde cabo dobra, passa por corrente ou prende em suporte.",
+            "Confirme que a fixação segura a capa do cabo, não o fio individual.",
+            "Garanta raio de curva confortável nos extremos dos eixos.",
+        ],
+        "Alívio de tensão correto evita que movimento repetido force solda, borne ou conector.",
+        ["Cabo rompido internamente.", "Mau contato em movimento.", "Conector arrancado ou aquecendo por contato ruim."],
+        "Depois de reposicionar cabo, mova os eixos no curso completo.",
+    ),
+    "inspecionar fonte, borne e aterramento visualmente": _help(
+        [
+            "Desligue da tomada e aguarde antes de abrir compartimento elétrico.",
+            "Faça inspeção visual sem tocar em partes energizadas.",
+            "Procure borne escurecido, fio solto, isolamento derretido, cheiro de queimado ou aterramento ausente.",
+        ],
+        "Fonte e bornes são pontos críticos de segurança. Sinal visual pequeno pode indicar aquecimento sério.",
+        ["Aquecimento perigoso.", "Queda de tensão sob carga.", "Risco elétrico por aterramento ou borne inadequado."],
+        "Se houver marca de aquecimento, não imprima até revisar com segurança.",
+    ),
+    "conferir câmera e iluminação": _help(
+        [
+            "Abra a imagem da câmera e confirme que mesa, bico e peça ficam visíveis.",
+            "Limpe a lente sem forçar o suporte.",
+            "Ajuste iluminação para evitar sombra forte ou imagem estourada.",
+            "Mova o toolhead devagar e confirme que câmera/LEDs não interferem no movimento.",
+        ],
+        "Boa visão remota permite detectar cedo primeira camada soltando, spaghetti, colisão e acúmulo no bico.",
+        ["Perder horas de impressão por falha visível.", "Diagnóstico ruim por imagem escura ou fora de quadro.", "Suporte de câmera/LED encostando no movimento."],
+        "Marque como feita quando a imagem estiver limpa, iluminada e enquadrando a área útil.",
+    ),
+    "conferir spool holder e caminho até a impressora": _help(
+        [
+            "Gire o spool manualmente e confirme que roda livre.",
+            "Siga o filamento até o extrusor e procure curva fechada, atrito, nó ou poeira.",
+            "Confira alinhamento de tubo, guia e sensor de filamento.",
+            "Puxe um trecho curto; a resistência deve ser baixa e constante.",
+        ],
+        "Alimentação irregular do spool vira subextrusão, tranco no extrusor e falhas que parecem problema de hotend.",
+        ["Subextrusão em peças longas.", "Filamento enrolando ou quebrando.", "Pausa falsa de sensor ou desgaste da engrenagem."],
+        "Marque como feita quando spool e caminho alimentarem sem travar.",
+    ),
+    "revisar macros e perfil do slicer após mudanças": _help(
+        [
+            "Liste o que mudou: firmware, macro, slicer, material, bico ou geometria.",
+            "Revise temperaturas, retração, flow, pressure advance, aceleração e limites.",
+            "Execute uma impressão curta ou simulação segura antes de peça longa.",
+            "Registre o que mudou para permitir rollback.",
+        ],
+        "Mudanças de software alteram comportamento mesmo quando a mecânica está perfeita.",
+        ["Macro antiga executando sequência errada.", "Perfil de material aplicado na peça errada.", "Dificuldade de voltar ao estado anterior."],
+        "Sempre valide após update de slicer, firmware, macro ou perfil de material.",
+    ),
+}
 
 
 class MaintenanceEventCreate(BaseModel):
@@ -97,6 +449,13 @@ class MaintenanceTaskComplete(BaseModel):
     disable_reminder: bool = False
 
 
+class MaintenanceTaskHelp(BaseModel):
+    how_to: list[str]
+    why: str
+    prevents: list[str]
+    recommendation: str
+
+
 class MaintenanceTaskRecord(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -123,6 +482,7 @@ class MaintenanceTaskRecord(BaseModel):
     due_detail: str | None = None
     recommended_interval_kind: MaintenanceIntervalKind | None = None
     recommended_interval_value: float | None = None
+    maintenance_help: MaintenanceTaskHelp | None = None
 
 
 class MaintenanceSummary(BaseModel):
@@ -485,6 +845,7 @@ def _task_from_row(row) -> MaintenanceTaskRecord:
     stored_interval_kind: MaintenanceIntervalKind = row["interval_kind"] if row["interval_kind"] in {"days", "print_hours"} else "days"
     stored_interval_value = float(row["interval_value"] if row["interval_value"] is not None else row["interval_days"])
     recommendation = _recommended_interval_for_task(str(row["name"]), str(row["component"]))
+    help_content = _maintenance_help_for_task(str(row["name"]), str(row["component"]))
     current_print_hours_source = row["current_print_hours_source"]
     current_print_hours = row["current_print_hours"]
     interval_kind, interval_value = _effective_interval(
@@ -528,6 +889,7 @@ def _task_from_row(row) -> MaintenanceTaskRecord:
         due_detail=due_detail,
         recommended_interval_kind=recommendation[0],
         recommended_interval_value=recommendation[1],
+        maintenance_help=MaintenanceTaskHelp(**help_content) if help_content else None,
     )
 
 
@@ -545,6 +907,18 @@ def _recommended_interval_for_task(
             return kind, float(value)
         return None, None
     return None, None
+
+
+def _maintenance_help_for_task(name: str, component: str) -> dict[str, Any] | None:
+    direct = MAINTENANCE_HELP_BY_TASK.get(name.lower())
+    if direct:
+        return direct
+    key = (name.lower(), component.lower())
+    for task in DEFAULT_PREVENTIVE_TASKS:
+        if key == (str(task["name"]).lower(), str(task["component"]).lower()):
+            help_content = MAINTENANCE_HELP_BY_TASK.get(str(task["name"]).lower())
+            return help_content
+    return None
 
 
 def _effective_interval(

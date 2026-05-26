@@ -135,11 +135,15 @@ from app.snapshots import (
     build_moonraker_snapshot_payload,
 )
 from app.updates import (
+    RISK_UPDATE_CONFIRMATION_PHRASE,
+    ROLLBACK_CONFIRMATION_PHRASE,
     UpdateActionResponse,
     UpdateRefreshRequest,
+    PrinterUpdateRollbackRequest,
     UpdateRunRequest,
     UpdateStatusResponse,
     build_update_status,
+    risky_update_components,
     update_route_for_target,
 )
 from app.z_offset import (

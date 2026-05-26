@@ -1,12 +1,16 @@
+import { useState } from "react";
 import { Metric } from "../components/common";
+import type { MaintenanceTaskRecord } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type MaintenanceScreenProps = ScreenPropsFor<
   | "CheckCircle2"
+  | "HelpCircle"
   | "Plus"
   | "Timer"
   | "Trash2"
   | "Undo2"
+  | "X"
   | "createDefaultMaintenanceTasks"
   | "deleteLatestMaintenanceTaskEvent"
   | "deleteMaintenanceEvent"
@@ -38,10 +42,12 @@ type MaintenanceScreenProps = ScreenPropsFor<
 export function MaintenanceScreen(props: MaintenanceScreenProps) {
   const {
     CheckCircle2,
+    HelpCircle,
     Plus,
     Timer,
     Trash2,
     Undo2,
+    X,
     createDefaultMaintenanceTasks,
     deleteLatestMaintenanceTaskEvent,
     deleteMaintenanceEvent,
@@ -69,6 +75,8 @@ export function MaintenanceScreen(props: MaintenanceScreenProps) {
     status,
     visibleMaintenanceTasks,
   } = props;
+  const [helpTask, setHelpTask] = useState<MaintenanceTaskRecord | null>(null);
+  const helpContent = helpTask ? maintenanceHelpContent(helpTask) : null;
 
   return (
     <>
@@ -159,10 +167,14 @@ export function MaintenanceScreen(props: MaintenanceScreenProps) {
                         </>
                       ) : null}
                     </div>
-                    <div className="maintenance-card-actions">
+                    <div className={`maintenance-card-actions ${task.last_done_at ? "has-undo" : ""}`}>
                       <button type="button" className="maintenance-done-button" onClick={() => openMaintenanceDoneModal(task)} disabled={loading}>
                         <CheckCircle2 size={14} />
                         Marcar feita
+                      </button>
+                      <button type="button" className="secondary-button maintenance-help-button" onClick={() => setHelpTask(task)} disabled={loading}>
+                        <HelpCircle size={14} />
+                        Como fazer
                       </button>
                       {task.last_done_at ? (
                         <button
@@ -246,7 +258,104 @@ export function MaintenanceScreen(props: MaintenanceScreenProps) {
           </div>
         </article>
 
+        {helpTask && helpContent ? (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Como fazer: ${helpTask.name}`}>
+            <div className="modal-card maintenance-help-modal-card">
+              <div className="modal-header">
+                <div>
+                  <h2>{helpTask.name}</h2>
+                  <p>{helpTask.component} · {helpTask.is_active ? formatMaintenanceInterval(helpTask) : "sem lembrete recorrente"}</p>
+                </div>
+                <button type="button" className="icon-button" onClick={() => setHelpTask(null)} aria-label="Fechar Como fazer">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="maintenance-help-content">
+                <section>
+                  <h3>Como fazer</h3>
+                  <ol>
+                    {helpContent.howTo.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ol>
+                </section>
+                <section>
+                  <h3>Por que fazer</h3>
+                  <p>{helpContent.why}</p>
+                </section>
+                <section>
+                  <h3>O que evita</h3>
+                  <ul>
+                    {helpContent.prevents.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </section>
+                <section>
+                  <h3>Antes de marcar feita</h3>
+                  <p>{helpContent.recommendation}</p>
+                </section>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="secondary-button" onClick={() => setHelpTask(null)}>
+                  Fechar
+                </button>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => {
+                    const task = helpTask;
+                    setHelpTask(null);
+                    openMaintenanceDoneModal(task);
+                  }}
+                >
+                  <CheckCircle2 size={15} />
+                  Marcar feita
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
     </>
   );
+}
+
+type MaintenanceHelpContent = {
+  howTo: string[];
+  why: string;
+  prevents: string[];
+  recommendation: string;
+};
+
+function maintenanceHelpContent(task: MaintenanceTaskRecord): MaintenanceHelpContent {
+  if (task.maintenance_help) {
+    return {
+      howTo: task.maintenance_help.how_to,
+      why: task.maintenance_help.why,
+      prevents: task.maintenance_help.prevents,
+      recommendation: task.maintenance_help.recommendation,
+    };
+  }
+  const fallback = genericMaintenanceHelp(task);
+  return {
+    howTo: fallback.howTo,
+    why: fallback.why,
+    prevents: fallback.prevents,
+    recommendation: fallback.recommendation,
+  };
+}
+
+function genericMaintenanceHelp(task: MaintenanceTaskRecord): MaintenanceHelpContent {
+  return {
+    howTo: [
+      `Inspecione ${task.component} com a impressora parada e em condição segura.`,
+      "Procure sujeira, folga, desgaste, ruído, atrito, cabo solto ou sinal de aquecimento.",
+      "Corrija apenas o que for claro e reversível; se houver dúvida, registre uma nota em vez de forçar ajuste.",
+      "Faça uma validação curta antes de iniciar uma impressão longa.",
+    ],
+    why: `Esta rotina mantém ${task.component} previsível e reduz falhas acumuladas que aparecem só durante impressões longas.`,
+    prevents: ["Falhas intermitentes difíceis de reproduzir.", "Desgaste acelerado por falta de inspeção.", "Perda de tempo em diagnóstico depois que a peça já falhou."],
+    recommendation: "Marque como feita quando a inspeção estiver concluída e não houver pendência crítica.",
+  };
 }

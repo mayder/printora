@@ -14,4 +14,10 @@ export const updatesApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
+  rollback: (printerId: number, body: unknown) =>
+    apiResponse(`/api/printers/${printerId}/updates/rollback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
 };

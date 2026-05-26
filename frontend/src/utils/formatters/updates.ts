@@ -137,9 +137,9 @@ export function parseMoonrakerUpdateMessage(rawData: string): { message: string;
 export function formatUpdatePhase(phase: UpdateDialogState["phase"]) {
   const labels: Record<UpdateDialogState["phase"], string> = {
     confirm: "Aguardando confirmação",
-    running: "Update em andamento",
-    done: "Update concluído",
-    failed: "Update com erro",
+    running: "Operação em andamento",
+    done: "Operação concluída",
+    failed: "Operação com erro",
   };
   return labels[phase];
 }
