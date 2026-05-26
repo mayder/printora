@@ -199,15 +199,12 @@ export function usePrintoraApp() {
   }, []);
 
   React.useEffect(() => {
-    if (!printers.selectedPrinterId || !["calibration", "tests"].includes(shell.activeSection)) {
+    if (!printers.selectedPrinterId || shell.activeSection !== "tests") {
       return;
     }
     void calibration.loadCalibrationTests(printers.selectedPrinterId);
     void calibration.loadCalibrationRuns(printers.selectedPrinterId);
-    if (shell.activeSection === "calibration") {
-      void operation.loadOperationStatus(printers.selectedPrinterId);
-      void calibration.loadZOffsets(printers.selectedPrinterId);
-    }
+    void calibration.loadZOffsets(printers.selectedPrinterId);
   }, [shell.activeSection, printers.selectedPrinterId]);
 
   React.useEffect(() => {

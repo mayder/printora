@@ -958,6 +958,7 @@ Estado atual:
 - O retorno final monitorado fica salvo no histórico de execução e pode preencher o modal de registro de resultado.
 - Histórico de tentativas de execução fica em `GET /api/printers/{printer_id}/calibration/executions`.
 - UI de Testes refeita para fluxo por cards: cada teste tem ação principal `Executar` ou `Registrar`, ajuda fica em modal via ícone de interrogação e detalhes técnicos deixam de poluir a tela principal.
+- UI de Calibração preserva os cards como fluxo principal, numera a sequência nos cards, expõe busca e filtros por tipo/uso, mantém ação `Pular` e perfil aprovado de primeira camada.
 
 ## PKG-15A: Centro De Calibração - Catálogo Read-Only
 
@@ -1171,7 +1172,7 @@ Entregáveis:
 
 Critério de aceite:
 
-- usuário consegue navegar por Visão geral, Impressoras, Monitoramento, Calibração, Testes, Firmware, Manutenção, Relatórios e Configurações;
+- usuário consegue navegar por Visão geral, Impressoras, Monitoramento, Calibração, Firmware, Manutenção, Relatórios e Configurações;
 - usuário consegue trocar a impressora ativa pela topbar;
 - cadastro e detecção de impressoras não poluem o dashboard principal;
 - os painéis deixam de aparecer todos ao mesmo tempo;
@@ -1194,7 +1195,7 @@ Entregáveis:
 - logo e identidade visual no shell principal;
 - sidebar com ícones e grupos de menu;
 - topbar com contexto da seção, alertas, atualização e configuração de impressora;
-- separação de Calibração e Testes;
+- menu único de Calibração para o centro de testes/calibração;
 - seção de Monitoramento para saúde, logs, CAN, Moonraker, Klipper e auditorias;
 - seção de Firmware restrita à impressora selecionada;
 - página inicial como dashboard geral;
