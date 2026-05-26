@@ -366,6 +366,7 @@ http://127.0.0.1:5178
 ### Atualizacoes Da Impressora
 
 - Silenciar uma versao pendente de qualquer componente do Update Manager e confirmar que o card continua com `Reanalisar`, `Atualizar` e `Rollback` quando aplicavel.
+- Confirmar que `Atualizar` usa icone diferente de `Reanalisar` e visual secundario alinhado a `Marcar feita` da Manutencao.
 - Confirmar que o silencio abre modal visual do Printora, sem `confirm` nativo do navegador.
 - Confirmar que sucesso/falha de silencio e reativacao aparece como toast temporario.
 - Confirmar que a versao silenciada sai dos contadores da Home, topbar, Central de alertas, Health Check, Checklist pos-update, Auditoria e Relatorios.

@@ -105,6 +105,9 @@ export function useUpdates(options: UseUpdatesOptions) {
         reason: "Usuário decidiu aguardar próxima versão.",
       });
       if (!response.ok) {
+        if (response.status === 405) {
+          throw new Error("Backend ainda não carregou a rota de silêncio. Reinicie o Printora e tente novamente.");
+        }
         throw new Error(await readApiError(response));
       }
       await refreshPostUpdateContext(selectedPrinterId);
@@ -132,6 +135,9 @@ export function useUpdates(options: UseUpdatesOptions) {
     try {
       const response = await updatesApi.clearSilence(selectedPrinterId, { target: component.name });
       if (!response.ok) {
+        if (response.status === 405) {
+          throw new Error("Backend ainda não carregou a rota de silêncio. Reinicie o Printora e tente novamente.");
+        }
         throw new Error(await readApiError(response));
       }
       await refreshPostUpdateContext(selectedPrinterId);

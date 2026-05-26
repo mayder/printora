@@ -5,6 +5,7 @@ import type { ScreenPropsFor } from "./ScreenProps";
 
 type UpdatesScreenProps = ScreenPropsFor<
   | "AlertTriangle"
+  | "ArrowUpCircle"
   | "CheckCircle2"
   | "Gauge"
   | "RefreshCw"
@@ -29,6 +30,7 @@ type UpdatesScreenProps = ScreenPropsFor<
 export function UpdatesScreen(props: UpdatesScreenProps) {
   const {
     AlertTriangle,
+    ArrowUpCircle,
     CheckCircle2,
     Gauge,
     RefreshCw,
@@ -149,11 +151,11 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                   {component.can_update ? (
                     <button
                       type="button"
-                      className="primary-button"
+                      className="update-run-button"
                       onClick={() => openUpdateDialog(component.name)}
                       disabled={!selectedPrinterId || loading || updateStatus?.busy}
                     >
-                      <RefreshCw size={15} />
+                      <ArrowUpCircle size={15} />
                       Atualizar
                     </button>
                   ) : (

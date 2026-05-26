@@ -90,6 +90,7 @@ const selfUpdateHookSource = await readFile(join(root, "src/hooks/domains/useSel
 const systemApiSource = await readFile(join(root, "src/services/systemApi.ts"), "utf8");
 const settingsScreenSource = await readFile(join(root, "src/screens/SettingsScreen.tsx"), "utf8");
 const selfUpdateModalSource = await readFile(join(root, "src/components/modals/SelfUpdateModal.tsx"), "utf8");
+const updatesScreenSource = await readFile(join(root, "src/screens/UpdatesScreen.tsx"), "utf8");
 
 assert.doesNotMatch(appSource, /fetch\(/);
 assert.match(appHookSource, /await Promise\.allSettled\(\[firmware\.loadBoardPresets\(\), printers\.loadPrinters\(\)\]\);[\s\S]*void selfUpdate\.loadSystemReleases\(\);/);
@@ -103,6 +104,8 @@ assert.doesNotMatch(updatesHookSource, /window\.confirm|window\.alert/);
 assert.match(updatesHookSource, /confirmAction\(\{[\s\S]*title: "Silenciar versão"/);
 assert.match(updatesHookSource, /showToast\(\{[\s\S]*title: "Versão silenciada"/);
 assert.match(feedbackTypesSource, /export type ConfirmActionOptions/);
+assert.match(updatesScreenSource, /ArrowUpCircle/);
+assert.match(updatesScreenSource, /className="update-run-button"/);
 assert.match(overviewScreenSource, /alertBlockerCount/);
 assert.doesNotMatch(overviewScreenSource, /health\?\.counts\.blocker/);
 assert.match(navigationSource, /export type PrinterAvailability = "none" \| "unknown" \| "online" \| "offline";/);

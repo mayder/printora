@@ -122,6 +122,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Formularios tecnicos de CAN devem ficar fora da tela Operacao.
 - Checklist pos-update deve aparecer na tela Atualizacoes.
 - Na tela Atualizacoes, `Atualizar tudo` aparece somente quando houver mais de um componente atualizavel.
+- Na tela Atualizacoes, `Atualizar` de componente usa icone distinto de `Reanalisar` e visual secundario alinhado ao botao `Marcar feita` da Manutencao.
 - Na tela Atualizacoes, componentes de risco alto como `klipper` e toolchanger mantem a acao `Atualizar`, exibem aviso antes do update e exigem confirmacao literal no modal; o backend tambem bloqueia a chamada sem confirmacao.
 - Na tela Atualizacoes, quando o Moonraker informar `rollback_version`, o card exibe rollback do componente com confirmacao literal.
 - Na tela Atualizacoes, qualquer componente do Update Manager com pendencia ou aviso pode ter a versao atual silenciada apos confirmacao; o card permanece visivel com `Reanalisar`, `Atualizar`, `Rollback` quando existir e `Reativar alerta`.

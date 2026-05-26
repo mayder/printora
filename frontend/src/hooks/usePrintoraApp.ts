@@ -2,6 +2,7 @@ import React from "react";
 import {
   Activity,
   AlertTriangle,
+  ArrowUpCircle,
   Bell,
   Camera,
   CalendarDays,
@@ -55,6 +56,7 @@ import type { ConfirmActionOptions, ConfirmDialogState, ShowToastOptions, ToastR
 const icons = {
   Activity,
   AlertTriangle,
+  ArrowUpCircle,
   Bell,
   CalendarDays,
   Camera,

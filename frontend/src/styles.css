@@ -1009,6 +1009,22 @@ label {
   cursor: default;
 }
 
+.update-run-button {
+  border-color: var(--border);
+  background: var(--secondary-bg);
+  color: var(--text);
+}
+
+.update-run-button:hover {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.update-run-button svg {
+  color: var(--accent);
+}
+
 .confirmation-field {
   display: grid;
   gap: 8px;

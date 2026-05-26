@@ -8,6 +8,9 @@ from app.updates import (
     update_route_for_target,
 )
 from app.database import connect_database, initialize_database
+from app.config import get_settings
+from app.main import app
+from fastapi.testclient import TestClient
 
 
 def test_build_update_status_detects_available_updates() -> None:
@@ -204,3 +207,23 @@ def test_update_alert_silence_repository_persists_by_version_key(tmp_path) -> No
     assert repository.get_matching(printer_id, "klipper", update_component_version_key("klipper", component)) is not None
     assert repository.delete_matching(printer_id, "klipper", silence.version_key) == 1
     assert repository.list_for_printer(printer_id) == []
+
+
+def test_update_silence_routes_are_registered_and_unknown_api_post_returns_404(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        route_methods = {
+            getattr(route, "path", ""): getattr(route, "methods", set())
+            for route in app.routes
+        }
+        assert "POST" in route_methods["/api/printers/{printer_id}/updates/silences"]
+        assert "POST" in route_methods["/api/printers/{printer_id}/updates/silences/clear"]
+
+        with TestClient(app) as client:
+            response = client.post("/api/route-that-does-not-exist", json={})
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "api route not found"
+    finally:
+        get_settings.cache_clear()
