@@ -21,6 +21,7 @@ def test_build_update_status_detects_available_updates() -> None:
                     "configured_type": "git_repo",
                     "version": "v0.13.0-438",
                     "remote_version": "v0.13.0-658",
+                    "remote_url": "https://github.com/Klipper3d/klipper.git",
                     "commits_behind_count": 220,
                     "is_dirty": False,
                     "is_valid": True,
@@ -29,6 +30,8 @@ def test_build_update_status_detects_available_updates() -> None:
                     "configured_type": "git_repo",
                     "version": "v1.2.1-1",
                     "remote_version": "v1.2.1-1",
+                    "owner": "mainsail-crew",
+                    "repo_name": "mainsail-config",
                     "commits_behind_count": 0,
                     "is_dirty": False,
                     "is_valid": True,
@@ -41,10 +44,12 @@ def test_build_update_status_detects_available_updates() -> None:
     assert result.counts["update_available"] == 1
     assert result.components[0].name == "klipper"
     assert result.components[0].status == "update_available"
+    assert result.components[0].repo_url == "https://github.com/Klipper3d/klipper"
     assert result.components[0].can_update is True
     assert result.components[0].risk_level == "high"
     assert result.components[0].requires_confirmation is True
     assert result.components[1].status == "up_to_date"
+    assert result.components[1].repo_url == "https://github.com/mainsail-crew/mainsail-config"
     assert result.components[1].can_update is False
 
 

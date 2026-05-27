@@ -60,7 +60,9 @@ export function useSettings({ selectedPrinterId, setError, setLoading }: UseSett
     if (!response.ok) {
       throw new Error(await response.text());
     }
-    setInstallDiagnostics((await response.json()) as InstallationDiagnosticsResponse);
+    const diagnostics = (await response.json()) as InstallationDiagnosticsResponse;
+    setInstallDiagnostics(diagnostics);
+    return diagnostics;
   }
 
   async function loadPrinterChecklist(printerId: number) {

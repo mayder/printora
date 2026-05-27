@@ -470,8 +470,8 @@ Critérios:
 - Com operador presente, revisar G-code, marcar operador presente, informar `EXECUTE_CALIBRATION_GCODE` e executar apenas teste seguro selecionado.
 - Confirmar que a execução aparece no histórico com comandos enviados ou motivo de bloqueio.
 - Confirmar que a tela de Calibração mostra cards por teste, ajuda expandida em modal e execução/registro em modais, sem tutorial técnico fixo na página.
-- Em Operação, rodar `Preflight` em ações como Home, QGL, movimento, temperatura, fan e LED.
-- Confirmar que o app mostra capacidade, bloqueadores e G-code apenas como preview, sem enviar comando.
+- Em Operação, validar preflight e execução controlada de ações como Home, QGL, movimento, temperatura, fan, LED, speed factor e extrusion factor somente com a impressora parada e operador presente.
+- Confirmar que o app mostra capacidade, bloqueadores, G-code planejado e histórico da tentativa; comandos são enviados somente quando Moonraker está online, Klipper/Klippy estão `ready`, não há impressão em andamento e a capacidade foi confirmada.
 
 ### UI
 

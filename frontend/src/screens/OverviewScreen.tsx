@@ -129,7 +129,7 @@ export function OverviewScreen(props: OverviewScreenProps) {
               Health check
             </button>
             <button type="button" className="secondary-button" onClick={() => void loadSelectedPrinterStatus()} disabled={!selectedPrinterId || loading}>
-              <RefreshCw size={15} />
+              <RefreshCw className={loading ? "button-busy-icon" : undefined} size={15} />
               Atualizar status
             </button>
           </div>

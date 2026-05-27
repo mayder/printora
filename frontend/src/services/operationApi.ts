@@ -23,4 +23,10 @@ export const operationApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
+  executeDirect: (printerId: number, body: unknown) =>
+    apiResponse(`/api/printers/${printerId}/operation/actions/execute-direct`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
 };

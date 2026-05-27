@@ -69,6 +69,7 @@ export type UpdateComponent = {
   name: string;
   title: string;
   configured_type: string;
+  repo_url?: string | null;
   status: "up_to_date" | "update_available" | "warning" | "busy" | "unknown";
   current_version?: string | null;
   remote_version?: string | null;

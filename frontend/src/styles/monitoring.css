@@ -101,6 +101,30 @@
   gap: 14px;
 }
 
+.monitor-primary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.monitor-primary-side {
+  display: grid;
+  grid-template-rows: minmax(180px, 0.85fr) minmax(220px, 1fr);
+  gap: 14px;
+  min-width: 0;
+}
+
+@media (max-width: 920px) {
+  .monitor-primary-side {
+    grid-template-rows: auto;
+  }
+}
+
+.monitor-primary-side > * {
+  min-height: 0;
+}
+
 .monitor-card {
   display: grid;
   align-content: start;
@@ -133,6 +157,29 @@
 .monitor-facts {
   display: grid;
   gap: 10px;
+}
+
+.print-monitor-card {
+  min-height: 0;
+}
+
+.print-monitor-layout {
+  display: grid;
+  grid-template-columns: 142px minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.print-monitor-facts {
+  align-content: center;
+  min-width: 0;
+}
+
+.print-monitor-facts strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .temperature-table {
@@ -193,12 +240,52 @@
   width: fit-content;
   min-width: 58px;
   justify-self: start;
+}
+
+.temperature-target-readonly,
+.temperature-target-control {
+  display: inline-grid;
+  min-width: 58px;
   border: 1px solid var(--border-soft);
   border-radius: 6px;
   background: var(--surface-3);
-  padding: 4px 8px;
   color: var(--text);
   text-align: right;
+}
+
+.temperature-target-readonly {
+  padding: 4px 8px;
+}
+
+.temperature-target-control {
+  grid-template-columns: minmax(28px, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 7px;
+}
+
+.temperature-target-control:focus-within {
+  border-color: rgba(34, 211, 238, 0.65);
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.14);
+}
+
+.temperature-target-control input {
+  min-width: 0;
+  width: 36px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--text);
+  font: inherit;
+  font-weight: 800;
+  text-align: right;
+}
+
+.temperature-target-control span {
+  color: var(--text);
+  font-weight: 800;
 }
 
 .combined-temperature-chart {
@@ -286,6 +373,14 @@
   background:
     radial-gradient(circle at center, var(--surface-3) 0 58%, transparent 59%),
     conic-gradient(var(--accent) var(--progress), var(--surface-hover) 0);
+}
+
+.radial-progress > div {
+  display: grid;
+  gap: 5px;
+  place-items: center;
+  line-height: 1;
+  transform: translateY(1px);
 }
 
 .radial-progress strong {
@@ -378,6 +473,10 @@
 }
 
 .operation-command-center {
+  grid-column: 1 / -1;
+}
+
+.operation-capability-summary-card {
   grid-column: 1 / -1;
 }
 

@@ -1,4 +1,5 @@
 import React from "react";
+import { Info } from "lucide-react";
 import { Badge } from "../components/common";
 import type { UpdateComponent } from "../alertCenter";
 import type { ScreenPropsFor } from "./ScreenProps";
@@ -74,7 +75,7 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                 onClick={() => void refreshUpdateStatus()}
                 disabled={!selectedPrinterId || loading || updateStatus?.busy}
               >
-                <RefreshCw size={15} />
+                <RefreshCw className={loading || updateStatus?.busy ? "button-busy-icon" : undefined} size={15} />
                 Reanalisar
               </button>
               {pendingUpdateCount > 1 ? (
@@ -84,7 +85,7 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                   onClick={() => openUpdateDialog("all")}
                   disabled={!selectedPrinterId || loading || updateStatus?.busy}
                 >
-                  <RefreshCw size={15} />
+                  <RefreshCw className={loading || updateStatus?.busy ? "button-busy-icon" : undefined} size={15} />
                   {riskyPendingCount > 0 ? "Atualizar tudo com risco" : "Atualizar tudo"}
                 </button>
               ) : null}
@@ -104,9 +105,11 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
           ) : null}
           <div className="update-list">
             {updateStatus?.components.length === 0 ? <p className="muted">Nenhum componente retornado pelo Update Manager.</p> : null}
-            {orderedComponents.map((component) => (
+            {orderedComponents.map((component) => {
+              const componentBusy = pendingUpdateAction?.target === component.name || Boolean(updateStatus?.busy);
+              return (
               <div key={component.name} className={`update-row ${component.status} ${component.alert_silenced ? "silenced" : ""}`}>
-                {pendingUpdateAction?.target === component.name ? (
+                {componentBusy && pendingUpdateAction?.target === component.name ? (
                   <div className="update-row-busy" role="status">
                     <Hourglass size={14} />
                     {pendingUpdateAction.kind === "silence" ? "Silenciando versão..." : "Reativando alerta..."}
@@ -116,7 +119,19 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                   <div className="update-component-copy">
                     <strong className="update-title">
                       {React.createElement(updateStatusIcon(component.status), { size: 16 })}
-                      {component.title}
+                      <span>{component.title}</span>
+                      {component.repo_url ? (
+                        <a
+                          className="update-repo-link"
+                          href={component.repo_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`Abrir repositório Git de ${component.title}`}
+                          title={`Abrir repositório Git de ${component.title}`}
+                        >
+                          <Info size={13} />
+                        </a>
+                      ) : null}
                     </strong>
                     <span>
                       {component.current_version ?? "-"} {component.remote_version ? `→ ${component.remote_version}` : ""}
@@ -155,7 +170,7 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                     onClick={() => void refreshUpdateStatus(component.name)}
                     disabled={!selectedPrinterId || loading || updateStatus?.busy}
                   >
-                    <RefreshCw size={15} />
+                    <RefreshCw className={componentBusy ? "button-busy-icon" : undefined} size={15} />
                     Reanalisar
                   </button>
                   {component.can_update ? (
@@ -203,12 +218,13 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                       disabled={!selectedPrinterId || loading || updateStatus?.busy}
                     >
                       {pendingUpdateAction?.kind === "silence" && pendingUpdateAction.target === component.name ? <Hourglass className="button-busy-icon" size={15} /> : <AlertTriangle size={15} />}
-                      {pendingUpdateAction?.kind === "silence" && pendingUpdateAction.target === component.name ? "Silenciando..." : "Silenciar versão"}
+                      {pendingUpdateAction?.kind === "silence" && pendingUpdateAction.target === component.name ? "Silenciando..." : "Silenciar"}
                     </button>
                   ) : null}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </article>
 

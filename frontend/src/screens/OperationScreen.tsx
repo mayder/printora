@@ -61,7 +61,7 @@ export function OperationScreen(props: OperationScreenProps) {
               <p className="muted">{operationStatus?.summary ?? "Aguardando dados da impressora selecionada."}</p>
             </div>
             <button type="button" className="secondary-button" onClick={() => selectedPrinterId && void loadOperationStatus(selectedPrinterId)} disabled={!selectedPrinterId || loading}>
-              <RefreshCw size={15} />
+              <RefreshCw className={loading ? "button-busy-icon" : undefined} size={15} />
               Recarregar
             </button>
             <button type="button" className="secondary-button" onClick={() => void loadOfflineOperationFixture()} disabled={loading}>

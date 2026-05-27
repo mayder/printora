@@ -20,6 +20,7 @@ class UpdateComponent(BaseModel):
     name: str
     title: str
     configured_type: str
+    repo_url: str | None = None
     status: UpdateStatus
     current_version: str | None = None
     remote_version: str | None = None
@@ -291,6 +292,7 @@ def _build_component(name: str, payload: dict[str, Any]) -> UpdateComponent:
         name=name,
         title=_title_for_component(name),
         configured_type=str(payload.get("configured_type") or "unknown"),
+        repo_url=_repository_url(payload),
         status=status,
         current_version=current_version,
         remote_version=remote_version,
@@ -310,6 +312,28 @@ def _build_component(name: str, payload: dict[str, Any]) -> UpdateComponent:
         alert_silenced=bool(payload.get("printora_alert_silenced")),
         alert_silence_id=_optional_int(payload.get("printora_alert_silence_id")),
     )
+
+
+def _repository_url(payload: dict[str, Any]) -> str | None:
+    raw_url = _optional_str(payload.get("remote_url")) or _optional_str(payload.get("recovery_url"))
+    if raw_url:
+        normalized_url = _normalize_repository_url(raw_url)
+        if normalized_url:
+            return normalized_url
+    owner = _optional_str(payload.get("owner"))
+    repo_name = _optional_str(payload.get("repo_name"))
+    if owner and repo_name:
+        return f"https://github.com/{owner}/{repo_name.removesuffix('.git')}"
+    return None
+
+
+def _normalize_repository_url(raw_url: str) -> str | None:
+    clean_url = raw_url.strip()
+    if clean_url.startswith("git@github.com:"):
+        clean_url = f"https://github.com/{clean_url.removeprefix('git@github.com:')}"
+    if clean_url.startswith("https://") or clean_url.startswith("http://"):
+        return clean_url.removesuffix(".git")
+    return None
 
 
 def apply_update_alert_silences(raw_status: dict[str, Any], silences: list[UpdateAlertSilence]) -> dict[str, Any]:

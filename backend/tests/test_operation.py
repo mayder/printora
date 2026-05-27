@@ -21,7 +21,7 @@ def test_operation_query_objects_adds_only_discovered_optional_objects() -> None
     assert objects["temperature_sensor raspberry_pi"] == ["temperature", "target", "power"]
 
 
-def test_operation_status_is_read_only_and_groups_mainsail_like_panels() -> None:
+def test_operation_status_enables_controlled_operations_and_groups_mainsail_like_panels() -> None:
     result = build_operation_status(
         printer_info={"state": "ready"},
         server_info={"klippy_connected": True, "klippy_state": "ready", "moonraker_version": "v0.10.0"},
@@ -30,8 +30,8 @@ def test_operation_status_is_read_only_and_groups_mainsail_like_panels() -> None
         history_totals={"job_totals": {"total_print_time": 44100}},
         objects={
             "status": {
-                "print_stats": {"state": "standby", "filename": "", "filament_used": 0},
-                "toolhead": {"position": [1, 2, 3, 0], "homed_axes": "xyz", "max_velocity": 300},
+                "print_stats": {"state": "standby", "filename": "", "filament_used": 0, "print_duration": 123, "info": {"current_layer": 4, "total_layer": 80}},
+                "toolhead": {"position": [1, 2, 3, 0], "homed_axes": "xyz", "max_velocity": 300, "axis_minimum": [0, 0, 0], "axis_maximum": [300, 300, 250]},
                 "gcode_move": {"speed_factor": 1.0, "extrude_factor": 0.95},
                 "extruder": {"temperature": 210.5, "target": 215, "pressure_advance": 0.04},
                 "heater_bed": {"temperature": 60.1, "target": 60},
@@ -40,16 +40,20 @@ def test_operation_status_is_read_only_and_groups_mainsail_like_panels() -> None
         },
     )
 
-    assert result["safe_mode"] == "read_only"
-    assert result["can_send_commands"] is False
-    assert result["summary"] == "Operação read-only carregada. Klipper: ready."
+    assert result["safe_mode"] == "operation_ready"
+    assert result["can_send_commands"] is True
+    assert result["summary"] == "Operação carregada. Klipper: ready."
     assert len(result["system_loads"]) >= 4
     assert {row["name"] for row in result["temperatures"]} == {"Extruder", "Heater Bed"}
     assert result["toolhead"]["homed_axes"] == "xyz"
+    assert result["toolhead"]["axis_maximum"] == [300, 300, 250]
     assert result["extruder"]["extrusion_factor"] == 0.95
     assert result["miscellaneous"]["fans"][0]["name"] == "Fan"
     assert result["miscellaneous"]["total_print_hours"] == 12.25
-    assert result["actions"][0]["enabled"] is False
+    assert result["miscellaneous"]["print_duration"] == 123
+    assert result["miscellaneous"]["current_layer"] == 4
+    assert result["miscellaneous"]["total_layers"] == 80
+    assert result["actions"][0]["enabled"] is True
     assert result["actions"][0]["confirmation_required"] is True
     assert result["capabilities"]
 
@@ -176,11 +180,11 @@ def test_operation_actions_block_printing_and_standby_differently() -> None:
     assert {action["id"] for action in standby_actions} >= {"home_xyz", "quad_gantry_level", "set_hotend_temp"}
     assert all(action["enabled"] is False for action in standby_actions)
     assert printing_actions[0]["block_reason"] == "Bloqueado: impressão em andamento."
-    assert standby_actions[0]["block_reason"] == "Bloqueado: operação mutável ainda não implementada."
+    assert standby_actions[0]["block_reason"] == ""
     assert "requer macro/comando QUAD_GANTRY_LEVEL" in next(action for action in standby_actions if action["id"] == "quad_gantry_level")["compatibility"]
 
 
-def test_operation_action_preview_is_dry_run_only() -> None:
+def test_operation_action_preview_keeps_gcode_blocked_when_offline() -> None:
     preview = build_operation_action_preview(
         action_id="move_z",
         parameters={"distance_mm": 2, "feedrate": 900},
@@ -188,7 +192,7 @@ def test_operation_action_preview_is_dry_run_only() -> None:
         print_state="",
     )
 
-    assert preview["safe_mode"] == "dry_run_only"
+    assert preview["safe_mode"] == "operation_action_preview"
     assert preview["would_send_gcode"] is False
     assert preview["executable"] is False
     assert preview["command_preview"] == ["G91", "G0 Z2 F900", "G90"]
@@ -205,6 +209,78 @@ def test_operation_action_preview_normalizes_parameters() -> None:
 
     assert preview["parameters"] == {"axis": "X", "distance_mm": 50, "feedrate": 600}
     assert preview["command_preview"] == ["G91", "G0 X50 F600", "G90"]
+
+
+def test_operation_absolute_move_uses_axis_target_and_feedrate() -> None:
+    preview = build_operation_action_preview(
+        action_id="move_absolute",
+        parameters={"axis": "Y", "position_mm": 123.4, "feedrate": 6000},
+        connected=True,
+        print_state="standby",
+    )
+
+    assert preview["parameters"] == {"axis": "Y", "position_mm": 123.4, "feedrate": 6000}
+    assert preview["command_preview"] == ["G90", "G0 Y123.4 F6000"]
+    assert preview["would_send_gcode"] is True
+
+
+def test_operation_absolute_move_blocks_outside_live_axis_limits() -> None:
+    preflight = build_operation_action_preflight(
+        action_id="move_absolute",
+        parameters={"axis": "X", "position_mm": 350, "feedrate": 6000},
+        preflight={
+            "safe_mode": "read_only_preflight",
+            "connected": True,
+            "printing": False,
+            "print_state": "standby",
+            "klipper_state": "ready",
+            "klippy_state": "ready",
+            "object_status": {"toolhead": {"axis_minimum": [0, 0, 0], "axis_maximum": [300, 300, 250]}},
+        },
+        objects={"objects": ["toolhead"]},
+    )
+
+    assert preflight["can_execute"] is False
+    assert "fora dos limites" in preflight["blockers"][0]
+
+
+def test_operation_velocity_limit_preview_generates_klipper_command() -> None:
+    preview = build_operation_action_preview(
+        action_id="set_velocity_limit",
+        parameters={"velocity": 320, "accel": 9000, "square_corner_velocity": 4},
+        connected=True,
+        print_state="standby",
+    )
+
+    assert preview["parameters"] == {"velocity": 320, "accel": 9000, "square_corner_velocity": 4}
+    assert preview["command_preview"] == ["SET_VELOCITY_LIMIT VELOCITY=320 ACCEL=9000 SQUARE_CORNER_VELOCITY=4"]
+    assert preview["would_send_gcode"] is True
+
+
+def test_operation_pressure_advance_preview_generates_klipper_command() -> None:
+    preview = build_operation_action_preview(
+        action_id="set_pressure_advance",
+        parameters={"advance": 0.052, "smooth_time": 0.04},
+        connected=True,
+        print_state="standby",
+    )
+
+    assert preview["parameters"] == {"advance": 0.052, "smooth_time": 0.04}
+    assert preview["command_preview"] == ["SET_PRESSURE_ADVANCE ADVANCE=0.052 SMOOTH_TIME=0.04"]
+    assert preview["would_send_gcode"] is True
+
+
+def test_operation_named_fan_preview_uses_set_fan_speed() -> None:
+    preview = build_operation_action_preview(
+        action_id="set_fan",
+        parameters={"fan_name": "controller_fan nevermore", "speed_percent": 42},
+        connected=True,
+        print_state="standby",
+    )
+
+    assert preview["parameters"] == {"fan_name": "controller_fan nevermore", "speed_percent": 42}
+    assert preview["command_preview"] == ["SET_FAN_SPEED FAN=nevermore SPEED=0.42"]
+    assert preview["would_send_gcode"] is True
 
 
 def test_led_preview_requires_generic_led_name() -> None:
@@ -251,13 +327,13 @@ def test_operation_action_preflight_uses_live_state_and_keeps_execution_blocked(
         objects={"objects": ["toolhead"]},
     )
 
-    assert preflight["safe_mode"] == "operation_action_preflight_read_only"
+    assert preflight["safe_mode"] == "operation_action_preflight"
     assert preflight["command_preview"] == ["G91", "G0 Z2 F900", "G90"]
     assert preflight["capability"]["status"] == "supported"
-    assert preflight["would_send_gcode"] is False
-    assert preflight["can_execute"] is False
-    assert preflight["executable"] is False
-    assert preflight["blockers"] == ["Bloqueado: execução real de ação operacional ainda não implementada."]
+    assert preflight["would_send_gcode"] is True
+    assert preflight["can_execute"] is True
+    assert preflight["executable"] is True
+    assert preflight["blockers"] == []
 
 
 def test_operation_action_preflight_blocks_missing_macro_and_printing() -> None:

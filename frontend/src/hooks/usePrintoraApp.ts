@@ -330,16 +330,17 @@ export function usePrintoraApp() {
   const bedTemperature = operation.operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("bed"));
   const topbarPrimaryAction = (() => {
     if (shell.activeSection === "printers") {
-      return { icon: Plus, label: "Adicionar", disabled: loading, run: printers.openCreatePrinterModal };
+      return { icon: Plus, label: "Adicionar", disabled: loading, busy: false, run: printers.openCreatePrinterModal };
     }
     if (shell.activeSection === "reports") {
-      return { icon: Camera, label: "Snapshot", disabled: !printers.selectedPrinterId || loading, run: reports.captureSnapshot };
+      return { icon: Camera, label: "Snapshot", disabled: !printers.selectedPrinterId || loading, busy: loading, run: reports.captureSnapshot };
     }
     if (shell.activeSection === "updates") {
       return {
         icon: RefreshCw,
         label: "Reanalisar",
         disabled: !printers.selectedPrinterId || loading || Boolean(updates.updateStatus?.busy),
+        busy: loading || Boolean(updates.updateStatus?.busy),
         run: () => updates.refreshUpdateStatus(),
       };
     }
@@ -348,19 +349,21 @@ export function usePrintoraApp() {
         icon: Settings,
         label: printers.selectedPrinter ? "Editar" : "Adicionar",
         disabled: loading,
+        busy: false,
         run: () => (printers.selectedPrinter ? printers.openEditPrinterModal(printers.selectedPrinter) : printers.openCreatePrinterModal()),
       };
     }
     if (shell.activeSection === "about") {
-      return { icon: ShieldCheck, label: "Licença", disabled: loading, run: () => shell.setActiveSection("license") };
+      return { icon: ShieldCheck, label: "Licença", disabled: loading, busy: false, run: () => shell.setActiveSection("license") };
     }
     if (shell.activeSection === "license") {
-      return { icon: Info, label: "Sobre", disabled: loading, run: () => shell.setActiveSection("about") };
+      return { icon: Info, label: "Sobre", disabled: loading, busy: false, run: () => shell.setActiveSection("about") };
     }
     return {
       icon: RefreshCw,
       label: loading ? "Atualizando" : "Atualizar",
       disabled: loading || (!printers.selectedPrinterId && shell.activeSection !== "overview"),
+      busy: loading,
       run: () => (printers.selectedPrinterId ? printers.loadSelectedPrinterStatus() : loadStatus()),
     };
   })();

@@ -50,7 +50,10 @@ export function operationActionParameterSpecs(actionId: string): OperationAction
     ],
     set_hotend_temp: [{ name: "temperature", type: "number", default: 0, min: 0, max: 300 }],
     set_bed_temp: [{ name: "temperature", type: "number", default: 0, min: 0, max: 130 }],
-    set_fan: [{ name: "speed_percent", type: "number", default: 0, min: 0, max: 100 }],
+    set_fan: [
+      { name: "fan_name", type: "text", default: "" },
+      { name: "speed_percent", type: "number", default: 0, min: 0, max: 100 },
+    ],
     set_led: [
       { name: "led_name", type: "text", default: "" },
       { name: "brightness_percent", type: "number", default: 0, min: 0, max: 100 },
@@ -59,11 +62,12 @@ export function operationActionParameterSpecs(actionId: string): OperationAction
   return specs[actionId] ?? [];
 }
 
-export function buildOperationActionPayload(values: Record<string, string>) {
+export function buildOperationActionPayload(values: Record<string, string | number>) {
   return Object.fromEntries(
     Object.entries(values).map(([key, value]) => {
       const numericValue = Number(value);
-      return [key, value.trim() !== "" && Number.isFinite(numericValue) ? numericValue : value];
+      const textValue = String(value);
+      return [key, textValue.trim() !== "" && Number.isFinite(numericValue) ? numericValue : value];
     }),
   );
 }
@@ -75,6 +79,7 @@ export function formatOperationParameterLabel(name: string) {
     feedrate: "Feedrate",
     length_mm: "Comprimento mm",
     temperature: "Temperatura",
+    fan_name: "Fan",
     speed_percent: "Velocidade %",
     led_name: "Nome do LED",
     brightness_percent: "Brilho %",

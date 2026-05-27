@@ -13,6 +13,7 @@ export type OperationTemperature = {
 
 export type OperationFan = {
   name: string;
+  object_name?: string | null;
   speed?: number | null;
   rpm?: number | null;
 };
@@ -138,6 +139,10 @@ export type OperationStatusResponse = {
     message?: string | null;
     print_state?: string | null;
     filename?: string | null;
+    print_duration?: number | null;
+    total_duration?: number | null;
+    current_layer?: number | null;
+    total_layers?: number | null;
     total_print_hours?: number | null;
   };
 };

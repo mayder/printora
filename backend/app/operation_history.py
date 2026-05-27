@@ -155,6 +155,59 @@ class OperationActionHistoryRepository:
             raise RuntimeError("operation action execution attempt was not persisted")
         return attempt
 
+    def create_execution_result(
+        self,
+        *,
+        printer_id: int,
+        preview: OperationActionPreviewRecord,
+        confirmation_phrase: str,
+        preflight: dict[str, Any],
+        moonraker_response: dict[str, Any] | None,
+        status: str,
+        block_reason: str = "",
+    ) -> OperationActionExecutionAttemptRecord:
+        expected_phrase = str(preview.payload.get("confirmation_phrase") or "")
+        confirmation_matched = confirmation_phrase.strip() == expected_phrase
+        payload = {
+            "safe_mode": "operation_action_executed" if status == "executed" else "operation_action_blocked",
+            "preview_id": preview.id,
+            "action_id": preview.action_id,
+            "preflight": preflight,
+            "confirmation_matched": confirmation_matched,
+            "would_send_gcode": status == "executed",
+            "executable": status == "executed",
+            "block_reason": block_reason,
+            "command_preview": preview.command_preview,
+            "moonraker_response": moonraker_response or {},
+            "rollback_plan": "Ação operacional enviada por G-code. Use Emergency Stop no Mainsail/Klipper se houver movimento inesperado.",
+        }
+        with connect_database(self.database_path) as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO operation_action_execution_attempts (
+                    printer_id, preview_id, action_id, status, confirmation_matched,
+                    executable, would_send_gcode, block_reason, payload_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    printer_id,
+                    preview.id,
+                    preview.action_id,
+                    status,
+                    1 if confirmation_matched else 0,
+                    1 if status == "executed" else 0,
+                    1 if status == "executed" else 0,
+                    block_reason,
+                    json.dumps(payload, ensure_ascii=False, sort_keys=True),
+                ),
+            )
+            attempt_id = int(cursor.lastrowid)
+        attempt = self.get_execution_attempt(attempt_id)
+        if attempt is None:
+            raise RuntimeError("operation action execution result was not persisted")
+        return attempt
+
     def get_execution_attempt(self, attempt_id: int) -> OperationActionExecutionAttemptRecord | None:
         with connect_database(self.database_path) as connection:
             row = connection.execute(

@@ -987,9 +987,36 @@ label {
   gap: 8px;
 }
 
-.update-title svg {
+.update-title > svg {
   flex: 0 0 auto;
   color: var(--accent);
+}
+
+.update-title span {
+  min-width: 0;
+}
+
+.update-repo-link {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  background: var(--surface-3);
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.update-repo-link:hover {
+  border-color: rgba(34, 211, 238, 0.5);
+  background: var(--surface-hover);
+  color: var(--accent);
+}
+
+.update-repo-link svg {
+  color: currentColor;
 }
 
 .update-main span,
@@ -1023,6 +1050,10 @@ label {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.update-actions button {
+  white-space: nowrap;
 }
 
 .update-actions button:disabled {
@@ -1439,6 +1470,7 @@ label {
   .section-updates .update-list,
   .post-update-checklist .checks,
   .monitor-status-strip,
+  .monitor-primary-grid,
   .monitor-grid,
   .temperature-table-row,
   .combined-temperature-plot,
@@ -1454,6 +1486,8 @@ label {
   .section-reports .report-tech-grid,
   .section-reports .report-list-row,
   .operation-grid,
+  .operation-actions-summary,
+  .operation-action-groups,
   .operation-capabilities,
   .operation-actions,
   .operation-action-params,
@@ -1530,6 +1564,10 @@ label {
   .firmware-board-card,
   .firmware-component-row {
     display: grid;
+  }
+
+  .operation-capability-chips {
+    justify-content: flex-start;
   }
 
   .maintenance-free-card {

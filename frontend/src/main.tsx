@@ -204,7 +204,7 @@ function App() {
               onClick={() => void topbarPrimaryAction.run()}
               disabled={topbarPrimaryAction.disabled}
             >
-              <TopbarPrimaryIcon size={16} />
+              <TopbarPrimaryIcon className={topbarPrimaryAction.busy ? "button-busy-icon" : undefined} size={16} />
             </button>
           </div>
         </header>

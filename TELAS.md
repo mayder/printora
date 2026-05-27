@@ -117,8 +117,9 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - A Central de alertas deve consolidar Health Check, Update Manager, checklist pos-update e auditoria com botoes de revalidacao, abertura do diagnostico ou fluxo de update quando aplicavel.
 - Confirmacoes de decisao devem usar modal proprio do Printora; feedback temporario de sucesso/falha deve usar toast. Dialogos nativos do navegador (`alert`/`confirm`) nao devem aparecer na UI operacional.
 - A tela Operacao deve ser leitura ao vivo para operador leigo: sem cadastro manual, sem checklist pos-update, sem auditoria tecnica e com graficos/indicadores que se atualizam automaticamente.
-- Na tela Operacao, temperaturas devem aparecer em tabela compacta com estado, atual, alvo e potencia, acompanhadas de um unico grafico combinado de evolucao por sensor/heater.
-- Na tela Operacao, toolhead, extrusor, progresso, sistema, fans e CAN devem ficar na mesma tela para evitar duplicidade entre menus.
+- Na tela Operacao, temperaturas devem aparecer em tabela compacta com estado, atual, alvo editavel para heaters suportados e potencia, acompanhadas de um unico grafico combinado de evolucao por sensor/heater.
+- Na tela Operacao, extrusor, progresso de impressao, sistema, fans e CAN devem ficar na mesma tela para evitar duplicidade entre menus; o progresso de impressao deve alinhar percentual/rotulo e exibir camada atual/total quando Moonraker/Klipper fornecer esse dado. Sistema, CAN e leituras visuais devem ficar abaixo dos controles operacionais quando nao houver acao direta associada.
+- Na tela Operacao, acoes protegidas devem ficar agrupadas em paineis operacionais estilo Mainsail: Toolhead, Extrusor e Miscellaneous; Toolhead, Extrusor e fans devem ser operaveis nessa area, limites de maquina devem ficar junto do bloco Impressao no topo, e alvos de temperatura devem ficar no painel principal de temperaturas para evitar duplicidade.
 - Formularios tecnicos de CAN devem ficar fora da tela Operacao.
 - Checklist pos-update deve aparecer na tela Atualizacoes.
 - Na tela Atualizacoes, `Atualizar tudo` aparece somente quando houver mais de um componente atualizavel.
@@ -131,6 +132,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Versoes silenciadas nao contam na Home, topbar, Central de alertas, Health Check, Checklist pos-update, Auditoria ou Relatorios; se a versao remota, pacote, atraso, warning ou anomalia mudar, o alerta volta automaticamente.
 - Na tela Atualizacoes, componentes com update pendente aparecem antes dos demais; entre pendentes, os mais atrasados por commits/pacotes ficam acima, preservando a ordem original quando empatar ou quando tudo estiver atualizado.
 - Na tela Atualizacoes, os componentes do Update Manager usam cards responsivos em duas ou tres colunas quando houver largura suficiente, e o checklist pos-update ocupa a largura total com duas colunas em telas medias/grandes.
+- Na tela Atualizacoes, componentes com origem Git exibem um icone de informacao no titulo para abrir o repositorio do componente em nova aba quando o Moonraker informar `remote_url` ou `owner/repo_name`.
 - Ao fechar o modal de update concluido ou revalidado, a tela Atualizacoes deve recarregar status do Update Manager, health, checklist, operacao e auditoria da impressora ativa.
 - Auditoria e diagnostico avancado do host devem ficar em telas de diagnostico/configuracao, nao como conteudo principal do Monitoramento.
 - Na tela Firmware, a visao principal deve ser guiada pela impressora selecionada: mostrar versoes de Klipper/Moonraker, MCUs/placas detectadas pelo Klipper, placas ja associadas ao modelo fisico e proximas acoes de build/flash.

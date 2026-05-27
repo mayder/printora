@@ -7,9 +7,9 @@ type MonitoringScreenProps = ScreenPropsFor<
   | "canSummary"
   | "compareLatestCanRecords"
   | "health"
-  | "loadOfflineOperationFixture"
   | "loadOperationStatus"
   | "loading"
+  | "executeOperationAction"
   | "operationStatus"
   | "operationActionHistory"
   | "operationActionParameters"
@@ -33,9 +33,9 @@ export function MonitoringScreen(props: MonitoringScreenProps) {
     canSummary,
     compareLatestCanRecords,
     health,
-    loadOfflineOperationFixture,
     loadOperationStatus,
     loading,
+    executeOperationAction,
     operationStatus,
     operationActionHistory,
     operationActionParameters,
@@ -69,10 +69,10 @@ export function MonitoringScreen(props: MonitoringScreenProps) {
           canComparison={canComparison}
           loading={loading}
           onRefresh={() => selectedPrinterId ? void loadOperationStatus(selectedPrinterId, { preserveData: true }) : undefined}
-          onLoadOfflineFixture={loadOfflineOperationFixture}
           onCompareCan={() => void compareLatestCanRecords()}
           onPreviewAction={previewOperationAction}
           onPreflightAction={preflightOperationAction}
+          onExecuteAction={executeOperationAction}
           onActionParameterChange={updateOperationActionParameter}
           onExecutionPhraseChange={setOperationExecutionPhrase}
           onValidateExecutionGate={validateOperationExecutionGate}

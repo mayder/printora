@@ -188,6 +188,11 @@ class OperationActionExecuteRequest(BaseModel):
     confirmation_phrase: str = Field(min_length=1, max_length=120)
 
 
+class OperationActionDirectExecuteRequest(BaseModel):
+    action_id: str = Field(min_length=1, max_length=80)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+
 def get_moonraker_client(settings: Settings) -> MoonrakerClient:
     return MoonrakerClient(
         base_url=settings.moonraker_url,

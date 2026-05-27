@@ -1723,6 +1723,36 @@ Estado atual:
 - Testes automatizados cobrem objetos genéricos, ausência de QGL e matriz preservada via snapshot.
 - Validação real confirmou matriz genérica nas duas impressoras: Voron 0.2 sem pressupor QGL e Voron 2.4 com QGL detectado; heaters/LED/fan tratados conforme objetos reais.
 
+## PKG-19O: Execução Operacional Controlada
+
+Objetivo:
+
+Transformar a tela Operação em painel de operação funcional estilo Mainsail, mantendo preflight e histórico local antes de enviar G-code.
+
+Entregáveis:
+
+- endpoint de execução direta protegida para ação operacional;
+- envio de G-code via Moonraker apenas quando preflight live permite;
+- registro de preview e tentativa executada/bloqueada;
+- ações para movimento, home, QGL, extrusão, temperaturas, fan, LED, speed factor, limites de velocidade/aceleração, extrusion factor e pressure advance;
+- UI em painéis Toolhead, Extrusor, Machine e Miscellaneous, sem duplicar os painéis principais de temperaturas/fans;
+- controles de percentual com botões de incremento/decremento;
+- inputs sem spinner visual bruto do navegador.
+
+Critério de aceite:
+
+- bloqueia quando Moonraker está offline, Klipper/Klippy não estão ready, há impressão em andamento ou capacidade não está confirmada;
+- registra comandos enviados, resposta/monitoramento do Moonraker e histórico da tentativa;
+- comandos de update, restart, flash e alteração de config continuam fora da tela Operação;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado endpoint `execute-direct` para ações operacionais.
+- Implementado envio controlado via Moonraker com preflight, histórico e monitoramento pós-envio.
+- Frontend passou a operar por painéis funcionais estilo Mainsail.
+- Testes backend e build frontend validados por `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ## PKG-20: Versionamento Interno E Controle De Schema
 
 Status: implementado.

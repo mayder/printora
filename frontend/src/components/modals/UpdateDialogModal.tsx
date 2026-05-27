@@ -118,7 +118,7 @@ export function UpdateDialogModal(props: UpdateDialogModalProps) {
                             (updateDialog.action === "rollback" ? "ROLLBACK UPDATE" : "ATUALIZAR COM RISCO"))
                       }
                     >
-                      <RefreshCw size={16} />
+                      <RefreshCw className={loading ? "button-busy-icon" : undefined} size={16} />
                       {updateDialog.action === "rollback" ? "Iniciar rollback" : "Iniciar update"}
                     </button>
                   </div>
@@ -149,7 +149,7 @@ export function UpdateDialogModal(props: UpdateDialogModalProps) {
                       }}
                       disabled={!selectedPrinterId || loading}
                     >
-                      <RefreshCw size={16} />
+                      <RefreshCw className={loading ? "button-busy-icon" : undefined} size={16} />
                       Recarregar status
                     </button>
                     <button

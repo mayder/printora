@@ -129,7 +129,7 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
           </div>
           <div className="panel-actions">
             <button type="button" className="secondary-button" onClick={refreshFirmwareContext} disabled={!selectedPrinterId || loading}>
-              <RefreshCw size={15} />
+              <RefreshCw className={loading ? "button-busy-icon" : undefined} size={15} />
               Verificar placas
             </button>
           </div>
