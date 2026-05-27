@@ -25,10 +25,14 @@ export type MaintenanceTaskRecord = {
   current_print_hours?: number | null;
   current_print_hours_read_at?: string | null;
   current_print_hours_source?: string | null;
+  tags: string[];
+  primary_tag?: string | null;
+  is_applicable: boolean;
+  not_applicable_at?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  due_status: "due" | "soon" | "ok" | "unknown" | "not_validated" | "needs_review";
+  due_status: "due" | "soon" | "ok" | "unknown" | "not_validated" | "needs_review" | "not_applicable";
   days_until_due?: number | null;
   print_hours_delta?: number | null;
   print_hours_until_due?: number | null;

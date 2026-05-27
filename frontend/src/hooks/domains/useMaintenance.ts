@@ -10,12 +10,17 @@ type UseMaintenanceOptions = {
   setLoading: SetLoading;
 };
 
+type MaintenanceFilter = "all" | "due" | "soon" | "ok" | "not_applicable";
+type MaintenanceSort = "area" | "title" | "criticality" | "due";
+
 export function useMaintenance({ selectedPrinterId, setError, setLoading }: UseMaintenanceOptions) {
   const [maintenanceEvents, setMaintenanceEvents] = React.useState<MaintenanceEventRecord[]>([]);
   const [maintenanceTasks, setMaintenanceTasks] = React.useState<MaintenanceTaskRecord[]>([]);
   const [maintenanceSummary, setMaintenanceSummary] = React.useState<MaintenanceSummary | null>(null);
   const [maintenancePrintHours, setMaintenancePrintHours] = React.useState<MaintenancePrintHoursStatus | null>(null);
-  const [maintenanceFilter, setMaintenanceFilter] = React.useState<"all" | "due" | "soon" | "ok">("all");
+  const [maintenanceFilter, setMaintenanceFilter] = React.useState<MaintenanceFilter>("all");
+  const [maintenanceTagFilter, setMaintenanceTagFilter] = React.useState("all");
+  const [maintenanceSort, setMaintenanceSort] = React.useState<MaintenanceSort>("area");
   const [maintenanceEventType, setMaintenanceEventType] = React.useState<MaintenanceEventRecord["event_type"] | "">("");
   const [maintenanceComponent, setMaintenanceComponent] = React.useState("");
   const [maintenanceTitle, setMaintenanceTitle] = React.useState("");
@@ -187,6 +192,25 @@ export function useMaintenance({ selectedPrinterId, setError, setLoading }: UseM
     }
   }
 
+  async function updateMaintenanceTaskApplicability(taskId: number, isApplicable: boolean) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await maintenanceApi.updateTaskApplicability(taskId, isApplicable);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadMaintenance(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function createDefaultMaintenanceTasks() {
     if (!selectedPrinterId) {
       return;
@@ -279,12 +303,22 @@ export function useMaintenance({ selectedPrinterId, setError, setLoading }: UseM
     }
   }
 
-  const visibleMaintenanceTasks = maintenanceTasks.filter((task) => {
+  const filteredMaintenanceTasks = maintenanceTasks.filter((task) => {
     if (maintenanceFilter === "all") {
-      return true;
+      return task.is_applicable && taskMatchesMaintenanceTag(task, maintenanceTagFilter);
     }
-    return task.due_status === maintenanceFilter;
+    if (maintenanceFilter === "not_applicable") {
+      return !task.is_applicable && taskMatchesMaintenanceTag(task, maintenanceTagFilter);
+    }
+    if (!task.is_applicable) {
+      return false;
+    }
+    return task.due_status === maintenanceFilter && taskMatchesMaintenanceTag(task, maintenanceTagFilter);
   });
+  const visibleMaintenanceTasks = [...filteredMaintenanceTasks].sort((first, second) => compareMaintenanceTasks(first, second, maintenanceSort));
+  const maintenanceTagOptions = Array.from(
+    new Set(maintenanceTasks.flatMap((task) => task.tags ?? [])),
+  ).sort((first, second) => maintenanceTagSortValue(first) - maintenanceTagSortValue(second) || first.localeCompare(second));
   const nextMaintenanceTask = maintenanceSummary?.next_due_task;
   const maintenancePrintHoursAvailable =
     maintenancePrintHours?.available && typeof maintenancePrintHours.total_print_hours === "number";
@@ -313,7 +347,10 @@ export function useMaintenance({ selectedPrinterId, setError, setLoading }: UseM
     maintenanceNotes,
     maintenancePrintHours,
     maintenancePrintHoursAvailable,
+    maintenanceSort,
     maintenanceSummary,
+    maintenanceTagFilter,
+    maintenanceTagOptions,
     maintenanceTasks,
     maintenanceTitle,
     nextMaintenanceTask,
@@ -334,15 +371,78 @@ export function useMaintenance({ selectedPrinterId, setError, setLoading }: UseM
     setMaintenanceFreeReminderEnabled,
     setMaintenanceNotes,
     setMaintenancePrintHours,
+    setMaintenanceSort,
     setMaintenanceSummary,
+    setMaintenanceTagFilter,
     setMaintenanceTasks,
     setMaintenanceTitle,
     submitMaintenanceDone,
     submitMaintenanceFreeEvent,
+    updateMaintenanceTaskApplicability,
     visibleMaintenanceTasks,
   };
 }
 
 function formatMaintenanceRecommendedIntervalValue(value: number) {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(1)));
+}
+
+function taskMatchesMaintenanceTag(task: MaintenanceTaskRecord, tagFilter: string) {
+  return tagFilter === "all" || task.tags?.includes(tagFilter);
+}
+
+function maintenanceTagSortValue(tag: string) {
+  const order = ["Filamento", "Toolhead", "Mesa", "Movimento", "Motores", "Refrigeração", "Elétrica", "Estrutura", "Calibração", "Acessórios", "Software"];
+  const index = order.indexOf(tag);
+  return index === -1 ? 999 : index;
+}
+
+function compareMaintenanceTasks(first: MaintenanceTaskRecord, second: MaintenanceTaskRecord, sort: MaintenanceSort) {
+  if (sort === "title") {
+    return compareByTitle(first, second);
+  }
+  if (sort === "criticality") {
+    return maintenanceStatusSortValue(first) - maintenanceStatusSortValue(second) || compareByDue(first, second) || compareByTitle(first, second);
+  }
+  if (sort === "due") {
+    return compareByDue(first, second) || maintenanceStatusSortValue(first) - maintenanceStatusSortValue(second) || compareByTitle(first, second);
+  }
+  return compareByArea(first, second) || maintenanceStatusSortValue(first) - maintenanceStatusSortValue(second) || compareByTitle(first, second);
+}
+
+function compareByArea(first: MaintenanceTaskRecord, second: MaintenanceTaskRecord) {
+  const firstTag = first.primary_tag || first.tags?.[0] || "Geral";
+  const secondTag = second.primary_tag || second.tags?.[0] || "Geral";
+  return maintenanceTagSortValue(firstTag) - maintenanceTagSortValue(secondTag) || firstTag.localeCompare(secondTag);
+}
+
+function compareByDue(first: MaintenanceTaskRecord, second: MaintenanceTaskRecord) {
+  return maintenanceDueSortValue(first) - maintenanceDueSortValue(second);
+}
+
+function compareByTitle(first: MaintenanceTaskRecord, second: MaintenanceTaskRecord) {
+  return first.name.localeCompare(second.name);
+}
+
+function maintenanceStatusSortValue(task: MaintenanceTaskRecord) {
+  const order: Record<MaintenanceTaskRecord["due_status"], number> = {
+    due: 0,
+    soon: 1,
+    needs_review: 2,
+    not_validated: 3,
+    unknown: 4,
+    ok: 5,
+    not_applicable: 6,
+  };
+  return order[task.due_status] ?? 99;
+}
+
+function maintenanceDueSortValue(task: MaintenanceTaskRecord) {
+  if (typeof task.days_until_due === "number") {
+    return task.days_until_due;
+  }
+  if (typeof task.print_hours_until_due === "number") {
+    return task.print_hours_until_due;
+  }
+  return Number.POSITIVE_INFINITY;
 }

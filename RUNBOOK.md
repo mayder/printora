@@ -79,6 +79,20 @@ Updater local macOS/Linux/Raspberry:
 ```
 
 O script detecta macOS sem systemd, Linux/Raspberry com systemd e Linux sem systemd. Quando `printora.service` existe, reinicia somente esse serviço; sem systemd, tenta `tmux` ou `scripts/run_app.sh`.
+Em Linux/Raspberry com systemd, o run pode ser finalizado antes do restart
+efetivo, pois o `systemctl restart printora.service` encerra o processo antigo
+que iniciou o update. A validacao operacional depois do restart continua sendo
+`/openapi.json` ou o historico em `Configuracoes > Historico de updates`.
+
+Log de update iniciado pela UI:
+
+```bash
+~/.local/share/printora/logs/self-update-run-<id>.log
+```
+
+No Android/Termux, o banco e os backups ficam em `~/.local/share/printora/`.
+Se a UI cair durante o restart, consultar `Configuracoes > Historico de updates`
+ou enviar esse log junto com o resumo de `Diagnostico da instalacao`.
 
 Windows:
 

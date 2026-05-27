@@ -505,6 +505,8 @@ Estado atual:
 - Testes cobrem escopo por impressora, conclusão de tarefa, resumo, alertas e criação idempotente de tarefas padrão.
 - Manutenção preventiva ampliada para lembrete por `days` ou `print_hours`, com baseline lido de `/server/history/totals`, fallback tolerante quando Moonraker está offline e status `not_validated`/`needs_review`.
 - UI de Manutenção permite concluir rotina ou registro livre com lembrete por dias ou horas de impressão, mantendo registro sem lembrete quando solicitado.
+- UI e API permitem marcar rotina do catalogo como `N/A` por impressora, ocultando do plano preventivo principal e mantendo reversao por `Desfazer`.
+- UI de Manutenção exibe tags de area fisica nos cards e permite filtrar por area ou ordenar a grade unica por area, titulo, criticidade e vencimento, preservando filtros de status e `N/A`.
 
 ## PKG-08: Assistente De Primeira Camada E Z-Offset
 

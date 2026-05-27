@@ -246,7 +246,7 @@ def test_schema_versioning_includes_app_update_sql(tmp_path: Path) -> None:
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'app_update_steps'"
         ).fetchone()
 
-    assert scripts[-1] == "019_update_alert_silences.sql"
+    assert scripts[-1] == "020_maintenance_task_applicability.sql"
     assert run_table == ("app_update_runs",)
     assert step_table == ("app_update_steps",)
 
@@ -279,6 +279,26 @@ def test_apply_rejects_invalid_tag(tmp_path: Path, monkeypatch) -> None:
 
         assert response.status_code == 400
         assert "Tag inválida" in response.json()["detail"]
+    finally:
+        get_settings.cache_clear()
+
+
+def test_apply_allows_strict_stable_tag_when_release_lookup_unavailable(tmp_path: Path, monkeypatch) -> None:
+    script = _write_mock_update_script(tmp_path, exit_code=0)
+    _configure_disabled_releases(tmp_path, monkeypatch, script)
+    monkeypatch.setattr(self_update_module, "detect_update_environment", lambda: "unix")
+    monkeypatch.setattr(self_update_module, "_should_detach_self_update", lambda environment, project_root: False)
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/system/update/apply",
+                json={"target_tag": "v0.2.0", "confirmation_phrase": "ATUALIZAR PRINTORA"},
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["accepted"] is True
+        assert payload["run"]["status"] == "succeeded"
     finally:
         get_settings.cache_clear()
 
@@ -513,6 +533,14 @@ def _configure_fixture_releases(tmp_path: Path, monkeypatch, script_path: Path |
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("PRINTORA_RELEASE_SOURCE_MODE", "fixture")
     monkeypatch.setenv("PRINTORA_RELEASE_FIXTURE_PATH", str(fixture))
+    if script_path is not None:
+        monkeypatch.setenv("PRINTORA_SELF_UPDATE_SCRIPT_PATH", str(script_path))
+    get_settings.cache_clear()
+
+
+def _configure_disabled_releases(tmp_path: Path, monkeypatch, script_path: Path | None = None) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("PRINTORA_RELEASE_SOURCE_MODE", "disabled")
     if script_path is not None:
         monkeypatch.setenv("PRINTORA_SELF_UPDATE_SCRIPT_PATH", str(script_path))
     get_settings.cache_clear()

@@ -155,10 +155,28 @@ async def complete_maintenance_task(
                 read_at=payload.print_hours_read_at,
                 source="live",
             )
-    event = maintenance_repository.complete_task(task_id, payload)
+    try:
+        event = maintenance_repository.complete_task(task_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if event is None:
         raise HTTPException(status_code=404, detail="maintenance task not found")
     return event
+
+
+
+
+@router.patch("/api/maintenance/tasks/{task_id}/applicability")
+async def update_maintenance_task_applicability(
+    task_id: int,
+    payload: MaintenanceTaskApplicabilityUpdate,
+) -> MaintenanceTaskRecord:
+    settings = get_settings()
+    maintenance_repository = get_maintenance_repository(settings)
+    task = maintenance_repository.update_task_applicability(task_id, payload)
+    if task is None:
+        raise HTTPException(status_code=404, detail="maintenance task not found")
+    return task
 
 
 

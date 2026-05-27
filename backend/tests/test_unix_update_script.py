@@ -57,6 +57,16 @@ def test_unix_update_script_plan_detects_linux_systemd_service(tmp_path: Path) -
     assert payload["restart_mode"] == "systemd_user"
 
 
+def test_unix_update_script_marks_run_before_systemd_restart() -> None:
+    script = SCRIPT.read_text(encoding="utf-8")
+
+    assert "finish_systemd_self_restart_run" in script
+    assert 'mark_step_skipped "validate_health"' in script
+    assert 'if restart_mode_is_systemd; then' in script
+    assert 'finish_systemd_self_restart_run "$db_backup" "$previous_path"' in script
+    assert "restart_deferred" in script
+
+
 def _run_plan(
     *,
     tmp_path: Path,

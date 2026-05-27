@@ -5,6 +5,7 @@ import type { ScreenPropsFor } from "./ScreenProps";
 
 type MaintenanceScreenProps = ScreenPropsFor<
   | "CheckCircle2"
+  | "CircleSlash"
   | "HelpCircle"
   | "Plus"
   | "Timer"
@@ -27,7 +28,10 @@ type MaintenanceScreenProps = ScreenPropsFor<
   | "maintenanceFilter"
   | "maintenancePrintHours"
   | "maintenancePrintHoursAvailable"
+  | "maintenanceSort"
   | "maintenanceSummary"
+  | "maintenanceTagFilter"
+  | "maintenanceTagOptions"
   | "maintenanceTasks"
   | "nextMaintenanceTask"
   | "openMaintenanceDoneModal"
@@ -35,13 +39,17 @@ type MaintenanceScreenProps = ScreenPropsFor<
   | "selectedPrinter"
   | "selectedPrinterId"
   | "setMaintenanceFilter"
+  | "setMaintenanceSort"
+  | "setMaintenanceTagFilter"
   | "status"
+  | "updateMaintenanceTaskApplicability"
   | "visibleMaintenanceTasks"
 >;
 
 export function MaintenanceScreen(props: MaintenanceScreenProps) {
   const {
     CheckCircle2,
+    CircleSlash,
     HelpCircle,
     Plus,
     Timer,
@@ -64,7 +72,10 @@ export function MaintenanceScreen(props: MaintenanceScreenProps) {
     maintenanceFilter,
     maintenancePrintHours,
     maintenancePrintHoursAvailable,
+    maintenanceSort,
     maintenanceSummary,
+    maintenanceTagFilter,
+    maintenanceTagOptions,
     maintenanceTasks,
     nextMaintenanceTask,
     openMaintenanceDoneModal,
@@ -72,11 +83,87 @@ export function MaintenanceScreen(props: MaintenanceScreenProps) {
     selectedPrinter,
     selectedPrinterId,
     setMaintenanceFilter,
+    setMaintenanceSort,
+    setMaintenanceTagFilter,
     status,
+    updateMaintenanceTaskApplicability,
     visibleMaintenanceTasks,
   } = props;
   const [helpTask, setHelpTask] = useState<MaintenanceTaskRecord | null>(null);
   const helpContent = helpTask ? maintenanceHelpContent(helpTask) : null;
+  const renderMaintenanceTask = (task: MaintenanceTaskRecord) => (
+    <article key={task.id} className={`maintenance-task-card ${!task.is_applicable ? "not-applicable" : task.is_active ? task.due_status : "inactive"}`}>
+      <div className="maintenance-task-card-header">
+        <div className="maintenance-card-badge-row">
+          <span className={`status-pill ${!task.is_applicable ? "not-applicable" : task.is_active ? task.due_status : "inactive"}`}>{formatDueStatus(task)}</span>
+          <div className="maintenance-tag-list" aria-label="Áreas da rotina">
+            {(task.tags ?? []).map((tag) => (
+              <span key={tag}>{tag}</span>
+            ))}
+          </div>
+        </div>
+        <strong>{task.name}</strong>
+      </div>
+      <div className="maintenance-task-meta">
+        <span>{task.component}</span>
+        <span>{!task.is_applicable ? "Oculta do plano preventivo" : task.is_active ? formatMaintenanceInterval(task) : "Sem lembrete recorrente"}</span>
+        <span>Última: {formatOptionalLocalDateTime(task.last_done_at)}</span>
+        {task.interval_kind === "print_hours" && maintenancePrintHoursAvailable ? (
+          <>
+            <span>Base: {formatOptionalHours(task.last_done_print_hours)}</span>
+            <span>Atual: {formatOptionalHours(task.current_print_hours)}{task.current_print_hours_source === "cached" ? " · desatualizado" : ""}</span>
+            <span>{formatPrintHoursDueLine(task)}</span>
+          </>
+        ) : null}
+      </div>
+      <div className={`maintenance-card-actions ${task.is_applicable && !task.last_done_at ? "has-na" : task.last_done_at || !task.is_applicable ? "has-undo" : ""}`}>
+        {task.is_applicable ? (
+          <button type="button" className="maintenance-done-button" onClick={() => openMaintenanceDoneModal(task)} disabled={loading}>
+            <CheckCircle2 size={14} />
+            Marcar feita
+          </button>
+        ) : null}
+        <button type="button" className="secondary-button maintenance-help-button" onClick={() => setHelpTask(task)} disabled={loading}>
+          <HelpCircle size={14} />
+          Como fazer
+        </button>
+        {task.is_applicable && !task.last_done_at ? (
+          <button
+            type="button"
+            className="ghost-button maintenance-na-button"
+            onClick={() => void updateMaintenanceTaskApplicability(task.id, false)}
+            disabled={loading}
+            title="Marcar rotina como não aplicável para esta impressora"
+          >
+            <CircleSlash size={14} />
+            N/A
+          </button>
+        ) : null}
+        {task.is_applicable && task.last_done_at ? (
+          <button
+            type="button"
+            className="ghost-button danger-ghost"
+            onClick={() => void deleteLatestMaintenanceTaskEvent(task.id)}
+            disabled={loading}
+          >
+            <Undo2 size={14} />
+            Desfazer
+          </button>
+        ) : null}
+        {!task.is_applicable ? (
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => void updateMaintenanceTaskApplicability(task.id, true)}
+            disabled={loading}
+          >
+            <Undo2 size={14} />
+            Desfazer
+          </button>
+        ) : null}
+      </div>
+    </article>
+  );
 
   return (
     <>
@@ -125,19 +212,46 @@ export function MaintenanceScreen(props: MaintenanceScreenProps) {
                   <h3>Rotinas preventivas</h3>
                   <p className="muted">Cada rotina gera alerta quando vencer.</p>
                 </div>
-                <div className="dense-toolbar filter-toolbar" aria-label="Filtros de manutenção">
-                  <button type="button" className={maintenanceFilter === "all" ? "active" : ""} onClick={() => setMaintenanceFilter("all")}>
-                    Todas
-                  </button>
-                  <button type="button" className={maintenanceFilter === "due" ? "active" : ""} onClick={() => setMaintenanceFilter("due")}>
-                    Vencidas
-                  </button>
-                  <button type="button" className={maintenanceFilter === "soon" ? "active" : ""} onClick={() => setMaintenanceFilter("soon")}>
-                    Próximas
-                  </button>
-                  <button type="button" className={maintenanceFilter === "ok" ? "active" : ""} onClick={() => setMaintenanceFilter("ok")}>
-                    Em dia
-                  </button>
+                <div className="maintenance-filter-row">
+                  <div className="dense-toolbar filter-toolbar" aria-label="Filtros de manutenção">
+                    <button type="button" className={maintenanceFilter === "all" ? "active" : ""} onClick={() => setMaintenanceFilter("all")}>
+                      Todas
+                    </button>
+                    <button type="button" className={maintenanceFilter === "due" ? "active" : ""} onClick={() => setMaintenanceFilter("due")}>
+                      Vencidas
+                    </button>
+                    <button type="button" className={maintenanceFilter === "soon" ? "active" : ""} onClick={() => setMaintenanceFilter("soon")}>
+                      Próximas
+                    </button>
+                    <button type="button" className={maintenanceFilter === "ok" ? "active" : ""} onClick={() => setMaintenanceFilter("ok")}>
+                      Em dia
+                    </button>
+                    <button type="button" className={maintenanceFilter === "not_applicable" ? "active" : ""} onClick={() => setMaintenanceFilter("not_applicable")}>
+                      N/A
+                    </button>
+                  </div>
+                  {maintenanceTagOptions.length ? (
+                    <label className="maintenance-area-select">
+                      <span>Área</span>
+                      <select value={maintenanceTagFilter} onChange={(event) => setMaintenanceTagFilter(event.target.value)}>
+                        <option value="all">Todas as áreas</option>
+                        {maintenanceTagOptions.map((tag) => (
+                          <option key={tag} value={tag}>
+                            {tag}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                  <label className="maintenance-area-select">
+                    <span>Ordenar</span>
+                    <select value={maintenanceSort} onChange={(event) => setMaintenanceSort(event.target.value as typeof maintenanceSort)}>
+                      <option value="area">Área</option>
+                      <option value="title">Título</option>
+                      <option value="criticality">Criticidade</option>
+                      <option value="due">Vencimento</option>
+                    </select>
+                  </label>
                 </div>
               </div>
 
@@ -149,47 +263,7 @@ export function MaintenanceScreen(props: MaintenanceScreenProps) {
               ) : null}
 
               <div className="maintenance-card-grid">
-                {visibleMaintenanceTasks.map((task: any) => (
-                  <article key={task.id} className={`maintenance-task-card ${task.is_active ? task.due_status : "inactive"}`}>
-                    <div className="maintenance-task-card-header">
-                      <span className={`status-pill ${task.is_active ? task.due_status : "inactive"}`}>{formatDueStatus(task)}</span>
-                      <strong>{task.name}</strong>
-                    </div>
-                    <div className="maintenance-task-meta">
-                      <span>{task.component}</span>
-                      <span>{task.is_active ? formatMaintenanceInterval(task) : "Sem lembrete recorrente"}</span>
-                      <span>Última: {formatOptionalLocalDateTime(task.last_done_at)}</span>
-                      {task.interval_kind === "print_hours" && maintenancePrintHoursAvailable ? (
-                        <>
-                          <span>Base: {formatOptionalHours(task.last_done_print_hours)}</span>
-                          <span>Atual: {formatOptionalHours(task.current_print_hours)}{task.current_print_hours_source === "cached" ? " · desatualizado" : ""}</span>
-                          <span>{formatPrintHoursDueLine(task)}</span>
-                        </>
-                      ) : null}
-                    </div>
-                    <div className={`maintenance-card-actions ${task.last_done_at ? "has-undo" : ""}`}>
-                      <button type="button" className="maintenance-done-button" onClick={() => openMaintenanceDoneModal(task)} disabled={loading}>
-                        <CheckCircle2 size={14} />
-                        Marcar feita
-                      </button>
-                      <button type="button" className="secondary-button maintenance-help-button" onClick={() => setHelpTask(task)} disabled={loading}>
-                        <HelpCircle size={14} />
-                        Como fazer
-                      </button>
-                      {task.last_done_at ? (
-                        <button
-                          type="button"
-                          className="ghost-button danger-ghost"
-                          onClick={() => void deleteLatestMaintenanceTaskEvent(task.id)}
-                          disabled={loading}
-                        >
-                          <Undo2 size={14} />
-                          Desfazer
-                        </button>
-                      ) : null}
-                    </div>
-                  </article>
-                ))}
+                {visibleMaintenanceTasks.map(renderMaintenanceTask)}
               </div>
 
               {maintenanceSummary?.recommended_tasks.length ? (

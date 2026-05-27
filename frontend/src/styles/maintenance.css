@@ -117,13 +117,43 @@
   opacity: 0.76;
 }
 
+.maintenance-task-card.not-applicable {
+  border-color: var(--status-neutral);
+  opacity: 0.72;
+}
+
 .maintenance-task-card-header {
   display: grid;
   gap: 7px;
 }
 
+.maintenance-card-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .maintenance-task-card-header strong {
   font-size: 14px;
+}
+
+.maintenance-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.maintenance-tag-list span {
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--muted);
+  padding: 3px 7px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .maintenance-task-meta {
@@ -144,9 +174,14 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr) auto;
 }
 
+.maintenance-card-actions.has-na {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr) minmax(52px, auto);
+}
+
 .maintenance-card-actions button {
   min-height: 34px;
   padding: 7px 9px;
+  white-space: nowrap;
 }
 
 .maintenance-done-button {
@@ -167,6 +202,11 @@
 
 .maintenance-help-button svg {
   color: var(--accent);
+}
+
+.maintenance-na-button svg,
+.status-pill.not-applicable {
+  color: var(--status-neutral);
 }
 
 .maintenance-help-modal-card {
@@ -335,6 +375,45 @@
 
 .maintenance-section-heading h3 {
   margin: 0;
+}
+
+.maintenance-filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.maintenance-area-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-1);
+  padding: 4px 8px;
+}
+
+.maintenance-area-select span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.maintenance-area-select select {
+  min-width: 164px;
+  min-height: 28px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--secondary-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 28px 5px 8px;
 }
 
 .maintenance-task-form,

@@ -123,6 +123,7 @@ Aceite:
 - `scripts/install_printora_autostart.sh --apply --yes` valida `/health` depois de configurar o boot;
 - `scripts/doctor_install.sh` roda sem alterar arquivos de app e mostra Python, Node, porta, banco, serviço e logs;
 - `GET /api/system/install-diagnostics` retorna diagnóstico copiável com versão, ambiente, porta, paths, checks e ação sugerida;
+- em Raspberry, `GET /api/system/install-diagnostics` inclui `raspberry_throttling` via `vcgencmd get_throttled`, sinalizando normal, throttled atual ou throttling histórico sem executar ação mutável;
 - tela `Configurações > Diagnóstico da instalação` permite recarregar e copiar o diagnóstico técnico;
 - `scripts/unlock_update.sh` cria backup do `printora.db` e marca updates `running` como `failed`;
 - `POST /api/system/update/reconcile` reconcilia update `running` antigo e retorna contagem de runs ainda em execução;
@@ -368,6 +369,8 @@ http://127.0.0.1:5178
 - Criar tarefa preventiva.
 - Concluir tarefa.
 - Confirmar que evento aparece no diário.
+- Marcar rotina do catalogo como `N/A`, confirmar que sai da grade principal, aparece no filtro `N/A` e volta ao plano ao acionar `Desfazer`.
+- Confirmar que rotinas relacionadas exibem badges de area no card, que o filtro de area junta tarefas proximas e que a ordenacao por area, titulo, criticidade e vencimento reorganiza a grade unica.
 - Confirmar que nenhuma ação foi enviada para Klipper/Moonraker.
 
 ### Z-offset
