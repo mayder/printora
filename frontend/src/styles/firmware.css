@@ -373,6 +373,19 @@
   margin: 14px 0;
 }
 
+.firmware-build-controls.compact {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  margin: 0;
+}
+
+.firmware-build-controls label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .firmware-run-row {
   border-top: 1px solid var(--border-soft);
   padding: 8px 0;
@@ -381,4 +394,56 @@
 .firmware-run-row summary {
   cursor: pointer;
   font-weight: 700;
+}
+
+.firmware-preset-status,
+.firmware-artifact-summary {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--warning);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 8px;
+  overflow-wrap: anywhere;
+}
+
+.firmware-preset-status.ok,
+.firmware-artifact-summary.ok {
+  border-left-color: var(--success);
+}
+
+.firmware-preset-status span,
+.firmware-artifact-summary span {
+  color: var(--muted);
+}
+
+.firmware-config-preview {
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  padding: 10px;
+  white-space: pre-wrap;
+}
+
+.firmware-check {
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--secondary-bg);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  margin-right: 6px;
+  padding: 4px 8px;
+}
+
+.firmware-check.blocked {
+  background: var(--warning-soft);
 }

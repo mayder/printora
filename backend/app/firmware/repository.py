@@ -9,11 +9,13 @@ from app.firmware.build_service import (
     _execute_local_build,
     _mark_local_build_plan,
 )
+from app.firmware.config_generator import generate_firmware_config_preview
 from app.firmware.flash_service import _build_flash_preflight, _flash_dry_run_plan
 from app.firmware.models import (
     BoardPreset,
     FirmwareBoardCreate,
     FirmwareBoardRecord,
+    FirmwareConfigPreview,
     FirmwareBuildDryRunCreate,
     FirmwareBuildExecuteCreate,
     FirmwareBuildPreflight,
@@ -40,12 +42,18 @@ class FirmwareBoardRepository:
     def get_preset(self, preset_id: str) -> BoardPreset | None:
         return BOARD_PRESETS.get(preset_id)
 
+    def generate_preset_config_preview(self, preset_id: str) -> FirmwareConfigPreview:
+        preset = self.get_preset(preset_id)
+        if preset is None:
+            raise ValueError("unknown board preset")
+        return generate_firmware_config_preview(preset)
+
     def create_board(self, printer_id: int, payload: FirmwareBoardCreate) -> FirmwareBoardRecord:
         preset = self.get_preset(payload.preset_id)
         if preset is None:
             raise ValueError("unknown board preset")
         name = payload.name.strip()
-        config_file = payload.config_file.strip() if payload.config_file else f"firmware/{payload.preset_id}.config"
+        config_file = payload.config_file.strip() if payload.config_file else preset.config_file
         can_uuid = _clean_optional(payload.can_uuid)
         if preset.connection_type in {"can", "usb_can_bridge"} and not can_uuid:
             raise ValueError("can_uuid is required for CAN boards")
@@ -178,7 +186,8 @@ class FirmwareBoardRepository:
             plan["message"] = "Build local bloqueado: PRINTORA_FIRMWARE_BUILD_MODE não está em local."
             return self._insert_build_run(board, "blocked_build_mode_disabled", plan)
         if payload.confirmation != "EXECUTE_LOCAL_BUILD_NO_FLASH":
-            raise ValueError("invalid build confirmation")
+            plan["message"] = "Build local bloqueado: confirmação textual inválida ou ausente."
+            return self._insert_build_run(board, "blocked_invalid_build_confirmation", plan)
         _mark_local_build_plan(plan, board, preset, payload)
 
         status = "build_success"
@@ -400,6 +409,8 @@ def _record_from_row(row) -> FirmwareBoardRecord:
 
 
 def _build_run_from_row(row) -> FirmwareBuildRunRecord:
+    commands = json.loads(row["commands_json"])
+    metadata = _build_plan_metadata(commands)
     return FirmwareBuildRunRecord(
         id=int(row["id"]),
         printer_id=int(row["printer_id"]),
@@ -410,10 +421,35 @@ def _build_run_from_row(row) -> FirmwareBuildRunRecord:
         output_dir=str(row["output_dir"]),
         config_backup_path=str(row["config_backup_path"]),
         binary_output_path=str(row["binary_output_path"]),
-        commands=json.loads(row["commands_json"]),
+        preset_id=metadata.get("preset_id"),
+        preset_build_config_status=metadata.get("preset_build_config_status"),
+        generated_config_path=metadata.get("generated_config_path"),
+        work_dir=metadata.get("work_dir"),
+        expected_build_output=metadata.get("expected_build_output"),
+        log_path=metadata.get("log_path"),
+        commands=commands,
         checklist=json.loads(row["checklist_json"]),
         message=str(row["message"]),
     )
+
+
+def _build_plan_metadata(commands: list[str]) -> dict[str, str]:
+    metadata = {}
+    allowed_keys = {
+        "preset_id",
+        "preset_build_config_status",
+        "generated_config_path",
+        "work_dir",
+        "expected_build_output",
+        "log_path",
+    }
+    for command in commands:
+        if not command.startswith("PLAN ") or "=" not in command:
+            continue
+        key, value = command[5:].split("=", 1)
+        if key in allowed_keys:
+            metadata[key] = value
+    return metadata
 
 
 def _flash_run_from_row(row) -> FirmwareFlashRunRecord:

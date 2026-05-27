@@ -29,7 +29,9 @@
       "katapult": true,
       "known_mcus": [],
       "modelo": "Kraken",
-      "preset_ids": [],
+      "preset_ids": [
+        "btt_kraken_h723_usb_can"
+      ],
       "role": "mainboard",
       "safety_notes": [
         "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
@@ -65,7 +67,9 @@
       "katapult": true,
       "known_mcus": [],
       "modelo": "Manta M5P V1.0",
-      "preset_ids": [],
+      "preset_ids": [
+        "btt_manta_m5p_g0b1_usb_can"
+      ],
       "role": "mainboard",
       "safety_notes": [
         "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
@@ -101,7 +105,9 @@
       "katapult": true,
       "known_mcus": [],
       "modelo": "Manta M8P V2.0",
-      "preset_ids": [],
+      "preset_ids": [
+        "btt_manta_m8p_v2_h723_usb_can"
+      ],
       "role": "mainboard",
       "safety_notes": [
         "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
@@ -219,7 +225,9 @@
       "katapult": true,
       "known_mcus": [],
       "modelo": "SKR-3",
-      "preset_ids": [],
+      "preset_ids": [
+        "btt_skr_3_h743_usb_can"
+      ],
       "role": "mainboard",
       "safety_notes": [
         "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
@@ -350,7 +358,9 @@
       "katapult": true,
       "known_mcus": [],
       "modelo": "Spider v2.2",
-      "preset_ids": [],
+      "preset_ids": [
+        "fysetc_spider_v2_2_f446_usb_can"
+      ],
       "role": "mainboard",
       "safety_notes": [
         "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
@@ -368,7 +378,9 @@
       "katapult": true,
       "known_mcus": [],
       "modelo": "Spider v2.3",
-      "preset_ids": [],
+      "preset_ids": [
+        "fysetc_spider_v2_3_f446_usb_can"
+      ],
       "role": "mainboard",
       "safety_notes": [
         "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
@@ -404,7 +416,9 @@
       "katapult": true,
       "known_mcus": [],
       "modelo": "Spider v3.0 H7",
-      "preset_ids": [],
+      "preset_ids": [
+        "fysetc_spider_v3_h723_usb_can"
+      ],
       "role": "mainboard",
       "safety_notes": [
         "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
@@ -512,7 +526,9 @@
       "katapult": true,
       "known_mcus": [],
       "modelo": "Fly-Super8 Pro H723",
-      "preset_ids": [],
+      "preset_ids": [
+        "mellow_fly_super8_pro_h723_usb_can"
+      ],
       "role": "mainboard",
       "safety_notes": [
         "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
@@ -863,7 +879,9 @@
       "katapult": true,
       "known_mcus": [],
       "modelo": "H36",
-      "preset_ids": [],
+      "preset_ids": [
+        "fysetc_h36_g0b1_can"
+      ],
       "role": "toolhead",
       "safety_notes": [
         "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
@@ -935,7 +953,9 @@
       "katapult": true,
       "known_mcus": [],
       "modelo": "SB Combo V2",
-      "preset_ids": [],
+      "preset_ids": [
+        "fysetc_sb_combo_v2_f072_can"
+      ],
       "role": "toolhead",
       "safety_notes": [
         "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
@@ -1020,7 +1040,9 @@
       "katapult": true,
       "known_mcus": [],
       "modelo": "Fly SB2040v3",
-      "preset_ids": [],
+      "preset_ids": [
+        "mellow_fly_sb2040_v3_rp2040_can"
+      ],
       "role": "toolhead",
       "safety_notes": [
         "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
@@ -1083,7 +1105,9 @@
       "katapult": true,
       "known_mcus": [],
       "modelo": "Fly SHT36v3",
-      "preset_ids": [],
+      "preset_ids": [
+        "mellow_fly_sht36_v3_rp2040_can"
+      ],
       "role": "toolhead",
       "safety_notes": [
         "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
@@ -1130,31 +1154,23 @@
       "Mellow Fly UTOC"
     ],
     "mainboards": [
-      "BigTreeTech Kraken",
       "BigTreeTech Manta E3EZ",
-      "BigTreeTech Manta M5P V1.0",
       "BigTreeTech Manta M8P V1.1",
-      "BigTreeTech Manta M8P V2.0",
       "BigTreeTech Octopus Max EZ",
       "BigTreeTech Octopus X7 (Troodon)",
       "BigTreeTech SKR Pico",
-      "BigTreeTech SKR-3",
       "BigTreeTech SKR-3 EZ",
       "BigTreeTech SKRat v1.0",
       "Fysetc Hexa Distro Fusion",
       "Fysetc Spider King",
       "Fysetc Spider Pro",
-      "Fysetc Spider v2.2",
-      "Fysetc Spider v2.3",
       "Fysetc Spider v3.0",
-      "Fysetc Spider v3.0 H7",
       "LDO Leviathan v1.2",
       "LDO Leviathan v1.3",
       "MKS Monster8 v2",
       "Mellow FLY-D5P",
       "Mellow FLY-Micro4",
-      "Mellow Fly-Super8",
-      "Mellow Fly-Super8 Pro H723"
+      "Mellow Fly-Super8"
     ],
     "toolheads": [
       "AFC AFC-Lite for Boxturtle",
@@ -1163,17 +1179,13 @@
       "BigTreeTech MMB v1.0",
       "BigTreeTech MMB v2.0",
       "DragonDinghy DragonDinghy",
-      "Fysetc H36",
       "Fysetc H36 v2.0",
       "Fysetc PITB V1.0",
       "Fysetc PITB V2.0",
-      "Fysetc SB Combo V2",
       "MKS THR36 V1.0",
       "Mellow Fly ERCF",
-      "Mellow Fly SB2040v3",
       "Mellow Fly SHT36 and SHT42",
-      "Mellow Fly SHT36v2",
-      "Mellow Fly SHT36v3"
+      "Mellow Fly SHT36v2"
     ]
   },
   "manifest": {

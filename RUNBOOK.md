@@ -133,6 +133,53 @@ cd backend
 uv run pytest tests/test_canbus_manifest.py tests/test_firmware.py -q
 ```
 
+Gerar preview de `.config` de um preset sem salvar arquivo:
+
+```bash
+curl -s http://127.0.0.1:8069/api/firmware/board-presets/btt_kraken_h723_usb_can/config-preview
+```
+
+O preview de `.config` retorna `content`, `lines`, `config_file`, `build_output` e `artifact_saved=false`. Ele é gerado em memória, não grava arquivo no host, não escreve no diretório Klipper e não executa `make`, flash, SSH, restart ou update.
+
+Preparar dry-run de build de uma placa cadastrada:
+
+```bash
+curl -s -X POST http://127.0.0.1:8069/api/firmware/boards/BOARD_ID/build-runs/dry-run \
+  -H 'Content-Type: application/json' \
+  -d '{"klipper_path":"~/klipper","output_root":"~/printer_data/firmware_builds"}'
+```
+
+O dry-run retorna `preset_id`, `preset_build_config_status`, `generated_config_path`, `config_backup_path`, `work_dir`, `expected_build_output`, `binary_output_path`, `log_path`, checklist e comandos `PLAN ...`. Esses comandos são plano revisável, não execução. Preset incompleto bloqueia o dry-run antes de criar histórico.
+
+Executar build local controlado, sem flash:
+
+```bash
+PRINTORA_FIRMWARE_BUILD_MODE=local
+curl -s -X POST http://127.0.0.1:8069/api/firmware/boards/BOARD_ID/build-runs/execute-local \
+  -H 'Content-Type: application/json' \
+  -d '{"klipper_path":"/caminho/local/klipper","output_root":"~/.local/share/printora/firmware_builds","confirmation":"EXECUTE_LOCAL_BUILD_NO_FLASH"}'
+```
+
+Travas:
+
+- sem `PRINTORA_FIRMWARE_BUILD_MODE=local`, o histórico registra `blocked_build_mode_disabled`;
+- sem confirmação textual exata `EXECUTE_LOCAL_BUILD_NO_FLASH`, o histórico registra `blocked_invalid_build_confirmation`;
+- o executor local não usa SSH, não faz flash, não reinicia Klipper/Moonraker e não executa update;
+- o executor usa apenas o diretório Klipper local informado e o `output_root` informado.
+
+Artefatos salvos em `output_root/local-build/<placa>/`:
+
+- `.config.before-build`: backup da `.config` original;
+- `generated/<arquivo>.config`: `.config` determinístico gerado pelo preset;
+- `logs/build.log`: saída de `make clean` e `make`, ou erro capturado;
+- `<binário>`: cópia do output esperado quando o build termina com sucesso.
+
+Rollback:
+
+- o executor restaura a `.config` original ao final em sucesso ou falha;
+- se a operação for interrompida fora do controle do processo, restaurar manualmente `output_root/local-build/<placa>/.config.before-build` para `<klipper_path>/.config`;
+- não há flash automático; se o binário gerado estiver incorreto, apagar o diretório de artefatos e repetir depois de corrigir o preset/build config.
+
 Validar fechamento completo do pacote:
 
 ```bash
@@ -143,6 +190,9 @@ Regras operacionais:
 
 - os scripts executam apenas leitura HTTP do dominio `canbus.esoterical.online` e leitura/escrita local dos JSONs quando `--write` for informado;
 - os scripts nao executam flash, build, update, SSH, restart, `make`, G-code ou alteracao de configuracao de impressora;
+- o preview de `.config` do PKG-33 e somente leitura em memoria; se a geracao falhar por preset incompleto, corrigir o preset/build config antes de qualquer build futuro;
+- o dry-run de build do PKG-33 registra somente plano local com comandos `PLAN ...`; nao grava `.config`, nao copia para Klipper, nao executa `make` e nao abre SSH;
+- o build local controlado do PKG-33 pode executar `make clean` e `make` apenas no `klipper_path` local informado, com modo local e confirmacao textual; ele deve restaurar `.config` e salvar log/binario em artefatos Printora, nunca fazer flash, SSH, restart ou update;
 - se o site externo mudar menu, conteudo ou disponibilidade, o manifesto deve manter status explicito por URL e a validacao de cobertura deve falhar antes de afetar a UI;
 - rollback rapido: restaurar a versao anterior de `backend/app/data/firmware_canbus_manifest.json` e `backend/app/data/firmware_hardware_catalog.json` ou reverter os arquivos do PKG-30 no Git;
 - se o catalogo ficar indisponivel ou invalido, a tela Firmware deve preservar o fluxo principal por impressora ativa e exibir estado de erro/sem referencia, sem consultar o site externo em runtime.

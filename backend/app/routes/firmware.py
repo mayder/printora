@@ -15,6 +15,18 @@ async def list_firmware_board_presets() -> dict[str, list[BoardPreset]]:
 
 
 
+@router.get("/api/firmware/board-presets/{preset_id}/config-preview")
+async def firmware_preset_config_preview(preset_id: str) -> FirmwareConfigPreview:
+    settings = get_settings()
+    firmware_repository = get_firmware_board_repository(settings)
+    try:
+        return firmware_repository.generate_preset_config_preview(preset_id)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+
+
 @router.get("/api/firmware/catalog")
 async def read_firmware_catalog_summary() -> FirmwareCatalogSummary:
     return firmware_catalog_summary()

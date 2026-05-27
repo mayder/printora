@@ -1,3 +1,38 @@
+export type FirmwareBuildConfig = {
+  schema_version: number;
+  architecture: string;
+  mcu: string;
+  processor_model: string;
+  bootloader_offset: string;
+  clock_reference: string;
+  communication_interface: string;
+  connection_type: "usb" | "can" | "usb_can_bridge";
+  canbus_pins?: string | null;
+  usb_pins?: string | null;
+  serial_pins?: string | null;
+  config_file: string;
+  build_output: string;
+};
+
+export type FirmwareBuildConfigValidation = {
+  status: "complete" | "missing_data" | "invalid";
+  missing_fields: string[];
+  invalid_fields: string[];
+};
+
+export type FirmwareConfigPreview = {
+  safe_mode: string;
+  preset_id: string;
+  config_file: string;
+  build_output: string;
+  build_config_schema_version: number;
+  content: string;
+  lines: string[];
+  artifact_saved: boolean;
+  artifact_path?: string | null;
+  message: string;
+};
+
 export type BoardPreset = {
   id: string;
   vendor: string;
@@ -8,8 +43,12 @@ export type BoardPreset = {
   communication: string;
   bootloader_offset: string;
   canbus_pins?: string | null;
+  config_file: string;
   build_output: string;
   default_flash_method: "katapult_can" | "katapult_usb_can" | "dfu_usb" | "manual";
+  build_config: FirmwareBuildConfig;
+  build_config_validation: FirmwareBuildConfigValidation;
+  build_config_status: "complete" | "missing_data" | "invalid";
   notes: string;
 };
 
@@ -104,6 +143,12 @@ export type FirmwareBuildRunRecord = {
   output_dir: string;
   config_backup_path: string;
   binary_output_path: string;
+  preset_id?: string | null;
+  preset_build_config_status?: "complete" | "missing_data" | "invalid" | null;
+  generated_config_path?: string | null;
+  work_dir?: string | null;
+  expected_build_output?: string | null;
+  log_path?: string | null;
   commands: string[];
   checklist: string[];
   message: string;

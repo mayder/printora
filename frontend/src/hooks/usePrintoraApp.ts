@@ -168,7 +168,6 @@ export function usePrintoraApp() {
       firmware.loadFirmwareHardwareInventory(printerId),
       firmware.loadFirmwareBoards(printerId),
       firmware.loadFirmwareBuildRuns(printerId),
-      firmware.loadFirmwareFlashRuns(printerId),
       calibration.loadCalibrationRuns(printerId),
     ]);
   }

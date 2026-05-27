@@ -236,6 +236,25 @@ Validações:
 - preflight de build de firmware valida paths/tooling local de forma read-only e mantém execução bloqueada.
 - build local fica bloqueado quando `PRINTORA_FIRMWARE_BUILD_MODE` está desabilitado.
 - build local exige confirmação textual quando o modo local está habilitado.
+- PKG-33 exige validação incremental dos presets derivados do catálogo: hardwares cobertos ganham `preset_ids`, hardwares pendentes permanecem em `known_hardware_without_local_preset` e nenhum comando mutável é executado.
+- PKG-33 Lote 1 valida que o catálogo saiu de 11 para 23 hardwares com preset local, mantendo 33 pendentes classificados por adaptador CAN, mainboard e toolhead.
+- PKG-33 Lote 1 valida que os novos presets BTT, Fysetc e Mellow aparecem em `/api/firmware/board-presets` com MCU, arquitetura, comunicação, conexão, output esperado e método futuro de flash.
+- PKG-33 exige schema de build config validável sem ambiente real, classificando presets como completo, faltando dados ou inválido.
+- PKG-33 Lote 2 valida que `FirmwareBuildConfig` é versionado e expõe arquitetura, MCU, modelo de processador, bootloader, clock, interface de comunicação, conexão CAN/USB/serial, arquivo `.config` e output esperado.
+- PKG-33 Lote 2 valida que `/api/firmware/board-presets` mantém consumidores existentes e adiciona `build_config`, `build_config_status` e `build_config_validation`.
+- PKG-33 Lote 2 valida preset completo, preset com dado faltante e schema inválido com erro claro, sem executar `make`, build real, flash, SSH, restart ou update.
+- PKG-33 exige snapshots determinísticos do `.config` gerado para presets completos, sem depender de relógio, host Klipper, ordem implícita ou site externo.
+- PKG-33 Lote 3 valida snapshot exato do `.config` para pelo menos um preset STM32 e um preset RP2040.
+- PKG-33 Lote 3 valida `GET /api/firmware/board-presets/{preset_id}/config-preview` retornando preview em memória, `artifact_saved=false`, sem executar comando externo e sem escrever em diretório Klipper.
+- PKG-33 Lote 3 valida que preset com `build_config` incompleto bloqueia a geração de `.config` com erro acionável.
+- PKG-33 exige que dry-run de build planeje `.config`, backup, diretório de trabalho, output, log e comandos sem executar `make`, SSH, flash, restart, update ou cópia para Klipper.
+- PKG-33 Lote 4 valida que dry-run com preset completo retorna `preset_id`, `preset_build_config_status`, `generated_config_path`, `config_backup_path`, `work_dir`, `expected_build_output`, `binary_output_path`, `log_path` e comandos `PLAN ...` sem executar processo externo.
+- PKG-33 Lote 4 valida que dry-run com preset incompleto falha com erro claro, não grava histórico e não executa comando externo.
+- PKG-33 Lote 4 valida que o histórico de build continua filtrado por impressora e identifica a placa de cada plano.
+- PKG-33 exige que build real continue bloqueado por padrão; quando houver lote de build controlado, testes devem usar ambiente fake/tmpdir e validar confirmação textual, backup, restauração de `.config`, log e binário salvo sem flash.
+- PKG-33 Lote 5 valida que build local real fica bloqueado por modo `disabled`, bloqueia e registra confirmação ausente/incorreta, usa `.config` gerado pelo preset, salva backup, preview, log e binário em `output_root/local-build/<placa>/`, restaura `.config` em sucesso e falha e não planeja flash, restart ou SSH.
+- PKG-33 Lote 6 valida a tela Firmware com foco na impressora ativa: placas detectadas/cadastradas antes do catálogo, badge de preset completo/incompleto, preview de `.config`, dry-run de build, build local protegido por confirmação e ausência de chamadas/botões de flash, SSH, restart ou update.
+- fechamento do PKG-33 exige testes focados de firmware, validação manual da tela Firmware e `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 - dry-run de flash usa binário de build quando informado e não executa comandos.
 - dry-run de flash rejeita build de outra placa.
 - preflight de flash lê Moonraker/Klipper, bloqueia impressão em andamento e nunca libera execução real neste lote.
@@ -429,6 +448,9 @@ backend/.venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.
 - Confirmar que nenhum `make`, cópia de arquivo, SSH, restart, update ou flash foi executado.
 - Rodar preflight de build para uma placa.
 - Confirmar checks de Klipper, Makefile, `.config`, config da placa, `make` e modo local sem criar diretórios ou executar comandos.
+- Para PKG-33, confirmar placa com preset completo, placa com preset incompleto, geração/preview de `.config`, dry-run com artefatos planejados e bloqueio explícito de build real por padrão.
+- Para PKG-33, confirmar que a tela Firmware mostra o estado do preset por placa da impressora ativa, sem listar o catálogo completo como fluxo principal.
+- Para PKG-33 Lote 6, confirmar impressora offline, impressora online, placa com preset completo, placa sem preset, botão de `.config`, botão de dry-run, artefatos/log de build concluído e ausência de flash, SSH, restart e update na tela.
 - Tentar execução local sem habilitar modo local e confirmar status bloqueado.
 - Em ambiente controlado futuro, habilitar modo local e exigir confirmação textual antes de executar build.
 - Gerar dry-run de flash para uma placa.

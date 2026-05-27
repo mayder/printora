@@ -1,5 +1,12 @@
 import { Badge } from "../components/common";
-import type { FirmwareBoardRecord, FirmwareHardwareItem } from "../types";
+import type {
+  BoardPreset,
+  FirmwareBoardRecord,
+  FirmwareBuildPreflight,
+  FirmwareBuildRunRecord,
+  FirmwareConfigPreview,
+  FirmwareHardwareItem,
+} from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type FirmwareScreenProps = ScreenPropsFor<
@@ -13,8 +20,8 @@ type FirmwareScreenProps = ScreenPropsFor<
   | "boardPresets"
   | "createFirmwareBoard"
   | "createFirmwareBuildDryRun"
-  | "createFirmwareFlashDryRun"
   | "error"
+  | "executeFirmwareBuildLocal"
   | "firmwareCatalogSummary"
   | "firmwareBoardCanInterface"
   | "firmwareBoardCanUuid"
@@ -23,15 +30,19 @@ type FirmwareScreenProps = ScreenPropsFor<
   | "firmwareBoardNotes"
   | "firmwareBoardPresetId"
   | "firmwareBoards"
+  | "firmwareBuildConfirmation"
+  | "firmwareBuildPreflight"
   | "firmwareBuildRuns"
-  | "firmwareFlashRuns"
+  | "firmwareConfigPreview"
   | "firmwareHardwareInventory"
   | "firmwareInventoryError"
+  | "firmwareKlipperPath"
+  | "firmwareOutputRoot"
   | "formatConnectionType"
+  | "generateFirmwareConfigPreview"
   | "loadFirmwareCatalogSummary"
   | "loadFirmwareHardwareInventory"
   | "loading"
-  | "refreshUpdateStatus"
   | "selectedPrinter"
   | "selectedPrinterId"
   | "setFirmwareBoardCanInterface"
@@ -40,10 +51,11 @@ type FirmwareScreenProps = ScreenPropsFor<
   | "setFirmwareBoardName"
   | "setFirmwareBoardNotes"
   | "setFirmwareBoardPresetId"
+  | "setFirmwareBuildConfirmation"
+  | "setFirmwareKlipperPath"
+  | "setFirmwareOutputRoot"
   | "status"
-  | "updateStatus"
   | "validateFirmwareBuildPreflight"
-  | "validateFirmwareFlashPreflight"
 >;
 
 export function FirmwareScreen(props: FirmwareScreenProps) {
@@ -58,8 +70,8 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
     boardPresets,
     createFirmwareBoard,
     createFirmwareBuildDryRun,
-    createFirmwareFlashDryRun,
     error,
+    executeFirmwareBuildLocal,
     firmwareCatalogSummary,
     firmwareBoardCanInterface,
     firmwareBoardCanUuid,
@@ -68,15 +80,19 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
     firmwareBoardNotes,
     firmwareBoardPresetId,
     firmwareBoards,
+    firmwareBuildConfirmation,
+    firmwareBuildPreflight,
     firmwareBuildRuns,
-    firmwareFlashRuns,
+    firmwareConfigPreview,
     firmwareHardwareInventory,
     firmwareInventoryError,
+    firmwareKlipperPath,
+    firmwareOutputRoot,
     formatConnectionType,
+    generateFirmwareConfigPreview,
     loadFirmwareCatalogSummary,
     loadFirmwareHardwareInventory,
     loading,
-    refreshUpdateStatus,
     selectedPrinter,
     selectedPrinterId,
     setFirmwareBoardCanInterface,
@@ -85,10 +101,11 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
     setFirmwareBoardName,
     setFirmwareBoardNotes,
     setFirmwareBoardPresetId,
+    setFirmwareBuildConfirmation,
+    setFirmwareKlipperPath,
+    setFirmwareOutputRoot,
     status,
-    updateStatus,
     validateFirmwareBuildPreflight,
-    validateFirmwareFlashPreflight,
   } = props;
 
   const inventoryItems = firmwareHardwareInventory?.items ?? [];
@@ -100,10 +117,9 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
   const hardwareWithGuides = catalogCounts.hardware_with_guides ?? boardPresets.length;
   const hardwareWithPreset = catalogCounts.hardware_with_local_preset ?? 0;
   const hardwareWithoutPreset = catalogCounts.hardware_without_local_preset ?? 0;
-  const updatePendingCount = updateStatus?.components.filter((component) => component.can_update).length ?? 0;
   const activeBoard = firmwareBoards[0] ?? null;
   const latestBuild = activeBoard ? firmwareBuildRuns.find((run) => run.board_id === activeBoard.id) : null;
-  const latestFlash = activeBoard ? firmwareFlashRuns.find((run) => run.board_id === activeBoard.id) : null;
+  const activePreset = activeBoard ? boardPresets.find((preset) => preset.id === activeBoard.preset_id) ?? null : null;
   const suggestedPresetIds = unique([
     ...detectedItems.flatMap((item) => item.matched_preset_ids),
     ...registeredItems.flatMap((item) => item.matched_preset_ids),
@@ -115,7 +131,7 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
     if (!selectedPrinterId) {
       return;
     }
-    void Promise.allSettled([loadFirmwareCatalogSummary(), loadFirmwareHardwareInventory(selectedPrinterId), refreshUpdateStatus()]);
+    void Promise.allSettled([loadFirmwareCatalogSummary(), loadFirmwareHardwareInventory(selectedPrinterId)]);
   }
 
   function useDetectedItem(item: FirmwareHardwareItem) {
@@ -155,7 +171,6 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
           <Badge icon={ShieldCheck} label="Conexão" value={status?.connected ? "online" : "sem leitura"} />
           <Badge icon={Zap} label="Klipper" value={status?.printer?.software_version ?? "-"} />
           <Badge icon={RefreshCw} label="Moonraker" value={status?.server?.moonraker_version ?? "-"} />
-          <Badge icon={AlertTriangle} label="Atualizações" value={updatePendingCount} />
           <Badge icon={CheckCircle2} label="Placas detectadas" value={detectedItems.length} />
           <Badge icon={History} label="Placas prontas" value={registeredItems.length} />
         </div>
@@ -185,7 +200,7 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
             <div className="firmware-card-heading">
               <div>
                 <strong>Fluxo principal</strong>
-                <span>{activeBoard ? activeBoard.name : "Associe uma placa detectada para liberar build e flash"}</span>
+                <span>{activeBoard ? activeBoard.name : "Associe uma placa detectada para liberar geração de config e build seguro"}</span>
               </div>
               <span className={`status-pill ${activeBoard ? "up_to_date" : "warning"}`}>{activeBoard ? "pronto" : "associar"}</span>
             </div>
@@ -196,27 +211,29 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
                   <span>{formatConnectionType(activeBoard.connection_type)}</span>
                   <span>{activeBoard.can_uuid ?? activeBoard.config_file}</span>
                 </div>
+                <PresetStatus preset={activePreset} />
                 <div className="firmware-step-row">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => activePreset && void generateFirmwareConfigPreview(activePreset.id)}
+                    disabled={loading || !activePreset || activePreset.build_config_status !== "complete"}
+                  >
+                    <CheckCircle2 size={15} />
+                    Ver .config
+                  </button>
                   <button type="button" className="secondary-button" onClick={() => void validateFirmwareBuildPreflight(activeBoard.id)} disabled={loading}>
                     <CheckCircle2 size={15} />
                     Validar build
                   </button>
                   <button type="button" className="primary-button" onClick={() => void createFirmwareBuildDryRun(activeBoard.id)} disabled={loading}>
                     <Play size={15} />
-                    Gerar build
-                  </button>
-                  <button type="button" className="secondary-button" onClick={() => void validateFirmwareFlashPreflight(activeBoard.id)} disabled={loading}>
-                    <ShieldCheck size={15} />
-                    Validar flash
-                  </button>
-                  <button type="button" className="primary-button" onClick={() => void createFirmwareFlashDryRun(activeBoard.id)} disabled={loading}>
-                    <Zap size={15} />
-                    Preparar flash
+                    Preparar build
                   </button>
                 </div>
                 <small className="muted">
-                  Último build: {latestBuild ? `${latestBuild.status} · ${latestBuild.created_at}` : "nenhum"} · último flash:{" "}
-                  {latestFlash ? `${latestFlash.status} · ${latestFlash.created_at}` : "nenhum"}
+                  Último build: {latestBuild ? `${latestBuild.status} · ${latestBuild.created_at}` : "nenhum"}.
+                  {latestBuild?.binary_output_path ? ` Artefato: ${latestBuild.binary_output_path}` : ""}
                 </small>
               </>
             ) : (
@@ -249,6 +266,42 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
           </div>
         </section>
 
+        <section className="firmware-focus-grid">
+          <div className="firmware-card">
+            <div className="firmware-card-heading">
+              <div>
+                <strong>Build local controlado</strong>
+                <span>O backend mantém o bloqueio por modo e exige confirmação textual antes de executar.</span>
+              </div>
+              <span className="status-pill warning">sem flash</span>
+            </div>
+            <div className="firmware-build-controls compact">
+              <label>
+                Klipper local
+                <input value={firmwareKlipperPath} onChange={(event) => setFirmwareKlipperPath(event.target.value)} placeholder="~/klipper" />
+              </label>
+              <label>
+                Artefatos
+                <input value={firmwareOutputRoot} onChange={(event) => setFirmwareOutputRoot(event.target.value)} placeholder="~/.local/share/printora/firmware_builds" />
+              </label>
+              <label>
+                Confirmação
+                <input
+                  value={firmwareBuildConfirmation}
+                  onChange={(event) => setFirmwareBuildConfirmation(event.target.value)}
+                  placeholder="EXECUTE_LOCAL_BUILD_NO_FLASH"
+                />
+              </label>
+              <button type="button" className="secondary-button" onClick={() => activeBoard && void executeFirmwareBuildLocal(activeBoard.id)} disabled={!activeBoard || loading}>
+                <ShieldCheck size={15} />
+                Executar build local
+              </button>
+            </div>
+            {firmwareBuildPreflight ? <BuildPreflightSummary preflight={firmwareBuildPreflight} /> : null}
+          </div>
+          <ConfigPreviewCard preview={firmwareConfigPreview} />
+        </section>
+
         <section className="firmware-board-section">
           <div className="firmware-section-heading">
             <div>
@@ -270,11 +323,14 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
                 item={item}
                 board={item.registered_board_id ? firmwareBoards.find((board) => board.id === item.registered_board_id) : null}
                 loading={loading}
+                latestBuild={
+                  item.registered_board_id ? firmwareBuildRuns.find((run) => run.board_id === item.registered_board_id) ?? null : null
+                }
                 missingCatalog={catalogMissing}
+                preset={resolveTargetPreset(item, firmwareBoards, boardPresets)}
                 onBuild={(boardId) => void createFirmwareBuildDryRun(boardId)}
                 onBuildPreflight={(boardId) => void validateFirmwareBuildPreflight(boardId)}
-                onFlash={(boardId) => void createFirmwareFlashDryRun(boardId)}
-                onFlashPreflight={(boardId) => void validateFirmwareFlashPreflight(boardId)}
+                onConfigPreview={(presetId) => void generateFirmwareConfigPreview(presetId)}
                 onUseDetected={() => useDetectedItem(item)}
               />
             ))}
@@ -345,21 +401,23 @@ function FirmwareTargetCard({
   board,
   item,
   loading,
+  latestBuild,
   missingCatalog,
+  preset,
   onBuild,
   onBuildPreflight,
-  onFlash,
-  onFlashPreflight,
+  onConfigPreview,
   onUseDetected,
 }: {
   board: FirmwareBoardRecord | null | undefined;
   item: FirmwareHardwareItem;
   loading: boolean;
+  latestBuild: FirmwareBuildRunRecord | null;
   missingCatalog: Record<string, string[]>;
+  preset: BoardPreset | null;
   onBuild: (boardId: number) => void;
   onBuildPreflight: (boardId: number) => void;
-  onFlash: (boardId: number) => void;
-  onFlashPreflight: (boardId: number) => void;
+  onConfigPreview: (presetId: string) => void;
   onUseDetected: () => void;
 }) {
   const references = item.catalog_references ?? [];
@@ -409,21 +467,25 @@ function FirmwareTargetCard({
           <small>Sem referência específica no catálogo local para esta MCU.</small>
         )}
         {!hasLocalPreset && missingInCatalog ? <small>Existe referência técnica, mas ainda falta preset local para associar diretamente.</small> : null}
+        {board ? <PresetStatus preset={preset} /> : null}
+        {latestBuild ? <BuildArtifactSummary run={latestBuild} /> : null}
       </div>
       <div className="firmware-step-row">
         {board ? (
           <>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => preset && onConfigPreview(preset.id)}
+              disabled={loading || !preset || preset.build_config_status !== "complete"}
+            >
+              .config
+            </button>
             <button type="button" className="secondary-button" onClick={() => onBuildPreflight(board.id)} disabled={loading}>
               Validar build
             </button>
             <button type="button" className="primary-button" onClick={() => onBuild(board.id)} disabled={loading}>
-              Build
-            </button>
-            <button type="button" className="secondary-button" onClick={() => onFlashPreflight(board.id)} disabled={loading}>
-              Validar flash
-            </button>
-            <button type="button" className="primary-button" onClick={() => onFlash(board.id)} disabled={loading}>
-              Preparar flash
+              Dry-run build
             </button>
           </>
         ) : (
@@ -456,6 +518,83 @@ function boardToHardwareItem(board: FirmwareBoardRecord): FirmwareHardwareItem {
     action_label: "Gerar build",
     detail: `Placa cadastrada com preset ${board.preset_id}.`,
   };
+}
+
+function PresetStatus({ preset }: { preset: BoardPreset | null }) {
+  if (!preset) {
+    return (
+      <div className="firmware-preset-status warning">
+        <strong>Preset não carregado</strong>
+        <span>Atualize os presets antes de gerar `.config` ou preparar build.</span>
+      </div>
+    );
+  }
+  const missing = preset.build_config_validation.missing_fields;
+  const invalid = preset.build_config_validation.invalid_fields;
+  const detail = preset.build_config_status === "complete"
+    ? `${preset.build_config.processor_model} · ${preset.build_config.communication_interface} · ${preset.build_output}`
+    : [...missing, ...invalid].join(", ") || "build config incompleto";
+  return (
+    <div className={`firmware-preset-status ${preset.build_config_status === "complete" ? "ok" : "warning"}`}>
+      <strong>{preset.build_config_status === "complete" ? "Preset completo" : "Faltando dados"}</strong>
+      <span>{detail}</span>
+    </div>
+  );
+}
+
+function ConfigPreviewCard({ preview }: { preview: FirmwareConfigPreview | null }) {
+  return (
+    <div className="firmware-card">
+      <div className="firmware-card-heading">
+        <div>
+          <strong>.config gerado</strong>
+          <span>{preview ? `${preview.preset_id} · ${preview.lines.length} linhas` : "Gere a prévia a partir de uma placa cadastrada com preset completo."}</span>
+        </div>
+        <span className={`status-pill ${preview ? "up_to_date" : "warning"}`}>{preview ? "preview" : "vazio"}</span>
+      </div>
+      {preview ? (
+        <pre className="firmware-config-preview">{preview.content}</pre>
+      ) : (
+        <small className="muted">A geração é feita pelo backend e não salva arquivo no Klipper.</small>
+      )}
+    </div>
+  );
+}
+
+function BuildPreflightSummary({ preflight }: { preflight: FirmwareBuildPreflight }) {
+  return (
+    <div className="firmware-check-list">
+      <strong>Preflight: {preflight.message}</strong>
+      {preflight.checks.slice(0, 5).map((check) => (
+        <span key={check.key} className={`firmware-check ${check.status}`}>
+          {check.label}: {check.status}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function BuildArtifactSummary({ run }: { run: FirmwareBuildRunRecord }) {
+  const completed = run.status === "build_success";
+  return (
+    <div className={`firmware-artifact-summary ${completed ? "ok" : "warning"}`}>
+      <strong>{completed ? "Build concluído" : `Build: ${run.status}`}</strong>
+      <span>{run.binary_output_path}</span>
+      {run.log_path ? <span>Log: {run.log_path}</span> : null}
+    </div>
+  );
+}
+
+function resolveTargetPreset(
+  item: FirmwareHardwareItem,
+  boards: FirmwareBoardRecord[],
+  presets: BoardPreset[],
+) {
+  const boardPresetId = item.registered_board_id
+    ? boards.find((board) => board.id === item.registered_board_id)?.preset_id
+    : null;
+  const presetId = boardPresetId ?? item.matched_preset_ids[0] ?? item.catalog_references[0]?.preset_ids[0] ?? null;
+  return presets.find((preset) => preset.id === presetId) ?? null;
 }
 
 function unique(values: string[]) {
