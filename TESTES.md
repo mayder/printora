@@ -76,6 +76,7 @@ Aceite:
 - plano de autostart informa o mecanismo do ambiente atual;
 - `--apply --yes` prepara dependências e configura boot automático;
 - Linux/Raspberry usa `systemd` com `Restart=always`;
+- Linux/Raspberry configura `/etc/sudoers.d/printora-restart` com permissão mínima para `systemctl restart/status printora.service` sem senha;
 - Android/Termux usa `Termux:Boot` e `tmux`;
 - macOS usa `launchd` com `KeepAlive`;
 - Windows usa tarefa agendada `Printora`;

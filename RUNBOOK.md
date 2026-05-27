@@ -83,6 +83,10 @@ Em Linux/Raspberry com systemd, o run pode ser finalizado antes do restart
 efetivo, pois o `systemctl restart printora.service` encerra o processo antigo
 que iniciou o update. A validacao operacional depois do restart continua sendo
 `/openapi.json` ou o historico em `Configuracoes > Historico de updates`.
+Os instaladores Linux/Raspberry criam `/etc/sudoers.d/printora-restart` com
+permissao minima para o usuario do servico executar `systemctl restart/status
+printora.service` sem senha. Isso e necessario para update automatico do app,
+porque o backend roda sem terminal interativo.
 
 Log de update iniciado pela UI:
 

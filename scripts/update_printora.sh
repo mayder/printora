@@ -490,10 +490,52 @@ restart_systemd() {
       systemctl --user restart "$SERVICE_NAME"
       ;;
     systemd_system)
-      systemctl restart "$SERVICE_NAME"
+      if [[ "$(id -u)" == "0" ]]; then
+        systemctl restart "$SERVICE_NAME"
+      else
+        sudo -n systemctl restart "$SERVICE_NAME"
+      fi
       ;;
     *)
       return 1
+      ;;
+  esac
+}
+
+ensure_systemd_restart_noninteractive() {
+  local mode="$1"
+  case "$mode" in
+    systemd_user)
+      return 0
+      ;;
+    systemd_system)
+      if [[ "$(id -u)" == "0" ]]; then
+        return 0
+      fi
+      command -v sudo >/dev/null 2>&1 || fail_json "Restart de ${SERVICE_NAME} exige sudo, mas sudo não está disponível. Rode: sudo systemctl restart ${SERVICE_NAME}"
+      sudo -n -v >/dev/null 2>&1 || fail_json "Restart de ${SERVICE_NAME} exige sudo sem senha para update automático. Rode manualmente: sudo systemctl restart ${SERVICE_NAME}"
+      ;;
+    *)
+      fail_json "modo systemd inválido: ${mode}"
+      ;;
+  esac
+}
+
+schedule_systemd_restart() {
+  local mode="$1"
+  case "$mode" in
+    systemd_user)
+      nohup bash -c 'sleep 1; systemctl --user restart "$1"' bash "$SERVICE_NAME" >/dev/null 2>&1 &
+      ;;
+    systemd_system)
+      if [[ "$(id -u)" == "0" ]]; then
+        nohup bash -c 'sleep 1; systemctl restart "$1"' bash "$SERVICE_NAME" >/dev/null 2>&1 &
+      else
+        nohup bash -c 'sleep 1; sudo -n systemctl restart "$1"' bash "$SERVICE_NAME" >/dev/null 2>&1 &
+      fi
+      ;;
+    *)
+      fail_json "modo systemd inválido: ${mode}"
       ;;
   esac
 }
@@ -663,7 +705,7 @@ apply_update() {
   mark_step_running "validate_environment"
   validate_common_plan_inputs
   mark_step_succeeded "validate_environment"
-  local remote_url timestamp db_backup previous_path
+  local remote_url timestamp db_backup previous_path mode
   remote_url="$(project_remote_url)"
   timestamp="$(timestamp_utc)"
   previous_path="$(project_previous_path "$timestamp")"
@@ -691,8 +733,10 @@ apply_update() {
   mark_step_succeeded "backup_project" "$previous_path"
   mark_step_running "restart_app"
   if restart_mode_is_systemd; then
+    mode="$(restart_mode)"
+    ensure_systemd_restart_noninteractive "$mode"
     finish_systemd_self_restart_run "$db_backup" "$previous_path"
-    restart_app
+    schedule_systemd_restart "$mode"
     printf '{"status":"succeeded","mode":"apply","target_tag":'
     json_string "$TARGET_TAG"
     printf ',"backup_db_path":'

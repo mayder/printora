@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Printora", version="0.1.17", lifespan=lifespan)
+app = FastAPI(title="Printora", version="0.1.18", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

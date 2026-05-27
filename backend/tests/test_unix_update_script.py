@@ -61,9 +61,14 @@ def test_unix_update_script_marks_run_before_systemd_restart() -> None:
     script = SCRIPT.read_text(encoding="utf-8")
 
     assert "finish_systemd_self_restart_run" in script
+    assert "ensure_systemd_restart_noninteractive" in script
+    assert "schedule_systemd_restart" in script
+    assert "sudo -n -v" in script
     assert 'mark_step_skipped "validate_health"' in script
     assert 'if restart_mode_is_systemd; then' in script
+    assert 'ensure_systemd_restart_noninteractive "$mode"' in script
     assert 'finish_systemd_self_restart_run "$db_backup" "$previous_path"' in script
+    assert 'schedule_systemd_restart "$mode"' in script
     assert "restart_deferred" in script
 
 

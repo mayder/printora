@@ -27,6 +27,32 @@ Validação:
 - `npm --prefix frontend run build`;
 - `./check.sh`.
 
+### Updater Raspberry Marcava Sucesso Antes De Restart Sem Permissao
+
+Sintoma:
+
+- em Raspberry com `printora.service` como systemd de sistema, o update podia instalar `printora-backend` novo, marcar o run como concluido, mas manter o app antigo online;
+- o terminal mostrava `Failed to restart printora.service: Interactive authentication required`.
+- instalacoes futuras ainda dependeriam de ajuste manual de sudoers para o app reiniciar a si mesmo.
+
+Causa:
+
+- o script tratava todo restart systemd como etapa auto-finalizante, mas nao validava antes se o processo tinha permissao nao interativa para reiniciar o servico.
+- o instalador Linux/Raspberry nao criava a permissao minima de restart/status do `printora.service` para o usuario do servico.
+
+Correção:
+
+- restart systemd de sistema agora usa `sudo -n systemctl restart printora.service` quando nao roda como root;
+- antes de marcar o run como concluido, o script valida `sudo -n -v`;
+- se o host exige autenticacao interativa, o update falha com comando manual claro em vez de fingir sucesso.
+- instaladores Linux/Raspberry criam `/etc/sudoers.d/printora-restart` validado por `visudo -cf`;
+- `doctor_install.sh` avisa quando essa regra estiver ausente.
+
+Validação:
+
+- `backend/.venv/bin/pytest tests/test_unix_update_script.py -q`;
+- `bash -n scripts/update_printora.sh`.
+
 ### Diagnostico Nao Mostrava Throttling Da Raspberry
 
 Sintoma:

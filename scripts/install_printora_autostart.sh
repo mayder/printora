@@ -66,6 +66,7 @@ port=$PORT
 host=$HOST
 android_boot=$HOME/.termux/boot/start-printora
 linux_service=/etc/systemd/system/printora.service
+linux_sudoers=/etc/sudoers.d/printora-restart
 macos_plist=$HOME/Library/LaunchAgents/com.printora.app.plist
 PLAN
 
@@ -127,6 +128,15 @@ WantedBy=multi-user.target
 SERVICE
     sudo cp "$service_tmp" /etc/systemd/system/printora.service
     rm -f "$service_tmp"
+    systemctl_bin="$(command -v systemctl)"
+    sudoers_tmp="$(mktemp)"
+    cat >"$sudoers_tmp" <<SUDOERS
+${USER} ALL=NOPASSWD: ${systemctl_bin} restart printora.service, ${systemctl_bin} status printora.service
+SUDOERS
+    sudo visudo -cf "$sudoers_tmp"
+    sudo cp "$sudoers_tmp" /etc/sudoers.d/printora-restart
+    sudo chmod 440 /etc/sudoers.d/printora-restart
+    rm -f "$sudoers_tmp"
     sudo systemctl daemon-reload
     sudo systemctl enable printora.service
     sudo systemctl restart printora.service

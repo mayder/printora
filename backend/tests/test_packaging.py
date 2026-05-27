@@ -13,6 +13,21 @@ def test_systemd_service_points_to_installed_backend() -> None:
     assert "ExecStart=/home/pi/Printora/scripts/run_app.sh --foreground --no-open" in service
 
 
+def test_linux_installers_configure_limited_sudoers_restart() -> None:
+    raspberry_installer = (ROOT_DIR / "scripts" / "install_raspberry.sh").read_text()
+    autostart_installer = (ROOT_DIR / "scripts" / "install_printora_autostart.sh").read_text()
+    doctor = (ROOT_DIR / "scripts" / "doctor_install.sh").read_text()
+
+    for text in (raspberry_installer, autostart_installer):
+        assert "/etc/sudoers.d/printora-restart" in text
+        assert "NOPASSWD" in text
+        assert "restart printora.service" in text
+        assert "status printora.service" in text
+        assert "visudo -cf" in text
+
+    assert "sudoers printora-restart ausente" in doctor
+
+
 def test_moonraker_update_manager_snippet_is_non_empty() -> None:
     snippet = (ROOT_DIR / "packaging/moonraker/update_manager_printora.conf").read_text()
 

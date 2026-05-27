@@ -11,6 +11,7 @@ TARGET_DIR="${PRINTORA_INSTALL_DIR:-${INSTALL_HOME}/Printora}"
 PUBLIC_URL="${PRINTORA_PUBLIC_URL:-http://$(hostname):8069}"
 SERVICE_SRC="${ROOT_DIR}/packaging/systemd/printora.service"
 SERVICE_DST="/etc/systemd/system/printora.service"
+SUDOERS_DST="/etc/sudoers.d/printora-restart"
 ENV_SRC="${ROOT_DIR}/packaging/env/printora.env.example"
 ENV_DST="${TARGET_DIR}/.env"
 MAINSAIL_NAV_SRC="${ROOT_DIR}/packaging/mainsail/navi.json"
@@ -108,6 +109,17 @@ sed \
   "${SERVICE_SRC}" > "${SERVICE_TMP}"
 run_or_print sudo cp "${SERVICE_TMP}" "${SERVICE_DST}"
 rm -f "${SERVICE_TMP}"
+SYSTEMCTL_BIN="$(command -v systemctl)"
+SUDOERS_TMP="$(mktemp)"
+cat > "${SUDOERS_TMP}" <<SUDOERS
+${INSTALL_USER} ALL=NOPASSWD: ${SYSTEMCTL_BIN} restart printora.service, ${SYSTEMCTL_BIN} status printora.service
+SUDOERS
+if [[ "${APPLY}" == "true" ]]; then
+  sudo visudo -cf "${SUDOERS_TMP}"
+fi
+run_or_print sudo cp "${SUDOERS_TMP}" "${SUDOERS_DST}"
+run_or_print sudo chmod 440 "${SUDOERS_DST}"
+rm -f "${SUDOERS_TMP}"
 run_or_print sudo systemctl daemon-reload
 run_or_print sudo systemctl enable printora.service
 run_or_print sudo systemctl restart printora.service

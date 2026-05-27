@@ -142,6 +142,12 @@ case "$(mpl_os)" in
   linux)
     if mpl_has_systemd; then
       print_command systemctl status printora.service --no-pager
+      if [[ -f /etc/sudoers.d/printora-restart ]]; then
+        ok "sudoers printora-restart configurado"
+      else
+        warn "sudoers printora-restart ausente; update automático pode não reiniciar printora.service sem senha"
+        echo "Ação sugerida: rode scripts/install_printora_autostart.sh --apply --yes ou scripts/install_raspberry.sh --apply."
+      fi
     fi
     ;;
 esac
