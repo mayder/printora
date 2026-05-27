@@ -1,20 +1,27 @@
 import React from "react";
+import { Info } from "lucide-react";
 import { Badge } from "../components/common";
 import type { UpdateComponent } from "../alertCenter";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type UpdatesScreenProps = ScreenPropsFor<
   | "AlertTriangle"
+  | "ArrowUpCircle"
   | "CheckCircle2"
   | "Gauge"
+  | "Hourglass"
   | "RefreshCw"
   | "checklist"
   | "checklistDotClass"
   | "formatChecklistDataState"
   | "formatUpdateStatus"
   | "loading"
+  | "clearUpdateAlertSilence"
+  | "openRollbackDialog"
   | "openUpdateDialog"
+  | "pendingUpdateAction"
   | "refreshUpdateStatus"
+  | "silenceUpdateAlert"
   | "selectedPrinter"
   | "selectedPrinterId"
   | "status"
@@ -26,16 +33,22 @@ type UpdatesScreenProps = ScreenPropsFor<
 export function UpdatesScreen(props: UpdatesScreenProps) {
   const {
     AlertTriangle,
+    ArrowUpCircle,
     CheckCircle2,
     Gauge,
+    Hourglass,
     RefreshCw,
     checklist,
     checklistDotClass,
     formatChecklistDataState,
     formatUpdateStatus,
     loading,
+    clearUpdateAlertSilence,
+    openRollbackDialog,
     openUpdateDialog,
+    pendingUpdateAction,
     refreshUpdateStatus,
+    silenceUpdateAlert,
     selectedPrinter,
     selectedPrinterId,
     status,
@@ -43,7 +56,8 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
     updateStatus,
     updateStatusIcon,
   } = props;
-  const pendingUpdateCount = updateStatus?.components.filter(isPendingUpdateComponent).length ?? 0;
+  const pendingUpdateCount = updateStatus?.components.filter((component) => !component.alert_silenced && isPendingUpdateComponent(component)).length ?? 0;
+  const riskyPendingCount = updateStatus?.components.filter((component) => !component.alert_silenced && component.can_update && component.requires_confirmation).length ?? 0;
   const orderedComponents = orderUpdateComponents(updateStatus?.components ?? []);
 
   return (
@@ -61,7 +75,7 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                 onClick={() => void refreshUpdateStatus()}
                 disabled={!selectedPrinterId || loading || updateStatus?.busy}
               >
-                <RefreshCw size={15} />
+                <RefreshCw className={loading || updateStatus?.busy ? "button-busy-icon" : undefined} size={15} />
                 Reanalisar
               </button>
               {pendingUpdateCount > 1 ? (
@@ -71,15 +85,15 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                   onClick={() => openUpdateDialog("all")}
                   disabled={!selectedPrinterId || loading || updateStatus?.busy}
                 >
-                  <RefreshCw size={15} />
-                  Atualizar tudo
+                  <RefreshCw className={loading || updateStatus?.busy ? "button-busy-icon" : undefined} size={15} />
+                  {riskyPendingCount > 0 ? "Atualizar tudo com risco" : "Atualizar tudo"}
                 </button>
               ) : null}
             </div>
           </div>
           <div className="overview-strip">
-            <Badge icon={RefreshCw} label="Pendentes" value={updateStatus?.counts.update_available ?? 0} />
-            <Badge icon={AlertTriangle} label="Alertas" value={updateStatus?.counts.warning ?? 0} />
+            <Badge icon={RefreshCw} label="Pendentes" value={updateStatus?.components.filter((component) => !component.alert_silenced && component.status === "update_available").length ?? 0} />
+            <Badge icon={AlertTriangle} label="Alertas" value={updateStatus?.components.filter((component) => !component.alert_silenced && component.status === "warning").length ?? 0} />
             <Badge icon={CheckCircle2} label="Atualizados" value={updateStatus?.counts.up_to_date ?? 0} />
             <Badge icon={Gauge} label="Estado" value={updateStatus?.busy ? "ocupado" : updateStatus?.summary ?? "-"} />
           </div>
@@ -91,13 +105,33 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
           ) : null}
           <div className="update-list">
             {updateStatus?.components.length === 0 ? <p className="muted">Nenhum componente retornado pelo Update Manager.</p> : null}
-            {orderedComponents.map((component) => (
-              <div key={component.name} className={`update-row ${component.status}`}>
+            {orderedComponents.map((component) => {
+              const componentBusy = pendingUpdateAction?.target === component.name || Boolean(updateStatus?.busy);
+              return (
+              <div key={component.name} className={`update-row ${component.status} ${component.alert_silenced ? "silenced" : ""}`}>
+                {componentBusy && pendingUpdateAction?.target === component.name ? (
+                  <div className="update-row-busy" role="status">
+                    <Hourglass size={14} />
+                    {pendingUpdateAction.kind === "silence" ? "Silenciando versão..." : "Reativando alerta..."}
+                  </div>
+                ) : null}
                 <div className="update-main">
                   <div className="update-component-copy">
                     <strong className="update-title">
                       {React.createElement(updateStatusIcon(component.status), { size: 16 })}
-                      {component.title}
+                      <span>{component.title}</span>
+                      {component.repo_url ? (
+                        <a
+                          className="update-repo-link"
+                          href={component.repo_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`Abrir repositório Git de ${component.title}`}
+                          title={`Abrir repositório Git de ${component.title}`}
+                        >
+                          <Info size={13} />
+                        </a>
+                      ) : null}
                     </strong>
                     <span>
                       {component.current_version ?? "-"} {component.remote_version ? `→ ${component.remote_version}` : ""}
@@ -106,12 +140,28 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                       {component.configured_type} · behind {component.commits_behind_count} · packages {component.package_count}
                     </small>
                   </div>
-                  <span className={`status-pill ${component.status}`}>{formatUpdateStatus(component.status)}</span>
+                  <span className={`status-pill ${component.alert_silenced ? "silenced" : component.status}`}>
+                    {component.alert_silenced ? "versão silenciada" : formatUpdateStatus(component.status)}
+                  </span>
                 </div>
+                {component.alert_silenced ? (
+                  <small className="update-silenced-note">
+                    Alerta e contadores suspensos para esta versão. As ações continuam disponíveis.
+                  </small>
+                ) : null}
                 {component.warnings.length || component.anomalies.length ? (
                   <small className="update-warning">
                     {[...component.warnings, ...component.anomalies].join(" · ")}
                   </small>
+                ) : null}
+                {component.requires_confirmation ? (
+                  <div className="update-risk">
+                    <AlertTriangle size={15} />
+                    <span>{component.risk_reason ?? "Atualizacao de risco alto exige confirmacao explicita."}</span>
+                  </div>
+                ) : null}
+                {component.can_rollback ? (
+                  <small className="update-rollback-note">Rollback disponível para {component.rollback_version}.</small>
                 ) : null}
                 <div className="update-actions">
                   <button
@@ -120,17 +170,17 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                     onClick={() => void refreshUpdateStatus(component.name)}
                     disabled={!selectedPrinterId || loading || updateStatus?.busy}
                   >
-                    <RefreshCw size={15} />
+                    <RefreshCw className={componentBusy ? "button-busy-icon" : undefined} size={15} />
                     Reanalisar
                   </button>
                   {component.can_update ? (
                     <button
                       type="button"
-                      className="primary-button"
+                      className="update-run-button"
                       onClick={() => openUpdateDialog(component.name)}
                       disabled={!selectedPrinterId || loading || updateStatus?.busy}
                     >
-                      <RefreshCw size={15} />
+                      <ArrowUpCircle size={15} />
                       Atualizar
                     </button>
                   ) : (
@@ -139,9 +189,42 @@ export function UpdatesScreen(props: UpdatesScreenProps) {
                       Atualizado
                     </button>
                   )}
+                  {component.can_rollback ? (
+                    <button
+                      type="button"
+                      className="danger-button"
+                      onClick={() => openRollbackDialog(component)}
+                      disabled={!selectedPrinterId || loading || updateStatus?.busy}
+                    >
+                      <RefreshCw size={15} />
+                      Rollback
+                    </button>
+                  ) : null}
+                  {component.alert_silenced ? (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => void clearUpdateAlertSilence(component)}
+                      disabled={!selectedPrinterId || loading || updateStatus?.busy}
+                    >
+                      {pendingUpdateAction?.kind === "clear_silence" && pendingUpdateAction.target === component.name ? <Hourglass className="button-busy-icon" size={15} /> : <AlertTriangle size={15} />}
+                      {pendingUpdateAction?.kind === "clear_silence" && pendingUpdateAction.target === component.name ? "Reativando..." : "Reativar alerta"}
+                    </button>
+                  ) : component.can_update || component.status === "warning" || component.warnings.length || component.anomalies.length ? (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => void silenceUpdateAlert(component)}
+                      disabled={!selectedPrinterId || loading || updateStatus?.busy}
+                    >
+                      {pendingUpdateAction?.kind === "silence" && pendingUpdateAction.target === component.name ? <Hourglass className="button-busy-icon" size={15} /> : <AlertTriangle size={15} />}
+                      {pendingUpdateAction?.kind === "silence" && pendingUpdateAction.target === component.name ? "Silenciando..." : "Silenciar"}
+                    </button>
+                  ) : null}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </article>
 

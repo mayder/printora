@@ -59,6 +59,30 @@ def test_read_only_audit_flags_dirty_repo() -> None:
     assert result["findings"][0]["id"] == "repo_klipper_needs_attention"
 
 
+def test_read_only_audit_ignores_silenced_update_manager_version() -> None:
+    result = build_read_only_audit(
+        printer_info={"state": "ready", "software_version": "v0.13.0"},
+        server_info={
+            "klippy_connected": True,
+            "klippy_state": "ready",
+            "failed_components": [],
+            "warnings": [],
+        },
+        update_status={
+            "version_info": {
+                "klipper": {
+                    "is_dirty": False,
+                    "commits_behind_count": 2,
+                    "printora_alert_silenced": True,
+                }
+            }
+        },
+    )
+
+    assert result["counts"]["monitorar"] == 0
+    assert result["summary"] == "Ambiente sem problemas críticos nos dados disponíveis."
+
+
 def test_printer_read_only_audit_uses_last_snapshot_when_moonraker_is_offline(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("PRINTORA_REQUEST_TIMEOUT_SECONDS", "0.05")

@@ -1,4 +1,4 @@
-import { Activity, FileText, Home, Info, ListChecks, Printer, RefreshCw, Scale, Settings, SlidersHorizontal, Wrench, Zap } from "lucide-react";
+import { Activity, FileText, Home, Info, Printer, RefreshCw, Scale, Settings, SlidersHorizontal, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
@@ -6,7 +6,6 @@ export type AppSection =
   | "printers"
   | "monitoring"
   | "updates"
-  | "calibration"
   | "tests"
   | "firmware"
   | "maintenance"
@@ -51,18 +50,11 @@ export const appSections: Array<{
     purpose: "Veja componentes desatualizados e execute updates pelo Moonraker, no mesmo modelo do Mainsail.",
   },
   {
-    key: "calibration",
+    key: "tests",
     icon: SlidersHorizontal,
     label: "Calibração",
-    detail: "Z-offset, primeira camada e ajustes manuais.",
-    purpose: "Registre offsets, siga o wizard manual e compare variações por chapa, material e toolhead.",
-  },
-  {
-    key: "tests",
-    icon: ListChecks,
-    label: "Testes",
-    detail: "Centro de testes Voron e histórico de resultados.",
-    purpose: "Escolha um teste, revise a ajuda quando precisar e execute com confirmação presencial.",
+    detail: "Centro de calibração Voron, testes e histórico de resultados.",
+    purpose: "Escolha uma calibração, revise a ajuda quando precisar e execute ou registre com evidência.",
   },
   {
     key: "firmware",
@@ -110,14 +102,13 @@ export const appSections: Array<{
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Principal", sections: ["overview", "printers"] },
-  { title: "Impressora ativa", sections: ["monitoring", "updates", "calibration", "tests", "firmware", "maintenance"] },
+  { title: "Impressora ativa", sections: ["monitoring", "updates", "tests", "firmware", "maintenance"] },
   { title: "Diagnóstico", sections: ["reports", "settings"] },
 ];
 
 export const onlinePrinterSections = new Set<AppSection>([
   "monitoring",
   "updates",
-  "calibration",
   "tests",
   "firmware",
   "reports",
@@ -150,5 +141,6 @@ export function shouldRedirectSection(sectionKey: AppSection, printerAvailabilit
 export function getInitialSection(): AppSection {
   const section = new URLSearchParams(window.location.search).get("section") ?? window.location.hash.replace("#", "");
   if (section === "operation") return "monitoring";
+  if (section === "calibration") return "tests";
   return appSections.some((candidate) => candidate.key === section) ? (section as AppSection) : "overview";
 }

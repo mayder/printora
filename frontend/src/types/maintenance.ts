@@ -35,6 +35,12 @@ export type MaintenanceTaskRecord = {
   due_detail?: string | null;
   recommended_interval_kind?: "days" | "print_hours" | null;
   recommended_interval_value?: number | null;
+  maintenance_help?: {
+    how_to: string[];
+    why: string;
+    prevents: string[];
+    recommendation: string;
+  } | null;
 };
 
 export type MaintenanceSummary = {

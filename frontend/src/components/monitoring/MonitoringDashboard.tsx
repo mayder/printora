@@ -1,17 +1,20 @@
 import React from "react";
-import { Activity, AlertTriangle, Crosshair, Database, Gauge, Radio, RefreshCw, ShieldCheck, SlidersHorizontal, Thermometer, Wind, Zap } from "lucide-react";
-import { FactGrid, LoadMeter, MonitorBadge, RadialProgress } from "./common";
-import { OperationActions } from "./OperationActions";
+import { Activity, AlertTriangle, Database, Gauge, Radio, RefreshCw, ShieldCheck, Thermometer, Zap } from "lucide-react";
+import { LoadMeter, MonitorBadge, RadialProgress } from "./common";
+import { MachinePanel, OperationActions } from "./OperationActions";
 import { TemperatureMonitor, buildTemperatureSeries } from "./temperature";
-import { buildExtruderFacts, buildToolheadFacts, canTone, formatCanAlert, formatDataState, formatDecision, formatOptional, formatTemperature, healthTone } from "./formatters";
+import { canTone, formatCanAlert, formatDataState, formatDecision, formatOptional, formatTemperature, healthTone } from "./formatters";
 import type { CanBusRecord, CanBusRecordComparison, CanBusSummary, HealthResponse } from "./types";
 import type {
   OperationAction,
   OperationActionExecutionAttempt,
   OperationActionPreview,
   OperationActionPreviewRecord,
+  OperationCapability,
   OperationStatusResponse,
 } from "../../types";
+
+type CapabilityStatus = OperationCapability["status"];
 
 export function MonitoringDashboard({
   selectedPrinterName,
@@ -28,10 +31,10 @@ export function MonitoringDashboard({
   canComparison,
   loading,
   onRefresh,
-  onLoadOfflineFixture,
   onCompareCan,
   onPreviewAction,
   onPreflightAction,
+  onExecuteAction,
   onActionParameterChange,
   onExecutionPhraseChange,
   onValidateExecutionGate,
@@ -50,23 +53,30 @@ export function MonitoringDashboard({
   canComparison: CanBusRecordComparison | null;
   loading: boolean;
   onRefresh: () => void;
-  onLoadOfflineFixture: () => void | Promise<void>;
   onCompareCan: () => void;
-  onPreviewAction: (action: OperationAction) => void | Promise<void>;
-  onPreflightAction: (action: OperationAction) => void | Promise<void>;
+  onPreviewAction: (action: OperationAction, parameters?: Record<string, string | number>) => void | Promise<void>;
+  onPreflightAction: (action: OperationAction, parameters?: Record<string, string | number>) => void | Promise<void>;
+  onExecuteAction: (action: OperationAction, parameters?: Record<string, string | number>) => void | Promise<void>;
   onActionParameterChange: (actionId: string, parameterName: string, value: string) => void;
   onExecutionPhraseChange: (value: string) => void;
   onValidateExecutionGate: () => void | Promise<void>;
 }) {
+  const [capabilityModalStatus, setCapabilityModalStatus] = React.useState<CapabilityStatus | null>(null);
   const temperatureSeries = buildTemperatureSeries(operationStatus?.temperature_history ?? [], operationStatus?.temperatures ?? []);
-  const fans = operationStatus?.miscellaneous.fans ?? [];
   const latestCanRecords = canRecords.slice(0, 4);
   const hotend = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("extruder"));
   const bed = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("bed"));
   const actions = operationStatus?.actions ?? [];
   const capabilities = operationStatus?.capabilities ?? [];
-  const toolheadFacts = buildToolheadFacts(operationStatus);
-  const extruderFacts = buildExtruderFacts(operationStatus);
+  const selectedCapabilities = capabilityModalStatus ? capabilities.filter((capability) => capability.status === capabilityModalStatus) : [];
+  const findAction = (actionId: string) => actions.find((action) => action.id === actionId) ?? null;
+  const currentOperationValue = (actionId: string, parameterName: string, fallback: string | number) => operationActionParameters[actionId]?.[parameterName] ?? String(fallback);
+  const executeActionById = (actionId: string, parameters: Record<string, string | number> = {}) => {
+    const action = findAction(actionId);
+    if (!action) return;
+    Object.entries(parameters).forEach(([name, value]) => onActionParameterChange(actionId, name, String(value)));
+    void onExecuteAction(action, parameters);
+  };
 
   return (
     <article className="panel wide panel-section panel-monitoring monitoring-dashboard">
@@ -78,12 +88,8 @@ export function MonitoringDashboard({
         <div className="panel-actions">
           <span className="live-pill">Atualiza sozinho</span>
           <button type="button" className="secondary-button" onClick={onRefresh} disabled={loading}>
-            <RefreshCw size={15} />
+            <RefreshCw className={loading ? "button-busy-icon" : undefined} size={15} />
             Atualizar agora
-          </button>
-          <button type="button" className="secondary-button" onClick={() => void onLoadOfflineFixture()} disabled={loading}>
-            <Database size={15} />
-            Exemplo offline
           </button>
         </div>
       </div>
@@ -121,43 +127,83 @@ export function MonitoringDashboard({
         </div>
       ) : null}
 
-      <div className="monitor-grid">
-        <section className="monitor-card monitor-card-wide">
+      <div className="monitor-primary-grid">
+        <section className="monitor-card temperature-monitor-card">
           <div className="monitor-card-title">
             <Thermometer size={18} />
             <h3>Temperaturas</h3>
           </div>
-          <TemperatureMonitor temperatures={operationStatus?.temperatures ?? []} series={temperatureSeries} />
+          <TemperatureMonitor
+            temperatures={operationStatus?.temperatures ?? []}
+            series={temperatureSeries}
+            actions={actions}
+            loading={loading}
+            onParameterChange={onActionParameterChange}
+            onExecute={onExecuteAction}
+          />
         </section>
 
-        <section className="monitor-card">
+        <div className="monitor-primary-side">
+          <section className="monitor-card print-monitor-card">
+            <div className="monitor-card-title">
+              <Gauge size={18} />
+              <h3>Impressão</h3>
+            </div>
+            <div className="print-monitor-layout">
+              <RadialProgress value={operationStatus?.miscellaneous.progress ?? 0} />
+              <div className="monitor-facts print-monitor-facts">
+                <span>Estado</span>
+                <strong>{operationStatus?.miscellaneous.print_state || "-"}</strong>
+                <span>Camada</span>
+                <strong>{formatLayer(operationStatus?.miscellaneous.current_layer, operationStatus?.miscellaneous.total_layers)}</strong>
+                <span>Tempo</span>
+                <strong>{formatDuration(operationStatus?.miscellaneous.print_duration)}</strong>
+                <span>Arquivo</span>
+                <strong>{operationStatus?.miscellaneous.filename || "-"}</strong>
+                <span>Mensagem</span>
+                <strong>{operationStatus?.miscellaneous.message || "-"}</strong>
+              </div>
+            </div>
+          </section>
+
+          <MachinePanel
+            disabled={loading}
+            status={operationStatus}
+            setVelocityLimit={findAction("set_velocity_limit")}
+            currentValue={currentOperationValue}
+            onChange={onActionParameterChange}
+            onExecute={executeActionById}
+          />
+        </div>
+      </div>
+
+      <div className="monitor-grid">
+        <section className="monitor-card monitor-card-wide operation-command-center">
           <div className="monitor-card-title">
-            <Crosshair size={18} />
-            <h3>Toolhead</h3>
+            <ShieldCheck size={18} />
+            <h3>Ações protegidas</h3>
           </div>
-          <FactGrid items={toolheadFacts} />
+          <OperationActions
+            actions={actions}
+            capabilities={capabilities}
+            operationStatus={operationStatus}
+            values={operationActionParameters}
+            preview={operationActionPreview}
+            executionAttempt={operationExecutionAttempt}
+            confirmationPhrase={operationExecutionPhrase}
+            loading={loading}
+            canSendCommands={Boolean(operationStatus?.can_send_commands)}
+            onPreview={onPreviewAction}
+            onPreflight={onPreflightAction}
+            onExecute={onExecuteAction}
+            onParameterChange={onActionParameterChange}
+            onPhraseChange={onExecutionPhraseChange}
+            onValidateExecutionGate={onValidateExecutionGate}
+          />
         </section>
 
-        <section className="monitor-card">
-          <div className="monitor-card-title">
-            <SlidersHorizontal size={18} />
-            <h3>Extrusor</h3>
-          </div>
-          <FactGrid items={extruderFacts} />
-        </section>
-
-        <section className="monitor-card">
-          <div className="monitor-card-title">
-            <Gauge size={18} />
-            <h3>Impressão</h3>
-          </div>
-          <RadialProgress value={operationStatus?.miscellaneous.progress ?? 0} />
-          <div className="monitor-facts">
-            <span>Arquivo</span>
-            <strong>{operationStatus?.miscellaneous.filename || "-"}</strong>
-            <span>Mensagem</span>
-            <strong>{operationStatus?.miscellaneous.message || "-"}</strong>
-          </div>
+        <section className="monitor-card operation-capability-summary-card">
+          <CapabilitySummary capabilities={capabilities} actions={actions} canSendCommands={Boolean(operationStatus?.can_send_commands)} onOpen={setCapabilityModalStatus} />
         </section>
 
         <section className="monitor-card">
@@ -169,27 +215,6 @@ export function MonitoringDashboard({
             {operationStatus?.system_loads.length ? null : <p className="muted">Sem métricas do host nesta leitura.</p>}
             {operationStatus?.system_loads.map((metric) => (
               <LoadMeter key={metric.label} metric={metric} />
-            ))}
-          </div>
-        </section>
-
-        <section className="monitor-card">
-          <div className="monitor-card-title">
-            <Wind size={18} />
-            <h3>Fans</h3>
-          </div>
-          <div className="fan-monitor-list">
-            {fans.length === 0 ? <p className="muted">Nenhum fan retornado pelo Moonraker.</p> : null}
-            {fans.map((fan) => (
-              <LoadMeter
-                key={fan.name}
-                metric={{
-                  label: fan.name,
-                  value: typeof fan.speed === "number" ? fan.speed * 100 : null,
-                  unit: "%",
-                }}
-                detail={`RPM ${fan.rpm ?? "-"}`}
-              />
             ))}
           </div>
         </section>
@@ -231,31 +256,113 @@ export function MonitoringDashboard({
             ))}
           </div>
         </section>
-
-        <section className="monitor-card monitor-card-wide operation-command-center">
-          <div className="monitor-card-title">
-            <ShieldCheck size={18} />
-            <h3>Ações protegidas</h3>
-          </div>
-          <OperationActions
-            actions={actions}
-            capabilities={capabilities}
-            values={operationActionParameters}
-            preview={operationActionPreview}
-            executionAttempt={operationExecutionAttempt}
-            executionHistory={operationExecutionHistory}
-            actionHistory={operationActionHistory}
-            confirmationPhrase={operationExecutionPhrase}
-            loading={loading}
-            canSendCommands={Boolean(operationStatus?.can_send_commands)}
-            onPreview={onPreviewAction}
-            onPreflight={onPreflightAction}
-            onParameterChange={onActionParameterChange}
-            onPhraseChange={onExecutionPhraseChange}
-            onValidateExecutionGate={onValidateExecutionGate}
-          />
-        </section>
       </div>
+      {capabilityModalStatus ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Detalhes dos comandos ${capabilityStatusLabel(capabilityModalStatus)}`}>
+          <div className="modal-card operation-capability-modal-card">
+            <div className="modal-header">
+              <div>
+                <h2>Comandos {capabilityStatusLabel(capabilityModalStatus)}</h2>
+                <p>{selectedCapabilities.length} item(ns) nesta classificação.</p>
+              </div>
+              <button type="button" className="secondary-button compact" onClick={() => setCapabilityModalStatus(null)}>
+                Fechar
+              </button>
+            </div>
+            <div className="operation-capability-modal-list">
+              {selectedCapabilities.map((capability) => (
+                <div key={capability.action_id} className={`operation-capability-modal-row ${capability.status}`}>
+                  <strong>{formatCapabilityActionLabel(capability, actions)}</strong>
+                  <code>{capability.action_id}</code>
+                  <span>{capability.reason}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </article>
   );
+}
+
+function CapabilitySummary({
+  capabilities,
+  actions,
+  canSendCommands,
+  onOpen,
+}: {
+  capabilities: OperationCapability[];
+  actions: OperationAction[];
+  canSendCommands: boolean;
+  onOpen: (status: CapabilityStatus) => void;
+}) {
+  const supportedCount = capabilities.filter((capability) => capability.status === "supported").length;
+  const blockedCount = capabilities.filter((capability) => capability.status === "blocked").length;
+  const unknownCount = capabilities.filter((capability) => capability.status === "unknown").length;
+
+  return (
+    <div className="operation-actions-summary">
+      <div>
+        <strong>Comandos em modo protegido</strong>
+        <span>{canSendCommands ? "Execução depende de confirmação." : "Prévia e validação disponíveis. Execução real bloqueada."}</span>
+      </div>
+      <div className="operation-capability-chips" aria-label="Resumo de compatibilidade">
+        <CapabilityChip status="supported" count={supportedCount} label="suportadas" onOpen={onOpen} />
+        <CapabilityChip status="blocked" count={blockedCount} label="bloqueadas" onOpen={onOpen} />
+        <CapabilityChip status="unknown" count={unknownCount} label="indefinidas" onOpen={onOpen} />
+      </div>
+    </div>
+  );
+}
+
+function CapabilityChip({
+  status,
+  count,
+  label,
+  onOpen,
+}: {
+  status: CapabilityStatus;
+  count: number;
+  label: string;
+  onOpen: (status: CapabilityStatus) => void;
+}) {
+  const disabled = count === 0;
+  return (
+    <button
+      type="button"
+      className={`operation-capability-chip ${status}`}
+      disabled={disabled}
+      onClick={() => onOpen(status)}
+      aria-label={disabled ? `${count} ${label}` : `Ver ${count} comandos ${label}`}
+    >
+      {count} {label}
+    </button>
+  );
+}
+
+function capabilityStatusLabel(status: CapabilityStatus) {
+  if (status === "supported") return "suportados";
+  if (status === "blocked") return "bloqueados";
+  return "indefinidos";
+}
+
+function formatCapabilityActionLabel(capability: OperationCapability, actions: OperationAction[]) {
+  return actions.find((action) => action.id === capability.action_id)?.label ?? capability.action_id.replaceAll("_", " ");
+}
+
+function formatLayer(current?: number | null, total?: number | null) {
+  if (typeof current === "number" && typeof total === "number") return `${current} / ${total}`;
+  if (typeof current === "number") return `${current} / -`;
+  if (typeof total === "number") return `- / ${total}`;
+  return "-";
+}
+
+function formatDuration(seconds?: number | null) {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) return "-";
+  const totalSeconds = Math.round(seconds);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const remainingSeconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+  return `${minutes}m ${String(remainingSeconds).padStart(2, "0")}s`;
 }

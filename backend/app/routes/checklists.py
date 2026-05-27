@@ -49,10 +49,14 @@ async def printer_post_update_checklist(printer_id: int) -> dict[str, Any]:
         latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
         if latest_snapshot is not None:
             payload = latest_snapshot.payload
+            update_status = apply_update_alert_silences(
+                _dict(payload.get("update_status")),
+                get_update_alert_silence_repository(settings).list_for_printer(printer.id),
+            )
             return build_post_update_checklist(
                 _dict(payload.get("printer_info")),
                 _dict(payload.get("server_info")),
-                _dict(payload.get("update_status")),
+                update_status,
                 data_state="last_snapshot",
                 source=f"snapshot:{latest_snapshot.id}",
                 error=str(exc),
@@ -62,6 +66,10 @@ async def printer_post_update_checklist(printer_id: int) -> dict[str, Any]:
             source=printer.moonraker_url,
             error=str(exc),
         )
+    update_status = apply_update_alert_silences(
+        update_status,
+        get_update_alert_silence_repository(settings).list_for_printer(printer.id),
+    )
     return build_post_update_checklist(
         printer_info,
         server_info,

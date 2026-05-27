@@ -2,6 +2,7 @@ import React from "react";
 import {
   Activity,
   AlertTriangle,
+  ArrowUpCircle,
   Bell,
   Camera,
   CalendarDays,
@@ -50,10 +51,12 @@ import { useSelfUpdate } from "./domains/useSelfUpdate";
 import { useSettings } from "./domains/useSettings";
 import { useUpdates } from "./domains/useUpdates";
 import type { PrinterAvailability } from "../app/navigation";
+import type { ConfirmActionOptions, ConfirmDialogState, ShowToastOptions, ToastRecord } from "../types";
 
 const icons = {
   Activity,
   AlertTriangle,
+  ArrowUpCircle,
   Bell,
   CalendarDays,
   Camera,
@@ -92,6 +95,17 @@ const icons = {
 export function usePrintoraApp() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = React.useState<ConfirmDialogState>({
+    open: false,
+    tone: "info",
+    title: "",
+    detail: "",
+    confirmLabel: "Confirmar",
+    cancelLabel: "Cancelar",
+  });
+  const [toasts, setToasts] = React.useState<ToastRecord[]>([]);
+  const confirmResolverRef = React.useRef<((confirmed: boolean) => void) | null>(null);
+  const toastIdRef = React.useRef(0);
 
   let operation: ReturnType<typeof useOperation>;
   let settings: ReturnType<typeof useSettings>;
@@ -100,6 +114,47 @@ export function usePrintoraApp() {
   let calibration: ReturnType<typeof useCalibration>;
   let maintenance: ReturnType<typeof useMaintenance>;
   let updates: ReturnType<typeof useUpdates>;
+
+  function confirmAction(options: ConfirmActionOptions): Promise<boolean> {
+    confirmResolverRef.current?.(false);
+    setConfirmDialog({
+      open: true,
+      tone: options.tone ?? "info",
+      title: options.title,
+      detail: options.detail,
+      evidence: options.evidence,
+      confirmLabel: options.confirmLabel ?? "Confirmar",
+      cancelLabel: options.cancelLabel ?? "Cancelar",
+    });
+    return new Promise((resolve) => {
+      confirmResolverRef.current = resolve;
+    });
+  }
+
+  function resolveConfirmDialog(confirmed: boolean) {
+    confirmResolverRef.current?.(confirmed);
+    confirmResolverRef.current = null;
+    setConfirmDialog((currentDialog) => ({ ...currentDialog, open: false }));
+  }
+
+  function showToast(options: ShowToastOptions) {
+    const id = toastIdRef.current + 1;
+    toastIdRef.current = id;
+    setToasts((currentToasts) => [
+      ...currentToasts,
+      {
+        id,
+        tone: options.tone ?? "info",
+        title: options.title,
+        detail: options.detail,
+      },
+    ].slice(-4));
+    window.setTimeout(() => dismissToast(id), 5000);
+  }
+
+  function dismissToast(toastId: number) {
+    setToasts((currentToasts) => currentToasts.filter((toast) => toast.id !== toastId));
+  }
 
   async function loadPrinterLocalContext(printerId: number) {
     await Promise.allSettled([
@@ -176,6 +231,8 @@ export function usePrintoraApp() {
     loadPrinterHealth: settings.loadPrinterHealth,
     setActiveSection: shell.setActiveSection,
     setAlertCenterOpen: shell.setAlertCenterOpen,
+    confirmAction,
+    showToast,
     setError,
     setLoading,
   });
@@ -199,15 +256,12 @@ export function usePrintoraApp() {
   }, []);
 
   React.useEffect(() => {
-    if (!printers.selectedPrinterId || !["calibration", "tests"].includes(shell.activeSection)) {
+    if (!printers.selectedPrinterId || shell.activeSection !== "tests") {
       return;
     }
     void calibration.loadCalibrationTests(printers.selectedPrinterId);
     void calibration.loadCalibrationRuns(printers.selectedPrinterId);
-    if (shell.activeSection === "calibration") {
-      void operation.loadOperationStatus(printers.selectedPrinterId);
-      void calibration.loadZOffsets(printers.selectedPrinterId);
-    }
+    void calibration.loadZOffsets(printers.selectedPrinterId);
   }, [shell.activeSection, printers.selectedPrinterId]);
 
   React.useEffect(() => {
@@ -276,16 +330,17 @@ export function usePrintoraApp() {
   const bedTemperature = operation.operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("bed"));
   const topbarPrimaryAction = (() => {
     if (shell.activeSection === "printers") {
-      return { icon: Plus, label: "Adicionar", disabled: loading, run: printers.openCreatePrinterModal };
+      return { icon: Plus, label: "Adicionar", disabled: loading, busy: false, run: printers.openCreatePrinterModal };
     }
     if (shell.activeSection === "reports") {
-      return { icon: Camera, label: "Snapshot", disabled: !printers.selectedPrinterId || loading, run: reports.captureSnapshot };
+      return { icon: Camera, label: "Snapshot", disabled: !printers.selectedPrinterId || loading, busy: loading, run: reports.captureSnapshot };
     }
     if (shell.activeSection === "updates") {
       return {
         icon: RefreshCw,
         label: "Reanalisar",
         disabled: !printers.selectedPrinterId || loading || Boolean(updates.updateStatus?.busy),
+        busy: loading || Boolean(updates.updateStatus?.busy),
         run: () => updates.refreshUpdateStatus(),
       };
     }
@@ -294,19 +349,21 @@ export function usePrintoraApp() {
         icon: Settings,
         label: printers.selectedPrinter ? "Editar" : "Adicionar",
         disabled: loading,
+        busy: false,
         run: () => (printers.selectedPrinter ? printers.openEditPrinterModal(printers.selectedPrinter) : printers.openCreatePrinterModal()),
       };
     }
     if (shell.activeSection === "about") {
-      return { icon: ShieldCheck, label: "Licença", disabled: loading, run: () => shell.setActiveSection("license") };
+      return { icon: ShieldCheck, label: "Licença", disabled: loading, busy: false, run: () => shell.setActiveSection("license") };
     }
     if (shell.activeSection === "license") {
-      return { icon: Info, label: "Sobre", disabled: loading, run: () => shell.setActiveSection("about") };
+      return { icon: Info, label: "Sobre", disabled: loading, busy: false, run: () => shell.setActiveSection("about") };
     }
     return {
       icon: RefreshCw,
       label: loading ? "Atualizando" : "Atualizar",
       disabled: loading || (!printers.selectedPrinterId && shell.activeSection !== "overview"),
+      busy: loading,
       run: () => (printers.selectedPrinterId ? printers.loadSelectedPrinterStatus() : loadStatus()),
     };
   })();
@@ -332,7 +389,9 @@ export function usePrintoraApp() {
     alertBlockerCount,
     alertWarningCount,
     bedTemperature,
+    confirmDialog,
     displayDecision,
+    dismissToast,
     error,
     handleAlertCenterAction: updates.handleAlertCenterAction,
     health: liveOperationHealth,
@@ -349,11 +408,13 @@ export function usePrintoraApp() {
     primaryRiskItem,
     riskClass,
     riskLabel,
+    resolveConfirmDialog,
     setError,
     setLoading,
     topbarAlertTone,
     topbarPrimaryAction,
     totalPrintHours,
+    toasts,
   };
 
   return {
@@ -377,6 +438,8 @@ export function usePrintoraApp() {
     theme: shell.theme,
     topbarAlertTone,
     topbarPrimaryAction,
+    toasts,
+    dismissToast,
     visibleNavGroups: shell.visibleNavGroups,
   };
 }

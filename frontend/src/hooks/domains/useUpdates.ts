@@ -3,9 +3,19 @@ import { updatesApi } from "../../services/updatesApi";
 import { readApiError } from "../../services/http";
 import { delay, isUpdateTargetConfirmedUpdated, moonrakerWebsocketUrl, parseMoonrakerUpdateMessage } from "../../utils/formatters";
 import type { PrinterRecord, UpdateActionResponse, UpdateDialogState, UpdateLogEntry } from "../../types";
-import type { AlertCenterItem, UpdateStatusResponse } from "../../alertCenter";
+import type { ConfirmActionOptions, ShowToastOptions } from "../../types";
+import type { AlertCenterItem, UpdateComponent, UpdateStatusResponse } from "../../alertCenter";
 import type { SetActiveSection, SetError, SetLoading } from "./shared";
 import { unknownErrorMessage } from "./shared";
+
+const RISK_UPDATE_CONFIRMATION_PHRASE = "ATUALIZAR COM RISCO";
+const ROLLBACK_CONFIRMATION_PHRASE = "ROLLBACK UPDATE";
+const UPDATE_ALERT_ACTION_TIMEOUT_MS = 20000;
+
+type PendingUpdateAction = {
+  kind: "silence" | "clear_silence";
+  target: string;
+} | null;
 
 type UseUpdatesOptions = {
   selectedPrinter: PrinterRecord | undefined;
@@ -16,6 +26,8 @@ type UseUpdatesOptions = {
   loadPrinterHealth: (printerId: number) => Promise<void>;
   setActiveSection: SetActiveSection;
   setAlertCenterOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  confirmAction: (options: ConfirmActionOptions) => Promise<boolean>;
+  showToast: (options: ShowToastOptions) => void;
   setError: SetError;
   setLoading: SetLoading;
 };
@@ -30,6 +42,8 @@ export function useUpdates(options: UseUpdatesOptions) {
     loadPrinterHealth,
     setActiveSection,
     setAlertCenterOpen,
+    confirmAction,
+    showToast,
     setError,
     setLoading,
   } = options;
@@ -37,6 +51,7 @@ export function useUpdates(options: UseUpdatesOptions) {
   const [updateActionResult, setUpdateActionResult] = React.useState<UpdateActionResponse | null>(null);
   const [updateDialog, setUpdateDialog] = React.useState<UpdateDialogState | null>(null);
   const [updateLogs, setUpdateLogs] = React.useState<UpdateLogEntry[]>([]);
+  const [pendingUpdateAction, setPendingUpdateAction] = React.useState<PendingUpdateAction>(null);
   const updateSocketRef = React.useRef<WebSocket | null>(null);
   const updateSocketCompleteRef = React.useRef(false);
   const updateLogIdRef = React.useRef(0);
@@ -70,6 +85,111 @@ export function useUpdates(options: UseUpdatesOptions) {
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
+      setLoading(false);
+    }
+  }
+
+  async function silenceUpdateAlert(component: UpdateComponent) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    const confirmed = await confirmAction({
+      tone: "warning",
+      title: "Silenciar versão",
+      detail: `Silenciar alertas desta versão de ${component.title}. O card continua com as ações disponíveis.`,
+      evidence: `${component.current_version ?? "-"} → ${component.remote_version ?? component.full_version ?? "-"}`,
+      confirmLabel: "Silenciar versão",
+    });
+    if (!confirmed) {
+      return;
+    }
+    setLoading(true);
+    setPendingUpdateAction({ kind: "silence", target: component.name });
+    setError(null);
+    setUpdateActionResult(null);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), UPDATE_ALERT_ACTION_TIMEOUT_MS);
+    try {
+      const response = await updatesApi.silence(selectedPrinterId, {
+        target: component.name,
+        current_version: component.current_version,
+        remote_version: component.remote_version,
+        full_version: component.full_version,
+        commits_behind_count: component.commits_behind_count,
+        package_count: component.package_count,
+        warnings: component.warnings,
+        anomalies: component.anomalies,
+        reason: "Usuário decidiu aguardar próxima versão.",
+      }, {
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        if (response.status === 405) {
+          throw new Error("Backend ainda não carregou a rota de silêncio. Reinicie o Printora e tente novamente.");
+        }
+        throw new Error(await readApiError(response));
+      }
+      await refreshPostUpdateContext(selectedPrinterId);
+      showToast({
+        tone: "success",
+        title: "Versão silenciada",
+        detail: "O alerta volta automaticamente quando surgir outra versão.",
+      });
+    } catch (err) {
+      const message = err instanceof DOMException && err.name === "AbortError"
+        ? "Tempo esgotado ao silenciar versão. Verifique se o backend respondeu e tente novamente."
+        : unknownErrorMessage(err);
+      setError(message);
+      showToast({ tone: "danger", title: "Falha ao silenciar versão", detail: message });
+    } finally {
+      window.clearTimeout(timeoutId);
+      setPendingUpdateAction(null);
+      setLoading(false);
+    }
+  }
+
+  async function clearUpdateAlertSilence(component: UpdateComponent) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setPendingUpdateAction({ kind: "clear_silence", target: component.name });
+    setError(null);
+    setUpdateActionResult(null);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), UPDATE_ALERT_ACTION_TIMEOUT_MS);
+    try {
+      const response = await updatesApi.clearSilence(selectedPrinterId, {
+        target: component.name,
+        current_version: component.current_version,
+        remote_version: component.remote_version,
+        full_version: component.full_version,
+        commits_behind_count: component.commits_behind_count,
+        package_count: component.package_count,
+        warnings: component.warnings,
+        anomalies: component.anomalies,
+      }, { signal: controller.signal });
+      if (!response.ok) {
+        if (response.status === 405) {
+          throw new Error("Backend ainda não carregou a rota de silêncio. Reinicie o Printora e tente novamente.");
+        }
+        throw new Error(await readApiError(response));
+      }
+      await refreshPostUpdateContext(selectedPrinterId);
+      showToast({
+        tone: "success",
+        title: "Alerta reativado",
+        detail: `${component.title} voltou a contar nos alertas ativos.`,
+      });
+    } catch (err) {
+      const message = err instanceof DOMException && err.name === "AbortError"
+        ? "Tempo esgotado ao reativar alerta. Verifique se o backend respondeu e tente novamente."
+        : unknownErrorMessage(err);
+      setError(message);
+      showToast({ tone: "danger", title: "Falha ao reativar alerta", detail: message });
+    } finally {
+      window.clearTimeout(timeoutId);
+      setPendingUpdateAction(null);
       setLoading(false);
     }
   }
@@ -137,12 +257,43 @@ export function useUpdates(options: UseUpdatesOptions) {
       return;
     }
     const selectedLabel = target === "all" ? "todos os componentes" : target;
+    const riskyComponents = riskyComponentsForTarget(target, updateStatus);
     setError(null);
     setUpdateActionResult(null);
     setUpdateLogs([]);
     updateSocketCompleteRef.current = false;
     updateLogIdRef.current = 0;
-    setUpdateDialog({ open: true, target, label: selectedLabel, phase: "confirm" });
+    setUpdateDialog({
+      open: true,
+      target,
+      label: selectedLabel,
+      action: "update",
+      phase: "confirm",
+      requiresConfirmation: riskyComponents.length > 0,
+      confirmationPhrase: "",
+      riskReason: riskyComponents.map((component) => `${component.title}: ${component.risk_reason ?? "risco operacional alto"}`).join(" "),
+    });
+  }
+
+  function openRollbackDialog(component: UpdateComponent) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setError(null);
+    setUpdateActionResult(null);
+    setUpdateLogs([]);
+    updateSocketCompleteRef.current = false;
+    updateLogIdRef.current = 0;
+    setUpdateDialog({
+      open: true,
+      target: component.name,
+      label: component.title,
+      action: "rollback",
+      phase: "confirm",
+      requiresConfirmation: true,
+      confirmationPhrase: "",
+      riskReason: `Voltar ${component.title} para ${component.rollback_version ?? "a versão anterior"} usando o rollback do Moonraker.`,
+    });
   }
 
   function closeUpdateSocket() {
@@ -226,7 +377,8 @@ export function useUpdates(options: UseUpdatesOptions) {
     setError(null);
     setUpdateActionResult(null);
     try {
-      const response = await updatesApi.run(selectedPrinterId, { target });
+      const confirmationPhrase = updateDialog?.target === target ? updateDialog.confirmationPhrase : "";
+      const response = await updatesApi.run(selectedPrinterId, { target, confirmation_phrase: confirmationPhrase });
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
@@ -266,6 +418,39 @@ export function useUpdates(options: UseUpdatesOptions) {
         setError(errorMessage);
         setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "failed" } : currentDialog));
       }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function runRollback(target: string) {
+    if (!selectedPrinterId || !selectedPrinter) {
+      return;
+    }
+    const confirmationPhrase = updateDialog?.target === target ? updateDialog.confirmationPhrase : "";
+    setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "running" } : currentDialog));
+    connectUpdateSocket(selectedPrinter);
+    appendUpdateLog("info", `Solicitando rollback de ${target}.`);
+    setLoading(true);
+    setError(null);
+    setUpdateActionResult(null);
+    try {
+      const response = await updatesApi.rollback(selectedPrinterId, { target, confirmation_phrase: confirmationPhrase });
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+      const actionResult = (await response.json()) as UpdateActionResponse;
+      setUpdateActionResult(actionResult);
+      appendUpdateLog("success", actionResult.message);
+      await delay(2500);
+      await refreshPostUpdateContext(selectedPrinterId);
+      setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "done" } : currentDialog));
+    } catch (err) {
+      const errorMessage = unknownErrorMessage(err);
+      appendUpdateLog("error", errorMessage);
+      setError(errorMessage);
+      await refreshPostUpdateContext(selectedPrinterId);
+      setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "failed" } : currentDialog));
     } finally {
       setLoading(false);
     }
@@ -319,10 +504,14 @@ export function useUpdates(options: UseUpdatesOptions) {
     connectUpdateSocket,
     handleAlertCenterAction,
     loadUpdateStatus,
+    openRollbackDialog,
     openUpdateDialog,
     refreshUpdateStatus,
+    silenceUpdateAlert,
+    clearUpdateAlertSilence,
     reloadUpdateStatusAfterUpdateError,
     runUpdate,
+    runRollback,
     setUpdateActionResult,
     setUpdateDialog,
     setUpdateLogs,
@@ -333,5 +522,17 @@ export function useUpdates(options: UseUpdatesOptions) {
     updateLogs,
     updateSocketRef,
     updateStatus,
+    pendingUpdateAction,
   };
+}
+
+function riskyComponentsForTarget(target: string, status: UpdateStatusResponse | null): UpdateComponent[] {
+  if (!status) {
+    return [];
+  }
+  const candidates =
+    target === "all"
+      ? status.components.filter((component) => component.can_update)
+      : status.components.filter((component) => component.name === target && component.can_update);
+  return candidates.filter((component) => component.requires_confirmation);
 }

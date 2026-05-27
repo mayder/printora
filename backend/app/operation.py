@@ -3,15 +3,15 @@ from typing import Any
 
 OPERATION_OBJECTS: dict[str, list[str]] = {
     "webhooks": ["state", "state_message"],
-    "print_stats": ["state", "filename", "total_duration", "print_duration", "filament_used"],
+    "print_stats": ["state", "filename", "total_duration", "print_duration", "filament_used", "message", "current_layer", "total_layer", "info"],
     "display_status": ["progress", "message"],
-    "toolhead": ["position", "homed_axes", "max_velocity", "max_accel", "estimated_print_time"],
+    "toolhead": ["position", "homed_axes", "max_velocity", "max_accel", "estimated_print_time", "axis_minimum", "axis_maximum"],
     "gcode_move": ["gcode_position", "speed_factor", "extrude_factor"],
     "extruder": ["temperature", "target", "power", "pressure_advance", "smooth_time"],
     "heater_bed": ["temperature", "target", "power"],
 }
 
-OPTIONAL_OPERATION_OBJECT_PREFIXES = ("fan", "heater_fan ", "controller_fan ", "temperature_sensor ", "heater_generic ")
+OPTIONAL_OPERATION_OBJECT_PREFIXES = ("fan", "fan_generic ", "heater_fan ", "controller_fan ", "temperature_sensor ", "heater_generic ")
 
 
 def build_operation_query_objects(available_objects: list[str]) -> dict[str, list[str]]:
@@ -21,7 +21,7 @@ def build_operation_query_objects(available_objects: list[str]) -> dict[str, lis
             continue
         if name.startswith(("temperature_sensor ", "heater_generic ")):
             objects[name] = ["temperature", "target", "power"]
-        elif name == "fan" or name.startswith(("fan ", "heater_fan ", "controller_fan ")):
+        elif name == "fan" or name.startswith(("fan ", "fan_generic ", "heater_fan ", "controller_fan ")):
             objects[name] = ["speed", "rpm"]
     return objects
 
@@ -41,11 +41,11 @@ def build_operation_status(
     connected = bool(server_info.get("klippy_connected", True))
 
     return {
-        "safe_mode": "read_only",
+        "safe_mode": "operation_ready",
         "data_state": "live",
         "connected": connected,
         "summary": _summary(connected, klipper_state, print_state),
-        "can_send_commands": False,
+        "can_send_commands": connected and klipper_state == "ready",
         "system_loads": _system_loads(server_info, system_info, proc_stats),
         "temperatures": _temperatures(status),
         "temperature_history": [],
@@ -93,6 +93,7 @@ def build_last_known_operation(snapshot) -> dict[str, Any]:
         {
             "data_state": "last_snapshot",
             "connected": False,
+            "can_send_commands": False,
             "summary": f"Último estado conhecido do snapshot {snapshot.created_at}.",
             "moonraker_url": payload.get("moonraker_url"),
             "actions": build_operation_actions(connected=False, print_state=""),
@@ -132,7 +133,7 @@ def build_operation_actions(*, connected: bool, print_state: str, objects: dict[
             {
                 **action,
                 "capability": capabilities.get(action["id"], {"status": "unknown", "reason": "Sem dados de objetos Klipper."}),
-                "enabled": False,
+                "enabled": connected and not printing and capabilities.get(action["id"], {}).get("status") == "supported",
                 "confirmation_required": True,
                 "block_reason": _operation_action_block_reason(connected, printing),
             }
@@ -159,6 +160,11 @@ def build_operation_capabilities(objects: dict[str, Any]) -> list[dict[str, str]
             "Objeto toolhead detectado." if "toolhead" in names else "Movimento XY depende da cinemática configurada.",
         ),
         _capability(
+            "move_absolute",
+            "supported" if "toolhead" in names else "unknown",
+            "Objeto toolhead detectado." if "toolhead" in names else "Movimento absoluto depende da cinemática configurada.",
+        ),
+        _capability(
             "move_z",
             "supported" if "toolhead" in names else "unknown",
             "Objeto toolhead detectado." if "toolhead" in names else "Movimento Z depende do eixo Z configurado.",
@@ -180,13 +186,33 @@ def build_operation_capabilities(objects: dict[str, Any]) -> list[dict[str, str]
         ),
         _capability(
             "set_fan",
-            "supported" if any(name == "fan" or name.startswith("fan ") for name in names) else "unknown",
-            "Fan padrão detectado." if any(name == "fan" or name.startswith("fan ") for name in names) else "Fan padrão não detectado nos dados conhecidos.",
+            "supported" if any("fan" in name for name in names) else "unknown",
+            "Fan detectado." if any("fan" in name for name in names) else "Fan não detectado nos dados conhecidos.",
         ),
         _capability(
             "set_led",
             "supported" if any(name.startswith(("led ", "neopixel ", "dotstar ", "pca9533 ", "pca9632 ")) for name in names) else "unknown",
             "Objeto LED detectado." if any(name.startswith(("led ", "neopixel ", "dotstar ", "pca9533 ", "pca9632 ")) for name in names) else "LED exige nome real do objeto Klipper.",
+        ),
+        _capability(
+            "set_speed_factor",
+            "supported" if "gcode_move" in names else "unknown",
+            "Objeto gcode_move detectado." if "gcode_move" in names else "Speed factor depende do estado gcode_move.",
+        ),
+        _capability(
+            "set_velocity_limit",
+            "supported" if "toolhead" in names else "unknown",
+            "Objeto toolhead detectado." if "toolhead" in names else "Limites de velocidade dependem do toolhead.",
+        ),
+        _capability(
+            "set_extrusion_factor",
+            "supported" if "gcode_move" in names else "unknown",
+            "Objeto gcode_move detectado." if "gcode_move" in names else "Extrusion factor depende do estado gcode_move.",
+        ),
+        _capability(
+            "set_pressure_advance",
+            "supported" if "extruder" in names else "unknown",
+            "Objeto extruder detectado." if "extruder" in names else "Pressure advance depende do extrusor configurado.",
         ),
     ]
 
@@ -203,25 +229,23 @@ def build_operation_action_preview(
         raise ValueError("unknown operation action")
     printing = print_state not in {"", "standby", "complete", "cancelled", "error"}
     clean_parameters = _normalize_action_parameters(action_id, parameters or {})
+    executable = connected and not printing
     return {
-        "safe_mode": "dry_run_only",
+        "safe_mode": "operation_action_preview",
         "action": {
             **action,
-            "enabled": False,
+            "enabled": executable,
             "confirmation_required": True,
             "block_reason": _operation_action_block_reason(connected, printing),
         },
         "parameters": clean_parameters,
         "expected_parameters": _operation_action_parameters(action_id),
         "command_preview": _operation_action_commands(action_id, clean_parameters),
-        "would_send_gcode": False,
-        "executable": False,
+        "would_send_gcode": executable,
+        "executable": executable,
         "confirmation_phrase": f"CONFIRM_{action_id.upper()}",
-        "blockers": [
-            _operation_action_block_reason(connected, printing),
-            "Execução real de ação operacional ainda não implementada.",
-        ],
-        "rollback_plan": "Nenhum rollback necessário: este preview não chama Moonraker e não envia G-code.",
+        "blockers": [] if executable else [_operation_action_block_reason(connected, printing)],
+        "rollback_plan": "Ação operacional enviada por G-code. Para rollback, pare a impressora pelo Mainsail/Klipper se houver movimento inesperado e zere alvos/fans quando aplicável.",
     }
 
 
@@ -243,26 +267,30 @@ def build_operation_action_preflight(
     klipper_state = _text(preflight.get("klipper_state"))
     klippy_state = _text(preflight.get("klippy_state"))
     blockers = _operation_action_preflight_blockers(preflight, capability, klipper_state, klippy_state)
+    axis_blocker = _axis_limit_blocker(action_id, preview["parameters"], preflight)
+    if axis_blocker:
+        blockers.append(axis_blocker)
     return {
-        "safe_mode": "operation_action_preflight_read_only",
+        "safe_mode": "operation_action_preflight",
         "action": {
             **preview["action"],
             "capability": capability,
-            "block_reason": blockers[0] if blockers else "Bloqueado: execução real ainda não liberada.",
+            "enabled": not blockers,
+            "block_reason": blockers[0] if blockers else "",
         },
         "parameters": preview["parameters"],
         "expected_parameters": preview["expected_parameters"],
         "command_preview": preview["command_preview"],
         "preflight": preflight,
         "capability": capability,
-        "would_send_gcode": False,
-        "executable": False,
-        "can_execute": False,
+        "would_send_gcode": not blockers,
+        "executable": not blockers,
+        "can_execute": not blockers,
         "confirmation_phrase": preview["confirmation_phrase"],
-        "blockers": blockers or ["Bloqueado: execução real de ação operacional ainda não implementada."],
+        "blockers": blockers,
         "rollback_plan": [
-            "Nenhum rollback necessário: este preflight não chama endpoint de execução do Moonraker.",
-            "Execução real futura deve registrar comando enviado, resposta do Moonraker e estado posterior.",
+            "Ação operacional enviada por G-code via Moonraker.",
+            "Se algo sair do esperado, use Emergency Stop no Mainsail/Klipper e zere alvos/fans quando aplicável.",
         ],
     }
 
@@ -298,6 +326,7 @@ def build_offline_fixture_operation() -> dict[str, Any]:
         {
             "data_state": "fixture",
             "connected": False,
+            "can_send_commands": False,
             "moonraker_url": "fixture://voron-offline",
             "summary": "Exemplo offline para validar a tela sem impressora ligada.",
             "actions": build_operation_actions(connected=False, print_state=""),
@@ -311,12 +340,17 @@ def _operation_action_catalog() -> list[dict[str, Any]]:
         {"id": "home_xyz", "group": "movimento", "label": "Home XYZ", "command": "G28", "risk": "move_toolhead", "compatibility": ["Klipper padrão com eixos configurados"]},
         {"id": "quad_gantry_level", "group": "movimento", "label": "QGL", "command": "QUAD_GANTRY_LEVEL", "risk": "move_toolhead", "compatibility": ["requer macro/comando QUAD_GANTRY_LEVEL"]},
         {"id": "move_xy", "group": "movimento", "label": "Mover XY", "command": "G0 X/Y", "risk": "move_toolhead", "compatibility": ["Klipper padrão com cinemática XY"]},
+        {"id": "move_absolute", "group": "movimento", "label": "Mover posição", "command": "G0 X/Y/Z", "risk": "move_toolhead", "compatibility": ["Klipper padrão com cinemática configurada"]},
         {"id": "move_z", "group": "movimento", "label": "Mover Z", "command": "G0 Z", "risk": "move_z", "compatibility": ["Klipper padrão com eixo Z"]},
         {"id": "extrude", "group": "extrusão", "label": "Extrudar", "command": "G1 E", "risk": "extrude_filament", "compatibility": ["extrusor configurado", "hotend aquecido para extrusão real"]},
         {"id": "set_hotend_temp", "group": "temperatura", "label": "Hotend", "command": "SET_HEATER_TEMPERATURE HEATER=extruder", "risk": "heat_toolhead", "compatibility": ["heater chamado extruder"]},
         {"id": "set_bed_temp", "group": "temperatura", "label": "Mesa", "command": "SET_HEATER_TEMPERATURE HEATER=heater_bed", "risk": "heat_bed", "compatibility": ["heater chamado heater_bed"]},
         {"id": "set_fan", "group": "fan", "label": "Fan", "command": "M106/M107", "risk": "change_fan", "compatibility": ["fan de peça padrão M106/M107"]},
         {"id": "set_led", "group": "led", "label": "LED", "command": "SET_LED", "risk": "change_led", "compatibility": ["requer LED Klipper informado no parâmetro led_name"]},
+        {"id": "set_speed_factor", "group": "movimento", "label": "Speed factor", "command": "M220", "risk": "change_speed_factor", "compatibility": ["gcode_move disponível"]},
+        {"id": "set_velocity_limit", "group": "movimento", "label": "Limites da máquina", "command": "SET_VELOCITY_LIMIT", "risk": "change_velocity_limit", "compatibility": ["toolhead disponível"]},
+        {"id": "set_extrusion_factor", "group": "extrusão", "label": "Extrusion factor", "command": "M221", "risk": "change_extrusion_factor", "compatibility": ["gcode_move disponível"]},
+        {"id": "set_pressure_advance", "group": "extrusão", "label": "Pressure advance", "command": "SET_PRESSURE_ADVANCE", "risk": "change_pressure_advance", "compatibility": ["extrusor configurado"]},
     ]
 
 
@@ -335,16 +369,35 @@ def _operation_action_parameters(action_id: str) -> list[dict[str, Any]]:
             {"name": "distance_mm", "type": "number", "default": 5, "min": -10, "max": 10},
             {"name": "feedrate", "type": "number", "default": 1200, "min": 120, "max": 3000},
         ],
+        "move_absolute": [
+            {"name": "axis", "type": "enum", "values": ["X", "Y", "Z"], "default": "X"},
+            {"name": "position_mm", "type": "number", "default": 0, "min": -1000, "max": 1000},
+            {"name": "feedrate", "type": "number", "default": 6000, "min": 120, "max": 12000},
+        ],
         "extrude": [
             {"name": "length_mm", "type": "number", "default": 5, "min": -10, "max": 50},
             {"name": "feedrate", "type": "number", "default": 300, "min": 60, "max": 1200},
         ],
         "set_hotend_temp": [{"name": "temperature", "type": "number", "default": 0, "min": 0, "max": 300}],
         "set_bed_temp": [{"name": "temperature", "type": "number", "default": 0, "min": 0, "max": 130}],
-        "set_fan": [{"name": "speed_percent", "type": "number", "default": 0, "min": 0, "max": 100}],
+        "set_fan": [
+            {"name": "fan_name", "type": "text", "default": ""},
+            {"name": "speed_percent", "type": "number", "default": 0, "min": 0, "max": 100},
+        ],
         "set_led": [
             {"name": "led_name", "type": "text", "default": ""},
             {"name": "brightness_percent", "type": "number", "default": 0, "min": 0, "max": 100},
+        ],
+        "set_speed_factor": [{"name": "speed_percent", "type": "number", "default": 100, "min": 1, "max": 300}],
+        "set_velocity_limit": [
+            {"name": "velocity", "type": "number", "default": 350, "min": 1, "max": 1000},
+            {"name": "accel", "type": "number", "default": 10000, "min": 1, "max": 100000},
+            {"name": "square_corner_velocity", "type": "number", "default": 5, "min": 0, "max": 100},
+        ],
+        "set_extrusion_factor": [{"name": "extrusion_percent", "type": "number", "default": 100, "min": 1, "max": 300}],
+        "set_pressure_advance": [
+            {"name": "advance", "type": "number", "default": 0, "min": 0, "max": 2},
+            {"name": "smooth_time", "type": "number", "default": 0.04, "min": 0, "max": 1},
         ],
     }
     return parameters.get(action_id, [])
@@ -360,6 +413,10 @@ def _operation_action_commands(action_id: str, parameters: dict[str, Any]) -> li
         return ["G91", f"G0 {axis}{_number(parameters.get('distance_mm'), 10)} F{_number(parameters.get('feedrate'), 6000)}", "G90"]
     if action_id == "move_z":
         return ["G91", f"G0 Z{_number(parameters.get('distance_mm'), 5)} F{_number(parameters.get('feedrate'), 1200)}", "G90"]
+    if action_id == "move_absolute":
+        axis = parameters.get("axis") if parameters.get("axis") in {"X", "Y", "Z"} else "X"
+        default_feedrate = 1200 if axis == "Z" else 6000
+        return ["G90", f"G0 {axis}{_number(parameters.get('position_mm'), 0)} F{_number(parameters.get('feedrate'), default_feedrate)}"]
     if action_id == "extrude":
         return ["M83", f"G1 E{_number(parameters.get('length_mm'), 5)} F{_number(parameters.get('feedrate'), 300)}", "M82"]
     if action_id == "set_hotend_temp":
@@ -367,10 +424,27 @@ def _operation_action_commands(action_id: str, parameters: dict[str, Any]) -> li
     if action_id == "set_bed_temp":
         return [f"SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={_number(parameters.get('temperature'), 0)}"]
     if action_id == "set_fan":
-        return [f"M106 S{round(_number(parameters.get('speed_percent'), 0) * 2.55)}"]
+        fan_name = _safe_gcode_identifier(_fan_config_name(str(parameters.get("fan_name") or "")))
+        speed_percent = _number(parameters.get("speed_percent"), 0)
+        if not fan_name or fan_name == "fan":
+            return [f"M106 S{round(speed_percent * 2.55)}"]
+        return [f"SET_FAN_SPEED FAN={fan_name} SPEED={speed_percent / 100:.2f}"]
     if action_id == "set_led":
         led_name = _safe_gcode_identifier(str(parameters.get("led_name") or "<led_name>"))
         return [f"SET_LED LED={led_name} WHITE={_number(parameters.get('brightness_percent'), 0) / 100:.2f}"]
+    if action_id == "set_speed_factor":
+        return [f"M220 S{_number(parameters.get('speed_percent'), 100)}"]
+    if action_id == "set_velocity_limit":
+        return [
+            "SET_VELOCITY_LIMIT "
+            f"VELOCITY={_number(parameters.get('velocity'), 350)} "
+            f"ACCEL={_number(parameters.get('accel'), 10000)} "
+            f"SQUARE_CORNER_VELOCITY={_number(parameters.get('square_corner_velocity'), 5)}"
+        ]
+    if action_id == "set_extrusion_factor":
+        return [f"M221 S{_number(parameters.get('extrusion_percent'), 100)}"]
+    if action_id == "set_pressure_advance":
+        return [f"SET_PRESSURE_ADVANCE ADVANCE={_number(parameters.get('advance'), 0)} SMOOTH_TIME={_number(parameters.get('smooth_time'), 0.04)}"]
     return []
 
 
@@ -393,6 +467,9 @@ def _normalize_action_parameters(action_id: str, parameters: dict[str, Any]) -> 
                 value = min(float(maximum), value)
             clean[name] = int(value) if value.is_integer() else value
         if spec.get("type") == "text":
+            if action_id == "set_fan" and name == "fan_name":
+                clean[name] = str(parameters.get(name, spec.get("default", "")))
+                continue
             clean[name] = _safe_gcode_identifier(str(parameters.get(name, spec.get("default", ""))))
     return clean
 
@@ -402,7 +479,7 @@ def _operation_action_block_reason(connected: bool, printing: bool) -> str:
         return "Bloqueado: exige leitura ao vivo do Moonraker."
     if printing:
         return "Bloqueado: impressão em andamento."
-    return "Bloqueado: operação mutável ainda não implementada."
+    return ""
 
 
 def _operation_action_preflight_blockers(
@@ -422,8 +499,25 @@ def _operation_action_preflight_blockers(
         blockers.append(f"Bloqueado: Klippy não está ready ({klippy_state or '-'}).")
     if capability.get("status") != "supported":
         blockers.append(f"Bloqueado: capacidade não confirmada ({capability.get('reason') or 'sem evidência'}).")
-    blockers.append("Bloqueado: execução real de ação operacional ainda não implementada.")
     return blockers
+
+
+def _axis_limit_blocker(action_id: str, parameters: dict[str, Any] | None, preflight: dict[str, Any]) -> str | None:
+    if action_id != "move_absolute":
+        return None
+    params = parameters or {}
+    axis = str(params.get("axis") or "X").upper()
+    if axis not in {"X", "Y", "Z"}:
+        return "Bloqueado: eixo inválido."
+    target = _number(params.get("position_mm"), 0)
+    toolhead = _dict(_dict(preflight.get("object_status")).get("toolhead"))
+    minimum = _axis_value(toolhead.get("axis_minimum"), axis)
+    maximum = _axis_value(toolhead.get("axis_maximum"), axis)
+    if minimum is None or maximum is None:
+        return None
+    if target < minimum or target > maximum:
+        return f"Bloqueado: posição {axis}{target} fora dos limites {minimum}..{maximum}."
+    return None
 
 
 def _capability(action_id: str, status: str, reason: str) -> dict[str, str]:
@@ -443,19 +537,36 @@ def _number(value: Any, default: float) -> float:
     return value if isinstance(value, int | float) else default
 
 
+def _int_or_none(value: Any) -> int | None:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value.strip())
+    return None
+
+
 def _safe_gcode_identifier(value: str) -> str:
     cleaned = "".join(character for character in value.strip() if character.isalnum() or character in {"_", "-", "<", ">"})
     return cleaned[:80]
+
+
+def _fan_config_name(object_name: str) -> str:
+    for prefix in ("fan_generic ", "heater_fan ", "controller_fan ", "fan "):
+        if object_name.startswith(prefix):
+            return object_name.removeprefix(prefix)
+    return object_name
 
 
 def _summary(connected: bool, klipper_state: str, print_state: str) -> str:
     if not connected:
         return "Moonraker desconectado."
     if print_state and print_state not in {"standby", "complete"}:
-        return f"Operação read-only carregada. Impressão: {print_state}."
+        return f"Operação carregada. Impressão: {print_state}."
     if klipper_state:
-        return f"Operação read-only carregada. Klipper: {klipper_state}."
-    return "Operação read-only carregada."
+        return f"Operação carregada. Klipper: {klipper_state}."
+    return "Operação carregada."
 
 
 def _system_loads(server_info: dict[str, Any], system_info: dict[str, Any], proc_stats: dict[str, Any]) -> list[dict[str, Any]]:
@@ -516,6 +627,9 @@ def _toolhead(status: dict[str, Any]) -> dict[str, Any]:
         "homed_axes": toolhead.get("homed_axes"),
         "max_velocity": toolhead.get("max_velocity"),
         "max_accel": toolhead.get("max_accel"),
+        "square_corner_velocity": toolhead.get("square_corner_velocity"),
+        "axis_minimum": toolhead.get("axis_minimum"),
+        "axis_maximum": toolhead.get("axis_maximum"),
         "speed_factor": gcode_move.get("speed_factor"),
     }
 
@@ -534,19 +648,49 @@ def _extruder(status: dict[str, Any]) -> dict[str, Any]:
 
 def _miscellaneous(status: dict[str, Any]) -> dict[str, Any]:
     fans = [
-        {"name": _display_name(name), "speed": payload.get("speed"), "rpm": payload.get("rpm")}
+        {"name": _display_name(name), "object_name": name, "speed": payload.get("speed"), "rpm": payload.get("rpm")}
         for name, payload in status.items()
         if isinstance(payload, dict) and "fan" in name and ("speed" in payload or "rpm" in payload)
     ]
     display = _nested(status, ["display_status"]) or {}
     print_stats = _nested(status, ["print_stats"]) or {}
+    layer_info = _print_layer_info(print_stats, display)
     return {
         "fans": fans,
         "progress": display.get("progress"),
-        "message": display.get("message"),
+        "message": print_stats.get("message") or display.get("message"),
         "print_state": print_stats.get("state"),
         "filename": print_stats.get("filename"),
+        "print_duration": print_stats.get("print_duration"),
+        "total_duration": print_stats.get("total_duration"),
+        "current_layer": layer_info["current_layer"],
+        "total_layers": layer_info["total_layers"],
     }
+
+
+def _print_layer_info(print_stats: dict[str, Any], display: dict[str, Any]) -> dict[str, int | None]:
+    info = _dict(print_stats.get("info"))
+    current_layer = _int_or_none(print_stats.get("current_layer") or info.get("current_layer"))
+    total_layers = _int_or_none(print_stats.get("total_layer") or info.get("total_layer") or info.get("total_layers"))
+    if current_layer is not None or total_layers is not None:
+        return {"current_layer": current_layer, "total_layers": total_layers}
+    message = str(print_stats.get("message") or display.get("message") or "")
+    return _parse_layer_message(message)
+
+
+def _parse_layer_message(message: str) -> dict[str, int | None]:
+    lowered = message.lower().replace("camada", "layer")
+    for separator in ("/", " of "):
+        if separator not in lowered:
+            continue
+        parts = lowered.replace("layer", "").replace(":", " ").split(separator, 1)
+        if len(parts) != 2:
+            continue
+        current = _int_or_none(parts[0].strip().split()[-1] if parts[0].strip().split() else None)
+        total = _int_or_none(parts[1].strip().split()[0] if parts[1].strip().split() else None)
+        if current is not None or total is not None:
+            return {"current_layer": current, "total_layers": total}
+    return {"current_layer": None, "total_layers": None}
 
 
 def _total_print_hours(history_totals: dict[str, Any] | None) -> float | None:
@@ -589,3 +733,11 @@ def _text(value: Any) -> str:
 
 def _display_name(name: str) -> str:
     return name.replace("_", " ").replace("heater generic ", "").title()
+
+
+def _axis_value(values: Any, axis: str) -> float | None:
+    index = {"X": 0, "Y": 1, "Z": 2}[axis]
+    if not isinstance(values, list | tuple) or len(values) <= index:
+        return None
+    value = values[index]
+    return float(value) if isinstance(value, int | float) else None

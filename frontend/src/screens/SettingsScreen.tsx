@@ -151,9 +151,50 @@ export function SettingsScreen(props: SettingsScreenProps) {
     systemReleases,
   } = props;
   const [settingsHelpTopic, setSettingsHelpTopic] = useState<"can" | "host" | null>(null);
-  const [installDiagnosticCopied, setInstallDiagnosticCopied] = useState(false);
+  const [installDiagnosticLoading, setInstallDiagnosticLoading] = useState(false);
+  const [installDiagnosticCopyState, setInstallDiagnosticCopyState] = useState<"idle" | "copied" | "failed">("idle");
 
   const helpTitle = settingsHelpTopic === "can" ? "Registro técnico CAN" : "Diagnóstico avançado do host";
+
+  async function refreshInstallDiagnostics(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setInstallDiagnosticLoading(true);
+    try {
+      await loadInstallDiagnostics();
+    } catch {
+      return;
+    } finally {
+      setInstallDiagnosticLoading(false);
+    }
+  }
+
+  async function copyInstallDiagnostics(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setInstallDiagnosticLoading(true);
+    let copyText = installDiagnostics?.copy_text;
+    try {
+      if (!copyText) {
+        const diagnostics = await loadInstallDiagnostics();
+        copyText = diagnostics.copy_text;
+      }
+    } catch {
+      setInstallDiagnosticCopyState("failed");
+      window.setTimeout(() => setInstallDiagnosticCopyState("idle"), 1800);
+      return;
+    } finally {
+      setInstallDiagnosticLoading(false);
+    }
+    if (!copyText) {
+      setInstallDiagnosticCopyState("failed");
+      window.setTimeout(() => setInstallDiagnosticCopyState("idle"), 1800);
+      return;
+    }
+    const copied = await copyTextToClipboard(copyText);
+    setInstallDiagnosticCopyState(copied ? "copied" : "failed");
+    window.setTimeout(() => setInstallDiagnosticCopyState("idle"), 1800);
+  }
 
   return (
     <>
@@ -203,7 +244,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
               onClick={() => void loadSystemReleases()}
               disabled={releaseLoading}
             >
-              <RefreshCw size={16} />
+              <RefreshCw className={releaseLoading ? "button-busy-icon" : undefined} size={16} />
               {releaseLoading ? "Verificando" : "Verificar releases"}
             </button>
           </div>
@@ -303,7 +344,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
               }}
               disabled={selfUpdateReconciling}
             >
-              <RefreshCw size={15} />
+              <RefreshCw className={selfUpdateReconciling ? "button-busy-icon" : undefined} size={15} />
               {selfUpdateReconciling ? "Reconciliando" : "Reconciliar travados"}
             </button>
           </summary>
@@ -343,7 +384,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
                     onClick={() => void reconcileSelfUpdateHistory()}
                     disabled={selfUpdateReconciling}
                   >
-                    <RefreshCw size={15} />
+                    <RefreshCw className={selfUpdateReconciling ? "button-busy-icon" : undefined} size={15} />
                     {selfUpdateReconciling ? "Reconciliando" : "Atualizar status"}
                   </button>
                 ) : null}
@@ -379,33 +420,20 @@ export function SettingsScreen(props: SettingsScreenProps) {
             <button
               type="button"
               className="secondary-button compact-summary-action"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                void loadInstallDiagnostics();
-              }}
+              onClick={(event) => void refreshInstallDiagnostics(event)}
+              disabled={installDiagnosticLoading}
             >
-              <RefreshCw size={15} />
-              Atualizar
+              <RefreshCw className={installDiagnosticLoading ? "button-busy-icon" : undefined} size={15} />
+              {installDiagnosticLoading ? "Atualizando" : "Atualizar"}
             </button>
             <button
               type="button"
               className="secondary-button compact-summary-action"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                if (!installDiagnostics?.copy_text) {
-                  return;
-                }
-                void navigator.clipboard.writeText(installDiagnostics.copy_text).then(() => {
-                  setInstallDiagnosticCopied(true);
-                  window.setTimeout(() => setInstallDiagnosticCopied(false), 1800);
-                });
-              }}
-              disabled={!installDiagnostics?.copy_text}
+              onClick={(event) => void copyInstallDiagnostics(event)}
+              disabled={installDiagnosticLoading}
             >
               <ClipboardCheck size={15} />
-              {installDiagnosticCopied ? "Copiado" : "Copiar diagnóstico"}
+              {installDiagnosticCopyState === "copied" ? "Copiado" : installDiagnosticCopyState === "failed" ? "Falhou" : "Copiar diagnóstico"}
             </button>
           </summary>
           <p className="muted">Use este painel quando a instalação, atualização ou inicialização local não estiver clara.</p>
@@ -612,4 +640,25 @@ export function SettingsScreen(props: SettingsScreenProps) {
 
     </>
   );
+}
+
+async function copyTextToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "fixed";
+    textarea.style.top = "-1000px";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      return document.execCommand("copy");
+    } finally {
+      document.body.removeChild(textarea);
+    }
+  }
 }

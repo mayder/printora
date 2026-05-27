@@ -828,6 +828,74 @@ label {
   color: var(--muted);
 }
 
+.toast-viewport {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 35;
+  display: grid;
+  width: min(380px, calc(100vw - 36px));
+  gap: 10px;
+}
+
+.toast {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface-2);
+  box-shadow: 0 16px 44px var(--shadow-strong);
+  padding: 12px;
+}
+
+.toast.success {
+  border-left-color: var(--success);
+}
+
+.toast.warning {
+  border-left-color: var(--warning);
+}
+
+.toast.danger {
+  border-left-color: var(--danger);
+}
+
+.toast > svg {
+  color: var(--accent);
+}
+
+.toast.success > svg {
+  color: var(--success);
+}
+
+.toast.warning > svg {
+  color: var(--warning);
+}
+
+.toast.danger > svg {
+  color: var(--danger);
+}
+
+.toast strong,
+.toast p {
+  overflow-wrap: anywhere;
+}
+
+.toast p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.toast .icon-button {
+  width: 28px;
+  height: 28px;
+}
+
 .panel-header-row {
   display: flex;
   justify-content: space-between;
@@ -873,6 +941,31 @@ label {
   border-left-color: var(--success);
 }
 
+.update-row.silenced {
+  border-left-color: var(--status-neutral);
+  opacity: 0.86;
+}
+
+.update-row-busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 10px;
+}
+
+.update-row-busy svg,
+.button-busy-icon {
+  color: var(--accent);
+  animation: spin 1.1s linear infinite;
+}
+
 .update-main {
   display: flex;
   justify-content: space-between;
@@ -894,16 +987,63 @@ label {
   gap: 8px;
 }
 
-.update-title svg {
+.update-title > svg {
   flex: 0 0 auto;
   color: var(--accent);
 }
 
+.update-title span {
+  min-width: 0;
+}
+
+.update-repo-link {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  background: var(--surface-3);
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.update-repo-link:hover {
+  border-color: rgba(34, 211, 238, 0.5);
+  background: var(--surface-hover);
+  color: var(--accent);
+}
+
+.update-repo-link svg {
+  color: currentColor;
+}
+
 .update-main span,
 .update-main small,
-.update-warning {
+.update-warning,
+.update-rollback-note,
+.update-silenced-note {
   color: var(--muted);
   margin-top: 4px;
+}
+
+.update-risk {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.update-risk svg {
+  flex: 0 0 auto;
+  color: var(--warning);
 }
 
 .update-actions {
@@ -912,8 +1052,48 @@ label {
   gap: 8px;
 }
 
+.update-actions button {
+  white-space: nowrap;
+}
+
 .update-actions button:disabled {
   cursor: default;
+}
+
+.update-run-button {
+  border-color: var(--border);
+  background: var(--secondary-bg);
+  color: var(--text);
+}
+
+.update-run-button:hover {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.update-run-button svg {
+  color: var(--accent);
+}
+
+.confirmation-field {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.confirmation-field span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.confirmation-field input {
+  min-height: 40px;
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+  background: var(--surface-3);
+  color: var(--text);
+  padding: 8px 10px;
 }
 
 .section-updates .update-list {
@@ -1290,6 +1470,7 @@ label {
   .section-updates .update-list,
   .post-update-checklist .checks,
   .monitor-status-strip,
+  .monitor-primary-grid,
   .monitor-grid,
   .temperature-table-row,
   .combined-temperature-plot,
@@ -1305,6 +1486,8 @@ label {
   .section-reports .report-tech-grid,
   .section-reports .report-list-row,
   .operation-grid,
+  .operation-actions-summary,
+  .operation-action-groups,
   .operation-capabilities,
   .operation-actions,
   .operation-action-params,
@@ -1381,6 +1564,10 @@ label {
   .firmware-board-card,
   .firmware-component-row {
     display: grid;
+  }
+
+  .operation-capability-chips {
+    justify-content: flex-start;
   }
 
   .maintenance-free-card {

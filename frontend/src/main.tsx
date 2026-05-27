@@ -2,11 +2,11 @@ import { createRoot } from "react-dom/client";
 import { Bell, Info, Menu, X } from "lucide-react";
 import { appSections } from "./app/navigation";
 import { AppModals } from "./components/modals";
+import { ToastViewport } from "./components/ToastViewport";
 import { OverviewScreen } from "./screens/OverviewScreen";
 import { PrintersScreen } from "./screens/PrintersScreen";
 import { MonitoringScreen } from "./screens/MonitoringScreen";
 import { UpdatesScreen } from "./screens/UpdatesScreen";
-import { CalibrationScreen } from "./screens/CalibrationScreen";
 import { TestsScreen } from "./screens/TestsScreen";
 import { FirmwareScreen } from "./screens/FirmwareScreen";
 import { MaintenanceScreen } from "./screens/MaintenanceScreen";
@@ -52,8 +52,39 @@ function App() {
     theme,
     topbarAlertTone,
     topbarPrimaryAction,
+    toasts,
+    dismissToast,
     visibleNavGroups,
   } = usePrintoraApp();
+
+  const activeScreen = (() => {
+    switch (activeSection) {
+      case "overview":
+        return <OverviewScreen {...screenProps} />;
+      case "printers":
+        return <PrintersScreen {...screenProps} />;
+      case "monitoring":
+        return <MonitoringScreen {...screenProps} />;
+      case "updates":
+        return <UpdatesScreen {...screenProps} />;
+      case "tests":
+        return <TestsScreen {...screenProps} />;
+      case "firmware":
+        return <FirmwareScreen {...screenProps} />;
+      case "maintenance":
+        return <MaintenanceScreen {...screenProps} />;
+      case "reports":
+        return <ReportsScreen {...screenProps} />;
+      case "settings":
+        return <SettingsScreen {...screenProps} />;
+      case "about":
+        return <AboutScreen {...screenProps} />;
+      case "license":
+        return <LicenseScreen {...screenProps} />;
+      default:
+        return <OverviewScreen {...screenProps} />;
+    }
+  })();
 
   return (
     <main className="app-shell">
@@ -173,7 +204,7 @@ function App() {
               onClick={() => void topbarPrimaryAction.run()}
               disabled={topbarPrimaryAction.disabled}
             >
-              <TopbarPrimaryIcon size={16} />
+              <TopbarPrimaryIcon className={topbarPrimaryAction.busy ? "button-busy-icon" : undefined} size={16} />
             </button>
           </div>
         </header>
@@ -200,20 +231,10 @@ function App() {
         {error ? <section className="alert danger">{error}</section> : null}
 
         <AppModals {...screenProps} />
+        <ToastViewport toasts={toasts} dismissToast={dismissToast} />
 
         <section className="grid">
-          <OverviewScreen {...screenProps} />
-          <PrintersScreen {...screenProps} />
-          <MonitoringScreen {...screenProps} />
-          <ReportsScreen {...screenProps} />
-          <UpdatesScreen {...screenProps} />
-          <SettingsScreen {...screenProps} />
-          <FirmwareScreen {...screenProps} />
-          <TestsScreen {...screenProps} />
-          <CalibrationScreen {...screenProps} />
-          <MaintenanceScreen {...screenProps} />
-          <AboutScreen {...screenProps} />
-          <LicenseScreen {...screenProps} />
+          {activeScreen}
         </section>
       </div>
     </main>

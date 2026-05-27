@@ -50,6 +50,9 @@ class FirmwareBoardRepository:
         if preset.connection_type in {"can", "usb_can_bridge"} and not can_uuid:
             raise ValueError("can_uuid is required for CAN boards")
         with connect_database(self.database_path) as connection:
+            existing = self._find_existing_board(connection, printer_id, name, can_uuid)
+            if existing is not None:
+                return existing
             cursor = connection.execute(
                 """
                 INSERT INTO firmware_boards (
@@ -76,6 +79,34 @@ class FirmwareBoardRepository:
         if record is None:
             raise RuntimeError("firmware board was not persisted")
         return record
+
+    def _find_existing_board(self, connection, printer_id: int, name: str, can_uuid: str | None) -> FirmwareBoardRecord | None:
+        if can_uuid:
+            row = connection.execute(
+                """
+                SELECT id, printer_id, name, preset_id, can_uuid, can_interface, connection_type,
+                       mcu, flash_method, config_file, notes, is_active, created_at, updated_at
+                FROM firmware_boards
+                WHERE printer_id = ? AND is_active = 1 AND can_uuid = ?
+                ORDER BY id ASC
+                LIMIT 1
+                """,
+                (printer_id, can_uuid),
+            ).fetchone()
+            if row:
+                return _record_from_row(row)
+        row = connection.execute(
+            """
+            SELECT id, printer_id, name, preset_id, can_uuid, can_interface, connection_type,
+                   mcu, flash_method, config_file, notes, is_active, created_at, updated_at
+            FROM firmware_boards
+            WHERE printer_id = ? AND is_active = 1 AND lower(name) = lower(?)
+            ORDER BY id ASC
+            LIMIT 1
+            """,
+            (printer_id, name),
+        ).fetchone()
+        return _record_from_row(row) if row else None
 
     def list_boards(self, printer_id: int) -> list[FirmwareBoardRecord]:
         with connect_database(self.database_path) as connection:

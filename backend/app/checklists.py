@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Any
 
+from app.updates import is_update_alert_silenced
+
 
 @dataclass(frozen=True)
 class ChecklistItem:
@@ -37,6 +39,8 @@ def build_post_update_checklist(
     for name in tracked_repos:
         repo = version_info.get(name)
         if not isinstance(repo, dict):
+            continue
+        if is_update_alert_silenced(repo):
             continue
         warnings = repo.get("warnings") or []
         anomalies = repo.get("anomalies") or []

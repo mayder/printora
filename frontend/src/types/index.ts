@@ -4,6 +4,7 @@ export type * from "./calibration";
 export type * from "./can";
 export type * from "./diagnostics";
 export type * from "./firmware";
+export type * from "./feedback";
 export type * from "./maintenance";
 export type * from "./operation";
 export type * from "./plugins";

@@ -149,13 +149,13 @@ if [[ "${FOREGROUND}" == "true" ]]; then
     (sleep 2 && open_url) >/dev/null 2>&1 &
   fi
   cd "${ROOT_DIR}/backend"
-  exec "${ROOT_DIR}/backend/.venv/bin/python" -m uvicorn app.main:app --host "${HOST}" --port "${PORT}"
+  exec "${ROOT_DIR}/backend/.venv/bin/python" -m uvicorn app.main:app --host "${HOST}" --port "${PORT}" --loop asyncio
 fi
 
 nohup bash -c '
   set -euo pipefail
   cd "$1"
-  exec "$2" -m uvicorn app.main:app --host "$3" --port "$4"
+  exec "$2" -m uvicorn app.main:app --host "$3" --port "$4" --loop asyncio
 ' bash "${ROOT_DIR}/backend" "${ROOT_DIR}/backend/.venv/bin/python" "${HOST}" "${PORT}" >"${LOG_FILE}" 2>&1 &
 
 echo "$!" >"${PID_FILE}"

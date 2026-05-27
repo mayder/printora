@@ -94,8 +94,9 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
   const suggestedPresetIds = unique([
     ...detectedItems.flatMap((item) => item.matched_preset_ids),
     ...registeredItems.flatMap((item) => item.matched_preset_ids),
+    firmwareBoardPresetId,
   ]);
-  const suggestedPresets = suggestedPresetIds.length ? boardPresets.filter((preset) => suggestedPresetIds.includes(preset.id)) : boardPresets;
+  const presetOptions = orderPresetsBySuggestion(boardPresets, suggestedPresetIds);
 
   function refreshFirmwareContext() {
     if (!selectedPrinterId) {
@@ -128,7 +129,7 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
           </div>
           <div className="panel-actions">
             <button type="button" className="secondary-button" onClick={refreshFirmwareContext} disabled={!selectedPrinterId || loading}>
-              <RefreshCw size={15} />
+              <RefreshCw className={loading ? "button-busy-icon" : undefined} size={15} />
               Verificar placas
             </button>
           </div>
@@ -249,7 +250,7 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
                   setFirmwareBoardConfigFile(`firmware/${event.target.value}.config`);
                 }}
               >
-                {suggestedPresets.map((preset) => (
+                {presetOptions.map((preset) => (
                   <option key={preset.id} value={preset.id}>
                     {preset.vendor} · {preset.name}
                   </option>
@@ -379,6 +380,18 @@ function boardToHardwareItem(board: FirmwareBoardRecord): FirmwareHardwareItem {
 
 function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+function orderPresetsBySuggestion(presets: FirmwareScreenProps["boardPresets"], suggestedIds: string[]) {
+  const suggested = new Set(suggestedIds);
+  return [...presets].sort((left, right) => {
+    const leftSuggested = suggested.has(left.id);
+    const rightSuggested = suggested.has(right.id);
+    if (leftSuggested !== rightSuggested) {
+      return leftSuggested ? -1 : 1;
+    }
+    return `${left.vendor} ${left.name}`.localeCompare(`${right.vendor} ${right.name}`);
+  });
 }
 
 function formatRole(role: FirmwareHardwareItem["role"]) {

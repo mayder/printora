@@ -25,6 +25,7 @@
 - PKG-12: Firmware Manager - build e dry-run
 - PKG-13: Firmware Manager - flash controlado
 - PKG-14: Integração Mainsail e Update Manager
+- PKG-14A: Silêncio de versão do Update Manager
 - PKG-15: Centro de calibração e testes Voron
 - PKG-16: Instalador multiplataforma
 - PKG-16E: Launcher local plug and play
@@ -897,6 +898,28 @@ Estado atual:
 - Criado e validado `scripts/validate_integration.sh` para checar systemd, `.env`, Mainsail, Update Manager e documentação sem aplicar instalação.
 - Teste automatizado cobre o validador offline.
 
+## PKG-14A: Silêncio De Versão Do Update Manager
+
+Objetivo:
+
+Permitir que o usuário suspenda alertas de uma versão específica de qualquer componente do Update Manager sem bloquear a ação manual de atualizar depois.
+
+Critério de aceite:
+
+- silêncio é por impressora, componente e identidade concreta da versão;
+- nova versão remota, atraso, pacote, warning ou anomalia reativa o alerta automaticamente;
+- card da tela Atualizações permanece visível com `Reanalisar`, `Atualizar`, `Rollback` quando existir e `Reativar alerta`;
+- Home, topbar, Central de alertas, Health Check, Checklist pós-update, Auditoria e Relatórios não contam versão silenciada como alerta ativo;
+- `./check.sh` passa no fechamento.
+
+Estado atual:
+
+- Implementado com tabela SQLite `update_alert_silences`.
+- Endpoints criados para silenciar e reativar alerta por componente.
+- Agregadores de update, health, checklist, auditoria e relatório respeitam o silêncio ativo.
+- UI da tela Atualizações mantém ações disponíveis e exibe estado `versão silenciada`.
+- Testes automatizados cobrem chave de versão, expiração, persistência e filtros nos agregadores.
+
 ## PKG-15: Centro De Calibração E Testes Voron
 
 Objetivo:
@@ -958,6 +981,7 @@ Estado atual:
 - O retorno final monitorado fica salvo no histórico de execução e pode preencher o modal de registro de resultado.
 - Histórico de tentativas de execução fica em `GET /api/printers/{printer_id}/calibration/executions`.
 - UI de Testes refeita para fluxo por cards: cada teste tem ação principal `Executar` ou `Registrar`, ajuda fica em modal via ícone de interrogação e detalhes técnicos deixam de poluir a tela principal.
+- UI de Calibração preserva os cards como fluxo principal, numera a sequência nos cards, expõe busca e filtros por tipo/uso, mantém ação `Pular` e perfil aprovado de primeira camada.
 
 ## PKG-15A: Centro De Calibração - Catálogo Read-Only
 
@@ -1171,7 +1195,7 @@ Entregáveis:
 
 Critério de aceite:
 
-- usuário consegue navegar por Visão geral, Impressoras, Monitoramento, Calibração, Testes, Firmware, Manutenção, Relatórios e Configurações;
+- usuário consegue navegar por Visão geral, Impressoras, Monitoramento, Calibração, Firmware, Manutenção, Relatórios e Configurações;
 - usuário consegue trocar a impressora ativa pela topbar;
 - cadastro e detecção de impressoras não poluem o dashboard principal;
 - os painéis deixam de aparecer todos ao mesmo tempo;
@@ -1194,7 +1218,7 @@ Entregáveis:
 - logo e identidade visual no shell principal;
 - sidebar com ícones e grupos de menu;
 - topbar com contexto da seção, alertas, atualização e configuração de impressora;
-- separação de Calibração e Testes;
+- menu único de Calibração para o centro de testes/calibração;
 - seção de Monitoramento para saúde, logs, CAN, Moonraker, Klipper e auditorias;
 - seção de Firmware restrita à impressora selecionada;
 - página inicial como dashboard geral;
@@ -1698,6 +1722,36 @@ Estado atual:
 - Frontend exibe suporte/desconhecido por ação.
 - Testes automatizados cobrem objetos genéricos, ausência de QGL e matriz preservada via snapshot.
 - Validação real confirmou matriz genérica nas duas impressoras: Voron 0.2 sem pressupor QGL e Voron 2.4 com QGL detectado; heaters/LED/fan tratados conforme objetos reais.
+
+## PKG-19O: Execução Operacional Controlada
+
+Objetivo:
+
+Transformar a tela Operação em painel de operação funcional estilo Mainsail, mantendo preflight e histórico local antes de enviar G-code.
+
+Entregáveis:
+
+- endpoint de execução direta protegida para ação operacional;
+- envio de G-code via Moonraker apenas quando preflight live permite;
+- registro de preview e tentativa executada/bloqueada;
+- ações para movimento, home, QGL, extrusão, temperaturas, fan, LED, speed factor, limites de velocidade/aceleração, extrusion factor e pressure advance;
+- UI em painéis Toolhead, Extrusor, Machine e Miscellaneous, sem duplicar os painéis principais de temperaturas/fans;
+- controles de percentual com botões de incremento/decremento;
+- inputs sem spinner visual bruto do navegador.
+
+Critério de aceite:
+
+- bloqueia quando Moonraker está offline, Klipper/Klippy não estão ready, há impressão em andamento ou capacidade não está confirmada;
+- registra comandos enviados, resposta/monitoramento do Moonraker e histórico da tentativa;
+- comandos de update, restart, flash e alteração de config continuam fora da tela Operação;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado endpoint `execute-direct` para ações operacionais.
+- Implementado envio controlado via Moonraker com preflight, histórico e monitoramento pós-envio.
+- Frontend passou a operar por painéis funcionais estilo Mainsail.
+- Testes backend e build frontend validados por `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
 ## PKG-20: Versionamento Interno E Controle De Schema
 

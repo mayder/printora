@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from app.audit import TRACKED_REPOSITORIES
+from app.updates import is_update_alert_silenced
 from app.snapshots import SnapshotDiff, SnapshotRecord
 
 
@@ -182,6 +183,8 @@ def _check_update_manager(items: list[HealthItem], update_status: dict[str, Any]
     for name in TRACKED_REPOSITORIES:
         repo = version_info.get(name)
         if not isinstance(repo, dict):
+            continue
+        if is_update_alert_silenced(repo):
             continue
         warnings = repo.get("warnings") or []
         anomalies = repo.get("anomalies") or []

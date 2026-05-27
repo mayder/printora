@@ -9,6 +9,7 @@ export type UpdateDialogModalProps = ScreenPropsFor<
   | "loadUpdateStatus"
   | "loading"
   | "runUpdate"
+  | "runRollback"
   | "selectedPrinter"
   | "selectedPrinterId"
   | "setUpdateDialog"
@@ -27,6 +28,7 @@ export function UpdateDialogModal(props: UpdateDialogModalProps) {
     loadUpdateStatus,
     loading,
     runUpdate,
+    runRollback,
     selectedPrinter,
     selectedPrinterId,
     setUpdateDialog,
@@ -45,7 +47,7 @@ export function UpdateDialogModal(props: UpdateDialogModalProps) {
                 <div>
                   <h2>
                     <RefreshCw size={20} />
-                    Atualizar {updateDialog.label}
+                    {updateDialog.action === "rollback" ? "Rollback" : "Atualizar"} {updateDialog.label}
                   </h2>
                   <p>
                     {selectedPrinter?.name ?? "Impressora"} · {selectedPrinter?.moonraker_url ?? "Moonraker não selecionado"}
@@ -68,19 +70,56 @@ export function UpdateDialogModal(props: UpdateDialogModalProps) {
                 <div className="update-confirm-box">
                   <div className="finding monitorar">
                     <div>
-                      <strong>Confirmação necessária</strong>
-                      <span>operação mutável</span>
+                      <strong>{updateDialog.requiresConfirmation ? "Confirmação crítica necessária" : "Confirmação necessária"}</strong>
+                      <span>{updateDialog.action === "rollback" ? "rollback mutável" : "operação mutável"}</span>
                     </div>
-                    <p>O Moonraker pode reiniciar serviços durante o update. Não execute se houver impressão em andamento.</p>
+                    <p>
+                      {updateDialog.action === "rollback"
+                        ? "O Moonraker vai tentar voltar este componente para a versão anterior registrada. Não execute se houver impressão em andamento."
+                        : "O Moonraker pode reiniciar serviços durante o update. Não execute se houver impressão em andamento."}
+                    </p>
+                    {updateDialog.riskReason ? <small>{updateDialog.riskReason}</small> : null}
                     <small>O Printora vai abrir o log ao vivo do Moonraker e atualizar o status ao final.</small>
                   </div>
+                  {updateDialog.requiresConfirmation ? (
+                    <label className="confirmation-field">
+                      <span>
+                        Digite <strong>{updateDialog.action === "rollback" ? "ROLLBACK UPDATE" : "ATUALIZAR COM RISCO"}</strong>
+                      </span>
+                      <input
+                        value={updateDialog.confirmationPhrase}
+                        onChange={(event) =>
+                          setUpdateDialog((currentDialog) =>
+                            currentDialog ? { ...currentDialog, confirmationPhrase: event.target.value } : currentDialog,
+                          )
+                        }
+                        disabled={loading}
+                      />
+                    </label>
+                  ) : null}
                   <div className="modal-footer">
                     <button type="button" className="ghost-button" onClick={() => setUpdateDialog(null)}>
                       Cancelar
                     </button>
-                    <button type="button" className="primary-button" onClick={() => void runUpdate(updateDialog.target)} disabled={loading}>
-                      <RefreshCw size={16} />
-                      Iniciar update
+                    <button
+                      type="button"
+                      className={updateDialog.action === "rollback" ? "danger-button" : "primary-button"}
+                      onClick={() => {
+                        if (updateDialog.action === "rollback") {
+                          void runRollback(updateDialog.target);
+                          return;
+                        }
+                        void runUpdate(updateDialog.target);
+                      }}
+                      disabled={
+                        loading ||
+                        (updateDialog.requiresConfirmation &&
+                          updateDialog.confirmationPhrase.trim() !==
+                            (updateDialog.action === "rollback" ? "ROLLBACK UPDATE" : "ATUALIZAR COM RISCO"))
+                      }
+                    >
+                      <RefreshCw className={loading ? "button-busy-icon" : undefined} size={16} />
+                      {updateDialog.action === "rollback" ? "Iniciar rollback" : "Iniciar update"}
                     </button>
                   </div>
                 </div>
@@ -110,7 +149,7 @@ export function UpdateDialogModal(props: UpdateDialogModalProps) {
                       }}
                       disabled={!selectedPrinterId || loading}
                     >
-                      <RefreshCw size={16} />
+                      <RefreshCw className={loading ? "button-busy-icon" : undefined} size={16} />
                       Recarregar status
                     </button>
                     <button

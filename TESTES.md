@@ -250,7 +250,7 @@ Validações:
 - frontend mantém as ações existentes sem executar comandos novos na troca de seção.
 - frontend mantém a impressora ativa na topbar e usa esse contexto no restante do sistema.
 - cadastro/detecção de impressora acontece em modal, sem poluir o dashboard.
-- frontend separa Monitoramento, Calibração, Testes, Firmware, Manutenção, Relatórios e Configurações.
+- frontend separa Monitoramento, Calibração, Firmware, Manutenção, Relatórios e Configurações.
 - frontend mostra orientação objetiva de uso em cada seção.
 - operação read-only real deve retornar `safe_mode=read_only`, `can_send_commands=false`, painéis populados e ações bloqueadas por impressora.
 - fallback de último estado operacional deve preservar objetos conhecidos do snapshot para matriz de capacidades.
@@ -363,6 +363,18 @@ http://127.0.0.1:5178
 - Confirmar classificação de KTC-Easy/StealthChanger, KAMP, `led_effect`, Crowsnest, Sonar, Timelapse, Auto Speed, TapChanger e TMC Autotune.
 - Confirmar que nenhuma remoção, update, restart ou edição de config foi executada.
 
+### Atualizacoes Da Impressora
+
+- Silenciar uma versao pendente de qualquer componente do Update Manager e confirmar que o card continua com `Reanalisar`, `Atualizar` e `Rollback` quando aplicavel.
+- Confirmar que `Atualizar` usa icone diferente de `Reanalisar` e visual secundario alinhado a `Marcar feita` da Manutencao.
+- Confirmar que o silencio abre modal visual do Printora, sem `confirm` nativo do navegador.
+- Confirmar que, apos confirmar o silencio, o card do componente mostra estado de execucao e o botao muda para `Silenciando...` ate a requisicao concluir ou falhar.
+- Confirmar que a rota de silencio persiste a versao exibida no card sem consultar Moonraker, inclusive quando o host configurado nao resolve.
+- Confirmar que sucesso/falha de silencio e reativacao aparece como toast temporario.
+- Confirmar que a versao silenciada sai dos contadores da Home, topbar, Central de alertas, Health Check, Checklist pos-update, Auditoria e Relatorios.
+- Reativar o alerta e confirmar que os contadores voltam.
+- Simular nova versao remota, pacote, atraso, warning ou anomalia e confirmar que o silencio anterior nao se aplica.
+
 ### Releases Do Printora
 
 - Iniciar backend com fixture de update disponível:
@@ -440,7 +452,7 @@ Critérios:
 ### Navegação Do Frontend
 
 - Abrir `http://127.0.0.1:5178`.
-- Confirmar que existe sidebar com Visão geral, Impressoras, Monitoramento, Calibração, Testes, Firmware, Manutenção, Relatórios e Configurações.
+- Confirmar que existe sidebar com Visão geral, Impressoras, Monitoramento, Calibração, Firmware, Manutenção, Relatórios e Configurações.
 - Confirmar que trocar de seção muda os painéis visíveis sem recarregar a página.
 - Confirmar que a impressora ativa fica selecionável na topbar.
 - Confirmar que a topbar mostra alertas, configuração de impressora e atualização.
@@ -450,16 +462,16 @@ Critérios:
 - Confirmar que `Buscar na rede` lista candidatos Moonraker dentro do modal sem cadastrar automaticamente.
 - Confirmar que Monitoramento concentra Health Check, CAN, Moonraker, Klipper e auditorias.
 - Confirmar que Firmware mostra placas, presets, dry-runs e mods/plugins.
-- Confirmar que Calibração mostra Z-offset.
-- Confirmar que Testes mostra o centro de testes Voron.
+- Confirmar que Calibração mostra o centro de testes/calibração Voron em cards.
+- Confirmar que Calibração preserva os cards como fluxo principal, mostra número de sequência nos cards, busca textual, filtros por tipo/uso, ação Pular e perfil aprovado de primeira camada.
 - Confirmar que cada item mostra risco, modo de execução, pré-condições e critérios de sucesso.
 - Registrar resultado manual de um teste.
 - Confirmar que o histórico mostra status, material, chapa, nozzle, valor observado e notas.
 - Com operador presente, revisar G-code, marcar operador presente, informar `EXECUTE_CALIBRATION_GCODE` e executar apenas teste seguro selecionado.
 - Confirmar que a execução aparece no histórico com comandos enviados ou motivo de bloqueio.
-- Confirmar que a tela de Testes mostra cards por teste, ajuda em modal e execução/registro em modais, sem tutorial técnico fixo na página.
-- Em Operação, rodar `Preflight` em ações como Home, QGL, movimento, temperatura, fan e LED.
-- Confirmar que o app mostra capacidade, bloqueadores e G-code apenas como preview, sem enviar comando.
+- Confirmar que a tela de Calibração mostra cards por teste, ajuda expandida em modal e execução/registro em modais, sem tutorial técnico fixo na página.
+- Em Operação, validar preflight e execução controlada de ações como Home, QGL, movimento, temperatura, fan, LED, speed factor e extrusion factor somente com a impressora parada e operador presente.
+- Confirmar que o app mostra capacidade, bloqueadores, G-code planejado e histórico da tentativa; comandos são enviados somente quando Moonraker está online, Klipper/Klippy estão `ready`, não há impressão em andamento e a capacidade foi confirmada.
 
 ### UI
 

@@ -52,6 +52,44 @@
   color: var(--muted);
 }
 
+.confirm-dialog-card {
+  width: min(520px, 100%);
+}
+
+.confirm-dialog-card.warning {
+  border-top: 3px solid var(--warning);
+}
+
+.confirm-dialog-card.danger {
+  border-top: 3px solid var(--danger);
+}
+
+.confirm-dialog-card.success {
+  border-top: 3px solid var(--success);
+}
+
+.confirm-dialog-card.info {
+  border-top: 3px solid var(--accent);
+}
+
+.confirm-dialog-evidence {
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .connection-test-box {
   display: grid;
   gap: 8px;

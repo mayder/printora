@@ -37,6 +37,8 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
   const [calibrationResultFormOpen, setCalibrationResultFormOpen] = React.useState(false);
   const [calibrationActivityCleared, setCalibrationActivityCleared] = React.useState(false);
   const [testFilter, setTestFilter] = React.useState<"all" | "executable" | "manual" | "blocked">("all");
+  const [testSearch, setTestSearch] = React.useState("");
+  const [testUsageFilter, setTestUsageFilter] = React.useState<"all" | "print" | "movement" | "manual">("all");
   const [zOffsetRecords, setZOffsetRecords] = React.useState<ZOffsetRecord[]>([]);
   const [zOffsetWizardPlan, setZOffsetWizardPlan] = React.useState<ZOffsetWizardPlan | null>(null);
   const [zOffsetWizardChecks, setZOffsetWizardChecks] = React.useState<Record<string, boolean>>({});
@@ -340,16 +342,47 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
   const calibrationSequencePreview = (calibrationSequence?.steps ?? []).filter((step) => !hiddenCalibrationKeys.has(step.test_key));
   const visibleCalibrationCompletedSteps = calibrationSequencePreview.filter((step) => step.status === "completed" || step.status === "skipped").length;
   const visibleCalibrationRecommendations = calibrationRecommended.filter((test) => !hiddenCalibrationKeys.has(test.test_key));
+  const normalizedTestSearch = testSearch.trim().toLowerCase();
+  const printLikeCategories = new Set(["primeira_camada", "material", "extrusao", "qualidade", "dimensional"]);
   const visibleCalibrationTests = calibrationTests.filter((test) => {
     if (testFilter === "executable") {
-      return test.gcode.length > 0;
+      if (test.gcode.length === 0) return false;
     }
     if (testFilter === "manual") {
-      return test.gcode.length === 0;
+      if (test.gcode.length > 0) return false;
     }
-    return testFilter !== "blocked";
+    if (testFilter === "blocked") {
+      return false;
+    }
+    if (testUsageFilter === "print" && !printLikeCategories.has(test.category)) {
+      return false;
+    }
+    if (testUsageFilter === "movement" && (test.gcode.length === 0 || printLikeCategories.has(test.category))) {
+      return false;
+    }
+    if (testUsageFilter === "manual" && test.gcode.length > 0) {
+      return false;
+    }
+    if (!normalizedTestSearch) {
+      return true;
+    }
+    return [test.title, test.category, test.objective, test.notes, test.execution_mode, test.risk_level]
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedTestSearch);
   });
-  const visibleHiddenCalibrationTests = testFilter === "all" || testFilter === "blocked" ? calibrationHiddenTests : [];
+  const visibleHiddenCalibrationTests =
+    testFilter === "all" || testFilter === "blocked"
+      ? calibrationHiddenTests.filter((test) => {
+          if (testUsageFilter !== "all") {
+            return false;
+          }
+          if (!normalizedTestSearch) {
+            return true;
+          }
+          return [test.title, test.reason, test.test_key].join(" ").toLowerCase().includes(normalizedTestSearch);
+        })
+      : [];
   const recentCalibrationActivityCount =
     (calibrationExecutionResult ? 1 : 0) + calibrationExecutions.slice(0, 4).length + calibrationRuns.slice(0, 4).length;
 
@@ -426,6 +459,8 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     setCalibrationTestKey,
     setCalibrationTests,
     setTestFilter,
+    setTestSearch,
+    setTestUsageFilter,
     setZOffsetFormOpen,
     setZOffsetMaterial,
     setZOffsetNotes,
@@ -436,6 +471,8 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     setZOffsetWizardChecks,
     setZOffsetWizardPlan,
     testFilter,
+    testSearch,
+    testUsageFilter,
     toggleWizardCheck,
     visibleCalibrationCompletedSteps,
     visibleCalibrationRecommendations,

@@ -39,8 +39,10 @@ export function RadialProgress({ value }: { value: number }) {
   const percent = Math.max(0, Math.min(100, Math.round(value * 100)));
   return (
     <div className="radial-progress" style={{ "--progress": `${percent}%` } as React.CSSProperties}>
-      <strong>{percent}%</strong>
-      <span>progresso</span>
+      <div>
+        <strong>{percent}%</strong>
+        <span>progresso</span>
+      </div>
     </div>
   );
 }

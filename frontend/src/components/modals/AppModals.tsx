@@ -3,6 +3,7 @@ import { AlertCenterModal } from "./AlertCenterModal";
 import { CalibrationExecuteModal } from "./CalibrationExecuteModal";
 import { CalibrationHelpModal } from "./CalibrationHelpModal";
 import { CalibrationResultModal } from "./CalibrationResultModal";
+import { ConfirmDialogModal } from "./ConfirmDialogModal";
 import { MaintenanceDoneModal } from "./MaintenanceDoneModal";
 import { MaintenanceFreeModal } from "./MaintenanceFreeModal";
 import { PrinterModal } from "./PrinterModal";
@@ -18,7 +19,8 @@ type AppModalsProps =
   & ComponentProps<typeof MaintenanceFreeModal>
   & ComponentProps<typeof CalibrationHelpModal>
   & ComponentProps<typeof CalibrationExecuteModal>
-  & ComponentProps<typeof CalibrationResultModal>;
+  & ComponentProps<typeof CalibrationResultModal>
+  & ComponentProps<typeof ConfirmDialogModal>;
 
 export function AppModals(props: AppModalsProps) {
   return (
@@ -32,6 +34,7 @@ export function AppModals(props: AppModalsProps) {
       <CalibrationHelpModal {...props} />
       <CalibrationExecuteModal {...props} />
       <CalibrationResultModal {...props} />
+      <ConfirmDialogModal {...props} />
     </>
   );
 }

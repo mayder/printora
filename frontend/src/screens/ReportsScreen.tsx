@@ -309,7 +309,7 @@ export function ReportsScreen(props: ReportsScreenProps) {
               onClick={() => void compareSnapshots()}
               disabled={!fromSnapshotId || !toSnapshotId || fromSnapshotId === toSnapshotId || loading}
             >
-              <RefreshCw size={16} />
+              <RefreshCw className={loading ? "button-busy-icon" : undefined} size={16} />
               Comparar snapshots
             </button>
           </div>

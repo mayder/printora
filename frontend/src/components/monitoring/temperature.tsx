@@ -1,8 +1,23 @@
 import React from "react";
 import { formatPercent, formatTemperature, numericValue } from "./formatters";
-import type { OperationTemperature, OperationTemperatureHistoryRow } from "../../types";
+import type { OperationAction, OperationTemperature, OperationTemperatureHistoryRow } from "../../types";
 
-export function TemperatureMonitor({ temperatures, series }: { temperatures: OperationTemperature[]; series: TemperatureSeries[] }) {
+export function TemperatureMonitor({
+  temperatures,
+  series,
+  actions = [],
+  loading = false,
+  onParameterChange,
+  onExecute,
+}: {
+  temperatures: OperationTemperature[];
+  series: TemperatureSeries[];
+  actions?: OperationAction[];
+  loading?: boolean;
+  onParameterChange?: (actionId: string, parameterName: string, value: string) => void;
+  onExecute?: (action: OperationAction, parameters?: Record<string, string | number>) => void | Promise<void>;
+}) {
+  const [targetValues, setTargetValues] = React.useState<Record<string, string>>({});
   const maxTemperature = Math.max(
     60,
     ...series.flatMap((item) => item.points.map((point) => point.temperature)),
@@ -30,7 +45,27 @@ export function TemperatureMonitor({ temperatures, series }: { temperatures: Ope
             </span>
             <strong role="cell">{temperatureState(item)}</strong>
             <strong role="cell">{formatTemperature(item.temperature)}</strong>
-            <span className="temperature-target" role="cell">{formatTemperature(item.target)}</span>
+            <span className="temperature-target" role="cell">
+              <TemperatureTargetInput
+                item={item}
+                actions={actions}
+                loading={loading}
+                value={targetValues[item.name] ?? String(numericValue(item.target) ?? 0)}
+                onChange={(value) => {
+                  setTargetValues((current) => ({ ...current, [item.name]: value }));
+                  const action = temperatureActionFor(item, actions);
+                  if (action) onParameterChange?.(action.id, "temperature", value);
+                }}
+                onSubmit={(value) => {
+                  const action = temperatureActionFor(item, actions);
+                  if (!action || !onExecute) return;
+                  const boundedValue = clampTemperatureTarget(value, temperatureMaximumFor(item));
+                  setTargetValues((current) => ({ ...current, [item.name]: String(boundedValue) }));
+                  onParameterChange?.(action.id, "temperature", String(boundedValue));
+                  void onExecute(action, { temperature: boundedValue });
+                }}
+              />
+            </span>
             <span role="cell">{formatPercent(item.power)}</span>
           </div>
         ))}
@@ -39,6 +74,59 @@ export function TemperatureMonitor({ temperatures, series }: { temperatures: Ope
       {series.length > 0 ? <CombinedTemperatureChart series={series} gridLines={gridLines} yMax={yMax} /> : null}
     </div>
   );
+}
+
+function TemperatureTargetInput({
+  item,
+  actions,
+  loading,
+  value,
+  onChange,
+  onSubmit,
+}: {
+  item: OperationTemperature;
+  actions: OperationAction[];
+  loading: boolean;
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: (value: string) => void;
+}) {
+  const action = temperatureActionFor(item, actions);
+  if (!action) {
+    return <span className="temperature-target-readonly">{formatTemperature(item.target)}</span>;
+  }
+  const maximum = temperatureMaximumFor(item);
+  return (
+    <label className="temperature-target-control" title={`Enter envia alvo de 0 a ${maximum} °C`}>
+      <input
+        aria-label={`Alvo ${item.name}`}
+        inputMode="decimal"
+        value={value}
+        disabled={loading}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") onSubmit(event.currentTarget.value);
+        }}
+      />
+      <span>°C</span>
+    </label>
+  );
+}
+
+function temperatureActionFor(item: OperationTemperature, actions: OperationAction[]) {
+  const name = item.name.toLowerCase();
+  const actionId = name.includes("extruder") ? "set_hotend_temp" : name.includes("bed") ? "set_bed_temp" : "";
+  return actionId ? actions.find((action) => action.id === actionId) ?? null : null;
+}
+
+function temperatureMaximumFor(item: OperationTemperature) {
+  return item.name.toLowerCase().includes("bed") ? 130 : 300;
+}
+
+function clampTemperatureTarget(value: string, maximum: number) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return 0;
+  return Math.max(0, Math.min(maximum, Math.round(numberValue * 10) / 10));
 }
 
 export function CombinedTemperatureChart({

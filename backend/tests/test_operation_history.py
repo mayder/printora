@@ -28,7 +28,7 @@ def test_operation_action_preview_history_persists_dry_run(tmp_path: Path) -> No
     assert records[0].would_send_gcode is False
     assert records[0].executable is False
     assert records[0].command_preview == ["G91", "G0 Z2 F900", "G90"]
-    assert records[0].payload["safe_mode"] == "dry_run_only"
+    assert records[0].payload["safe_mode"] == "operation_action_preview"
 
 
 def test_operation_action_preview_history_is_scoped_by_printer(tmp_path: Path) -> None:

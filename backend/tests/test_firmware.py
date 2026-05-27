@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -61,6 +62,41 @@ def test_firmware_inventory_detects_klipper_mcus_without_manual_board() -> None:
     assert "detectada" in inventory.summary
 
 
+def test_firmware_inventory_does_not_duplicate_registered_detected_mcu() -> None:
+    inventory = build_firmware_hardware_inventory(
+        printer_id=1,
+        registered_boards=[
+            SimpleNamespace(
+                id=10,
+                printer_id=1,
+                name="EBBCan",
+                preset_id="btt_ebb36_g0b1_can",
+                can_uuid="def456",
+                can_interface="can0",
+                connection_type="can",
+                mcu="stm32g0b1",
+                flash_method="katapult_can",
+                config_file="firmware/ebbcan.config",
+                notes="",
+                is_active=True,
+                created_at="2026-05-26T00:00:00",
+                updated_at="2026-05-26T00:00:00",
+            )
+        ],
+        object_names=["mcu EBBCan", "configfile"],
+        object_payload={
+            "status": {
+                "mcu EBBCan": {"mcu_version": "stm32g0b1"},
+                "configfile": {"settings": {"mcu EBBCan": {"canbus_uuid": "def456", "canbus_interface": "can0"}}},
+            }
+        },
+    )
+
+    assert [item.name for item in inventory.items] == ["EBBCan"]
+    assert inventory.items[0].status == "registered"
+    assert inventory.summary == "1 cadastrada(s), 0 detectada(s) pelo Klipper."
+
+
 def test_create_firmware_board_from_preset(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)
@@ -84,6 +120,37 @@ def test_create_firmware_board_from_preset(tmp_path: Path) -> None:
     assert board.connection_type == "can"
     assert board.flash_method == "katapult_can"
     assert board.config_file == "firmware/ebb_t0.config"
+
+
+def test_create_firmware_board_is_idempotent_for_same_can_uuid(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = FirmwareBoardRepository(database_path)
+
+    first = repository.create_board(
+        printer.id,
+        FirmwareBoardCreate(
+            name="EBBCan",
+            preset_id="btt_ebb36_g0b1_can",
+            can_uuid="fd7bbba1e6aa",
+            config_file="firmware/ebb_t0.config",
+        ),
+    )
+    second = repository.create_board(
+        printer.id,
+        FirmwareBoardCreate(
+            name="EBBCan",
+            preset_id="btt_ebb36_g0b1_can",
+            can_uuid="fd7bbba1e6aa",
+            config_file="firmware/ebb_t0.config",
+        ),
+    )
+
+    assert second.id == first.id
+    assert len(repository.list_boards(printer.id)) == 1
 
 
 def test_firmware_recovery_plan_is_manual_and_blocked(tmp_path: Path) -> None:

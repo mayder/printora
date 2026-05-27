@@ -168,6 +168,28 @@ def test_maintenance_summary_counts_due_and_recommendations(tmp_path: Path) -> N
     assert all(task["name"] != "Limpar mesa" for task in summary.recommended_tasks)
 
 
+def test_default_maintenance_tasks_include_catalog_help(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = MaintenanceRepository(database_path)
+
+    repository.create_default_tasks(printer.id)
+    tasks = repository.list_tasks(printer.id)
+
+    assert tasks
+    assert all(task.maintenance_help is not None for task in tasks)
+    camera = next(task for task in tasks if task.name == "Conferir câmera e iluminação")
+    spool = next(task for task in tasks if task.name == "Conferir spool holder e caminho até a impressora")
+    assert camera.maintenance_help is not None
+    assert spool.maintenance_help is not None
+    assert camera.maintenance_help.why != spool.maintenance_help.why
+    assert "visão" in camera.maintenance_help.why.lower()
+    assert "spool" in spool.maintenance_help.why.lower()
+
+
 def test_maintenance_task_can_be_due_soon(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)

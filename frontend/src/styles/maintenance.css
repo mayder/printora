@@ -136,8 +136,12 @@
 .maintenance-card-actions {
   align-self: end;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr);
   gap: 8px;
+}
+
+.maintenance-card-actions.has-undo {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr) auto;
 }
 
 .maintenance-card-actions button {
@@ -159,6 +163,47 @@
 
 .maintenance-done-button svg {
   color: var(--accent);
+}
+
+.maintenance-help-button svg {
+  color: var(--accent);
+}
+
+.maintenance-help-modal-card {
+  max-width: 780px;
+}
+
+.maintenance-help-content {
+  display: grid;
+  gap: 14px;
+}
+
+.maintenance-help-content section {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-1);
+  padding: 12px;
+}
+
+.maintenance-help-content h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.maintenance-help-content p,
+.maintenance-help-content ol,
+.maintenance-help-content ul {
+  margin: 0;
+  color: var(--muted);
+}
+
+.maintenance-help-content ol,
+.maintenance-help-content ul {
+  display: grid;
+  gap: 6px;
+  padding-left: 20px;
 }
 
 .maintenance-create {
