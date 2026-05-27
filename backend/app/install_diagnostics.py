@@ -53,6 +53,7 @@ def build_installation_diagnostics(settings: Settings, project_root: Path) -> In
         _check_database(settings.database_path),
         _check_path("frontend_dist", "Frontend compilado", project_root / "frontend" / "dist" / "index.html", "Rode o instalador assistido ou recompile com PRINTORA_REBUILD_FRONTEND=1."),
         _check_port(port),
+        _check_raspberry_throttling(),
         _check_update_lock(repository),
     ]
     counts = {
@@ -190,6 +191,51 @@ def _check_port(port: str) -> InstallDiagnosticItem:
     )
 
 
+def _check_raspberry_throttling() -> InstallDiagnosticItem:
+    is_raspberry = _is_raspberry_host()
+    vcgencmd_path = shutil.which("vcgencmd")
+    if not vcgencmd_path:
+        if is_raspberry:
+            return InstallDiagnosticItem(
+                key="raspberry_throttling",
+                label="Energia Raspberry",
+                status="warning",
+                detail="Raspberry detectada, mas vcgencmd não está disponível para consultar throttling.",
+                command="Instale raspberrypi-utils ou rode vcgencmd get_throttled no host.",
+            )
+        return InstallDiagnosticItem(
+            key="raspberry_throttling",
+            label="Energia Raspberry",
+            status="ok",
+            detail="Host não identificado como Raspberry Pi; check de throttling não aplicável.",
+        )
+    try:
+        result = subprocess.run(
+            [vcgencmd_path, "get_throttled"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return InstallDiagnosticItem(
+            key="raspberry_throttling",
+            label="Energia Raspberry",
+            status="warning",
+            detail=f"Falha ao consultar vcgencmd get_throttled: {exc}",
+            command="Rode vcgencmd get_throttled no host e verifique fonte/cabo se houver undervoltage.",
+        )
+    output = (result.stdout or result.stderr).strip()
+    status, detail = _parse_raspberry_throttling(output)
+    return InstallDiagnosticItem(
+        key="raspberry_throttling",
+        label="Energia Raspberry",
+        status=status,
+        detail=detail,
+        command=None if status == "ok" else "Verifique fonte USB-C, cabo, carga térmica e rode vcgencmd get_throttled novamente.",
+    )
+
+
 def _check_update_lock(repository: SelfUpdateRepository) -> InstallDiagnosticItem:
     running_updates = repository.count_running_updates()
     if running_updates == 0:
@@ -201,6 +247,56 @@ def _check_update_lock(repository: SelfUpdateRepository) -> InstallDiagnosticIte
         detail=f"{running_updates} update(s) ainda marcado(s) como em execução.",
         command="Use Configurações > Histórico de updates > Reconciliar travados.",
     )
+
+
+def _is_raspberry_host() -> bool:
+    candidates = [
+        Path("/proc/device-tree/model"),
+        Path("/sys/firmware/devicetree/base/model"),
+    ]
+    for path in candidates:
+        try:
+            model = path.read_text(errors="ignore").lower()
+        except OSError:
+            continue
+        if "raspberry pi" in model:
+            return True
+    return False
+
+
+def _parse_raspberry_throttling(output: str) -> tuple[str, str]:
+    raw = output.strip()
+    prefix = "throttled="
+    value_text = raw.split(prefix, 1)[1] if prefix in raw else raw
+    try:
+        value = int(value_text.strip(), 16)
+    except ValueError:
+        return "warning", f"Resposta inesperada de vcgencmd get_throttled: {raw or 'vazia'}"
+    current_flags = [
+        label
+        for bit, label in (
+            (0, "undervoltage atual"),
+            (1, "frequência limitada agora"),
+            (2, "throttled agora"),
+            (3, "limite térmico ativo"),
+        )
+        if value & (1 << bit)
+    ]
+    historical_flags = [
+        label
+        for bit, label in (
+            (16, "undervoltage já ocorreu"),
+            (17, "frequência já foi limitada"),
+            (18, "throttling já ocorreu"),
+            (19, "limite térmico já ocorreu"),
+        )
+        if value & (1 << bit)
+    ]
+    if current_flags:
+        return "error", f"Raspberry com throttling ativo ({raw}): {', '.join(current_flags)}."
+    if historical_flags:
+        return "warning", f"Raspberry já registrou throttling ({raw}): {', '.join(historical_flags)}."
+    return "ok", f"Raspberry sem throttling detectado ({raw or 'throttled=0x0'})."
 
 
 def _read_version(command_name: str) -> str | None:

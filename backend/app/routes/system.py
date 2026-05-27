@@ -157,11 +157,13 @@ async def system_update_apply(payload: UpdateApplyRequest) -> UpdateApplyRespons
     repository = get_self_update_repository(settings)
     repository.reconcile_interrupted_updates(installed_version=installed_app_version())
     releases = await system_releases()
-    stable_tags = {
-        release.tag
-        for release in releases.releases
-        if not release.prerelease and not release.draft and release.channel == "stable"
-    }
+    stable_tags = None
+    if releases.status == "ok":
+        stable_tags = {
+            release.tag
+            for release in releases.releases
+            if not release.prerelease and not release.draft and release.channel == "stable"
+        }
     try:
         return apply_self_update(
             repository=repository,

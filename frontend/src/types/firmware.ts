@@ -1,3 +1,38 @@
+export type FirmwareBuildConfig = {
+  schema_version: number;
+  architecture: string;
+  mcu: string;
+  processor_model: string;
+  bootloader_offset: string;
+  clock_reference: string;
+  communication_interface: string;
+  connection_type: "usb" | "can" | "usb_can_bridge";
+  canbus_pins?: string | null;
+  usb_pins?: string | null;
+  serial_pins?: string | null;
+  config_file: string;
+  build_output: string;
+};
+
+export type FirmwareBuildConfigValidation = {
+  status: "complete" | "missing_data" | "invalid";
+  missing_fields: string[];
+  invalid_fields: string[];
+};
+
+export type FirmwareConfigPreview = {
+  safe_mode: string;
+  preset_id: string;
+  config_file: string;
+  build_output: string;
+  build_config_schema_version: number;
+  content: string;
+  lines: string[];
+  artifact_saved: boolean;
+  artifact_path?: string | null;
+  message: string;
+};
+
 export type BoardPreset = {
   id: string;
   vendor: string;
@@ -8,8 +43,12 @@ export type BoardPreset = {
   communication: string;
   bootloader_offset: string;
   canbus_pins?: string | null;
+  config_file: string;
   build_output: string;
   default_flash_method: "katapult_can" | "katapult_usb_can" | "dfu_usb" | "manual";
+  build_config: FirmwareBuildConfig;
+  build_config_validation: FirmwareBuildConfigValidation;
+  build_config_status: "complete" | "missing_data" | "invalid";
   notes: string;
 };
 
@@ -44,9 +83,38 @@ export type FirmwareHardwareItem = {
   registered_board_id?: number | null;
   matched_catalog_ids: string[];
   matched_preset_ids: string[];
+  catalog_references: {
+    id: string;
+    label: string;
+    role: "mainboard" | "toolhead" | "can_adapter" | "unknown";
+    connection: "can" | "usb" | "usb_can_bridge" | "dedicated_usb_can" | "unknown";
+    guide_url: string;
+    preset_ids: string[];
+    known_mcus: string[];
+    flash_method?: "katapult_can" | "katapult_usb_can" | "dfu_usb" | "manual" | "unknown" | null;
+    bootloader?: string | null;
+    safety_notes: string[];
+  }[];
   guide_url?: string | null;
   action_label: string;
   detail: string;
+};
+
+export type FirmwareCatalogSummary = {
+  safe_mode: string;
+  source: {
+    name: string;
+    url: string;
+    retrieved_at: string;
+    notes: string[];
+  };
+  generated_at?: string | null;
+  manifest_total_pages: number;
+  catalog_counts: Record<string, number>;
+  category_counts: Record<string, number>;
+  status_counts: Record<string, number>;
+  hardware_role_counts: Record<string, number>;
+  hardware_without_local_preset: Record<string, string[]>;
 };
 
 export type FirmwareHardwareInventory = {
@@ -61,6 +129,7 @@ export type FirmwareHardwareInventory = {
     notes: string[];
   };
   catalog_counts: Record<string, number>;
+  catalog_hardware_without_local_preset: Record<string, string[]>;
   items: FirmwareHardwareItem[];
 };
 
@@ -74,6 +143,12 @@ export type FirmwareBuildRunRecord = {
   output_dir: string;
   config_backup_path: string;
   binary_output_path: string;
+  preset_id?: string | null;
+  preset_build_config_status?: "complete" | "missing_data" | "invalid" | null;
+  generated_config_path?: string | null;
+  work_dir?: string | null;
+  expected_build_output?: string | null;
+  log_path?: string | null;
   commands: string[];
   checklist: string[];
   message: string;

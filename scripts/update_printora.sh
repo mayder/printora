@@ -203,6 +203,10 @@ mark_step_succeeded() {
   mark_step "$1" "succeeded" "${2:-}"
 }
 
+mark_step_skipped() {
+  mark_step "$1" "skipped" "${2:-}"
+}
+
 on_error() {
   local exit_code="$1"
   local line_no="$2"
@@ -556,6 +560,12 @@ restart_app() {
   esac
 }
 
+restart_mode_is_systemd() {
+  local mode
+  mode="$(restart_mode)"
+  [[ "$mode" == "systemd_user" || "$mode" == "systemd_system" ]]
+}
+
 validate_health() {
   for _ in $(seq 1 30); do
     if curl -fsS "$HEALTH_URL" >/dev/null 2>&1 && validate_running_version; then
@@ -639,6 +649,16 @@ with sqlite3.connect(db_path) as connection:
 PY
 }
 
+finish_systemd_self_restart_run() {
+  local db_backup="$1"
+  local previous_path="$2"
+  local message
+  message="Restart systemd solicitado; validação HTTP será feita pelo app após subir."
+  mark_step_succeeded "restart_app" "$message"
+  mark_step_skipped "validate_health" "$message"
+  mark_run_succeeded "$UPDATE_RUN_ID" "$db_backup" "$previous_path"
+}
+
 apply_update() {
   mark_step_running "validate_environment"
   validate_common_plan_inputs
@@ -670,6 +690,22 @@ apply_update() {
   PREVIOUS_PATH="$previous_path"
   mark_step_succeeded "backup_project" "$previous_path"
   mark_step_running "restart_app"
+  if restart_mode_is_systemd; then
+    finish_systemd_self_restart_run "$db_backup" "$previous_path"
+    restart_app
+    printf '{"status":"succeeded","mode":"apply","target_tag":'
+    json_string "$TARGET_TAG"
+    printf ',"backup_db_path":'
+    json_string "$db_backup"
+    printf ',"previous_project_path":'
+    json_string "$previous_path"
+    printf ',"current_project_path":'
+    json_string "$ROOT_DIR"
+    printf ',"health_url":'
+    json_string "$HEALTH_URL"
+    printf ',"restart_deferred":true}\n'
+    return
+  fi
   restart_app
   mark_step_succeeded "restart_app"
   mark_step_running "validate_health"

@@ -3,12 +3,32 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 FirmwareHardwareRole = Literal["mainboard", "toolhead", "can_adapter", "unknown"]
 FirmwareHardwareConnection = Literal["can", "usb", "usb_can_bridge", "dedicated_usb_can", "unknown"]
 FirmwareHardwareStatus = Literal["detected", "registered", "needs_mapping"]
+FirmwareCatalogStatus = Literal["catalogada", "ignorada_com_motivo", "bloqueada_com_motivo"]
+FirmwareCatalogFlashMethod = Literal["katapult_can", "katapult_usb_can", "dfu_usb", "manual", "unknown"]
+
+
+class FirmwareCatalogManifestPage(BaseModel):
+    url: str
+    title: str
+    category: str
+    menu_order: int
+    content_hash: str | None = None
+    status: FirmwareCatalogStatus
+    reason: str | None = None
+
+
+class FirmwareCatalogManifest(BaseModel):
+    schema_version: int = 1
+    source_url: str = "https://canbus.esoterical.online/"
+    retrieved_at: str | None = None
+    total_pages: int = 0
+    pages: list[FirmwareCatalogManifestPage] = Field(default_factory=list)
 
 
 class FirmwareCatalogSource(BaseModel):
@@ -18,15 +38,99 @@ class FirmwareCatalogSource(BaseModel):
     notes: list[str]
 
 
+class FirmwareCatalogWorkflow(BaseModel):
+    id: str
+    title: str
+    url: str
+    steps: list[str] = Field(default_factory=list)
+
+
 class FirmwareCatalogHardware(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
     vendor: str
-    name: str
+    name: str = Field(alias="modelo")
     role: FirmwareHardwareRole
     connection: FirmwareHardwareConnection
     guide_url: str
-    known_mcus: list[str]
-    preset_ids: list[str]
+    known_mcus: list[str] = Field(default_factory=list)
+    flash_method: FirmwareCatalogFlashMethod | None = None
+    bootloader: str | None = None
+    katapult: bool | None = None
+    validation_commands: list[str] = Field(default_factory=list)
+    safety_notes: list[str] = Field(default_factory=list)
+    preset_ids: list[str] = Field(default_factory=list)
+    catalog_status: FirmwareCatalogStatus = "catalogada"
+
+
+class FirmwareCatalogReference(BaseModel):
+    id: str
+    label: str
+    role: FirmwareHardwareRole
+    connection: FirmwareHardwareConnection
+    guide_url: str
+    preset_ids: list[str] = Field(default_factory=list)
+    known_mcus: list[str] = Field(default_factory=list)
+    flash_method: FirmwareCatalogFlashMethod | None = None
+    bootloader: str | None = None
+    safety_notes: list[str] = Field(default_factory=list)
+
+
+class FirmwareCatalogGuide(BaseModel):
+    id: str
+    title: str
+    url: str
+    summary: str | None = None
+    validation_commands: list[str] = Field(default_factory=list)
+    safety_notes: list[str] = Field(default_factory=list)
+    catalog_status: FirmwareCatalogStatus = "catalogada"
+
+
+class FirmwareCatalogKatapult(BaseModel):
+    guide_url: str | None = None
+    required: bool | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class FirmwareCatalogCanSpeed(BaseModel):
+    guide_url: str | None = None
+    default_bitrate: int | None = None
+    supported_bitrates: list[int] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+class FirmwareCatalogGenerationMetadata(BaseModel):
+    generated_by: str | None = None
+    generated_at: str | None = None
+    manifest_path: str = "backend/app/data/firmware_canbus_manifest.json"
+    source_manifest_hash: str | None = None
+
+
+class FirmwareCatalog(BaseModel):
+    schema_version: int = 1
+    source: FirmwareCatalogSource
+    manifest: FirmwareCatalogManifest = Field(default_factory=FirmwareCatalogManifest)
+    workflows: list[FirmwareCatalogWorkflow] = Field(default_factory=list)
+    hardware: list[FirmwareCatalogHardware] = Field(default_factory=list)
+    troubleshooting: list[FirmwareCatalogGuide] = Field(default_factory=list)
+    update_flows: list[FirmwareCatalogGuide] = Field(default_factory=list)
+    katapult: FirmwareCatalogKatapult = Field(default_factory=FirmwareCatalogKatapult)
+    can_speed: FirmwareCatalogCanSpeed = Field(default_factory=FirmwareCatalogCanSpeed)
+    known_hardware_without_local_preset: dict[str, list[str]] = Field(default_factory=dict)
+    generation_metadata: FirmwareCatalogGenerationMetadata = Field(default_factory=FirmwareCatalogGenerationMetadata)
+
+
+class FirmwareCatalogSummary(BaseModel):
+    safe_mode: str
+    source: FirmwareCatalogSource
+    generated_at: str | None = None
+    manifest_total_pages: int
+    catalog_counts: dict[str, int]
+    category_counts: dict[str, int]
+    status_counts: dict[str, int]
+    hardware_role_counts: dict[str, int]
+    hardware_without_local_preset: dict[str, list[str]]
 
 
 class FirmwareHardwareItem(BaseModel):
@@ -43,6 +147,7 @@ class FirmwareHardwareItem(BaseModel):
     registered_board_id: int | None = None
     matched_catalog_ids: list[str]
     matched_preset_ids: list[str]
+    catalog_references: list[FirmwareCatalogReference] = Field(default_factory=list)
     guide_url: str | None = None
     action_label: str
     detail: str
@@ -55,13 +160,34 @@ class FirmwareHardwareInventory(BaseModel):
     summary: str
     catalog_source: FirmwareCatalogSource
     catalog_counts: dict[str, int]
+    catalog_hardware_without_local_preset: dict[str, list[str]] = Field(default_factory=dict)
     items: list[FirmwareHardwareItem]
 
 
 @lru_cache(maxsize=1)
 def load_firmware_catalog() -> dict[str, Any]:
     path = Path(__file__).resolve().parent / "data" / "firmware_hardware_catalog.json"
-    return json.loads(path.read_text(encoding="utf-8"))
+    catalog = FirmwareCatalog.model_validate(json.loads(path.read_text(encoding="utf-8")))
+    return catalog.model_dump(mode="json")
+
+
+def firmware_catalog_json_schema() -> dict[str, Any]:
+    return FirmwareCatalog.model_json_schema(by_alias=True)
+
+
+def firmware_catalog_summary() -> FirmwareCatalogSummary:
+    catalog = FirmwareCatalog.model_validate(load_firmware_catalog())
+    return FirmwareCatalogSummary(
+        safe_mode="local_catalog_read_only",
+        source=catalog.source,
+        generated_at=catalog.generation_metadata.generated_at,
+        manifest_total_pages=catalog.manifest.total_pages,
+        catalog_counts=catalog_counts(),
+        category_counts=_manifest_category_counts(catalog),
+        status_counts=_manifest_status_counts(catalog),
+        hardware_role_counts=_hardware_role_counts(catalog),
+        hardware_without_local_preset=catalog_hardware_without_local_preset(),
+    )
 
 
 def catalog_source() -> FirmwareCatalogSource:
@@ -72,11 +198,25 @@ def catalog_counts() -> dict[str, int]:
     catalog = load_firmware_catalog()
     hardware = _catalog_hardware()
     known_without_preset = catalog.get("known_hardware_without_local_preset", {})
+    without_preset_total = sum(len(values) for values in known_without_preset.values())
     return {
         "hardware_with_guides": len(hardware),
+        "hardware_with_local_preset": sum(1 for item in hardware if item.preset_ids),
+        "hardware_without_local_preset": without_preset_total,
+        "can_adapters_without_local_preset": len(known_without_preset.get("can_adapters", [])),
         "mainboards_without_local_preset": len(known_without_preset.get("mainboards", [])),
         "toolheads_without_local_preset": len(known_without_preset.get("toolheads", [])),
         "troubleshooting_guides": len(catalog.get("troubleshooting", [])),
+    }
+
+
+def catalog_hardware_without_local_preset() -> dict[str, list[str]]:
+    catalog = load_firmware_catalog()
+    values = catalog.get("known_hardware_without_local_preset", {})
+    return {
+        "can_adapters": list(values.get("can_adapters", [])),
+        "mainboards": list(values.get("mainboards", [])),
+        "toolheads": list(values.get("toolheads", [])),
     }
 
 
@@ -84,13 +224,14 @@ def match_catalog_for_mcu(*, mcu_name: str, mcu_version: str | None) -> list[Fir
     normalized_name = _normalize(mcu_name)
     normalized_version = _normalize(mcu_version or "")
     matches = []
+    expected_role = _role_from_mcu_name(mcu_name)
     for item in _catalog_hardware():
         if normalized_name and normalized_name in _normalize(item.name):
             matches.append(item)
             continue
         if normalized_version and any(_normalize(mcu) in normalized_version for mcu in item.known_mcus):
             matches.append(item)
-    return matches
+    return sorted(matches, key=lambda item: (0 if item.role == expected_role else 1, _role_order(item.role), item.name.lower()))
 
 
 def build_firmware_hardware_inventory(
@@ -118,6 +259,7 @@ def build_firmware_hardware_inventory(
         summary=summary,
         catalog_source=catalog_source(),
         catalog_counts=catalog_counts(),
+        catalog_hardware_without_local_preset=catalog_hardware_without_local_preset(),
         items=items,
     )
 
@@ -143,6 +285,21 @@ def _catalog_hardware() -> list[FirmwareCatalogHardware]:
     return [FirmwareCatalogHardware(**item) for item in load_firmware_catalog().get("hardware", [])]
 
 
+def _catalog_reference(item: FirmwareCatalogHardware) -> FirmwareCatalogReference:
+    return FirmwareCatalogReference(
+        id=item.id,
+        label=f"{item.vendor} {item.name}".strip(),
+        role=item.role,
+        connection=item.connection,
+        guide_url=item.guide_url,
+        preset_ids=item.preset_ids,
+        known_mcus=item.known_mcus,
+        flash_method=item.flash_method,
+        bootloader=item.bootloader,
+        safety_notes=item.safety_notes,
+    )
+
+
 def _registered_board_item(board: Any) -> FirmwareHardwareItem:
     matches = [item for item in _catalog_hardware() if board.preset_id in item.preset_ids]
     first = matches[0] if matches else None
@@ -160,6 +317,7 @@ def _registered_board_item(board: Any) -> FirmwareHardwareItem:
         registered_board_id=board.id,
         matched_catalog_ids=[item.id for item in matches],
         matched_preset_ids=[board.preset_id],
+        catalog_references=[_catalog_reference(item) for item in matches],
         guide_url=first.guide_url if first else None,
         action_label="Gerar build",
         detail=f"Placa cadastrada com preset {board.preset_id}.",
@@ -190,6 +348,7 @@ def _detected_mcu_item(mcu_name: str, object_payload: dict[str, Any]) -> Firmwar
         can_interface=can_interface if can_uuid else None,
         matched_catalog_ids=[item.id for item in matches],
         matched_preset_ids=_unique_preset_ids(matches),
+        catalog_references=[_catalog_reference(item) for item in matches],
         guide_url=first.guide_url if first else None,
         action_label="Associar modelo",
         detail=_detected_detail(can_uuid=can_uuid, serial=serial, matches=matches),
@@ -268,6 +427,27 @@ def _unique_preset_ids(matches: list[FirmwareCatalogHardware]) -> list[str]:
 
 def _role_order(role: FirmwareHardwareRole) -> int:
     return {"mainboard": 0, "can_adapter": 1, "toolhead": 2, "unknown": 3}[role]
+
+
+def _manifest_category_counts(catalog: FirmwareCatalog) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for page in catalog.manifest.pages:
+        counts[page.category] = counts.get(page.category, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _manifest_status_counts(catalog: FirmwareCatalog) -> dict[str, int]:
+    counts = {"catalogada": 0, "ignorada_com_motivo": 0, "bloqueada_com_motivo": 0}
+    for page in catalog.manifest.pages:
+        counts[page.status] = counts.get(page.status, 0) + 1
+    return counts
+
+
+def _hardware_role_counts(catalog: FirmwareCatalog) -> dict[str, int]:
+    counts = {"mainboard": 0, "toolhead": 0, "can_adapter": 0, "unknown": 0}
+    for item in catalog.hardware:
+        counts[item.role] = counts.get(item.role, 0) + 1
+    return counts
 
 
 def _normalize(value: str) -> str:

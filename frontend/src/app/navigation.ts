@@ -110,11 +110,10 @@ export const onlinePrinterSections = new Set<AppSection>([
   "monitoring",
   "updates",
   "tests",
-  "firmware",
   "reports",
 ]);
 
-export const selectedPrinterLocalSections = new Set<AppSection>(["maintenance"]);
+export const selectedPrinterLocalSections = new Set<AppSection>(["firmware", "maintenance"]);
 
 export type PrinterAvailability = "none" | "unknown" | "online" | "offline";
 

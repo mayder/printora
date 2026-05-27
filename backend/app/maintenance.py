@@ -10,7 +10,7 @@ from app.database import connect_database
 
 MaintenanceEventType = Literal["maintenance", "failure", "adjustment", "note"]
 MaintenanceIntervalKind = Literal["days", "print_hours"]
-TaskDueStatus = Literal["due", "soon", "ok", "unknown", "not_validated", "needs_review"]
+TaskDueStatus = Literal["due", "soon", "ok", "unknown", "not_validated", "needs_review", "not_applicable"]
 
 
 def _help(how_to: list[str], why: str, prevents: list[str], recommendation: str) -> dict[str, Any]:
@@ -57,6 +57,57 @@ DEFAULT_PREVENTIVE_TASKS = [
     {"name": "Conferir spool holder e caminho até a impressora", "component": "acessórios", "interval_days": 30},
     {"name": "Revisar macros e perfil do slicer após mudanças", "component": "software", "interval_days": 90},
 ]
+
+
+MAINTENANCE_TAGS_BY_TASK = {
+    "limpar superfície da mesa": ["Mesa"],
+    "inspecionar adesão da mesa": ["Mesa"],
+    "verificar nivelamento mecânico da mesa": ["Mesa", "Movimento"],
+    "revisar z-offset aprovado": ["Mesa", "Calibração"],
+    "refazer malha da mesa": ["Mesa", "Calibração"],
+    "limpar poeira da estrutura": ["Estrutura"],
+    "conferir parafusos estruturais": ["Estrutura"],
+    "conferir esquadro da estrutura": ["Estrutura", "Movimento"],
+    "verificar tensão das correias": ["Movimento", "Gantry"],
+    "inspecionar desgaste das correias": ["Movimento", "Gantry"],
+    "lubrificar trilhos lineares": ["Movimento", "Gantry"],
+    "limpar trilhos e guias": ["Movimento", "Gantry"],
+    "inspecionar roldanas, polias e idlers": ["Movimento", "Motores"],
+    "conferir aperto de polias nos motores": ["Motores", "Movimento"],
+    "limpar bico externamente": ["Toolhead", "Hotend"],
+    "inspecionar bico por desgaste ou entupimento": ["Toolhead", "Hotend"],
+    "conferir aperto do hotend em temperatura segura": ["Toolhead", "Hotend"],
+    "inspecionar vazamento de filamento no hotend": ["Toolhead", "Hotend"],
+    "limpar engrenagens do extrusor": ["Toolhead", "Extrusor", "Filamento"],
+    "verificar pressão/tensão do extrusor": ["Toolhead", "Extrusor", "Filamento"],
+    "inspecionar tubo ptfe ou guia de filamento": ["Filamento", "Toolhead"],
+    "limpar caminho do filamento": ["Filamento"],
+    "inspecionar sensor de filamento": ["Filamento", "Toolhead"],
+    "limpar fans e dutos": ["Toolhead", "Refrigeração"],
+    "verificar ruído ou folga dos fans": ["Refrigeração", "Toolhead"],
+    "limpar filtro de ar ou carvão ativado": ["Refrigeração"],
+    "inspecionar cabos do toolhead": ["Toolhead", "Elétrica"],
+    "inspecionar conectores can/usb": ["Elétrica", "Toolhead"],
+    "conferir fixação e alívio de tensão dos cabos": ["Elétrica", "Toolhead"],
+    "inspecionar fonte, borne e aterramento visualmente": ["Elétrica"],
+    "conferir câmera e iluminação": ["Acessórios", "Monitoramento"],
+    "conferir spool holder e caminho até a impressora": ["Filamento", "Acessórios"],
+    "revisar macros e perfil do slicer após mudanças": ["Software"],
+}
+
+MAINTENANCE_TAGS_BY_COMPONENT = {
+    "acessórios": ["Acessórios"],
+    "calibração": ["Calibração", "Mesa"],
+    "elétrica": ["Elétrica"],
+    "estrutura": ["Estrutura"],
+    "extrusor": ["Toolhead", "Extrusor"],
+    "filamento": ["Filamento"],
+    "hotend": ["Toolhead", "Hotend"],
+    "mesa": ["Mesa"],
+    "movimento": ["Movimento"],
+    "refrigeração": ["Refrigeração"],
+    "software": ["Software"],
+}
 
 
 MAINTENANCE_HELP_BY_TASK = {
@@ -449,6 +500,10 @@ class MaintenanceTaskComplete(BaseModel):
     disable_reminder: bool = False
 
 
+class MaintenanceTaskApplicabilityUpdate(BaseModel):
+    is_applicable: bool = True
+
+
 class MaintenanceTaskHelp(BaseModel):
     how_to: list[str]
     why: str
@@ -472,6 +527,10 @@ class MaintenanceTaskRecord(BaseModel):
     current_print_hours: float | None
     current_print_hours_read_at: str | None
     current_print_hours_source: str | None
+    tags: list[str] = Field(default_factory=list)
+    primary_tag: str | None = None
+    is_applicable: bool = True
+    not_applicable_at: str | None = None
     is_active: bool
     created_at: str
     updated_at: str
@@ -604,10 +663,10 @@ class MaintenanceRepository:
                 SELECT id, printer_id, name, component, interval_days, interval_kind, interval_value,
                        last_done_at, last_done_print_hours, last_print_hours_read_at,
                        current_print_hours, current_print_hours_read_at, current_print_hours_source,
-                       is_active, created_at, updated_at
+                       is_applicable, not_applicable_at, is_active, created_at, updated_at
                 FROM maintenance_tasks
                 WHERE printer_id = ?
-                ORDER BY is_active DESC, component ASC, name ASC
+                ORDER BY is_applicable DESC, is_active DESC, component ASC, name ASC
                 """,
                 (printer_id,),
             ).fetchall()
@@ -615,8 +674,11 @@ class MaintenanceRepository:
 
     def summary(self, printer_id: int) -> MaintenanceSummary:
         tasks = self.list_tasks(printer_id)
-        counts = {"due": 0, "soon": 0, "ok": 0, "unknown": 0, "not_validated": 0, "needs_review": 0, "inactive": 0}
+        counts = {"due": 0, "soon": 0, "ok": 0, "unknown": 0, "not_validated": 0, "needs_review": 0, "inactive": 0, "not_applicable": 0}
         for task in tasks:
+            if not task.is_applicable:
+                counts["not_applicable"] += 1
+                continue
             if not task.is_active:
                 counts["inactive"] += 1
                 continue
@@ -624,7 +686,11 @@ class MaintenanceRepository:
         due_components = sorted(
             {task.component for task in tasks if task.is_active and task.due_status in {"due", "soon"}}
         )
-        active_known_tasks = [task for task in tasks if task.is_active and task.due_status not in {"unknown", "not_validated", "needs_review"}]
+        active_known_tasks = [
+            task
+            for task in tasks
+            if task.is_applicable and task.is_active and task.due_status not in {"unknown", "not_validated", "needs_review"}
+        ]
         next_due_task = min(active_known_tasks, key=_task_due_sort_value) if active_known_tasks else None
         existing = {(task.name.lower(), task.component.lower()) for task in tasks}
         recommended_tasks = [
@@ -675,7 +741,7 @@ class MaintenanceRepository:
                 SELECT id, printer_id, name, component, interval_days, interval_kind, interval_value,
                        last_done_at, last_done_print_hours, last_print_hours_read_at,
                        current_print_hours, current_print_hours_read_at, current_print_hours_source,
-                       is_active, created_at, updated_at
+                       is_applicable, not_applicable_at, is_active, created_at, updated_at
                 FROM maintenance_tasks
                 WHERE id = ?
                 """,
@@ -683,10 +749,28 @@ class MaintenanceRepository:
             ).fetchone()
         return _task_from_row(row) if row else None
 
+    def update_task_applicability(self, task_id: int, payload: MaintenanceTaskApplicabilityUpdate) -> MaintenanceTaskRecord | None:
+        if self.get_task(task_id) is None:
+            return None
+        with connect_database(self.database_path) as connection:
+            connection.execute(
+                """
+                UPDATE maintenance_tasks
+                SET is_applicable = ?,
+                    not_applicable_at = CASE WHEN ? THEN NULL ELSE CURRENT_TIMESTAMP END,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (1 if payload.is_applicable else 0, 1 if payload.is_applicable else 0, task_id),
+            )
+        return self.get_task(task_id)
+
     def complete_task(self, task_id: int, payload: MaintenanceTaskComplete) -> MaintenanceEventRecord | None:
         task = self.get_task(task_id)
         if task is None:
             return None
+        if not task.is_applicable:
+            raise ValueError("maintenance task is not applicable")
         performed_at = _clean_timestamp(payload.performed_at) or _now_text()
         interval_kind = payload.next_interval_kind or task.interval_kind
         interval_value = _complete_interval_value(task, payload)
@@ -783,7 +867,7 @@ class MaintenanceRepository:
             SELECT id, printer_id, name, component, interval_days, interval_kind, interval_value,
                    last_done_at, last_done_print_hours, last_print_hours_read_at,
                    current_print_hours, current_print_hours_read_at, current_print_hours_source,
-                   is_active, created_at, updated_at
+                   is_applicable, not_applicable_at, is_active, created_at, updated_at
             FROM maintenance_tasks
             WHERE printer_id = ?
               AND lower(name) = lower(?)
@@ -846,8 +930,10 @@ def _task_from_row(row) -> MaintenanceTaskRecord:
     stored_interval_value = float(row["interval_value"] if row["interval_value"] is not None else row["interval_days"])
     recommendation = _recommended_interval_for_task(str(row["name"]), str(row["component"]))
     help_content = _maintenance_help_for_task(str(row["name"]), str(row["component"]))
+    tags = _maintenance_tags_for_task(str(row["name"]), str(row["component"]))
     current_print_hours_source = row["current_print_hours_source"]
     current_print_hours = row["current_print_hours"]
+    is_applicable = bool(row["is_applicable"])
     interval_kind, interval_value = _effective_interval(
         stored_interval_kind=stored_interval_kind,
         stored_interval_value=stored_interval_value,
@@ -856,15 +942,24 @@ def _task_from_row(row) -> MaintenanceTaskRecord:
         current_print_hours=current_print_hours,
         current_print_hours_source=current_print_hours_source,
     )
-    due_status, days_until_due, print_hours_delta, print_hours_until_due, due_detail = _calculate_due_status(
-        interval_kind=interval_kind,
-        interval_value=interval_value,
-        last_done_at=row["last_done_at"],
-        interval_days=int(row["interval_days"]),
-        last_done_print_hours=row["last_done_print_hours"],
-        current_print_hours=current_print_hours,
-        current_print_hours_source=current_print_hours_source,
-    )
+    if is_applicable:
+        due_status, days_until_due, print_hours_delta, print_hours_until_due, due_detail = _calculate_due_status(
+            interval_kind=interval_kind,
+            interval_value=interval_value,
+            last_done_at=row["last_done_at"],
+            interval_days=int(row["interval_days"]),
+            last_done_print_hours=row["last_done_print_hours"],
+            current_print_hours=current_print_hours,
+            current_print_hours_source=current_print_hours_source,
+        )
+    else:
+        due_status, days_until_due, print_hours_delta, print_hours_until_due, due_detail = (
+            "not_applicable",
+            None,
+            None,
+            None,
+            "Rotina marcada como não aplicável para esta impressora.",
+        )
     return MaintenanceTaskRecord(
         id=int(row["id"]),
         printer_id=int(row["printer_id"]),
@@ -879,6 +974,10 @@ def _task_from_row(row) -> MaintenanceTaskRecord:
         current_print_hours=current_print_hours,
         current_print_hours_read_at=row["current_print_hours_read_at"],
         current_print_hours_source=current_print_hours_source,
+        tags=tags,
+        primary_tag=tags[0] if tags else None,
+        is_applicable=is_applicable,
+        not_applicable_at=row["not_applicable_at"],
         is_active=bool(row["is_active"]),
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
@@ -907,6 +1006,13 @@ def _recommended_interval_for_task(
             return kind, float(value)
         return None, None
     return None, None
+
+
+def _maintenance_tags_for_task(name: str, component: str) -> list[str]:
+    tags = MAINTENANCE_TAGS_BY_TASK.get(name.lower())
+    if tags:
+        return tags
+    return MAINTENANCE_TAGS_BY_COMPONENT.get(component.lower(), [component.strip() or "Geral"])
 
 
 def _maintenance_help_for_task(name: str, component: str) -> dict[str, Any] | None:

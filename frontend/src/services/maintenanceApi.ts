@@ -13,6 +13,12 @@ export const maintenanceApi = {
       body: JSON.stringify(body),
     }),
   latestTaskEvent: (taskId: number) => apiResponse(`/api/maintenance/tasks/${taskId}/latest-event`, { method: "DELETE" }),
+  updateTaskApplicability: (taskId: number, isApplicable: boolean) =>
+    apiResponse(`/api/maintenance/tasks/${taskId}/applicability`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_applicable: isApplicable }),
+    }),
   createEvent: (printerId: number, body: unknown) =>
     apiResponse(`/api/printers/${printerId}/maintenance/events`, {
       method: "POST",

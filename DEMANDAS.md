@@ -59,6 +59,7 @@
 - PKG-30: Catálogo completo de firmware de impressoras 3D
 - PKG-31: Instalação resiliente e recuperação de updates travados
 - PKG-32: Desktop App macOS/Windows
+- PKG-33: Presets e geração segura de firmware a partir do catálogo
 
 ## Política De Backlog
 
@@ -504,6 +505,8 @@ Estado atual:
 - Testes cobrem escopo por impressora, conclusão de tarefa, resumo, alertas e criação idempotente de tarefas padrão.
 - Manutenção preventiva ampliada para lembrete por `days` ou `print_hours`, com baseline lido de `/server/history/totals`, fallback tolerante quando Moonraker está offline e status `not_validated`/`needs_review`.
 - UI de Manutenção permite concluir rotina ou registro livre com lembrete por dias ou horas de impressão, mantendo registro sem lembrete quando solicitado.
+- UI e API permitem marcar rotina do catalogo como `N/A` por impressora, ocultando do plano preventivo principal e mantendo reversao por `Desfazer`.
+- UI de Manutenção exibe tags de area fisica nos cards e permite filtrar por area ou ordenar a grade unica por area, titulo, criticidade e vencimento, preservando filtros de status e `N/A`.
 
 ## PKG-08: Assistente De Primeira Camada E Z-Offset
 
@@ -2214,5 +2217,110 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
-- Existe base inicial manual em `backend/app/data/firmware_hardware_catalog.json`, mas ela não representa varredura completa do site.
+- Implementado para fechamento local do PKG-30.
+- Manifesto versionado representa 83 páginas do menu público do Esoterical CANBus, com URL, título, categoria, hash, data de captura e status controlado.
+- Catálogo local normalizado cobre 56 hardwares, 9 workflows, 5 fluxos de atualização, 12 guias de troubleshooting, Katapult, CAN speed e metadata de geração.
+- Mapeamento de presets locais identifica 11 hardwares com preset existente e mantém 45 hardwares em `known_hardware_without_local_preset`, sem criar presets automaticamente.
+- Backend do Firmware Manager expõe resumo read-only do catálogo local em `/api/firmware/catalog` e inventário enriquecido em `/api/printers/{printer_id}/firmware/hardware-inventory`, mantendo dependência runtime somente em dados locais.
+- Tela Firmware consome o catálogo como referência compacta para placas da impressora ativa, sem transformar o catálogo em lista genérica e sem executar build, flash, update, SSH ou alteração local a partir dessas referências.
+- Validação automatizada do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+- Validação manual pendente para aceite operacional em impressora real: abrir Firmware com uma impressora online, confirmar placas detectadas/cadastradas, sugestão de modelo físico, status de preset local/faltante, links do guia e ausência de ações mutáveis disparadas pelo catálogo.
+
+## PKG-33: Presets E Geração Segura De Firmware A Partir Do Catálogo
+
+Objetivo:
+
+Transformar o catálogo local do PKG-30 em presets reais de build para placas suportadas, gerar `.config` determinístico, preparar build seguro por dry-run e manter build real bloqueado por padrão, sem flash automático.
+
+Motivo da numeração:
+
+- `PKG-31` já está reservado para instalação resiliente e recuperação de updates travados.
+- `PKG-32` já está reservado para o aplicativo desktop macOS/Windows.
+- `PKG-33` é o próximo número livre e mantém o pacote de firmware pós-PKG-30 sem sobrescrever backlog existente.
+
+Entregáveis:
+
+- inventário dos 45 hardwares do catálogo que ainda estão em `known_hardware_without_local_preset`;
+- priorização inicial de presets BTT, Fysetc e Mellow mais comuns;
+- presets locais com MCU, bootloader/Katapult quando aplicável, comunicação, arquivo `.config` esperado, output de build esperado e método futuro de flash;
+- schema de build config com opções equivalentes ao `make menuconfig`, validável sem executar `make`;
+- validação de suficiência para classificar cada preset como completo, faltando dados ou inválido;
+- gerador determinístico de `.config` a partir de preset completo;
+- testes de snapshot para `.config` gerado;
+- dry-run de build reforçado com preset usado, `.config` planejado, backup planejado, diretório de trabalho, output esperado e comandos planejados;
+- artefatos de `.config`, logs e binário previstos em diretório controlado do Printora quando o fluxo avançar para build local;
+- UI da tela Firmware exibindo por placa da impressora ativa: preset completo, faltando dados, gerar config, preparar build e build concluído quando houver artefato;
+- documentação de operação, validação, riscos e rollback em `TESTES.md`, `TELAS.md` e `RUNBOOK.md` quando o respectivo lote alterar comportamento observável.
+
+Lotes:
+
+1. Cobertura de presets: listar hardwares sem preset, priorizar BTT/Fysetc/Mellow e adicionar presets locais incrementais.
+2. Schema de build config: definir contrato equivalente ao `make menuconfig` e validar suficiência de presets.
+3. Gerador de `.config`: gerar arquivo determinístico sem rodar `make` e cobrir com snapshots.
+4. Build dry-run reforçado: planejar comandos, diretórios, backup, `.config`, logs e binário sem executar comandos mutáveis.
+5. Build real controlado: manter bloqueado por padrão, exigir modo local e confirmação textual, salvar logs/binário e restaurar `.config`, sem flash.
+6. UI Firmware: exibir estado de preset, geração de config, preparação de build e resultado de build sem transformar catálogo em lista principal.
+
+Critério de aceite:
+
+- `PKG-31` e `PKG-32` permanecem preservados com seus escopos atuais;
+- hardwares sem preset continuam rastreáveis até receberem preset local;
+- presets completos têm dados suficientes para gerar `.config`;
+- geração de `.config` é determinística, testada por snapshot e não depende de relógio, ambiente real ou ordem implícita;
+- dry-run de build não executa `make`, cópia para Klipper, SSH, restart, update, flash ou alteração local/remota;
+- build real permanece bloqueado por padrão e só pode avançar em lote específico com modo local explícito e confirmação textual;
+- `.config` real do Klipper não é sobrescrito sem backup e restauração documentados no lote de build controlado;
+- tela Firmware continua guiada pela impressora ativa e não vira lista genérica de catálogo/presets;
+- `./check.sh` passa no fechamento do pacote.
+
+Escopo fora:
+
+- flash automático ou execução real de flash;
+- SSH real obrigatório;
+- build real por padrão;
+- alteração em impressora real sem confirmação explícita;
+- update de Klipper, Moonraker, Mainsail ou sistema operacional;
+- restart de Klipper, Moonraker ou systemd;
+- suporte a qualquer placa sem preset validado;
+- dependência do site Esoterical CANBus em runtime.
+
+Validação:
+
+- por lote, rodar testes focados de firmware e validação manual proporcional ao risco;
+- para presets e catálogo, validar schema, mapeamento `preset_ids` e permanência dos hardwares ainda sem preset;
+- para `.config`, validar snapshots determinísticos;
+- para dry-run, validar ausência de comandos mutáveis e histórico escopado por impressora/placa;
+- para UI, validar Firmware offline, online, placa com preset completo, placa sem preset e ausência de flash/SSH/restart/update;
+- no fechamento, rodar `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+Estado atual:
+
+- Lote 1 implementado localmente.
+- Inventário inicial do lote confirmou 45 hardwares sem preset local: 3 adaptadores CAN, 25 mainboards e 17 toolheads.
+- Foram adicionados 12 presets priorizados para BTT, Fysetc e Mellow: BTT Kraken H723, BTT Manta M5P G0B1, BTT Manta M8P v2 H723, BTT SKR-3 H743, Fysetc Spider v2.2 F446, Fysetc Spider v2.3 F446, Fysetc Spider v3.0 H7, Fysetc H36 G0B1, Fysetc SB Combo V2 F072, Mellow Fly-Super8 Pro H723, Mellow Fly SB2040 v3 RP2040 e Mellow Fly SHT36 v3 RP2040.
+- Catálogo local passou a mapear 23 hardwares com preset local e mantém 33 hardwares em `known_hardware_without_local_preset`: 3 adaptadores CAN, 17 mainboards e 13 toolheads.
+- Lote 1 não executa build, flash, SSH, `make`, restart, update ou alteração em impressora real.
+- Lote 2 implementado localmente.
+- Criado schema `FirmwareBuildConfig` versionado para opções equivalentes ao `make menuconfig`: arquitetura, MCU, modelo de processador, bootloader, clock, interface de comunicação, conexão CAN/USB/serial, arquivo `.config` e output esperado.
+- Endpoint `/api/firmware/board-presets` expõe `build_config`, `build_config_status` e `build_config_validation`, classificando presets como `complete`, `missing_data` ou `invalid`.
+- Validação de suficiência cobre preset completo, campos faltantes e schema inválido sem executar `make`, build real, flash, SSH, restart ou update.
+- Lote 3 implementado localmente.
+- Criado gerador determinístico de `.config` em memória a partir de `FirmwareBuildConfig`, com snapshots para preset STM32 e RP2040.
+- Endpoint `GET /api/firmware/board-presets/{preset_id}/config-preview` retorna preview seguro com `content`, `lines`, metadata do preset e `artifact_saved=false`.
+- Preview bloqueia preset incompleto com erro claro e não salva arquivo, não escreve em Klipper, não executa comandos externos e não depende de data/hora ou ambiente local.
+- Lote 4 implementado localmente.
+- Dry-run de build reforçado em `POST /api/firmware/boards/{board_id}/build-runs/dry-run` com preset usado, status de suficiência, `.config` gerado planejado, backup planejado, diretório de trabalho, output esperado, log planejado, binário planejado e comandos `PLAN ...` não executáveis.
+- Histórico em `GET /api/printers/{printer_id}/firmware/build-runs` mantém o escopo por impressora/placa e reexpõe os metadados planejados sem nova persistência.
+- Dry-run e preflight bloqueiam preset sem build config completo antes de montar plano de build; nenhum `make`, build real, SSH, flash, restart, update ou cópia para Klipper é executado.
+- Lote 5 implementado localmente.
+- Build local real continua bloqueado por padrão e só executa com `PRINTORA_FIRMWARE_BUILD_MODE=local` e confirmação textual `EXECUTE_LOCAL_BUILD_NO_FLASH`.
+- Executor local usa o `.config` determinístico gerado pelo preset, salva esse arquivo em `output_root/local-build/<placa>/generated/`, faz backup da `.config` atual, substitui temporariamente a `.config` do Klipper local, executa somente `make clean` e `make`, restaura a `.config` em sucesso ou falha, salva log em `logs/build.log` e copia o binário esperado para o diretório de artefatos.
+- Histórico registra bloqueio por modo, bloqueio por confirmação inválida, sucesso e falha sem executar flash, restart, SSH, update ou alteração em impressora remota.
+- Lote 6 implementado localmente.
+- Tela Firmware continua guiada pela impressora ativa e mostra por placa cadastrada o estado do preset, ação de visualizar `.config`, validação de build, preparação de dry-run e resumo de artefato/log quando existir build.
+- UI de build local controlado expõe `klipper_path`, `output_root` e confirmação textual, mas a decisão de executar/bloquear permanece no backend.
+- Botões e chamadas de flash foram removidos da tela Firmware deste pacote; a UI não aciona flash, SSH, restart ou update.
+- PKG-33 fechado localmente.
+- Escopo entregue sem alterar PKG-30: catálogo local segue versionado e read-only em runtime; PKG-33 apenas transforma parte do catálogo em presets/build config, geração de `.config`, dry-run, build local controlado e UI segura por impressora ativa.
+- Validação de fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+- Pendência fora do aceite automatizado: validação manual em impressora real offline/online antes de considerar uso operacional em hardware real.

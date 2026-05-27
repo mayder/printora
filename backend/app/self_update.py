@@ -385,7 +385,7 @@ def apply_self_update(
     request: UpdateApplyRequest,
     project_root: Path,
     script_path: Path | None,
-    stable_release_tags: set[str],
+    stable_release_tags: set[str] | None,
     timeout_seconds: float,
     android_script_path: Path | None = None,
     unix_script_path: Path | None = None,
@@ -445,6 +445,7 @@ def apply_self_update(
     )
 
     if _should_detach_self_update(detected_environment, project_root):
+        log_path = _detached_update_log_path(repository.database_path, run.id)
         _start_update_script_detached(
             script_path=selected_script_path,
             mode="--apply",
@@ -452,11 +453,12 @@ def apply_self_update(
             source_url=request.source_url,
             project_root=project_root,
             run_id=run.id,
+            log_path=log_path,
         )
         run = repository.get_run(run.id) or run
         return UpdateApplyResponse(
             accepted=True,
-            message="Update do Printora iniciado. O app pode reiniciar; acompanhe pelo histórico.",
+            message=f"Update do Printora iniciado. O app pode reiniciar; acompanhe pelo histórico. Log: {log_path}",
             run=run,
             script_stdout=plan_stdout,
             script_stderr=plan_stderr,
@@ -536,6 +538,7 @@ def rollback_self_update(
     repository.mark_all_steps(rollback_run.id, "running", f"rollback_of={source_run.id}")
 
     if _should_detach_self_update(source_run.environment, project_root):
+        log_path = _detached_update_log_path(repository.database_path, rollback_run.id)
         _start_update_script_detached(
             script_path=selected_script_path,
             mode="--rollback",
@@ -544,11 +547,12 @@ def rollback_self_update(
             project_root=project_root,
             run_id=rollback_run.id,
             extra_args=_rollback_extra_args(source_run.id, previous_path, db_backup_path),
+            log_path=log_path,
         )
         rollback_run = repository.get_run(rollback_run.id) or rollback_run
         return UpdateRollbackResponse(
             accepted=True,
-            message="Rollback do Printora iniciado. O app pode reiniciar; acompanhe pelo histórico.",
+            message=f"Rollback do Printora iniciado. O app pode reiniciar; acompanhe pelo histórico. Log: {log_path}",
             source_run=source_run,
             rollback_run=rollback_run,
         )
@@ -642,9 +646,11 @@ def _validate_rollback_confirmation(confirmation_phrase: str) -> None:
         raise ValueError("Confirmação obrigatória inválida.")
 
 
-def _validate_release_tag(target_tag: str, stable_release_tags: set[str]) -> None:
+def _validate_release_tag(target_tag: str, stable_release_tags: set[str] | None) -> None:
     if not target_tag or not re.fullmatch(r"v[0-9]+[.][0-9]+[.][0-9]+", target_tag):
         raise ValueError("Tag inválida para update.")
+    if stable_release_tags is None:
+        return
     if target_tag not in stable_release_tags:
         raise ValueError("Tag não pertence às releases estáveis disponíveis.")
 
@@ -688,6 +694,7 @@ def _start_update_script_detached(
     project_root: Path,
     run_id: int,
     extra_args: list[str] | None = None,
+    log_path: Path | None = None,
 ) -> None:
     import os
 
@@ -695,16 +702,30 @@ def _start_update_script_detached(
     if source_url:
         env["PRINTORA_UPDATE_REMOTE_URL"] = source_url
     env["PRINTORA_UPDATE_RUN_ID"] = str(run_id)
+    log_handle = None
+    stdout = subprocess.DEVNULL
+    stderr = subprocess.DEVNULL
+    if log_path is not None:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_handle = log_path.open("ab")
+        stdout = log_handle
+        stderr = subprocess.STDOUT
     subprocess.Popen(
         _update_script_command(script_path=script_path, mode=mode, target_tag=target_tag, extra_args=extra_args),
         cwd=str(project_root),
         env=env,
         stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=stdout,
+        stderr=stderr,
         start_new_session=True,
         close_fds=True,
     )
+    if log_handle is not None:
+        log_handle.close()
+
+
+def _detached_update_log_path(database_path: Path, run_id: int) -> Path:
+    return database_path.parent / "logs" / f"self-update-run-{run_id}.log"
 
 
 def _script_path_for_environment(

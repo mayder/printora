@@ -7,6 +7,7 @@ import {
   Camera,
   CalendarDays,
   CheckCircle2,
+  CircleSlash,
   ClipboardCheck,
   Database,
   FileText,
@@ -61,6 +62,7 @@ const icons = {
   CalendarDays,
   Camera,
   CheckCircle2,
+  CircleSlash,
   ClipboardCheck,
   Database,
   FileText,
@@ -168,7 +170,6 @@ export function usePrintoraApp() {
       firmware.loadFirmwareHardwareInventory(printerId),
       firmware.loadFirmwareBoards(printerId),
       firmware.loadFirmwareBuildRuns(printerId),
-      firmware.loadFirmwareFlashRuns(printerId),
       calibration.loadCalibrationRuns(printerId),
     ]);
   }
@@ -241,7 +242,9 @@ export function usePrintoraApp() {
     setLoading(true);
     setError(null);
     try {
+      const catalogSummaryLoad = firmware.loadFirmwareCatalogSummary();
       await Promise.allSettled([firmware.loadBoardPresets(), printers.loadPrinters()]);
+      await catalogSummaryLoad;
       void settings.loadGlobalDiagnostics();
       void selfUpdate.loadSelfUpdateHistory();
     } catch (err) {

@@ -6,6 +6,51 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Diagnostico Nao Mostrava Throttling Da Raspberry
+
+Sintoma:
+
+- em Raspberry, o operador nao tinha um sinal direto no Printora para saber se o raio/undervoltage/throttling estava normal, ativo ou apenas registrado no passado.
+
+Causa:
+
+- o diagnostico de instalacao verificava dependencias, porta, banco e updates, mas nao consultava `vcgencmd get_throttled`.
+
+Correção:
+
+- `GET /api/system/install-diagnostics` passa a incluir o item `raspberry_throttling`;
+- em Raspberry com `vcgencmd`, o bitmask oficial e decodificado em `ok`, `warning` ou `error`;
+- em host que nao e Raspberry, o check aparece como nao aplicavel sem gerar alerta.
+
+Validação:
+
+- `backend/.venv/bin/pytest tests/test_install_diagnostics.py -q`.
+
+### Updater Bloqueava Tag Estavel Quando Consulta De Releases Falhava
+
+Sintoma:
+
+- update para uma tag estavel existente podia falhar com `Tag não pertence às releases estáveis disponíveis`;
+- quando o app reiniciava durante update destacado, faltava um arquivo de log direto para suporte.
+- em Raspberry/systemd, o update podia aplicar a nova versao, mas ficar preso em `restart_app` ate reconciliacao manual.
+
+Causa:
+
+- o backend exigia que a tag estivesse na lista carregada por `GET /api/system/releases`, mesmo quando a consulta ao GitHub estava indisponivel, desabilitada ou temporariamente defasada;
+- execucoes destacadas do updater descartavam stdout/stderr em `/dev/null`.
+- o `systemctl restart printora.service` podia encerrar o proprio processo do updater antes de marcar o run como concluido.
+
+Correção:
+
+- quando a consulta de releases nao esta `ok`, o backend aceita apenas tag estrita `vX.Y.Z` e deixa o script oficial validar a existencia da tag no remoto;
+- updates e rollbacks destacados passam a gravar log em `~/.local/share/printora/logs/self-update-run-<id>.log`.
+- no modo Unix/systemd, o script marca `restart_app` como concluido, `validate_health` como pulado e finaliza o run antes de solicitar o restart do servico.
+
+Validação:
+
+- `backend/.venv/bin/pytest tests/test_update_self.py -q`;
+- `./check.sh`.
+
 ### Firmware Duplicava Placa Detectada E Navegacao Mantinha Painel Antigo
 
 Sintoma:

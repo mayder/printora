@@ -106,10 +106,11 @@ export type MaintenanceTaskAlert = {
   component: string;
   interval_kind: "days" | "print_hours";
   interval_value: number;
-  due_status: "due" | "soon" | "ok" | "unknown" | "not_validated" | "needs_review";
+  due_status: "due" | "soon" | "ok" | "unknown" | "not_validated" | "needs_review" | "not_applicable";
   days_until_due?: number | null;
   print_hours_until_due?: number | null;
   due_detail?: string | null;
+  is_applicable?: boolean;
   is_active: boolean;
 };
 
@@ -222,7 +223,7 @@ export function buildAlertCenterItems({
     });
 
   maintenanceTasks
-    ?.filter((task) => task.is_active)
+    ?.filter((task) => task.is_active && task.is_applicable !== false)
     .filter((task) => ["due", "soon", "not_validated", "needs_review"].includes(task.due_status))
     .forEach((task) => {
       items.push({

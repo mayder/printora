@@ -47,10 +47,10 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Operacao | `monitoring` | `/?section=monitoring`, `/#monitoring`; legado `/?section=operation` redireciona para esta tela | `frontend/src/screens/MonitoringScreen.tsx` + `frontend/src/MonitoringDashboard.tsx` | Operacao ao vivo com temperaturas, toolhead, extrusor, progresso, sistema, fans, CAN e acoes protegidas | Exige impressora ativa online | existente |
 | Atualizacoes | `updates` | `/?section=updates`, `/#updates` | `frontend/src/screens/UpdatesScreen.tsx` | Update Manager da impressora, checklist pos-update, update com confirmacao, progresso e historico | Exige impressora ativa online | existente |
 | Calibracao | `tests` | `/?section=tests`, `/#tests`; legado `/?section=calibration` redireciona para `tests` | `frontend/src/screens/TestsScreen.tsx` | Centro de calibracao Voron em cards numerados por sequencia, busca, filtros por tipo/uso, ajuda expandida, preflight, execucao com confirmacao presencial e perfil Z aprovado | Exige impressora ativa online | existente |
-| Firmware | `firmware` | `/?section=firmware`, `/#firmware` | `frontend/src/screens/FirmwareScreen.tsx` | Inventario de MCUs/placas detectadas, associacao ao modelo fisico, build, flash planejado e referencia CANBus | Exige impressora ativa online | existente |
+| Firmware | `firmware` | `/?section=firmware`, `/#firmware` | `frontend/src/screens/FirmwareScreen.tsx` | Inventario de MCUs/placas detectadas, associacao ao modelo fisico, build, flash planejado e referencia CANBus | Exige impressora ativa; leitura ao vivo depende de Moonraker online | existente |
 | Manutencao | `maintenance` | `/?section=maintenance`, `/#maintenance` | `frontend/src/screens/MaintenanceScreen.tsx` | Tarefas preventivas, diario e horas de impressao por impressora | Exige impressora ativa local | existente |
 | Relatorios | `reports` | `/?section=reports`, `/#reports` | `frontend/src/screens/ReportsScreen.tsx` + `frontend/src/screens/reports/*` | Relatorio leigo da impressora com decisao de imprimir, motivo, metricas explicadas, diagnostico de rede/DNS/SSH read-only, snapshots, relatorio sanitizado, backup/restore seguro e auditoria read-only | Exige impressora ativa online | existente |
-| Configuracoes | `settings` | `/?section=settings`, `/#settings` | `frontend/src/screens/SettingsScreen.tsx` | Registro tecnico CAN, releases, update/rollback do Printora, diagnostico da instalacao e diagnostico avancado do host | Nao exige impressora ativa | existente |
+| Configuracoes | `settings` | `/?section=settings`, `/#settings` | `frontend/src/screens/SettingsScreen.tsx` | Registro tecnico CAN, releases, update/rollback do Printora, diagnostico da instalacao com energia/throttling Raspberry e diagnostico avancado do host | Nao exige impressora ativa | existente |
 | Sobre | `about` | `/?section=about`, `/#about` | `frontend/src/screens/AboutScreen.tsx` | Apresentacao do autor, motivacao do projeto, funcionalidades, roadmap publico, redes sociais e identidade visual | Nao exige impressora ativa | existente |
 | Licenca | `license` | `/?section=license`, `/#license` | `frontend/src/screens/LicenseScreen.tsx` | Resumo de licenca open source, limites de garantia e responsabilidade operacional | Nao exige impressora ativa | existente |
 
@@ -75,6 +75,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Se a impressora estiver offline ou sem leitura de horas, o modal preserva o padrao em dias para evitar bloqueio operacional.
 - Cada card de rotina preventiva possui acao `Como fazer`, abrindo modal com passos, motivo, falhas evitadas e recomendacao propria da rotina no catalogo de manutencao.
 - O conteudo de `Como fazer` das rotinas do catalogo vem do backend junto da tarefa; o frontend usa fallback generico apenas para rotinas livres criadas pelo usuario.
+- Rotinas do catalogo podem ser marcadas como `N/A` por impressora quando nao se aplicam; elas ficam ocultas dos filtros operacionais, aparecem no filtro `N/A` e podem ser restauradas por `Desfazer`.
+- Rotinas do catalogo exibem badges de area fisica no topo do card e podem ser filtradas por area ou ordenadas por area, titulo, criticidade ou vencimento.
 
 ## Hooks e services
 
@@ -135,13 +137,18 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Atualizacoes, componentes com origem Git exibem um icone de informacao no titulo para abrir o repositorio do componente em nova aba quando o Moonraker informar `remote_url` ou `owner/repo_name`.
 - Ao fechar o modal de update concluido ou revalidado, a tela Atualizacoes deve recarregar status do Update Manager, health, checklist, operacao e auditoria da impressora ativa.
 - Auditoria e diagnostico avancado do host devem ficar em telas de diagnostico/configuracao, nao como conteudo principal do Monitoramento.
-- Na tela Firmware, a visao principal deve ser guiada pela impressora selecionada: mostrar versoes de Klipper/Moonraker, MCUs/placas detectadas pelo Klipper, placas ja associadas ao modelo fisico e proximas acoes de build/flash.
+- Na tela Firmware, a visao principal deve ser guiada pela impressora selecionada: mostrar versoes de Klipper/Moonraker, MCUs/placas detectadas pelo Klipper, placas ja associadas ao modelo fisico e proximas acoes seguras de `.config` e build.
 - Na tela Firmware, componentes/plugins do Update Manager nao aparecem no conteudo principal; eles pertencem a Atualizacoes ou diagnostico, nao ao inventario de firmware.
 - Na tela Firmware, presets e catalogos genericos nao devem aparecer como lista principal. O usuario deve ver primeiro o que existe na impressora e associar cada MCU detectada ao modelo fisico real uma unica vez.
 - Na tela Firmware, uma MCU ja associada nao deve continuar aparecendo como detectada pendente; a deduplicacao deve considerar UUID CAN, nome exibido pelo Klipper e MCU.
 - Na tela Firmware, o campo Modelo fisico deve permitir escolher qualquer preset conhecido, mesmo quando houver sugestoes do catalogo.
-- Na tela Firmware, o fluxo principal deve ser sequencial e simples: verificar placas, associar modelo fisico quando necessario, validar build, gerar build, validar flash e preparar flash.
+- Na tela Firmware, o fluxo principal deve ser sequencial e simples: verificar placas, associar modelo fisico quando necessario, visualizar `.config`, validar build, preparar dry-run e executar build local somente com gate do backend.
 - A referencia tecnica para catalogo CAN, presets e procedimentos de update/flash e o guia Esoterical CANBus (`https://canbus.esoterical.online/`); o catalogo local deve ser estruturado em dados do projeto e usado para orientar a tela sem depender de navegacao externa em runtime.
+- Na tela Firmware, cada MCU/placa da impressora ativa pode exibir sugestoes compactas do catalogo local com link do guia, status de preset local e aviso quando faltar preset; o catalogo completo nao vira lista principal nem aciona build, flash ou update.
+- Na tela Firmware, o PKG-33 mostra por placa da impressora ativa se o preset esta completo, faltando dados ou invalido, alem das acoes seguras de gerar/visualizar `.config`, validar build, preparar build dry-run e ver artefatos/logs quando houver build concluido; build real permanece bloqueado pelo backend por padrao e flash automatico nao aparece neste pacote.
+- A tela Firmware do PKG-33 nao deve renderizar botoes de flash, SSH, restart ou update; referências de catálogo permanecem apenas como orientação técnica.
+- Na tela Firmware, estados de carregamento, erro e vazio devem deixar claro se a tela esta lendo Moonraker, se falhou a leitura ou se ainda nao ha MCU lida para a impressora selecionada.
+- Checklist manual do PKG-33 na tela Firmware: abrir com impressora offline e confirmar erro de Moonraker sem esconder o resumo local do catalogo; abrir com impressora online e confirmar MCUs/placas detectadas e cadastradas primeiro; associar modelo fisico sugerido quando existir; confirmar badges de preset completo, faltando dados ou preset ausente; gerar preview de `.config`; preparar dry-run; confirmar artefato/log quando existir build local controlado; confirmar ausencia de botoes/acoes de flash, SSH, restart e update.
 
 ## Pendencias de mapeamento
 

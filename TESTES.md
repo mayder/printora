@@ -123,6 +123,7 @@ Aceite:
 - `scripts/install_printora_autostart.sh --apply --yes` valida `/health` depois de configurar o boot;
 - `scripts/doctor_install.sh` roda sem alterar arquivos de app e mostra Python, Node, porta, banco, serviço e logs;
 - `GET /api/system/install-diagnostics` retorna diagnóstico copiável com versão, ambiente, porta, paths, checks e ação sugerida;
+- em Raspberry, `GET /api/system/install-diagnostics` inclui `raspberry_throttling` via `vcgencmd get_throttled`, sinalizando normal, throttled atual ou throttling histórico sem executar ação mutável;
 - tela `Configurações > Diagnóstico da instalação` permite recarregar e copiar o diagnóstico técnico;
 - `scripts/unlock_update.sh` cria backup do `printora.db` e marca updates `running` como `failed`;
 - `POST /api/system/update/reconcile` reconcilia update `running` antigo e retorna contagem de runs ainda em execução;
@@ -216,6 +217,17 @@ Validações:
 - auditoria de plugins classifica KTC-Easy como perigoso remover agora e Auto Speed como legado/lixo técnico.
 - auditoria de plugins transforma componentes fora do catálogo em item investigável com evidência e gates.
 - catálogo de presets de firmware inclui placas comuns BTT, Mellow e Fysetc.
+- manifesto Esoterical CANBus cobre as páginas conhecidas do menu público, usa apenas domínio `canbus.esoterical.online`, mantém status `catalogada`, `ignorada_com_motivo` ou `bloqueada_com_motivo` e registra hash por página catalogada.
+- comando `python3 scripts/build_canbus_manifest.py` roda em dry-run por padrão; somente `--write` atualiza `backend/app/data/firmware_canbus_manifest.json`.
+- schema Pydantic `FirmwareCatalog` valida o catálogo local com source, manifesto, workflows, hardware, troubleshooting, update flows, Katapult, CAN speed, hardwares sem preset e metadata de geração.
+- normalização automática `python3 scripts/build_firmware_catalog.py` gera catálogo local a partir do manifesto em dry-run por padrão, cobrindo 56 hardwares, 9 workflows, 5 fluxos de update e 12 guias de troubleshooting sem executar comandos mutáveis.
+- cobertura 100% do menu público exige que toda URL do manifesto tenha status, hash/título/categoria quando catalogada e representação no catálogo como hardware, workflow, update flow ou troubleshooting conforme a categoria.
+- mapeamento de presets locais exige que hardwares com preset conhecido preencham `preset_ids` e que hardwares sem preset apareçam em `known_hardware_without_local_preset` e no inventário focado na impressora ativa.
+- endpoint read-only `/api/firmware/catalog` entrega resumo validado do catálogo local com contadores por categoria/status/role, sem depender do site externo em runtime.
+- inventário `/api/printers/{printer_id}/firmware/hardware-inventory` enriquece placas detectadas e cadastradas com referências compactas do catálogo e preserva deduplicação por UUID/nome/MCU.
+- fechamento do PKG-30 exige testes de manifesto completo, schema, normalização por categoria, presets existentes/ausentes, endpoints, runtime local sem site externo, dry-run dos scripts e exclusão de comandos mutáveis das referências extraídas.
+- validação de cobertura do PKG-30: `cd backend && uv run pytest tests/test_canbus_manifest.py tests/test_firmware.py -q`.
+- validação completa de fechamento do PKG-30: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 - cadastro de placa de firmware herda MCU, conexão e método de flash do preset.
 - placas CAN exigem UUID CAN.
 - placas de firmware ficam escopadas por impressora.
@@ -225,6 +237,25 @@ Validações:
 - preflight de build de firmware valida paths/tooling local de forma read-only e mantém execução bloqueada.
 - build local fica bloqueado quando `PRINTORA_FIRMWARE_BUILD_MODE` está desabilitado.
 - build local exige confirmação textual quando o modo local está habilitado.
+- PKG-33 exige validação incremental dos presets derivados do catálogo: hardwares cobertos ganham `preset_ids`, hardwares pendentes permanecem em `known_hardware_without_local_preset` e nenhum comando mutável é executado.
+- PKG-33 Lote 1 valida que o catálogo saiu de 11 para 23 hardwares com preset local, mantendo 33 pendentes classificados por adaptador CAN, mainboard e toolhead.
+- PKG-33 Lote 1 valida que os novos presets BTT, Fysetc e Mellow aparecem em `/api/firmware/board-presets` com MCU, arquitetura, comunicação, conexão, output esperado e método futuro de flash.
+- PKG-33 exige schema de build config validável sem ambiente real, classificando presets como completo, faltando dados ou inválido.
+- PKG-33 Lote 2 valida que `FirmwareBuildConfig` é versionado e expõe arquitetura, MCU, modelo de processador, bootloader, clock, interface de comunicação, conexão CAN/USB/serial, arquivo `.config` e output esperado.
+- PKG-33 Lote 2 valida que `/api/firmware/board-presets` mantém consumidores existentes e adiciona `build_config`, `build_config_status` e `build_config_validation`.
+- PKG-33 Lote 2 valida preset completo, preset com dado faltante e schema inválido com erro claro, sem executar `make`, build real, flash, SSH, restart ou update.
+- PKG-33 exige snapshots determinísticos do `.config` gerado para presets completos, sem depender de relógio, host Klipper, ordem implícita ou site externo.
+- PKG-33 Lote 3 valida snapshot exato do `.config` para pelo menos um preset STM32 e um preset RP2040.
+- PKG-33 Lote 3 valida `GET /api/firmware/board-presets/{preset_id}/config-preview` retornando preview em memória, `artifact_saved=false`, sem executar comando externo e sem escrever em diretório Klipper.
+- PKG-33 Lote 3 valida que preset com `build_config` incompleto bloqueia a geração de `.config` com erro acionável.
+- PKG-33 exige que dry-run de build planeje `.config`, backup, diretório de trabalho, output, log e comandos sem executar `make`, SSH, flash, restart, update ou cópia para Klipper.
+- PKG-33 Lote 4 valida que dry-run com preset completo retorna `preset_id`, `preset_build_config_status`, `generated_config_path`, `config_backup_path`, `work_dir`, `expected_build_output`, `binary_output_path`, `log_path` e comandos `PLAN ...` sem executar processo externo.
+- PKG-33 Lote 4 valida que dry-run com preset incompleto falha com erro claro, não grava histórico e não executa comando externo.
+- PKG-33 Lote 4 valida que o histórico de build continua filtrado por impressora e identifica a placa de cada plano.
+- PKG-33 exige que build real continue bloqueado por padrão; quando houver lote de build controlado, testes devem usar ambiente fake/tmpdir e validar confirmação textual, backup, restauração de `.config`, log e binário salvo sem flash.
+- PKG-33 Lote 5 valida que build local real fica bloqueado por modo `disabled`, bloqueia e registra confirmação ausente/incorreta, usa `.config` gerado pelo preset, salva backup, preview, log e binário em `output_root/local-build/<placa>/`, restaura `.config` em sucesso e falha e não planeja flash, restart ou SSH.
+- PKG-33 Lote 6 valida a tela Firmware com foco na impressora ativa: placas detectadas/cadastradas antes do catálogo, badge de preset completo/incompleto, preview de `.config`, dry-run de build, build local protegido por confirmação e ausência de chamadas/botões de flash, SSH, restart ou update.
+- fechamento do PKG-33 exige testes focados de firmware, validação manual da tela Firmware e `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 - dry-run de flash usa binário de build quando informado e não executa comandos.
 - dry-run de flash rejeita build de outra placa.
 - preflight de flash lê Moonraker/Klipper, bloqueia impressão em andamento e nunca libera execução real neste lote.
@@ -338,6 +369,8 @@ http://127.0.0.1:5178
 - Criar tarefa preventiva.
 - Concluir tarefa.
 - Confirmar que evento aparece no diário.
+- Marcar rotina do catalogo como `N/A`, confirmar que sai da grade principal, aparece no filtro `N/A` e volta ao plano ao acionar `Desfazer`.
+- Confirmar que rotinas relacionadas exibem badges de area no card, que o filtro de area junta tarefas proximas e que a ordenacao por area, titulo, criticidade e vencimento reorganiza a grade unica.
 - Confirmar que nenhuma ação foi enviada para Klipper/Moonraker.
 
 ### Z-offset
@@ -402,6 +435,12 @@ backend/.venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.
 
 ### Firmware Manager
 
+- Abrir Firmware com impressora ativa offline e confirmar que o resumo local do catálogo aparece, enquanto a leitura ao vivo informa falha do Moonraker.
+- Abrir Firmware com impressora ativa online e confirmar que MCUs/placas detectadas e cadastradas aparecem antes de qualquer referência de catálogo.
+- Confirmar que o catálogo aparece apenas como sugestão/referência compacta por placa da impressora ativa, não como lista genérica de presets ou hardwares.
+- Confirmar status de preset local existente e aviso de preset ausente nas referências do catálogo.
+- Abrir link do guia Esoterical CANBus e confirmar que ele é apenas referência técnica.
+- Confirmar que nenhuma ação de build, flash, update, SSH, restart ou alteração local é executada a partir das referências do catálogo.
 - Abrir lista de presets.
 - Cadastrar uma Octopus USB-CAN bridge com UUID CAN.
 - Cadastrar um EBB CAN com UUID CAN.
@@ -412,6 +451,9 @@ backend/.venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.
 - Confirmar que nenhum `make`, cópia de arquivo, SSH, restart, update ou flash foi executado.
 - Rodar preflight de build para uma placa.
 - Confirmar checks de Klipper, Makefile, `.config`, config da placa, `make` e modo local sem criar diretórios ou executar comandos.
+- Para PKG-33, confirmar placa com preset completo, placa com preset incompleto, geração/preview de `.config`, dry-run com artefatos planejados e bloqueio explícito de build real por padrão.
+- Para PKG-33, confirmar que a tela Firmware mostra o estado do preset por placa da impressora ativa, sem listar o catálogo completo como fluxo principal.
+- Para PKG-33 Lote 6, confirmar impressora offline, impressora online, placa com preset completo, placa sem preset, botão de `.config`, botão de dry-run, artefatos/log de build concluído e ausência de flash, SSH, restart e update na tela.
 - Tentar execução local sem habilitar modo local e confirmar status bloqueado.
 - Em ambiente controlado futuro, habilitar modo local e exigir confirmação textual antes de executar build.
 - Gerar dry-run de flash para uma placa.
@@ -461,7 +503,7 @@ Critérios:
 - Confirmar que `Adicionar impressora` abre modal.
 - Confirmar que `Buscar na rede` lista candidatos Moonraker dentro do modal sem cadastrar automaticamente.
 - Confirmar que Monitoramento concentra Health Check, CAN, Moonraker, Klipper e auditorias.
-- Confirmar que Firmware mostra placas, presets, dry-runs e mods/plugins.
+- Confirmar que Firmware mostra placas da impressora ativa, presets associados, dry-runs e referências compactas do catálogo local, sem listar mods/plugins no conteúdo principal.
 - Confirmar que Calibração mostra o centro de testes/calibração Voron em cards.
 - Confirmar que Calibração preserva os cards como fluxo principal, mostra número de sequência nos cards, busca textual, filtros por tipo/uso, ação Pular e perfil aprovado de primeira camada.
 - Confirmar que cada item mostra risco, modo de execução, pré-condições e critérios de sucesso.

@@ -9,6 +9,7 @@ from app.main import app
 from app.maintenance import (
     MaintenanceEventCreate,
     MaintenanceRepository,
+    MaintenanceTaskApplicabilityUpdate,
     MaintenanceTaskComplete,
     MaintenanceTaskCreate,
 )
@@ -168,6 +169,88 @@ def test_maintenance_summary_counts_due_and_recommendations(tmp_path: Path) -> N
     assert all(task["name"] != "Limpar mesa" for task in summary.recommended_tasks)
 
 
+def test_not_applicable_task_is_excluded_from_due_summary(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = MaintenanceRepository(database_path)
+    task = repository.create_task(
+        printer.id,
+        MaintenanceTaskCreate(
+            name="Limpar filtro de carvão",
+            component="refrigeração",
+            interval_days=30,
+        ),
+    )
+
+    updated = repository.update_task_applicability(
+        task.id,
+        MaintenanceTaskApplicabilityUpdate(is_applicable=False),
+    )
+    summary = repository.summary(printer.id)
+
+    assert updated is not None
+    assert updated.is_applicable is False
+    assert updated.due_status == "not_applicable"
+    assert updated.not_applicable_at is not None
+    assert summary.counts["due"] == 0
+    assert summary.counts["not_applicable"] == 1
+    assert summary.next_due_task is None
+
+
+def test_not_applicable_task_can_be_restored(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = MaintenanceRepository(database_path)
+    task = repository.create_task(
+        printer.id,
+        MaintenanceTaskCreate(
+            name="Limpar filtro de carvão",
+            component="refrigeração",
+            interval_days=30,
+        ),
+    )
+
+    repository.update_task_applicability(task.id, MaintenanceTaskApplicabilityUpdate(is_applicable=False))
+    restored = repository.update_task_applicability(task.id, MaintenanceTaskApplicabilityUpdate(is_applicable=True))
+
+    assert restored is not None
+    assert restored.is_applicable is True
+    assert restored.not_applicable_at is None
+    assert restored.due_status == "due"
+
+
+def test_complete_not_applicable_task_is_blocked(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = MaintenanceRepository(database_path)
+    task = repository.create_task(
+        printer.id,
+        MaintenanceTaskCreate(
+            name="Limpar filtro de carvão",
+            component="refrigeração",
+            interval_days=30,
+        ),
+    )
+
+    repository.update_task_applicability(task.id, MaintenanceTaskApplicabilityUpdate(is_applicable=False))
+
+    try:
+        repository.complete_task(task.id, MaintenanceTaskComplete())
+    except ValueError as exc:
+        assert str(exc) == "maintenance task is not applicable"
+    else:
+        raise AssertionError("not applicable task was completed")
+
+
 def test_default_maintenance_tasks_include_catalog_help(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)
@@ -188,6 +271,27 @@ def test_default_maintenance_tasks_include_catalog_help(tmp_path: Path) -> None:
     assert camera.maintenance_help.why != spool.maintenance_help.why
     assert "visão" in camera.maintenance_help.why.lower()
     assert "spool" in spool.maintenance_help.why.lower()
+
+
+def test_default_maintenance_tasks_include_execution_tags(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = MaintenanceRepository(database_path)
+
+    repository.create_default_tasks(printer.id)
+    tasks = repository.list_tasks(printer.id)
+    spool = next(task for task in tasks if task.name == "Conferir spool holder e caminho até a impressora")
+    ptfe = next(task for task in tasks if task.name == "Inspecionar tubo PTFE ou guia de filamento")
+    toolhead_cable = next(task for task in tasks if task.name == "Inspecionar cabos do toolhead")
+
+    assert spool.primary_tag == "Filamento"
+    assert ptfe.primary_tag == "Filamento"
+    assert "Toolhead" in ptfe.tags
+    assert toolhead_cable.primary_tag == "Toolhead"
+    assert "Elétrica" in toolhead_cable.tags
 
 
 def test_maintenance_task_can_be_due_soon(tmp_path: Path) -> None:

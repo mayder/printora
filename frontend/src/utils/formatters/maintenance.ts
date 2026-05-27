@@ -11,6 +11,9 @@ export function formatMaintenanceEventType(eventType: MaintenanceEventRecord["ev
 }
 
 export function formatDueStatus(task: MaintenanceTaskRecord) {
+  if (!task.is_applicable) {
+    return "não se aplica";
+  }
   if (!task.is_active) {
     return "sem lembrete";
   }
