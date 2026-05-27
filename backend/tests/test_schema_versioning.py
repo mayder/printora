@@ -26,7 +26,7 @@ def test_initialize_database_registers_sql_scripts_on_new_database(tmp_path: Pat
         app_version = connection.execute(
             "SELECT app_name, version, schema_revision FROM app_version WHERE id = 1"
         ).fetchone()
-        assert app_version == ("Printora", "0.1.1", expected_scripts)
+        assert app_version == ("Printora", app.version, expected_scripts)
 
 
 def test_initialize_database_ignores_macos_appledouble_sql_files(tmp_path: Path, monkeypatch) -> None:
@@ -163,7 +163,7 @@ def test_system_version_endpoint_is_read_only(tmp_path: Path, monkeypatch) -> No
         assert response.status_code == 200
         payload = response.json()
         assert payload["app_name"] == "Printora"
-        assert payload["version"] == "0.1.1"
+        assert payload["version"] == app.version
         assert payload["data_dir"] == str(tmp_path)
         assert payload["database_path"] == str(tmp_path / "printora.db")
         assert payload["schema_revision"] == _sql_script_count()
