@@ -1,8 +1,11 @@
 from pathlib import Path
 from types import SimpleNamespace
+from collections import Counter
 
 import pytest
+from fastapi.testclient import TestClient
 
+from app.config import get_settings
 from app.database import initialize_database
 from app.firmware import (
     FirmwareBoardCreate,
@@ -12,7 +15,16 @@ from app.firmware import (
     FirmwareFlashDryRunCreate,
     FirmwareFlashExecuteCreate,
 )
-from app.firmware_catalog import build_firmware_hardware_inventory, catalog_counts, match_catalog_for_mcu
+from app.firmware_catalog import (
+    FirmwareCatalog,
+    build_firmware_hardware_inventory,
+    catalog_counts,
+    catalog_hardware_without_local_preset,
+    firmware_catalog_json_schema,
+    load_firmware_catalog,
+    match_catalog_for_mcu,
+)
+from app.main import app
 from app.printers import PrinterCreate, PrinterRepository
 
 
@@ -34,8 +46,157 @@ def test_esoterical_catalog_contains_core_can_hardware() -> None:
     counts = catalog_counts()
 
     assert counts["hardware_with_guides"] >= 10
-    assert match_catalog_for_mcu(mcu_name="EBBCan", mcu_version="stm32g0b1 firmware")
-    assert any(match.id == "btt_octopus" for match in match_catalog_for_mcu(mcu_name="mcu", mcu_version="stm32f446 firmware"))
+    assert match_catalog_for_mcu(mcu_name="EBBCan", mcu_version="stm32g0b1 firmware")[0].role == "toolhead"
+    assert any(match.id == "bigtreetech_octopus" for match in match_catalog_for_mcu(mcu_name="mcu", mcu_version="stm32f446 firmware"))
+
+
+def test_firmware_catalog_matches_official_schema() -> None:
+    catalog = FirmwareCatalog.model_validate(load_firmware_catalog())
+    schema = firmware_catalog_json_schema()
+
+    assert catalog.schema_version == 1
+    assert catalog.manifest.total_pages == 83
+    assert catalog.generation_metadata.manifest_path == "backend/app/data/firmware_canbus_manifest.json"
+    assert catalog.update_flows
+    assert catalog.katapult.guide_url == "https://canbus.esoterical.online/katapult_updating.html"
+    assert catalog.can_speed.guide_url == "https://canbus.esoterical.online/updating_can_speed.html"
+    assert {"source", "manifest", "workflows", "hardware", "troubleshooting", "update_flows", "katapult", "can_speed", "known_hardware_without_local_preset", "generation_metadata"} <= set(schema["properties"])
+    hardware_schema = schema["$defs"]["FirmwareCatalogHardware"]["properties"]
+    assert {"id", "vendor", "modelo", "role", "connection", "guide_url", "known_mcus", "flash_method", "bootloader", "katapult", "validation_commands", "safety_notes", "preset_ids", "catalog_status"} <= set(hardware_schema)
+
+
+def test_firmware_catalog_normalizes_manifest_categories() -> None:
+    catalog = FirmwareCatalog.model_validate(load_firmware_catalog())
+    roles = Counter(item.role for item in catalog.hardware)
+
+    assert len(catalog.hardware) == 56
+    assert roles["can_adapter"] == 3
+    assert roles["mainboard"] == 28
+    assert roles["toolhead"] == 25
+    assert len(catalog.workflows) == 9
+    assert len(catalog.update_flows) == 5
+    assert len(catalog.troubleshooting) == 12
+    assert catalog.manifest.total_pages == 83
+    assert catalog.manifest.pages
+    assert all(item.catalog_status == "catalogada" for item in catalog.hardware)
+    assert all(item.safety_notes for item in catalog.hardware)
+    assert any(item.vendor == "BigTreeTech" and item.name == "Octopus" for item in catalog.hardware)
+    assert "can_adapters" in catalog.known_hardware_without_local_preset
+    assert catalog.can_speed.supported_bitrates
+
+
+def test_firmware_catalog_maps_local_presets_and_missing_hardware() -> None:
+    catalog = FirmwareCatalog.model_validate(load_firmware_catalog())
+    by_label = {f"{item.vendor} {item.name}": item for item in catalog.hardware}
+    missing = catalog_hardware_without_local_preset()
+    counts = catalog_counts()
+
+    assert by_label["BigTreeTech Octopus"].preset_ids == ["btt_octopus_v1_1_f446_usb_can"]
+    assert by_label["BigTreeTech Octopus Pro v1.1"].preset_ids == [
+        "btt_octopus_pro_f446_usb_can",
+        "btt_octopus_pro_h723_usb_can",
+    ]
+    assert by_label["BigTreeTech SB2209 and SB2240"].preset_ids == [
+        "btt_sb2209_rp2040_can",
+        "btt_sb2240_rp2040_can",
+    ]
+    assert by_label["Fysetc Spider V1.0"].preset_ids == ["fysetc_spider_f446_usb"]
+    assert by_label["BigTreeTech Kraken"].preset_ids == []
+    assert "BigTreeTech Kraken" in missing["mainboards"]
+    assert "BigTreeTech Octopus Pro v1.1" not in missing["mainboards"]
+    assert counts["hardware_with_local_preset"] == 11
+    assert counts["hardware_without_local_preset"] == 45
+
+
+def test_firmware_catalog_summary_endpoint_is_local_read_only(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    def fail_urlopen(*_args, **_kwargs):
+        raise AssertionError("runtime must not fetch external CANBus site")
+
+    monkeypatch.setattr("urllib.request.urlopen", fail_urlopen)
+    try:
+        with TestClient(app) as client:
+            response = client.get("/api/firmware/catalog")
+    finally:
+        get_settings.cache_clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["safe_mode"] == "local_catalog_read_only"
+    assert payload["manifest_total_pages"] == 83
+    assert payload["category_counts"]["mainboard"] == 28
+    assert payload["status_counts"]["catalogada"] == 83
+    assert payload["hardware_role_counts"] == {"mainboard": 28, "toolhead": 25, "can_adapter": 3, "unknown": 0}
+    assert payload["catalog_counts"]["hardware_with_local_preset"] == 11
+    assert "BigTreeTech Kraken" in payload["hardware_without_local_preset"]["mainboards"]
+    assert "hardware" not in payload
+
+
+def test_firmware_inventory_api_enriches_registered_and_detected_boards(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    class FakeMoonrakerClient:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        async def printer_objects_list(self) -> list[str]:
+            return ["mcu", "mcu EBBCan", "configfile"]
+
+        async def printer_objects(self, _query: dict[str, list[str]]) -> dict[str, object]:
+            return {
+                "status": {
+                    "mcu": {"mcu_version": "stm32f446 firmware"},
+                    "mcu EBBCan": {"mcu_version": "stm32g0b1 firmware"},
+                    "configfile": {
+                        "settings": {
+                            "mcu": {"canbus_uuid": "abc123"},
+                            "mcu EBBCan": {"canbus_uuid": "def456", "canbus_interface": "can0"},
+                        }
+                    },
+                }
+            }
+
+    monkeypatch.setattr("app.routes.firmware.MoonrakerClient", FakeMoonrakerClient)
+    try:
+        with TestClient(app) as client:
+            created = client.post(
+                "/api/printers",
+                json={
+                    "name": "Voron",
+                    "moonraker_url": "http://127.0.0.1:7125",
+                    "host_audit_mode": "disabled",
+                },
+            )
+            assert created.status_code == 200
+            printer_id = created.json()["id"]
+            board = client.post(
+                f"/api/printers/{printer_id}/firmware/boards",
+                json={
+                    "name": "EBBCan",
+                    "preset_id": "btt_ebb36_g0b1_can",
+                    "can_uuid": "def456",
+                    "config_file": "firmware/ebbcan.config",
+                },
+            )
+            assert board.status_code == 200
+            response = client.get(f"/api/printers/{printer_id}/firmware/hardware-inventory")
+    finally:
+        get_settings.cache_clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["catalog_counts"]["hardware_with_guides"] == 56
+    assert payload["catalog_hardware_without_local_preset"]["can_adapters"]
+    registered = next(item for item in payload["items"] if item["status"] == "registered")
+    detected_main = next(item for item in payload["items"] if item["name"] == "MCU principal")
+    assert registered["matched_preset_ids"] == ["btt_ebb36_g0b1_can"]
+    assert registered["catalog_references"][0]["label"].startswith("BigTreeTech EBB36")
+    assert detected_main["matched_catalog_ids"]
+    assert any(reference["guide_url"].startswith("https://canbus.esoterical.online/") for reference in detected_main["catalog_references"])
+    assert all(item["name"] != "EBBCan" or item["status"] == "registered" for item in payload["items"])
 
 
 def test_firmware_inventory_detects_klipper_mcus_without_manual_board() -> None:
@@ -59,6 +220,8 @@ def test_firmware_inventory_detects_klipper_mcus_without_manual_board() -> None:
 
     assert inventory.items[0].role == "mainboard"
     assert any(item.name == "EBBCan" and item.can_uuid == "def456" for item in inventory.items)
+    assert "BigTreeTech Kraken" in inventory.catalog_hardware_without_local_preset["mainboards"]
+    assert inventory.catalog_counts["hardware_with_local_preset"] == 11
     assert "detectada" in inventory.summary
 
 

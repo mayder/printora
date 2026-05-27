@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.routes.support import *
+from app.firmware_catalog import FirmwareCatalogSummary, firmware_catalog_summary
 
 router = APIRouter()
 
@@ -10,6 +11,13 @@ async def list_firmware_board_presets() -> dict[str, list[BoardPreset]]:
     settings = get_settings()
     firmware_repository = get_firmware_board_repository(settings)
     return {"presets": firmware_repository.list_presets()}
+
+
+
+
+@router.get("/api/firmware/catalog")
+async def read_firmware_catalog_summary() -> FirmwareCatalogSummary:
+    return firmware_catalog_summary()
 
 
 

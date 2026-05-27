@@ -241,7 +241,9 @@ export function usePrintoraApp() {
     setLoading(true);
     setError(null);
     try {
+      const catalogSummaryLoad = firmware.loadFirmwareCatalogSummary();
       await Promise.allSettled([firmware.loadBoardPresets(), printers.loadPrinters()]);
+      await catalogSummaryLoad;
       void settings.loadGlobalDiagnostics();
       void selfUpdate.loadSelfUpdateHistory();
     } catch (err) {

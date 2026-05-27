@@ -2214,5 +2214,11 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
-- Existe base inicial manual em `backend/app/data/firmware_hardware_catalog.json`, mas ela não representa varredura completa do site.
+- Implementado para fechamento local do PKG-30.
+- Manifesto versionado representa 83 páginas do menu público do Esoterical CANBus, com URL, título, categoria, hash, data de captura e status controlado.
+- Catálogo local normalizado cobre 56 hardwares, 9 workflows, 5 fluxos de atualização, 12 guias de troubleshooting, Katapult, CAN speed e metadata de geração.
+- Mapeamento de presets locais identifica 11 hardwares com preset existente e mantém 45 hardwares em `known_hardware_without_local_preset`, sem criar presets automaticamente.
+- Backend do Firmware Manager expõe resumo read-only do catálogo local em `/api/firmware/catalog` e inventário enriquecido em `/api/printers/{printer_id}/firmware/hardware-inventory`, mantendo dependência runtime somente em dados locais.
+- Tela Firmware consome o catálogo como referência compacta para placas da impressora ativa, sem transformar o catálogo em lista genérica e sem executar build, flash, update, SSH ou alteração local a partir dessas referências.
+- Validação automatizada do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+- Validação manual pendente para aceite operacional em impressora real: abrir Firmware com uma impressora online, confirmar placas detectadas/cadastradas, sugestão de modelo físico, status de preset local/faltante, links do guia e ausência de ações mutáveis disparadas pelo catálogo.

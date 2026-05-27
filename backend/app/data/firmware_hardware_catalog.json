@@ -1,194 +1,1140 @@
 {
-  "source": {
-    "name": "Esoterical CANBus Guide",
-    "url": "https://canbus.esoterical.online/",
-    "retrieved_at": "2026-05-24",
+  "can_speed": {
+    "default_bitrate": null,
+    "guide_url": "https://canbus.esoterical.online/updating_can_speed.html",
     "notes": [
-      "Catalogo local para orientar build, flash e troubleshooting sem depender de navegacao externa em runtime.",
-      "O guia organiza o fluxo por adaptador CAN, placa principal/bridge, toolhead, atualizacao e troubleshooting."
+      "Updating your CANBUS Speed If you are trying to modify the speed of your existing CAN network then there is an order of operations to make it as seamless as possible.",
+      "UNLESS YOU ARE CHANGING YOUR CANBUS SPEED YOU DON’T NEED TO USE THESE STEPS.",
+      "Your toolhead should still boot into Klipper firmware fine at this stage(still with the old firmware) Force the toolhead back into Katapult mode, either with a double-click of the reset button or with python3 ~/katapult/scripts/flashtool.py -i can0 -u yourtoolheaduuid -r Temporarily change your CAN network speed by run",
+      "Note that you do not need to reflash the katapult on your mainboard as this Katapult talks to the Pi over USB and so doesn’t care what the CANBUS speed is set to."
+    ],
+    "supported_bitrates": [
+      1000000
     ]
   },
-  "workflows": [
-    {
-      "id": "new_canbus_build",
-      "title": "Instalacao CANBus nova",
-      "url": "https://canbus.esoterical.online/Getting_Started.html",
-      "steps": ["preparar can0", "escolher adaptador CAN", "flash mainboard/bridge", "flash toolhead", "validar UUIDs", "finalizar Klipper"]
-    },
-    {
-      "id": "existing_canbus_update",
-      "title": "Atualizacao de CANBus existente",
-      "url": "https://canbus.esoterical.online/updating.html",
-      "steps": ["identificar placa", "gerar Klipper", "validar UUID/serial", "flash via Katapult/DFU", "reiniciar Klipper", "validar printer/info"]
-    }
-  ],
+  "generation_metadata": {
+    "generated_at": "2026-05-27",
+    "generated_by": "scripts/build_firmware_catalog.py",
+    "manifest_path": "backend/app/data/firmware_canbus_manifest.json",
+    "source_manifest_hash": "95700b38cc734f63f481a8a4b30364e17fe41ab51dedc67000a55ae23f5617c1"
+  },
   "hardware": [
     {
-      "id": "btt_u2c_v2_1",
-      "vendor": "BigTreeTech",
-      "name": "U2C v2.1",
-      "role": "can_adapter",
-      "connection": "dedicated_usb_can",
-      "guide_url": "https://canbus.esoterical.online/can_adapter/common_can_adapters/BigTreeTech%20U2C%20v2.1/README.html",
-      "known_mcus": [],
-      "preset_ids": []
-    },
-    {
-      "id": "makerbase_utc_1_0",
-      "vendor": "Makerbase",
-      "name": "UTC 1.0",
-      "role": "can_adapter",
-      "connection": "dedicated_usb_can",
-      "guide_url": "https://canbus.esoterical.online/can_adapter/common_can_adapters/Makerbase%20UTC%201.0/README.html",
-      "known_mcus": [],
-      "preset_ids": []
-    },
-    {
-      "id": "mellow_fly_utoc",
-      "vendor": "Mellow",
-      "name": "Fly UTOC",
-      "role": "can_adapter",
-      "connection": "dedicated_usb_can",
-      "guide_url": "https://canbus.esoterical.online/can_adapter/common_can_adapters/Mellow%20Fly%20UTOC/README.html",
-      "known_mcus": [],
-      "preset_ids": []
-    },
-    {
-      "id": "btt_octopus",
-      "vendor": "BigTreeTech",
-      "name": "Octopus",
-      "role": "mainboard",
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
       "connection": "usb_can_bridge",
-      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Octopus/README.html",
-      "known_mcus": ["stm32f446", "stm32f429", "stm32f407", "stm32h723"],
-      "preset_ids": ["btt_octopus_v1_1_f446_usb_can"]
-    },
-    {
-      "id": "btt_octopus_pro_v1_1",
-      "vendor": "BigTreeTech",
-      "name": "Octopus Pro v1.1",
-      "role": "mainboard",
-      "connection": "usb_can_bridge",
-      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Octopus%20Pro%20v1.1/README.html",
-      "known_mcus": ["stm32f446", "stm32h723"],
-      "preset_ids": ["btt_octopus_pro_f446_usb_can", "btt_octopus_pro_h723_usb_can"]
-    },
-    {
-      "id": "btt_kraken",
-      "vendor": "BigTreeTech",
-      "name": "Kraken",
-      "role": "mainboard",
-      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
       "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Kraken/README.html",
-      "known_mcus": ["stm32h723"],
-      "preset_ids": []
+      "id": "bigtreetech_kraken",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Kraken",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
     },
     {
-      "id": "btt_manta_m8p_v2",
-      "vendor": "BigTreeTech",
-      "name": "Manta M8P V2.0",
-      "role": "mainboard",
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
       "connection": "usb_can_bridge",
-      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Manta%20M8P%20V2.0/README.html",
-      "known_mcus": ["stm32h723"],
-      "preset_ids": []
-    },
-    {
-      "id": "fysetc_spider",
-      "vendor": "Fysetc",
-      "name": "Spider",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Manta%20E3EZ/README.html",
+      "id": "bigtreetech_manta_e3ez",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Manta E3EZ",
+      "preset_ids": [],
       "role": "mainboard",
-      "connection": "usb",
-      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20V1.0/README.html",
-      "known_mcus": ["stm32f446"],
-      "preset_ids": ["fysetc_spider_f446_usb"]
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
     },
     {
-      "id": "btt_ebb36_gen2",
-      "vendor": "BigTreeTech",
-      "name": "EBB36 Gen2",
-      "role": "toolhead",
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Manta%20M5P%20V1.0/README.html",
+      "id": "bigtreetech_manta_m5p_v1_0",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Manta M5P V1.0",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Manta%20M8P%20v1.1/README.html",
+      "id": "bigtreetech_manta_m8p_v1_1",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Manta M8P V1.1",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Manta%20M8P%20v2.0/README.html",
+      "id": "bigtreetech_manta_m8p_v2_0",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Manta M8P V2.0",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Octopus/README.html",
+      "id": "bigtreetech_octopus",
+      "katapult": true,
+      "known_mcus": [
+        "stm32f407",
+        "stm32f429",
+        "stm32f446",
+        "stm32h723"
+      ],
+      "modelo": "Octopus",
+      "preset_ids": [
+        "btt_octopus_v1_1_f446_usb_can"
+      ],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Octopus%20Max%20EZ/README.html",
+      "id": "bigtreetech_octopus_max_ez",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Octopus Max EZ",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Octopus%20Pro%20v1.1/README.html",
+      "id": "bigtreetech_octopus_pro_v1_1",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Octopus Pro v1.1",
+      "preset_ids": [
+        "btt_octopus_pro_f446_usb_can",
+        "btt_octopus_pro_h723_usb_can"
+      ],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Octopus%20X7/README.html",
+      "id": "bigtreetech_octopus_x7_troodon",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Octopus X7 (Troodon)",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "katapult_usb_can",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20SKR%20Pico/README.html",
+      "id": "bigtreetech_skr_pico",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "SKR Pico",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "katapult_usb_can",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20SKR-3/README.html",
+      "id": "bigtreetech_skr_3",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "SKR-3",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "katapult_usb_can",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20SKR-3%20EZ/README.html",
+      "id": "bigtreetech_skr_3_ez",
+      "katapult": true,
+      "known_mcus": [
+        "stm32h723",
+        "stm32h743"
+      ],
+      "modelo": "SKR-3 EZ",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20SKRat%20v1.0/README.html",
+      "id": "bigtreetech_skrat_v1_0",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "SKRat v1.0",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Hexa%20Distro%20Fusion/README.html",
+      "id": "fysetc_hexa_distro_fusion",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Hexa Distro Fusion",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Fysetc"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20King/README.html",
+      "id": "fysetc_spider_king",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Spider King",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Fysetc"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20Pro/README.html",
+      "id": "fysetc_spider_pro",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Spider Pro",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Fysetc"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "katapult_usb_can",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20v1.0/README.html",
+      "id": "fysetc_spider_v1_0",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Spider V1.0",
+      "preset_ids": [
+        "fysetc_spider_f446_usb"
+      ],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Fysetc"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "katapult_usb_can",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20v2.2/README.html",
+      "id": "fysetc_spider_v2_2",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Spider v2.2",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Fysetc"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20v2.3/README.html",
+      "id": "fysetc_spider_v2_3",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Spider v2.3",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Fysetc"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20v3.0/README.html",
+      "id": "fysetc_spider_v3_0",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Spider v3.0",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Fysetc"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20v3.0%20H7/README.html",
+      "id": "fysetc_spider_v3_0_h7",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Spider v3.0 H7",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Fysetc"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/LDO%20Leviathan%20v1.2/README.html",
+      "id": "ldo_leviathan_v1_2",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Leviathan v1.2",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "LDO"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/LDO%20Leviathan%20v1.3/README.html",
+      "id": "ldo_leviathan_v1_3",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Leviathan v1.3",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "LDO"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Mellow%20Fly-D5P/README.html",
+      "id": "mellow_fly_d5p",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "FLY-D5P",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Mellow"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Mellow%20Fly-Micro4/README.html",
+      "id": "mellow_fly_micro4",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "FLY-Micro4",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Mellow"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Mellow%20Fly-Super8/README.html",
+      "id": "mellow_fly_super8",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Fly-Super8",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Mellow"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Mellow%20Fly-Super8%20Pro%20H723/README.html",
+      "id": "mellow_fly_super8_pro_h723",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Fly-Super8 Pro H723",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Mellow"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "usb_can_bridge",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/MKS%20Monster8%20v2/README.html",
+      "id": "mks_monster8_v2",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Monster8 v2",
+      "preset_ids": [],
+      "role": "mainboard",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "MKS"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "dedicated_usb_can",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/can_adapter/BigTreeTech%20U2C%20v2.1/README.html",
+      "id": "bigtreetech_u2c_v2_1",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "U2C v2.1",
+      "preset_ids": [],
+      "role": "can_adapter",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Somente comandos de consulta/validacao foram extraidos automaticamente."
+      ],
+      "validation_commands": [
+        "ifconfig"
+      ],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "dedicated_usb_can",
+      "flash_method": "unknown",
+      "guide_url": "https://canbus.esoterical.online/can_adapter/Makerbase%20UTC%201.0/README.html",
+      "id": "makerbase_utc_1_0",
+      "katapult": true,
+      "known_mcus": [
+        "stm32g0b1"
+      ],
+      "modelo": "UTC 1.0",
+      "preset_ids": [],
+      "role": "can_adapter",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Makerbase"
+    },
+    {
+      "bootloader": "DFU",
+      "catalog_status": "catalogada",
+      "connection": "dedicated_usb_can",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/can_adapter/Mellow%20Fly%20UTOC-1%20and%20UTOC-3/README.html",
+      "id": "mellow_fly_utoc",
+      "katapult": null,
+      "known_mcus": [],
+      "modelo": "Fly UTOC",
+      "preset_ids": [],
+      "role": "can_adapter",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Somente comandos de consulta/validacao foram extraidos automaticamente."
+      ],
+      "validation_commands": [
+        "lsusb"
+      ],
+      "vendor": "Mellow"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
       "connection": "can",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/AFC-Lite/README.html",
+      "id": "afc_afc_lite_for_boxturtle",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "AFC-Lite for Boxturtle",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "AFC"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/AFC-Pro/README.html",
+      "id": "afc_afc_pro",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "AFC-Pro",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "AFC"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "dfu_usb",
       "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20EBB36%20Gen2/README.html",
-      "known_mcus": ["stm32g0b1"],
-      "preset_ids": ["btt_ebb36_g0b1_can"]
+      "id": "bigtreetech_ebb36_gen2",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "EBB36 Gen2",
+      "preset_ids": [
+        "btt_ebb36_g0b1_can"
+      ],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
     },
     {
-      "id": "btt_ebb36_v1_2",
-      "vendor": "BigTreeTech",
-      "name": "EBB36 V1.2",
-      "role": "toolhead",
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
       "connection": "can",
+      "flash_method": "dfu_usb",
       "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20EBB36%20V1.2/README.html",
-      "known_mcus": ["stm32g0b1"],
-      "preset_ids": ["btt_ebb36_g0b1_can"]
+      "id": "bigtreetech_ebb36_v1_2",
+      "katapult": true,
+      "known_mcus": [
+        "stm32g0b1"
+      ],
+      "modelo": "EBB36 V1.2",
+      "preset_ids": [
+        "btt_ebb36_g0b1_can"
+      ],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Somente comandos de consulta/validacao foram extraidos automaticamente."
+      ],
+      "validation_commands": [
+        "lsusb"
+      ],
+      "vendor": "BigTreeTech"
     },
     {
-      "id": "btt_ebb42_gen2",
-      "vendor": "BigTreeTech",
-      "name": "EBB42 Gen2",
-      "role": "toolhead",
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
       "connection": "can",
+      "flash_method": "dfu_usb",
       "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20EBB42%20Gen2/README.html",
-      "known_mcus": ["stm32g0b1"],
-      "preset_ids": ["btt_ebb42_g0b1_can"]
+      "id": "bigtreetech_ebb42_gen2",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "EBB42 Gen2",
+      "preset_ids": [
+        "btt_ebb42_g0b1_can"
+      ],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
     },
     {
-      "id": "btt_sb2209_rp2040",
-      "vendor": "BigTreeTech",
-      "name": "SB2209 RP2040",
-      "role": "toolhead",
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
       "connection": "can",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20EBB42%20V1.2/README.html",
+      "id": "bigtreetech_ebb42_v1_2",
+      "katapult": true,
+      "known_mcus": [
+        "stm32g0b1"
+      ],
+      "modelo": "EBB42 V1.2",
+      "preset_ids": [
+        "btt_ebb42_g0b1_can"
+      ],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Somente comandos de consulta/validacao foram extraidos automaticamente."
+      ],
+      "validation_commands": [
+        "lsusb"
+      ],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "katapult_can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20Eddy%20Duo/README.html",
+      "id": "bigtreetech_eddy_duo",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Eddy Duo",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20MMB%20CAN%20V1.0/README.html",
+      "id": "bigtreetech_mmb_v1_0",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "MMB v1.0",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Somente comandos de consulta/validacao foram extraidos automaticamente."
+      ],
+      "validation_commands": [
+        "lsusb"
+      ],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20MMB%20CAN%20v2.0/README.html",
+      "id": "bigtreetech_mmb_v2_0",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "MMB v2.0",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Somente comandos de consulta/validacao foram extraidos automaticamente."
+      ],
+      "validation_commands": [
+        "lsusb"
+      ],
+      "vendor": "BigTreeTech"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "katapult_can",
       "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20SB2209%20(RP2040)/README.html",
-      "known_mcus": ["rp2040"],
-      "preset_ids": ["btt_sb2209_rp2040_can"]
+      "id": "bigtreetech_sb2209_rp2040",
+      "katapult": true,
+      "known_mcus": [
+        "rp2040"
+      ],
+      "modelo": "SB2209 (RP2040)",
+      "preset_ids": [
+        "btt_sb2209_rp2040_can"
+      ],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Somente comandos de consulta/validacao foram extraidos automaticamente."
+      ],
+      "validation_commands": [
+        "lsusb"
+      ],
+      "vendor": "BigTreeTech"
     },
     {
-      "id": "btt_sb2240_rp2040",
-      "vendor": "BigTreeTech",
-      "name": "SB2240 RP2040",
-      "role": "toolhead",
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
       "connection": "can",
+      "flash_method": "dfu_usb",
       "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20SB2209%20and%20SB2240/README.html",
-      "known_mcus": ["rp2040"],
-      "preset_ids": ["btt_sb2240_rp2040_can"]
+      "id": "bigtreetech_sb2209_and_sb2240",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "SB2209 and SB2240",
+      "preset_ids": [
+        "btt_sb2209_rp2040_can",
+        "btt_sb2240_rp2040_can"
+      ],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Somente comandos de consulta/validacao foram extraidos automaticamente."
+      ],
+      "validation_commands": [
+        "lsusb"
+      ],
+      "vendor": "BigTreeTech"
     },
     {
-      "id": "fysetc_sb_can_th",
-      "vendor": "Fysetc",
-      "name": "SB-CAN-TH",
-      "role": "toolhead",
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
       "connection": "can",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/DragonDinghy/README.html",
+      "id": "dragondinghy_dragondinghy",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "DragonDinghy",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "DragonDinghy"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Fysetc%20H36/README.html",
+      "id": "fysetc_h36",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "H36",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Fysetc"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Fysetc%20H36%20V2.0/README.html",
+      "id": "fysetc_h36_v2_0",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "H36 v2.0",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Fysetc"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "katapult_can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Fysetc%20PITB%20V1.0/README.html",
+      "id": "fysetc_pitb_v1_0",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "PITB V1.0",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Fysetc"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "katapult_can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Fysetc%20PITB%20V2.0/README.html",
+      "id": "fysetc_pitb_v2_0",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "PITB V2.0",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Fysetc"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Fysetc%20SB%20Combo%20V2/README.html",
+      "id": "fysetc_sb_combo_v2",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "SB Combo V2",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Fysetc"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "dfu_usb",
       "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Fysetc%20SB-CAN-TH/README.html",
-      "known_mcus": ["stm32g0b1"],
-      "preset_ids": ["fysetc_sb_can_g0b1"]
+      "id": "fysetc_sb_can_th",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "SB-CAN-TH",
+      "preset_ids": [
+        "fysetc_sb_can_g0b1"
+      ],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Somente comandos de consulta/validacao foram extraidos automaticamente."
+      ],
+      "validation_commands": [
+        "lsusb"
+      ],
+      "vendor": "Fysetc"
     },
     {
-      "id": "mellow_fly_sht36_sht42",
-      "vendor": "Mellow",
-      "name": "Fly SHT36/SHT42",
-      "role": "toolhead",
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
       "connection": "can",
+      "flash_method": "katapult_can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Mellow%20Fly%20ERCF/README.html",
+      "id": "mellow_fly_ercf",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Fly ERCF",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Somente comandos de consulta/validacao foram extraidos automaticamente."
+      ],
+      "validation_commands": [
+        "lsusb"
+      ],
+      "vendor": "Mellow"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "katapult_can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Mellow%20Fly%20SB2040/README.html",
+      "id": "mellow_fly_sb2040v1_v2",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Fly SB2040v1/v2",
+      "preset_ids": [
+        "mellow_fly_sb2040_rp2040_can"
+      ],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Somente comandos de consulta/validacao foram extraidos automaticamente."
+      ],
+      "validation_commands": [
+        "lsusb"
+      ],
+      "vendor": "Mellow"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "katapult_can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Mellow%20Fly%20SB2040v3/README.html",
+      "id": "mellow_fly_sb2040v3",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Fly SB2040v3",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Mellow"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "dfu_usb",
       "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Mellow%20Fly%20SHT36%20and%20SHT42/README.html",
-      "known_mcus": ["stm32g0b1"],
-      "preset_ids": ["mellow_fly_sht36_v2_g0b1_can"]
+      "id": "mellow_fly_sht36_and_sht42",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Fly SHT36 and SHT42",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Somente comandos de consulta/validacao foram extraidos automaticamente."
+      ],
+      "validation_commands": [
+        "lsusb"
+      ],
+      "vendor": "Mellow"
     },
     {
-      "id": "mellow_fly_sb2040",
-      "vendor": "Mellow",
-      "name": "Fly SB2040",
-      "role": "toolhead",
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
       "connection": "can",
-      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Mellow%20Fly%20SB2040v1%20v2/README.html",
-      "known_mcus": ["rp2040"],
-      "preset_ids": ["mellow_fly_sb2040_rp2040_can"]
+      "flash_method": "dfu_usb",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Mellow%20Fly%20SHT36v2/README.html",
+      "id": "mellow_fly_sht36v2",
+      "katapult": true,
+      "known_mcus": [
+        "stm32f072",
+        "stm32f103"
+      ],
+      "modelo": "Fly SHT36v2",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Somente comandos de consulta/validacao foram extraidos automaticamente."
+      ],
+      "validation_commands": [
+        "lsusb"
+      ],
+      "vendor": "Mellow"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "katapult_can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Mellow%20Fly%20SHT36v3/README.html",
+      "id": "mellow_fly_sht36v3",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "Fly SHT36v3",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "validation_commands": [],
+      "vendor": "Mellow"
+    },
+    {
+      "bootloader": "Katapult",
+      "catalog_status": "catalogada",
+      "connection": "can",
+      "flash_method": "katapult_can",
+      "guide_url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/MKS%20THR36%20V1.0/README.html",
+      "id": "mks_thr36_v1_0",
+      "katapult": true,
+      "known_mcus": [],
+      "modelo": "THR36 V1.0",
+      "preset_ids": [],
+      "role": "toolhead",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Somente comandos de consulta/validacao foram extraidos automaticamente."
+      ],
+      "validation_commands": [
+        "lsusb"
+      ],
+      "vendor": "MKS"
     }
   ],
+  "katapult": {
+    "guide_url": "https://canbus.esoterical.online/katapult_updating.html",
+    "notes": [
+      "Updating Katapult Updating Katapult isn’t something you should need to do regularly, if at all.",
+      "If Katapult is currently working on your board (toolhead or mainboard or other) then just leave it as is.",
+      "The only time you should really need to update Katapult is if you are changing CAN speeds, and even then that’s only on the toolhead.",
+      "If you need to do this please refer to Updating CAN Speed You should never really have to update your Katapult on the mainboard."
+    ],
+    "required": false
+  },
   "known_hardware_without_local_preset": {
+    "can_adapters": [
+      "BigTreeTech U2C v2.1",
+      "Makerbase UTC 1.0",
+      "Mellow Fly UTOC"
+    ],
     "mainboards": [
+      "BigTreeTech Kraken",
       "BigTreeTech Manta E3EZ",
       "BigTreeTech Manta M5P V1.0",
       "BigTreeTech Manta M8P V1.1",
+      "BigTreeTech Manta M8P V2.0",
       "BigTreeTech Octopus Max EZ",
       "BigTreeTech Octopus X7 (Troodon)",
       "BigTreeTech SKR Pico",
@@ -211,12 +1157,12 @@
       "Mellow Fly-Super8 Pro H723"
     ],
     "toolheads": [
-      "AFC-Lite for Boxturtle",
-      "AFC-Pro",
+      "AFC AFC-Lite for Boxturtle",
+      "AFC AFC-Pro",
       "BigTreeTech Eddy Duo",
       "BigTreeTech MMB v1.0",
       "BigTreeTech MMB v2.0",
-      "DragonDinghy",
+      "DragonDinghy DragonDinghy",
       "Fysetc H36",
       "Fysetc H36 v2.0",
       "Fysetc PITB V1.0",
@@ -225,15 +1171,1185 @@
       "MKS THR36 V1.0",
       "Mellow Fly ERCF",
       "Mellow Fly SB2040v3",
+      "Mellow Fly SHT36 and SHT42",
       "Mellow Fly SHT36v2",
       "Mellow Fly SHT36v3"
     ]
   },
+  "manifest": {
+    "pages": [
+      {
+        "category": "home",
+        "content_hash": "c27d2649db5f9c949d7d21b4a672dd7f4d5bff0371ec325e996dc1e8a48551ab",
+        "menu_order": 1,
+        "menu_title": "Home",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Home",
+        "url": "https://canbus.esoterical.online/"
+      },
+      {
+        "category": "getting_started",
+        "content_hash": "d338bb997d96a362af0d9c013cee784c2c6c502a90b331ac9830a096a666bfad",
+        "menu_order": 2,
+        "menu_title": "Getting Started",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Getting Started",
+        "url": "https://canbus.esoterical.online/Getting_Started.html"
+      },
+      {
+        "category": "can_adapter_overview",
+        "content_hash": "0ab22ece9b2fd24e7c435ec7d030b51e1bc11426efcec9da7e9c91921de932cc",
+        "menu_order": 3,
+        "menu_title": "Dedicated USB CAN Device",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Dedicated USB CAN Device",
+        "url": "https://canbus.esoterical.online/Dedicated_USB_Can_Device.html"
+      },
+      {
+        "category": "can_adapter",
+        "content_hash": "9dc2a48da91b4003aafd7adf940d1750f87473c3a62732a7504937a4886c1cbf",
+        "menu_order": 4,
+        "menu_title": "Common CAN Adapters",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Common CAN Adapters",
+        "url": "https://canbus.esoterical.online/can_adapter/common_can_adapters.html"
+      },
+      {
+        "category": "can_adapter",
+        "content_hash": "818df8d436d676df3f84c595137264b0fc75bf753e55f372a6c2a2d4f99621b7",
+        "menu_order": 5,
+        "menu_title": "BigTreeTech U2C v2.1",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech U2C v2.1",
+        "url": "https://canbus.esoterical.online/can_adapter/BigTreeTech%20U2C%20v2.1/README.html"
+      },
+      {
+        "category": "can_adapter",
+        "content_hash": "df84fc6cf0dd3148a4f46f37e36c232bb89c004557b8e75ce765d5e2b4f18df4",
+        "menu_order": 6,
+        "menu_title": "Makerbase UTC 1.0",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Makerbase UTC 1.0",
+        "url": "https://canbus.esoterical.online/can_adapter/Makerbase%20UTC%201.0/README.html"
+      },
+      {
+        "category": "can_adapter",
+        "content_hash": "9a1d1e9c545664d4e0b0d208f4368ffe14732ba6ddb71456a014038147ecddb1",
+        "menu_order": 7,
+        "menu_title": "Mellow Fly UTOC",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Mellow Fly UTOC",
+        "url": "https://canbus.esoterical.online/can_adapter/Mellow%20Fly%20UTOC-1%20and%20UTOC-3/README.html"
+      },
+      {
+        "category": "usb_can_bridge_overview",
+        "content_hash": "a46e58d4a75a35fe5c4975051119290a23388a796592e64c8e75a82c01a36039",
+        "menu_order": 8,
+        "menu_title": "USB CAN Bridge Mainboard",
+        "reason": null,
+        "status": "catalogada",
+        "title": "USB CAN Bridge Mainboard",
+        "url": "https://canbus.esoterical.online/USB_CAN_Bridge_Mainboard.html"
+      },
+      {
+        "category": "mainboard_overview",
+        "content_hash": "d1d9cff6e1093e339a01fa3c83c052436699569be6bf0e775e2890eeb1a25a78",
+        "menu_order": 9,
+        "menu_title": "Mainboard Flashing",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Mainboard Flashing",
+        "url": "https://canbus.esoterical.online/mainboard_flashing.html"
+      },
+      {
+        "category": "mainboard_overview",
+        "content_hash": "656f724add1bd13fb730a19600ec8d94dbde4b1ea79f1be982f064121df0fd8e",
+        "menu_order": 10,
+        "menu_title": "Common Mainboard Hardware",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Common Mainboard Hardware",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "bc6bd2806a377a6a9ae00eee7bfbfdb1f6c4a37856ff190965a5fedc4212da5d",
+        "menu_order": 11,
+        "menu_title": "BigTreeTech Kraken",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech Kraken",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Kraken/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "f03f5bf4d4e0e96d1ac687cb062ad3787fae80e6922be2ff39030221a04a5901",
+        "menu_order": 12,
+        "menu_title": "BigTreeTech Manta E3EZ",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech Manta E3EZ",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Manta%20E3EZ/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "01ecd284c492746f43fb638d52818621a5c3e5005df5ffb6e53d627f4f8f8321",
+        "menu_order": 13,
+        "menu_title": "BigTreeTech Manta M5P V1.0",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech Manta M5P V1.0",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Manta%20M5P%20V1.0/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "c6e7422d09dd953dc2dd366f7d6dd6aa435259e41c80e84dbc898e6cd12ea434",
+        "menu_order": 14,
+        "menu_title": "BigTreeTech Manta M8P V1.1",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech Manta M8P V1.1",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Manta%20M8P%20v1.1/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "16719a47258748d551cf711b4c624a4fcc3484663a75a490763c2c72bbea84ab",
+        "menu_order": 15,
+        "menu_title": "BigTreeTech Manta M8P V2.0",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech Manta M8P V2.0",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Manta%20M8P%20v2.0/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "b66fc4e41d330845dee9604521aa72bcc6ba7089480641a928367373e7f7c3bf",
+        "menu_order": 16,
+        "menu_title": "BigTreeTech Octopus",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech Octopus",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Octopus/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "f0eff3f2c2c78ff4f29d85cea0a495af40fa09c9dbfc57c5221137f102cbacc5",
+        "menu_order": 17,
+        "menu_title": "BigTreeTech Octopus Max EZ",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech Octopus Max EZ",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Octopus%20Max%20EZ/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "88e3d9ceea230dcb29a57a62ef981eb0d7b078b42d097a101359d5ceffc52c5d",
+        "menu_order": 18,
+        "menu_title": "BigTreeTech Octopus Pro v1.1",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech Octopus Pro v1.1",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Octopus%20Pro%20v1.1/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "80c17fed3cea57f5ecf719d8cb1b7f238a9716abf088260ae4881c425673eb16",
+        "menu_order": 19,
+        "menu_title": "BigTreeTech Octopus X7 (Troodon)",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech Octopus X7 (Troodon)",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Octopus%20X7/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "19c343c915ce86a558688cfb356efbf9480fba6da1552fffa68bdefa354e665c",
+        "menu_order": 20,
+        "menu_title": "BigTreeTech SKR Pico",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech SKR Pico",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20SKR%20Pico/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "f6e5221d63281fa3d4d13ef1dc36345a600841698032ce78d0f1d5a459830341",
+        "menu_order": 21,
+        "menu_title": "BigTreeTech SKR-3",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech SKR-3",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20SKR-3/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "9a47dafca9a1ac37e415f5f78f036ffff3ed5443a70361ca6a9e807a619c9448",
+        "menu_order": 22,
+        "menu_title": "BigTreeTech SKR-3 EZ",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech SKR-3 EZ",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20SKR-3%20EZ/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "c7b0a8ee2f57a6daa208bc8d2e9cc5b6e421bad9e58802c70884fb8d84d4c8b0",
+        "menu_order": 23,
+        "menu_title": "BigTreeTech SKRat v1.0",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech SKRat v1.0",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20SKRat%20v1.0/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "03ab277617ca7b116dcf6bf71f700e93d0963f8b510385e9cdb7158f6029933c",
+        "menu_order": 24,
+        "menu_title": "Fysetc Hexa Distro Fusion",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Fysetc Hexa Distro Fusion",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Hexa%20Distro%20Fusion/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "4672bb2527cb18f0c8d30a178dc664f4f38afc177c77f9d484d1f57813b5b3f6",
+        "menu_order": 25,
+        "menu_title": "Fysetc Spider King",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Fysetc Spider King",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20King/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "3d47a46bd8e8bbf148cfd89354d1788d6a7f99c18d29395896cd4ed62aec5537",
+        "menu_order": 26,
+        "menu_title": "Fysetc Spider Pro",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Fysetc Spider Pro",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20Pro/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "081f26ba2681ce7682d09fadcdef24bd015db65b6e6d55d0592d531cb38d34d0",
+        "menu_order": 27,
+        "menu_title": "Fysetc Spider V1.0",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Fysetc Spider V1.0",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20v1.0/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "9924e814728684a15f73f04f0626ead74459a15705f67581263b4e6ae0a18d02",
+        "menu_order": 28,
+        "menu_title": "Fysetc Spider v2.2",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Fysetc Spider v2.2",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20v2.2/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "f2b431ba93bf1eaea596f8705e9ff5798fc29287b49cc6f6d35dd241f1b8c8ff",
+        "menu_order": 29,
+        "menu_title": "Fysetc Spider v2.3",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Fysetc Spider v2.3",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20v2.3/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "e5b5181cf639411517cfeb1f6fd09cd598290fc018ca0cfcc96648b0c4ed8b44",
+        "menu_order": 30,
+        "menu_title": "Fysetc Spider v3.0",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Fysetc Spider v3.0",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20v3.0/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "288101c7f7b0995fb61ad91e59422e396f5c1a7ed4e47e80abc9cee561bf737e",
+        "menu_order": 31,
+        "menu_title": "Fysetc Spider v3.0 H7",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Fysetc Spider v3.0 H7",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Fysetc%20Spider%20v3.0%20H7/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "b08dea9be4f5a0cd901d3ed3049486ff3612574c1bafcccd2946c52907bdd479",
+        "menu_order": 32,
+        "menu_title": "LDO Leviathan v1.2",
+        "reason": null,
+        "status": "catalogada",
+        "title": "LDO Leviathan v1.2",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/LDO%20Leviathan%20v1.2/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "4523e92b0c19b7d91d3b6b3af72018c1295279a46fb91e5277184579f23cc294",
+        "menu_order": 33,
+        "menu_title": "LDO Leviathan v1.3",
+        "reason": null,
+        "status": "catalogada",
+        "title": "LDO Leviathan v1.3",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/LDO%20Leviathan%20v1.3/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "f13f4611c1527e2ef2a7e2e409fdf79842ac074219038cd55b0ddb400afe44c0",
+        "menu_order": 34,
+        "menu_title": "MKS Monster8 v2",
+        "reason": null,
+        "status": "catalogada",
+        "title": "MKS Monster8 v2",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/MKS%20Monster8%20v2/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "e059291790aa36235c6b2b11f8f5b5a76c2b9d9563d6752a8c7fa359e85d3a51",
+        "menu_order": 35,
+        "menu_title": "Mellow FLY-D5P",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Mellow FLY-D5P",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Mellow%20Fly-D5P/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "1ed92eb1640c07593c188886f34ea9750658dbe6bf620d184c99293c0da176cb",
+        "menu_order": 36,
+        "menu_title": "Mellow FLY-Micro4",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Mellow FLY-Micro4",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Mellow%20Fly-Micro4/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "1c3c02120bbf7375213f61fd3c6a52e34aad1e9e161de1a48155670f65481dbb",
+        "menu_order": 37,
+        "menu_title": "Mellow Fly-Super8",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Mellow Fly-Super8",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Mellow%20Fly-Super8/README.html"
+      },
+      {
+        "category": "mainboard",
+        "content_hash": "be7a8a9e1cb69d5b20816d4cbfd9dca4674cbb52e7f352c3478d1ce2d6ff28bb",
+        "menu_order": 38,
+        "menu_title": "Mellow Fly-Super8 Pro H723",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Mellow Fly-Super8 Pro H723",
+        "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware/Mellow%20Fly-Super8%20Pro%20H723/README.html"
+      },
+      {
+        "category": "toolhead_overview",
+        "content_hash": "2dec26361521cadbe1c80be2ca9ed875a10c53fe23c031757aa9b164aebf8f90",
+        "menu_order": 39,
+        "menu_title": "Toolhead Flashing",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Toolhead Flashing",
+        "url": "https://canbus.esoterical.online/toolhead_flashing.html"
+      },
+      {
+        "category": "toolhead_overview",
+        "content_hash": "bea6752c6e6d3d43cae603f6418151a51e4fb37dc467c7a49c8b52c4ee0b517c",
+        "menu_order": 40,
+        "menu_title": "Common Toolhead Hardware",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Common Toolhead Hardware",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "191da9efb6281ebb55f8a21c7f7bb6e7f31312a2abb9c0568a5317e092d7680d",
+        "menu_order": 41,
+        "menu_title": "AFC-Lite for Boxturtle",
+        "reason": null,
+        "status": "catalogada",
+        "title": "AFC-Lite for Boxturtle",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/AFC-Lite/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "24b07e68ad17f12fe6791986ae753b9c49fff5ba00adc8c43948d3648eae35cd",
+        "menu_order": 42,
+        "menu_title": "AFC-Pro",
+        "reason": null,
+        "status": "catalogada",
+        "title": "AFC-Pro",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/AFC-Pro/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "6336407778fad760d6b7b9c73042c558be8a6fa6fce99545d63172b682b17e61",
+        "menu_order": 43,
+        "menu_title": "BigTreeTech EBB36 Gen2",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech EBB36 Gen2",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20EBB36%20Gen2/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "8f1e3f4ad4c09f7398a477a7432695f36286164c9c7ab33d98f110ea4ef2d14b",
+        "menu_order": 44,
+        "menu_title": "BigTreeTech EBB36 V1.2",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech EBB36 V1.2",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20EBB36%20V1.2/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "769630549b92e982f7c4201bfbfa4898c0362e172ca6c5e22d464df96092f2eb",
+        "menu_order": 45,
+        "menu_title": "BigTreeTech EBB42 Gen2",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech EBB42 Gen2",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20EBB42%20Gen2/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "2d0b18d293e1156d28e49f07c7938f9830b495f28546d8ca556c2ed7fdcaaf97",
+        "menu_order": 46,
+        "menu_title": "BigTreeTech EBB42 V1.2",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech EBB42 V1.2",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20EBB42%20V1.2/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "a0df1de7eb7bf242b5f8b5a35bf35b83a83ef073eb8f52a4582dd44f294da054",
+        "menu_order": 47,
+        "menu_title": "BigTreeTech Eddy Duo",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech Eddy Duo",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20Eddy%20Duo/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "4c5c5daf053f56ea525af1cb49805375735ff168e7e1d675065acb21c8fa28bb",
+        "menu_order": 48,
+        "menu_title": "BigTreeTech MMB v1.0",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech MMB v1.0",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20MMB%20CAN%20V1.0/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "df1804298a5020dbc447f33868a7456009dd1efd589bd00526c15695e773c7a5",
+        "menu_order": 49,
+        "menu_title": "BigTreeTech MMB v2.0",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech MMB v2.0",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20MMB%20CAN%20v2.0/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "e951945bdd02c10bdb0f9c758f48a2d9d5b3f382a48f445f27f6fb57804087c8",
+        "menu_order": 50,
+        "menu_title": "BigTreeTech SB2209 (RP2040)",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech SB2209 (RP2040)",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20SB2209%20(RP2040)/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "f9c88219a561afb66e254325590ca55802261e715d3b95cce2a5a896727ef49c",
+        "menu_order": 51,
+        "menu_title": "BigTreeTech SB2209 and SB2240",
+        "reason": null,
+        "status": "catalogada",
+        "title": "BigTreeTech SB2209 and SB2240",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20SB2209%20and%20SB2240/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "5900ee6ecb065a5055a48273d227a181441d54f04be2074fd95d2e3e7feb7460",
+        "menu_order": 52,
+        "menu_title": "DragonDinghy",
+        "reason": null,
+        "status": "catalogada",
+        "title": "DragonDinghy",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/DragonDinghy/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "5cfa37df1b4d95a632cfd8e75d7d6353548eb479cbace2b2aee4c660a8c32c90",
+        "menu_order": 53,
+        "menu_title": "Fysetc H36",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Fysetc H36",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Fysetc%20H36/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "502a46d45c3289c52cd35a1feff5fb5e4782598c6acd00daf200e2ad7b0771ae",
+        "menu_order": 54,
+        "menu_title": "Fysetc H36 v2.0",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Fysetc H36 v2.0",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Fysetc%20H36%20V2.0/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "1f18c8f279afe865a0e1e54e5576dc8cbd9217e569e4e06f3a858202a7efa807",
+        "menu_order": 55,
+        "menu_title": "Fysetc PITB V1.0",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Fysetc PITB V1.0",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Fysetc%20PITB%20V1.0/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "4c4672e4e3160a93268bda3a1bf3fd3b76aea1141be1c7863775d20168c9f537",
+        "menu_order": 56,
+        "menu_title": "Fysetc PITB V2.0",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Fysetc PITB V2.0",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Fysetc%20PITB%20V2.0/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "4efa591e93dd58f976e4076e4f31f04056992d5c0c1448998a4da4629079d415",
+        "menu_order": 57,
+        "menu_title": "Fysetc SB Combo V2",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Fysetc SB Combo V2",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Fysetc%20SB%20Combo%20V2/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "3e7c0fb149378c6c08380ea7d7f27d369505706f4f4e8a4e3eb1af3904275bcf",
+        "menu_order": 58,
+        "menu_title": "Fysetc SB-CAN-TH",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Fysetc SB-CAN-TH",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Fysetc%20SB-CAN-TH/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "a5b0643152a7baf66aa401179fcc0f31700b72ad60b063fdce804a183b18d169",
+        "menu_order": 59,
+        "menu_title": "MKS THR36 V1.0",
+        "reason": null,
+        "status": "catalogada",
+        "title": "MKS THR36 V1.0",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/MKS%20THR36%20V1.0/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "c5e3eba3f3e900eb13e2c3d097b7fa17c59ff69e9c0dcaf5a8f6a89b798f3cc3",
+        "menu_order": 60,
+        "menu_title": "Mellow Fly ERCF",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Mellow Fly ERCF",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Mellow%20Fly%20ERCF/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "9272084b59286ac98c1272737ae3ad6a302121ed4570b89e93d961e2cdf688a4",
+        "menu_order": 61,
+        "menu_title": "Mellow Fly SB2040v1/v2",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Mellow Fly SB2040v1/v2",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Mellow%20Fly%20SB2040/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "acb10006096b217faf96a1df89d3f0d0d34ff1bd563a9496d85f7a8d99fdd409",
+        "menu_order": 62,
+        "menu_title": "Mellow Fly SB2040v3",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Mellow Fly SB2040v3",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Mellow%20Fly%20SB2040v3/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "cc5d63c53634fe4a01eb4808d1eefd0bb247c9d1c654dd1b008ced9ff013f21e",
+        "menu_order": 63,
+        "menu_title": "Mellow Fly SHT36 and SHT42",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Mellow Fly SHT36 and SHT42",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Mellow%20Fly%20SHT36%20and%20SHT42/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "ddc58568366d830a1ff8a4df038ee264bbab69bfdb2df37d650b24727bee639f",
+        "menu_order": 64,
+        "menu_title": "Mellow Fly SHT36v2",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Mellow Fly SHT36v2",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Mellow%20Fly%20SHT36v2/README.html"
+      },
+      {
+        "category": "toolhead",
+        "content_hash": "4a1b54f405c035740dbb6b565ab1ac175469b08fe3da7b45cec586d6069f93c6",
+        "menu_order": 65,
+        "menu_title": "Mellow Fly SHT36v3",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Mellow Fly SHT36v3",
+        "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware/Mellow%20Fly%20SHT36v3/README.html"
+      },
+      {
+        "category": "final_steps",
+        "content_hash": "049c522fe572bcb6d7d7d0510dd8fa66eda6609366f29a38028122ac0b781b1d",
+        "menu_order": 66,
+        "menu_title": "Final Steps",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Final Steps",
+        "url": "https://canbus.esoterical.online/Final_Steps.html"
+      },
+      {
+        "category": "updating",
+        "content_hash": "6cf9e513f3b913650ac4dd7eb4f535aee2dabb0c294f1637fe6d72fdcce1918b",
+        "menu_order": 67,
+        "menu_title": "Updating",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Updating",
+        "url": "https://canbus.esoterical.online/Updating.html"
+      },
+      {
+        "category": "updating",
+        "content_hash": "c3645fd2f76c32131f794fda66105f3e73dc5f5e35afc0133ce16d373d74c3ab",
+        "menu_order": 68,
+        "menu_title": "Toolhead Updating",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Toolhead Updating",
+        "url": "https://canbus.esoterical.online/toolhead_klipper_updating.html"
+      },
+      {
+        "category": "updating",
+        "content_hash": "f71e64ad8280d15eefda5fda8c4ce22b63c502ea2170af23e0e3d0718668efd8",
+        "menu_order": 69,
+        "menu_title": "CAN-Bridge Mainboard Updating",
+        "reason": null,
+        "status": "catalogada",
+        "title": "CAN-Bridge Mainboard Updating",
+        "url": "https://canbus.esoterical.online/mainboard_klipper_updating.html"
+      },
+      {
+        "category": "updating",
+        "content_hash": "31b93efafffd860e8110ed026c72dad1e6ed417cd7511ee836a9ffc4c37f4d69",
+        "menu_order": 70,
+        "menu_title": "Updating Katapult",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Updating Katapult",
+        "url": "https://canbus.esoterical.online/katapult_updating.html"
+      },
+      {
+        "category": "updating",
+        "content_hash": "bc04c23ef9b528dab3dfd9cf56dd0e1017fd4e520fc510043f837b44f3627e8a",
+        "menu_order": 71,
+        "menu_title": "Updating your CANBUS speed",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Updating your CANBUS speed",
+        "url": "https://canbus.esoterical.online/updating_can_speed.html"
+      },
+      {
+        "category": "troubleshooting",
+        "content_hash": "264b03899327f6b97ef7e699465a940b8d232c8b147e291ead803bb427128a93",
+        "menu_order": 72,
+        "menu_title": "Troubleshooting",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Troubleshooting",
+        "url": "https://canbus.esoterical.online/troubleshooting.html"
+      },
+      {
+        "category": "troubleshooting",
+        "content_hash": "67f5a7f542ed491d90a0b0e75624f389fc51890c3664b6002b372d0ed5252974",
+        "menu_order": 73,
+        "menu_title": "No can0 Interface",
+        "reason": null,
+        "status": "catalogada",
+        "title": "No can0 Interface",
+        "url": "https://canbus.esoterical.online/troubleshooting/no_can0.html"
+      },
+      {
+        "category": "troubleshooting",
+        "content_hash": "1431565db066b1e1135ec29c279d13bfa60a63bc14a260e882b45b77180aa0f6",
+        "menu_order": 74,
+        "menu_title": "No UUID",
+        "reason": null,
+        "status": "catalogada",
+        "title": "No UUID",
+        "url": "https://canbus.esoterical.online/troubleshooting/no_uuid.html"
+      },
+      {
+        "category": "troubleshooting",
+        "content_hash": "972fa43e05ec5a22a3d0308cd013842c32cb79de458074cc24c7560bf82a46e2",
+        "menu_order": 75,
+        "menu_title": "Klipper Fails to Start",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Klipper Fails to Start",
+        "url": "https://canbus.esoterical.online/troubleshooting/klipper_fail_to_start.html"
+      },
+      {
+        "category": "troubleshooting",
+        "content_hash": "206795aea65d77e7eb20734023ff6e12a9277a665b7c9d0782b147db3eb608ba",
+        "menu_order": 76,
+        "menu_title": "Timeout During Homing/Probing",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Timeout During Homing/Probing",
+        "url": "https://canbus.esoterical.online/troubleshooting/timeout_during_homing_probing.html"
+      },
+      {
+        "category": "troubleshooting",
+        "content_hash": "31a2109368c5f80f19d413f1cc029261cbd6d8cf786dec0a20812720cc02022a",
+        "menu_order": 77,
+        "menu_title": "Lost Communications to mcu",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Lost Communications to mcu",
+        "url": "https://canbus.esoterical.online/troubleshooting/lost_communication_to_mcu.html"
+      },
+      {
+        "category": "troubleshooting",
+        "content_hash": "87534c727343a6b25171fb417ae06de41c7cb2b752ecf5b60af7a0ca2c7df0f9",
+        "menu_order": 78,
+        "menu_title": "Timer Too Close",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Timer Too Close",
+        "url": "https://canbus.esoterical.online/troubleshooting/timer_too_close.html"
+      },
+      {
+        "category": "troubleshooting",
+        "content_hash": "37acad89766cc3d88f25df05e45cf4029c0ebeea1b3f452bbdfda96f53231b62",
+        "menu_order": 79,
+        "menu_title": "Debug Script",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Debug Script",
+        "url": "https://canbus.esoterical.online/troubleshooting/debugging/README.html"
+      },
+      {
+        "category": "troubleshooting",
+        "content_hash": "513c466bd9a64e26740db2ff1a06ca83d958e7ca70815b3b377e9700af176185",
+        "menu_order": 80,
+        "menu_title": "Multiple CAN Networks",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Multiple CAN Networks",
+        "url": "https://canbus.esoterical.online/troubleshooting/multiple_can_networks.html"
+      },
+      {
+        "category": "troubleshooting",
+        "content_hash": "6d4248b37144a92b1e2692e0ee96e35c643bc7cf75aba1cce981f4b7e32635ac",
+        "menu_order": 81,
+        "menu_title": "Other Errors",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Other Errors",
+        "url": "https://canbus.esoterical.online/troubleshooting/other_errors.html"
+      },
+      {
+        "category": "troubleshooting",
+        "content_hash": "0492aba14edecffb715b642339195a4fd1871c835119a4bc71aefc55ec8a5ec7",
+        "menu_order": 82,
+        "menu_title": "TMC Reset or Undervoltage",
+        "reason": null,
+        "status": "catalogada",
+        "title": "TMC Reset or Undervoltage",
+        "url": "https://canbus.esoterical.online/troubleshooting/tmc_reset_undervoltage.html"
+      },
+      {
+        "category": "troubleshooting",
+        "content_hash": "bdaef079f1df335788f0f5d5ea44da9e7973abe72476a722f8ff21c346f72b05",
+        "menu_order": 83,
+        "menu_title": "Termination Resistor Info",
+        "reason": null,
+        "status": "catalogada",
+        "title": "Termination Resistor Info",
+        "url": "https://canbus.esoterical.online/troubleshooting/termination_resistor_info.html"
+      }
+    ],
+    "retrieved_at": "2026-05-27",
+    "schema_version": 1,
+    "source_url": "https://canbus.esoterical.online/",
+    "total_pages": 83
+  },
+  "schema_version": 1,
+  "source": {
+    "name": "Esoterical CANBus Guide",
+    "notes": [
+      "Catalogo local gerado a partir do menu publico do guia Esoterical CANBus.",
+      "Normalizacao automatica preserva URL de referencia e evita inferir campos quando o conteudo nao e claro."
+    ],
+    "retrieved_at": "2026-05-27",
+    "url": "https://canbus.esoterical.online/"
+  },
   "troubleshooting": [
-    {"id": "no_can0_interface", "title": "No can0 Interface", "url": "https://canbus.esoterical.online/troubleshooting/no_can0.html"},
-    {"id": "no_uuid", "title": "No UUID", "url": "https://canbus.esoterical.online/troubleshooting/no_uuid.html"},
-    {"id": "klipper_fails_to_start", "title": "Klipper Fails to Start", "url": "https://canbus.esoterical.online/troubleshooting/klipper_fails_to_start.html"},
-    {"id": "lost_communication_to_mcu", "title": "Lost Communications to mcu", "url": "https://canbus.esoterical.online/troubleshooting/lost_communication_to_mcu.html"},
-    {"id": "termination_resistor_info", "title": "Termination Resistor Info", "url": "https://canbus.esoterical.online/troubleshooting/termination_resistor_info.html"}
+    {
+      "catalog_status": "catalogada",
+      "id": "troubleshooting",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "summary": "Troubleshooting So, you’ve followed the instructions but things just aren’t working they way they should.",
+      "title": "Troubleshooting",
+      "url": "https://canbus.esoterical.online/troubleshooting.html",
+      "validation_commands": []
+    },
+    {
+      "catalog_status": "catalogada",
+      "id": "no_can0_interface",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "summary": "No CAN network when running a query or flash attempt If you run a python3 ~/katapult/scripts/flashtool.py -i can0 -q or ~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0 or are trying to flash a device with a command like python3 ~/katapult/scripts/flashtool.py -i ca",
+      "title": "No can0 Interface",
+      "url": "https://canbus.esoterical.online/troubleshooting/no_can0.html",
+      "validation_commands": [
+        "~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0",
+        "lsusb",
+        "ip link show can0",
+        "lsmod | grep can",
+        "ls /dev/serial/by-id"
+      ]
+    },
+    {
+      "catalog_status": "catalogada",
+      "id": "no_uuid",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Pagina contem checkpoint/STOP; validar resultado esperado antes de prosseguir."
+      ],
+      "summary": "So you’re can0 interface is online, but a query returns nothing: First up, if you previously could see UUID’s returned, and then put them into your printer.cfg file, but now you can’t see anything from a canbus query don’t panic .",
+      "title": "No UUID",
+      "url": "https://canbus.esoterical.online/troubleshooting/no_uuid.html",
+      "validation_commands": [
+        "sudo ip link set can0 down type can",
+        "sudo ip link set can0 up type can bitrate 1000000",
+        "ip -details -statistics link show can0"
+      ]
+    },
+    {
+      "catalog_status": "catalogada",
+      "id": "klipper_fails_to_start",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Pagina contem checkpoint/STOP; validar resultado esperado antes de prosseguir."
+      ],
+      "summary": "Klipper fails to start You have everything flashed up, you were able to get the UUID’s of all your devices, you thought it was smooth sailing from this point.",
+      "title": "Klipper Fails to Start",
+      "url": "https://canbus.esoterical.online/troubleshooting/klipper_fail_to_start.html",
+      "validation_commands": [
+        "ip a",
+        "~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0"
+      ]
+    },
+    {
+      "catalog_status": "catalogada",
+      "id": "timeout_during_homing_probing",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "summary": "Timeout during homing and/or probing I’m going to make a couple of assumptions right at the start for this section as this ‘symptom’ could be from different causes.",
+      "title": "Timeout During Homing/Probing",
+      "url": "https://canbus.esoterical.online/troubleshooting/timeout_during_homing_probing.html",
+      "validation_commands": []
+    },
+    {
+      "catalog_status": "catalogada",
+      "id": "lost_communications_to_mcu",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Pagina contem checkpoint/STOP; validar resultado esperado antes de prosseguir."
+      ],
+      "summary": "Lost Communication to mcu So you’re happily printing, everythings great, you’re thinking “oh, this whole CANbus thing is easy” when all of a sudden your print stops with an error Lost communication with MCU 'EBBCan' or similar (whatever your CAN toolhead name is).",
+      "title": "Lost Communications to mcu",
+      "url": "https://canbus.esoterical.online/troubleshooting/lost_communication_to_mcu.html",
+      "validation_commands": []
+    },
+    {
+      "catalog_status": "catalogada",
+      "id": "timer_too_close",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "summary": "Timer Too Close This error tends to be a “catch all” for a bunch of different causes.",
+      "title": "Timer Too Close",
+      "url": "https://canbus.esoterical.online/troubleshooting/timer_too_close.html",
+      "validation_commands": [
+        "TTC when Exclude Object was used on a large/complex model. Possibly the host overloaded trying to skip the bazillion lines of gcode"
+      ]
+    },
+    {
+      "catalog_status": "catalogada",
+      "id": "debug_script",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "summary": "Debug Script If you are still running into trouble you can run this can_debug.sh script on your Pi.",
+      "title": "Debug Script",
+      "url": "https://canbus.esoterical.online/troubleshooting/debugging/README.html",
+      "validation_commands": []
+    },
+    {
+      "catalog_status": "catalogada",
+      "id": "multiple_can_networks",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "summary": "Credit to Fragmon (find them on youtube at https://youtube.com/@crydteamprinting ) for their help with the following instructions.",
+      "title": "Multiple CAN Networks",
+      "url": "https://canbus.esoterical.online/troubleshooting/multiple_can_networks.html",
+      "validation_commands": [
+        "ip a"
+      ]
+    },
+    {
+      "catalog_status": "catalogada",
+      "id": "other_errors",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "summary": "Reading your klippy.log If you happen to be having errors such as “Timer Too Close” or “Missed Scheduling of next digital out event” or something like that (ie.",
+      "title": "Other Errors",
+      "url": "https://canbus.esoterical.online/troubleshooting/other_errors.html",
+      "validation_commands": []
+    },
+    {
+      "catalog_status": "catalogada",
+      "id": "tmc_reset_or_undervoltage",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Pagina contem checkpoint/STOP; validar resultado esperado antes de prosseguir."
+      ],
+      "summary": "TMC reset or undervoltage error Rarely there can be errors coming from the TMC driver, along the lines of: TMC 'extruder' reports GSTAT: 00000001 reset=1(Reset) WHile this can be caused by a brief power interruption, it may also be caused by static discharge that has been accumul",
+      "title": "TMC Reset or Undervoltage",
+      "url": "https://canbus.esoterical.online/troubleshooting/tmc_reset_undervoltage.html",
+      "validation_commands": []
+    },
+    {
+      "catalog_status": "catalogada",
+      "id": "termination_resistor_info",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "summary": "Termination Resistor Info The 120 ohm termination resistors facilitate two different jobs in a CANBus system.",
+      "title": "Termination Resistor Info",
+      "url": "https://canbus.esoterical.online/troubleshooting/termination_resistor_info.html",
+      "validation_commands": []
+    }
+  ],
+  "update_flows": [
+    {
+      "catalog_status": "catalogada",
+      "id": "updating",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "summary": "Updating Did you update the Klipper on your Pi, and now it is yelling at you about MCU version being out of date?",
+      "title": "Updating",
+      "url": "https://canbus.esoterical.online/Updating.html",
+      "validation_commands": []
+    },
+    {
+      "catalog_status": "catalogada",
+      "id": "toolhead_updating",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Pagina contem checkpoint/STOP; validar resultado esperado antes de prosseguir."
+      ],
+      "summary": "Updating Toolhead Klipper Step 1 To update Klipper, you first need to compile a new klipper.bin with the correct settings.",
+      "title": "Toolhead Updating",
+      "url": "https://canbus.esoterical.online/toolhead_klipper_updating.html",
+      "validation_commands": []
+    },
+    {
+      "catalog_status": "catalogada",
+      "id": "can_bridge_mainboard_updating",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora.",
+        "Pagina contem checkpoint/STOP; validar resultado esperado antes de prosseguir."
+      ],
+      "summary": "Updating Mainboard Klipper Step 1 To update Klipper, you first need to compile a new klipper.bin with the correct settings.",
+      "title": "CAN-Bridge Mainboard Updating",
+      "url": "https://canbus.esoterical.online/mainboard_klipper_updating.html",
+      "validation_commands": [
+        "ls /dev/serial/by-id/*",
+        "lsusb",
+        "ip a"
+      ]
+    },
+    {
+      "catalog_status": "catalogada",
+      "id": "updating_katapult",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "summary": "Updating Katapult Updating Katapult isn’t something you should need to do regularly, if at all.",
+      "title": "Updating Katapult",
+      "url": "https://canbus.esoterical.online/katapult_updating.html",
+      "validation_commands": [
+        "ls /dev/serial/by-id"
+      ]
+    },
+    {
+      "catalog_status": "catalogada",
+      "id": "updating_your_canbus_speed",
+      "safety_notes": [
+        "Catalogo normalizado em modo read-only; comandos sao referencia textual e nao sao executados pelo Printora."
+      ],
+      "summary": "Updating your CANBUS Speed If you are trying to modify the speed of your existing CAN network then there is an order of operations to make it as seamless as possible.",
+      "title": "Updating your CANBUS speed",
+      "url": "https://canbus.esoterical.online/updating_can_speed.html",
+      "validation_commands": [
+        "sudo ip link set can0 down type can",
+        "sudo ip link set can0 up type can bitrate 1000000",
+        "ls /dev/serial/by-id"
+      ]
+    }
+  ],
+  "workflows": [
+    {
+      "id": "home",
+      "steps": [
+        "Generalised CANBus guide",
+        "Basic Structure of a 3d Printer CANBus",
+        "Regarding Katapult (formerly known as CanBoot)",
+        "Your main CAN network adapter",
+        "Checkpoints",
+        "New build",
+        "Updating",
+        "HELP!"
+      ],
+      "title": "Home",
+      "url": "https://canbus.esoterical.online/"
+    },
+    {
+      "id": "getting_started",
+      "steps": [
+        "Raspberry Pi Operating System",
+        "Network Service, CAN Speeds, and Transmit Queue Length",
+        "120R Termination Resistors",
+        "CAN Adapter/Mainboard",
+        "Toolhead",
+        "Cabling",
+        "Next Step"
+      ],
+      "title": "Getting Started",
+      "url": "https://canbus.esoterical.online/Getting_Started.html"
+    },
+    {
+      "id": "dedicated_usb_can_device",
+      "steps": [
+        "Next Step"
+      ],
+      "title": "Dedicated USB CAN Device",
+      "url": "https://canbus.esoterical.online/Dedicated_USB_Can_Device.html"
+    },
+    {
+      "id": "usb_can_bridge_mainboard",
+      "steps": [
+        "Klipper USB to CAN bus bridge"
+      ],
+      "title": "USB CAN Bridge Mainboard",
+      "url": "https://canbus.esoterical.online/USB_CAN_Bridge_Mainboard.html"
+    },
+    {
+      "id": "mainboard_flashing",
+      "steps": [
+        "General Info",
+        "Installing Katapult",
+        "STM32 based boards",
+        "RP2040 based boards",
+        "Katapult is now installed",
+        "Installing USB-CAN-Bridge Klipper",
+        "Using Katapult to flash Klipper",
+        "Klipper is now installed"
+      ],
+      "title": "Mainboard Flashing",
+      "url": "https://canbus.esoterical.online/mainboard_flashing.html"
+    },
+    {
+      "id": "common_mainboard_hardware",
+      "steps": [
+        "Table of contents"
+      ],
+      "title": "Common Mainboard Hardware",
+      "url": "https://canbus.esoterical.online/mainboard_flashing/common_hardware.html"
+    },
+    {
+      "id": "toolhead_flashing",
+      "steps": [
+        "General Info",
+        "Installing Katapult",
+        "STM32 based boards",
+        "RP2040 based boards",
+        "Katapult is now installed",
+        "Installing Klipper",
+        "Using Katapult to flash Klipper",
+        "Klipper is now installed"
+      ],
+      "title": "Toolhead Flashing",
+      "url": "https://canbus.esoterical.online/toolhead_flashing.html"
+    },
+    {
+      "id": "common_toolhead_hardware",
+      "steps": [
+        "Table of contents"
+      ],
+      "title": "Common Toolhead Hardware",
+      "url": "https://canbus.esoterical.online/toolhead_flashing/common_hardware.html"
+    },
+    {
+      "id": "final_steps",
+      "steps": [
+        "Update Config",
+        "Dedicated CAN adapter",
+        "USB-CAN-Bridge Mainboard",
+        "Toolhead"
+      ],
+      "title": "Final Steps",
+      "url": "https://canbus.esoterical.online/Final_Steps.html"
+    }
   ]
 }

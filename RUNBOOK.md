@@ -96,6 +96,57 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\update_printor
 
 O updater Windows usa apenas escopo de processo para a política de execução, cria backup de `%LOCALAPPDATA%\Printora\printora.db`, preserva a pasta anterior do projeto e reinicia pelo runner Windows.
 
+## Catalogo firmware CANBus
+
+O catalogo do PKG-30 usa o guia Esoterical CANBus como fonte publica, mas o runtime do Printora consulta somente arquivos locais versionados em `backend/app/data/`.
+
+Atualizar manifesto em dry-run:
+
+```bash
+python3 scripts/build_canbus_manifest.py --retrieved-at YYYY-MM-DD --timeout 10
+```
+
+Gravar manifesto apos revisar o dry-run:
+
+```bash
+python3 scripts/build_canbus_manifest.py --write --retrieved-at YYYY-MM-DD --timeout 10
+```
+
+Atualizar catalogo local em dry-run:
+
+```bash
+cd backend
+uv run python ../scripts/build_firmware_catalog.py --manifest ../backend/app/data/firmware_canbus_manifest.json --output ../backend/app/data/firmware_hardware_catalog.json --generated-at YYYY-MM-DD --timeout 12
+```
+
+Gravar catalogo apos revisar o dry-run:
+
+```bash
+cd backend
+uv run python ../scripts/build_firmware_catalog.py --manifest ../backend/app/data/firmware_canbus_manifest.json --output ../backend/app/data/firmware_hardware_catalog.json --generated-at YYYY-MM-DD --timeout 12 --write
+```
+
+Validar cobertura e contrato do catalogo:
+
+```bash
+cd backend
+uv run pytest tests/test_canbus_manifest.py tests/test_firmware.py -q
+```
+
+Validar fechamento completo do pacote:
+
+```bash
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Regras operacionais:
+
+- os scripts executam apenas leitura HTTP do dominio `canbus.esoterical.online` e leitura/escrita local dos JSONs quando `--write` for informado;
+- os scripts nao executam flash, build, update, SSH, restart, `make`, G-code ou alteracao de configuracao de impressora;
+- se o site externo mudar menu, conteudo ou disponibilidade, o manifesto deve manter status explicito por URL e a validacao de cobertura deve falhar antes de afetar a UI;
+- rollback rapido: restaurar a versao anterior de `backend/app/data/firmware_canbus_manifest.json` e `backend/app/data/firmware_hardware_catalog.json` ou reverter os arquivos do PKG-30 no Git;
+- se o catalogo ficar indisponivel ou invalido, a tela Firmware deve preservar o fluxo principal por impressora ativa e exibir estado de erro/sem referencia, sem consultar o site externo em runtime.
+
 ## Validacao por risco
 
 - Documentacao, label ou ajuste local simples: validar arquivo alterado e executar `./check.sh` se a alteracao tocar regra do modelo.

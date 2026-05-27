@@ -44,9 +44,38 @@ export type FirmwareHardwareItem = {
   registered_board_id?: number | null;
   matched_catalog_ids: string[];
   matched_preset_ids: string[];
+  catalog_references: {
+    id: string;
+    label: string;
+    role: "mainboard" | "toolhead" | "can_adapter" | "unknown";
+    connection: "can" | "usb" | "usb_can_bridge" | "dedicated_usb_can" | "unknown";
+    guide_url: string;
+    preset_ids: string[];
+    known_mcus: string[];
+    flash_method?: "katapult_can" | "katapult_usb_can" | "dfu_usb" | "manual" | "unknown" | null;
+    bootloader?: string | null;
+    safety_notes: string[];
+  }[];
   guide_url?: string | null;
   action_label: string;
   detail: string;
+};
+
+export type FirmwareCatalogSummary = {
+  safe_mode: string;
+  source: {
+    name: string;
+    url: string;
+    retrieved_at: string;
+    notes: string[];
+  };
+  generated_at?: string | null;
+  manifest_total_pages: number;
+  catalog_counts: Record<string, number>;
+  category_counts: Record<string, number>;
+  status_counts: Record<string, number>;
+  hardware_role_counts: Record<string, number>;
+  hardware_without_local_preset: Record<string, string[]>;
 };
 
 export type FirmwareHardwareInventory = {
@@ -61,6 +90,7 @@ export type FirmwareHardwareInventory = {
     notes: string[];
   };
   catalog_counts: Record<string, number>;
+  catalog_hardware_without_local_preset: Record<string, string[]>;
   items: FirmwareHardwareItem[];
 };
 

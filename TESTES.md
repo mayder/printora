@@ -216,6 +216,17 @@ Validações:
 - auditoria de plugins classifica KTC-Easy como perigoso remover agora e Auto Speed como legado/lixo técnico.
 - auditoria de plugins transforma componentes fora do catálogo em item investigável com evidência e gates.
 - catálogo de presets de firmware inclui placas comuns BTT, Mellow e Fysetc.
+- manifesto Esoterical CANBus cobre as páginas conhecidas do menu público, usa apenas domínio `canbus.esoterical.online`, mantém status `catalogada`, `ignorada_com_motivo` ou `bloqueada_com_motivo` e registra hash por página catalogada.
+- comando `python3 scripts/build_canbus_manifest.py` roda em dry-run por padrão; somente `--write` atualiza `backend/app/data/firmware_canbus_manifest.json`.
+- schema Pydantic `FirmwareCatalog` valida o catálogo local com source, manifesto, workflows, hardware, troubleshooting, update flows, Katapult, CAN speed, hardwares sem preset e metadata de geração.
+- normalização automática `python3 scripts/build_firmware_catalog.py` gera catálogo local a partir do manifesto em dry-run por padrão, cobrindo 56 hardwares, 9 workflows, 5 fluxos de update e 12 guias de troubleshooting sem executar comandos mutáveis.
+- cobertura 100% do menu público exige que toda URL do manifesto tenha status, hash/título/categoria quando catalogada e representação no catálogo como hardware, workflow, update flow ou troubleshooting conforme a categoria.
+- mapeamento de presets locais exige que hardwares com preset conhecido preencham `preset_ids` e que hardwares sem preset apareçam em `known_hardware_without_local_preset` e no inventário focado na impressora ativa.
+- endpoint read-only `/api/firmware/catalog` entrega resumo validado do catálogo local com contadores por categoria/status/role, sem depender do site externo em runtime.
+- inventário `/api/printers/{printer_id}/firmware/hardware-inventory` enriquece placas detectadas e cadastradas com referências compactas do catálogo e preserva deduplicação por UUID/nome/MCU.
+- fechamento do PKG-30 exige testes de manifesto completo, schema, normalização por categoria, presets existentes/ausentes, endpoints, runtime local sem site externo, dry-run dos scripts e exclusão de comandos mutáveis das referências extraídas.
+- validação de cobertura do PKG-30: `cd backend && uv run pytest tests/test_canbus_manifest.py tests/test_firmware.py -q`.
+- validação completa de fechamento do PKG-30: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 - cadastro de placa de firmware herda MCU, conexão e método de flash do preset.
 - placas CAN exigem UUID CAN.
 - placas de firmware ficam escopadas por impressora.
@@ -402,6 +413,12 @@ backend/.venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.
 
 ### Firmware Manager
 
+- Abrir Firmware com impressora ativa offline e confirmar que o resumo local do catálogo aparece, enquanto a leitura ao vivo informa falha do Moonraker.
+- Abrir Firmware com impressora ativa online e confirmar que MCUs/placas detectadas e cadastradas aparecem antes de qualquer referência de catálogo.
+- Confirmar que o catálogo aparece apenas como sugestão/referência compacta por placa da impressora ativa, não como lista genérica de presets ou hardwares.
+- Confirmar status de preset local existente e aviso de preset ausente nas referências do catálogo.
+- Abrir link do guia Esoterical CANBus e confirmar que ele é apenas referência técnica.
+- Confirmar que nenhuma ação de build, flash, update, SSH, restart ou alteração local é executada a partir das referências do catálogo.
 - Abrir lista de presets.
 - Cadastrar uma Octopus USB-CAN bridge com UUID CAN.
 - Cadastrar um EBB CAN com UUID CAN.
@@ -461,7 +478,7 @@ Critérios:
 - Confirmar que `Adicionar impressora` abre modal.
 - Confirmar que `Buscar na rede` lista candidatos Moonraker dentro do modal sem cadastrar automaticamente.
 - Confirmar que Monitoramento concentra Health Check, CAN, Moonraker, Klipper e auditorias.
-- Confirmar que Firmware mostra placas, presets, dry-runs e mods/plugins.
+- Confirmar que Firmware mostra placas da impressora ativa, presets associados, dry-runs e referências compactas do catálogo local, sem listar mods/plugins no conteúdo principal.
 - Confirmar que Calibração mostra o centro de testes/calibração Voron em cards.
 - Confirmar que Calibração preserva os cards como fluxo principal, mostra número de sequência nos cards, busca textual, filtros por tipo/uso, ação Pular e perfil aprovado de primeira camada.
 - Confirmar que cada item mostra risco, modo de execução, pré-condições e critérios de sucesso.

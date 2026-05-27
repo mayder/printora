@@ -2,6 +2,7 @@ import React from "react";
 import { firmwareApi } from "../../services/firmwareApi";
 import type {
   BoardPreset,
+  FirmwareCatalogSummary,
   FirmwareBoardRecord,
   FirmwareBuildPreflight,
   FirmwareBuildRunRecord,
@@ -21,7 +22,9 @@ type UseFirmwareOptions = {
 
 export function useFirmware({ selectedPrinterId, setError, setLoading }: UseFirmwareOptions) {
   const [boardPresets, setBoardPresets] = React.useState<BoardPreset[]>([]);
+  const [firmwareCatalogSummary, setFirmwareCatalogSummary] = React.useState<FirmwareCatalogSummary | null>(null);
   const [firmwareHardwareInventory, setFirmwareHardwareInventory] = React.useState<FirmwareHardwareInventory | null>(null);
+  const [firmwareInventoryError, setFirmwareInventoryError] = React.useState<string | null>(null);
   const [firmwareBoards, setFirmwareBoards] = React.useState<FirmwareBoardRecord[]>([]);
   const [firmwareBuildRuns, setFirmwareBuildRuns] = React.useState<FirmwareBuildRunRecord[]>([]);
   const [firmwareFlashRuns, setFirmwareFlashRuns] = React.useState<FirmwareFlashRunRecord[]>([]);
@@ -50,11 +53,22 @@ export function useFirmware({ selectedPrinterId, setError, setLoading }: UseFirm
     setBoardPresets(payload.presets);
   }
 
-  async function loadFirmwareHardwareInventory(printerId: number) {
-    const response = await firmwareApi.hardwareInventory(printerId);
+  async function loadFirmwareCatalogSummary() {
+    const response = await firmwareApi.catalog();
     if (!response.ok) {
       return;
     }
+    setFirmwareCatalogSummary((await response.json()) as FirmwareCatalogSummary);
+  }
+
+  async function loadFirmwareHardwareInventory(printerId: number) {
+    const response = await firmwareApi.hardwareInventory(printerId);
+    if (!response.ok) {
+      setFirmwareHardwareInventory(null);
+      setFirmwareInventoryError(await response.text());
+      return;
+    }
+    setFirmwareInventoryError(null);
     setFirmwareHardwareInventory((await response.json()) as FirmwareHardwareInventory);
   }
 
@@ -294,11 +308,14 @@ export function useFirmware({ selectedPrinterId, setError, setLoading }: UseFirm
     firmwareFlashConfirmation,
     firmwareFlashPreflight,
     firmwareFlashRuns,
+    firmwareCatalogSummary,
     firmwareHardwareInventory,
+    firmwareInventoryError,
     firmwareKlipperPath,
     firmwareOutputRoot,
     firmwareRecoveryPlan,
     loadBoardPresets,
+    loadFirmwareCatalogSummary,
     loadFirmwareBoards,
     loadFirmwareBuildRuns,
     loadFirmwareFlashRuns,

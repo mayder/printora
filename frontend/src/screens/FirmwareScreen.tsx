@@ -14,6 +14,8 @@ type FirmwareScreenProps = ScreenPropsFor<
   | "createFirmwareBoard"
   | "createFirmwareBuildDryRun"
   | "createFirmwareFlashDryRun"
+  | "error"
+  | "firmwareCatalogSummary"
   | "firmwareBoardCanInterface"
   | "firmwareBoardCanUuid"
   | "firmwareBoardConfigFile"
@@ -24,7 +26,9 @@ type FirmwareScreenProps = ScreenPropsFor<
   | "firmwareBuildRuns"
   | "firmwareFlashRuns"
   | "firmwareHardwareInventory"
+  | "firmwareInventoryError"
   | "formatConnectionType"
+  | "loadFirmwareCatalogSummary"
   | "loadFirmwareHardwareInventory"
   | "loading"
   | "refreshUpdateStatus"
@@ -55,6 +59,8 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
     createFirmwareBoard,
     createFirmwareBuildDryRun,
     createFirmwareFlashDryRun,
+    error,
+    firmwareCatalogSummary,
     firmwareBoardCanInterface,
     firmwareBoardCanUuid,
     firmwareBoardConfigFile,
@@ -65,7 +71,9 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
     firmwareBuildRuns,
     firmwareFlashRuns,
     firmwareHardwareInventory,
+    firmwareInventoryError,
     formatConnectionType,
+    loadFirmwareCatalogSummary,
     loadFirmwareHardwareInventory,
     loading,
     refreshUpdateStatus,
@@ -87,6 +95,11 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
   const registeredItems = inventoryItems.filter((item) => item.status === "registered");
   const detectedItems = inventoryItems.filter((item) => item.status === "detected");
   const firmwareTargets = inventoryItems.length ? inventoryItems : firmwareBoards.map(boardToHardwareItem);
+  const catalogCounts = firmwareHardwareInventory?.catalog_counts ?? firmwareCatalogSummary?.catalog_counts ?? {};
+  const catalogMissing = firmwareHardwareInventory?.catalog_hardware_without_local_preset ?? firmwareCatalogSummary?.hardware_without_local_preset ?? {};
+  const hardwareWithGuides = catalogCounts.hardware_with_guides ?? boardPresets.length;
+  const hardwareWithPreset = catalogCounts.hardware_with_local_preset ?? 0;
+  const hardwareWithoutPreset = catalogCounts.hardware_without_local_preset ?? 0;
   const updatePendingCount = updateStatus?.components.filter((component) => component.can_update).length ?? 0;
   const activeBoard = firmwareBoards[0] ?? null;
   const latestBuild = activeBoard ? firmwareBuildRuns.find((run) => run.board_id === activeBoard.id) : null;
@@ -102,7 +115,7 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
     if (!selectedPrinterId) {
       return;
     }
-    void Promise.allSettled([loadFirmwareHardwareInventory(selectedPrinterId), refreshUpdateStatus()]);
+    void Promise.allSettled([loadFirmwareCatalogSummary(), loadFirmwareHardwareInventory(selectedPrinterId), refreshUpdateStatus()]);
   }
 
   function useDetectedItem(item: FirmwareHardwareItem) {
@@ -113,7 +126,10 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
     setFirmwareBoardCanUuid(item.can_uuid ?? "");
     setFirmwareBoardCanInterface(item.can_interface ?? "can0");
     setFirmwareBoardConfigFile(`firmware/${presetId || "placa"}.config`);
-    setFirmwareBoardNotes(preset?.name ? `Detectado pelo Klipper; modelo sugerido: ${preset.name}.` : "Detectado pelo Klipper; confirmar modelo físico.");
+    const reference = item.catalog_references[0];
+    const referenceLabel = reference ? ` Referência: ${reference.label}.` : "";
+    const presetNote = preset?.name ? `Modelo sugerido: ${preset.name}.` : "Sem preset local sugerido; confirmar modelo físico.";
+    setFirmwareBoardNotes(`Detectado pelo Klipper. ${presetNote}${referenceLabel}`.trim());
   }
 
   return (
@@ -143,6 +159,26 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
           <Badge icon={CheckCircle2} label="Placas detectadas" value={detectedItems.length} />
           <Badge icon={History} label="Placas prontas" value={registeredItems.length} />
         </div>
+
+        {loading && !firmwareHardwareInventory && !firmwareInventoryError ? (
+          <div className="firmware-state-banner loading">
+            <RefreshCw className="button-busy-icon" size={16} />
+            <div>
+              <strong>Lendo inventário da impressora</strong>
+              <span>Consultando MCUs, placas cadastradas e referências locais do catálogo.</span>
+            </div>
+          </div>
+        ) : null}
+
+        {firmwareInventoryError || error ? (
+          <div className="firmware-state-banner warning">
+            <AlertTriangle size={16} />
+            <div>
+              <strong>Falha na leitura de firmware</strong>
+              <span>{formatFirmwareError(firmwareInventoryError ?? error)}</span>
+            </div>
+          </div>
+        ) : null}
 
         <section className="firmware-focus-grid">
           <div className="firmware-card primary-flow">
@@ -195,13 +231,18 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
             <div className="firmware-card-heading">
               <div>
                 <strong>Catálogo local</strong>
-                <span>{firmwareHardwareInventory?.catalog_source.name ?? "Esoterical CANBus Guide"}</span>
+                <span>{firmwareHardwareInventory?.catalog_source.name ?? firmwareCatalogSummary?.source.name ?? "Esoterical CANBus Guide"}</span>
               </div>
-              <span className="status-pill up_to_date">{firmwareHardwareInventory?.catalog_counts.hardware_with_guides ?? boardPresets.length} guias</span>
+              <span className="status-pill up_to_date">{hardwareWithGuides} guias</span>
             </div>
             <div className="firmware-catalog-summary">
-              <span>Adaptadores CAN, mainboards bridge, toolheads, atualização e troubleshooting.</span>
-              <a href="https://canbus.esoterical.online/" target="_blank" rel="noreferrer">
+              <div className="firmware-catalog-metrics">
+                <span>{hardwareWithPreset} com preset local</span>
+                <span>{hardwareWithoutPreset} sem preset</span>
+                <span>{firmwareCatalogSummary?.manifest_total_pages ?? firmwareHardwareInventory?.catalog_counts.hardware_with_guides ?? "-"} páginas mapeadas</span>
+              </div>
+              <span>Usado para sugerir modelo físico e link técnico nos cards da impressora ativa.</span>
+              <a href={firmwareCatalogSummary?.source.url ?? "https://canbus.esoterical.online/"} target="_blank" rel="noreferrer">
                 Abrir referência
               </a>
             </div>
@@ -214,15 +255,22 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
               <h3>Placas detectadas nesta impressora</h3>
               <p className="muted">{firmwareHardwareInventory?.summary ?? "Clique em verificar placas para ler MCUs e configfile via Moonraker."}</p>
             </div>
+            <span className="firmware-compact-counter">{firmwareTargets.length} alvo(s)</span>
           </div>
           <div className="firmware-board-cards">
-            {firmwareTargets.length === 0 ? <p className="muted">Nenhuma MCU de firmware foi lida ainda.</p> : null}
+            {firmwareTargets.length === 0 && !loading ? (
+              <div className="firmware-empty-state">
+                <strong>Nenhuma MCU lida ainda.</strong>
+                <p>Use Verificar placas para buscar a lista de MCUs no Klipper. O catálogo local entra depois como sugestão e referência técnica.</p>
+              </div>
+            ) : null}
             {firmwareTargets.map((item) => (
               <FirmwareTargetCard
                 key={item.id}
                 item={item}
                 board={item.registered_board_id ? firmwareBoards.find((board) => board.id === item.registered_board_id) : null}
                 loading={loading}
+                missingCatalog={catalogMissing}
                 onBuild={(boardId) => void createFirmwareBuildDryRun(boardId)}
                 onBuildPreflight={(boardId) => void validateFirmwareBuildPreflight(boardId)}
                 onFlash={(boardId) => void createFirmwareFlashDryRun(boardId)}
@@ -297,6 +345,7 @@ function FirmwareTargetCard({
   board,
   item,
   loading,
+  missingCatalog,
   onBuild,
   onBuildPreflight,
   onFlash,
@@ -306,17 +355,27 @@ function FirmwareTargetCard({
   board: FirmwareBoardRecord | null | undefined;
   item: FirmwareHardwareItem;
   loading: boolean;
+  missingCatalog: Record<string, string[]>;
   onBuild: (boardId: number) => void;
   onBuildPreflight: (boardId: number) => void;
   onFlash: (boardId: number) => void;
   onFlashPreflight: (boardId: number) => void;
   onUseDetected: () => void;
 }) {
+  const references = item.catalog_references ?? [];
+  const primaryReference = references[0] ?? null;
+  const hasLocalPreset = item.matched_preset_ids.length > 0 || references.some((reference) => reference.preset_ids.length > 0);
+  const missingLabel = primaryReference?.label ?? item.name;
+  const missingInCatalog = Object.values(missingCatalog).some((values) => values.includes(missingLabel));
+
   return (
     <div className={`firmware-board-card ${item.status}`}>
-      <div>
-        <strong>{item.name}</strong>
-        <span>{formatRole(item.role)} · {formatConnection(item.connection)}</span>
+      <div className="firmware-board-title">
+        <div>
+          <strong>{item.name}</strong>
+          <span>{formatRole(item.role)} · {formatConnection(item.connection)}</span>
+        </div>
+        <span className={`status-pill ${hasLocalPreset ? "up_to_date" : "warning"}`}>{hasLocalPreset ? "preset local" : "sem preset"}</span>
       </div>
       <div className="firmware-board-meta">
         <small>MCU: {item.mcu_name ?? "-"}</small>
@@ -325,11 +384,31 @@ function FirmwareTargetCard({
       </div>
       <div className="firmware-target-detail">
         <small>{item.detail}</small>
-        {item.guide_url ? (
-          <a href={item.guide_url} target="_blank" rel="noreferrer">
-            Guia da placa
-          </a>
-        ) : null}
+        {references.length > 0 ? (
+          <div className="firmware-reference-list">
+            {references.slice(0, 3).map((reference) => (
+              <div className="firmware-reference-row" key={reference.id}>
+                <div>
+                  <strong>{reference.label}</strong>
+                  <span>
+                    {formatRole(reference.role)} · {formatConnection(reference.connection)}
+                  </span>
+                </div>
+                <div className="firmware-reference-actions">
+                  <span className={`status-pill ${reference.preset_ids.length ? "up_to_date" : "warning"}`}>
+                    {reference.preset_ids.length ? "preset" : "sem preset"}
+                  </span>
+                  <a href={reference.guide_url} target="_blank" rel="noreferrer">
+                    Guia
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <small>Sem referência específica no catálogo local para esta MCU.</small>
+        )}
+        {!hasLocalPreset && missingInCatalog ? <small>Existe referência técnica, mas ainda falta preset local para associar diretamente.</small> : null}
       </div>
       <div className="firmware-step-row">
         {board ? (
@@ -372,6 +451,7 @@ function boardToHardwareItem(board: FirmwareBoardRecord): FirmwareHardwareItem {
     registered_board_id: board.id,
     matched_catalog_ids: [],
     matched_preset_ids: [board.preset_id],
+    catalog_references: [],
     guide_url: null,
     action_label: "Gerar build",
     detail: `Placa cadastrada com preset ${board.preset_id}.`,
@@ -413,4 +493,16 @@ function formatConnection(connection: FirmwareHardwareItem["connection"]) {
     usb_can_bridge: "bridge USB-CAN",
   };
   return labels[connection];
+}
+
+function formatFirmwareError(value: string | null) {
+  if (!value) {
+    return "Não foi possível ler o inventário de firmware desta impressora.";
+  }
+  try {
+    const parsed = JSON.parse(value) as { detail?: string };
+    return parsed.detail ?? value;
+  } catch {
+    return value;
+  }
 }
