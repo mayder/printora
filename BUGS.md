@@ -6,6 +6,27 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Modal Do Updater Ficava Preso Apos Restart
+
+Sintoma:
+
+- durante update Android/Termux, o backend concluia o update, mas a modal podia ficar parada em estado antigo ate recarregar a pagina.
+
+Causa:
+
+- o polling parava na primeira queda de conexao durante o restart e orientava recarregar manualmente.
+
+Correção:
+
+- a tela continua tentando consultar releases, historico e run apos queda temporaria;
+- quando detecta a versao alvo instalada, atualiza o modal e o historico sem reload manual.
+
+Validação:
+
+- `npm --prefix frontend run test:releases`;
+- `npm --prefix frontend run build`;
+- `./check.sh`.
+
 ### Diagnostico Nao Mostrava Throttling Da Raspberry
 
 Sintoma:

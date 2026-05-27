@@ -26,6 +26,15 @@ export function useSelfUpdate() {
   const [selfUpdateRollbackConfirmation, setSelfUpdateRollbackConfirmation] = React.useState("");
   const [selfUpdateMessage, setSelfUpdateMessage] = React.useState<string | null>(null);
   const [selfUpdateConnectionLost, setSelfUpdateConnectionLost] = React.useState(false);
+  const selfUpdateRecoveryTimerRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (selfUpdateRecoveryTimerRef.current !== null) {
+        window.clearTimeout(selfUpdateRecoveryTimerRef.current);
+      }
+    };
+  }, []);
 
   const displayedReleaseRows = React.useMemo<ReleaseRecord[]>(() => {
     if (!systemReleases) {
@@ -148,17 +157,20 @@ export function useSelfUpdate() {
       await loadSelfUpdateHistory();
       if (finalRun?.status === "succeeded" || finalRun?.status === "rolled_back") {
         await loadSystemReleases();
+      } else if (!finalRun) {
+        void startSelfUpdateRecovery(targetTag.replace(/^v/, ""), payload.run.id);
       }
     } catch (err) {
       setSelfUpdateConnectionLost(true);
       setSelfUpdateMessage(err instanceof Error ? err.message : "O Printora pode estar reiniciando. Aguarde e recarregue.");
+      startSelfUpdateRecovery(targetTag.replace(/^v/, ""), selfUpdatePlan?.run.id ?? null);
     } finally {
       setSelfUpdateApplying(false);
     }
   }
 
   async function pollSelfUpdateRun(runId: number): Promise<SelfUpdateRunRecord | null> {
-    for (let attempt = 0; attempt < 20; attempt += 1) {
+    for (let attempt = 0; attempt < 45; attempt += 1) {
       try {
         const response = await systemApi.updateRun(runId);
         if (!response.ok) {
@@ -173,16 +185,68 @@ export function useSelfUpdate() {
         }
       } catch {
         setSelfUpdateConnectionLost(true);
-        setSelfUpdateMessage("O Printora pode estar reiniciando. Aguarde e recarregue.");
-        window.setTimeout(() => {
-          void loadSystemReleases();
-          void loadSelfUpdateHistory();
-        }, 8000);
-        return null;
+        setSelfUpdateMessage("O Printora está reiniciando. A tela continuará verificando automaticamente.");
       }
       await new Promise((resolve) => window.setTimeout(resolve, 2000));
     }
     return null;
+  }
+
+  async function startSelfUpdateRecovery(targetVersion: string, runId: number | null) {
+    if (selfUpdateRecoveryTimerRef.current !== null) {
+      window.clearTimeout(selfUpdateRecoveryTimerRef.current);
+    }
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      await new Promise<void>((resolve) => {
+        selfUpdateRecoveryTimerRef.current = window.setTimeout(resolve, 3000);
+      });
+      try {
+        const releasesResponse = await systemApi.releases();
+        if (!releasesResponse.ok) {
+          continue;
+        }
+        const releases = (await releasesResponse.json()) as SystemReleasesResponse;
+        setSystemReleases(releases);
+        if (releases.installed_version.replace(/^v/, "") !== targetVersion) {
+          continue;
+        }
+        let recoveredRun: SelfUpdateRunRecord | null = null;
+        if (runId !== null) {
+          const runResponse = await systemApi.updateRun(runId);
+          if (runResponse.ok) {
+            recoveredRun = (await runResponse.json()) as SelfUpdateRunRecord;
+          }
+        }
+        if (!recoveredRun) {
+          const historyResponse = await systemApi.updateHistory();
+          if (historyResponse.ok) {
+            const history = (await historyResponse.json()) as SelfUpdateHistoryResponse;
+            setSelfUpdateHistory(history.runs);
+            recoveredRun = history.runs.find((run) => run.target_version.replace(/^v/, "") === targetVersion) ?? null;
+          }
+        }
+        if (recoveredRun) {
+          setSelfUpdatePlan((current) =>
+            current
+              ? { ...current, run: recoveredRun, message: "Update concluído após reinício." }
+              : {
+                  safe_mode: "recovered",
+                  update_supported: isSelfUpdateEnvironmentSupported(recoveredRun.environment),
+                  can_apply: false,
+                  message: "Update concluído após reinício.",
+                  run: recoveredRun,
+                },
+          );
+        }
+        setSelfUpdateConnectionLost(false);
+        setSelfUpdateMessage("Update concluído após reinício.");
+        await loadSelfUpdateHistory();
+        return;
+      } catch {
+        // O backend pode estar reiniciando; seguir tentando.
+      }
+    }
+    setSelfUpdateMessage("O Printora pode ter reiniciado. Recarregue se o status não atualizar automaticamente.");
   }
 
   async function rollbackSelfUpdate(runId: number) {
@@ -210,6 +274,8 @@ export function useSelfUpdate() {
       await loadSelfUpdateHistory();
       if (finalRun?.status === "succeeded" || finalRun?.status === "rolled_back") {
         await loadSystemReleases();
+      } else if (!finalRun) {
+        void startSelfUpdateRecovery(payload.rollback_run.target_version.replace(/^v/, ""), payload.rollback_run.id);
       }
     } catch (err) {
       setSelfUpdateConnectionLost(true);
