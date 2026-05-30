@@ -434,9 +434,9 @@ def build_setup_plan(preflight: SetupSshPreflightResponse) -> SetupSshPlanRespon
             detail="can0 detectado no host." if _can0_online(preflight.sections.get("can", "")) else "can0 ainda não está online ou não existe.",
             commands=[
                 SetupCommandPlan(
-                    command="PLAN diagnosticar U2C, configurar can0 e validar bitrate no PKG-35",
+                    command="PLAN diagnosticar U2C, configurar can0 e validar bitrate",
                     risk="manual",
-                    reason="Setup CAN exige backup/rollback específico e fica fora do PKG-34.",
+                    reason="Setup CAN exige backup/rollback específico antes de aplicar mudanças.",
                 )
             ],
             rollback="Restaurar arquivos de rede/systemd alterados pelo pacote CAN.",
@@ -447,7 +447,7 @@ def build_setup_plan(preflight: SetupSshPreflightResponse) -> SetupSshPlanRespon
             key="firmware_next",
             title="Firmware e flash",
             status="manual",
-            detail="Build, UUID e flash ficam nos pacotes PKG-36 e PKG-37 depois do host provisionado.",
+            detail="Build, UUID e flash ficam nas etapas supervisionadas depois do host provisionado.",
             commands=[
                 SetupCommandPlan(
                     command="PLAN seguir wizard de firmware com Octopus/EBB/U2C ou outro hardware confirmado",

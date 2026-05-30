@@ -175,7 +175,7 @@ export function SetupScreen(props: SetupScreenProps) {
             <h2>Setup do Zero</h2>
             <p>O fluxo começa quando a Pi já tem Linux, rede e SSH ativo. Placa virgem precisa de mídia de boot antes do SSH.</p>
           </div>
-          <span className="setup-status setup-status-info">PKG-36</span>
+          <span className="setup-status setup-status-info">Assistido</span>
         </div>
         <div className="setup-boundary-grid">
           <Metric label="Fase atual" value="SSH + CAN" />

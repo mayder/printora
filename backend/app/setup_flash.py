@@ -589,7 +589,7 @@ def _flash_findings(request: SetupFlashRequest, parsed: dict[str, object]) -> li
             status="ok" if parsed["artifact_exists"] else "blocked",
             title="Artefato de firmware",
             detail=f"Artefato encontrado com sha256 {str(parsed.get('artifact_sha256') or '')[:12]}." if parsed["artifact_exists"] else "Artefato remoto não encontrado.",
-            action="Use o binário gerado pelo PKG-36 ou informe um caminho válido na Pi.",
+            action="Use o binário gerado pelo build remoto ou informe um caminho válido na Pi.",
         ),
         SetupFlashFinding(
             key="print_state",
@@ -606,7 +606,7 @@ def _flash_findings(request: SetupFlashRequest, parsed: dict[str, object]) -> li
                     key="method_supported",
                     status="ok",
                     title="Método CAN/Katapult",
-                    detail="Método inicial suportado pelo PKG-37.",
+                    detail="Método inicial suportado pelo fluxo de flash supervisionado.",
                     action="Manter placa em bootloader Katapult e UUID visível.",
                 ),
                 SetupFlashFinding(
@@ -631,7 +631,7 @@ def _flash_findings(request: SetupFlashRequest, parsed: dict[str, object]) -> li
                 key="method_supported",
                 status="blocked",
                 title="Método ainda não suportado",
-                detail="O PKG-37 implementa execução real apenas para CAN/Katapult.",
+                detail="A execução real está disponível apenas para CAN/Katapult.",
                 action="Usar plano manual ou implementar método específico em outro lote.",
             )
         )
