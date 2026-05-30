@@ -145,3 +145,75 @@ export type SetupCanRunRecord = {
   error_message?: string | null;
   created_at: string;
 };
+
+export type SetupFirmwareRole = "mainboard" | "toolhead" | "can_adapter" | "unknown";
+
+export type SetupFirmwarePlanStep = {
+  key: string;
+  title: string;
+  status: "ready" | "missing" | "manual" | "blocked";
+  detail: string;
+  commands: SetupCommandPlan[];
+  rollback?: string | null;
+};
+
+export type SetupFirmwarePlanResponse = {
+  safe_mode: string;
+  status: SetupRunStatus | "blocked";
+  target: string;
+  preset_id: string;
+  board_name: string;
+  board_role: SetupFirmwareRole;
+  summary: string;
+  config_preview: string;
+  config_sha256: string;
+  artifact_dir: string;
+  expected_binary_path: string;
+  steps: SetupFirmwarePlanStep[];
+  blocked_reasons: string[];
+  history_id?: number | null;
+};
+
+export type SetupFirmwareBuildResponse = {
+  safe_mode: string;
+  status: SetupRunStatus | "blocked";
+  target: string;
+  preset_id: string;
+  board_name: string;
+  board_role: SetupFirmwareRole;
+  summary: string;
+  artifact_dir?: string | null;
+  config_path?: string | null;
+  binary_path?: string | null;
+  config_sha256?: string | null;
+  binary_sha256?: string | null;
+  uuid_query: string[];
+  command_log: string;
+  blocked_reasons: string[];
+  history_id?: number | null;
+};
+
+export type SetupFirmwareRunRecord = {
+  id: number;
+  run_type: "plan" | "build";
+  status: SetupRunStatus | "blocked";
+  safe_mode: string;
+  target_host: string;
+  target_port: number;
+  target_user: string;
+  board_name: string;
+  board_role: SetupFirmwareRole;
+  preset_id: string;
+  can_interface: string;
+  config_path?: string | null;
+  artifact_dir?: string | null;
+  binary_path?: string | null;
+  config_sha256?: string | null;
+  binary_sha256?: string | null;
+  uuid_query: string[];
+  summary: Record<string, unknown>;
+  plan?: Record<string, unknown> | null;
+  command_log?: string | null;
+  error_message?: string | null;
+  created_at: string;
+};

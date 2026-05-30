@@ -1,5 +1,5 @@
 import { Metric } from "../components/common";
-import type { SetupCanPlanStep, SetupPlanStep, SetupRunStatus } from "../types";
+import type { SetupCanPlanStep, SetupFirmwarePlanStep, SetupPlanStep, SetupRunStatus } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type SetupScreenProps = ScreenPropsFor<
@@ -11,6 +11,7 @@ type SetupScreenProps = ScreenPropsFor<
   | "RefreshCw"
   | "Server"
   | "ShieldCheck"
+  | "Zap"
   | "setupAuthMethod"
   | "setupBusy"
   | "setupCanApplyResult"
@@ -20,6 +21,16 @@ type SetupScreenProps = ScreenPropsFor<
   | "setupCanInterfaceName"
   | "setupCanPlan"
   | "setupCanPreflight"
+  | "setupFirmwareBoardName"
+  | "setupFirmwareBoardRole"
+  | "setupFirmwareBuildResult"
+  | "setupFirmwareConfirmation"
+  | "setupFirmwareHistory"
+  | "setupFirmwareKlipperPath"
+  | "setupFirmwareOutputRoot"
+  | "setupFirmwarePlan"
+  | "setupFirmwarePresetId"
+  | "setupFirmwareVariantConfirmed"
   | "setupHistory"
   | "setupHost"
   | "setupKeyPath"
@@ -32,11 +43,20 @@ type SetupScreenProps = ScreenPropsFor<
   | "runSetupCanApply"
   | "runSetupCanPlan"
   | "runSetupCanPreflight"
+  | "runSetupFirmwareBuild"
+  | "runSetupFirmwarePlan"
   | "runSetupPreflight"
   | "setSetupAuthMethod"
   | "setSetupCanBitrate"
   | "setSetupCanConfirmation"
   | "setSetupCanInterfaceName"
+  | "setSetupFirmwareBoardName"
+  | "setSetupFirmwareBoardRole"
+  | "setSetupFirmwareConfirmation"
+  | "setSetupFirmwareKlipperPath"
+  | "setSetupFirmwareOutputRoot"
+  | "setSetupFirmwarePresetId"
+  | "setSetupFirmwareVariantConfirmed"
   | "setSetupHost"
   | "setSetupKeyPath"
   | "setSetupPort"
@@ -54,15 +74,25 @@ export function SetupScreen(props: SetupScreenProps) {
     RefreshCw,
     Server,
     ShieldCheck,
+    Zap,
     runSetupPlan,
     runSetupCanApply,
     runSetupCanPlan,
     runSetupCanPreflight,
+    runSetupFirmwareBuild,
+    runSetupFirmwarePlan,
     runSetupPreflight,
     setSetupAuthMethod,
     setSetupCanBitrate,
     setSetupCanConfirmation,
     setSetupCanInterfaceName,
+    setSetupFirmwareBoardName,
+    setSetupFirmwareBoardRole,
+    setSetupFirmwareConfirmation,
+    setSetupFirmwareKlipperPath,
+    setSetupFirmwareOutputRoot,
+    setSetupFirmwarePresetId,
+    setSetupFirmwareVariantConfirmed,
     setSetupHost,
     setSetupKeyPath,
     setSetupPort,
@@ -77,6 +107,16 @@ export function SetupScreen(props: SetupScreenProps) {
     setupCanInterfaceName,
     setupCanPlan,
     setupCanPreflight,
+    setupFirmwareBoardName,
+    setupFirmwareBoardRole,
+    setupFirmwareBuildResult,
+    setupFirmwareConfirmation,
+    setupFirmwareHistory,
+    setupFirmwareKlipperPath,
+    setupFirmwareOutputRoot,
+    setupFirmwarePlan,
+    setupFirmwarePresetId,
+    setupFirmwareVariantConfirmed,
     setupHistory,
     setupHost,
     setupKeyPath,
@@ -97,7 +137,7 @@ export function SetupScreen(props: SetupScreenProps) {
             <h2>Setup do Zero</h2>
             <p>O fluxo começa quando a Pi já tem Linux, rede e SSH ativo. Placa virgem precisa de mídia de boot antes do SSH.</p>
           </div>
-          <span className="setup-status setup-status-info">PKG-35</span>
+          <span className="setup-status setup-status-info">PKG-36</span>
         </div>
         <div className="setup-boundary-grid">
           <Metric label="Fase atual" value="SSH + CAN" />
@@ -283,6 +323,96 @@ export function SetupScreen(props: SetupScreenProps) {
         ) : null}
       </article>
 
+      <article className="panel wide setup-firmware-panel">
+        <div className="panel-header-row">
+          <div>
+            <h2>Firmware remoto</h2>
+            <p>Selecione a placa física, gere .config, planeje build remoto e compile sem flash.</p>
+          </div>
+          <Zap size={20} />
+        </div>
+        <div className="form-grid setup-form-grid">
+          <label>
+            Preset
+            <select value={setupFirmwarePresetId} onChange={(event) => setSetupFirmwarePresetId(event.target.value)}>
+              <option value="btt_octopus_pro_h723_usb_can">BTT Octopus Pro H723</option>
+              <option value="btt_ebb36_g0b1_can">BTT EBB36 v1.2/G0B1</option>
+              <option value="btt_kraken_h723_usb_can">BTT Kraken H723</option>
+              <option value="btt_manta_m8p_v2_h723_usb_can">BTT Manta M8P v2 H723</option>
+              <option value="mellow_fly_sht36_v3_rp2040_can">Mellow Fly SHT36 v3</option>
+            </select>
+          </label>
+          <label>
+            Nome físico
+            <input value={setupFirmwareBoardName} onChange={(event) => setSetupFirmwareBoardName(event.target.value)} placeholder="Octopus Pro H723" />
+          </label>
+          <label>
+            Papel
+            <select value={setupFirmwareBoardRole} onChange={(event) => setSetupFirmwareBoardRole(event.target.value as "mainboard" | "toolhead" | "can_adapter" | "unknown")}>
+              <option value="mainboard">MCU principal</option>
+              <option value="toolhead">Toolhead</option>
+              <option value="can_adapter">Adaptador CAN</option>
+              <option value="unknown">Outro</option>
+            </select>
+          </label>
+          <label>
+            Klipper remoto
+            <input value={setupFirmwareKlipperPath} onChange={(event) => setSetupFirmwareKlipperPath(event.target.value)} placeholder="~/klipper" />
+          </label>
+          <label>
+            Artefatos
+            <input value={setupFirmwareOutputRoot} onChange={(event) => setSetupFirmwareOutputRoot(event.target.value)} placeholder="~/.local/share/printora/firmware-setup" />
+          </label>
+          <label className="setup-checkbox-label">
+            <input type="checkbox" checked={setupFirmwareVariantConfirmed} onChange={(event) => setSetupFirmwareVariantConfirmed(event.target.checked)} />
+            Variante física conferida
+          </label>
+        </div>
+        <div className="button-row">
+          <button type="button" className="secondary-button" disabled={!canRun || setupBusy} onClick={() => void runSetupFirmwarePlan()}>
+            <ClipboardCheck className={setupBusy ? "button-busy-icon" : undefined} size={16} />
+            Plano firmware
+          </button>
+        </div>
+        {setupFirmwarePlan ? (
+          <div className="setup-step-list">
+            {setupFirmwarePlan.blocked_reasons.length ? (
+              <div className="action-result warning">
+                <strong>Bloqueios firmware</strong>
+                <span>{setupFirmwarePlan.blocked_reasons.join(" ")}</span>
+              </div>
+            ) : null}
+            <div className="setup-artifact-summary">
+              <Metric label="Config SHA" value={setupFirmwarePlan.config_sha256.slice(0, 12)} />
+              <Metric label="Artefatos" value={setupFirmwarePlan.artifact_dir} />
+              <Metric label="Binário" value={setupFirmwarePlan.expected_binary_path} />
+            </div>
+            {setupFirmwarePlan.steps.map((step) => (
+              <SetupStepCard key={step.key} step={step} />
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">Confirme a variante física e gere o plano de firmware.</div>
+        )}
+        <div className="setup-apply-box">
+          <label>
+            Confirmação para build sem flash
+            <input value={setupFirmwareConfirmation} onChange={(event) => setSetupFirmwareConfirmation(event.target.value)} placeholder="BUILD_FIRMWARE_NO_FLASH" />
+          </label>
+          <button type="button" className="danger-button" disabled={!canRun || setupBusy || setupFirmwareConfirmation !== "BUILD_FIRMWARE_NO_FLASH"} onClick={() => void runSetupFirmwareBuild()}>
+            <AlertTriangle className={setupBusy ? "button-busy-icon" : undefined} size={16} />
+            Build remoto
+          </button>
+          <p>O backend exige <code>PRINTORA_REMOTE_FIRMWARE_BUILD_MODE=remote</code>; o build nunca executa flash.</p>
+        </div>
+        {setupFirmwareBuildResult ? (
+          <div className={`action-result ${setupFirmwareBuildResult.status === "ok" ? "success" : "warning"}`}>
+            <strong>{setupFirmwareBuildResult.summary}</strong>
+            <span>{setupFirmwareBuildResult.blocked_reasons.length ? setupFirmwareBuildResult.blocked_reasons.join(" ") : setupFirmwareBuildResult.binary_path ?? "Artefato registrado."}</span>
+          </div>
+        ) : null}
+      </article>
+
       <article className="panel wide setup-history-panel">
         <div className="panel-header-row">
           <div>
@@ -341,6 +471,30 @@ export function SetupScreen(props: SetupScreenProps) {
             </table>
           </div>
         ) : null}
+        {setupFirmwareHistory.length ? (
+          <div className="table-wrap setup-can-history">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Firmware</th>
+                  <th>Alvo</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {setupFirmwareHistory.slice(0, 8).map((run) => (
+                  <tr key={run.id}>
+                    <td>{run.created_at}</td>
+                    <td>{run.run_type} · {run.board_name} · {run.preset_id}</td>
+                    <td>{run.target_user}@{run.target_host}:{run.target_port}</td>
+                    <td><StatusBadge status={run.status === "blocked" ? "error" : run.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </article>
     </>
   );
@@ -352,7 +506,7 @@ function StatusBadge({ status }: { status: SetupRunStatus }) {
   return <span className={`setup-status setup-status-${tone}`}>{label}</span>;
 }
 
-function SetupStepCard({ step }: { step: SetupPlanStep | SetupCanPlanStep }) {
+function SetupStepCard({ step }: { step: SetupPlanStep | SetupCanPlanStep | SetupFirmwarePlanStep }) {
   return (
     <section className={`setup-step setup-step-${step.status}`}>
       <div className="setup-step-header">

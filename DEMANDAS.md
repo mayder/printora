@@ -2438,7 +2438,17 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado localmente.
+- Backend expõe `POST /api/setup/firmware/plan`, `POST /api/setup/firmware/build` e `GET /api/setup/firmware/history`.
+- Wizard remoto usa presets existentes do Firmware Manager e exige confirmação da variante física antes de liberar plano pronto.
+- Plano gera `.config` determinístico a partir do preset, calcula `sha256`, define diretório remoto de artefatos, binário esperado, checklist e comandos `PLAN`, sem executar nada.
+- Build remoto real fica bloqueado por padrão: exige confirmação textual `BUILD_FIRMWARE_NO_FLASH` e variável `PRINTORA_REMOTE_FIRMWARE_BUILD_MODE=remote`.
+- Build remoto, quando habilitado, salva `.config` gerado em diretório controlado, faz backup de `<klipper_path>/.config`, substitui temporariamente `.config`, roda `make clean && make`, copia binário para artefatos, calcula hash, consulta UUIDs CAN quando possível e restaura `.config` via trap em sucesso ou falha.
+- Histórico local `setup_firmware_runs` registra plano/build por alvo SSH, placa, papel, preset, interface CAN, paths, hashes, UUIDs e log, sem senha, token ou chave privada.
+- UI `Setup do Zero` ganhou seção Firmware remoto com preset, nome físico, papel, paths, confirmação de variante, plano, build gateado, artefatos e histórico.
+- Flash automático, restart, update, G-code e alteração de `printer.cfg` ficam fora deste pacote.
+- Testes focados cobrem bloqueio sem variante confirmada, vínculo hardware/preset/artefatos, ausência de comando de flash, confirmação de build sem flash e histórico sem `key_path`.
+- Validação de fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
 ## PKG-36: Wizard De Firmware Por Hardware Real
 

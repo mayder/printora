@@ -6,6 +6,10 @@ import type {
   SetupCanPlanResponse,
   SetupCanPreflightResponse,
   SetupCanRunRecord,
+  SetupFirmwareBuildResponse,
+  SetupFirmwarePlanResponse,
+  SetupFirmwareRole,
+  SetupFirmwareRunRecord,
   SetupSshPlanResponse,
   SetupSshPreflightResponse,
   SetupSshRunRecord,
@@ -36,6 +40,16 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
   const [setupCanPlan, setSetupCanPlan] = React.useState<SetupCanPlanResponse | null>(null);
   const [setupCanApplyResult, setSetupCanApplyResult] = React.useState<SetupCanApplyResponse | null>(null);
   const [setupCanHistory, setSetupCanHistory] = React.useState<SetupCanRunRecord[]>([]);
+  const [setupFirmwarePresetId, setSetupFirmwarePresetId] = React.useState("btt_octopus_pro_h723_usb_can");
+  const [setupFirmwareBoardName, setSetupFirmwareBoardName] = React.useState("Octopus Pro H723");
+  const [setupFirmwareBoardRole, setSetupFirmwareBoardRole] = React.useState<SetupFirmwareRole>("mainboard");
+  const [setupFirmwareKlipperPath, setSetupFirmwareKlipperPath] = React.useState("~/klipper");
+  const [setupFirmwareOutputRoot, setSetupFirmwareOutputRoot] = React.useState("~/.local/share/printora/firmware-setup");
+  const [setupFirmwareVariantConfirmed, setSetupFirmwareVariantConfirmed] = React.useState(false);
+  const [setupFirmwareConfirmation, setSetupFirmwareConfirmation] = React.useState("");
+  const [setupFirmwarePlan, setSetupFirmwarePlan] = React.useState<SetupFirmwarePlanResponse | null>(null);
+  const [setupFirmwareBuildResult, setSetupFirmwareBuildResult] = React.useState<SetupFirmwareBuildResponse | null>(null);
+  const [setupFirmwareHistory, setSetupFirmwareHistory] = React.useState<SetupFirmwareRunRecord[]>([]);
   const [setupBusy, setSetupBusy] = React.useState(false);
 
   function setupTarget(): SetupSshTarget {
@@ -89,11 +103,15 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
         setupApi.history(),
         setupApi.canHistory(),
       ]);
+      const firmwareResponse = await setupApi.firmwareHistory().catch(() => null);
       if (sshResponse.status === "fulfilled") {
         setSetupHistory(sshResponse.value.runs);
       }
       if (canResponse.status === "fulfilled") {
         setSetupCanHistory(canResponse.value.runs);
+      }
+      if (firmwareResponse) {
+        setSetupFirmwareHistory(firmwareResponse.runs);
       }
       return sshResponse.status === "fulfilled" ? sshResponse.value.runs : [];
     } catch (err) {
@@ -168,17 +186,75 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
     }
   }
 
+  function setupFirmwarePayload() {
+    return {
+      target: setupTarget(),
+      preset_id: setupFirmwarePresetId.trim(),
+      board_name: setupFirmwareBoardName.trim(),
+      board_role: setupFirmwareBoardRole,
+      can_interface: setupCanInterfaceName.trim() || "can0",
+      klipper_path: setupFirmwareKlipperPath.trim() || "~/klipper",
+      output_root: setupFirmwareOutputRoot.trim() || "~/.local/share/printora/firmware-setup",
+      variant_confirmed: setupFirmwareVariantConfirmed,
+    };
+  }
+
+  async function runSetupFirmwarePlan() {
+    setLoading(true);
+    setSetupBusy(true);
+    setError(null);
+    try {
+      const response = await setupApi.firmwarePlan(setupFirmwarePayload());
+      setSetupFirmwarePlan(response);
+      setSetupFirmwareBuildResult(null);
+      await loadSetupHistory();
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setSetupBusy(false);
+      setLoading(false);
+    }
+  }
+
+  async function runSetupFirmwareBuild() {
+    setLoading(true);
+    setSetupBusy(true);
+    setError(null);
+    try {
+      const response = await setupApi.firmwareBuild({
+        ...setupFirmwarePayload(),
+        confirmation: setupFirmwareConfirmation,
+      });
+      setSetupFirmwareBuildResult(response);
+      await loadSetupHistory();
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setSetupBusy(false);
+      setLoading(false);
+    }
+  }
+
   return {
     loadSetupHistory,
     runSetupPlan,
     runSetupCanApply,
     runSetupCanPlan,
     runSetupCanPreflight,
+    runSetupFirmwareBuild,
+    runSetupFirmwarePlan,
     runSetupPreflight,
     setSetupAuthMethod,
     setSetupCanBitrate,
     setSetupCanConfirmation,
     setSetupCanInterfaceName,
+    setSetupFirmwareBoardName,
+    setSetupFirmwareBoardRole,
+    setSetupFirmwareConfirmation,
+    setSetupFirmwareKlipperPath,
+    setSetupFirmwareOutputRoot,
+    setSetupFirmwarePresetId,
+    setSetupFirmwareVariantConfirmed,
     setSetupHost,
     setSetupKeyPath,
     setSetupPort,
@@ -193,6 +269,16 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
     setupCanInterfaceName,
     setupCanPlan,
     setupCanPreflight,
+    setupFirmwareBoardName,
+    setupFirmwareBoardRole,
+    setupFirmwareBuildResult,
+    setupFirmwareConfirmation,
+    setupFirmwareHistory,
+    setupFirmwareKlipperPath,
+    setupFirmwareOutputRoot,
+    setupFirmwarePlan,
+    setupFirmwarePresetId,
+    setupFirmwareVariantConfirmed,
     setupHistory,
     setupHost,
     setupKeyPath,

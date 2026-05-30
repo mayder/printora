@@ -144,6 +144,23 @@
   font-size: 0.86rem;
 }
 
+.setup-checkbox-label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 38px;
+}
+
+.setup-checkbox-label input {
+  width: auto;
+}
+
+.setup-artifact-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .setup-can-history {
   margin-top: 14px;
 }
@@ -151,7 +168,8 @@
 @media (max-width: 860px) {
   .setup-boundary-grid,
   .setup-form-grid,
-  .setup-apply-box {
+  .setup-apply-box,
+  .setup-artifact-summary {
     grid-template-columns: 1fr;
   }
 }

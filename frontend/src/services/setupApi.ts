@@ -4,6 +4,9 @@ import type {
   SetupCanPlanResponse,
   SetupCanPreflightResponse,
   SetupCanRunRecord,
+  SetupFirmwareBuildResponse,
+  SetupFirmwarePlanResponse,
+  SetupFirmwareRunRecord,
   SetupSshPlanResponse,
   SetupSshPreflightResponse,
   SetupSshRunRecord,
@@ -43,4 +46,17 @@ export const setupApi = {
       body: JSON.stringify(body),
     }),
   canHistory: () => apiRequest<{ runs: SetupCanRunRecord[] }>("/api/setup/can/history"),
+  firmwarePlan: (body: unknown) =>
+    apiRequest<SetupFirmwarePlanResponse>("/api/setup/firmware/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  firmwareBuild: (body: unknown) =>
+    apiRequest<SetupFirmwareBuildResponse>("/api/setup/firmware/build", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  firmwareHistory: () => apiRequest<{ runs: SetupFirmwareRunRecord[] }>("/api/setup/firmware/history"),
 };

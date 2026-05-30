@@ -173,6 +173,27 @@ cd backend && uv run pytest tests/test_setup_can.py -q
 cd frontend && npm run build
 ```
 
+## Wizard Remoto De Firmware
+
+Aceite do PKG-36:
+
+- `POST /api/setup/firmware/plan` exige preset existente e confirmação da variante física para liberar plano pronto;
+- plano gera `.config` determinístico a partir do preset, calcula `sha256`, define artefatos remotos e retorna comandos somente como `PLAN`;
+- plano não executa `make`, flash, restart, update, G-code, alteração de Moonraker/Klipper ou edição de `printer.cfg`;
+- `POST /api/setup/firmware/build` exige confirmação `BUILD_FIRMWARE_NO_FLASH` e `PRINTORA_REMOTE_FIRMWARE_BUILD_MODE=remote`; sem isso registra tentativa bloqueada;
+- build remoto salva `.config` gerado em diretório controlado, faz backup de `<klipper_path>/.config`, executa `make clean && make`, copia binário, calcula hashes, consulta UUIDs CAN quando possível e restaura `.config`;
+- falha de build preserva log copiável e restaura `.config` por trap;
+- histórico `GET /api/setup/firmware/history` não persiste senha, token, chave privada ou `key_path`;
+- UUID capturado é sugestão revisável e nunca grava automaticamente em `printer.cfg`;
+- flash real fica fora do PKG-36.
+
+Validação focada:
+
+```bash
+cd backend && uv run pytest tests/test_setup_firmware.py -q
+cd frontend && npm run build
+```
+
 O check inicial valida:
 
 - existência dos documentos principais;

@@ -101,6 +101,37 @@ sudo rm -f /etc/systemd/system/can0.service
 sudo systemctl daemon-reload
 ```
 
+Wizard remoto de firmware:
+
+```bash
+curl -s -X POST http://127.0.0.1:8069/api/setup/firmware/plan \
+  -H 'Content-Type: application/json' \
+  -d '{"target":{"host":"btt-pi.local","port":22,"username":"pi","auth_method":"agent","timeout_seconds":12},"preset_id":"btt_octopus_pro_h723_usb_can","board_name":"Octopus Pro H723","board_role":"mainboard","can_interface":"can0","klipper_path":"~/klipper","output_root":"~/.local/share/printora/firmware-setup","variant_confirmed":true}'
+
+curl -s http://127.0.0.1:8069/api/setup/firmware/history
+```
+
+O build remoto real fica bloqueado por padrão. Para executar em host real, o
+processo do backend precisa estar com `PRINTORA_REMOTE_FIRMWARE_BUILD_MODE=remote`
+e o payload precisa incluir `confirmation=BUILD_FIRMWARE_NO_FLASH`. O build:
+
+- salva o `.config` gerado em diretório controlado do Printora;
+- cria backup de `<klipper_path>/.config`;
+- substitui `.config` apenas durante o build;
+- executa `make clean && make`;
+- copia o binário para os artefatos Printora;
+- calcula hash do `.config` e do binário;
+- consulta UUIDs CAN quando `~/klippy-env` e `canbus_query.py` existirem;
+- restaura `.config` com `trap` em sucesso ou falha;
+- nunca executa flash, restart, update, G-code ou edição de `printer.cfg`.
+
+Rollback firmware build:
+
+```bash
+cp ~/.local/share/printora/firmware-setup/<placa>/.config.before-build ~/klipper/.config
+rm -rf ~/.local/share/printora/firmware-setup/<placa>
+```
+
 Instalação com boot automático:
 
 ```bash
