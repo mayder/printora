@@ -47,12 +47,18 @@
 }
 
 .setup-check span,
+.setup-check small,
 .setup-step span,
 .setup-command span,
 .setup-rollback {
   color: var(--text-muted);
   font-size: 0.88rem;
   line-height: 1.45;
+}
+
+.setup-check small {
+  display: block;
+  margin-top: 3px;
 }
 
 .setup-ok svg,
@@ -121,9 +127,31 @@
   margin: 10px 0 0;
 }
 
+.setup-apply-box {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.setup-apply-box p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.setup-can-history {
+  margin-top: 14px;
+}
+
 @media (max-width: 860px) {
   .setup-boundary-grid,
-  .setup-form-grid {
+  .setup-form-grid,
+  .setup-apply-box {
     grid-template-columns: 1fr;
   }
 }

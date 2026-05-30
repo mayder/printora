@@ -70,3 +70,78 @@ export type SetupSshRunRecord = {
   error_message?: string | null;
   created_at: string;
 };
+
+export type SetupCanFinding = {
+  key: string;
+  status: SetupRunStatus | "blocked";
+  title: string;
+  detail: string;
+  action: string;
+};
+
+export type SetupCanPreflightResponse = {
+  safe_mode: string;
+  connected: boolean;
+  status: SetupRunStatus | "blocked";
+  target: string;
+  interface_name: string;
+  bitrate: number;
+  summary: string;
+  findings: SetupCanFinding[];
+  sections: Record<string, string>;
+  parsed: Record<string, unknown>;
+  history_id?: number | null;
+  error?: string | null;
+};
+
+export type SetupCanPlanStep = {
+  key: string;
+  title: string;
+  status: "ready" | "missing" | "manual" | "blocked";
+  detail: string;
+  commands: SetupCommandPlan[];
+  rollback?: string | null;
+};
+
+export type SetupCanPlanResponse = {
+  safe_mode: string;
+  status: SetupRunStatus | "blocked";
+  target: string;
+  interface_name: string;
+  bitrate: number;
+  summary: string;
+  preflight: SetupCanPreflightResponse;
+  steps: SetupCanPlanStep[];
+  blocked_reasons: string[];
+  history_id?: number | null;
+};
+
+export type SetupCanApplyResponse = {
+  safe_mode: string;
+  status: SetupRunStatus | "blocked";
+  target: string;
+  interface_name: string;
+  bitrate: number;
+  summary: string;
+  command_log: string;
+  validation?: SetupCanPreflightResponse | null;
+  history_id?: number | null;
+  blocked_reasons: string[];
+};
+
+export type SetupCanRunRecord = {
+  id: number;
+  run_type: "preflight" | "plan" | "apply";
+  status: SetupRunStatus | "blocked";
+  safe_mode: string;
+  target_host: string;
+  target_port: number;
+  target_user: string;
+  interface_name: string;
+  bitrate: number;
+  summary: Record<string, unknown>;
+  plan?: Record<string, unknown> | null;
+  command_log?: string | null;
+  error_message?: string | null;
+  created_at: string;
+};

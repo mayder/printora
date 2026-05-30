@@ -44,7 +44,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 |---|---|---|---|---|---|---|
 | Visao geral | `overview` | `/`, `/?section=overview`, `/#overview` | `frontend/src/screens/OverviewScreen.tsx` | Dashboard geral da frota e da impressora selecionada, com risco principal, horas acumuladas e atalhos seguros | Opcional | existente |
 | Impressoras | `printers` | `/?section=printers`, `/#printers` | `frontend/src/screens/PrintersScreen.tsx` | Cadastro, descoberta, teste de conexao e selecao da impressora ativa | Nao exige impressora ativa | existente |
-| Setup do Zero | `setup` | `/?section=setup`, `/#setup` | `frontend/src/screens/SetupScreen.tsx` | Preflight SSH read-only e plano dry-run para preparar uma Raspberry/BTT Pi com Linux e SSH ativo | Nao exige impressora ativa | existente |
+| Setup do Zero | `setup` | `/?section=setup`, `/#setup` | `frontend/src/screens/SetupScreen.tsx` | Preflight SSH read-only, plano dry-run e setup CAN/U2C/can0 gateado para preparar uma Raspberry/BTT Pi com Linux e SSH ativo | Nao exige impressora ativa | existente |
 | Operacao | `monitoring` | `/?section=monitoring`, `/#monitoring`; legado `/?section=operation` redireciona para esta tela | `frontend/src/screens/MonitoringScreen.tsx` + `frontend/src/MonitoringDashboard.tsx` | Operacao ao vivo com temperaturas, toolhead, extrusor, progresso, sistema, fans, CAN e acoes protegidas | Exige impressora ativa online | existente |
 | Atualizacoes | `updates` | `/?section=updates`, `/#updates` | `frontend/src/screens/UpdatesScreen.tsx` | Update Manager da impressora, checklist pos-update, update com confirmacao, progresso e historico | Exige impressora ativa online | existente |
 | Calibracao | `tests` | `/?section=tests`, `/#tests`; legado `/?section=calibration` redireciona para `tests` | `frontend/src/screens/TestsScreen.tsx` | Centro de calibracao Voron em cards numerados por sequencia, busca, filtros por tipo/uso, ajuda expandida, preflight, execucao com confirmacao presencial e perfil Z aprovado | Exige impressora ativa online | existente |
@@ -118,6 +118,9 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Setup do Zero, a UI deve aceitar host, porta, usuario, metodo de autenticacao por agente/chave e timeout, sem campo de senha.
 - Na tela Setup do Zero, `Preflight SSH` executa apenas coleta read-only e `Gerar plano` retorna somente plano dry-run com comandos `PLAN`.
 - Na tela Setup do Zero, o historico deve mostrar alvo, tipo e status sem segredo, senha, token ou caminho de chave privada.
+- Na tela Setup do Zero, a seção CAN/U2C deve reutilizar o alvo SSH, permitir ajustar interface e bitrate, executar diagnóstico read-only e gerar plano com comandos `PLAN`.
+- Na tela Setup do Zero, `Aplicar CAN` deve exigir a frase `CONFIGURAR CAN0`; mesmo com a frase, o backend bloqueia quando `PRINTORA_CAN_SETUP_MODE=remote` não estiver habilitado.
+- Na tela Setup do Zero, o histórico CAN deve mostrar tipo, interface, bitrate, alvo e status sem senha, token ou caminho de chave privada.
 
 ## Estado de UI
 

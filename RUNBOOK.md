@@ -60,6 +60,47 @@ read-only. O plano retorna comandos prefixados por `PLAN` e nao executa
 instalacao real, `apt`, edicao de arquivo, restart, flash, G-code ou alteracao
 de Klipper/Moonraker.
 
+Setup CAN/U2C/can0 via SSH:
+
+```bash
+curl -s -X POST http://127.0.0.1:8069/api/setup/can/preflight \
+  -H 'Content-Type: application/json' \
+  -d '{"target":{"host":"btt-pi.local","port":22,"username":"pi","auth_method":"agent","timeout_seconds":12},"interface_name":"can0","bitrate":1000000}'
+
+curl -s -X POST http://127.0.0.1:8069/api/setup/can/plan \
+  -H 'Content-Type: application/json' \
+  -d '{"target":{"host":"btt-pi.local","port":22,"username":"pi","auth_method":"agent","timeout_seconds":12},"interface_name":"can0","bitrate":1000000}'
+
+curl -s http://127.0.0.1:8069/api/setup/can/history
+```
+
+O apply CAN real fica bloqueado por padrão. Para executar em host real, o
+processo do backend precisa estar com `PRINTORA_CAN_SETUP_MODE=remote` e o
+payload precisa incluir `confirmation=CONFIGURAR CAN0`. Antes de alterar o host,
+o backend roda preflight, bloqueia impressão em andamento quando detectável,
+exige `sudo -n`, cria backup remoto de `/etc/systemd/system/can0.service` em
+`~/.local/share/printora/can-setup/backups/<timestamp>/`, escreve o serviço
+`can0.service`, roda `systemctl daemon-reload`, `enable`, `restart` e valida
+`ip -details -statistics link show can0`.
+
+Rollback CAN:
+
+```bash
+sudo cp ~/.local/share/printora/can-setup/backups/<timestamp>/can0.service.before /etc/systemd/system/can0.service
+sudo systemctl daemon-reload
+sudo systemctl restart can0.service
+ip -details -statistics link show can0
+```
+
+Se não havia serviço anterior, o rollback é desabilitar/remover o serviço criado
+e recarregar o systemd:
+
+```bash
+sudo systemctl disable --now can0.service
+sudo rm -f /etc/systemd/system/can0.service
+sudo systemctl daemon-reload
+```
+
 Instalação com boot automático:
 
 ```bash

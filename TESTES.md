@@ -152,6 +152,27 @@ cd backend && uv run pytest tests/test_setup_wizard.py -q
 cd frontend && npm run build
 ```
 
+## Setup CAN/U2C/can0
+
+Aceite do PKG-35:
+
+- `POST /api/setup/can/preflight` executa somente coleta read-only via SSH e retorna `safe_mode=can_read_only_preflight`;
+- diagnóstico coleta ferramentas, sudo sem senha, módulos CAN, USB/U2C, links, `ip -details -statistics link show can0`, serviços, estado de impressão e UUIDs CAN quando o tooling existir;
+- `POST /api/setup/can/plan` retorna `safe_mode=can_dry_run_plan` e todos os comandos mutáveis aparecem apenas como `PLAN`;
+- plano diferencia U2C ausente, módulos ausentes, `can0` ausente, bitrate divergente, impressão em andamento e host sem systemd;
+- `POST /api/setup/can/apply` exige confirmação `CONFIGURAR CAN0` e `PRINTORA_CAN_SETUP_MODE=remote`; sem isso registra tentativa bloqueada;
+- apply real cria backup remoto antes de escrever `/etc/systemd/system/can0.service`, faz `daemon-reload`, `enable`, `restart` e valida `can0`;
+- apply bloqueia se detectar impressão em andamento via Moonraker local;
+- histórico `GET /api/setup/can/history` não persiste senha, token, chave privada ou `key_path`;
+- o pacote não executa build de firmware, flash, G-code, alteração de Klipper/Moonraker, restart de Klipper/Moonraker ou gravação de `printer.cfg`.
+
+Validação focada:
+
+```bash
+cd backend && uv run pytest tests/test_setup_can.py -q
+cd frontend && npm run build
+```
+
 O check inicial valida:
 
 - existência dos documentos principais;

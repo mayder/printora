@@ -1,6 +1,16 @@
 import React from "react";
 import { setupApi } from "../../services/setupApi";
-import type { SetupAuthMethod, SetupSshPlanResponse, SetupSshPreflightResponse, SetupSshRunRecord, SetupSshTarget } from "../../types";
+import type {
+  SetupAuthMethod,
+  SetupCanApplyResponse,
+  SetupCanPlanResponse,
+  SetupCanPreflightResponse,
+  SetupCanRunRecord,
+  SetupSshPlanResponse,
+  SetupSshPreflightResponse,
+  SetupSshRunRecord,
+  SetupSshTarget,
+} from "../../types";
 import type { SetError, SetLoading } from "./shared";
 import { unknownErrorMessage } from "./shared";
 
@@ -19,6 +29,13 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
   const [setupPreflight, setSetupPreflight] = React.useState<SetupSshPreflightResponse | null>(null);
   const [setupPlan, setSetupPlan] = React.useState<SetupSshPlanResponse | null>(null);
   const [setupHistory, setSetupHistory] = React.useState<SetupSshRunRecord[]>([]);
+  const [setupCanInterfaceName, setSetupCanInterfaceName] = React.useState("can0");
+  const [setupCanBitrate, setSetupCanBitrate] = React.useState(1000000);
+  const [setupCanConfirmation, setSetupCanConfirmation] = React.useState("");
+  const [setupCanPreflight, setSetupCanPreflight] = React.useState<SetupCanPreflightResponse | null>(null);
+  const [setupCanPlan, setSetupCanPlan] = React.useState<SetupCanPlanResponse | null>(null);
+  const [setupCanApplyResult, setSetupCanApplyResult] = React.useState<SetupCanApplyResponse | null>(null);
+  const [setupCanHistory, setSetupCanHistory] = React.useState<SetupCanRunRecord[]>([]);
   const [setupBusy, setSetupBusy] = React.useState(false);
 
   function setupTarget(): SetupSshTarget {
@@ -68,20 +85,100 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
 
   async function loadSetupHistory() {
     try {
-      const response = await setupApi.history();
-      setSetupHistory(response.runs);
-      return response.runs;
+      const [sshResponse, canResponse] = await Promise.allSettled([
+        setupApi.history(),
+        setupApi.canHistory(),
+      ]);
+      if (sshResponse.status === "fulfilled") {
+        setSetupHistory(sshResponse.value.runs);
+      }
+      if (canResponse.status === "fulfilled") {
+        setSetupCanHistory(canResponse.value.runs);
+      }
+      return sshResponse.status === "fulfilled" ? sshResponse.value.runs : [];
     } catch (err) {
       setError(unknownErrorMessage(err));
       return [];
     }
   }
 
+  function setupCanPayload() {
+    return {
+      target: setupTarget(),
+      interface_name: setupCanInterfaceName.trim() || "can0",
+      bitrate: setupCanBitrate,
+    };
+  }
+
+  async function runSetupCanPreflight() {
+    setLoading(true);
+    setSetupBusy(true);
+    setError(null);
+    try {
+      const response = await setupApi.canPreflight(setupCanPayload());
+      setSetupCanPreflight(response);
+      setSetupCanPlan(null);
+      setSetupCanApplyResult(null);
+      await loadSetupHistory();
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setSetupBusy(false);
+      setLoading(false);
+    }
+  }
+
+  async function runSetupCanPlan() {
+    setLoading(true);
+    setSetupBusy(true);
+    setError(null);
+    try {
+      const response = await setupApi.canPlan(setupCanPayload());
+      setSetupCanPreflight(response.preflight);
+      setSetupCanPlan(response);
+      setSetupCanApplyResult(null);
+      await loadSetupHistory();
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setSetupBusy(false);
+      setLoading(false);
+    }
+  }
+
+  async function runSetupCanApply() {
+    setLoading(true);
+    setSetupBusy(true);
+    setError(null);
+    try {
+      const response = await setupApi.canApply({
+        ...setupCanPayload(),
+        confirmation: setupCanConfirmation,
+      });
+      setSetupCanApplyResult(response);
+      if (response.validation) {
+        setSetupCanPreflight(response.validation);
+      }
+      await loadSetupHistory();
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setSetupBusy(false);
+      setLoading(false);
+    }
+  }
+
   return {
     loadSetupHistory,
     runSetupPlan,
+    runSetupCanApply,
+    runSetupCanPlan,
+    runSetupCanPreflight,
     runSetupPreflight,
     setSetupAuthMethod,
+    setSetupCanBitrate,
+    setSetupCanConfirmation,
+    setSetupCanInterfaceName,
     setSetupHost,
     setSetupKeyPath,
     setSetupPort,
@@ -89,6 +186,13 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
     setSetupUsername,
     setupAuthMethod,
     setupBusy,
+    setupCanApplyResult,
+    setupCanBitrate,
+    setupCanConfirmation,
+    setupCanHistory,
+    setupCanInterfaceName,
+    setupCanPlan,
+    setupCanPreflight,
     setupHistory,
     setupHost,
     setupKeyPath,

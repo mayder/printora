@@ -1,5 +1,14 @@
 import { apiRequest } from "./http";
-import type { SetupSshPlanResponse, SetupSshPreflightResponse, SetupSshRunRecord, SetupSshTarget } from "../types";
+import type {
+  SetupCanApplyResponse,
+  SetupCanPlanResponse,
+  SetupCanPreflightResponse,
+  SetupCanRunRecord,
+  SetupSshPlanResponse,
+  SetupSshPreflightResponse,
+  SetupSshRunRecord,
+  SetupSshTarget,
+} from "../types";
 
 export const setupApi = {
   preflight: (body: SetupSshTarget) =>
@@ -15,4 +24,23 @@ export const setupApi = {
       body: JSON.stringify(body),
     }),
   history: () => apiRequest<{ runs: SetupSshRunRecord[] }>("/api/setup/ssh/history"),
+  canPreflight: (body: unknown) =>
+    apiRequest<SetupCanPreflightResponse>("/api/setup/can/preflight", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  canPlan: (body: unknown) =>
+    apiRequest<SetupCanPlanResponse>("/api/setup/can/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  canApply: (body: unknown) =>
+    apiRequest<SetupCanApplyResponse>("/api/setup/can/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  canHistory: () => apiRequest<{ runs: SetupCanRunRecord[] }>("/api/setup/can/history"),
 };

@@ -2382,7 +2382,18 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado localmente.
+- Backend expõe `POST /api/setup/can/preflight`, `POST /api/setup/can/plan`, `POST /api/setup/can/apply` e `GET /api/setup/can/history`.
+- Diagnóstico CAN remoto usa SSH read-only e coleta ferramentas (`ip`, `lsusb`, `systemctl`, `sudo`, `modprobe`, `lsmod`, `curl`, `python3`), sudo sem senha, módulos CAN, USB/U2C, links de rede, `ip -details -statistics link show can0`, arquivos de config, serviços, estado de impressão e query de UUID CAN quando Klipper tooling existe.
+- Plano dry-run diferencia U2C/USB ausente, módulos CAN ausentes, interface `can0` ausente, bitrate divergente, impressão em andamento, UUID indisponível e host sem systemd.
+- Plano gera comandos `PLAN` para carregar módulos, criar serviço systemd de `can0`, backup de `/etc/systemd/system/can0.service`, `systemctl enable/restart` e query de UUID, sem executar nada.
+- Apply CAN existe, mas fica bloqueado por padrão: exige confirmação textual `CONFIGURAR CAN0` e variável `PRINTORA_CAN_SETUP_MODE=remote`.
+- Apply real, quando habilitado, faz preflight antes, bloqueia impressão detectada, exige `sudo -n`, cria backup remoto em `~/.local/share/printora/can-setup/backups/<timestamp>/`, escreve `/etc/systemd/system/can0.service`, roda `daemon-reload`, `enable`, `restart` e valida com `ip -details -statistics link show can0`.
+- Histórico local `setup_can_runs` registra preflight, plan e apply sem senha, token ou chave privada.
+- UI `Setup do Zero` ganhou seção CAN/U2C com interface, bitrate, diagnóstico, plano, apply gateado, resultado e histórico CAN.
+- Testes focados cobrem parsing de CAN/U2C/UUID, classificação de problemas, bloqueio por impressão, comandos `PLAN`, confirmação explícita e ausência de persistência de `key_path`.
+- Nenhum build de firmware, flash, G-code, alteração de Klipper/Moonraker, restart de Klipper/Moonraker ou gravação de `printer.cfg` é executado neste pacote.
+- Validação de fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
 ## PKG-35: Setup CAN/U2C/can0
 

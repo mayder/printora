@@ -1,5 +1,5 @@
 import { Metric } from "../components/common";
-import type { SetupPlanStep, SetupRunStatus } from "../types";
+import type { SetupCanPlanStep, SetupPlanStep, SetupRunStatus } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type SetupScreenProps = ScreenPropsFor<
@@ -7,11 +7,19 @@ type SetupScreenProps = ScreenPropsFor<
   | "CheckCircle2"
   | "ClipboardCheck"
   | "History"
+  | "Radio"
   | "RefreshCw"
   | "Server"
   | "ShieldCheck"
   | "setupAuthMethod"
   | "setupBusy"
+  | "setupCanApplyResult"
+  | "setupCanBitrate"
+  | "setupCanConfirmation"
+  | "setupCanHistory"
+  | "setupCanInterfaceName"
+  | "setupCanPlan"
+  | "setupCanPreflight"
   | "setupHistory"
   | "setupHost"
   | "setupKeyPath"
@@ -21,8 +29,14 @@ type SetupScreenProps = ScreenPropsFor<
   | "setupTimeoutSeconds"
   | "setupUsername"
   | "runSetupPlan"
+  | "runSetupCanApply"
+  | "runSetupCanPlan"
+  | "runSetupCanPreflight"
   | "runSetupPreflight"
   | "setSetupAuthMethod"
+  | "setSetupCanBitrate"
+  | "setSetupCanConfirmation"
+  | "setSetupCanInterfaceName"
   | "setSetupHost"
   | "setSetupKeyPath"
   | "setSetupPort"
@@ -36,12 +50,19 @@ export function SetupScreen(props: SetupScreenProps) {
     CheckCircle2,
     ClipboardCheck,
     History,
+    Radio,
     RefreshCw,
     Server,
     ShieldCheck,
     runSetupPlan,
+    runSetupCanApply,
+    runSetupCanPlan,
+    runSetupCanPreflight,
     runSetupPreflight,
     setSetupAuthMethod,
+    setSetupCanBitrate,
+    setSetupCanConfirmation,
+    setSetupCanInterfaceName,
     setSetupHost,
     setSetupKeyPath,
     setSetupPort,
@@ -49,6 +70,13 @@ export function SetupScreen(props: SetupScreenProps) {
     setSetupUsername,
     setupAuthMethod,
     setupBusy,
+    setupCanApplyResult,
+    setupCanBitrate,
+    setupCanConfirmation,
+    setupCanHistory,
+    setupCanInterfaceName,
+    setupCanPlan,
+    setupCanPreflight,
     setupHistory,
     setupHost,
     setupKeyPath,
@@ -69,12 +97,12 @@ export function SetupScreen(props: SetupScreenProps) {
             <h2>Setup do Zero</h2>
             <p>O fluxo começa quando a Pi já tem Linux, rede e SSH ativo. Placa virgem precisa de mídia de boot antes do SSH.</p>
           </div>
-          <span className="setup-status setup-status-info">PKG-34</span>
+          <span className="setup-status setup-status-info">PKG-35</span>
         </div>
         <div className="setup-boundary-grid">
-          <Metric label="Fase atual" value="SSH + preflight" />
+          <Metric label="Fase atual" value="SSH + CAN" />
           <Metric label="Modo" value="Read-only / dry-run" />
-          <Metric label="Instalação real" value="Próximo pacote/lote" />
+          <Metric label="Apply CAN" value="Gateado" />
         </div>
       </article>
 
@@ -179,6 +207,82 @@ export function SetupScreen(props: SetupScreenProps) {
         )}
       </article>
 
+      <article className="panel wide setup-can-panel">
+        <div className="panel-header-row">
+          <div>
+            <h2>CAN/U2C</h2>
+            <p>Diagnóstico remoto de U2C, módulos CAN, interface can0, bitrate, UUIDs e plano de configuração.</p>
+          </div>
+          <Radio size={20} />
+        </div>
+        <div className="form-grid setup-form-grid">
+          <label>
+            Interface
+            <input value={setupCanInterfaceName} onChange={(event) => setSetupCanInterfaceName(event.target.value)} placeholder="can0" />
+          </label>
+          <label>
+            Bitrate
+            <input type="number" min={10000} max={5000000} step={10000} value={setupCanBitrate} onChange={(event) => setSetupCanBitrate(Number(event.target.value))} />
+          </label>
+        </div>
+        <div className="button-row">
+          <button type="button" className="secondary-button" disabled={!canRun || setupBusy} onClick={() => void runSetupCanPreflight()}>
+            <ShieldCheck className={setupBusy ? "button-busy-icon" : undefined} size={16} />
+            Diagnosticar CAN
+          </button>
+          <button type="button" className="secondary-button" disabled={!canRun || setupBusy} onClick={() => void runSetupCanPlan()}>
+            <ClipboardCheck className={setupBusy ? "button-busy-icon" : undefined} size={16} />
+            Plano CAN
+          </button>
+        </div>
+        {setupCanPreflight ? (
+          <div className="setup-check-list setup-can-findings">
+            {setupCanPreflight.findings.map((finding) => (
+              <div key={finding.key} className={`setup-check setup-${finding.status === "blocked" ? "error" : finding.status}`}>
+                {finding.status === "ok" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                <div>
+                  <strong>{finding.title}</strong>
+                  <span>{finding.detail}</span>
+                  <small>{finding.action}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">Execute o diagnóstico CAN depois de informar o SSH.</div>
+        )}
+        {setupCanPlan ? (
+          <div className="setup-step-list">
+            {setupCanPlan.blocked_reasons.length ? (
+              <div className="action-result warning">
+                <strong>Bloqueios CAN</strong>
+                <span>{setupCanPlan.blocked_reasons.join(" ")}</span>
+              </div>
+            ) : null}
+            {setupCanPlan.steps.map((step) => (
+              <SetupStepCard key={step.key} step={step} />
+            ))}
+          </div>
+        ) : null}
+        <div className="setup-apply-box">
+          <label>
+            Confirmação para apply CAN
+            <input value={setupCanConfirmation} onChange={(event) => setSetupCanConfirmation(event.target.value)} placeholder="CONFIGURAR CAN0" />
+          </label>
+          <button type="button" className="danger-button" disabled={!canRun || setupBusy || setupCanConfirmation !== "CONFIGURAR CAN0"} onClick={() => void runSetupCanApply()}>
+            <AlertTriangle className={setupBusy ? "button-busy-icon" : undefined} size={16} />
+            Aplicar CAN
+          </button>
+          <p>O backend ainda exige <code>PRINTORA_CAN_SETUP_MODE=remote</code>; sem isso a tentativa fica registrada como bloqueada.</p>
+        </div>
+        {setupCanApplyResult ? (
+          <div className={`action-result ${setupCanApplyResult.status === "ok" ? "success" : "warning"}`}>
+            <strong>{setupCanApplyResult.summary}</strong>
+            <span>{setupCanApplyResult.blocked_reasons.length ? setupCanApplyResult.blocked_reasons.join(" ") : "Resultado registrado no histórico."}</span>
+          </div>
+        ) : null}
+      </article>
+
       <article className="panel wide setup-history-panel">
         <div className="panel-header-row">
           <div>
@@ -213,6 +317,30 @@ export function SetupScreen(props: SetupScreenProps) {
         ) : (
           <div className="empty-state">Sem histórico de setup.</div>
         )}
+        {setupCanHistory.length ? (
+          <div className="table-wrap setup-can-history">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>CAN</th>
+                  <th>Alvo</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {setupCanHistory.slice(0, 8).map((run) => (
+                  <tr key={run.id}>
+                    <td>{run.created_at}</td>
+                    <td>{run.run_type} · {run.interface_name} · {run.bitrate}</td>
+                    <td>{run.target_user}@{run.target_host}:{run.target_port}</td>
+                    <td><StatusBadge status={run.status === "blocked" ? "error" : run.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </article>
     </>
   );
@@ -224,7 +352,7 @@ function StatusBadge({ status }: { status: SetupRunStatus }) {
   return <span className={`setup-status setup-status-${tone}`}>{label}</span>;
 }
 
-function SetupStepCard({ step }: { step: SetupPlanStep }) {
+function SetupStepCard({ step }: { step: SetupPlanStep | SetupCanPlanStep }) {
   return (
     <section className={`setup-step setup-step-${step.status}`}>
       <div className="setup-step-header">
