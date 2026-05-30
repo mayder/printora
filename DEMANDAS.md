@@ -2494,7 +2494,7 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado localmente e commitado no PKG-36; validação em hardware real permanece operacional.
 
 ## PKG-37: Flash Supervisionado De Firmware
 
@@ -2543,7 +2543,16 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado localmente.
+- Backend expõe `POST /api/setup/flash/preflight`, `POST /api/setup/flash/plan`, `POST /api/setup/flash/execute` e `GET /api/setup/flash/history`.
+- Preflight remoto é read-only e valida checklist, artefato remoto, estado de impressão, `flash_can.py`, `klippy-env`, `canbus_query`, UUID esperado e `printer/info`.
+- Plano exibe comando `PLAN`, frase específica por placa/método, bloqueios e rollback manual antes da execução.
+- Execução real inicial suporta somente CAN/Katapult e fica bloqueada por padrão: exige frase `FLASH_<PLACA>_CAN_KATAPULT`, checklist aprovado, preflight aprovado e `PRINTORA_REMOTE_FLASH_MODE=remote`.
+- Métodos USB/DFU e manual aparecem como opções bloqueadas até implementação específica.
+- Execução CAN/Katapult copia o artefato para backup remoto de suporte, executa `flash_can.py`, registra log/duração/hash e roda validação pós-flash sem editar `printer.cfg`, sem restart e sem update.
+- Histórico local `setup_flash_runs` registra tentativas, plano, comando/log, rollback e status sem senha, token ou caminho de chave privada.
+- UI `Setup do Zero` ganhou seção Flash supervisionado com preflight, plano, confirmação, rollback e histórico.
+- Validação de fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
 ## PKG-38: Validação Final Da Impressora Klipper
 

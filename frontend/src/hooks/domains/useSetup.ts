@@ -10,6 +10,11 @@ import type {
   SetupFirmwarePlanResponse,
   SetupFirmwareRole,
   SetupFirmwareRunRecord,
+  SetupFlashExecuteResponse,
+  SetupFlashMethod,
+  SetupFlashPlanResponse,
+  SetupFlashPreflightResponse,
+  SetupFlashRunRecord,
   SetupSshPlanResponse,
   SetupSshPreflightResponse,
   SetupSshRunRecord,
@@ -50,6 +55,16 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
   const [setupFirmwarePlan, setSetupFirmwarePlan] = React.useState<SetupFirmwarePlanResponse | null>(null);
   const [setupFirmwareBuildResult, setSetupFirmwareBuildResult] = React.useState<SetupFirmwareBuildResponse | null>(null);
   const [setupFirmwareHistory, setSetupFirmwareHistory] = React.useState<SetupFirmwareRunRecord[]>([]);
+  const [setupFlashMethod, setSetupFlashMethod] = React.useState<SetupFlashMethod>("can_katapult");
+  const [setupFlashArtifactPath, setSetupFlashArtifactPath] = React.useState("");
+  const [setupFlashExpectedUuid, setSetupFlashExpectedUuid] = React.useState("");
+  const [setupFlashPreviousBinaryPath, setSetupFlashPreviousBinaryPath] = React.useState("");
+  const [setupFlashChecklistConfirmed, setSetupFlashChecklistConfirmed] = React.useState(false);
+  const [setupFlashConfirmation, setSetupFlashConfirmation] = React.useState("");
+  const [setupFlashPreflight, setSetupFlashPreflight] = React.useState<SetupFlashPreflightResponse | null>(null);
+  const [setupFlashPlan, setSetupFlashPlan] = React.useState<SetupFlashPlanResponse | null>(null);
+  const [setupFlashExecuteResult, setSetupFlashExecuteResult] = React.useState<SetupFlashExecuteResponse | null>(null);
+  const [setupFlashHistory, setSetupFlashHistory] = React.useState<SetupFlashRunRecord[]>([]);
   const [setupBusy, setSetupBusy] = React.useState(false);
 
   function setupTarget(): SetupSshTarget {
@@ -99,19 +114,23 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
 
   async function loadSetupHistory() {
     try {
-      const [sshResponse, canResponse] = await Promise.allSettled([
+      const [sshResponse, canResponse, firmwareResponse, flashResponse] = await Promise.allSettled([
         setupApi.history(),
         setupApi.canHistory(),
+        setupApi.firmwareHistory(),
+        setupApi.flashHistory(),
       ]);
-      const firmwareResponse = await setupApi.firmwareHistory().catch(() => null);
       if (sshResponse.status === "fulfilled") {
         setSetupHistory(sshResponse.value.runs);
       }
       if (canResponse.status === "fulfilled") {
         setSetupCanHistory(canResponse.value.runs);
       }
-      if (firmwareResponse) {
-        setSetupFirmwareHistory(firmwareResponse.runs);
+      if (firmwareResponse.status === "fulfilled") {
+        setSetupFirmwareHistory(firmwareResponse.value.runs);
+      }
+      if (flashResponse.status === "fulfilled") {
+        setSetupFlashHistory(flashResponse.value.runs);
       }
       return sshResponse.status === "fulfilled" ? sshResponse.value.runs : [];
     } catch (err) {
@@ -235,6 +254,80 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
     }
   }
 
+  function setupFlashPayload() {
+    return {
+      target: setupTarget(),
+      board_name: setupFirmwareBoardName.trim() || "Placa sem nome",
+      board_role: setupFirmwareBoardRole,
+      flash_method: setupFlashMethod,
+      artifact_path: setupFlashArtifactPath.trim() || setupFirmwareBuildResult?.binary_path || setupFirmwarePlan?.expected_binary_path || "",
+      can_interface: setupCanInterfaceName.trim() || "can0",
+      expected_uuid: setupFlashExpectedUuid.trim() || null,
+      klipper_path: setupFirmwareKlipperPath.trim() || "~/klipper",
+      previous_binary_path: setupFlashPreviousBinaryPath.trim() || null,
+      checklist_confirmed: setupFlashChecklistConfirmed,
+    };
+  }
+
+  async function runSetupFlashPreflight() {
+    setLoading(true);
+    setSetupBusy(true);
+    setError(null);
+    try {
+      const response = await setupApi.flashPreflight(setupFlashPayload());
+      setSetupFlashPreflight(response);
+      setSetupFlashPlan(null);
+      setSetupFlashExecuteResult(null);
+      await loadSetupHistory();
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setSetupBusy(false);
+      setLoading(false);
+    }
+  }
+
+  async function runSetupFlashPlan() {
+    setLoading(true);
+    setSetupBusy(true);
+    setError(null);
+    try {
+      const response = await setupApi.flashPlan(setupFlashPayload());
+      setSetupFlashPreflight(response.preflight);
+      setSetupFlashPlan(response);
+      setSetupFlashExecuteResult(null);
+      setSetupFlashConfirmation("");
+      await loadSetupHistory();
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setSetupBusy(false);
+      setLoading(false);
+    }
+  }
+
+  async function runSetupFlashExecute() {
+    setLoading(true);
+    setSetupBusy(true);
+    setError(null);
+    try {
+      const response = await setupApi.flashExecute({
+        ...setupFlashPayload(),
+        confirmation: setupFlashConfirmation,
+      });
+      setSetupFlashExecuteResult(response);
+      if (response.post_validation) {
+        setSetupFlashPreflight(response.post_validation);
+      }
+      await loadSetupHistory();
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setSetupBusy(false);
+      setLoading(false);
+    }
+  }
+
   return {
     loadSetupHistory,
     runSetupPlan,
@@ -243,6 +336,9 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
     runSetupCanPreflight,
     runSetupFirmwareBuild,
     runSetupFirmwarePlan,
+    runSetupFlashExecute,
+    runSetupFlashPlan,
+    runSetupFlashPreflight,
     runSetupPreflight,
     setSetupAuthMethod,
     setSetupCanBitrate,
@@ -255,6 +351,12 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
     setSetupFirmwareOutputRoot,
     setSetupFirmwarePresetId,
     setSetupFirmwareVariantConfirmed,
+    setSetupFlashArtifactPath,
+    setSetupFlashChecklistConfirmed,
+    setSetupFlashConfirmation,
+    setSetupFlashExpectedUuid,
+    setSetupFlashMethod,
+    setSetupFlashPreviousBinaryPath,
     setSetupHost,
     setSetupKeyPath,
     setSetupPort,
@@ -279,6 +381,16 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
     setupFirmwarePlan,
     setupFirmwarePresetId,
     setupFirmwareVariantConfirmed,
+    setupFlashArtifactPath,
+    setupFlashChecklistConfirmed,
+    setupFlashConfirmation,
+    setupFlashExecuteResult,
+    setupFlashExpectedUuid,
+    setupFlashHistory,
+    setupFlashMethod,
+    setupFlashPlan,
+    setupFlashPreflight,
+    setupFlashPreviousBinaryPath,
     setupHistory,
     setupHost,
     setupKeyPath,

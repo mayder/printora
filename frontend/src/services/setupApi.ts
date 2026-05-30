@@ -7,6 +7,10 @@ import type {
   SetupFirmwareBuildResponse,
   SetupFirmwarePlanResponse,
   SetupFirmwareRunRecord,
+  SetupFlashExecuteResponse,
+  SetupFlashPlanResponse,
+  SetupFlashPreflightResponse,
+  SetupFlashRunRecord,
   SetupSshPlanResponse,
   SetupSshPreflightResponse,
   SetupSshRunRecord,
@@ -59,4 +63,23 @@ export const setupApi = {
       body: JSON.stringify(body),
     }),
   firmwareHistory: () => apiRequest<{ runs: SetupFirmwareRunRecord[] }>("/api/setup/firmware/history"),
+  flashPreflight: (body: unknown) =>
+    apiRequest<SetupFlashPreflightResponse>("/api/setup/flash/preflight", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  flashPlan: (body: unknown) =>
+    apiRequest<SetupFlashPlanResponse>("/api/setup/flash/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  flashExecute: (body: unknown) =>
+    apiRequest<SetupFlashExecuteResponse>("/api/setup/flash/execute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  flashHistory: () => apiRequest<{ runs: SetupFlashRunRecord[] }>("/api/setup/flash/history"),
 };

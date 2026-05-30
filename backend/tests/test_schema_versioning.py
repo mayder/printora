@@ -48,7 +48,7 @@ def test_initialize_database_ignores_macos_appledouble_sql_files(tmp_path: Path,
             ).fetchall()
         ]
     assert "._018_app_update_runs.sql" not in scripts
-    assert scripts[-1] == "023_setup_firmware_runs.sql"
+    assert scripts[-1] == "024_setup_flash_runs.sql"
 
 
 def test_initialize_database_is_idempotent_and_preserves_existing_data(tmp_path: Path) -> None:
@@ -168,7 +168,7 @@ def test_system_version_endpoint_is_read_only(tmp_path: Path, monkeypatch) -> No
         assert payload["database_path"] == str(tmp_path / "printora.db")
         assert payload["schema_revision"] == _sql_script_count()
         assert payload["schema_current"]["revision"] == _sql_script_count()
-        assert payload["schema_current"]["latest_script"] == "023_setup_firmware_runs.sql"
+        assert payload["schema_current"]["latest_script"] == "024_setup_flash_runs.sql"
         assert payload["schema_scripts_applied"] == _sql_script_count()
         assert len(payload["applied_sql_scripts"]) == _sql_script_count()
         assert any(

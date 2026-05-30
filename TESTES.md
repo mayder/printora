@@ -187,6 +187,25 @@ Aceite do PKG-36:
 - UUID capturado é sugestão revisável e nunca grava automaticamente em `printer.cfg`;
 - flash real fica fora do PKG-36.
 
+## Flash Supervisionado
+
+Aceite do PKG-37:
+
+- `POST /api/setup/flash/preflight` executa somente leitura remota e bloqueia sem checklist físico, artefato existente, impressora parada, método suportado e UUID visível;
+- `POST /api/setup/flash/plan` retorna comandos somente como `PLAN`, frase de confirmação específica por placa/método e rollback manual antes da execução;
+- `POST /api/setup/flash/execute` exige a frase gerada no plano e `PRINTORA_REMOTE_FLASH_MODE=remote`; sem isso registra tentativa bloqueada;
+- execução real inicial suporta somente `can_katapult`; `usb_dfu` e `manual` ficam bloqueados até implementação própria;
+- flash CAN/Katapult não edita `printer.cfg`, não reinicia serviços, não executa update e não envia G-code;
+- falha de flash deve retornar `requires_recovery` ou `blocked` com log copiável e rollback manual;
+- histórico `GET /api/setup/flash/history` não persiste senha, token, chave privada ou `key_path`;
+- validação em hardware real acompanhado continua obrigatória antes de tratar o pacote como operacional em campo.
+
+Validação focada:
+
+- `cd backend && uv run pytest tests/test_setup_flash.py`;
+- `cd frontend && npm run build`;
+- fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 Validação focada:
 
 ```bash

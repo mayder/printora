@@ -23,6 +23,18 @@ from app.setup_firmware import (
     build_setup_firmware_plan,
     execute_setup_firmware_build,
 )
+from app.setup_flash import (
+    SetupFlashExecuteRequest,
+    SetupFlashExecuteResponse,
+    SetupFlashPlanResponse,
+    SetupFlashPreflightResponse,
+    SetupFlashRequest,
+    SetupFlashRunRecord,
+    SetupFlashRunRepository,
+    build_setup_flash_plan,
+    execute_setup_flash,
+    run_setup_flash_preflight,
+)
 from app.setup_wizard import (
     SetupSshPlanResponse,
     SetupSshPreflightResponse,
@@ -46,6 +58,10 @@ def get_setup_can_repository(settings: Settings) -> SetupCanRunRepository:
 
 def get_setup_firmware_repository(settings: Settings) -> SetupFirmwareRunRepository:
     return SetupFirmwareRunRepository(settings.database_path)
+
+
+def get_setup_flash_repository(settings: Settings) -> SetupFlashRunRepository:
+    return SetupFlashRunRepository(settings.database_path)
 
 
 @router.post("/api/setup/ssh/preflight")
@@ -139,4 +155,39 @@ async def setup_firmware_build(payload: SetupFirmwareBuildRequest) -> SetupFirmw
 async def setup_firmware_history(limit: int = 20) -> dict[str, list[SetupFirmwareRunRecord]]:
     settings = get_settings()
     repository = get_setup_firmware_repository(settings)
+    return {"runs": repository.list_runs(limit=limit)}
+
+
+@router.post("/api/setup/flash/preflight")
+async def setup_flash_preflight(payload: SetupFlashRequest) -> SetupFlashPreflightResponse:
+    settings = get_settings()
+    repository = get_setup_flash_repository(settings)
+    response = await run_setup_flash_preflight(payload)
+    response.history_id = repository.create_preflight(payload, response)
+    return response
+
+
+@router.post("/api/setup/flash/plan")
+async def setup_flash_plan(payload: SetupFlashRequest) -> SetupFlashPlanResponse:
+    settings = get_settings()
+    repository = get_setup_flash_repository(settings)
+    response = await build_setup_flash_plan(payload)
+    response.preflight.history_id = repository.create_preflight(payload, response.preflight)
+    response.history_id = repository.create_plan(payload, response)
+    return response
+
+
+@router.post("/api/setup/flash/execute")
+async def setup_flash_execute(payload: SetupFlashExecuteRequest) -> SetupFlashExecuteResponse:
+    settings = get_settings()
+    repository = get_setup_flash_repository(settings)
+    response = await execute_setup_flash(payload)
+    response.history_id = repository.create_flash(payload, response)
+    return response
+
+
+@router.get("/api/setup/flash/history")
+async def setup_flash_history(limit: int = 20) -> dict[str, list[SetupFlashRunRecord]]:
+    settings = get_settings()
+    repository = get_setup_flash_repository(settings)
     return {"runs": repository.list_runs(limit=limit)}

@@ -365,6 +365,20 @@ Mitigação:
 - logs sanitizados.
 - UI deve orientar recarregar e consultar `/api/system/update/history` após queda de conexão durante restart.
 
+### Flash Supervisionado Sem Validação Em Hardware Real
+
+Impacto:
+
+- o PKG-37 está implementado e validado por testes locais, mas ainda não foi executado em uma BTT Pi/U2C/MCU real acompanhada;
+- o fluxo deve ser tratado como pronto para validação operacional, não como homologado em campo.
+
+Mitigação:
+
+- execução real bloqueada por `PRINTORA_REMOTE_FLASH_MODE=remote`;
+- exigir checklist, preflight aprovado, UUID visível e frase específica;
+- começar apenas pelo método CAN/Katapult;
+- seguir rollback manual exibido em caso de falha ou estado inconclusivo.
+
 ### GitHub Releases Rate Limit E Cache
 
 Consulta pública ao GitHub Releases pode sofrer rate limit, ficar offline ou retornar dados defasados por cache intermediário.

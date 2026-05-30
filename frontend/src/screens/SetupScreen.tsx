@@ -1,5 +1,5 @@
 import { Metric } from "../components/common";
-import type { SetupCanPlanStep, SetupFirmwarePlanStep, SetupPlanStep, SetupRunStatus } from "../types";
+import type { SetupCanPlanStep, SetupFirmwarePlanStep, SetupFlashPlanStep, SetupPlanStep, SetupRunStatus } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type SetupScreenProps = ScreenPropsFor<
@@ -31,6 +31,16 @@ type SetupScreenProps = ScreenPropsFor<
   | "setupFirmwarePlan"
   | "setupFirmwarePresetId"
   | "setupFirmwareVariantConfirmed"
+  | "setupFlashArtifactPath"
+  | "setupFlashChecklistConfirmed"
+  | "setupFlashConfirmation"
+  | "setupFlashExecuteResult"
+  | "setupFlashExpectedUuid"
+  | "setupFlashHistory"
+  | "setupFlashMethod"
+  | "setupFlashPlan"
+  | "setupFlashPreflight"
+  | "setupFlashPreviousBinaryPath"
   | "setupHistory"
   | "setupHost"
   | "setupKeyPath"
@@ -45,6 +55,9 @@ type SetupScreenProps = ScreenPropsFor<
   | "runSetupCanPreflight"
   | "runSetupFirmwareBuild"
   | "runSetupFirmwarePlan"
+  | "runSetupFlashExecute"
+  | "runSetupFlashPlan"
+  | "runSetupFlashPreflight"
   | "runSetupPreflight"
   | "setSetupAuthMethod"
   | "setSetupCanBitrate"
@@ -57,6 +70,12 @@ type SetupScreenProps = ScreenPropsFor<
   | "setSetupFirmwareOutputRoot"
   | "setSetupFirmwarePresetId"
   | "setSetupFirmwareVariantConfirmed"
+  | "setSetupFlashArtifactPath"
+  | "setSetupFlashChecklistConfirmed"
+  | "setSetupFlashConfirmation"
+  | "setSetupFlashExpectedUuid"
+  | "setSetupFlashMethod"
+  | "setSetupFlashPreviousBinaryPath"
   | "setSetupHost"
   | "setSetupKeyPath"
   | "setSetupPort"
@@ -81,6 +100,9 @@ export function SetupScreen(props: SetupScreenProps) {
     runSetupCanPreflight,
     runSetupFirmwareBuild,
     runSetupFirmwarePlan,
+    runSetupFlashExecute,
+    runSetupFlashPlan,
+    runSetupFlashPreflight,
     runSetupPreflight,
     setSetupAuthMethod,
     setSetupCanBitrate,
@@ -93,6 +115,12 @@ export function SetupScreen(props: SetupScreenProps) {
     setSetupFirmwareOutputRoot,
     setSetupFirmwarePresetId,
     setSetupFirmwareVariantConfirmed,
+    setSetupFlashArtifactPath,
+    setSetupFlashChecklistConfirmed,
+    setSetupFlashConfirmation,
+    setSetupFlashExpectedUuid,
+    setSetupFlashMethod,
+    setSetupFlashPreviousBinaryPath,
     setSetupHost,
     setSetupKeyPath,
     setSetupPort,
@@ -117,6 +145,16 @@ export function SetupScreen(props: SetupScreenProps) {
     setupFirmwarePlan,
     setupFirmwarePresetId,
     setupFirmwareVariantConfirmed,
+    setupFlashArtifactPath,
+    setupFlashChecklistConfirmed,
+    setupFlashConfirmation,
+    setupFlashExecuteResult,
+    setupFlashExpectedUuid,
+    setupFlashHistory,
+    setupFlashMethod,
+    setupFlashPlan,
+    setupFlashPreflight,
+    setupFlashPreviousBinaryPath,
     setupHistory,
     setupHost,
     setupKeyPath,
@@ -413,6 +451,107 @@ export function SetupScreen(props: SetupScreenProps) {
         ) : null}
       </article>
 
+      <article className="panel wide setup-flash-panel">
+        <div className="panel-header-row">
+          <div>
+            <h2>Flash supervisionado</h2>
+            <p>Preflight crítico, plano revisável e execução CAN/Katapult com trava operacional.</p>
+          </div>
+          <AlertTriangle size={20} />
+        </div>
+        <div className="form-grid setup-form-grid">
+          <label>
+            Método
+            <select value={setupFlashMethod} onChange={(event) => setSetupFlashMethod(event.target.value as "can_katapult" | "usb_dfu" | "manual")}>
+              <option value="can_katapult">CAN/Katapult</option>
+              <option value="usb_dfu">USB/DFU (bloqueado)</option>
+              <option value="manual">Manual (bloqueado)</option>
+            </select>
+          </label>
+          <label>
+            Artefato remoto
+            <input value={setupFlashArtifactPath} onChange={(event) => setSetupFlashArtifactPath(event.target.value)} placeholder={setupFirmwareBuildResult?.binary_path ?? setupFirmwarePlan?.expected_binary_path ?? "~/.local/share/printora/firmware-setup/ebb36/klipper.bin"} />
+          </label>
+          <label>
+            UUID esperado
+            <input value={setupFlashExpectedUuid} onChange={(event) => setSetupFlashExpectedUuid(event.target.value)} placeholder="0123456789ab" />
+          </label>
+          <label>
+            Binário anterior
+            <input value={setupFlashPreviousBinaryPath} onChange={(event) => setSetupFlashPreviousBinaryPath(event.target.value)} placeholder="opcional: caminho do firmware anterior" />
+          </label>
+          <label className="setup-checkbox-label">
+            <input type="checkbox" checked={setupFlashChecklistConfirmed} onChange={(event) => setSetupFlashChecklistConfirmed(event.target.checked)} />
+            Checklist físico conferido
+          </label>
+        </div>
+        <div className="button-row">
+          <button type="button" className="secondary-button" disabled={!canRun || setupBusy} onClick={() => void runSetupFlashPreflight()}>
+            <ShieldCheck className={setupBusy ? "button-busy-icon" : undefined} size={16} />
+            Preflight flash
+          </button>
+          <button type="button" className="secondary-button" disabled={!canRun || setupBusy} onClick={() => void runSetupFlashPlan()}>
+            <ClipboardCheck className={setupBusy ? "button-busy-icon" : undefined} size={16} />
+            Plano flash
+          </button>
+        </div>
+        {setupFlashPreflight ? (
+          <div className="setup-check-list setup-can-findings">
+            {setupFlashPreflight.findings.map((finding) => (
+              <div key={finding.key} className={`setup-check setup-${finding.status === "blocked" || finding.status === "requires_recovery" ? "error" : finding.status}`}>
+                {finding.status === "ok" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                <div>
+                  <strong>{finding.title}</strong>
+                  <span>{finding.detail}</span>
+                  <small>{finding.action}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">Use o artefato do build remoto e execute o preflight antes do flash.</div>
+        )}
+        {setupFlashPlan ? (
+          <div className="setup-step-list">
+            {setupFlashPlan.blocked_reasons.length ? (
+              <div className="action-result warning">
+                <strong>Bloqueios flash</strong>
+                <span>{setupFlashPlan.blocked_reasons.join(" ")}</span>
+              </div>
+            ) : null}
+            <div className="setup-artifact-summary">
+              <Metric label="Confirmação" value={setupFlashPlan.confirmation_phrase} />
+              <Metric label="Artefato SHA" value={setupFlashPlan.artifact_sha256?.slice(0, 12) ?? "pendente"} />
+              <Metric label="UUID" value={setupFlashPlan.expected_uuid ?? "pendente"} />
+            </div>
+            {setupFlashPlan.steps.map((step) => (
+              <SetupStepCard key={step.key} step={step} />
+            ))}
+            <div className="action-result warning">
+              <strong>Rollback manual</strong>
+              <span>{setupFlashPlan.rollback.join(" ")}</span>
+            </div>
+          </div>
+        ) : null}
+        <div className="setup-apply-box">
+          <label>
+            Confirmação para flash real
+            <input value={setupFlashConfirmation} onChange={(event) => setSetupFlashConfirmation(event.target.value)} placeholder={setupFlashPlan?.confirmation_phrase ?? "gere o plano primeiro"} />
+          </label>
+          <button type="button" className="danger-button" disabled={!canRun || setupBusy || !setupFlashPlan || setupFlashConfirmation !== setupFlashPlan.confirmation_phrase} onClick={() => void runSetupFlashExecute()}>
+            <AlertTriangle className={setupBusy ? "button-busy-icon" : undefined} size={16} />
+            Executar flash
+          </button>
+          <p>O backend exige <code>PRINTORA_REMOTE_FLASH_MODE=remote</code>; sem isso a tentativa fica bloqueada e registrada.</p>
+        </div>
+        {setupFlashExecuteResult ? (
+          <div className={`action-result ${setupFlashExecuteResult.status === "ok" ? "success" : "warning"}`}>
+            <strong>{setupFlashExecuteResult.summary}</strong>
+            <span>{setupFlashExecuteResult.blocked_reasons.length ? setupFlashExecuteResult.blocked_reasons.join(" ") : setupFlashExecuteResult.artifact_sha256?.slice(0, 12) ?? "Resultado registrado."}</span>
+          </div>
+        ) : null}
+      </article>
+
       <article className="panel wide setup-history-panel">
         <div className="panel-header-row">
           <div>
@@ -495,18 +634,42 @@ export function SetupScreen(props: SetupScreenProps) {
             </table>
           </div>
         ) : null}
+        {setupFlashHistory.length ? (
+          <div className="table-wrap setup-can-history">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Flash</th>
+                  <th>Alvo</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {setupFlashHistory.slice(0, 8).map((run) => (
+                  <tr key={run.id}>
+                    <td>{run.created_at}</td>
+                    <td>{run.run_type} · {run.board_name} · {run.flash_method}</td>
+                    <td>{run.target_user}@{run.target_host}:{run.target_port}</td>
+                    <td><StatusBadge status={run.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </article>
     </>
   );
 }
 
-function StatusBadge({ status }: { status: SetupRunStatus }) {
+function StatusBadge({ status }: { status: SetupRunStatus | "blocked" | "requires_recovery" }) {
   const tone = status === "ok" ? "success" : status === "warning" ? "warning" : "danger";
-  const label = status === "ok" ? "OK" : status === "warning" ? "Atenção" : "Erro";
+  const label = status === "ok" ? "OK" : status === "warning" ? "Atenção" : status === "requires_recovery" ? "Recuperação" : "Erro";
   return <span className={`setup-status setup-status-${tone}`}>{label}</span>;
 }
 
-function SetupStepCard({ step }: { step: SetupPlanStep | SetupCanPlanStep | SetupFirmwarePlanStep }) {
+function SetupStepCard({ step }: { step: SetupPlanStep | SetupCanPlanStep | SetupFirmwarePlanStep | SetupFlashPlanStep }) {
   return (
     <section className={`setup-step setup-step-${step.status}`}>
       <div className="setup-step-header">

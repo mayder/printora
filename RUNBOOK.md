@@ -297,6 +297,31 @@ Validar fechamento completo do pacote:
 RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
 ```
 
+## Setup Do Zero - Flash Supervisionado
+
+O flash supervisionado fica em `Setup do Zero > Flash supervisionado` e depende do SSH da Pi, CAN funcional e artefato de firmware gerado/validado.
+
+Fluxo seguro:
+
+1. informar placa, método, artefato remoto, UUID esperado e interface CAN;
+2. marcar checklist físico somente após confirmar alimentação, cabos, placa correta, bootloader/Katapult e binário;
+3. executar `Preflight flash`;
+4. gerar `Plano flash` e revisar bloqueios, comando `PLAN`, frase de confirmação e rollback;
+5. para execução real CAN/Katapult, habilitar o backend com `PRINTORA_REMOTE_FLASH_MODE=remote` e digitar exatamente a frase gerada;
+6. revisar log, hash, duração e validação pós-flash.
+
+Limites:
+
+- o método real inicial é somente `can_katapult`;
+- `usb_dfu` e `manual` ficam bloqueados no backend;
+- o fluxo não edita `printer.cfg`, não reinicia Klipper/Moonraker, não executa update e não envia G-code;
+- se falhar ou ficar inconclusivo, seguir o rollback manual exibido e colocar a placa novamente em bootloader.
+
+SQL:
+
+- `backend/sql/024_setup_flash_runs.sql` cria histórico local de preflight, plano e execução;
+- rollback de schema: restaurar backup `printora.<timestamp>.before-schema.db` criado pelo versionador antes de aplicar scripts pendentes.
+
 Regras operacionais:
 
 - os scripts executam apenas leitura HTTP do dominio `canbus.esoterical.online` e leitura/escrita local dos JSONs quando `--write` for informado;

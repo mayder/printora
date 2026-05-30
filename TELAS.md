@@ -125,6 +125,10 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Setup do Zero, o plano de firmware deve mostrar hash do `.config`, diretório de artefatos, binário esperado e comandos `PLAN`, sem flash.
 - Na tela Setup do Zero, `Build remoto` deve exigir a frase `BUILD_FIRMWARE_NO_FLASH`; mesmo com a frase, o backend bloqueia quando `PRINTORA_REMOTE_FIRMWARE_BUILD_MODE=remote` não estiver habilitado.
 - Na tela Setup do Zero, o histórico de firmware deve mostrar placa, preset, alvo e status sem segredo e sem caminho de chave privada.
+- Na tela Setup do Zero, a seção Flash supervisionado deve reutilizar SSH, placa, interface CAN e artefato do build remoto, mas exigir checklist físico antes do preflight/execução.
+- Na tela Setup do Zero, o plano de flash deve mostrar frase específica por placa/método, hash do artefato, UUID esperado, comandos `PLAN`, bloqueios e rollback manual.
+- Na tela Setup do Zero, `Executar flash` deve exigir a frase gerada no plano; mesmo com a frase, o backend bloqueia quando `PRINTORA_REMOTE_FLASH_MODE=remote` não estiver habilitado.
+- Na tela Setup do Zero, o histórico de flash deve mostrar placa, método, alvo e status sem senha, token ou caminho de chave privada.
 
 ## Estado de UI
 
