@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, HttpUrl
 
 from app.audit import build_read_only_audit
+from app.auth import current_auth_scope
 from app.backups import (
     BackupArchiveCompareRequest,
     BackupArchiveCompareResponse,
@@ -188,22 +189,35 @@ class OperationActionPreviewRequest(BaseModel):
 class OperationActionExecuteRequest(BaseModel):
     preview_id: int = Field(gt=0)
     confirmation_phrase: str = Field(min_length=1, max_length=120)
+    step_up_token: str | None = Field(default=None, max_length=240)
 
 
 class OperationActionDirectExecuteRequest(BaseModel):
     action_id: str = Field(min_length=1, max_length=80)
     parameters: dict[str, Any] = Field(default_factory=dict)
+    step_up_token: str | None = Field(default=None, max_length=240)
+
+
+def get_moonraker_url(settings: Settings) -> str:
+    user_id, organization_ids = current_auth_scope()
+    if user_id is None:
+        return settings.moonraker_url
+    printers = PrinterRepository(settings.database_path, user_id=user_id, organization_ids=organization_ids).list_printers()
+    if not printers:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return printers[0].moonraker_url
 
 
 def get_moonraker_client(settings: Settings) -> MoonrakerClient:
     return MoonrakerClient(
-        base_url=settings.moonraker_url,
+        base_url=get_moonraker_url(settings),
         timeout_seconds=settings.request_timeout_seconds,
     )
 
 
 def get_printer_repository(settings: Settings) -> PrinterRepository:
-    return PrinterRepository(settings.database_path)
+    user_id, organization_ids = current_auth_scope()
+    return PrinterRepository(settings.database_path, user_id=user_id, organization_ids=organization_ids)
 
 
 def get_snapshot_repository(settings: Settings) -> SnapshotRepository:
@@ -239,7 +253,8 @@ def get_calibration_repository(settings: Settings) -> CalibrationRepository:
 
 
 def get_self_update_repository(settings: Settings) -> SelfUpdateRepository:
-    return SelfUpdateRepository(settings.database_path)
+    user_id, organization_ids = current_auth_scope()
+    return SelfUpdateRepository(settings.database_path, user_id=user_id, organization_ids=organization_ids)
 
 
 def get_update_alert_silence_repository(settings: Settings) -> UpdateAlertSilenceRepository:

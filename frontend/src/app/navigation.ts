@@ -1,4 +1,4 @@
-import { Activity, FileText, Home, Info, Network, Printer, RefreshCw, Scale, Settings, SlidersHorizontal, Wrench, Zap } from "lucide-react";
+import { Activity, FileText, Home, Info, Network, Printer, RefreshCw, Scale, Settings, SlidersHorizontal, UserRound, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
@@ -12,6 +12,7 @@ export type AppSection =
   | "maintenance"
   | "reports"
   | "settings"
+  | "account"
   | "about"
   | "license";
 
@@ -93,6 +94,13 @@ export const appSections: Array<{
     purpose: "Versão instalada, releases e updates do próprio Printora.",
   },
   {
+    key: "account",
+    icon: UserRound,
+    label: "Conta",
+    detail: "Cadastro, login, organizações opcionais e segurança.",
+    purpose: "Gerencie acesso cloud, 2FA, organizações e credenciais seguras de agente.",
+  },
+  {
     key: "about",
     icon: Info,
     label: "Sobre",
@@ -112,6 +120,7 @@ export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Principal", sections: ["overview", "printers", "setup"] },
   { title: "Impressora ativa", sections: ["monitoring", "updates", "tests", "firmware", "maintenance"] },
   { title: "Diagnóstico", sections: ["reports", "settings"] },
+  { title: "Cloud", sections: ["account"] },
 ];
 
 export const onlinePrinterSections = new Set<AppSection>([

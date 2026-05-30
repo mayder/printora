@@ -9,6 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.auth import scoped_where_clause
 from app.database import connect_database
 
 
@@ -159,6 +160,8 @@ class SetupSshRunRecord(BaseModel):
 @dataclass(frozen=True)
 class SetupSshRunRepository:
     database_path: Path
+    user_id: int | None = None
+    organization_ids: tuple[int, ...] = ()
 
     def create_preflight(self, target: SetupSshTarget, response: SetupSshPreflightResponse) -> int:
         return self._create_run(
@@ -192,15 +195,17 @@ class SetupSshRunRepository:
 
     def list_runs(self, limit: int = 20) -> list[SetupSshRunRecord]:
         with connect_database(self.database_path) as connection:
+            where_clause, params = _scope_sql("setup_ssh_runs", self.user_id, self.organization_ids)
             rows = connection.execute(
-                """
+                f"""
                 SELECT id, run_type, status, safe_mode, target_host, target_port, target_user,
                        auth_method, summary_json, plan_json, error_message, created_at
                 FROM setup_ssh_runs
+                {where_clause}
                 ORDER BY created_at DESC, id DESC
                 LIMIT ?
                 """,
-                (limit,),
+                (*params, limit),
             ).fetchall()
         return [_run_from_row(row) for row in rows]
 
@@ -220,9 +225,9 @@ class SetupSshRunRepository:
                 """
                 INSERT INTO setup_ssh_runs (
                     run_type, status, safe_mode, target_host, target_port, target_user,
-                    auth_method, summary_json, plan_json, error_message
+                    auth_method, summary_json, plan_json, error_message, owner_user_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run_type,
@@ -235,6 +240,7 @@ class SetupSshRunRepository:
                     json.dumps(summary, ensure_ascii=False),
                     json.dumps(plan, ensure_ascii=False) if plan is not None else None,
                     error,
+                    self.user_id,
                 ),
             )
             return int(cursor.lastrowid)
@@ -579,6 +585,12 @@ def _run_from_row(row) -> SetupSshRunRecord:
         error_message=row["error_message"],
         created_at=row["created_at"],
     )
+
+
+def _scope_sql(table_alias: str, user_id: int | None, organization_ids: tuple[int, ...]) -> tuple[str, tuple[object, ...]]:
+    if user_id is None:
+        return "", ()
+    return scoped_where_clause(table_alias, user_id, organization_ids)
 
 
 def _parse_tool_status(section: str) -> dict[str, str]:

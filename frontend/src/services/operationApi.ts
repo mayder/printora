@@ -1,4 +1,12 @@
-import { apiResponse } from "./http";
+import { apiResponse, getStoredStepUpToken } from "./http";
+
+function withStepUp(body: unknown): unknown {
+  const stepUpToken = getStoredStepUpToken();
+  if (!stepUpToken || typeof body !== "object" || body === null || Array.isArray(body)) {
+    return body;
+  }
+  return { ...body, step_up_token: stepUpToken };
+}
 
 export const operationApi = {
   status: (printerId: number) => apiResponse(`/api/printers/${printerId}/operation/status`),
@@ -9,13 +17,13 @@ export const operationApi = {
     apiResponse(`/api/printers/${printerId}/operation/actions/preview`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(withStepUp(body)),
     }),
   preflight: (printerId: number, body: unknown) =>
     apiResponse(`/api/printers/${printerId}/operation/actions/preflight`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(withStepUp(body)),
     }),
   execute: (printerId: number, body: unknown) =>
     apiResponse(`/api/printers/${printerId}/operation/actions/execute`, {

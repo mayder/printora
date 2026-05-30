@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from fastapi import Depends
+
 from app.install_diagnostics import InstallationDiagnosticsResponse, build_installation_diagnostics
+from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
 
 router = APIRouter()
@@ -104,7 +107,7 @@ async def system_update_status() -> dict[str, object]:
 
 
 @router.post("/api/system/update/plan")
-async def system_update_plan(payload: UpdatePlanRequest) -> UpdatePlanResponse:
+async def system_update_plan(payload: UpdatePlanRequest, _current=Depends(require_current_user_when_configured)) -> UpdatePlanResponse:
     settings = get_settings()
     repository = get_self_update_repository(settings)
     try:
@@ -120,7 +123,7 @@ async def system_update_plan(payload: UpdatePlanRequest) -> UpdatePlanResponse:
 
 
 @router.get("/api/system/update/history")
-async def system_update_history(limit: int = 20) -> UpdateHistoryResponse:
+async def system_update_history(limit: int = 20, _current=Depends(require_current_user_when_configured)) -> UpdateHistoryResponse:
     settings = get_settings()
     repository = get_self_update_repository(settings)
     repository.reconcile_interrupted_updates(installed_version=installed_app_version())
@@ -128,7 +131,7 @@ async def system_update_history(limit: int = 20) -> UpdateHistoryResponse:
 
 
 @router.post("/api/system/update/reconcile")
-async def system_update_reconcile() -> UpdateReconcileResponse:
+async def system_update_reconcile(_current=Depends(require_current_user_when_configured)) -> UpdateReconcileResponse:
     settings = get_settings()
     repository = get_self_update_repository(settings)
     reconciled = repository.reconcile_interrupted_updates(
@@ -152,7 +155,7 @@ async def system_update_reconcile() -> UpdateReconcileResponse:
 
 
 @router.post("/api/system/update/apply")
-async def system_update_apply(payload: UpdateApplyRequest) -> UpdateApplyResponse:
+async def system_update_apply(payload: UpdateApplyRequest, _current=Depends(require_current_user_when_configured)) -> UpdateApplyResponse:
     settings = get_settings()
     repository = get_self_update_repository(settings)
     repository.reconcile_interrupted_updates(installed_version=installed_app_version())
@@ -185,7 +188,7 @@ async def system_update_apply(payload: UpdateApplyRequest) -> UpdateApplyRespons
 
 
 @router.post("/api/system/update/rollback")
-async def system_update_rollback(payload: UpdateRollbackRequest) -> UpdateRollbackResponse:
+async def system_update_rollback(payload: UpdateRollbackRequest, _current=Depends(require_current_user_when_configured)) -> UpdateRollbackResponse:
     settings = get_settings()
     repository = get_self_update_repository(settings)
     repository.reconcile_interrupted_updates(installed_version=installed_app_version())
@@ -209,7 +212,7 @@ async def system_update_rollback(payload: UpdateRollbackRequest) -> UpdateRollba
 
 
 @router.get("/api/system/update/runs/{run_id}")
-async def system_update_run(run_id: int) -> UpdateRunRecord:
+async def system_update_run(run_id: int, _current=Depends(require_current_user_when_configured)) -> UpdateRunRecord:
     settings = get_settings()
     repository = get_self_update_repository(settings)
     repository.reconcile_interrupted_updates(installed_version=installed_app_version())

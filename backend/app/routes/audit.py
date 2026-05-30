@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+from fastapi import Depends
+
+from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
 
 
 @router.get("/api/audit/read-only")
 async def read_only_audit() -> dict[str, Any]:
     settings = get_settings()
+    moonraker_url = get_moonraker_url(settings)
     client = get_moonraker_client(settings)
     try:
         printer_info, server_info, system_info, proc_stats = await _collect_status(client)
         update_status = await client.update_status()
     except httpx.HTTPError as exc:
-        return _build_unreachable_audit(settings.moonraker_url, exc)
+        return _build_unreachable_audit(moonraker_url, exc)
 
     audit = build_read_only_audit(
         printer_info=printer_info,
@@ -21,11 +25,11 @@ async def read_only_audit() -> dict[str, Any]:
         update_status=update_status,
         system_info=system_info,
         proc_stats=proc_stats,
-        source=settings.moonraker_url,
+        source=moonraker_url,
     )
     return {
         "connected": True,
-        "moonraker_url": settings.moonraker_url,
+        "moonraker_url": moonraker_url,
         **audit,
     }
 

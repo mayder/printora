@@ -25,6 +25,7 @@ class PrinterCreate(BaseModel):
     ssh_credential: str | None = Field(default=None, max_length=500)
     location: str | None = Field(default=None, max_length=120)
     notes: str | None = Field(default=None, max_length=500)
+    organization_id: int | None = Field(default=None, ge=1)
 
 
 class PrinterUpdate(BaseModel):
@@ -39,6 +40,7 @@ class PrinterUpdate(BaseModel):
     clear_ssh_credential: bool = False
     location: str | None = Field(default=None, max_length=120)
     notes: str | None = Field(default=None, max_length=500)
+    organization_id: int | None = Field(default=None, ge=1)
     is_active: bool | None = None
 
 
@@ -56,6 +58,8 @@ class PrinterRecord(BaseModel):
     ssh_credential_configured: bool = False
     location: str | None
     notes: str | None
+    owner_user_id: int | None = None
+    organization_id: int | None = None
     is_active: bool
     created_at: str
     updated_at: str
@@ -72,33 +76,43 @@ class PrinterSshAccess:
 @dataclass(frozen=True)
 class PrinterRepository:
     database_path: Path
+    user_id: int | None = None
+    organization_ids: tuple[int, ...] = ()
 
     def list_printers(self) -> list[PrinterRecord]:
         with connect_database(self.database_path) as connection:
+            where_clause, params = self._visibility_where("p")
             rows = connection.execute(
-                """
+                f"""
                 SELECT p.id, p.name, p.moonraker_url, p.host_audit_mode, p.host_audit_ssh_target,
-                       p.location, p.notes, p.is_active, p.created_at, p.updated_at,
+                       p.location, p.notes, p.owner_user_id, p.organization_id,
+                       p.is_active, p.created_at, p.updated_at,
                        s.ssh_host, s.ssh_port, s.ssh_username, s.credential_configured
                 FROM printers p
                 LEFT JOIN printer_ssh_access s ON s.printer_id = p.id
+                {where_clause}
                 ORDER BY p.is_active DESC, p.name ASC
-                """
+                """,
+                params,
             ).fetchall()
         return [_record_from_row(row) for row in rows]
 
     def get_printer(self, printer_id: int) -> PrinterRecord | None:
         with connect_database(self.database_path) as connection:
+            where_clause, visibility_params = self._visibility_where("p")
+            visibility_sql = where_clause.replace("WHERE", "AND", 1) if where_clause else ""
             row = connection.execute(
-                """
+                f"""
                 SELECT p.id, p.name, p.moonraker_url, p.host_audit_mode, p.host_audit_ssh_target,
-                       p.location, p.notes, p.is_active, p.created_at, p.updated_at,
+                       p.location, p.notes, p.owner_user_id, p.organization_id,
+                       p.is_active, p.created_at, p.updated_at,
                        s.ssh_host, s.ssh_port, s.ssh_username, s.credential_configured
                 FROM printers p
                 LEFT JOIN printer_ssh_access s ON s.printer_id = p.id
                 WHERE p.id = ?
+                {visibility_sql}
                 """,
-                (printer_id,),
+                (printer_id, *visibility_params),
             ).fetchone()
         return _record_from_row(row) if row else None
 
@@ -132,9 +146,10 @@ class PrinterRepository:
             cursor = connection.execute(
                 """
                 INSERT INTO printers (
-                    name, moonraker_url, host_audit_mode, host_audit_ssh_target, location, notes
+                    name, moonraker_url, host_audit_mode, host_audit_ssh_target,
+                    location, notes, owner_user_id, organization_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     payload.name.strip(),
@@ -143,6 +158,8 @@ class PrinterRepository:
                     payload.host_audit_ssh_target,
                     payload.location,
                     payload.notes,
+                    self.user_id,
+                    self._allowed_organization_id(payload.organization_id),
                 ),
             )
             printer_id = int(cursor.lastrowid)
@@ -177,6 +194,8 @@ class PrinterRepository:
             values["is_active"] = 1 if values["is_active"] else 0
         if "host_audit_ssh_target" in values and values["host_audit_ssh_target"] is not None:
             values["host_audit_ssh_target"] = values["host_audit_ssh_target"].strip() or None
+        if "organization_id" in values:
+            values["organization_id"] = self._allowed_organization_id(values["organization_id"])
 
         if values or ssh_values:
             with connect_database(self.database_path) as connection:
@@ -206,6 +225,35 @@ class PrinterRepository:
                             (ssh_target, printer_id),
                         )
         return self.get_printer(printer_id)
+
+    def _visibility_where(self, table_alias: str) -> tuple[str, tuple[object, ...]]:
+        if self.user_id is None:
+            return "", ()
+        params: list[object] = [self.user_id]
+        clauses = [f"{table_alias}.owner_user_id = ?"]
+        if self.organization_ids:
+            placeholders = ", ".join("?" for _ in self.organization_ids)
+            clauses.append(f"{table_alias}.organization_id IN ({placeholders})")
+            params.extend(self.organization_ids)
+        return "WHERE (" + " OR ".join(clauses) + ")", tuple(params)
+
+    def _allowed_organization_id(self, organization_id: int | None) -> int | None:
+        if organization_id is None:
+            return None
+        if self.user_id is None or organization_id in self.organization_ids:
+            return organization_id
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT 1
+                FROM auth_organization_members
+                WHERE organization_id = ? AND user_id = ?
+                """,
+                (organization_id, self.user_id),
+            ).fetchone()
+        if row is not None:
+            return organization_id
+        raise ValueError("organização não pertence ao usuário")
 
     def _upsert_ssh_access(self, connection, printer_id: int, payload: PrinterCreate | dict[str, object]) -> None:
         values = payload.model_dump(exclude_unset=True) if isinstance(payload, BaseModel) else payload
@@ -278,6 +326,8 @@ def _record_from_row(row) -> PrinterRecord:
         ssh_credential_configured=bool(row["credential_configured"]),
         location=row["location"],
         notes=row["notes"],
+        owner_user_id=row["owner_user_id"],
+        organization_id=row["organization_id"],
         is_active=bool(row["is_active"]),
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),

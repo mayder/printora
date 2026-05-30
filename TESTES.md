@@ -718,6 +718,29 @@ Critérios:
 - Confirmar que `latest_validation.status` está `ok` e `latest_validation.result` contém `ok`.
 - Confirmar que a resposta não inclui conteúdo de tabelas operacionais, payloads JSON do banco, segredos, tokens ou credenciais.
 
+### PKG-39 - Autenticação, Usuários E Organização
+
+- Validar que `backend/sql/026_auth_identity.sql` cria usuários, organizações, membros, sessões, desafios 2FA, step-up tokens e credenciais de agente de forma idempotente.
+- Validar cadastro com email e senha obrigatórios, e contatos opcionais sem bloquear criação.
+- Validar que senha não aparece em texto puro no banco, logs ou resposta de API.
+- Validar login com senha correta, rejeição de senha incorreta, logout e sessão expirada/inválida.
+- Validar que `GET /api/auth/me` retorna 401 sem bearer token e retorna o usuário autenticado com bearer válido.
+- Validar que usuário anônimo no frontend vê apenas login/cadastro, sem sidebar, seletor de impressora ou telas internas.
+- Validar que usuário sem organização continua válido para uso individual.
+- Validar criação de organização opcional e vínculo de membro por usuário `owner` ou `admin`.
+- Validar que impressora privada do usuário não aparece para outro usuário autenticado.
+- Validar que impressora vinculada à organização aparece para membro da organização.
+- Validar que outro usuário autenticado sem vínculo recebe lista vazia/404 em rotas por impressora e não recebe fallback do Moonraker global.
+- Validar que históricos de setup e update do próprio Printora são filtrados por usuário/organização.
+- Validar que usuário fora da organização não pode emitir credencial de agente vinculada a ela.
+- Validar setup, ativação, login e desativação de 2FA opcional.
+- Validar step-up auth para ação destrutiva: usuário com 2FA exige código; usuário sem 2FA exige senha.
+- Validar que step-up token é curto e de uso único.
+- Validar que credencial completa de agente é exibida apenas na criação e armazenada somente por hash.
+- Validar que operação destrutiva chamada com sessão autenticada exige `step_up_token`.
+- Testes automatizados focados: `cd backend && uv run pytest tests/test_auth.py tests/test_schema_versioning.py tests/test_update_self.py -q`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

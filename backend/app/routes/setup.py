@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from fastapi import Depends
+
 from app.routes.support import *
+from app.auth import current_auth_scope
+from app.routes.auth import require_current_user_when_configured
 from app.setup_can import (
     SetupCanApplyRequest,
     SetupCanApplyResponse,
@@ -52,27 +56,32 @@ from app.setup_wizard import (
     run_setup_ssh_preflight,
 )
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
 
 
 def get_setup_ssh_repository(settings: Settings) -> SetupSshRunRepository:
-    return SetupSshRunRepository(settings.database_path)
+    user_id, organization_ids = current_auth_scope()
+    return SetupSshRunRepository(settings.database_path, user_id=user_id, organization_ids=organization_ids)
 
 
 def get_setup_can_repository(settings: Settings) -> SetupCanRunRepository:
-    return SetupCanRunRepository(settings.database_path)
+    user_id, organization_ids = current_auth_scope()
+    return SetupCanRunRepository(settings.database_path, user_id=user_id, organization_ids=organization_ids)
 
 
 def get_setup_firmware_repository(settings: Settings) -> SetupFirmwareRunRepository:
-    return SetupFirmwareRunRepository(settings.database_path)
+    user_id, organization_ids = current_auth_scope()
+    return SetupFirmwareRunRepository(settings.database_path, user_id=user_id, organization_ids=organization_ids)
 
 
 def get_setup_flash_repository(settings: Settings) -> SetupFlashRunRepository:
-    return SetupFlashRunRepository(settings.database_path)
+    user_id, organization_ids = current_auth_scope()
+    return SetupFlashRunRepository(settings.database_path, user_id=user_id, organization_ids=organization_ids)
 
 
 def get_setup_final_validation_repository(settings: Settings) -> SetupFinalValidationRepository:
-    return SetupFinalValidationRepository(settings.database_path)
+    user_id, organization_ids = current_auth_scope()
+    return SetupFinalValidationRepository(settings.database_path, user_id=user_id, organization_ids=organization_ids)
 
 
 @router.post("/api/setup/ssh/preflight")

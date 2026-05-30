@@ -1,26 +1,30 @@
 from __future__ import annotations
 
+from fastapi import Depends
+
+from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
 
 
 @router.get("/api/moonraker/status")
 async def moonraker_status() -> dict[str, Any]:
     settings = get_settings()
+    moonraker_url = get_moonraker_url(settings)
     client = get_moonraker_client(settings)
     try:
         printer_info, server_info, system_info, proc_stats = await _collect_status(client)
     except httpx.HTTPError as exc:
         return {
             "connected": False,
-            "moonraker_url": settings.moonraker_url,
+            "moonraker_url": moonraker_url,
             "error": str(exc),
         }
 
     return {
         "connected": True,
-        "moonraker_url": settings.moonraker_url,
+        "moonraker_url": moonraker_url,
         "printer": printer_info,
         "server": server_info,
         "system": system_info,

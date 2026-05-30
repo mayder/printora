@@ -349,6 +349,41 @@ SQL:
 - `backend/sql/025_setup_final_validation_runs.sql` cria histórico local da validação e relatório sanitizado;
 - rollback de schema: restaurar backup `printora.<timestamp>.before-schema.db` criado pelo versionador antes de aplicar scripts pendentes.
 
+## Autenticação Cloud E Conta
+
+O desenvolvimento inicial do PKG-39 usa SQLite. A modelagem deve permanecer simples e portátil para migração futura para Postgres quando a operação cloud exigir.
+
+Fluxos:
+
+- cadastro: `POST /api/auth/register` com `email` e `password` obrigatórios; `display_name`, `whatsapp`, `telegram` e `social_links` opcionais;
+- login: `POST /api/auth/login`;
+- login com 2FA: quando `mfa_required=true`, chamar `POST /api/auth/login/mfa` com `challenge_token` e código;
+- sessão atual: `GET /api/auth/me` com `Authorization: Bearer <token>`;
+- logout: `POST /api/auth/logout`;
+- organização opcional: `POST /api/auth/organizations` e `POST /api/auth/organizations/{id}/members`;
+- impressoras: cada registro tem dono e pode ter organização opcional; a API lista apenas impressoras do usuário autenticado ou de organizações das quais ele participa;
+- rotas por impressora: antes de ler health, snapshots, operação, manutenção, backup, update, firmware, CAN, calibração, relatórios ou auditoria, a API valida a impressora no escopo do usuário/organização;
+- rotas legadas sem `printer_id`: em sessão cloud usam uma impressora visível do usuário; se o usuário não tiver impressora visível, retornam 404 em vez de usar o Moonraker global;
+- históricos operacionais: `setup_*_runs` e `app_update_runs` possuem owner e organização opcional para evitar vazamento entre usuários;
+- 2FA: `POST /api/auth/mfa/setup`, `POST /api/auth/mfa/enable` e `POST /api/auth/mfa/disable`;
+- step-up auth: `POST /api/auth/step-up` antes de ações destrutivas quando houver sessão autenticada;
+- credencial de agente: `POST /api/auth/agent-credentials`, retornada completa somente uma vez.
+
+Segurança:
+
+- senhas usam PBKDF2 e nunca são retornadas;
+- tokens de sessão, desafios 2FA, step-up tokens e credenciais de agente são persistidos por hash;
+- segredo TOTP é protegido por chave local `auth_secrets.key`, fora do Git;
+- credencial de agente completa não aparece na listagem, somente prefixo/status;
+- operações da tela Operação chamadas com sessão autenticada exigem step-up token para envio de G-code.
+- endpoints operacionais exigem sessão quando já existe ao menos um usuário ativo no banco; bancos locais sem usuários preservam o modo local de desenvolvimento.
+
+Rollback:
+
+- para remover a camada de autenticação, reverter os arquivos do PKG-39;
+- se os scripts `026_auth_identity.sql`, `027_printer_ownership.sql` ou `028_operational_ownership.sql` já tiverem sido aplicados e precisar desfazer o schema, restaurar o backup `printora.<timestamp>.before-schema.db` criado pelo versionador antes da aplicação;
+- não apagar tabelas ou dados manualmente sem confirmação explícita.
+
 Regras operacionais:
 
 - os scripts executam apenas leitura HTTP do dominio `canbus.esoterical.online` e leitura/escrita local dos JSONs quando `--write` for informado;

@@ -13,6 +13,45 @@ export async function readApiError(response: Response): Promise<string> {
   return `Erro ${response.status}`;
 }
 
+const AUTH_TOKEN_KEY = "printora.authToken";
+const STEP_UP_TOKEN_KEY = "printora.stepUpToken";
+
+export function getStoredAuthToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return window.localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+export function storeAuthToken(token: string | null): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (token) {
+    window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+  } else {
+    window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+}
+
+export function getStoredStepUpToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return window.localStorage.getItem(STEP_UP_TOKEN_KEY);
+}
+
+export function storeStepUpToken(token: string | null): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (token) {
+    window.localStorage.setItem(STEP_UP_TOKEN_KEY, token);
+  } else {
+    window.localStorage.removeItem(STEP_UP_TOKEN_KEY);
+  }
+}
+
 function apiInput(input: RequestInfo | URL): RequestInfo | URL {
   if (typeof input !== "string" || !input.startsWith("/")) {
     return input;
@@ -32,8 +71,20 @@ function apiInput(input: RequestInfo | URL): RequestInfo | URL {
   return input;
 }
 
+function apiInit(init?: RequestInit): RequestInit | undefined {
+  const token = getStoredAuthToken();
+  if (!token) {
+    return init;
+  }
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  return { ...init, headers };
+}
+
 export async function apiRequest<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
-  const response = await fetch(apiInput(input), init);
+  const response = await fetch(apiInput(input), apiInit(init));
   if (!response.ok) {
     throw new Error(await readApiError(response));
   }
@@ -41,7 +92,7 @@ export async function apiRequest<T>(input: RequestInfo | URL, init?: RequestInit
 }
 
 export async function apiOptional<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T | null> {
-  const response = await fetch(apiInput(input), init);
+  const response = await fetch(apiInput(input), apiInit(init));
   if (!response.ok) {
     return null;
   }
@@ -49,5 +100,5 @@ export async function apiOptional<T>(input: RequestInfo | URL, init?: RequestIni
 }
 
 export async function apiResponse(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  return fetch(apiInput(input), init);
+  return fetch(apiInput(input), apiInit(init));
 }

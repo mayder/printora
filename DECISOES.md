@@ -223,3 +223,16 @@ Impacto em testes: testes backend cobrem aprovação, bloqueio por UUID ausente,
 Impacto em rollback: baixo; remover endpoints `/api/setup/final-validation/*`, módulo `setup_final_validation`, SQL `025_setup_final_validation_runs.sql` e seção Validação final da UI.
 Como reverter: reverter o commit do PKG-38 e restaurar banco a partir do backup de schema se o script `025_setup_final_validation_runs.sql` ainda não puder permanecer.
 Referencias: `backend/app/setup_final_validation.py`, `backend/app/routes/setup.py`, `backend/sql/025_setup_final_validation_runs.sql`, `frontend/src/screens/SetupScreen.tsx`, `RUNBOOK.md`, `TESTES.md`.
+
+### DEC-20260530-06 - Autenticação cloud começa em SQLite com organização opcional
+
+Status: aceita
+Data: 2026-05-30
+Contexto: o Printora local não exige login, mas a evolução cloud precisa de usuário, sessão, permissões, compartilhamento opcional e base segura para agente remoto. A migração imediata para Postgres aumentaria o custo antes da validação do fluxo.
+Decisao: implementar o PKG-39 primeiro em SQLite, com repositório concentrado e SQL simples, evitando dependências desnecessárias de SQLite para facilitar migração futura para Postgres. O modelo é usuário-first: email e senha obrigatórios, contatos opcionais, organização opcional para compartilhamento e papéis mínimos `owner`, `admin` e `operator`.
+Alternativas consideradas: migrar já para Postgres; tornar organização obrigatória; manter somente usuário individual sem compartilhamento; deixar 2FA para pacote futuro.
+Consequencias: o app local continua funcionando sem login obrigatório, enquanto a área `Conta` entrega cadastro/login, organizações, 2FA, step-up auth e credenciais de agente para o caminho cloud. Rotas operacionais passam a validar sessão quando há usuários cadastrados, rotas por impressora usam o escopo usuário/organização e históricos de setup/update passam a ter owner. A migração futura para Postgres ainda exigirá trabalho de adaptação e validação, mas fica menos arriscada.
+Impacto em testes: `backend/tests/test_auth.py` cobre schema, cadastro/login, organização opcional, 2FA, step-up, credencial de agente, bloqueio anônimo de `/api/auth/me`, isolamento por impressora e isolamento de histórico operacional.
+Impacto em rollback: médio; remover a camada exige reverter rotas, UI, SQL `026_auth_identity.sql`, `027_printer_ownership.sql`, `028_operational_ownership.sql` e restaurar backup do banco se o schema aplicado não puder permanecer.
+Como reverter: reverter arquivos do PKG-39 e restaurar `printora.<timestamp>.before-schema.db` quando for necessário desfazer o schema aplicado.
+Referencias: `backend/app/auth.py`, `backend/app/routes/auth.py`, `backend/sql/026_auth_identity.sql`, `backend/sql/027_printer_ownership.sql`, `backend/sql/028_operational_ownership.sql`, `frontend/src/screens/AuthScreen.tsx`, `frontend/src/hooks/domains/useAuth.ts`.

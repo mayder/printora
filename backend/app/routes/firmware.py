@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from fastapi import Depends
+
+from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
 from app.firmware_catalog import FirmwareCatalogSummary, firmware_catalog_summary
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
 
 
 @router.get("/api/firmware/board-presets")

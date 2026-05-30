@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 from app.routes.support import *
+from fastapi import Depends, Header
 
-router = APIRouter()
+from app.auth import AuthRepository
+from app.routes.auth import require_current_user_when_configured
+from app.routes.auth import require_current_user
+
+router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
 
 
 @router.get("/api/printers/{printer_id}/operation/status")
@@ -144,6 +149,7 @@ async def preflight_printer_operation_action(printer_id: int, payload: Operation
 async def execute_printer_operation_action(
     printer_id: int,
     payload: OperationActionExecuteRequest,
+    authorization: str | None = Header(default=None),
 ) -> OperationActionExecutionAttemptRecord:
     settings = get_settings()
     repository = get_printer_repository(settings)
@@ -154,6 +160,7 @@ async def execute_printer_operation_action(
     preview = history_repository.get_preview(payload.preview_id)
     if preview is None or preview.printer_id != printer.id:
         raise HTTPException(status_code=404, detail="preview not found")
+    _require_step_up_when_authenticated(settings, authorization, payload.step_up_token)
     client = MoonrakerClient(
         base_url=printer.moonraker_url,
         timeout_seconds=settings.request_timeout_seconds,
@@ -172,12 +179,14 @@ async def execute_printer_operation_action(
 async def execute_direct_printer_operation_action(
     printer_id: int,
     payload: OperationActionDirectExecuteRequest,
+    authorization: str | None = Header(default=None),
 ) -> OperationActionExecutionAttemptRecord:
     settings = get_settings()
     repository = get_printer_repository(settings)
     printer = repository.get_printer(printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
+    _require_step_up_when_authenticated(settings, authorization, payload.step_up_token)
     client = MoonrakerClient(
         base_url=printer.moonraker_url,
         timeout_seconds=settings.request_timeout_seconds,
@@ -196,6 +205,15 @@ async def execute_direct_printer_operation_action(
         confirmation_phrase=str(preview.get("confirmation_phrase") or ""),
         timeout_seconds=settings.request_timeout_seconds,
     )
+
+
+def _require_step_up_when_authenticated(settings, authorization: str | None, step_up_token: str | None) -> None:
+    if not authorization:
+        return
+    repository = AuthRepository(settings.database_path)
+    current = require_current_user(authorization=authorization, repository=repository)
+    if not step_up_token or not repository.consume_step_up(current.user.id, step_up_token, "destructive_action"):
+        raise HTTPException(status_code=403, detail="autenticação reforçada obrigatória para ação crítica")
 
 
 async def _build_live_operation_action_preview(client: MoonrakerClient, action_id: str, parameters: dict[str, Any]) -> dict[str, Any]:

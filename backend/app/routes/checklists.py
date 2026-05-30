@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from fastapi import Depends
+
+from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
 
 
 @router.get("/api/checklist/post-update")
 async def post_update_checklist() -> dict[str, Any]:
     settings = get_settings()
+    moonraker_url = get_moonraker_url(settings)
     client = get_moonraker_client(settings)
     try:
         printer_info = await client.printer_info()
@@ -16,14 +20,14 @@ async def post_update_checklist() -> dict[str, Any]:
     except httpx.HTTPError as exc:
         return build_unavailable_post_update_checklist(
             data_state="offline",
-            source=settings.moonraker_url,
+            source=moonraker_url,
             error=str(exc),
         )
     return build_post_update_checklist(
         printer_info,
         server_info,
         update_status,
-        source=settings.moonraker_url,
+        source=moonraker_url,
     )
 
 

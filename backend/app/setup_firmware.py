@@ -12,6 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.auth import scoped_where_clause
 from app.database import connect_database
 from app.firmware.config_generator import generate_firmware_config_preview
 from app.firmware.presets import BOARD_PRESETS
@@ -122,6 +123,8 @@ class SetupFirmwareRunRecord(BaseModel):
 @dataclass(frozen=True)
 class SetupFirmwareRunRepository:
     database_path: Path
+    user_id: int | None = None
+    organization_ids: tuple[int, ...] = ()
 
     def create_plan(self, request: SetupFirmwareRequest, response: SetupFirmwarePlanResponse) -> int:
         return self._create_run(
@@ -161,17 +164,19 @@ class SetupFirmwareRunRepository:
 
     def list_runs(self, limit: int = 20) -> list[SetupFirmwareRunRecord]:
         with connect_database(self.database_path) as connection:
+            where_clause, params = _scope_sql("setup_firmware_runs", self.user_id, self.organization_ids)
             rows = connection.execute(
-                """
+                f"""
                 SELECT id, run_type, status, safe_mode, target_host, target_port, target_user,
                        board_name, board_role, preset_id, can_interface, config_path, artifact_dir,
                        binary_path, config_sha256, binary_sha256, uuid_query_json, summary_json,
                        plan_json, command_log, error_message, created_at
                 FROM setup_firmware_runs
+                {where_clause}
                 ORDER BY created_at DESC, id DESC
                 LIMIT ?
                 """,
-                (limit,),
+                (*params, limit),
             ).fetchall()
         return [_run_from_row(row) for row in rows]
 
@@ -201,9 +206,9 @@ class SetupFirmwareRunRepository:
                     run_type, status, safe_mode, target_host, target_port, target_user,
                     board_name, board_role, preset_id, can_interface, config_path, artifact_dir,
                     binary_path, config_sha256, binary_sha256, uuid_query_json, summary_json,
-                    plan_json, command_log, error_message
+                    plan_json, command_log, error_message, owner_user_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run_type,
@@ -226,6 +231,7 @@ class SetupFirmwareRunRepository:
                     json.dumps(plan, ensure_ascii=False) if plan is not None else None,
                     command_log,
                     error,
+                    self.user_id,
                 ),
             )
             return int(cursor.lastrowid)
@@ -504,6 +510,12 @@ def _run_from_row(row) -> SetupFirmwareRunRecord:
         error_message=row["error_message"],
         created_at=row["created_at"],
     )
+
+
+def _scope_sql(table_alias: str, user_id: int | None, organization_ids: tuple[int, ...]) -> tuple[str, tuple[object, ...]]:
+    if user_id is None:
+        return "", ()
+    return scoped_where_clause(table_alias, user_id, organization_ids)
 
 
 def _preset(preset_id: str):

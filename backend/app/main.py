@@ -5,9 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
+from app.auth import AuthRepository, set_current_auth_context
 from app.database import initialize_database
 from app.routes import (
     audit,
+    auth,
     backups,
     calibration,
     can_monitor,
@@ -45,6 +47,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def auth_context_middleware(request, call_next):
+    set_current_auth_context(None)
+    authorization = request.headers.get("authorization")
+    if authorization:
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() == "bearer" and token:
+            user = AuthRepository(get_settings().database_path).get_user_by_session(token.strip())
+            set_current_auth_context(user)
+    return await call_next(request)
+
 _frontend_dist_dir = get_settings().frontend_dist_dir
 _frontend_assets_dir = _frontend_dist_dir / "assets"
 _frontend_brand_dir = _frontend_dist_dir / "brand"
@@ -54,6 +68,7 @@ if _frontend_brand_dir.is_dir():
     app.mount("/brand", StaticFiles(directory=_frontend_brand_dir), name="frontend-brand")
 
 app.include_router(audit.router)
+app.include_router(auth.router)
 app.include_router(backups.router)
 app.include_router(calibration.router)
 app.include_router(can_monitor.router)

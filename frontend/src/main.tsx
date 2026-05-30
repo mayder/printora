@@ -13,6 +13,7 @@ import { FirmwareScreen } from "./screens/FirmwareScreen";
 import { MaintenanceScreen } from "./screens/MaintenanceScreen";
 import { ReportsScreen } from "./screens/ReportsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { AuthScreen } from "./screens/AuthScreen";
 import { AboutScreen } from "./screens/AboutScreen";
 import { LicenseScreen } from "./screens/LicenseScreen";
 import { usePrintoraApp } from "./hooks/usePrintoraApp";
@@ -25,6 +26,7 @@ import "./styles/modals.css";
 import "./styles/backups.css";
 import "./styles/maintenance.css";
 import "./styles/settings.css";
+import "./styles/auth.css";
 import "./styles/setup.css";
 import "./styles/firmware.css";
 import "./styles/calibration.css";
@@ -81,6 +83,8 @@ function App() {
         return <ReportsScreen {...screenProps} />;
       case "settings":
         return <SettingsScreen {...screenProps} />;
+      case "account":
+        return <AuthScreen {...screenProps} />;
       case "about":
         return <AboutScreen {...screenProps} />;
       case "license":
@@ -89,6 +93,25 @@ function App() {
         return <OverviewScreen {...screenProps} />;
     }
   })();
+
+  if (!screenProps.authUser) {
+    return (
+      <main className="auth-only-shell">
+        <section className="auth-only-brand">
+          <img src="/brand/printora-icon-app-color.png" alt="" />
+          <div>
+            <strong>Printora</strong>
+            <span>Klipper Ops</span>
+          </div>
+        </section>
+        {error ? <section className="alert danger">{error}</section> : null}
+        <section className="auth-only-content">
+          <AuthScreen {...screenProps} />
+        </section>
+        <ToastViewport toasts={toasts} dismissToast={dismissToast} />
+      </main>
+    );
+  }
 
   return (
     <main className="app-shell">
@@ -218,6 +241,8 @@ function App() {
           <span>
             {activeSection === "settings"
               ? "Configuração global do Printora"
+              : activeSection === "account"
+                ? "Identidade, segurança e compartilhamento cloud"
               : activeSection === "setup"
                 ? "Provisionamento começa somente depois que Linux e SSH estão ativos"
               : activeSection === "about"

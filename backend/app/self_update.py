@@ -8,6 +8,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from app.auth import scoped_where_clause
+
 
 UpdateEnvironment = Literal["android_termux", "unix", "windows", "unknown"]
 UpdateRunStatus = Literal["planned", "running", "succeeded", "failed", "rolled_back"]
@@ -97,8 +99,10 @@ class UpdateRollbackResponse(BaseModel):
 
 
 class SelfUpdateRepository:
-    def __init__(self, database_path: Path) -> None:
+    def __init__(self, database_path: Path, user_id: int | None = None, organization_ids: tuple[int, ...] = ()) -> None:
         self.database_path = database_path
+        self.user_id = user_id
+        self.organization_ids = organization_ids
 
     def create_plan(
         self,
@@ -114,11 +118,11 @@ class SelfUpdateRepository:
             cursor = connection.execute(
                 """
                 INSERT INTO app_update_runs (
-                    target_version, target_tag, source_url, environment, status, current_project_path
+                    target_version, target_tag, source_url, environment, status, current_project_path, owner_user_id
                 )
-                VALUES (?, ?, ?, ?, 'planned', ?)
+                VALUES (?, ?, ?, ?, 'planned', ?, ?)
                 """,
-                (target_version, target_tag, source_url, environment, current_project_path),
+                (target_version, target_tag, source_url, environment, current_project_path, self.user_id),
             )
             run_id = int(cursor.lastrowid)
             connection.executemany(
@@ -149,11 +153,11 @@ class SelfUpdateRepository:
             cursor = connection.execute(
                 f"""
                 INSERT INTO app_update_runs (
-                    target_version, target_tag, source_url, environment, status, started_at, current_project_path
+                    target_version, target_tag, source_url, environment, status, started_at, current_project_path, owner_user_id
                 )
-                VALUES (?, ?, ?, ?, ?, {started_at}, ?)
+                VALUES (?, ?, ?, ?, ?, {started_at}, ?, ?)
                 """,
-                (target_version, target_tag, source_url, environment, status, current_project_path),
+                (target_version, target_tag, source_url, environment, status, current_project_path, self.user_id),
             )
             run_id = int(cursor.lastrowid)
             connection.executemany(
@@ -173,8 +177,10 @@ class SelfUpdateRepository:
 
     def count_running_updates(self) -> int:
         with self._connect() as connection:
+            scope_sql, params = self._scope_sql("app_update_runs", prefix="AND")
             row = connection.execute(
-                "SELECT COUNT(*) FROM app_update_runs WHERE status = 'running'"
+                f"SELECT COUNT(*) FROM app_update_runs WHERE status = 'running' {scope_sql}",
+                params,
             ).fetchone()
         return int(row[0])
 
@@ -183,15 +189,17 @@ class SelfUpdateRepository:
         stale_interval = f"-{max(1, stale_after_minutes)} minutes"
         reconciled = 0
         with self._connect() as connection:
+            scope_sql, params = self._scope_sql("app_update_runs", prefix="AND")
             rows = connection.execute(
-                """
+                f"""
                 SELECT *,
                     COALESCE(started_at, created_at) <= datetime('now', ?) AS is_stale
                 FROM app_update_runs
                 WHERE status = 'running'
+                {scope_sql}
                 ORDER BY created_at, id
                 """,
-                (stale_interval,),
+                (stale_interval, *params),
             ).fetchall()
             for row in rows:
                 target_matches = clean_installed_version in {
@@ -299,14 +307,16 @@ class SelfUpdateRepository:
     def list_runs(self, limit: int = 20) -> list[UpdateRunRecord]:
         clean_limit = max(1, min(limit, 100))
         with self._connect() as connection:
+            where_clause, params = self._scope_sql("app_update_runs", prefix="WHERE")
             rows = connection.execute(
-                """
+                f"""
                 SELECT *
                 FROM app_update_runs
+                {where_clause}
                 ORDER BY created_at DESC, id DESC
                 LIMIT ?
                 """,
-                (clean_limit,),
+                (*params, clean_limit),
             ).fetchall()
             runs = [_run_from_row(row) for row in rows]
             steps_by_run = self._steps_by_run(connection, [run.id for run in runs])
@@ -314,9 +324,10 @@ class SelfUpdateRepository:
 
     def get_run(self, run_id: int) -> UpdateRunRecord | None:
         with self._connect() as connection:
+            scope_sql, params = self._scope_sql("app_update_runs", prefix="AND")
             row = connection.execute(
-                "SELECT * FROM app_update_runs WHERE id = ?",
-                (run_id,),
+                f"SELECT * FROM app_update_runs WHERE id = ? {scope_sql}",
+                (run_id, *params),
             ).fetchone()
             if row is None:
                 return None
@@ -352,6 +363,14 @@ class SelfUpdateRepository:
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
         return connection
+
+    def _scope_sql(self, table_alias: str, *, prefix: str) -> tuple[str, tuple[object, ...]]:
+        if self.user_id is None:
+            return "", ()
+        where_clause, params = scoped_where_clause(table_alias, self.user_id, self.organization_ids)
+        if prefix == "AND":
+            return where_clause.replace("WHERE", "AND", 1), params
+        return where_clause, params
 
 
 def build_update_plan(

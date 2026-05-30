@@ -2621,46 +2621,83 @@ Estado atual:
 
 Objetivo:
 
-Criar a base de autenticação e isolamento para o Printora publicado em nuvem ou servidor dedicado, garantindo que cada usuário acesse apenas sua própria organização, impressoras, agentes, histórico e operações.
+Criar a base de autenticação, identidade e isolamento para o Printora publicado em nuvem ou servidor dedicado, garantindo que cada usuário acesse apenas suas próprias impressoras ou as impressoras de organizações às quais foi vinculado.
 
 Contexto inicial:
 
 - o Printora nasceu como ferramenta local, sem necessidade de login obrigatório;
-- a operação remota exige autenticação, ownership, tenant e permissões antes de expor agentes conectados pela internet;
+- a operação remota exige autenticação, ownership, tenant opcional e permissões antes de expor agentes conectados pela internet;
+- o modelo principal deve ser usuário-first: email e senha são os únicos campos obrigatórios no cadastro inicial;
+- organização deve existir como recurso opcional para compartilhamento: um usuário pode operar sozinho ou criar uma organização e convidar/vincular outros usuários;
+- o desenvolvimento inicial deve usar SQLite para acelerar entrega e validação local;
+- a modelagem e a camada de persistência devem evitar dependências desnecessárias de SQLite para permitir migração futura para Postgres quando a operação cloud exigir;
 - este pacote deve ser entregue antes de cadastro cloud de impressoras, pareamento de agente ou comandos remotos.
 
 Entregáveis:
 
-- modelo de usuário, organização e vínculo usuário-organização;
+- base técnica inicial em SQLite, com SQL idempotente e contratos preparados para migração futura para Postgres;
+- modelo de usuário com email e senha obrigatórios, e contatos opcionais como WhatsApp, Telegram e outras redes sociais;
+- modelo de organização opcional e vínculo usuário-organização;
 - login, logout e sessão/JWT com expiração;
 - senha armazenada com hash forte, sem segredo em texto puro;
 - usuário administrador inicial por bootstrap seguro;
 - middleware/dependência de autenticação nos endpoints cloud;
-- isolamento por organização nas consultas e respostas;
-- política mínima de papéis: proprietário/admin e operador;
+- isolamento por usuário e por organização nas consultas e respostas;
+- política mínima de papéis: proprietário/admin e operador, aplicável a organização quando existir;
+- autenticação de dois fatores opcional por usuário;
+- exigência de autenticação reforçada/step-up para ações destrutivas ou críticas na impressora;
+- comunicação segura entre servidor cloud e agente, sem credencial permanente exposta ao usuário;
 - UI de login e estado autenticado;
+- UI de cadastro com email e senha obrigatórios e contatos opcionais;
+- UI/estado para habilitar, desabilitar e validar 2FA opcional;
+- fluxo de desafio adicional antes de operações destrutivas quando configurado ou exigido pela ação;
 - documentação em `RUNBOOK.md`, `TESTES.md`, `TELAS.md` e decisão em `DECISOES.md` se houver escolha de mecanismo de sessão/token.
 
 Lotes:
 
-1. Modelo de usuário/organização e SQL idempotente.
-2. Serviço de autenticação, hash de senha e emissão de sessão/JWT.
-3. Middleware de autenticação e isolamento por organização.
-4. Bootstrap seguro do primeiro administrador.
-5. UI de login/logout e sessão expirada.
-6. Testes de contrato, permissão e isolamento.
+1. Decisão de persistência inicial em SQLite e diretrizes de portabilidade futura para Postgres.
+2. Modelo de usuário, contatos opcionais, organização opcional e SQL idempotente.
+3. Serviço de autenticação, hash de senha e emissão de sessão/JWT.
+4. Middleware de autenticação e isolamento por usuário/organização.
+5. Bootstrap seguro do primeiro administrador.
+6. Autenticação de dois fatores opcional e step-up auth para ações destrutivas.
+7. UI de cadastro, login/logout, sessão expirada e estado autenticado.
+8. Testes de contrato, permissão, isolamento, 2FA e step-up auth.
 
 Critério de aceite:
 
 - usuário não autenticado não acessa rotas cloud protegidas;
-- usuário autenticado só enxerga dados da própria organização;
+- usuário autenticado só enxerga seus próprios dados ou dados de organizações às quais pertence;
+- organização não é obrigatória para uso individual;
+- email e senha são os únicos campos obrigatórios no cadastro;
+- contatos como WhatsApp, Telegram e redes sociais são opcionais e não bloqueiam cadastro;
+- persistência inicial funciona em SQLite sem exigir Postgres para desenvolvimento;
+- decisões de schema, tipos e repositórios não bloqueiam migração futura para Postgres;
 - senha, token e segredo não aparecem em logs, banco em texto puro, resposta de API ou Git;
 - sessão expirada falha com erro acionável e seguro;
+- 2FA pode ser habilitado por usuário e exigido como step-up em operações destrutivas;
+- operações destrutivas protegidas não executam apenas com sessão simples quando a política exigir autenticação reforçada;
+- comunicação agente-servidor usa credencial segura, revogável e não exposta novamente ao usuário;
 - `./check.sh` passa no fechamento do pacote.
 
 Estado atual:
 
-- Planejado.
+- Implementado localmente.
+- Desenvolvimento inicial usa SQLite com script idempotente `backend/sql/026_auth_identity.sql`.
+- Isolamento operacional complementado por `backend/sql/027_printer_ownership.sql` e `backend/sql/028_operational_ownership.sql`.
+- Backend expõe cadastro, login, logout, sessão bearer, `/api/auth/me`, organizações opcionais, vínculo de membros, setup/enable/disable de 2FA, step-up auth e credenciais de agente.
+- Email e senha são obrigatórios no cadastro; nome, WhatsApp, Telegram e redes sociais são opcionais.
+- Organização é opcional: usuário pode operar individualmente ou criar organização para compartilhar acesso.
+- Impressoras possuem dono e organização opcional; usuário só lista/acessa impressoras próprias ou compartilhadas por organização.
+- Rotas operacionais protegidas validam sessão quando houver usuários cadastrados; histórico de setup e update do Printora também fica vinculado ao usuário/organização.
+- Endpoints legados sem `printer_id` não caem mais no Moonraker global quando há sessão cloud; usam impressora visível do usuário ou retornam 404.
+- Senhas usam hash PBKDF2; tokens, desafios, step-up e credenciais de agente são persistidos por hash.
+- Segredo 2FA é protegido localmente e credencial completa do agente é retornada apenas na criação.
+- Operações destrutivas da tela Operação passam a exigir step-up quando chamadas com sessão autenticada, preservando o modo local sem login obrigatório.
+- Usuário anônimo não vê shell, menu, impressoras ou telas internas; vê apenas login/cadastro.
+- UI `Conta` permite cadastro/login, sessão autenticada, organizações, membros, 2FA, step-up e credenciais de agente.
+- Testes focados: `cd backend && uv run pytest tests/test_auth.py -q`.
+- Build frontend: `npm --prefix frontend run build`.
 
 ## PKG-40: Gestão Cloud De Impressoras
 

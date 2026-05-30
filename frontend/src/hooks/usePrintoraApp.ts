@@ -16,6 +16,7 @@ import {
   History,
   Hourglass,
   Info,
+  KeyRound,
   Menu,
   Moon,
   Play,
@@ -34,6 +35,7 @@ import {
   Timer,
   Trash2,
   Undo2,
+  UserRound,
   Wrench,
   X,
   Zap,
@@ -42,6 +44,7 @@ import { buildAlertCenterItems, type HealthResponse } from "../alertCenter";
 import * as formatters from "../utils/formatters";
 import * as selfUpdateHelpers from "../selfUpdate";
 import { useAppShell } from "./domains/useAppShell";
+import { useAuth } from "./domains/useAuth";
 import { useCalibration } from "./domains/useCalibration";
 import { useFirmware } from "./domains/useFirmware";
 import { useMaintenance } from "./domains/useMaintenance";
@@ -72,6 +75,7 @@ const icons = {
   History,
   Hourglass,
   Info,
+  KeyRound,
   Menu,
   Moon,
   Play,
@@ -90,6 +94,7 @@ const icons = {
   Timer,
   Trash2,
   Undo2,
+  UserRound,
   Wrench,
   X,
   Zap,
@@ -205,6 +210,7 @@ export function usePrintoraApp() {
     setLoading,
     setStatus: (value) => settings.setStatus(value),
   });
+  const auth = useAuth({ setError, setLoading });
 
   settings = useSettings({ selectedPrinterId: printers.selectedPrinterId, setError, setLoading });
   const printerAvailability = getPrinterAvailability(printers.selectedPrinterId, settings.health);
@@ -245,6 +251,10 @@ export function usePrintoraApp() {
     setLoading(true);
     setError(null);
     try {
+      const user = await auth.loadAuth();
+      if (!user) {
+        return;
+      }
       const catalogSummaryLoad = firmware.loadFirmwareCatalogSummary();
       await Promise.allSettled([firmware.loadBoardPresets(), printers.loadPrinters()]);
       await catalogSummaryLoad;
@@ -263,15 +273,21 @@ export function usePrintoraApp() {
   }, []);
 
   React.useEffect(() => {
+    if (!auth.authUser) {
+      return;
+    }
     if (!printers.selectedPrinterId || shell.activeSection !== "tests") {
       return;
     }
     void calibration.loadCalibrationTests(printers.selectedPrinterId);
     void calibration.loadCalibrationRuns(printers.selectedPrinterId);
     void calibration.loadZOffsets(printers.selectedPrinterId);
-  }, [shell.activeSection, printers.selectedPrinterId]);
+  }, [auth.authUser, shell.activeSection, printers.selectedPrinterId]);
 
   React.useEffect(() => {
+    if (!auth.authUser) {
+      return;
+    }
     if (shell.activeSection === "settings" && !selfUpdate.systemReleases && !selfUpdate.releaseLoading) {
       void selfUpdate.loadSystemReleases();
     }
@@ -281,9 +297,15 @@ export function usePrintoraApp() {
     if (shell.activeSection === "setup") {
       void setup.loadSetupHistory();
     }
-  }, [shell.activeSection, printers.selectedPrinterId]);
+    if (shell.activeSection === "account") {
+      void auth.loadAuth().then(() => auth.loadAgentCredentials());
+    }
+  }, [auth.authUser, shell.activeSection, printers.selectedPrinterId]);
 
   React.useEffect(() => {
+    if (!auth.authUser) {
+      return;
+    }
     if (!printers.selectedPrinterId || shell.activeSection !== "monitoring") {
       return;
     }
@@ -294,9 +316,12 @@ export function usePrintoraApp() {
       void settings.loadCanRecords(printers.selectedPrinterId!);
     }, 5000);
     return () => window.clearInterval(refreshId);
-  }, [shell.activeSection, printers.selectedPrinterId]);
+  }, [auth.authUser, shell.activeSection, printers.selectedPrinterId]);
 
   React.useEffect(() => {
+    if (!auth.authUser) {
+      return;
+    }
     if (!printers.selectedPrinterId || printerAvailability !== "offline") {
       return;
     }
@@ -305,7 +330,14 @@ export function usePrintoraApp() {
       void settings.loadPrinterHealth(printers.selectedPrinterId!);
     }, 60000);
     return () => window.clearInterval(refreshId);
-  }, [printerAvailability, printers.selectedPrinterId]);
+  }, [auth.authUser, printerAvailability, printers.selectedPrinterId]);
+
+  React.useEffect(() => {
+    if (!auth.authUser) {
+      return;
+    }
+    void loadStatus();
+  }, [auth.authUser?.id]);
 
   const liveOperationHealth = buildLiveOperationHealth(settings.health, operation.operationStatus);
   const alertCenterItems = buildAlertCenterItems({
@@ -378,6 +410,15 @@ export function usePrintoraApp() {
     if (shell.activeSection === "license") {
       return { icon: Info, label: "Sobre", disabled: loading, busy: false, run: () => shell.setActiveSection("about") };
     }
+    if (shell.activeSection === "account") {
+      return {
+        icon: auth.authUser ? ShieldCheck : UserRound,
+        label: auth.authUser ? "Sessão" : "Entrar",
+        disabled: loading,
+        busy: loading,
+        run: () => (auth.authUser ? auth.loadAuth() : auth.submitAuth()),
+      };
+    }
     return {
       icon: RefreshCw,
       label: loading ? "Atualizando" : "Atualizar",
@@ -397,6 +438,7 @@ export function usePrintoraApp() {
     ...operation,
     ...settings,
     ...setup,
+    ...auth,
     ...reports,
     ...maintenance,
     ...calibration,

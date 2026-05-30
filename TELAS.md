@@ -113,6 +113,13 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - A tela Sobre deve ser acessivel pelo icone de informacao no topo em todas as telas; por enquanto nao aparece no menu lateral.
 - A tela Sobre deve promover o autor, exibir LinkedIn, Instagram, GitHub do projeto, motivacao, funcionalidades atuais, aviso de teste, versao sem custo, roadmap online futuro e opcoes de marca.
 - A tela Licenca deve ser acessivel a partir da tela Sobre e deixar claro o uso open source, ausencia de garantia e responsabilidade do usuario em operacoes criticas.
+- A tela Conta deve concentrar autenticação cloud, cadastro, sessão, organizações opcionais, 2FA, step-up auth e credenciais de agente.
+- Usuário anônimo deve ver somente o shell mínimo de autenticação, sem menu lateral, seletor de impressora, alertas, telas internas ou dados operacionais.
+- Na tela Conta, email e senha são obrigatórios no cadastro; nome, WhatsApp, Telegram e demais contatos são opcionais e não bloqueiam a criação da conta.
+- Na tela Conta, organização não é obrigatória para uso individual; quando existir, a UI permite criar organização e vincular usuários com papel `admin` ou `operator`.
+- Na tela Conta, o setup de 2FA deve exibir segredo/URI, validar código antes de ativar e exigir código atual para desativar quando 2FA estiver ativo.
+- Na tela Conta, autenticação reforçada gera autorização curta para ações críticas; usuários com 2FA usam código, usuários sem 2FA usam senha.
+- Na tela Conta, credencial de agente completa aparece somente no momento de criação; depois a UI mostra apenas prefixo, identificação e status.
 - A tela Setup deve ficar disponivel sem impressora ativa, pois seu objetivo e preparar uma Pi antes do cadastro final da impressora.
 - Na tela Setup, o primeiro bloco deve deixar claro que placa virgem sem SO/rede/SSH nao pode ser acessada por SSH; a preparacao de mídia/boot e etapa manual ou futura.
 - Na tela Setup, o topo deve exibir uma receita sequencial para usuario leigo, com progresso, etapas manuais marcaveis, passos bloqueados/prontos/feitos e abertura de cada etapa em modal.

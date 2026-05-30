@@ -1,4 +1,5 @@
 export type * from "./app";
+export type * from "./auth";
 export type * from "./backups";
 export type * from "./calibration";
 export type * from "./can";
