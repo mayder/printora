@@ -44,7 +44,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 |---|---|---|---|---|---|---|
 | Visao geral | `overview` | `/`, `/?section=overview`, `/#overview` | `frontend/src/screens/OverviewScreen.tsx` | Dashboard geral da frota e da impressora selecionada, com risco principal, horas acumuladas e atalhos seguros | Opcional | existente |
 | Impressoras | `printers` | `/?section=printers`, `/#printers` | `frontend/src/screens/PrintersScreen.tsx` | Cadastro, descoberta, teste de conexao e selecao da impressora ativa | Nao exige impressora ativa | existente |
-| Setup do Zero | `setup` | `/?section=setup`, `/#setup` | `frontend/src/screens/SetupScreen.tsx` | Preflight SSH read-only, setup CAN/U2C/can0 gateado e wizard remoto de firmware sem flash para preparar uma Raspberry/BTT Pi com Linux e SSH ativo | Nao exige impressora ativa | existente |
+| Setup | `setup` | `/?section=setup`, `/#setup` | `frontend/src/screens/SetupScreen.tsx` | Receita guiada para preparar a Pi, habilitar SSH, validar ambiente, configurar CAN/U2C, gerar firmware, executar flash supervisionado, validar base Klipper e cadastrar a impressora | Nao exige impressora ativa | existente |
 | Operacao | `monitoring` | `/?section=monitoring`, `/#monitoring`; legado `/?section=operation` redireciona para esta tela | `frontend/src/screens/MonitoringScreen.tsx` + `frontend/src/MonitoringDashboard.tsx` | Operacao ao vivo com temperaturas, toolhead, extrusor, progresso, sistema, fans, CAN e acoes protegidas | Exige impressora ativa online | existente |
 | Atualizacoes | `updates` | `/?section=updates`, `/#updates` | `frontend/src/screens/UpdatesScreen.tsx` | Update Manager da impressora, checklist pos-update, update com confirmacao, progresso e historico | Exige impressora ativa online | existente |
 | Calibracao | `tests` | `/?section=tests`, `/#tests`; legado `/?section=calibration` redireciona para `tests` | `frontend/src/screens/TestsScreen.tsx` | Centro de calibracao Voron em cards numerados por sequencia, busca, filtros por tipo/uso, ajuda expandida, preflight, execucao com confirmacao presencial e perfil Z aprovado | Exige impressora ativa online | existente |
@@ -85,7 +85,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 |---|---|---|
 | Shell/navegacao | `frontend/src/hooks/domains/useAppShell.ts` | Nao acessa API |
 | Impressoras | `frontend/src/hooks/domains/usePrinters.ts` | `frontend/src/services/printerApi.ts` |
-| Setup do Zero | `frontend/src/hooks/domains/useSetup.ts` | `frontend/src/services/setupApi.ts` |
+| Setup | `frontend/src/hooks/domains/useSetup.ts` | `frontend/src/services/setupApi.ts` |
 | Operacao | `frontend/src/hooks/domains/useOperation.ts` | `frontend/src/services/operationApi.ts` |
 | Atualizacoes da impressora | `frontend/src/hooks/domains/useUpdates.ts` | `frontend/src/services/updatesApi.ts` |
 | Calibracao e Z-offset | `frontend/src/hooks/domains/useCalibration.ts` | `frontend/src/services/calibrationApi.ts`, `frontend/src/services/zOffsetApi.ts` |
@@ -113,25 +113,30 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - A tela Sobre deve ser acessivel pelo icone de informacao no topo em todas as telas; por enquanto nao aparece no menu lateral.
 - A tela Sobre deve promover o autor, exibir LinkedIn, Instagram, GitHub do projeto, motivacao, funcionalidades atuais, aviso de teste, versao sem custo, roadmap online futuro e opcoes de marca.
 - A tela Licenca deve ser acessivel a partir da tela Sobre e deixar claro o uso open source, ausencia de garantia e responsabilidade do usuario em operacoes criticas.
-- A tela Setup do Zero deve ficar disponivel sem impressora ativa, pois seu objetivo e preparar uma Pi antes do cadastro final da impressora.
-- Na tela Setup do Zero, o primeiro bloco deve deixar claro que placa virgem sem SO/rede/SSH nao pode ser acessada por SSH; a preparacao de mídia/boot e etapa manual ou futura.
-- Na tela Setup do Zero, a UI deve aceitar host, porta, usuario, metodo de autenticacao por agente/chave e timeout, sem campo de senha.
-- Na tela Setup do Zero, `Preflight SSH` executa apenas coleta read-only e `Gerar plano` retorna somente plano dry-run com comandos `PLAN`.
-- Na tela Setup do Zero, o historico deve mostrar alvo, tipo e status sem segredo, senha, token ou caminho de chave privada.
-- Na tela Setup do Zero, a seção CAN/U2C deve reutilizar o alvo SSH, permitir ajustar interface e bitrate, executar diagnóstico read-only e gerar plano com comandos `PLAN`.
-- Na tela Setup do Zero, `Aplicar CAN` deve exigir a frase `CONFIGURAR CAN0`; mesmo com a frase, o backend bloqueia quando `PRINTORA_CAN_SETUP_MODE=remote` não estiver habilitado.
-- Na tela Setup do Zero, o histórico CAN deve mostrar tipo, interface, bitrate, alvo e status sem senha, token ou caminho de chave privada.
-- Na tela Setup do Zero, a seção Firmware remoto deve permitir escolher preset, nome físico, papel da placa, paths remotos, interface CAN e confirmar variante física antes de gerar plano.
-- Na tela Setup do Zero, o plano de firmware deve mostrar hash do `.config`, diretório de artefatos, binário esperado e comandos `PLAN`, sem flash.
-- Na tela Setup do Zero, `Build remoto` deve exigir a frase `BUILD_FIRMWARE_NO_FLASH`; mesmo com a frase, o backend bloqueia quando `PRINTORA_REMOTE_FIRMWARE_BUILD_MODE=remote` não estiver habilitado.
-- Na tela Setup do Zero, o histórico de firmware deve mostrar placa, preset, alvo e status sem segredo e sem caminho de chave privada.
-- Na tela Setup do Zero, a seção Flash supervisionado deve reutilizar SSH, placa, interface CAN e artefato do build remoto, mas exigir checklist físico antes do preflight/execução.
-- Na tela Setup do Zero, o plano de flash deve mostrar frase específica por placa/método, hash do artefato, UUID esperado, comandos `PLAN`, bloqueios e rollback manual.
-- Na tela Setup do Zero, `Executar flash` deve exigir a frase gerada no plano; mesmo com a frase, o backend bloqueia quando `PRINTORA_REMOTE_FLASH_MODE=remote` não estiver habilitado.
-- Na tela Setup do Zero, o histórico de flash deve mostrar placa, método, alvo e status sem senha, token ou caminho de chave privada.
-- Na tela Setup do Zero, a seção Validação final deve reutilizar SSH e interface CAN, aceitar UUIDs esperados, paths de config/log e executar somente coleta read-only.
-- Na tela Setup do Zero, a validação final deve exibir status de aceite, checks acionáveis e relatório Markdown sanitizado copiável.
-- Na tela Setup do Zero, o histórico de validação final deve mostrar data, interface, alvo, resumo e status sem segredo ou caminho de chave privada.
+- A tela Setup deve ficar disponivel sem impressora ativa, pois seu objetivo e preparar uma Pi antes do cadastro final da impressora.
+- Na tela Setup, o primeiro bloco deve deixar claro que placa virgem sem SO/rede/SSH nao pode ser acessada por SSH; a preparacao de mídia/boot e etapa manual ou futura.
+- Na tela Setup, o topo deve exibir uma receita sequencial para usuario leigo, com progresso, etapas manuais marcaveis, passos bloqueados/prontos/feitos e abertura de cada etapa em modal.
+- Na tela Setup, a receita deve seguir a ordem: gravar sistema operacional, conectar rede, ativar SSH, informar acesso, validar Pi, configurar CAN/U2C, gerar firmware, conferir cabeamento, executar flash supervisionado, validar base Klipper e cadastrar a impressora.
+- Na tela Setup, formulários técnicos, resultados, planos, histórico e orientações detalhadas não devem ficar empilhados na tela principal; eles abrem no modal da etapa correspondente.
+- Na tela Setup, cada modal deve funcionar como receita de bolo para usuário leigo, explicando opções, ordem de execução, sinais de sucesso, riscos comuns e fontes oficiais quando houver download/instalação externa.
+- Na tela Setup, quando a receita estiver concluída e a impressora cadastrada, a preparação deve ficar recolhida e a tela deve mostrar apenas o estado final com acesso para Impressoras e opção de reabrir a receita.
+- Na tela Setup, a UI deve aceitar host, porta, usuario, metodo de autenticacao por agente/chave e timeout, sem campo de senha.
+- Na tela Setup, `Preflight SSH` executa apenas coleta read-only e `Gerar plano` retorna somente plano dry-run com comandos `PLAN`.
+- Na tela Setup, o historico deve mostrar alvo, tipo e status sem segredo, senha, token ou caminho de chave privada.
+- Na tela Setup, a seção CAN/U2C deve reutilizar o alvo SSH, permitir ajustar interface e bitrate, executar diagnóstico read-only e gerar plano com comandos `PLAN`.
+- Na tela Setup, `Aplicar CAN` deve exigir a frase `CONFIGURAR CAN0`; mesmo com a frase, o backend bloqueia quando `PRINTORA_CAN_SETUP_MODE=remote` não estiver habilitado.
+- Na tela Setup, o histórico CAN deve mostrar tipo, interface, bitrate, alvo e status sem senha, token ou caminho de chave privada.
+- Na tela Setup, a seção Firmware remoto deve permitir escolher preset, nome físico, papel da placa, paths remotos, interface CAN e confirmar variante física antes de gerar plano.
+- Na tela Setup, o plano de firmware deve mostrar hash do `.config`, diretório de artefatos, binário esperado e comandos `PLAN`, sem flash.
+- Na tela Setup, `Build remoto` deve exigir a frase `BUILD_FIRMWARE_NO_FLASH`; mesmo com a frase, o backend bloqueia quando `PRINTORA_REMOTE_FIRMWARE_BUILD_MODE=remote` não estiver habilitado.
+- Na tela Setup, o histórico de firmware deve mostrar placa, preset, alvo e status sem segredo e sem caminho de chave privada.
+- Na tela Setup, a seção Flash supervisionado deve reutilizar SSH, placa, interface CAN e artefato do build remoto, mas exigir checklist físico antes do preflight/execução.
+- Na tela Setup, o plano de flash deve mostrar frase específica por placa/método, hash do artefato, UUID esperado, comandos `PLAN`, bloqueios e rollback manual.
+- Na tela Setup, `Executar flash` deve exigir a frase gerada no plano; mesmo com a frase, o backend bloqueia quando `PRINTORA_REMOTE_FLASH_MODE=remote` não estiver habilitado.
+- Na tela Setup, o histórico de flash deve mostrar placa, método, alvo e status sem senha, token ou caminho de chave privada.
+- Na tela Setup, a seção Validação final deve reutilizar SSH e interface CAN, aceitar UUIDs esperados, paths de config/log e executar somente coleta read-only.
+- Na tela Setup, a validação final deve exibir status de aceite, checks acionáveis e relatório Markdown sanitizado copiável.
+- Na tela Setup, o histórico de validação final deve mostrar data, interface, alvo, resumo e status sem segredo ou caminho de chave privada.
 
 ## Estado de UI
 

@@ -40,8 +40,8 @@ export const appSections: Array<{
     key: "setup",
     icon: Network,
     label: "Setup",
-    detail: "Preflight SSH e plano dry-run para preparar uma Pi.",
-    purpose: "Conecte em uma Pi com Linux e SSH ativo, valide o ambiente e gere um plano seguro de provisionamento.",
+    detail: "Receita guiada para preparar a Pi e fechar a base Klipper.",
+    purpose: "Siga a ordem: preparar sistema e SSH, validar a Pi, revisar planos, autorizar etapas críticas e cadastrar a impressora.",
   },
   {
     key: "monitoring",

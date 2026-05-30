@@ -16,6 +16,329 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.setup-recipe-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.setup-progress-bar {
+  height: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+
+.setup-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+}
+
+.setup-recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.setup-recipe-step {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 156px;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-3);
+}
+
+.setup-recipe-done {
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.setup-recipe-ready {
+  border-color: rgba(77, 163, 255, 0.45);
+}
+
+.setup-recipe-locked {
+  opacity: 0.72;
+}
+
+.setup-recipe-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.setup-recipe-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.setup-recipe-title-row strong,
+.setup-recipe-title-row span,
+.setup-help-panel strong,
+.setup-help-panel span {
+  display: block;
+}
+
+.setup-recipe-title-row span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.setup-recipe-step p {
+  min-height: 42px;
+  margin: 7px 0 10px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.setup-recipe-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.setup-inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.setup-inline-check input {
+  width: auto;
+}
+
+.setup-recipe-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.setup-complete-panel {
+  border-color: rgba(34, 197, 94, 0.48);
+}
+
+.setup-modal-card {
+  width: min(980px, calc(100vw - 32px));
+}
+
+.setup-modal-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  max-height: min(74vh, 820px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.setup-modal-body > .panel {
+  grid-column: 1 / -1;
+  margin: 0;
+  border-color: var(--border);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.setup-modal-body > .setup-result-panel,
+.setup-modal-body > .setup-plan-panel {
+  grid-column: span 1;
+}
+
+.setup-modal-body .panel-header-row {
+  margin-bottom: 16px;
+}
+
+.setup-modal-body .button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.setup-modal-body .button-row button,
+.setup-modal-body .button-row a {
+  min-width: 132px;
+}
+
+.setup-connection-panel {
+  border-left: 3px solid var(--accent);
+}
+
+.setup-can-panel {
+  border-left: 3px solid var(--accent);
+}
+
+.setup-final-panel {
+  border-left: 3px solid var(--success);
+}
+
+.setup-connection-panel .setup-form-grid {
+  grid-template-columns: minmax(240px, 1.2fr) minmax(88px, 0.35fr) minmax(160px, 0.75fr) minmax(96px, 0.35fr);
+}
+
+.setup-can-panel .setup-form-grid {
+  grid-template-columns: minmax(220px, 0.9fr) minmax(220px, 0.9fr) minmax(0, 1.2fr);
+}
+
+.setup-final-panel .setup-form-grid {
+  grid-template-columns: minmax(260px, 1fr) minmax(220px, 0.8fr) minmax(220px, 0.8fr);
+}
+
+.setup-connection-panel .setup-form-grid label:nth-child(5),
+.setup-connection-panel .setup-form-grid label:nth-child(6) {
+  grid-column: span 2;
+}
+
+.setup-connection-panel input,
+.setup-connection-panel select,
+.setup-can-panel input,
+.setup-final-panel input {
+  min-height: 38px;
+}
+
+.setup-can-panel .button-row {
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+}
+
+.setup-can-panel .empty-state {
+  margin-top: 12px;
+}
+
+.setup-can-panel .setup-apply-box {
+  grid-template-columns: minmax(260px, 1fr) minmax(150px, auto);
+  align-items: end;
+  margin-top: 16px;
+  border: 1px solid rgba(217, 81, 93, 0.28);
+  border-radius: 8px;
+  background: rgba(217, 81, 93, 0.06);
+  padding: 14px;
+}
+
+.setup-can-panel .setup-apply-box button {
+  min-width: 150px;
+}
+
+.setup-final-panel .button-row {
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+}
+
+.setup-final-panel .button-row button {
+  min-width: 150px;
+}
+
+.setup-final-panel .empty-state {
+  margin-top: 12px;
+}
+
+.setup-manual-modal-panel,
+.setup-guide-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.setup-manual-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.setup-manual-grid section {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-3);
+}
+
+.setup-guide-links div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.setup-manual-grid strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.setup-manual-grid ol {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.setup-modal-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 38px;
+  font-weight: 800;
+}
+
+.setup-modal-check input {
+  width: auto;
+}
+
+.setup-help-panel {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.setup-help-panel div {
+  min-height: 104px;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-3);
+}
+
+.setup-help-panel span {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
 .setup-check-list,
 .setup-step-list,
 .setup-command-list {
@@ -184,7 +507,22 @@
   .setup-boundary-grid,
   .setup-form-grid,
   .setup-apply-box,
-  .setup-artifact-summary {
+  .setup-artifact-summary,
+  .setup-recipe-grid,
+  .setup-help-panel,
+  .setup-manual-grid,
+  .setup-modal-body,
+  .setup-connection-panel .setup-form-grid,
+  .setup-can-panel .setup-form-grid,
+  .setup-can-panel .setup-apply-box,
+  .setup-final-panel .setup-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .setup-modal-body > .setup-result-panel,
+  .setup-modal-body > .setup-plan-panel,
+  .setup-connection-panel .setup-form-grid label:nth-child(5),
+  .setup-connection-panel .setup-form-grid label:nth-child(6) {
+    grid-column: 1 / -1;
   }
 }
