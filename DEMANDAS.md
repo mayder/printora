@@ -65,6 +65,16 @@
 - PKG-36: Wizard de firmware por hardware real
 - PKG-37: Flash supervisionado de firmware
 - PKG-38: Validação final da impressora Klipper
+- PKG-39: Autenticação, usuários e organização
+- PKG-40: Gestão cloud de impressoras
+- PKG-41: Pareamento seguro do agente
+- PKG-42: Agente remoto base
+- PKG-43: Canal remoto agente-servidor
+- PKG-44: Instalador online assistido do agente
+- PKG-45: Atualização automática do agente
+- PKG-46: Paridade funcional remota
+- PKG-47: Operação segura remota
+- PKG-48: Observabilidade e suporte do agente
 
 ## Política De Backlog
 
@@ -119,7 +129,8 @@ Critério de aceite:
 
 Estado atual:
 
-- MVP parcial implementado via `GET /api/audit/read-only`.
+- Implementado e validado operacionalmente.
+- MVP inicial implementado via `GET /api/audit/read-only`.
 - Auditoria por impressora implementada via `GET /api/printers/{printer_id}/audit/read-only`.
 - Classificação inicial cobre Klipper, Moonraker, Update Manager e sinais básicos do host.
 - Auditoria por impressora retorna `data_state`, `source` e usa último snapshot quando Moonraker está offline.
@@ -129,7 +140,7 @@ Estado atual:
 - Voron 0.2 ficou sem problemas críticos; Voron 2.4 ficou em `monitorar` por versão Klipper `dirty`.
 - Auditoria manual read-only da Voron registrada em `docs/audits/VORON_READONLY_AUDIT_2026-05-18.md`.
 - Coletor read-only do host implementado em `GET /api/audit/host-read-only`.
-- Próximo incremento: instalar o app em modo `local` na Raspberry para eliminar dependência de SSH.
+- Execução local na Raspberry validada fora deste ciclo, eliminando a pendência de dependência de SSH para o aceite do pacote.
 
 ## PKG-01B: Base Multi-Impressora E Fixtures Locais
 
@@ -2147,7 +2158,8 @@ Critério de aceite:
 
 Estado atual:
 
-- Em implementação nesta branch.
+- Implementado e validado operacionalmente.
+- Fluxo de instalação resiliente e recuperação de updates travados considerado fechado, incluindo diagnóstico oficial, `unlock_update.sh`, reconciliação de updates órfãos e uso estável do updater.
 
 ## PKG-32: Desktop App macOS/Windows
 
@@ -2604,3 +2616,452 @@ Estado atual:
 - Histórico local `setup_final_validation_runs` registra alvo, interface, UUIDs esperados, checks, relatório e status sem senha, token ou caminho de chave privada.
 - UI `Setup do Zero` ganhou seção Validação final com UUIDs esperados, paths de config/log, checks, status e copiar relatório.
 - Validação de fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 CHECK_STRICT_RUNTIME_NAMES=1 ./check.sh`.
+
+## PKG-39: Autenticação, Usuários E Organização
+
+Objetivo:
+
+Criar a base de autenticação e isolamento para o Printora publicado em nuvem ou servidor dedicado, garantindo que cada usuário acesse apenas sua própria organização, impressoras, agentes, histórico e operações.
+
+Contexto inicial:
+
+- o Printora nasceu como ferramenta local, sem necessidade de login obrigatório;
+- a operação remota exige autenticação, ownership, tenant e permissões antes de expor agentes conectados pela internet;
+- este pacote deve ser entregue antes de cadastro cloud de impressoras, pareamento de agente ou comandos remotos.
+
+Entregáveis:
+
+- modelo de usuário, organização e vínculo usuário-organização;
+- login, logout e sessão/JWT com expiração;
+- senha armazenada com hash forte, sem segredo em texto puro;
+- usuário administrador inicial por bootstrap seguro;
+- middleware/dependência de autenticação nos endpoints cloud;
+- isolamento por organização nas consultas e respostas;
+- política mínima de papéis: proprietário/admin e operador;
+- UI de login e estado autenticado;
+- documentação em `RUNBOOK.md`, `TESTES.md`, `TELAS.md` e decisão em `DECISOES.md` se houver escolha de mecanismo de sessão/token.
+
+Lotes:
+
+1. Modelo de usuário/organização e SQL idempotente.
+2. Serviço de autenticação, hash de senha e emissão de sessão/JWT.
+3. Middleware de autenticação e isolamento por organização.
+4. Bootstrap seguro do primeiro administrador.
+5. UI de login/logout e sessão expirada.
+6. Testes de contrato, permissão e isolamento.
+
+Critério de aceite:
+
+- usuário não autenticado não acessa rotas cloud protegidas;
+- usuário autenticado só enxerga dados da própria organização;
+- senha, token e segredo não aparecem em logs, banco em texto puro, resposta de API ou Git;
+- sessão expirada falha com erro acionável e seguro;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-40: Gestão Cloud De Impressoras
+
+Objetivo:
+
+Criar a gestão de impressoras vinculadas a usuários/organizações no Printora publicado, separando o cadastro cloud da descoberta local em rede e preparando o vínculo com agentes remotos.
+
+Contexto inicial:
+
+- o cadastro atual de impressoras é local e depende de acesso de rede ao Moonraker;
+- no modelo cloud, a impressora pertence a uma organização e pode estar offline até o agente parear;
+- este pacote não instala agente e não executa comandos remotos.
+
+Entregáveis:
+
+- cadastro cloud de impressora por organização;
+- campos de identificação operacional: nome, modelo, localização, tags e observações;
+- status derivado do agente: sem agente, aguardando pareamento, online, offline, degradado, revogado;
+- vínculo entre impressora e agente atual;
+- listagem "minhas impressoras" filtrada por organização;
+- detalhe da impressora com último contato, último snapshot e capacidade conhecida quando existir;
+- revogação/desvinculação segura de agente;
+- UI de lista, detalhe, criação e edição separadas;
+- atualização de `TELAS.md`, `TESTES.md` e `RUNBOOK.md`.
+
+Lotes:
+
+1. Modelo cloud de impressora e SQL idempotente.
+2. Endpoints de CRUD protegidos por organização.
+3. Estados operacionais sem agente e com agente.
+4. UI de lista/detalhe/criação/edição.
+5. Revogação e desvinculação de agente.
+6. Testes de isolamento e ownership.
+
+Critério de aceite:
+
+- uma organização não acessa impressoras de outra;
+- cadastro cloud não tenta conectar no Moonraker diretamente;
+- impressora sem agente aparece claramente como aguardando pareamento;
+- revogação impede novas comunicações do agente antigo;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-41: Pareamento Seguro Do Agente
+
+Objetivo:
+
+Implementar o pareamento entre uma impressora cloud e um agente instalado no sistema operacional da impressora, usando token curto de uso único para trocar por uma credencial permanente, revogável e rotacionável.
+
+Contexto inicial:
+
+- o agente precisa ser instalado em ambientes atrás de NAT/firewall;
+- o servidor não deve depender de entrar na rede local da impressora;
+- o token de pareamento deve ter vida curta e não deve virar credencial operacional permanente.
+
+Entregáveis:
+
+- geração de token curto de pareamento por impressora;
+- expiração, uso único e revogação de token;
+- endpoint para o agente trocar token por credencial operacional;
+- identidade estável do agente com versão, plataforma e capacidades;
+- rotação/reemissão de credencial operacional;
+- auditoria de pareamento, falha, revogação e rotação;
+- UI para gerar, copiar, expirar e revogar token;
+- mensagens claras para token expirado, inválido, já usado ou de outra organização.
+
+Lotes:
+
+1. Modelo de token de pareamento e credencial de agente.
+2. Geração/expiração/revogação por usuário autorizado.
+3. Endpoint de troca token -> credencial operacional.
+4. Auditoria e logs sanitizados.
+5. UI de pareamento na tela da impressora.
+6. Testes de uso único, expiração, ownership e revogação.
+
+Critério de aceite:
+
+- token curto não funciona após expirar, ser usado ou ser revogado;
+- credencial operacional não é exibida novamente ao usuário;
+- logs não registram token completo nem credencial;
+- agente revogado não consegue heartbeat, snapshot ou job;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-42: Agente Remoto Base
+
+Objetivo:
+
+Criar o agente local do Printora para rodar no sistema operacional da impressora, coletar dados locais do Moonraker/Klipper e manter comunicação segura com o servidor cloud sem depender da mesma rede do usuário.
+
+Contexto inicial:
+
+- o agente deve abrir conexões de saída para o servidor, pois a impressora pode estar atrás de NAT, CGNAT ou firewall;
+- o agente precisa ser seguro, atualizável e resiliente a queda de internet;
+- este pacote cobre a base local e leituras read-only, não a paridade completa de comandos.
+
+Entregáveis:
+
+- projeto do agente com CLI/serviço compatível com Linux/Raspberry/BTT Pi inicialmente;
+- arquivo de configuração local com permissões restritas;
+- armazenamento local seguro da credencial operacional;
+- cliente local Moonraker HTTP/WebSocket em `127.0.0.1:7125` ou endpoint configurado;
+- heartbeat com versão, plataforma, capacidades, uptime e estado local;
+- snapshot read-only básico: `server/info`, `printer/info`, `print_stats`, temperaturas e Update Manager quando disponível;
+- fila local resiliente para eventos pendentes sem armazenar payload sensível desnecessário;
+- logs rotativos e sanitizados;
+- comando `doctor` do agente para suporte.
+
+Lotes:
+
+1. Estrutura do agente, config local e CLI `doctor`.
+2. Cliente Moonraker read-only e coleta básica.
+3. Heartbeat autenticado com credencial operacional.
+4. Fila local e retry seguro.
+5. Logs rotativos com redaction.
+6. Serviço systemd inicial e documentação operacional.
+7. Testes locais com fixtures Moonraker.
+
+Critério de aceite:
+
+- agente não exige que o servidor acesse a rede local da impressora;
+- agente não executa G-code, restart, update, build ou flash neste pacote;
+- queda de internet não perde estado crítico e não vaza segredo em logs;
+- `doctor` diferencia falha de config, credencial, rede, Moonraker e permissão;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-43: Canal Remoto Agente-Servidor
+
+Objetivo:
+
+Criar o canal remoto rápido e resiliente entre agente e servidor, priorizando WebSocket seguro outbound e mantendo fallback por polling HTTPS para ambientes restritos.
+
+Contexto inicial:
+
+- raw socket manual aumenta custo operacional e segurança sem ganho claro;
+- WebSocket seguro permite baixa latência e funciona bem com infraestrutura HTTP comum;
+- fallback por polling evita bloquear instalações onde WebSocket esteja indisponível.
+
+Entregáveis:
+
+- endpoint WebSocket autenticado para agentes;
+- protocolo de mensagens versionado: hello, heartbeat, snapshot, job, ack, nack, result, error e backpressure;
+- fallback HTTPS polling para buscar jobs e enviar resultados;
+- correlation ID por mensagem/job;
+- controle de versão e capacidades do agente;
+- retry, timeout, backoff e idempotência de resultado;
+- limites de payload e proteção contra replay;
+- testes de contrato e compatibilidade entre versões.
+
+Lotes:
+
+1. Contrato versionado do protocolo agente-servidor.
+2. WebSocket autenticado e heartbeat em tempo real.
+3. Jobs com ack/nack/result/error.
+4. Fallback HTTPS polling.
+5. Retry, backoff, idempotência e limites de payload.
+6. Testes de contrato, desconexão e versão incompatível.
+
+Critério de aceite:
+
+- agente autenticado recebe apenas jobs da própria impressora/organização;
+- reconexão não duplica execução concluída;
+- falha de WebSocket usa fallback quando habilitado;
+- payload sensível não é logado;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-44: Instalador Online Assistido Do Agente
+
+Objetivo:
+
+Disponibilizar instalação online assistida do agente a partir do Printora cloud, com comando por plataforma, token de pareamento, diagnóstico pré-instalação e validação pós-instalação.
+
+Contexto inicial:
+
+- o usuário precisa instalar o agente diretamente no sistema operacional da impressora;
+- o fluxo deve reduzir erro manual sem esconder riscos de permissão, systemd, Moonraker ou rede;
+- este pacote distribui e ajuda a instalar, mas não implementa auto-update completo.
+
+Entregáveis:
+
+- página de instalação do agente por impressora;
+- comando de instalação com token curto de pareamento;
+- script de instalação Linux/Raspberry/BTT Pi com dry-run ou preflight;
+- criação de usuário/serviço quando aplicável, com permissões mínimas;
+- validação de Python/binário, systemd, rede, Moonraker e escrita em diretório local;
+- confirmação pós-instalação: agente pareado, heartbeat recebido e versão esperada;
+- instruções de uninstall e rollback local;
+- documentação em `RUNBOOK.md` e `TELAS.md`.
+
+Lotes:
+
+1. Tela de instalação e comando com token curto.
+2. Script instalador Linux com preflight.
+3. Registro de serviço e diretórios com permissões corretas.
+4. Validação pós-instalação integrada ao pareamento.
+5. Uninstall/rollback local documentado.
+6. Testes de script em modo seguro e docs.
+
+Critério de aceite:
+
+- instalador não grava token em logs;
+- token curto é consumido uma vez e substituído por credencial operacional;
+- falha de instalação mostra diagnóstico acionável;
+- uninstall remove serviço/binário sem apagar dados do usuário sem confirmação explícita;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-45: Atualização Automática Do Agente
+
+Objetivo:
+
+Preparar o agente para atualização automática segura, com versionamento, verificação de release, download validado, backup, rollback e histórico.
+
+Contexto inicial:
+
+- o agente precisa evoluir junto com o servidor cloud;
+- update remoto em software instalado na impressora é fluxo crítico e deve ter rollback;
+- o verificador de releases do Printora usa GitHub Releases como fonte pública para releases do app, e o agente deve seguir fonte pública e validável equivalente.
+
+Entregáveis:
+
+- endpoint/manifesto de versão mínima, recomendada e bloqueada do agente;
+- verificação periódica de update pelo agente;
+- download seguro com hash/assinatura quando disponível;
+- backup do binário/config antes de trocar versão;
+- aplicação controlada com restart do serviço do agente, sem reiniciar Klipper/Moonraker;
+- rollback automático se o agente não voltar saudável;
+- histórico local e cloud de update;
+- política de compatibilidade de protocolo por versão.
+
+Lotes:
+
+1. Contrato de versões e compatibilidade do agente.
+2. Verificação de update e manifesto público.
+3. Download validado e staging local.
+4. Backup, troca de versão e restart do serviço do agente.
+5. Health pós-update e rollback.
+6. Histórico e observabilidade do update.
+7. Testes de sucesso, falha, rollback e versão bloqueada.
+
+Critério de aceite:
+
+- update do agente não reinicia Klipper, Moonraker ou a impressora;
+- hash/assinatura inválida bloqueia aplicação;
+- falha pós-update restaura versão anterior quando possível;
+- servidor consegue bloquear versões incompatíveis;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-46: Paridade Funcional Remota
+
+Objetivo:
+
+Fazer o agente remoto enviar e receber todas as informações que o Printora já trabalha hoje no modo local, preservando segurança, estados offline e contratos existentes.
+
+Contexto inicial:
+
+- o Printora já possui auditoria, snapshots, health, backups, relatórios, CAN, Update Manager, firmware/dry-run, flash supervisionado e validação final;
+- o modelo cloud precisa reutilizar esses contratos sem exigir que o servidor acesse a rede local;
+- operações mutáveis continuam dependendo dos gates de segurança dos pacotes existentes.
+
+Entregáveis:
+
+- mapa de paridade entre funcionalidades locais existentes e jobs remotos do agente;
+- coleta remota de auditoria read-only, snapshots, health, temperaturas, Update Manager, CAN e validação final;
+- geração remota de relatórios sanitizados;
+- suporte a backups quando aplicável, com política clara de payload e armazenamento;
+- jobs remotos para dry-run/preview de ações operacionais existentes;
+- suporte a firmware/build/flash apenas respeitando gates já definidos;
+- normalização de estados offline usando último estado conhecido;
+- testes de contrato por família de funcionalidade.
+
+Lotes:
+
+1. Inventário de contratos locais e matriz de paridade.
+2. Jobs read-only: auditoria, snapshots, health e temperaturas.
+3. Jobs de Update Manager, CAN e validação final.
+4. Relatórios sanitizados via agente.
+5. Backups e payloads grandes com limites e retenção.
+6. Dry-runs e previews de ações existentes.
+7. Integração com firmware/build/flash mantendo gates.
+8. Testes de contrato e regressão dos fluxos principais.
+
+Critério de aceite:
+
+- funcionalidades remotas usam o agente como executor local, não acesso direto do servidor ao Moonraker;
+- paridade diferencia implementado, bloqueado por segurança, offline e não suportado;
+- payload sensível é sanitizado antes de sair da impressora quando aplicável;
+- ações críticas continuam exigindo confirmação, preflight, backup e rollback;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-47: Operação Segura Remota
+
+Objetivo:
+
+Criar a camada de segurança para executar operações remotas mutáveis via agente, com permissões, confirmação explícita, preflight, auditoria, rollback e bloqueios por estado da impressora.
+
+Contexto inicial:
+
+- operação remota aumenta risco porque o usuário pode acionar ações fora da rede local;
+- fluxos perigosos do Printora já exigem confirmação e rollback;
+- este pacote consolida autorização e execução segura para comandos remotos.
+
+Entregáveis:
+
+- matriz de permissões por tipo de operação remota;
+- preflight obrigatório para ações mutáveis;
+- confirmação textual ou equivalente forte para operações críticas;
+- bloqueio quando impressora estiver imprimindo ou estado for incompatível;
+- auditoria de solicitação, autorização, execução, resultado e rollback;
+- política de expiração/cancelamento de jobs mutáveis;
+- revisão de logs para não gravar segredo ou payload sensível;
+- UI de confirmação remota com riscos e rollback antes da execução.
+
+Lotes:
+
+1. Matriz de operações remotas e criticidade.
+2. Permissões e autorização por usuário/organização.
+3. Preflight remoto obrigatório.
+4. Confirmação forte e expiração de jobs mutáveis.
+5. Auditoria e logs seguros.
+6. UI de operação remota crítica.
+7. Testes de bloqueio, permissão e estado incompatível.
+
+Critério de aceite:
+
+- operação mutável não executa sem usuário autorizado, agente válido, preflight aprovado e confirmação exigida;
+- impressão em andamento bloqueia ações críticas quando detectável;
+- auditoria permite reconstruir quem pediu, o que foi executado, quando, por qual agente e com qual resultado;
+- rollback ou recuperação manual aparece antes de ações críticas;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-48: Observabilidade E Suporte Do Agente
+
+Objetivo:
+
+Criar superfície operacional para diagnosticar agentes e impressoras remotas, com saúde do agente, versão, latência, fila, falhas recentes, logs sanitizados e pacote de suporte.
+
+Contexto inicial:
+
+- operação cloud com agentes exige diagnóstico claro sem acessar diretamente a rede do cliente;
+- suporte precisa diferenciar falha de internet, credencial, agente, Moonraker, Klipper, sistema operacional e versão incompatível;
+- observabilidade deve ajudar o produto em runtime, sem vazar dados sensíveis.
+
+Entregáveis:
+
+- painel de saúde do agente por impressora;
+- indicadores: online/offline, último contato, versão, protocolo, latência, fila pendente, último job e última falha;
+- diagnóstico remoto `doctor` sob demanda;
+- logs sanitizados recentes com retenção definida;
+- pacote de suporte exportável com dados mínimos;
+- alertas internos para agente desatualizado, revogado, sem heartbeat, fila acumulada e falha recorrente;
+- documentação de troubleshooting em `RUNBOOK.md`;
+- política de retenção/limpeza em `GOVERNANCA.md` ou `DECISOES.md` se houver persistência nova.
+
+Lotes:
+
+1. Modelo de saúde e eventos do agente.
+2. Ingestão de métricas mínimas e falhas recentes.
+3. Tela de saúde do agente.
+4. Doctor remoto e pacote de suporte sanitizado.
+5. Alertas internos e estados operacionais.
+6. Retenção, limpeza e documentação de suporte.
+7. Testes de sanitização, retenção e estados offline.
+
+Critério de aceite:
+
+- painel diferencia falha de agente, servidor, rede, credencial e Moonraker quando houver evidência;
+- logs e pacote de suporte não incluem token, senha, chave privada ou payload sensível completo;
+- dados persistidos têm retenção e limpeza definidas;
+- suporte consegue orientar reinstalação, revogação, update ou correção local a partir do diagnóstico;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
