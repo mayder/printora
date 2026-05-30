@@ -725,7 +725,7 @@ def build_calibration_execution_gate(
         block_reasons.append(unsupported_reason)
     blocked_command = _blocked_calibration_command(commands)
     if blocked_command:
-        block_reasons.append(f"Comando fora da allowlist segura do PKG-15: {blocked_command}.")
+        block_reasons.append(f"Comando fora da allowlist segura: {blocked_command}.")
     return CalibrationExecutionGate(
         status="blocked" if block_reasons else "ready",
         confirmation_matched=confirmation_matched,

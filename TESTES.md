@@ -131,6 +131,105 @@ Aceite:
 - tela `Configurações > Histórico de updates` tem ação para reconciliar updates travados.
 - scripts de update validam `/openapi.json` após restart para confirmar que o backend reiniciado está na versão alvo, evitando frontend novo com backend antigo.
 
+## Setup Do Zero Via SSH
+
+Aceite do PKG-34:
+
+- placa virgem sem sistema operacional fica explicitamente fora do acesso SSH; o fluxo deve orientar preparar mídia/boot antes do provisionamento remoto;
+- `POST /api/setup/ssh/preflight` executa somente comandos read-only por SSH e retorna `safe_mode=ssh_read_only_preflight`;
+- `POST /api/setup/ssh/plan` retorna `safe_mode=ssh_dry_run_plan` e comandos planejados prefixados por `PLAN`;
+- senha, token e conteúdo de chave privada não entram no payload, histórico, logs ou banco;
+- `key_path` pode ser usado para execução local do comando SSH, mas não é persistido no histórico;
+- histórico `GET /api/setup/ssh/history` lista preflights e planos sem segredos;
+- preflight classifica SSH, SO, systemd, ferramentas base, ferramentas de build, Klipper, Moonraker, `printer_data` e `can0`;
+- plano separa preparação de mídia, dependências, Klipper, Moonraker, UI web, Printora, CAN e firmware futuro;
+- o PKG-34 não executa instalação real, `apt`, edição de arquivo, restart, flash, G-code, alteração de Klipper/Moonraker ou gravação de firmware.
+
+Validação focada:
+
+```bash
+cd backend && uv run pytest tests/test_setup_wizard.py -q
+cd frontend && npm run build
+```
+
+## Setup CAN/U2C/can0
+
+Aceite do PKG-35:
+
+- `POST /api/setup/can/preflight` executa somente coleta read-only via SSH e retorna `safe_mode=can_read_only_preflight`;
+- diagnóstico coleta ferramentas, sudo sem senha, módulos CAN, USB/U2C, links, `ip -details -statistics link show can0`, serviços, estado de impressão e UUIDs CAN quando o tooling existir;
+- `POST /api/setup/can/plan` retorna `safe_mode=can_dry_run_plan` e todos os comandos mutáveis aparecem apenas como `PLAN`;
+- plano diferencia U2C ausente, módulos ausentes, `can0` ausente, bitrate divergente, impressão em andamento e host sem systemd;
+- `POST /api/setup/can/apply` exige confirmação `CONFIGURAR CAN0` e `PRINTORA_CAN_SETUP_MODE=remote`; sem isso registra tentativa bloqueada;
+- apply real cria backup remoto antes de escrever `/etc/systemd/system/can0.service`, faz `daemon-reload`, `enable`, `restart` e valida `can0`;
+- apply bloqueia se detectar impressão em andamento via Moonraker local;
+- histórico `GET /api/setup/can/history` não persiste senha, token, chave privada ou `key_path`;
+- o pacote não executa build de firmware, flash, G-code, alteração de Klipper/Moonraker, restart de Klipper/Moonraker ou gravação de `printer.cfg`.
+
+Validação focada:
+
+```bash
+cd backend && uv run pytest tests/test_setup_can.py -q
+cd frontend && npm run build
+```
+
+## Wizard Remoto De Firmware
+
+Aceite do PKG-36:
+
+- `POST /api/setup/firmware/plan` exige preset existente e confirmação da variante física para liberar plano pronto;
+- plano gera `.config` determinístico a partir do preset, calcula `sha256`, define artefatos remotos e retorna comandos somente como `PLAN`;
+- plano não executa `make`, flash, restart, update, G-code, alteração de Moonraker/Klipper ou edição de `printer.cfg`;
+- `POST /api/setup/firmware/build` exige confirmação `BUILD_FIRMWARE_NO_FLASH` e `PRINTORA_REMOTE_FIRMWARE_BUILD_MODE=remote`; sem isso registra tentativa bloqueada;
+- build remoto salva `.config` gerado em diretório controlado, faz backup de `<klipper_path>/.config`, executa `make clean && make`, copia binário, calcula hashes, consulta UUIDs CAN quando possível e restaura `.config`;
+- falha de build preserva log copiável e restaura `.config` por trap;
+- histórico `GET /api/setup/firmware/history` não persiste senha, token, chave privada ou `key_path`;
+- UUID capturado é sugestão revisável e nunca grava automaticamente em `printer.cfg`;
+- flash real fica fora do PKG-36.
+
+## Flash Supervisionado
+
+Aceite do PKG-37:
+
+- `POST /api/setup/flash/preflight` executa somente leitura remota e bloqueia sem checklist físico, artefato existente, impressora parada, método suportado e UUID visível;
+- `POST /api/setup/flash/plan` retorna comandos somente como `PLAN`, frase de confirmação específica por placa/método e rollback manual antes da execução;
+- `POST /api/setup/flash/execute` exige a frase gerada no plano e `PRINTORA_REMOTE_FLASH_MODE=remote`; sem isso registra tentativa bloqueada;
+- execução real inicial suporta somente `can_katapult`; `usb_dfu` e `manual` ficam bloqueados até implementação própria;
+- flash CAN/Katapult não edita `printer.cfg`, não reinicia serviços, não executa update e não envia G-code;
+- falha de flash deve retornar `requires_recovery` ou `blocked` com log copiável e rollback manual;
+- histórico `GET /api/setup/flash/history` não persiste senha, token, chave privada ou `key_path`;
+- validação em hardware real acompanhado continua obrigatória antes de tratar o pacote como operacional em campo.
+
+Validação focada:
+
+- `cd backend && uv run pytest tests/test_setup_flash.py`;
+- `cd frontend && npm run build`;
+- fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+## Validação Final Da Base Klipper
+
+Aceite do PKG-38:
+
+- `POST /api/setup/final-validation/run` executa somente leitura via SSH;
+- coleta serviços, Moonraker/Klipper, `can0`, UUIDs, configs, temperaturas, Update Manager e logs recentes sem G-code e sem mutação;
+- status diferencia aprovado para calibração, aprovado com observação, bloqueado e requer intervenção manual;
+- relatório Markdown sanitizado remove caminhos locais, IPs/URLs e padrões sensíveis;
+- histórico `GET /api/setup/final-validation/history` não persiste senha, token, chave privada ou `key_path`;
+- validação real em hardware acompanhado continua obrigatória antes de homologar o fluxo em campo.
+
+Validação focada:
+
+- `cd backend && uv run pytest tests/test_setup_final_validation.py`;
+- `cd frontend && npm run build`;
+- fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 CHECK_STRICT_RUNTIME_NAMES=1 ./check.sh`.
+
+Validação focada:
+
+```bash
+cd backend && uv run pytest tests/test_setup_firmware.py -q
+cd frontend && npm run build
+```
+
 O check inicial valida:
 
 - existência dos documentos principais;

@@ -60,6 +60,11 @@
 - PKG-31: Instalação resiliente e recuperação de updates travados
 - PKG-32: Desktop App macOS/Windows
 - PKG-33: Presets e geração segura de firmware a partir do catálogo
+- PKG-34: Provisionamento da Raspberry/BTT Pi via SSH
+- PKG-35: Setup CAN/U2C/can0
+- PKG-36: Wizard de firmware por hardware real
+- PKG-37: Flash supervisionado de firmware
+- PKG-38: Validação final da impressora Klipper
 
 ## Política De Backlog
 
@@ -2185,7 +2190,17 @@ Fora de escopo neste pacote:
 
 Estado atual:
 
-- Planejado.
+- Implementado localmente.
+- Criada área `Setup do Zero` sem dependência de impressora ativa.
+- Backend expõe `POST /api/setup/ssh/preflight`, `POST /api/setup/ssh/plan` e `GET /api/setup/ssh/history`.
+- Preflight usa SSH read-only com `BatchMode=yes`, timeout, `bash -s` e coleta apenas SO, usuário, grupos, ferramentas, versões, disco, portas, serviços, paths, CAN e USB.
+- Autenticação aceita `agent` ou `key_path`; senha, token e conteúdo de chave privada não são aceitos nem persistidos.
+- Histórico local `setup_ssh_runs` salva tipo, status, alvo, usuário, porta, método de autenticação, resumo e plano sem segredos.
+- Plano dry-run explicita que placa virgem não aceita SSH e precisa de mídia de boot/OS/rede/SSH antes do provisionamento remoto.
+- Plano gera etapas revisáveis para dependências base, Klipper, Moonraker, Mainsail/Fluidd, Printora, CAN e firmware futuro, com comandos prefixados por `PLAN`.
+- Nenhuma instalação real, `apt`, edição de arquivo, restart, flash, G-code, alteração de Klipper/Moonraker ou gravação de firmware é executada neste pacote.
+- Testes focados cobrem parser, classificação de checks, boundary de placa virgem, comandos dry-run e ausência de persistência de `key_path`.
+- Validação de fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
 ## PKG-30: Catálogo Completo De Firmware De Impressoras 3D
 
@@ -2324,3 +2339,268 @@ Estado atual:
 - Escopo entregue sem alterar PKG-30: catálogo local segue versionado e read-only em runtime; PKG-33 apenas transforma parte do catálogo em presets/build config, geração de `.config`, dry-run, build local controlado e UI segura por impressora ativa.
 - Validação de fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 - Pendência fora do aceite automatizado: validação manual em impressora real offline/online antes de considerar uso operacional em hardware real.
+
+## PKG-34: Provisionamento Da Raspberry/BTT Pi Via SSH
+
+Objetivo:
+
+Criar um assistente seguro para conectar em uma Raspberry/BTT Pi por SSH, diagnosticar o ambiente e gerar um plano de instalação da stack Klipper sem alterar nada por padrão.
+
+Contexto inicial:
+
+- hardware alvo inicial: BTT Pi v1.2 com U2C, Octopus Pro v1.1 STM32H723 e EBB36 v1.2;
+- o Printora já possui instalador local, diagnóstico de instalação, catálogo CANBus e Firmware Manager seguro;
+- este pacote não faz flash, não edita configuração Klipper e não instala dependências automaticamente sem confirmação.
+
+Entregáveis:
+
+- cadastro temporário de host SSH sem persistir senha, token ou chave privada;
+- teste de conectividade SSH com timeout curto e erro acionável;
+- coleta read-only de ambiente: SO, arquitetura, usuário, grupos, Python, Git, systemd, espaço em disco, portas em uso e paths comuns de Klipper;
+- detecção read-only de Klipper, Moonraker, Mainsail/Fluidd, KIAUH, CAN tooling, `~/klipper`, `~/moonraker`, `~/printer_data` e serviços systemd;
+- endpoint de preflight SSH read-only;
+- endpoint de plano dry-run com etapas sugeridas para instalar ou corrigir dependências;
+- UI de wizard com host, usuário, porta, autenticação, diagnóstico e plano revisável;
+- histórico local de preflights/planos sem segredos;
+- documentação em `RUNBOOK.md`, `TESTES.md` e `TELAS.md`.
+
+Lotes:
+
+1. Contrato e segurança SSH: schema, redaction, timeouts, sem persistência de segredo.
+2. Preflight read-only remoto: coletar ambiente e detectar stack existente.
+3. Plano dry-run de instalação: comandos planejados, riscos, pré-requisitos e rollback esperado.
+4. UI do wizard: conexão, diagnóstico, plano e estados de erro.
+5. Validação com fixture local e host real acompanhado, sem aplicar mudanças.
+
+Critério de aceite:
+
+- nenhuma senha, chave privada ou token é salvo em banco, log, histórico ou Git;
+- preflight não instala pacote, não altera arquivo, não reinicia serviço e não executa flash;
+- plano dry-run separa comandos seguros, comandos mutáveis e comandos proibidos;
+- erros de SSH, sudo ausente, DNS, porta fechada e host incompatível são explícitos;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Implementado localmente.
+- Backend expõe `POST /api/setup/can/preflight`, `POST /api/setup/can/plan`, `POST /api/setup/can/apply` e `GET /api/setup/can/history`.
+- Diagnóstico CAN remoto usa SSH read-only e coleta ferramentas (`ip`, `lsusb`, `systemctl`, `sudo`, `modprobe`, `lsmod`, `curl`, `python3`), sudo sem senha, módulos CAN, USB/U2C, links de rede, `ip -details -statistics link show can0`, arquivos de config, serviços, estado de impressão e query de UUID CAN quando Klipper tooling existe.
+- Plano dry-run diferencia U2C/USB ausente, módulos CAN ausentes, interface `can0` ausente, bitrate divergente, impressão em andamento, UUID indisponível e host sem systemd.
+- Plano gera comandos `PLAN` para carregar módulos, criar serviço systemd de `can0`, backup de `/etc/systemd/system/can0.service`, `systemctl enable/restart` e query de UUID, sem executar nada.
+- Apply CAN existe, mas fica bloqueado por padrão: exige confirmação textual `CONFIGURAR CAN0` e variável `PRINTORA_CAN_SETUP_MODE=remote`.
+- Apply real, quando habilitado, faz preflight antes, bloqueia impressão detectada, exige `sudo -n`, cria backup remoto em `~/.local/share/printora/can-setup/backups/<timestamp>/`, escreve `/etc/systemd/system/can0.service`, roda `daemon-reload`, `enable`, `restart` e valida com `ip -details -statistics link show can0`.
+- Histórico local `setup_can_runs` registra preflight, plan e apply sem senha, token ou chave privada.
+- UI `Setup do Zero` ganhou seção CAN/U2C com interface, bitrate, diagnóstico, plano, apply gateado, resultado e histórico CAN.
+- Testes focados cobrem parsing de CAN/U2C/UUID, classificação de problemas, bloqueio por impressão, comandos `PLAN`, confirmação explícita e ausência de persistência de `key_path`.
+- Nenhum build de firmware, flash, G-code, alteração de Klipper/Moonraker, restart de Klipper/Moonraker ou gravação de `printer.cfg` é executado neste pacote.
+- Validação de fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+## PKG-35: Setup CAN/U2C/can0
+
+Objetivo:
+
+Criar fluxo guiado para preparar e validar CAN na Raspberry/BTT Pi com U2C, mantendo dry-run por padrão e aplicando mudanças somente em lote específico com confirmação e rollback.
+
+Contexto inicial:
+
+- hardware alvo inicial: U2C conectado à BTT Pi v1.2, Octopus Pro H723 e EBB36 v1.2;
+- o Printora já possui Monitor CAN e catálogo de troubleshooting CANBus;
+- este pacote prepara rede CAN, não compila firmware e não faz flash.
+
+Entregáveis:
+
+- detecção read-only de interfaces CAN, USB, U2C, `can0`, módulos kernel e pacotes necessários;
+- leitura de `ip -details -statistics link show can0` quando disponível;
+- plano dry-run para criar/ajustar configuração de CAN, bitrate, interface e serviço de boot;
+- backup planejado e real antes de qualquer alteração em arquivo de rede/systemd;
+- aplicação controlada de configuração CAN em lote posterior, com confirmação textual;
+- validação pós-aplicação: `can0` online, bitrate esperado, contadores CAN e consulta de UUID quando Klipper tooling existir;
+- troubleshooting guiado para ausência de `can0`, bitrate incorreto, U2C ausente e UUID não encontrado;
+- UI com status CAN, plano, apply controlado, validação e rollback;
+- documentação em `RUNBOOK.md`, `TESTES.md`, `TELAS.md` e decisão em `DECISOES.md` se o modelo de apply remoto virar padrão.
+
+Lotes:
+
+1. Diagnóstico read-only CAN/U2C remoto.
+2. Plano dry-run de configuração `can0`.
+3. Backup e rollback de arquivos afetados.
+4. Apply controlado com confirmação textual e bloqueios de segurança.
+5. Validação pós-setup e troubleshooting.
+6. UI de setup CAN integrada ao fluxo da impressora.
+
+Critério de aceite:
+
+- read-only e dry-run não alteram rede, systemd, Klipper, Moonraker ou firmware;
+- qualquer alteração real exige confirmação explícita, backup e rollback documentado;
+- o fluxo bloqueia execução se houver impressão em andamento ou Klipper/Moonraker em estado incompatível quando detectável;
+- diagnóstico diferencia problema de U2C, interface Linux, bitrate, cabeamento, terminação e firmware;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Implementado localmente.
+- Backend expõe `POST /api/setup/firmware/plan`, `POST /api/setup/firmware/build` e `GET /api/setup/firmware/history`.
+- Wizard remoto usa presets existentes do Firmware Manager e exige confirmação da variante física antes de liberar plano pronto.
+- Plano gera `.config` determinístico a partir do preset, calcula `sha256`, define diretório remoto de artefatos, binário esperado, checklist e comandos `PLAN`, sem executar nada.
+- Build remoto real fica bloqueado por padrão: exige confirmação textual `BUILD_FIRMWARE_NO_FLASH` e variável `PRINTORA_REMOTE_FIRMWARE_BUILD_MODE=remote`.
+- Build remoto, quando habilitado, salva `.config` gerado em diretório controlado, faz backup de `<klipper_path>/.config`, substitui temporariamente `.config`, roda `make clean && make`, copia binário para artefatos, calcula hash, consulta UUIDs CAN quando possível e restaura `.config` via trap em sucesso ou falha.
+- Histórico local `setup_firmware_runs` registra plano/build por alvo SSH, placa, papel, preset, interface CAN, paths, hashes, UUIDs e log, sem senha, token ou chave privada.
+- UI `Setup do Zero` ganhou seção Firmware remoto com preset, nome físico, papel, paths, confirmação de variante, plano, build gateado, artefatos e histórico.
+- Flash automático, restart, update, G-code e alteração de `printer.cfg` ficam fora deste pacote.
+- Testes focados cobrem bloqueio sem variante confirmada, vínculo hardware/preset/artefatos, ausência de comando de flash, confirmação de build sem flash e histórico sem `key_path`.
+- Validação de fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+## PKG-36: Wizard De Firmware Por Hardware Real
+
+Objetivo:
+
+Criar um wizard operacional para selecionar hardware real da impressora, gerar `.config`, compilar firmware na Pi e registrar UUIDs/artefatos, sem flash automático.
+
+Contexto inicial:
+
+- hardware alvo inicial: Octopus Pro v1.1 STM32H723 como MCU principal, EBB36 v1.2 STM32G0B1 como toolhead CAN e U2C como adaptador;
+- o PKG-33 já cobre presets, `.config` determinístico, dry-run e build local controlado sem flash;
+- este pacote adapta o fluxo para hardware real remoto via Pi e mantém flash fora do escopo.
+
+Entregáveis:
+
+- wizard de seleção de hardware real a partir do catálogo/presets existentes;
+- confirmação visual de variante física: modelo, revisão, MCU, papel na impressora e conexão esperada;
+- geração remota de `.config` em diretório controlado do Printora, sem sobrescrever `.config` do usuário sem backup;
+- build remoto controlado no `~/klipper` da Pi, com modo explícito e confirmação textual;
+- captura de logs, binário gerado, comando usado, preset, hash e timestamp;
+- leitura de UUIDs CAN quando disponível, sem gravar automaticamente em `printer.cfg`;
+- associação dos artefatos a impressora, placa e preset;
+- UI com etapas por placa: identificar, gerar config, build, artefato, UUID, pronto para flash manual/supervisionado;
+- documentação em `RUNBOOK.md`, `TESTES.md` e `TELAS.md`.
+
+Lotes:
+
+1. Contrato de hardware real e vínculo com presets existentes.
+2. Wizard de seleção e validação de variante física.
+3. Geração remota de `.config` com backup e artefatos.
+4. Build remoto controlado sem flash.
+5. Captura de UUIDs e associação a placa.
+6. UI de progresso e histórico por placa.
+
+Critério de aceite:
+
+- o wizard não assume variante física sem confirmação do usuário;
+- build remoto não executa flash, restart, update ou edição de `printer.cfg`;
+- todo artefato gerado fica rastreável por impressora, placa, preset e comando;
+- falha de build preserva `.config` anterior e mantém log copiável;
+- UUID capturado é sugestão revisável, não alteração automática de config;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Implementado localmente e commitado no PKG-36; validação em hardware real permanece operacional.
+
+## PKG-37: Flash Supervisionado De Firmware
+
+Objetivo:
+
+Implementar fluxo de flash real supervisionado, com checklist, confirmação explícita, preflight, backup de artefatos, execução controlada, validação pós-flash e rollback manual documentado.
+
+Contexto inicial:
+
+- flash de firmware é operação crítica e pode deixar MCU offline;
+- o Printora já possui gate bloqueado de flash e histórico de tentativas bloqueadas;
+- este pacote só deve avançar após PKG-34, PKG-35 e PKG-36 entregarem diagnóstico, CAN e artefatos confiáveis.
+
+Entregáveis:
+
+- checklist obrigatório por tipo de placa: mainboard USB/DFU, mainboard CAN/Katapult, EBB/toolhead CAN e adaptador U2C quando aplicável;
+- preflight real read-only: impressora parada, energia estável, MCU identificada, artefato existe, método de flash compatível, rollback documentado;
+- comando de flash planejado com preview antes da execução;
+- confirmação textual específica por placa e método;
+- execução real supervisionada apenas para métodos suportados e testados;
+- log completo sanitizado, status, saída do comando, duração e resultado;
+- validação pós-flash: UUID/serial esperado, Klipper/Moonraker ready quando aplicável e ausência de erro crítico;
+- rollback manual exibido com binário anterior, comando anterior e passos de recuperação;
+- UI com estado crítico, travas, execução, validação, falha e rollback;
+- documentação em `RUNBOOK.md`, `TESTES.md`, `TELAS.md`, `BUGS.md` se houver risco conhecido e `DECISOES.md` para a política de flash real.
+
+Lotes:
+
+1. Checklist e política de segurança por método de flash.
+2. Preflight real read-only por placa.
+3. Planejamento de comando e confirmação textual.
+4. Execução supervisionada de um método inicial de baixo escopo.
+5. Validação pós-flash e histórico.
+6. Rollback manual e documentação operacional.
+7. UI crítica de flash supervisionado.
+
+Critério de aceite:
+
+- flash real não existe sem checklist completo, preflight aprovado e confirmação textual;
+- o fluxo bloqueia flash se houver impressão em andamento, placa ambígua, artefato ausente ou método não suportado;
+- logs não expõem segredo e são suficientes para suporte;
+- rollback manual é exibido antes e depois da execução;
+- falha deixa estado claro: não tentado, em execução, falhou, validado ou requer recuperação manual;
+- validação real em hardware acompanhado é obrigatória antes de considerar o pacote operacional;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Implementado localmente.
+- Backend expõe `POST /api/setup/flash/preflight`, `POST /api/setup/flash/plan`, `POST /api/setup/flash/execute` e `GET /api/setup/flash/history`.
+- Preflight remoto é read-only e valida checklist, artefato remoto, estado de impressão, `flash_can.py`, `klippy-env`, `canbus_query`, UUID esperado e `printer/info`.
+- Plano exibe comando `PLAN`, frase específica por placa/método, bloqueios e rollback manual antes da execução.
+- Execução real inicial suporta somente CAN/Katapult e fica bloqueada por padrão: exige frase `FLASH_<PLACA>_CAN_KATAPULT`, checklist aprovado, preflight aprovado e `PRINTORA_REMOTE_FLASH_MODE=remote`.
+- Métodos USB/DFU e manual aparecem como opções bloqueadas até implementação específica.
+- Execução CAN/Katapult copia o artefato para backup remoto de suporte, executa `flash_can.py`, registra log/duração/hash e roda validação pós-flash sem editar `printer.cfg`, sem restart e sem update.
+- Histórico local `setup_flash_runs` registra tentativas, plano, comando/log, rollback e status sem senha, token ou caminho de chave privada.
+- UI `Setup do Zero` ganhou seção Flash supervisionado com preflight, plano, confirmação, rollback e histórico.
+- Validação de fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+## PKG-38: Validação Final Da Impressora Klipper
+
+Objetivo:
+
+Criar validação final guiada para confirmar que a impressora montada ficou operacional após setup, CAN, firmware e flash, gerando relatório técnico de aceite.
+
+Contexto inicial:
+
+- hardware alvo inicial: BTT Pi v1.2, U2C, Octopus Pro v1.1 STM32H723 e EBB36 v1.2;
+- este pacote consolida os resultados dos pacotes anteriores e não substitui calibração mecânica completa;
+- o foco é provar que a base Klipper/Moonraker/Mainsail/Printora está funcional e diagnosticável.
+
+Entregáveis:
+
+- checklist final por impressora: serviços, Moonraker, Klipper, Mainsail/Fluidd, Printora, `can0`, UUIDs, MCUs, configs, temperaturas e erros recentes;
+- validação read-only de `printer/info`, `server/info`, logs recentes, update manager e status CAN;
+- validação de configuração mínima: includes existentes, MCUs referenciadas, serial/canbus UUIDs presentes e sem erro crítico conhecido;
+- relatório sanitizado de aceite com hardware, versões, artefatos de firmware, UUIDs, status CAN, serviços e pendências;
+- estados claros: aprovado para calibração, aprovado com observação, bloqueado, requer intervenção manual;
+- UI de fechamento do setup com copiar relatório e exportar Markdown sanitizado;
+- documentação em `RUNBOOK.md`, `TESTES.md`, `TELAS.md` e vínculo com relatórios sanitizados existentes.
+
+Lotes:
+
+1. Contrato de checklist final e estados de aceite.
+2. Coleta read-only de serviços, Moonraker, Klipper, CAN e logs.
+3. Validação de config mínima e UUIDs.
+4. Relatório sanitizado de aceite.
+5. UI de fechamento do setup.
+6. Validação em hardware real acompanhado.
+
+Critério de aceite:
+
+- validação final não executa G-code perigoso, não move eixo, não aquece hotend/mesa e não altera configuração;
+- relatório remove segredos, tokens, IPs sensíveis e caminhos locais quando necessário;
+- bloqueios são acionáveis e apontam o pacote/etapa provável de correção;
+- aceite diferencia base eletrônica/software pronta de calibração mecânica ainda pendente;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Implementado localmente.
+- Backend expõe `POST /api/setup/final-validation/run` e `GET /api/setup/final-validation/history`.
+- Validação final remota é read-only e coleta serviços, `server/info`, `printer/info`, `print_stats`, temperaturas, Update Manager, CAN, UUIDs, resumo de configs e trechos recentes de log.
+- O fluxo não envia G-code, não move eixo, não aquece hotend/mesa, não reinicia serviços e não altera arquivos.
+- Aceite retorna estados `approved_for_calibration`, `approved_with_notes`, `blocked` e `needs_manual_intervention`.
+- Relatório Markdown sanitizado remove caminhos locais, IPs/URLs e padrões sensíveis antes de exibir/copiar.
+- Histórico local `setup_final_validation_runs` registra alvo, interface, UUIDs esperados, checks, relatório e status sem senha, token ou caminho de chave privada.
+- UI `Setup do Zero` ganhou seção Validação final com UUIDs esperados, paths de config/log, checks, status e copiar relatório.
+- Validação de fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 CHECK_STRICT_RUNTIME_NAMES=1 ./check.sh`.

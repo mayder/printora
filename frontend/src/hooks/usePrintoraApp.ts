@@ -50,6 +50,7 @@ import { usePrinters } from "./domains/usePrinters";
 import { useReports } from "./domains/useReports";
 import { useSelfUpdate } from "./domains/useSelfUpdate";
 import { useSettings } from "./domains/useSettings";
+import { useSetup } from "./domains/useSetup";
 import { useUpdates } from "./domains/useUpdates";
 import type { PrinterAvailability } from "../app/navigation";
 import type { ConfirmActionOptions, ConfirmDialogState, ShowToastOptions, ToastRecord } from "../types";
@@ -116,6 +117,7 @@ export function usePrintoraApp() {
   let calibration: ReturnType<typeof useCalibration>;
   let maintenance: ReturnType<typeof useMaintenance>;
   let updates: ReturnType<typeof useUpdates>;
+  let setup: ReturnType<typeof useSetup>;
 
   function confirmAction(options: ConfirmActionOptions): Promise<boolean> {
     confirmResolverRef.current?.(false);
@@ -222,6 +224,7 @@ export function usePrintoraApp() {
   maintenance = useMaintenance({ selectedPrinterId: printers.selectedPrinterId, setError, setLoading });
   calibration = useCalibration({ selectedPrinterId: printers.selectedPrinterId, setError, setLoading });
   firmware = useFirmware({ selectedPrinterId: printers.selectedPrinterId, setError, setLoading });
+  setup = useSetup({ setError, setLoading });
   const selfUpdate = useSelfUpdate();
   updates = useUpdates({
     selectedPrinter: printers.selectedPrinter,
@@ -246,6 +249,7 @@ export function usePrintoraApp() {
       await Promise.allSettled([firmware.loadBoardPresets(), printers.loadPrinters()]);
       await catalogSummaryLoad;
       void settings.loadGlobalDiagnostics();
+      void setup.loadSetupHistory();
       void selfUpdate.loadSelfUpdateHistory();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
@@ -273,6 +277,9 @@ export function usePrintoraApp() {
     }
     if (shell.activeSection === "reports" && printers.selectedPrinterId) {
       void settings.loadPrinterNetworkDiagnostics(printers.selectedPrinterId);
+    }
+    if (shell.activeSection === "setup") {
+      void setup.loadSetupHistory();
     }
   }, [shell.activeSection, printers.selectedPrinterId]);
 
@@ -356,6 +363,15 @@ export function usePrintoraApp() {
         run: () => (printers.selectedPrinter ? printers.openEditPrinterModal(printers.selectedPrinter) : printers.openCreatePrinterModal()),
       };
     }
+    if (shell.activeSection === "setup") {
+      return {
+        icon: Server,
+        label: "Gerar plano",
+        disabled: loading || setup.setupBusy || !setup.setupHost.trim() || !setup.setupUsername.trim(),
+        busy: loading || setup.setupBusy,
+        run: () => setup.runSetupPlan(),
+      };
+    }
     if (shell.activeSection === "about") {
       return { icon: ShieldCheck, label: "Licença", disabled: loading, busy: false, run: () => shell.setActiveSection("license") };
     }
@@ -380,6 +396,7 @@ export function usePrintoraApp() {
     ...printers,
     ...operation,
     ...settings,
+    ...setup,
     ...reports,
     ...maintenance,
     ...calibration,

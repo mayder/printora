@@ -39,6 +39,99 @@ PRINTORA_PORT=8069 ./scripts/doctor_install.sh
 Pela interface, use `Configuracoes > Diagnostico da instalacao` para recarregar
 checks locais e copiar um resumo tecnico para suporte.
 
+Setup do Zero via SSH:
+
+```bash
+curl -s -X POST http://127.0.0.1:8069/api/setup/ssh/preflight \
+  -H 'Content-Type: application/json' \
+  -d '{"host":"btt-pi.local","port":22,"username":"pi","auth_method":"agent","timeout_seconds":12}'
+
+curl -s -X POST http://127.0.0.1:8069/api/setup/ssh/plan \
+  -H 'Content-Type: application/json' \
+  -d '{"host":"btt-pi.local","port":22,"username":"pi","auth_method":"agent","timeout_seconds":12}'
+
+curl -s http://127.0.0.1:8069/api/setup/ssh/history
+```
+
+O PKG-34 exige que a Pi ja tenha Linux, rede e SSH ativo. Placa virgem sem
+sistema operacional nao pode ser acessada por SSH; primeiro grave a mídia/boot,
+habilite SSH e confirme o primeiro login. O preflight coleta somente dados
+read-only. O plano retorna comandos prefixados por `PLAN` e nao executa
+instalacao real, `apt`, edicao de arquivo, restart, flash, G-code ou alteracao
+de Klipper/Moonraker.
+
+Setup CAN/U2C/can0 via SSH:
+
+```bash
+curl -s -X POST http://127.0.0.1:8069/api/setup/can/preflight \
+  -H 'Content-Type: application/json' \
+  -d '{"target":{"host":"btt-pi.local","port":22,"username":"pi","auth_method":"agent","timeout_seconds":12},"interface_name":"can0","bitrate":1000000}'
+
+curl -s -X POST http://127.0.0.1:8069/api/setup/can/plan \
+  -H 'Content-Type: application/json' \
+  -d '{"target":{"host":"btt-pi.local","port":22,"username":"pi","auth_method":"agent","timeout_seconds":12},"interface_name":"can0","bitrate":1000000}'
+
+curl -s http://127.0.0.1:8069/api/setup/can/history
+```
+
+O apply CAN real fica bloqueado por padrão. Para executar em host real, o
+processo do backend precisa estar com `PRINTORA_CAN_SETUP_MODE=remote` e o
+payload precisa incluir `confirmation=CONFIGURAR CAN0`. Antes de alterar o host,
+o backend roda preflight, bloqueia impressão em andamento quando detectável,
+exige `sudo -n`, cria backup remoto de `/etc/systemd/system/can0.service` em
+`~/.local/share/printora/can-setup/backups/<timestamp>/`, escreve o serviço
+`can0.service`, roda `systemctl daemon-reload`, `enable`, `restart` e valida
+`ip -details -statistics link show can0`.
+
+Rollback CAN:
+
+```bash
+sudo cp ~/.local/share/printora/can-setup/backups/<timestamp>/can0.service.before /etc/systemd/system/can0.service
+sudo systemctl daemon-reload
+sudo systemctl restart can0.service
+ip -details -statistics link show can0
+```
+
+Se não havia serviço anterior, o rollback é desabilitar/remover o serviço criado
+e recarregar o systemd:
+
+```bash
+sudo systemctl disable --now can0.service
+sudo rm -f /etc/systemd/system/can0.service
+sudo systemctl daemon-reload
+```
+
+Wizard remoto de firmware:
+
+```bash
+curl -s -X POST http://127.0.0.1:8069/api/setup/firmware/plan \
+  -H 'Content-Type: application/json' \
+  -d '{"target":{"host":"btt-pi.local","port":22,"username":"pi","auth_method":"agent","timeout_seconds":12},"preset_id":"btt_octopus_pro_h723_usb_can","board_name":"Octopus Pro H723","board_role":"mainboard","can_interface":"can0","klipper_path":"~/klipper","output_root":"~/.local/share/printora/firmware-setup","variant_confirmed":true}'
+
+curl -s http://127.0.0.1:8069/api/setup/firmware/history
+```
+
+O build remoto real fica bloqueado por padrão. Para executar em host real, o
+processo do backend precisa estar com `PRINTORA_REMOTE_FIRMWARE_BUILD_MODE=remote`
+e o payload precisa incluir `confirmation=BUILD_FIRMWARE_NO_FLASH`. O build:
+
+- salva o `.config` gerado em diretório controlado do Printora;
+- cria backup de `<klipper_path>/.config`;
+- substitui `.config` apenas durante o build;
+- executa `make clean && make`;
+- copia o binário para os artefatos Printora;
+- calcula hash do `.config` e do binário;
+- consulta UUIDs CAN quando `~/klippy-env` e `canbus_query.py` existirem;
+- restaura `.config` com `trap` em sucesso ou falha;
+- nunca executa flash, restart, update, G-code ou edição de `printer.cfg`.
+
+Rollback firmware build:
+
+```bash
+cp ~/.local/share/printora/firmware-setup/<placa>/.config.before-build ~/klipper/.config
+rm -rf ~/.local/share/printora/firmware-setup/<placa>
+```
+
 Instalação com boot automático:
 
 ```bash
@@ -203,6 +296,58 @@ Validar fechamento completo do pacote:
 ```bash
 RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
 ```
+
+## Setup Do Zero - Flash Supervisionado
+
+O flash supervisionado fica em `Setup do Zero > Flash supervisionado` e depende do SSH da Pi, CAN funcional e artefato de firmware gerado/validado.
+
+Fluxo seguro:
+
+1. informar placa, método, artefato remoto, UUID esperado e interface CAN;
+2. marcar checklist físico somente após confirmar alimentação, cabos, placa correta, bootloader/Katapult e binário;
+3. executar `Preflight flash`;
+4. gerar `Plano flash` e revisar bloqueios, comando `PLAN`, frase de confirmação e rollback;
+5. para execução real CAN/Katapult, habilitar o backend com `PRINTORA_REMOTE_FLASH_MODE=remote` e digitar exatamente a frase gerada;
+6. revisar log, hash, duração e validação pós-flash.
+
+Limites:
+
+- o método real inicial é somente `can_katapult`;
+- `usb_dfu` e `manual` ficam bloqueados no backend;
+- o fluxo não edita `printer.cfg`, não reinicia Klipper/Moonraker, não executa update e não envia G-code;
+- se falhar ou ficar inconclusivo, seguir o rollback manual exibido e colocar a placa novamente em bootloader.
+
+SQL:
+
+- `backend/sql/024_setup_flash_runs.sql` cria histórico local de preflight, plano e execução;
+- rollback de schema: restaurar backup `printora.<timestamp>.before-schema.db` criado pelo versionador antes de aplicar scripts pendentes.
+
+## Setup Do Zero - Validação Final
+
+A validação final fica em `Setup do Zero > Validação final` e deve ser executada depois de SSH, CAN, firmware e flash estarem prontos.
+
+O que a validação coleta:
+
+- serviços `klipper`, `moonraker`, `can0` e auxiliares quando `systemctl` existir;
+- `server/info`, `printer/info`, `print_stats`, temperaturas e Update Manager via Moonraker local;
+- estado da interface CAN;
+- UUIDs visíveis e UUIDs referenciados em configs;
+- resumo de arquivos `.cfg`, MCUs, includes e identificadores serial/CAN;
+- trechos recentes de logs com erros relevantes.
+
+Limites:
+
+- não envia G-code;
+- não move eixo;
+- não aquece hotend/mesa;
+- não reinicia Klipper/Moonraker;
+- não altera `printer.cfg` ou includes;
+- não executa update.
+
+SQL:
+
+- `backend/sql/025_setup_final_validation_runs.sql` cria histórico local da validação e relatório sanitizado;
+- rollback de schema: restaurar backup `printora.<timestamp>.before-schema.db` criado pelo versionador antes de aplicar scripts pendentes.
 
 Regras operacionais:
 

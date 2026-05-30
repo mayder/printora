@@ -11,5 +11,6 @@ export type * from "./plugins";
 export type * from "./printers";
 export type * from "./reports";
 export type * from "./snapshots";
+export type * from "./setup";
 export type * from "./updates";
 export type * from "./zOffset";
