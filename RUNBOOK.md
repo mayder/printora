@@ -39,6 +39,27 @@ PRINTORA_PORT=8069 ./scripts/doctor_install.sh
 Pela interface, use `Configuracoes > Diagnostico da instalacao` para recarregar
 checks locais e copiar um resumo tecnico para suporte.
 
+Setup do Zero via SSH:
+
+```bash
+curl -s -X POST http://127.0.0.1:8069/api/setup/ssh/preflight \
+  -H 'Content-Type: application/json' \
+  -d '{"host":"btt-pi.local","port":22,"username":"pi","auth_method":"agent","timeout_seconds":12}'
+
+curl -s -X POST http://127.0.0.1:8069/api/setup/ssh/plan \
+  -H 'Content-Type: application/json' \
+  -d '{"host":"btt-pi.local","port":22,"username":"pi","auth_method":"agent","timeout_seconds":12}'
+
+curl -s http://127.0.0.1:8069/api/setup/ssh/history
+```
+
+O PKG-34 exige que a Pi ja tenha Linux, rede e SSH ativo. Placa virgem sem
+sistema operacional nao pode ser acessada por SSH; primeiro grave a mídia/boot,
+habilite SSH e confirme o primeiro login. O preflight coleta somente dados
+read-only. O plano retorna comandos prefixados por `PLAN` e nao executa
+instalacao real, `apt`, edicao de arquivo, restart, flash, G-code ou alteracao
+de Klipper/Moonraker.
+
 Instalação com boot automático:
 
 ```bash

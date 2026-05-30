@@ -44,6 +44,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 |---|---|---|---|---|---|---|
 | Visao geral | `overview` | `/`, `/?section=overview`, `/#overview` | `frontend/src/screens/OverviewScreen.tsx` | Dashboard geral da frota e da impressora selecionada, com risco principal, horas acumuladas e atalhos seguros | Opcional | existente |
 | Impressoras | `printers` | `/?section=printers`, `/#printers` | `frontend/src/screens/PrintersScreen.tsx` | Cadastro, descoberta, teste de conexao e selecao da impressora ativa | Nao exige impressora ativa | existente |
+| Setup do Zero | `setup` | `/?section=setup`, `/#setup` | `frontend/src/screens/SetupScreen.tsx` | Preflight SSH read-only e plano dry-run para preparar uma Raspberry/BTT Pi com Linux e SSH ativo | Nao exige impressora ativa | existente |
 | Operacao | `monitoring` | `/?section=monitoring`, `/#monitoring`; legado `/?section=operation` redireciona para esta tela | `frontend/src/screens/MonitoringScreen.tsx` + `frontend/src/MonitoringDashboard.tsx` | Operacao ao vivo com temperaturas, toolhead, extrusor, progresso, sistema, fans, CAN e acoes protegidas | Exige impressora ativa online | existente |
 | Atualizacoes | `updates` | `/?section=updates`, `/#updates` | `frontend/src/screens/UpdatesScreen.tsx` | Update Manager da impressora, checklist pos-update, update com confirmacao, progresso e historico | Exige impressora ativa online | existente |
 | Calibracao | `tests` | `/?section=tests`, `/#tests`; legado `/?section=calibration` redireciona para `tests` | `frontend/src/screens/TestsScreen.tsx` | Centro de calibracao Voron em cards numerados por sequencia, busca, filtros por tipo/uso, ajuda expandida, preflight, execucao com confirmacao presencial e perfil Z aprovado | Exige impressora ativa online | existente |
@@ -84,6 +85,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 |---|---|---|
 | Shell/navegacao | `frontend/src/hooks/domains/useAppShell.ts` | Nao acessa API |
 | Impressoras | `frontend/src/hooks/domains/usePrinters.ts` | `frontend/src/services/printerApi.ts` |
+| Setup do Zero | `frontend/src/hooks/domains/useSetup.ts` | `frontend/src/services/setupApi.ts` |
 | Operacao | `frontend/src/hooks/domains/useOperation.ts` | `frontend/src/services/operationApi.ts` |
 | Atualizacoes da impressora | `frontend/src/hooks/domains/useUpdates.ts` | `frontend/src/services/updatesApi.ts` |
 | Calibracao e Z-offset | `frontend/src/hooks/domains/useCalibration.ts` | `frontend/src/services/calibrationApi.ts`, `frontend/src/services/zOffsetApi.ts` |
@@ -111,6 +113,11 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - A tela Sobre deve ser acessivel pelo icone de informacao no topo em todas as telas; por enquanto nao aparece no menu lateral.
 - A tela Sobre deve promover o autor, exibir LinkedIn, Instagram, GitHub do projeto, motivacao, funcionalidades atuais, aviso de teste, versao sem custo, roadmap online futuro e opcoes de marca.
 - A tela Licenca deve ser acessivel a partir da tela Sobre e deixar claro o uso open source, ausencia de garantia e responsabilidade do usuario em operacoes criticas.
+- A tela Setup do Zero deve ficar disponivel sem impressora ativa, pois seu objetivo e preparar uma Pi antes do cadastro final da impressora.
+- Na tela Setup do Zero, o primeiro bloco deve deixar claro que placa virgem sem SO/rede/SSH nao pode ser acessada por SSH; a preparacao de mídia/boot e etapa manual ou futura.
+- Na tela Setup do Zero, a UI deve aceitar host, porta, usuario, metodo de autenticacao por agente/chave e timeout, sem campo de senha.
+- Na tela Setup do Zero, `Preflight SSH` executa apenas coleta read-only e `Gerar plano` retorna somente plano dry-run com comandos `PLAN`.
+- Na tela Setup do Zero, o historico deve mostrar alvo, tipo e status sem segredo, senha, token ou caminho de chave privada.
 
 ## Estado de UI
 

@@ -1,0 +1,129 @@
+.section-setup .grid {
+  align-items: start;
+}
+
+.setup-hero-panel {
+  border-color: rgba(77, 163, 255, 0.32);
+}
+
+.setup-boundary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.setup-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.setup-check-list,
+.setup-step-list,
+.setup-command-list {
+  display: grid;
+  gap: 10px;
+}
+
+.setup-check,
+.setup-step,
+.setup-command {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-3);
+}
+
+.setup-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px;
+}
+
+.setup-check strong,
+.setup-check span,
+.setup-step strong,
+.setup-step span,
+.setup-command span {
+  display: block;
+}
+
+.setup-check span,
+.setup-step span,
+.setup-command span,
+.setup-rollback {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.setup-ok svg,
+.setup-status-success {
+  color: var(--success);
+}
+
+.setup-warning svg,
+.setup-status-warning {
+  color: var(--warning);
+}
+
+.setup-error svg,
+.setup-status-danger {
+  color: var(--danger);
+}
+
+.setup-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.setup-status-info {
+  color: var(--accent);
+}
+
+.setup-step {
+  padding: 14px;
+}
+
+.setup-step-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.setup-command {
+  padding: 10px;
+}
+
+.setup-command code {
+  display: block;
+  margin-bottom: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.setup-command-mutable {
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.setup-command-manual {
+  border-color: rgba(77, 163, 255, 0.35);
+}
+
+.setup-rollback {
+  margin: 10px 0 0;
+}
+
+@media (max-width: 860px) {
+  .setup-boundary-grid,
+  .setup-form-grid {
+    grid-template-columns: 1fr;
+  }
+}

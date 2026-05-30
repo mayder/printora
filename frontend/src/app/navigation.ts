@@ -1,9 +1,10 @@
-import { Activity, FileText, Home, Info, Printer, RefreshCw, Scale, Settings, SlidersHorizontal, Wrench, Zap } from "lucide-react";
+import { Activity, FileText, Home, Info, Network, Printer, RefreshCw, Scale, Settings, SlidersHorizontal, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
   | "overview"
   | "printers"
+  | "setup"
   | "monitoring"
   | "updates"
   | "tests"
@@ -34,6 +35,13 @@ export const appSections: Array<{
     label: "Impressoras",
     detail: "Cadastro, descoberta e seleção da impressora ativa.",
     purpose: "Gerencie as impressoras cadastradas e defina qual delas controla o contexto do restante do sistema.",
+  },
+  {
+    key: "setup",
+    icon: Network,
+    label: "Setup do Zero",
+    detail: "Preflight SSH e plano dry-run para preparar uma Pi.",
+    purpose: "Conecte em uma Pi com Linux e SSH ativo, valide o ambiente e gere um plano seguro de provisionamento.",
   },
   {
     key: "monitoring",
@@ -101,7 +109,7 @@ export const appSections: Array<{
 ];
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
-  { title: "Principal", sections: ["overview", "printers"] },
+  { title: "Principal", sections: ["overview", "printers", "setup"] },
   { title: "Impressora ativa", sections: ["monitoring", "updates", "tests", "firmware", "maintenance"] },
   { title: "Diagnóstico", sections: ["reports", "settings"] },
 ];

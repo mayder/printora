@@ -5,6 +5,7 @@ import { AppModals } from "./components/modals";
 import { ToastViewport } from "./components/ToastViewport";
 import { OverviewScreen } from "./screens/OverviewScreen";
 import { PrintersScreen } from "./screens/PrintersScreen";
+import { SetupScreen } from "./screens/SetupScreen";
 import { MonitoringScreen } from "./screens/MonitoringScreen";
 import { UpdatesScreen } from "./screens/UpdatesScreen";
 import { TestsScreen } from "./screens/TestsScreen";
@@ -24,6 +25,7 @@ import "./styles/modals.css";
 import "./styles/backups.css";
 import "./styles/maintenance.css";
 import "./styles/settings.css";
+import "./styles/setup.css";
 import "./styles/firmware.css";
 import "./styles/calibration.css";
 import "./styles/tests.css";
@@ -63,6 +65,8 @@ function App() {
         return <OverviewScreen {...screenProps} />;
       case "printers":
         return <PrintersScreen {...screenProps} />;
+      case "setup":
+        return <SetupScreen {...screenProps} />;
       case "monitoring":
         return <MonitoringScreen {...screenProps} />;
       case "updates":
@@ -214,6 +218,8 @@ function App() {
           <span>
             {activeSection === "settings"
               ? "Configuração global do Printora"
+              : activeSection === "setup"
+                ? "Provisionamento começa somente depois que Linux e SSH estão ativos"
               : activeSection === "about"
                 ? "Autoria, roadmap público e identidade do projeto"
                 : activeSection === "license"

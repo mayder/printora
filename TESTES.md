@@ -131,6 +131,27 @@ Aceite:
 - tela `Configurações > Histórico de updates` tem ação para reconciliar updates travados.
 - scripts de update validam `/openapi.json` após restart para confirmar que o backend reiniciado está na versão alvo, evitando frontend novo com backend antigo.
 
+## Setup Do Zero Via SSH
+
+Aceite do PKG-34:
+
+- placa virgem sem sistema operacional fica explicitamente fora do acesso SSH; o fluxo deve orientar preparar mídia/boot antes do provisionamento remoto;
+- `POST /api/setup/ssh/preflight` executa somente comandos read-only por SSH e retorna `safe_mode=ssh_read_only_preflight`;
+- `POST /api/setup/ssh/plan` retorna `safe_mode=ssh_dry_run_plan` e comandos planejados prefixados por `PLAN`;
+- senha, token e conteúdo de chave privada não entram no payload, histórico, logs ou banco;
+- `key_path` pode ser usado para execução local do comando SSH, mas não é persistido no histórico;
+- histórico `GET /api/setup/ssh/history` lista preflights e planos sem segredos;
+- preflight classifica SSH, SO, systemd, ferramentas base, ferramentas de build, Klipper, Moonraker, `printer_data` e `can0`;
+- plano separa preparação de mídia, dependências, Klipper, Moonraker, UI web, Printora, CAN e firmware futuro;
+- o PKG-34 não executa instalação real, `apt`, edição de arquivo, restart, flash, G-code, alteração de Klipper/Moonraker ou gravação de firmware.
+
+Validação focada:
+
+```bash
+cd backend && uv run pytest tests/test_setup_wizard.py -q
+cd frontend && npm run build
+```
+
 O check inicial valida:
 
 - existência dos documentos principais;
