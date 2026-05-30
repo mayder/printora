@@ -2595,4 +2595,12 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado localmente.
+- Backend expõe `POST /api/setup/final-validation/run` e `GET /api/setup/final-validation/history`.
+- Validação final remota é read-only e coleta serviços, `server/info`, `printer/info`, `print_stats`, temperaturas, Update Manager, CAN, UUIDs, resumo de configs e trechos recentes de log.
+- O fluxo não envia G-code, não move eixo, não aquece hotend/mesa, não reinicia serviços e não altera arquivos.
+- Aceite retorna estados `approved_for_calibration`, `approved_with_notes`, `blocked` e `needs_manual_intervention`.
+- Relatório Markdown sanitizado remove caminhos locais, IPs/URLs e padrões sensíveis antes de exibir/copiar.
+- Histórico local `setup_final_validation_runs` registra alvo, interface, UUIDs esperados, checks, relatório e status sem senha, token ou caminho de chave privada.
+- UI `Setup do Zero` ganhou seção Validação final com UUIDs esperados, paths de config/log, checks, status e copiar relatório.
+- Validação de fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 CHECK_STRICT_RUNTIME_NAMES=1 ./check.sh`.

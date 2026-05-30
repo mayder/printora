@@ -322,6 +322,33 @@ SQL:
 - `backend/sql/024_setup_flash_runs.sql` cria histórico local de preflight, plano e execução;
 - rollback de schema: restaurar backup `printora.<timestamp>.before-schema.db` criado pelo versionador antes de aplicar scripts pendentes.
 
+## Setup Do Zero - Validação Final
+
+A validação final fica em `Setup do Zero > Validação final` e deve ser executada depois de SSH, CAN, firmware e flash estarem prontos.
+
+O que a validação coleta:
+
+- serviços `klipper`, `moonraker`, `can0` e auxiliares quando `systemctl` existir;
+- `server/info`, `printer/info`, `print_stats`, temperaturas e Update Manager via Moonraker local;
+- estado da interface CAN;
+- UUIDs visíveis e UUIDs referenciados em configs;
+- resumo de arquivos `.cfg`, MCUs, includes e identificadores serial/CAN;
+- trechos recentes de logs com erros relevantes.
+
+Limites:
+
+- não envia G-code;
+- não move eixo;
+- não aquece hotend/mesa;
+- não reinicia Klipper/Moonraker;
+- não altera `printer.cfg` ou includes;
+- não executa update.
+
+SQL:
+
+- `backend/sql/025_setup_final_validation_runs.sql` cria histórico local da validação e relatório sanitizado;
+- rollback de schema: restaurar backup `printora.<timestamp>.before-schema.db` criado pelo versionador antes de aplicar scripts pendentes.
+
 Regras operacionais:
 
 - os scripts executam apenas leitura HTTP do dominio `canbus.esoterical.online` e leitura/escrita local dos JSONs quando `--write` for informado;

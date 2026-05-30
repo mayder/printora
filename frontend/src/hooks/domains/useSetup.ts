@@ -15,6 +15,8 @@ import type {
   SetupFlashPlanResponse,
   SetupFlashPreflightResponse,
   SetupFlashRunRecord,
+  SetupFinalValidationResponse,
+  SetupFinalValidationRunRecord,
   SetupSshPlanResponse,
   SetupSshPreflightResponse,
   SetupSshRunRecord,
@@ -65,6 +67,11 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
   const [setupFlashPlan, setSetupFlashPlan] = React.useState<SetupFlashPlanResponse | null>(null);
   const [setupFlashExecuteResult, setSetupFlashExecuteResult] = React.useState<SetupFlashExecuteResponse | null>(null);
   const [setupFlashHistory, setSetupFlashHistory] = React.useState<SetupFlashRunRecord[]>([]);
+  const [setupFinalExpectedUuids, setSetupFinalExpectedUuids] = React.useState("");
+  const [setupFinalConfigRoot, setSetupFinalConfigRoot] = React.useState("~/printer_data/config");
+  const [setupFinalLogRoot, setSetupFinalLogRoot] = React.useState("~/printer_data/logs");
+  const [setupFinalValidation, setSetupFinalValidation] = React.useState<SetupFinalValidationResponse | null>(null);
+  const [setupFinalHistory, setSetupFinalHistory] = React.useState<SetupFinalValidationRunRecord[]>([]);
   const [setupBusy, setSetupBusy] = React.useState(false);
 
   function setupTarget(): SetupSshTarget {
@@ -114,11 +121,12 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
 
   async function loadSetupHistory() {
     try {
-      const [sshResponse, canResponse, firmwareResponse, flashResponse] = await Promise.allSettled([
+      const [sshResponse, canResponse, firmwareResponse, flashResponse, finalResponse] = await Promise.allSettled([
         setupApi.history(),
         setupApi.canHistory(),
         setupApi.firmwareHistory(),
         setupApi.flashHistory(),
+        setupApi.finalValidationHistory(),
       ]);
       if (sshResponse.status === "fulfilled") {
         setSetupHistory(sshResponse.value.runs);
@@ -131,6 +139,9 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
       }
       if (flashResponse.status === "fulfilled") {
         setSetupFlashHistory(flashResponse.value.runs);
+      }
+      if (finalResponse.status === "fulfilled") {
+        setSetupFinalHistory(finalResponse.value.runs);
       }
       return sshResponse.status === "fulfilled" ? sshResponse.value.runs : [];
     } catch (err) {
@@ -328,6 +339,35 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
     }
   }
 
+  function setupFinalValidationPayload() {
+    return {
+      target: setupTarget(),
+      interface_name: setupCanInterfaceName.trim() || "can0",
+      expected_uuids: setupFinalExpectedUuids
+        .split(/[\s,;]+/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+      config_root: setupFinalConfigRoot.trim() || "~/printer_data/config",
+      log_root: setupFinalLogRoot.trim() || "~/printer_data/logs",
+    };
+  }
+
+  async function runSetupFinalValidation() {
+    setLoading(true);
+    setSetupBusy(true);
+    setError(null);
+    try {
+      const response = await setupApi.finalValidationRun(setupFinalValidationPayload());
+      setSetupFinalValidation(response);
+      await loadSetupHistory();
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setSetupBusy(false);
+      setLoading(false);
+    }
+  }
+
   return {
     loadSetupHistory,
     runSetupPlan,
@@ -339,6 +379,7 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
     runSetupFlashExecute,
     runSetupFlashPlan,
     runSetupFlashPreflight,
+    runSetupFinalValidation,
     runSetupPreflight,
     setSetupAuthMethod,
     setSetupCanBitrate,
@@ -357,6 +398,9 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
     setSetupFlashExpectedUuid,
     setSetupFlashMethod,
     setSetupFlashPreviousBinaryPath,
+    setSetupFinalConfigRoot,
+    setSetupFinalExpectedUuids,
+    setSetupFinalLogRoot,
     setSetupHost,
     setSetupKeyPath,
     setSetupPort,
@@ -391,6 +435,11 @@ export function useSetup({ setError, setLoading }: UseSetupOptions) {
     setupFlashPlan,
     setupFlashPreflight,
     setupFlashPreviousBinaryPath,
+    setupFinalConfigRoot,
+    setupFinalExpectedUuids,
+    setupFinalHistory,
+    setupFinalLogRoot,
+    setupFinalValidation,
     setupHistory,
     setupHost,
     setupKeyPath,

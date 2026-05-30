@@ -322,3 +322,48 @@ export type SetupFlashRunRecord = {
   error_message?: string | null;
   created_at: string;
 };
+
+export type SetupFinalValidationStatus =
+  | "approved_for_calibration"
+  | "approved_with_notes"
+  | "blocked"
+  | "needs_manual_intervention";
+
+export type SetupFinalValidationCheck = {
+  key: string;
+  status: "ok" | "warning" | "blocked" | "manual";
+  title: string;
+  detail: string;
+  action: string;
+};
+
+export type SetupFinalValidationResponse = {
+  safe_mode: string;
+  connected: boolean;
+  status: SetupFinalValidationStatus;
+  target: string;
+  interface_name: string;
+  expected_uuids: string[];
+  summary: string;
+  checks: SetupFinalValidationCheck[];
+  sections: Record<string, string>;
+  report_markdown: string;
+  history_id?: number | null;
+  error?: string | null;
+};
+
+export type SetupFinalValidationRunRecord = {
+  id: number;
+  status: SetupFinalValidationStatus;
+  safe_mode: string;
+  target_host: string;
+  target_port: number;
+  target_user: string;
+  interface_name: string;
+  expected_uuids: string[];
+  summary: string;
+  checks: Record<string, unknown>[];
+  report_markdown: string;
+  error_message?: string | null;
+  created_at: string;
+};

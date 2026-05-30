@@ -11,6 +11,8 @@ import type {
   SetupFlashPlanResponse,
   SetupFlashPreflightResponse,
   SetupFlashRunRecord,
+  SetupFinalValidationResponse,
+  SetupFinalValidationRunRecord,
   SetupSshPlanResponse,
   SetupSshPreflightResponse,
   SetupSshRunRecord,
@@ -82,4 +84,11 @@ export const setupApi = {
       body: JSON.stringify(body),
     }),
   flashHistory: () => apiRequest<{ runs: SetupFlashRunRecord[] }>("/api/setup/flash/history"),
+  finalValidationRun: (body: unknown) =>
+    apiRequest<SetupFinalValidationResponse>("/api/setup/final-validation/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  finalValidationHistory: () => apiRequest<{ runs: SetupFinalValidationRunRecord[] }>("/api/setup/final-validation/history"),
 };

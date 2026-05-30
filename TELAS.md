@@ -129,6 +129,9 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Setup do Zero, o plano de flash deve mostrar frase específica por placa/método, hash do artefato, UUID esperado, comandos `PLAN`, bloqueios e rollback manual.
 - Na tela Setup do Zero, `Executar flash` deve exigir a frase gerada no plano; mesmo com a frase, o backend bloqueia quando `PRINTORA_REMOTE_FLASH_MODE=remote` não estiver habilitado.
 - Na tela Setup do Zero, o histórico de flash deve mostrar placa, método, alvo e status sem senha, token ou caminho de chave privada.
+- Na tela Setup do Zero, a seção Validação final deve reutilizar SSH e interface CAN, aceitar UUIDs esperados, paths de config/log e executar somente coleta read-only.
+- Na tela Setup do Zero, a validação final deve exibir status de aceite, checks acionáveis e relatório Markdown sanitizado copiável.
+- Na tela Setup do Zero, o histórico de validação final deve mostrar data, interface, alvo, resumo e status sem segredo ou caminho de chave privada.
 
 ## Estado de UI
 

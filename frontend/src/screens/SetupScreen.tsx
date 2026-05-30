@@ -1,5 +1,5 @@
 import { Metric } from "../components/common";
-import type { SetupCanPlanStep, SetupFirmwarePlanStep, SetupFlashPlanStep, SetupPlanStep, SetupRunStatus } from "../types";
+import type { SetupCanPlanStep, SetupFinalValidationStatus, SetupFirmwarePlanStep, SetupFlashPlanStep, SetupPlanStep, SetupRunStatus } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type SetupScreenProps = ScreenPropsFor<
@@ -41,6 +41,11 @@ type SetupScreenProps = ScreenPropsFor<
   | "setupFlashPlan"
   | "setupFlashPreflight"
   | "setupFlashPreviousBinaryPath"
+  | "setupFinalConfigRoot"
+  | "setupFinalExpectedUuids"
+  | "setupFinalHistory"
+  | "setupFinalLogRoot"
+  | "setupFinalValidation"
   | "setupHistory"
   | "setupHost"
   | "setupKeyPath"
@@ -58,6 +63,7 @@ type SetupScreenProps = ScreenPropsFor<
   | "runSetupFlashExecute"
   | "runSetupFlashPlan"
   | "runSetupFlashPreflight"
+  | "runSetupFinalValidation"
   | "runSetupPreflight"
   | "setSetupAuthMethod"
   | "setSetupCanBitrate"
@@ -76,6 +82,9 @@ type SetupScreenProps = ScreenPropsFor<
   | "setSetupFlashExpectedUuid"
   | "setSetupFlashMethod"
   | "setSetupFlashPreviousBinaryPath"
+  | "setSetupFinalConfigRoot"
+  | "setSetupFinalExpectedUuids"
+  | "setSetupFinalLogRoot"
   | "setSetupHost"
   | "setSetupKeyPath"
   | "setSetupPort"
@@ -103,6 +112,7 @@ export function SetupScreen(props: SetupScreenProps) {
     runSetupFlashExecute,
     runSetupFlashPlan,
     runSetupFlashPreflight,
+    runSetupFinalValidation,
     runSetupPreflight,
     setSetupAuthMethod,
     setSetupCanBitrate,
@@ -121,6 +131,9 @@ export function SetupScreen(props: SetupScreenProps) {
     setSetupFlashExpectedUuid,
     setSetupFlashMethod,
     setSetupFlashPreviousBinaryPath,
+    setSetupFinalConfigRoot,
+    setSetupFinalExpectedUuids,
+    setSetupFinalLogRoot,
     setSetupHost,
     setSetupKeyPath,
     setSetupPort,
@@ -155,6 +168,11 @@ export function SetupScreen(props: SetupScreenProps) {
     setupFlashPlan,
     setupFlashPreflight,
     setupFlashPreviousBinaryPath,
+    setupFinalConfigRoot,
+    setupFinalExpectedUuids,
+    setupFinalHistory,
+    setupFinalLogRoot,
+    setupFinalValidation,
     setupHistory,
     setupHost,
     setupKeyPath,
@@ -281,7 +299,7 @@ export function SetupScreen(props: SetupScreenProps) {
             ))}
           </div>
         ) : (
-          <div className="empty-state">Nenhum comando será executado nesta tela. O pacote gera plano revisável.</div>
+          <div className="empty-state">Nenhum comando será executado nesta tela. O fluxo gera plano revisável.</div>
         )}
       </article>
 
@@ -552,6 +570,72 @@ export function SetupScreen(props: SetupScreenProps) {
         ) : null}
       </article>
 
+      <article className="panel wide setup-final-panel">
+        <div className="panel-header-row">
+          <div>
+            <h2>Validação final</h2>
+            <p>Fecha a base Klipper com coleta read-only, checklist técnico e relatório de aceite sanitizado.</p>
+          </div>
+          <CheckCircle2 size={20} />
+        </div>
+        <div className="form-grid setup-form-grid">
+          <label>
+            UUIDs esperados
+            <input value={setupFinalExpectedUuids} onChange={(event) => setSetupFinalExpectedUuids(event.target.value)} placeholder="0123456789ab, abcdef123456" />
+          </label>
+          <label>
+            Configs Klipper
+            <input value={setupFinalConfigRoot} onChange={(event) => setSetupFinalConfigRoot(event.target.value)} placeholder="~/printer_data/config" />
+          </label>
+          <label>
+            Logs Klipper/Moonraker
+            <input value={setupFinalLogRoot} onChange={(event) => setSetupFinalLogRoot(event.target.value)} placeholder="~/printer_data/logs" />
+          </label>
+        </div>
+        <div className="button-row">
+          <button type="button" className="primary-button" disabled={!canRun || setupBusy} onClick={() => void runSetupFinalValidation()}>
+            <ShieldCheck className={setupBusy ? "button-busy-icon" : undefined} size={16} />
+            Validar base
+          </button>
+        </div>
+        {setupFinalValidation ? (
+          <div className="setup-step-list">
+            <div className={`action-result ${setupFinalValidation.status === "approved_for_calibration" ? "success" : setupFinalValidation.status === "blocked" ? "danger" : "warning"}`}>
+              <strong>{setupFinalValidation.summary}</strong>
+              <span>{setupFinalValidation.status === "approved_for_calibration" ? "Pronta para calibração mecânica." : "Revise os itens abaixo antes de continuar."}</span>
+            </div>
+            <div className="setup-artifact-summary">
+              <Metric label="Status" value={formatFinalStatus(setupFinalValidation.status)} />
+              <Metric label="Interface" value={setupFinalValidation.interface_name} />
+              <Metric label="UUIDs" value={setupFinalValidation.expected_uuids.length ? String(setupFinalValidation.expected_uuids.length) : "manual"} />
+            </div>
+            <div className="setup-check-list">
+              {setupFinalValidation.checks.map((check) => (
+                <div key={check.key} className={`setup-check setup-${check.status === "blocked" ? "error" : check.status === "manual" ? "warning" : check.status}`}>
+                  {check.status === "ok" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                  <div>
+                    <strong>{check.title}</strong>
+                    <span>{check.detail}</span>
+                    <small>{check.action}</small>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="setup-report-box">
+              <div className="panel-header-row">
+                <strong>Relatório de aceite</strong>
+                <button type="button" className="secondary-button" onClick={() => void navigator.clipboard?.writeText(setupFinalValidation.report_markdown)}>
+                  Copiar relatório
+                </button>
+              </div>
+              <pre>{setupFinalValidation.report_markdown}</pre>
+            </div>
+          </div>
+        ) : (
+          <div className="empty-state">Informe os UUIDs esperados e execute a validação final quando a base estiver montada.</div>
+        )}
+      </article>
+
       <article className="panel wide setup-history-panel">
         <div className="panel-header-row">
           <div>
@@ -658,6 +742,30 @@ export function SetupScreen(props: SetupScreenProps) {
             </table>
           </div>
         ) : null}
+        {setupFinalHistory.length ? (
+          <div className="table-wrap setup-can-history">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Validação</th>
+                  <th>Alvo</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {setupFinalHistory.slice(0, 8).map((run) => (
+                  <tr key={run.id}>
+                    <td>{run.created_at}</td>
+                    <td>{run.interface_name} · {run.summary}</td>
+                    <td>{run.target_user}@{run.target_host}:{run.target_port}</td>
+                    <td><FinalStatusBadge status={run.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </article>
     </>
   );
@@ -667,6 +775,18 @@ function StatusBadge({ status }: { status: SetupRunStatus | "blocked" | "require
   const tone = status === "ok" ? "success" : status === "warning" ? "warning" : "danger";
   const label = status === "ok" ? "OK" : status === "warning" ? "Atenção" : status === "requires_recovery" ? "Recuperação" : "Erro";
   return <span className={`setup-status setup-status-${tone}`}>{label}</span>;
+}
+
+function FinalStatusBadge({ status }: { status: SetupFinalValidationStatus }) {
+  const tone = status === "approved_for_calibration" ? "success" : status === "blocked" ? "danger" : "warning";
+  return <span className={`setup-status setup-status-${tone}`}>{formatFinalStatus(status)}</span>;
+}
+
+function formatFinalStatus(status: SetupFinalValidationStatus) {
+  if (status === "approved_for_calibration") return "Aprovado";
+  if (status === "approved_with_notes") return "Com observação";
+  if (status === "needs_manual_intervention") return "Conferir";
+  return "Bloqueado";
 }
 
 function SetupStepCard({ step }: { step: SetupPlanStep | SetupCanPlanStep | SetupFirmwarePlanStep | SetupFlashPlanStep }) {

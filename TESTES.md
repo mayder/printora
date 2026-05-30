@@ -206,6 +206,23 @@ Validação focada:
 - `cd frontend && npm run build`;
 - fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+## Validação Final Da Base Klipper
+
+Aceite do PKG-38:
+
+- `POST /api/setup/final-validation/run` executa somente leitura via SSH;
+- coleta serviços, Moonraker/Klipper, `can0`, UUIDs, configs, temperaturas, Update Manager e logs recentes sem G-code e sem mutação;
+- status diferencia aprovado para calibração, aprovado com observação, bloqueado e requer intervenção manual;
+- relatório Markdown sanitizado remove caminhos locais, IPs/URLs e padrões sensíveis;
+- histórico `GET /api/setup/final-validation/history` não persiste senha, token, chave privada ou `key_path`;
+- validação real em hardware acompanhado continua obrigatória antes de homologar o fluxo em campo.
+
+Validação focada:
+
+- `cd backend && uv run pytest tests/test_setup_final_validation.py`;
+- `cd frontend && npm run build`;
+- fechamento: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 CHECK_STRICT_RUNTIME_NAMES=1 ./check.sh`.
+
 Validação focada:
 
 ```bash

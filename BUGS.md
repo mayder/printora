@@ -379,6 +379,20 @@ Mitigação:
 - começar apenas pelo método CAN/Katapult;
 - seguir rollback manual exibido em caso de falha ou estado inconclusivo.
 
+### Validação Final Sem Hardware Real
+
+Impacto:
+
+- a validação final foi implementada e testada com fixtures locais, mas ainda não foi executada em Pi/U2C/MCUs reais acompanhadas;
+- o relatório local prova contrato e segurança do software, não homologação de campo.
+
+Mitigação:
+
+- fluxo estritamente read-only;
+- relatório sanitizado;
+- estados distinguem bloqueado, intervenção manual, aprovado com observação e aprovado para calibração;
+- validar em hardware real antes de usar como aceite operacional definitivo.
+
 ### GitHub Releases Rate Limit E Cache
 
 Consulta pública ao GitHub Releases pode sofrer rate limit, ficar offline ou retornar dados defasados por cache intermediário.

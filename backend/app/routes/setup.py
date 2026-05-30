@@ -35,6 +35,13 @@ from app.setup_flash import (
     execute_setup_flash,
     run_setup_flash_preflight,
 )
+from app.setup_final_validation import (
+    SetupFinalValidationRepository,
+    SetupFinalValidationRequest,
+    SetupFinalValidationResponse,
+    SetupFinalValidationRunRecord,
+    run_setup_final_validation,
+)
 from app.setup_wizard import (
     SetupSshPlanResponse,
     SetupSshPreflightResponse,
@@ -62,6 +69,10 @@ def get_setup_firmware_repository(settings: Settings) -> SetupFirmwareRunReposit
 
 def get_setup_flash_repository(settings: Settings) -> SetupFlashRunRepository:
     return SetupFlashRunRepository(settings.database_path)
+
+
+def get_setup_final_validation_repository(settings: Settings) -> SetupFinalValidationRepository:
+    return SetupFinalValidationRepository(settings.database_path)
 
 
 @router.post("/api/setup/ssh/preflight")
@@ -190,4 +201,20 @@ async def setup_flash_execute(payload: SetupFlashExecuteRequest) -> SetupFlashEx
 async def setup_flash_history(limit: int = 20) -> dict[str, list[SetupFlashRunRecord]]:
     settings = get_settings()
     repository = get_setup_flash_repository(settings)
+    return {"runs": repository.list_runs(limit=limit)}
+
+
+@router.post("/api/setup/final-validation/run")
+async def setup_final_validation_run(payload: SetupFinalValidationRequest) -> SetupFinalValidationResponse:
+    settings = get_settings()
+    repository = get_setup_final_validation_repository(settings)
+    response = await run_setup_final_validation(payload)
+    response.history_id = repository.create_run(payload, response)
+    return response
+
+
+@router.get("/api/setup/final-validation/history")
+async def setup_final_validation_history(limit: int = 20) -> dict[str, list[SetupFinalValidationRunRecord]]:
+    settings = get_settings()
+    repository = get_setup_final_validation_repository(settings)
     return {"runs": repository.list_runs(limit=limit)}
