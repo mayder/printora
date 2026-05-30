@@ -190,7 +190,7 @@ export function SetupScreen(props: SetupScreenProps) {
       <article className="panel wide setup-hero-panel">
         <div className="panel-header-row">
           <div>
-            <h2>Setup do Zero</h2>
+            <h2>Setup</h2>
             <p>O fluxo começa quando a Pi já tem Linux, rede e SSH ativo. Placa virgem precisa de mídia de boot antes do SSH.</p>
           </div>
           <span className="setup-status setup-status-info">Assistido</span>

@@ -39,7 +39,7 @@ export const appSections: Array<{
   {
     key: "setup",
     icon: Network,
-    label: "Setup do Zero",
+    label: "Setup",
     detail: "Preflight SSH e plano dry-run para preparar uma Pi.",
     purpose: "Conecte em uma Pi com Linux e SSH ativo, valide o ambiente e gere um plano seguro de provisionamento.",
   },
