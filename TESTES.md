@@ -784,6 +784,19 @@ Critérios:
 - Testes automatizados focados: `cd backend && uv run pytest tests/test_agent_channel.py tests/test_agent_pairing.py -q` e `cd agent && go test ./...`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-44 - Instalador Online Assistido Do Agente
+
+- Validar que a tela Impressoras gera plano de instalação apenas para usuário com acesso à impressora.
+- Validar que o comando contém token curto de pareamento, endpoint público do script e URL local do Moonraker.
+- Validar que o token curto é consumido uma única vez por `/api/agent/pairing/exchange`.
+- Validar que `GET /api/printers/{printer_id}/agent/install-status` mostra pendente sem agente, aguardando heartbeat após pareamento e validado após heartbeat com versão esperada.
+- Validar que `GET /api/agent/install/linux.sh` entrega o script sem segredo embutido.
+- Validar `backend/scripts/install_agent_linux.sh --preflight` em modo seguro, sem vazar `PRINTORA_PAIRING_TOKEN`.
+- Validar que uninstall remove serviço/binário e preserva diretórios de configuração/dados/logs.
+- Validar frontend build para tela Impressoras com comandos de preflight, install e uninstall.
+- Testes automatizados focados: `cd backend && uv run pytest tests/test_agent_install.py tests/test_agent_pairing.py -q`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

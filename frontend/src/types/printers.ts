@@ -91,6 +91,31 @@ export type AgentPairingOverview = {
   agents: PrinterAgentRecord[];
 };
 
+export type AgentInstallPlanResponse = {
+  printer_id: number;
+  token_id: number;
+  token_prefix: string;
+  expires_at: string;
+  expected_agent_version: string;
+  script_url: string;
+  preflight_command: string;
+  install_command: string;
+  uninstall_command: string;
+};
+
+export type AgentInstallStatusResponse = {
+  printer_id: number;
+  expected_agent_version: string;
+  ready: boolean;
+  active_agents: number;
+  latest_agent_id?: number | null;
+  latest_stable_id?: string | null;
+  latest_version?: string | null;
+  latest_platform?: string | null;
+  latest_last_seen_at?: string | null;
+  diagnostic: string;
+};
+
 export type PairingTokenResponse = PairingTokenRecord & {
   token: string;
 };

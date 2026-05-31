@@ -5,6 +5,8 @@ import type {
   ConnectionCheckResult,
   DiscoveredPrinter,
   AgentCredentialExchangeResponse,
+  AgentInstallPlanResponse,
+  AgentInstallStatusResponse,
   AgentPairingOverview,
   MoonrakerStatus,
   PairingTokenResponse,
@@ -54,6 +56,8 @@ export function usePrinters(options: UsePrintersOptions) {
   const [pairingOverview, setPairingOverview] = React.useState<AgentPairingOverview | null>(null);
   const [createdPairingToken, setCreatedPairingToken] = React.useState<PairingTokenResponse | null>(null);
   const [rotatedAgentCredential, setRotatedAgentCredential] = React.useState<AgentCredentialExchangeResponse | null>(null);
+  const [agentInstallPlan, setAgentInstallPlan] = React.useState<AgentInstallPlanResponse | null>(null);
+  const [agentInstallStatus, setAgentInstallStatus] = React.useState<AgentInstallStatusResponse | null>(null);
 
   const selectedPrinter = printers.find((printer) => printer.id === selectedPrinterId);
 
@@ -215,6 +219,7 @@ export function usePrinters(options: UsePrintersOptions) {
   async function loadPrinterPairing(printerId = selectedPrinterId) {
     if (!printerId) {
       setPairingOverview(null);
+      setAgentInstallStatus(null);
       return;
     }
     const response = await printerApi.pairing(printerId);
@@ -222,6 +227,40 @@ export function usePrinters(options: UsePrintersOptions) {
       return;
     }
     setPairingOverview((await response.json()) as AgentPairingOverview);
+    await loadAgentInstallStatus(printerId);
+  }
+
+  async function loadAgentInstallStatus(printerId = selectedPrinterId) {
+    if (!printerId) {
+      setAgentInstallStatus(null);
+      return;
+    }
+    const response = await printerApi.agentInstallStatus(printerId);
+    if (!response.ok) {
+      return;
+    }
+    setAgentInstallStatus((await response.json()) as AgentInstallStatusResponse);
+  }
+
+  async function createAgentInstallPlan() {
+    if (!selectedPrinterId) {
+      setError("Selecione uma impressora");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await printerApi.agentInstallPlan(selectedPrinterId);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setAgentInstallPlan((await response.json()) as AgentInstallPlanResponse);
+      await loadPrinterPairing(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function createPairingToken() {
@@ -304,7 +343,10 @@ export function usePrinters(options: UsePrintersOptions) {
   }
 
   return {
+    agentInstallPlan,
+    agentInstallStatus,
     createPrinter,
+    createAgentInstallPlan,
     createPairingToken,
     createdPairingToken,
     discoverPrinters,
@@ -312,6 +354,7 @@ export function usePrinters(options: UsePrintersOptions) {
     editingPrinterId,
     loadPrinters,
     loadPrinterPairing,
+    loadAgentInstallStatus,
     loadSelectedPrinterStatus,
     newPrinterName,
     newPrinterSshCredential,
@@ -345,6 +388,7 @@ export function usePrinters(options: UsePrintersOptions) {
     setPrinterModalMode,
     setPrinterModalOpen,
     setCreatedPairingToken,
+    setAgentInstallPlan,
     setRotatedAgentCredential,
     setPrinters,
     setSelectedPrinterId,

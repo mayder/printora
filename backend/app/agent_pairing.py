@@ -16,6 +16,7 @@ from app.printers import PrinterRecord, PrinterRepository
 PAIRING_TOKEN_TTL = timedelta(minutes=15)
 AGENT_PROTOCOL_VERSION = 1
 AGENT_MAX_PAYLOAD_BYTES = 64 * 1024
+EXPECTED_AGENT_VERSION = "0.1.0"
 AgentStatus = Literal["active", "revoked"]
 AgentJobStatus = Literal["pending", "in_progress", "succeeded", "failed", "canceled"]
 AgentMessageType = Literal["hello", "heartbeat", "snapshot", "job", "ack", "nack", "result", "error", "backpressure"]
@@ -32,6 +33,18 @@ class PairingTokenResponse(BaseModel):
     token_prefix: str
     expires_at: str
     created_at: str
+
+
+class AgentInstallPlanResponse(BaseModel):
+    printer_id: int
+    token_id: int
+    token_prefix: str
+    expires_at: str
+    expected_agent_version: str
+    script_url: str
+    preflight_command: str
+    install_command: str
+    uninstall_command: str
 
 
 class PairingTokenRecord(BaseModel):
@@ -90,6 +103,19 @@ class AgentPairingOverview(BaseModel):
     printer_id: int
     pairing_tokens: list[PairingTokenRecord]
     agents: list[AgentRecord]
+
+
+class AgentInstallStatusResponse(BaseModel):
+    printer_id: int
+    expected_agent_version: str
+    ready: bool
+    active_agents: int
+    latest_agent_id: int | None = None
+    latest_stable_id: str | None = None
+    latest_version: str | None = None
+    latest_platform: str | None = None
+    latest_last_seen_at: str | None = None
+    diagnostic: str
 
 
 class AgentHeartbeatRequest(BaseModel):
@@ -207,6 +233,35 @@ class AgentPairingRepository:
             created_at=str(row["created_at"]),
         )
 
+    def create_install_plan(self, current_user: AuthUser, printer: PrinterRecord, api_base_url: str) -> AgentInstallPlanResponse:
+        token = self.create_pairing_token(current_user, printer, PairingTokenCreateRequest(ttl_minutes=15))
+        script_url = f"{api_base_url.rstrip('/')}/api/agent/install/linux.sh"
+        install_command = (
+            f"curl -fsSL {_shell_quote(script_url)} | "
+            f"sudo PRINTORA_API_BASE={_shell_quote(api_base_url.rstrip('/'))} "
+            f"PRINTORA_PAIRING_TOKEN={_shell_quote(token.token)} "
+            f"PRINTORA_MOONRAKER_URL={_shell_quote(printer.moonraker_url)} "
+            "bash -s -- --apply --yes"
+        )
+        preflight_command = (
+            f"curl -fsSL {_shell_quote(script_url)} | "
+            f"PRINTORA_API_BASE={_shell_quote(api_base_url.rstrip('/'))} "
+            f"PRINTORA_MOONRAKER_URL={_shell_quote(printer.moonraker_url)} "
+            "bash -s -- --preflight"
+        )
+        uninstall_command = f"curl -fsSL {_shell_quote(script_url)} | sudo bash -s -- --uninstall"
+        return AgentInstallPlanResponse(
+            printer_id=printer.id,
+            token_id=token.id,
+            token_prefix=token.token_prefix,
+            expires_at=token.expires_at,
+            expected_agent_version=EXPECTED_AGENT_VERSION,
+            script_url=script_url,
+            preflight_command=preflight_command,
+            install_command=install_command,
+            uninstall_command=uninstall_command,
+        )
+
     def overview(self, printer_id: int) -> AgentPairingOverview:
         with connect_database(self.database_path) as connection:
             token_rows = connection.execute(
@@ -232,6 +287,39 @@ class AgentPairingRepository:
             printer_id=printer_id,
             pairing_tokens=[_pairing_token_from_row(row) for row in token_rows],
             agents=[_agent_from_row(row) for row in agent_rows],
+        )
+
+    def install_status(self, printer_id: int) -> AgentInstallStatusResponse:
+        with connect_database(self.database_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM printer_agents
+                WHERE printer_id = ? AND status = 'active' AND revoked_at IS NULL
+                ORDER BY last_seen_at IS NULL, last_seen_at DESC, paired_at DESC, id DESC
+                """,
+                (printer_id,),
+            ).fetchall()
+        latest = _agent_from_row(rows[0]) if rows else None
+        ready = bool(latest and latest.last_seen_at and latest.agent_version == EXPECTED_AGENT_VERSION)
+        diagnostic = "agente pareado e heartbeat recebido"
+        if latest is None:
+            diagnostic = "nenhum agente ativo pareado"
+        elif latest.last_seen_at is None:
+            diagnostic = "agente pareado, aguardando heartbeat"
+        elif latest.agent_version != EXPECTED_AGENT_VERSION:
+            diagnostic = f"versão recebida {latest.agent_version or '-'}, esperado {EXPECTED_AGENT_VERSION}"
+        return AgentInstallStatusResponse(
+            printer_id=printer_id,
+            expected_agent_version=EXPECTED_AGENT_VERSION,
+            ready=ready,
+            active_agents=len(rows),
+            latest_agent_id=latest.id if latest else None,
+            latest_stable_id=latest.stable_id if latest else None,
+            latest_version=latest.agent_version if latest else None,
+            latest_platform=latest.platform if latest else None,
+            latest_last_seen_at=latest.last_seen_at if latest else None,
+            diagnostic=diagnostic,
         )
 
     def revoke_pairing_token(self, printer_id: int, token_id: int) -> PairingTokenRecord | None:
@@ -658,6 +746,10 @@ def _job_from_row(row) -> AgentJobRecord:
 def _ensure_payload_size(payload: dict[str, Any]) -> None:
     if len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) > AGENT_MAX_PAYLOAD_BYTES:
         raise ValueError("payload excede o limite do protocolo do agente")
+
+
+def _shell_quote(value: str) -> str:
+    return "'" + value.replace("'", "'\"'\"'") + "'"
 
 
 def _snapshot_summary(payload: dict[str, Any]) -> str:

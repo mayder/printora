@@ -275,3 +275,16 @@ Impacto em testes: `backend/tests/test_agent_channel.py` cobre isolamento, WebSo
 Impacto em rollback: médio; remover exige reverter rotas, serviço de jobs, agente e SQL `030_agent_channel.sql`, ou restaurar backup do banco anterior ao schema se a tabela não puder permanecer.
 Como reverter: reverter arquivos do PKG-43, desativar WebSocket no config do agente com `"websocket_enabled": false` durante transição e restaurar `printora.<timestamp>.before-schema.db` se necessário.
 Referencias: `backend/app/agent_pairing.py`, `backend/app/routes/agents.py`, `backend/sql/030_agent_channel.sql`, `backend/tests/test_agent_channel.py`, `agent/internal/agent/channel.go`, `agent/internal/agent/api.go`.
+
+### DEC-20260531-03 - Instalador do agente troca token curto no host e preserva dados no uninstall
+
+Status: aceita
+Data: 2026-05-31
+Contexto: o usuário precisa instalar o agente no host Klipper com o menor erro manual possível, sem transformar o token de pareamento em segredo permanente e sem esconder riscos de systemd, Moonraker, rede ou permissão.
+Decisao: gerar um plano de instalação por impressora com token curto, servir um script Linux público sem segredo embutido e fazer a troca do token por credencial operacional no próprio host. O instalador tem `--preflight`, `--apply --yes` e `--uninstall`, exige systemd para serviço, grava config/credencial com permissão restrita e preserva dados locais no uninstall.
+Alternativas consideradas: embutir credencial operacional no comando; instalar sem preflight; apagar diretórios no uninstall; deixar a instalação somente documentada.
+Consequencias: a instalação fica copiável pela UI e auditável por status de heartbeat, mantendo uso único do token. O pacote ainda não faz auto-update nem resolve distribuição final de binários por release; isso fica para o PKG-45.
+Impacto em testes: `backend/tests/test_agent_install.py` cobre isolamento do plano, consumo único do token, status por heartbeat e preflight sem vazamento de token.
+Impacto em rollback: baixo; remover exige reverter endpoints/UI/script e, no host real, rodar `--uninstall`. Dados locais do agente permanecem até remoção manual explícita.
+Como reverter: revogar tokens/agentes pela tela Impressoras, rodar `curl -fsSL <api>/api/agent/install/linux.sh | sudo bash -s -- --uninstall` no host e reverter arquivos do PKG-44.
+Referencias: `backend/scripts/install_agent_linux.sh`, `backend/app/routes/agents.py`, `backend/app/agent_pairing.py`, `backend/tests/test_agent_install.py`, `frontend/src/screens/PrintersScreen.tsx`.

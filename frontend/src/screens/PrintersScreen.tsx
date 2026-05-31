@@ -4,6 +4,7 @@ import type { ScreenPropsFor } from "./ScreenProps";
 type PrintersScreenProps = ScreenPropsFor<
   | "Camera"
   | "CheckCircle2"
+  | "ClipboardCheck"
   | "Database"
   | "Gauge"
   | "KeyRound"
@@ -12,14 +13,18 @@ type PrintersScreenProps = ScreenPropsFor<
   | "Radio"
   | "Server"
   | "Settings"
+  | "agentInstallPlan"
+  | "agentInstallStatus"
   | "audit"
   | "captureSnapshot"
+  | "createAgentInstallPlan"
   | "createPairingToken"
   | "createdPairingToken"
   | "formatDecision"
   | "formatSshStatus"
   | "health"
   | "loadSelectedPrinterStatus"
+  | "loadAgentInstallStatus"
   | "loading"
   | "openCreatePrinterModal"
   | "openEditPrinterModal"
@@ -30,6 +35,7 @@ type PrintersScreenProps = ScreenPropsFor<
   | "rotatePrinterAgent"
   | "rotatedAgentCredential"
   | "setCreatedPairingToken"
+  | "setAgentInstallPlan"
   | "setRotatedAgentCredential"
   | "selectPrinter"
   | "selectedPrinter"
@@ -42,6 +48,7 @@ export function PrintersScreen(props: PrintersScreenProps) {
   const {
     Camera,
     CheckCircle2,
+    ClipboardCheck,
     Database,
     Gauge,
     KeyRound,
@@ -50,14 +57,18 @@ export function PrintersScreen(props: PrintersScreenProps) {
     Radio,
     Server,
     Settings,
+    agentInstallPlan,
+    agentInstallStatus,
     audit,
     captureSnapshot,
+    createAgentInstallPlan,
     createPairingToken,
     createdPairingToken,
     formatDecision,
     formatSshStatus,
     health,
     loadSelectedPrinterStatus,
+    loadAgentInstallStatus,
     loading,
     openCreatePrinterModal,
     openEditPrinterModal,
@@ -68,6 +79,7 @@ export function PrintersScreen(props: PrintersScreenProps) {
     rotatePrinterAgent,
     rotatedAgentCredential,
     setCreatedPairingToken,
+    setAgentInstallPlan,
     setRotatedAgentCredential,
     selectPrinter,
     selectedPrinter,
@@ -137,7 +149,7 @@ export function PrintersScreen(props: PrintersScreenProps) {
           </div>
         </article>
 
-        <article className="panel wide panel-section">
+        <article className="panel wide panel-section panel-printers">
           <div className="panel-heading">
             <div>
               <h2>Pareamento do agente</h2>
@@ -218,6 +230,60 @@ export function PrintersScreen(props: PrintersScreenProps) {
               </div>
             </div>
           </div>
+        </article>
+
+        <article className="panel wide panel-section panel-printers">
+          <div className="panel-heading">
+            <div>
+              <h2>Instalação assistida do agente</h2>
+              <p className="muted">Comando por impressora, preflight local e confirmação de heartbeat.</p>
+            </div>
+            <div className="printer-card-actions">
+              <button type="button" className="secondary-button" onClick={() => void loadAgentInstallStatus()} disabled={!selectedPrinterId || loading}>
+                <Radio size={15} />
+                Validar
+              </button>
+              <button type="button" className="primary-button" onClick={() => void createAgentInstallPlan()} disabled={!selectedPrinterId || loading}>
+                <ClipboardCheck size={16} />
+                Gerar instalação
+              </button>
+            </div>
+          </div>
+          {!selectedPrinterId ? <p className="muted">Selecione uma impressora para gerar o instalador.</p> : null}
+          {agentInstallStatus ? (
+            <div className="overview-strip">
+              <Badge icon={CheckCircle2} label="Instalação" value={agentInstallStatus.ready ? "validada" : "pendente"} />
+              <Badge icon={Server} label="Agentes ativos" value={agentInstallStatus.active_agents} />
+              <Badge icon={Gauge} label="Versão esperada" value={agentInstallStatus.expected_agent_version} />
+              <Badge icon={Radio} label="Último heartbeat" value={agentInstallStatus.latest_last_seen_at ?? "-"} />
+            </div>
+          ) : null}
+          {agentInstallStatus ? <p className="muted">{agentInstallStatus.diagnostic}</p> : null}
+          {agentInstallPlan ? (
+            <div className="agent-install-box">
+              <div className="printer-card-header">
+                <div>
+                  <strong>Comandos gerados</strong>
+                  <span>Token {agentInstallPlan.token_prefix} expira em {agentInstallPlan.expires_at}. O token será consumido uma única vez.</span>
+                </div>
+                <button type="button" className="secondary-button" onClick={() => setAgentInstallPlan(null)}>
+                  Ocultar
+                </button>
+              </div>
+              <label>
+                Preflight sem instalação
+                <textarea readOnly value={agentInstallPlan.preflight_command} />
+              </label>
+              <label>
+                Instalar e iniciar serviço
+                <textarea readOnly value={agentInstallPlan.install_command} />
+              </label>
+              <label>
+                Uninstall preservando dados
+                <textarea readOnly value={agentInstallPlan.uninstall_command} />
+              </label>
+            </div>
+          ) : null}
         </article>
 
     </>

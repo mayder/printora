@@ -96,6 +96,22 @@
   font-size: 12px;
 }
 
+.agent-install-box {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 14px;
+}
+
+.agent-install-box textarea {
+  min-height: 76px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .discovery-box {
   display: grid;
   gap: 10px;

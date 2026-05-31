@@ -460,6 +460,44 @@ Rollback PKG-43:
 - se `backend/sql/030_agent_channel.sql` já tiver sido aplicado e a tabela não puder permanecer, restaurar o backup `printora.<timestamp>.before-schema.db` criado antes da aplicação do schema;
 - no host real, definir `"websocket_enabled": false` mantém o agente no ciclo HTTP/polling enquanto o backend é revertido.
 
+## Instalador Online Assistido Do Agente
+
+Fluxos:
+
+- gerar plano de instalação: `POST /api/printers/{printer_id}/agent/install-plan`;
+- consultar validação pós-instalação: `GET /api/printers/{printer_id}/agent/install-status`;
+- baixar script público sem segredo: `GET /api/agent/install/linux.sh`.
+
+Uso no host Klipper:
+
+```bash
+curl -fsSL https://printora.example.com/api/agent/install/linux.sh | PRINTORA_API_BASE=https://printora.example.com PRINTORA_MOONRAKER_URL=http://127.0.0.1:7125 bash -s -- --preflight
+curl -fsSL https://printora.example.com/api/agent/install/linux.sh | sudo PRINTORA_API_BASE=https://printora.example.com PRINTORA_PAIRING_TOKEN=ptr_pair_xxx PRINTORA_MOONRAKER_URL=http://127.0.0.1:7125 PRINTORA_AGENT_BIN_URL=https://releases.example.com/printora-agent-linux-arm64 bash -s -- --apply --yes
+```
+
+Segurança:
+
+- o script nunca imprime o token de pareamento;
+- o token curto é enviado somente para `/api/agent/pairing/exchange` e vira credencial operacional local;
+- config e credencial ficam em `/etc/printora-agent` com permissão `0600`;
+- dados de fila ficam em `/var/lib/printora-agent` e logs em `/var/log/printora-agent`;
+- o script exige systemd para instalar serviço e não executa G-code, restart de Klipper, update ou flash.
+
+Uninstall:
+
+```bash
+curl -fsSL https://printora.example.com/api/agent/install/linux.sh | sudo bash -s -- --uninstall
+```
+
+O uninstall para/desabilita o serviço e remove o binário, mas preserva configuração, fila e logs. Apagar esses diretórios exige ação manual explícita.
+
+Rollback PKG-44:
+
+- reverter backend, UI e `backend/scripts/install_agent_linux.sh`;
+- no host real, rodar o uninstall acima;
+- revogar o agente ou token pela tela Impressoras quando necessário;
+- não apagar dados locais do agente sem confirmação.
+
 Segurança:
 
 - senhas usam PBKDF2 e nunca são retornadas;

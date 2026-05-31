@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 
 from app.agent_pairing import (
     AgentExchangeRequest,
     AgentHeartbeatRequest,
     AgentHeartbeatResponse,
+    AgentInstallPlanResponse,
+    AgentInstallStatusResponse,
     AgentJobCreateRequest,
     AgentJobErrorRequest,
     AgentJobRecord,
@@ -29,6 +34,7 @@ from app.routes.auth import require_current_user
 
 
 router = APIRouter()
+INSTALLER_SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "install_agent_linux.sh"
 
 
 def get_pairing_repository(settings: Settings = Depends(get_settings)) -> AgentPairingRepository:
@@ -126,6 +132,38 @@ async def revoke_printer_agent(
     if agent is None:
         raise HTTPException(status_code=404, detail="agent not found")
     return agent
+
+
+@router.post("/api/printers/{printer_id}/agent/install-plan", response_model=AgentInstallPlanResponse)
+async def create_agent_install_plan(
+    printer_id: int,
+    request: Request,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AgentPairingRepository = Depends(get_pairing_repository),
+) -> AgentInstallPlanResponse:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return repository.create_install_plan(current.user, printer, str(request.base_url).rstrip("/"))
+
+
+@router.get("/api/printers/{printer_id}/agent/install-status", response_model=AgentInstallStatusResponse)
+async def agent_install_status(
+    printer_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AgentPairingRepository = Depends(get_pairing_repository),
+) -> AgentInstallStatusResponse:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return repository.install_status(printer.id)
+
+
+@router.get("/api/agent/install/linux.sh")
+async def agent_linux_installer() -> FileResponse:
+    return FileResponse(INSTALLER_SCRIPT_PATH, media_type="text/x-shellscript", filename="install-printora-agent.sh")
 
 
 @router.post("/api/agent/pairing/exchange", response_model=AgentCredentialExchangeResponse)

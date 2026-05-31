@@ -2857,14 +2857,13 @@ Estado atual:
 
 Implementado:
 
-- contrato versionado v1 com `hello`, `heartbeat`, `snapshot`, `job`, `ack`, `nack`, `result`, `error` e `backpressure`;
-- WebSocket autenticado em `/api/agent/ws` com credencial operacional do agente;
-- jobs persistidos em `agent_jobs`, sempre vinculados a `printer_id` e opcionalmente a `agent_id`;
-- fallback HTTPS em `/api/agent/jobs/next`, `/ack`, `/nack`, `/result` e `/error`;
-- correlation ID único por job, idempotência de resultado concluído e limite de payload de 64 KB;
-- agente Go com WebSocket primário, backoff, fallback polling e execução segura de jobs `ping` e `snapshot`;
-- testes backend de isolamento, WebSocket, versão incompatível e idempotência;
-- testes Go de polling, ack/result, URL WebSocket segura e contrato HTTP.
+- agente Go em `agent/` com CLI `run`, `once`, `doctor`, `config-sample`, `store-credential` e `systemd`;
+- config JSON, credencial separada com permissão `0600`, fila JSONL local e logs com redaction;
+- cliente Moonraker read-only para snapshot básico;
+- heartbeat e snapshot autenticados via API com HTTP keep-alive;
+- serviço systemd inicial e documentação operacional;
+- `check.sh` executando `go test ./...` no agente;
+- testes Go cobrindo redaction, permissão da credencial, coleta read-only, bearer header e fila local.
 
 ## PKG-43: Canal Remoto Agente-Servidor
 
@@ -2908,7 +2907,18 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado em 2026-05-31.
+
+Implementado:
+
+- contrato versionado v1 com `hello`, `heartbeat`, `snapshot`, `job`, `ack`, `nack`, `result`, `error` e `backpressure`;
+- WebSocket autenticado em `/api/agent/ws` com credencial operacional do agente;
+- jobs persistidos em `agent_jobs`, sempre vinculados a `printer_id` e opcionalmente a `agent_id`;
+- fallback HTTPS em `/api/agent/jobs/next`, `/ack`, `/nack`, `/result` e `/error`;
+- correlation ID único por job, idempotência de resultado concluído e limite de payload de 64 KB;
+- agente Go com WebSocket primário, backoff, fallback polling e execução segura de jobs `ping` e `snapshot`;
+- testes backend de isolamento, WebSocket, versão incompatível e idempotência;
+- testes Go de polling, ack/result, URL WebSocket segura e contrato HTTP.
 
 ## PKG-44: Instalador Online Assistido Do Agente
 
@@ -2952,7 +2962,18 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado em 2026-05-31.
+
+Implementado:
+
+- tela de instalação assistida na área Impressoras com comandos de preflight, instalação e uninstall;
+- endpoint `POST /api/printers/{printer_id}/agent/install-plan` que gera token curto e comando por impressora;
+- endpoint `GET /api/printers/{printer_id}/agent/install-status` para validar pareamento, heartbeat e versão esperada;
+- endpoint público `GET /api/agent/install/linux.sh` para baixar o script sem segredo embutido;
+- script Linux/Raspberry/BTT Pi com `--preflight`, `--apply --yes` e `--uninstall`;
+- criação de diretórios, credencial `0600`, serviço systemd e usuário de serviço com permissões mínimas;
+- testes de plano, isolamento, consumo único do token, status pós-instalação e redaction do token no preflight;
+- documentação em `RUNBOOK.md`, `TELAS.md` e `TESTES.md`.
 
 ## PKG-45: Atualização Automática Do Agente
 

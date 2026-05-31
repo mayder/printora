@@ -53,3 +53,18 @@ Jobs suportados nesta etapa:
 
 - `ping`: responde com `pong`.
 - `snapshot`: coleta snapshot read-only compacto do Moonraker.
+
+## Instalação assistida
+
+A tela Impressoras gera comandos com token curto por impressora. O script online
+fica em `/api/agent/install/linux.sh` e suporta:
+
+```bash
+--preflight
+--apply --yes
+--uninstall
+```
+
+O script troca o token por credencial operacional no próprio host, grava config
+com permissão restrita e instala serviço systemd. O uninstall remove serviço e
+binário, preservando configuração, fila e logs para rollback/diagnóstico.

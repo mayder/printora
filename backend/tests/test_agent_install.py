@@ -1,0 +1,125 @@
+from pathlib import Path
+import os
+import subprocess
+
+from fastapi.testclient import TestClient
+
+from app.config import get_settings
+from app.database import initialize_database
+from app.main import app
+
+
+def test_agent_install_plan_generates_single_use_token_and_command(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner_token = _register(client, "owner-install@example.com")
+            other_token = _register(client, "other-install@example.com")
+            printer = _create_printer(client, owner_token)
+
+            blocked = client.post(f"/api/printers/{printer['id']}/agent/install-plan", headers=_auth(other_token))
+            assert blocked.status_code == 404
+
+            plan_response = client.post(f"/api/printers/{printer['id']}/agent/install-plan", headers=_auth(owner_token))
+            assert plan_response.status_code == 200
+            plan = plan_response.json()
+            assert plan["install_command"].startswith("curl -fsSL")
+            assert "/api/agent/install/linux.sh" in plan["install_command"]
+            assert "PRINTORA_PAIRING_TOKEN='ptr_pair_" in plan["install_command"]
+            assert plan["token_prefix"] in plan["install_command"]
+
+            token = _extract_token(plan["install_command"])
+            exchanged = client.post(
+                "/api/agent/pairing/exchange",
+                json={"pairing_token": token, "stable_id": "agent-install-001", "agent_version": "0.1.0"},
+            )
+            assert exchanged.status_code == 200
+            reused = client.post(
+                "/api/agent/pairing/exchange",
+                json={"pairing_token": token, "stable_id": "agent-install-002", "agent_version": "0.1.0"},
+            )
+            assert reused.status_code == 400
+    finally:
+        get_settings.cache_clear()
+
+
+def test_agent_install_status_requires_heartbeat_and_expected_version(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner_token = _register(client, "owner-install-status@example.com")
+            printer = _create_printer(client, owner_token)
+            initial = client.get(f"/api/printers/{printer['id']}/agent/install-status", headers=_auth(owner_token))
+            assert initial.status_code == 200
+            assert initial.json()["ready"] is False
+            assert "nenhum agente" in initial.json()["diagnostic"]
+
+            plan = client.post(f"/api/printers/{printer['id']}/agent/install-plan", headers=_auth(owner_token)).json()
+            token = _extract_token(plan["install_command"])
+            credential = client.post(
+                "/api/agent/pairing/exchange",
+                json={"pairing_token": token, "stable_id": "agent-install-status", "agent_version": "0.1.0"},
+            ).json()["credential"]
+            paired = client.get(f"/api/printers/{printer['id']}/agent/install-status", headers=_auth(owner_token)).json()
+            assert paired["ready"] is False
+            assert "aguardando heartbeat" in paired["diagnostic"]
+
+            heartbeat = client.post(
+                "/api/agent/heartbeat",
+                json={"agent_version": "0.1.0", "platform": "linux/arm64", "capabilities": {"installer": True}},
+                headers=_auth(credential),
+            )
+            assert heartbeat.status_code == 200
+            ready = client.get(f"/api/printers/{printer['id']}/agent/install-status", headers=_auth(owner_token)).json()
+            assert ready["ready"] is True
+            assert ready["latest_version"] == "0.1.0"
+    finally:
+        get_settings.cache_clear()
+
+
+def test_agent_installer_preflight_is_safe_and_redacts_token() -> None:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "install_agent_linux.sh"
+    env = {
+        **os.environ,
+        "PRINTORA_AGENT_INSTALL_TEST_MODE": "1",
+        "PRINTORA_API_BASE": "https://printora.example.test",
+        "PRINTORA_PAIRING_TOKEN": "ptr_pair_secret_should_not_leak",
+        "PRINTORA_MOONRAKER_URL": "http://127.0.0.1:1",
+    }
+    result = subprocess.run(["bash", str(script), "--preflight"], env=env, text=True, capture_output=True, check=False)
+    assert result.returncode == 0
+    combined = result.stdout + result.stderr
+    assert "preflight concluído" in combined
+    assert "ptr_pair_secret_should_not_leak" not in combined
+    assert "token: configurado" in combined
+
+
+def _register(client: TestClient, email: str) -> str:
+    response = client.post("/api/auth/register", json={"email": email, "password": "correct-horse"})
+    assert response.status_code == 200
+    return response.json()["access_token"]
+
+
+def _create_printer(client: TestClient, token: str) -> dict:
+    response = client.post(
+        "/api/printers",
+        json={"name": "Voron Install", "moonraker_url": "http://voron.local:7125", "host_audit_mode": "disabled"},
+        headers=_auth(token),
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _extract_token(command: str) -> str:
+    marker = "PRINTORA_PAIRING_TOKEN='"
+    start = command.index(marker) + len(marker)
+    end = command.index("'", start)
+    return command[start:end]
