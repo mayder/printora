@@ -37,6 +37,7 @@ type AgentDetailScreenProps = ScreenPropsFor<
   | "setActiveSection"
   | "setAgentSupportBundle"
   | "setRotatedAgentCredential"
+  | "showToast"
 >;
 
 type AgentFleetRow = {
@@ -44,6 +45,8 @@ type AgentFleetRow = {
   overview: AgentPairingOverview;
   printer: PrinterRecord;
 };
+
+const manualAgentUpdateCommand = "sudo printora-agent -config /etc/printora-agent/config.json update-check";
 
 export function AgentDetailScreen(props: AgentDetailScreenProps) {
   const {
@@ -81,12 +84,26 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
     setActiveSection,
     setAgentSupportBundle,
     setRotatedAgentCredential,
+    showToast,
   } = props;
   const rows = buildAgentRows(printers, fleetPairingOverviews);
   const row = rows.find((candidate) => candidate.agent.id === selectedAgentId) ?? rows.find((candidate) => candidate.printer.id === selectedPrinterId) ?? rows[0] ?? null;
   const health = agentSupport?.agents.find((item) => item.agent.id === row?.agent.id) ?? null;
   const expectedAgentVersion = agentUpdateManifest?.recommended_version ?? health?.expected_version ?? agentInstallStatus?.expected_agent_version ?? "-";
   const outdated = row ? expectedAgentVersion !== "-" && row.agent.agent_version !== expectedAgentVersion : false;
+
+  async function updateAgent(rowToUpdate: AgentFleetRow) {
+    if (!supportsRemoteAgentUpdate(rowToUpdate.agent.agent_version)) {
+      const copied = await copyTextToClipboard(manualAgentUpdateCommand);
+      showToast({
+        tone: "info",
+        title: "Atualização manual necessária",
+        detail: copied ? `Comando copiado: ${manualAgentUpdateCommand}` : manualAgentUpdateCommand,
+      });
+      return;
+    }
+    await createAgentUpdateJob(rowToUpdate.agent.id, rowToUpdate.printer.id);
+  }
 
   if (!row) {
     return (
@@ -126,9 +143,9 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
               <Radio size={15} />
               Atualizar
             </button>
-            <button type="button" className="primary-button" onClick={() => void createAgentUpdateJob(row.agent.id, row.printer.id)} disabled={loading || row.agent.status !== "active"}>
+            <button type="button" className="primary-button" onClick={() => void updateAgent(row)} disabled={loading || row.agent.status !== "active"}>
               <RefreshCw size={15} />
-              Atualizar agente
+              {supportsRemoteAgentUpdate(row.agent.agent_version) ? "Atualizar agente" : "Copiar comando"}
             </button>
           </div>
         </div>
@@ -256,4 +273,39 @@ function buildAgentRows(printers: PrinterRecord[], overviews: Record<number, Age
         .map((agent) => ({ agent, overview, printer }));
     })
     .sort((left, right) => (right.agent.last_seen_at ?? "").localeCompare(left.agent.last_seen_at ?? ""));
+}
+
+function supportsRemoteAgentUpdate(version: string | null | undefined) {
+  const [major, minor, patch] = versionTuple(version);
+  return major > 0 || minor > 1 || (minor === 1 && patch >= 8);
+}
+
+function versionTuple(version: string | null | undefined) {
+  const numbers = (version ?? "")
+    .trim()
+    .replace(/^v/, "")
+    .split(".")
+    .slice(0, 3)
+    .map((part) => Number.parseInt(part, 10))
+    .map((value) => (Number.isFinite(value) ? value : 0));
+  while (numbers.length < 3) numbers.push(0);
+  return numbers as [number, number, number];
+}
+
+async function copyTextToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return copied;
+  }
 }

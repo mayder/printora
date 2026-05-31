@@ -115,11 +115,16 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
             assert blocked.status_code == 404
 
             created = client.post(f"/api/printers/{printer['id']}/agents/{agent_id}/update-check", headers=_auth(owner_token))
-            assert created.status_code == 200
-            job = created.json()
-            assert job["job_type"] == "remote_agent_update_check"
-            assert job["agent_id"] == agent_id
-            assert job["payload"]["safe_mode"] == "agent_self_update"
+            assert created.status_code == 400
+            assert "update remoto" in created.json()["detail"]
+            assert "update-check" in created.json()["detail"]
+
+            with connect_database(tmp_path / "printora.db") as connection:
+                connection.execute("UPDATE printer_agents SET agent_version = '0.1.8' WHERE id = ?", (agent_id,))
+            current_created = client.post(f"/api/printers/{printer['id']}/agents/{agent_id}/update-check", headers=_auth(owner_token))
+            assert current_created.status_code == 200
+            assert current_created.json()["job_type"] == "remote_agent_update_check"
+            assert current_created.json()["payload"]["safe_mode"] == "agent_self_update"
     finally:
         get_settings.cache_clear()
 

@@ -99,6 +99,11 @@ class AgentSupportRepository:
         )
 
     def create_agent_update_job(self, printer: PrinterRecord, agent_id: int) -> AgentJobRecord:
+        agent = next((item for item in self._agents(printer.id) if item.id == agent_id), None)
+        if agent is None:
+            raise ValueError("agente não pertence à impressora")
+        if not _supports_update_job(agent.agent_version):
+            raise ValueError("este agente ainda não suporta update remoto; rode manualmente: sudo printora-agent -config /etc/printora-agent/config.json update-check")
         return AgentPairingRepository(self.database_path).create_job(
             printer,
             AgentJobCreateRequest(
@@ -368,6 +373,25 @@ def _int_or_none(value: Any) -> int | None:
 
 def _now_text() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _supports_update_job(version: str | None) -> bool:
+    return _version_tuple(version) >= (0, 1, 8)
+
+
+def _version_tuple(version: str | None) -> tuple[int, int, int]:
+    if not version:
+        return (0, 0, 0)
+    clean = version.strip().removeprefix("v")
+    numbers: list[int] = []
+    for part in clean.split(".")[:3]:
+        try:
+            numbers.append(int(part))
+        except ValueError:
+            numbers.append(0)
+    while len(numbers) < 3:
+        numbers.append(0)
+    return (numbers[0], numbers[1], numbers[2])
 
 
 def _agent_from_row(row) -> AgentRecord:

@@ -566,7 +566,8 @@ Execução pela UI:
 
 - abrir `Agentes`, conferir `Versão instalada` e `Versão esperada`;
 - clicar `Atualizar` na linha ou `Atualizar agente` no detalhe;
-- o servidor cria um job `remote_agent_update_check` para aquele agente;
+- para agentes `0.1.8+`, o servidor cria um job `remote_agent_update_check` para aquele agente;
+- para agentes mais antigos, a UI copia o comando manual porque eles ainda não conhecem o contrato remoto de update;
 - o agente baixa o binário indicado no manifesto, valida SHA-256, troca somente `/usr/local/bin/printora-agent` e reinicia apenas `printora-agent` quando `allow_service_restart=true`.
 
 Segurança:

@@ -3026,7 +3026,7 @@ Implementado:
 - manifesto público `/api/agent/update/manifest` com versão mínima, recomendada, bloqueios e compatibilidade de protocolo;
 - endpoint autenticado `/api/agent/update/reports` para histórico cloud do update do agente;
 - histórico por impressora em `/api/printers/{printer_id}/agent/update-history`, isolado por usuário/organização;
-- ação remota `POST /api/printers/{printer_id}/agents/{agent_id}/update-check` criando job direcionado para o agente verificar/aplicar update;
+- ação remota `POST /api/printers/{printer_id}/agents/{agent_id}/update-check` criando job direcionado para agentes que já suportam update remoto, com comando manual orientado na UI para agentes antigos;
 - agente Go consultando manifesto, bloqueando versão/protocolo incompatível e detectando release por plataforma;
 - download para staging com SHA-256 obrigatório;
 - backup do binário e config antes da troca;

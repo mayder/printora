@@ -59,6 +59,8 @@ type AgentFleetRow = {
   printer: PrinterRecord;
 };
 
+const manualAgentUpdateCommand = "sudo printora-agent -config /etc/printora-agent/config.json update-check";
+
 export function AgentsScreen(props: AgentsScreenProps) {
   const {
     AlertTriangle,
@@ -179,6 +181,15 @@ export function AgentsScreen(props: AgentsScreenProps) {
 
   async function updateAgent(row: AgentFleetRow) {
     selectAgent(row);
+    if (!supportsRemoteAgentUpdate(row.agent.agent_version)) {
+      const copied = await copyTextToClipboard(manualAgentUpdateCommand);
+      showToast({
+        tone: "info",
+        title: "Atualização manual necessária",
+        detail: copied ? `Comando copiado: ${manualAgentUpdateCommand}` : manualAgentUpdateCommand,
+      });
+      return;
+    }
     await createAgentUpdateJob(row.agent.id, row.printer.id);
   }
 
@@ -252,7 +263,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
                   </button>
                   <button type="button" className="secondary-button" onClick={() => void updateAgent(row)} disabled={loading || row.agent.status !== "active"}>
                     <RefreshCw size={15} />
-                    Atualizar
+                    {supportsRemoteAgentUpdate(row.agent.agent_version) ? "Atualizar" : "Comando"}
                   </button>
                   {row.agent.status === "revoked" ? (
                     <button type="button" className="secondary-button" onClick={() => void removeAgent(row)} disabled={loading}>
@@ -297,7 +308,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
                   </button>
                   <button type="button" className="secondary-button" onClick={() => void updateAgent(selectedAgentRow)} disabled={loading || selectedAgentRow.agent.status !== "active"}>
                     <RefreshCw size={15} />
-                    Atualizar agente
+                    {supportsRemoteAgentUpdate(selectedAgentRow.agent.agent_version) ? "Atualizar agente" : "Copiar comando"}
                   </button>
                   <button type="button" className="secondary-button" onClick={() => void rotateAgent(selectedAgentRow)} disabled={loading || selectedAgentRow.agent.status === "revoked"}>
                     <KeyRound size={15} />
@@ -591,6 +602,23 @@ function agentVersionLabel(version: string | null | undefined, expectedVersion: 
     return `${version} -> ${expectedVersion}`;
   }
   return version;
+}
+
+function supportsRemoteAgentUpdate(version: string | null | undefined) {
+  const [major, minor, patch] = versionTuple(version);
+  return major > 0 || minor > 1 || (minor === 1 && patch >= 8);
+}
+
+function versionTuple(version: string | null | undefined) {
+  const numbers = (version ?? "")
+    .trim()
+    .replace(/^v/, "")
+    .split(".")
+    .slice(0, 3)
+    .map((part) => Number.parseInt(part, 10))
+    .map((value) => (Number.isFinite(value) ? value : 0));
+  while (numbers.length < 3) numbers.push(0);
+  return numbers as [number, number, number];
 }
 
 async function copyTextToClipboard(text: string) {
