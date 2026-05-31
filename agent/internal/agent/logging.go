@@ -15,9 +15,13 @@ type RedactingWriter struct {
 }
 
 func (w RedactingWriter) Write(p []byte) (int, error) {
-	redacted := secretPattern.ReplaceAll(p, []byte("ptr_$1_[REDACTED]"))
+	redacted := []byte(redactSecretText(string(p)))
 	_, err := w.Writer.Write(redacted)
 	return len(p), err
+}
+
+func redactSecretText(value string) string {
+	return secretPattern.ReplaceAllString(value, "ptr_$1_[REDACTED]")
 }
 
 func NewLogger(path string) (*log.Logger, io.Closer, error) {

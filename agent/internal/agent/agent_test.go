@@ -259,6 +259,80 @@ func TestAgentHandlesRemoteMutationPreflightAndExecute(t *testing.T) {
 	}
 }
 
+func TestAgentHandlesRemoteDoctorWithSanitizedLogTail(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "agent.log")
+	credentialPath := filepath.Join(tmpDir, "credential")
+	configPath := filepath.Join(tmpDir, "config.json")
+	if err := os.WriteFile(logPath, []byte("erro ptr_agent_secret\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(credentialPath, []byte("ptr_agent_test"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(configPath, []byte(`{}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var sawResult bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/agent/jobs/next":
+			_ = json.NewEncoder(w).Encode(AgentJobsResponse{
+				ProtocolVersion: ProtocolVersion,
+				Jobs: []AgentJob{{
+					ID:            13,
+					CorrelationID: "remote-doctor-001",
+					JobType:       "remote_doctor",
+					Payload:       map[string]any{},
+					Status:        "pending",
+				}},
+			})
+		case "/api/agent/jobs/13/ack":
+			w.WriteHeader(http.StatusOK)
+		case "/api/agent/jobs/13/result":
+			sawResult = true
+			var payload AgentJobResultPayload
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatal(err)
+			}
+			data := string(mustJSON(payload.Result))
+			if !strings.Contains(data, "remote_doctor") {
+				t.Fatalf("unexpected doctor payload: %s", data)
+			}
+			if strings.Contains(data, "ptr_agent_secret") {
+				t.Fatalf("secret leaked in doctor payload: %s", data)
+			}
+			w.WriteHeader(http.StatusOK)
+		case "/api/agent/heartbeat":
+			w.WriteHeader(http.StatusOK)
+		case "/server/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": "ok"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	cfg := DefaultConfig()
+	cfg.APIBaseURL = server.URL
+	cfg.MoonrakerURL = server.URL
+	cfg.CredentialFile = credentialPath
+	cfg.LogFile = logPath
+	cfg.QueueFile = filepath.Join(tmpDir, "queue.jsonl")
+	cfg.configPath = configPath
+	runner := &Runner{
+		Config:    cfg,
+		API:       NewAPIClient(server.URL, "ptr_agent_test", time.Second),
+		Moonraker: NewMoonrakerClient(server.URL, time.Second),
+		Logger:    discardLogger(),
+	}
+	if err := runner.PollJobsOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !sawResult {
+		t.Fatal("expected doctor result")
+	}
+}
+
 func TestWebSocketURLUsesSecureScheme(t *testing.T) {
 	got, err := websocketURL("https://printora.example.com/base")
 	if err != nil {

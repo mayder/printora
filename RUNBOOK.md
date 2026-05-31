@@ -630,6 +630,39 @@ Rollback:
 - para fan, enviar `M107` ou `SPEED=0`;
 - para comportamento inesperado de movimento/extrusão, usar Emergency Stop no Mainsail/Klipper e revalidar `printer/info`.
 
+## Observabilidade E Suporte Do Agente
+
+Fluxos:
+
+- painel de suporte: `GET /api/printers/{printer_id}/agent/support`;
+- doctor remoto: `POST /api/printers/{printer_id}/agent/support/doctor`;
+- pacote sanitizado: `GET /api/printers/{printer_id}/agent/support/bundle`;
+- job do agente: `remote_doctor`.
+
+Estados diagnosticáveis:
+
+- sem agente pareado: instalar/parear agente;
+- sem heartbeat recente: validar serviço `printora-agent`, rede de saída e credencial local;
+- agente revogado: parear novo agente ou rotacionar credencial;
+- versão diferente da esperada: executar update do agente;
+- protocolo incompatível: atualizar agente antes de novos jobs;
+- fila acumulada: verificar WebSocket/polling e conectividade com a API;
+- falha recorrente: rodar doctor remoto e revisar última falha;
+- Moonraker/Klipper indisponível no doctor: corrigir host local antes de operar remotamente.
+
+Sanitização:
+
+- pacote de suporte remove campos `password`, `token`, `secret`, `credential` e `private_key`;
+- tokens `ptr_agent_*`, `ptr_pair_*` e `ptr_sess_*` são redigidos;
+- log tail do agente é limitado e sanitizado antes de sair do host;
+- pacote de suporte não deve ser usado como backup nem conter payload completo sensível.
+
+Retenção e limpeza:
+
+- eventos de agente e jobs usados para suporte têm retenção operacional definida de 180 dias;
+- o endpoint de pacote não apaga dados;
+- limpeza deve ser rotina operacional manual/supervisionada enquanto não existir job dedicado, para evitar apagar histórico útil sem confirmação.
+
 Segurança:
 
 - senhas usam PBKDF2 e nunca são retornadas;

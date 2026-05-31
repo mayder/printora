@@ -41,6 +41,10 @@ export const printerApi = {
   agentInstallPlan: (printerId: number) =>
     apiResponse(`/api/printers/${printerId}/agent/install-plan`, { method: "POST" }),
   agentInstallStatus: (printerId: number) => apiResponse(`/api/printers/${printerId}/agent/install-status`),
+  agentSupport: (printerId: number) => apiResponse(`/api/printers/${printerId}/agent/support`),
+  createAgentDoctorJob: (printerId: number) =>
+    apiResponse(`/api/printers/${printerId}/agent/support/doctor`, { method: "POST" }),
+  agentSupportBundle: (printerId: number) => apiResponse(`/api/printers/${printerId}/agent/support/bundle`),
   remoteOperations: (printerId: number) => apiResponse(`/api/printers/${printerId}/remote/operations`),
   remoteOperationPreflight: (printerId: number, body: unknown) =>
     apiResponse(`/api/printers/${printerId}/remote/operations/preflight`, {

@@ -121,3 +121,14 @@ Jobs mutáveis suportados:
 O agente bloqueia execução quando Moonraker está indisponível, Klipper/Klippy
 não estão `ready` ou há impressão em andamento. O rollback vem no payload do job
 e volta no resultado para auditoria.
+
+## Suporte remoto
+
+Job de suporte:
+
+- `remote_doctor`: retorna versão, plataforma, protocolo, checks de config,
+  credencial, Moonraker, API, fila local e log tail sanitizado.
+
+O doctor remoto não executa shell genérico e não retorna credencial completa. O
+log tail passa pela mesma redaction de `ptr_agent_*`, `ptr_pair_*` e
+`ptr_sess_*` usada nos logs locais.

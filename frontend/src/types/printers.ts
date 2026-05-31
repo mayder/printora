@@ -161,3 +161,56 @@ export type RemoteOperationOverview = {
   actions: RemoteOperationAction[];
   recent_jobs: AgentJobRecord[];
 };
+
+export type AgentSupportAlert = {
+  severity: "info" | "warning" | "critical";
+  code: string;
+  title: string;
+  detail: string;
+  action: string;
+};
+
+export type AgentHealthSummary = {
+  agent: PrinterAgentRecord;
+  state: "online" | "offline" | "revoked" | "outdated" | "unknown";
+  online: boolean;
+  heartbeat_age_seconds?: number | null;
+  expected_version: string;
+  protocol_version?: number | null;
+  protocol_compatible: boolean;
+  pending_jobs: number;
+  in_progress_jobs: number;
+  failed_jobs_24h: number;
+  latest_job?: AgentJobRecord | null;
+  latest_failure?: AgentJobRecord | null;
+  diagnostic: string;
+};
+
+export type AgentSupportOverview = {
+  printer_id: number;
+  safe_mode: string;
+  generated_at: string;
+  retention_days: number;
+  agents: AgentHealthSummary[];
+  alerts: AgentSupportAlert[];
+  recent_events: Array<{
+    id: number;
+    printer_id: number;
+    agent_id?: number | null;
+    event_type: string;
+    status: string;
+    detail?: string | null;
+    created_at: string;
+  }>;
+  latest_doctor?: AgentJobRecord | null;
+};
+
+export type AgentSupportBundle = {
+  printer_id: number;
+  safe_mode: string;
+  generated_at: string;
+  retention_policy: Record<string, unknown>;
+  overview: AgentSupportOverview;
+  recent_jobs: AgentJobRecord[];
+  support_notes: string[];
+};

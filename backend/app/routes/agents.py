@@ -33,6 +33,11 @@ from app.agent_parity import (
     RemoteParityOverview,
     RemoteParityRunRequest,
 )
+from app.agent_support import (
+    AgentSupportBundle,
+    AgentSupportOverview,
+    AgentSupportRepository,
+)
 from app.agent_updates import (
     AgentUpdateHistoryRecord,
     AgentUpdateManifest,
@@ -66,6 +71,10 @@ def get_update_repository(settings: Settings = Depends(get_settings)) -> AgentUp
 
 def get_parity_repository(settings: Settings = Depends(get_settings)) -> AgentParityRepository:
     return AgentParityRepository(settings.database_path)
+
+
+def get_support_repository(settings: Settings = Depends(get_settings)) -> AgentSupportRepository:
+    return AgentSupportRepository(settings.database_path)
 
 
 def get_remote_operation_repository(settings: Settings = Depends(get_settings)) -> RemoteOperationRepository:
@@ -253,6 +262,45 @@ async def create_printer_remote_parity_job(
         return repository.create_remote_job(printer, payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/api/printers/{printer_id}/agent/support", response_model=AgentSupportOverview)
+async def printer_agent_support(
+    printer_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AgentSupportRepository = Depends(get_support_repository),
+) -> AgentSupportOverview:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return repository.overview(printer)
+
+
+@router.post("/api/printers/{printer_id}/agent/support/doctor", response_model=AgentJobRecord)
+async def create_printer_agent_doctor_job(
+    printer_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AgentSupportRepository = Depends(get_support_repository),
+) -> AgentJobRecord:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return repository.create_doctor_job(printer)
+
+
+@router.get("/api/printers/{printer_id}/agent/support/bundle", response_model=AgentSupportBundle)
+async def printer_agent_support_bundle(
+    printer_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AgentSupportRepository = Depends(get_support_repository),
+) -> AgentSupportBundle:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return repository.support_bundle(printer)
 
 
 @router.get("/api/printers/{printer_id}/remote/operations", response_model=RemoteOperationOverview)

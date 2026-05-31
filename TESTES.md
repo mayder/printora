@@ -842,6 +842,19 @@ Critérios:
 - Testes automatizados focados: `cd backend && uv run pytest tests/test_remote_operations.py tests/test_agent_channel.py tests/test_agent_pairing.py -q` e `cd agent && go test ./...`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-48 - Observabilidade E Suporte Do Agente
+
+- Validar painel `GET /api/printers/{printer_id}/agent/support` com estado online/offline, heartbeat, versão, protocolo, fila e falhas.
+- Validar isolamento por usuário/organização em suporte, doctor e pacote de suporte.
+- Validar alertas para agente ausente, offline, revogado, desatualizado, protocolo incompatível, fila acumulada e falha recorrente.
+- Validar doctor remoto `POST /api/printers/{printer_id}/agent/support/doctor` criando job `remote_doctor`.
+- Validar agente executando `remote_doctor` sem vazar credencial, token ou segredo no resultado.
+- Validar pacote `GET /api/printers/{printer_id}/agent/support/bundle` com payloads, resultados, erros e log tail sanitizados.
+- Validar política de retenção documentada de 180 dias para eventos/jobs de agente.
+- Validar UI da tela Impressoras para saúde do agente, alertas, doctor remoto e pacote de suporte.
+- Testes automatizados focados: `cd backend && uv run pytest tests/test_agent_support.py tests/test_agent_pairing.py tests/test_agent_channel.py -q` e `cd agent && go test ./...`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

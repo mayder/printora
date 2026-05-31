@@ -2,10 +2,12 @@ import { Badge, Metric } from "../components/common";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type PrintersScreenProps = ScreenPropsFor<
+  | "AlertTriangle"
   | "Camera"
   | "CheckCircle2"
   | "ClipboardCheck"
   | "Database"
+  | "FileText"
   | "Gauge"
   | "History"
   | "KeyRound"
@@ -17,10 +19,13 @@ type PrintersScreenProps = ScreenPropsFor<
   | "ShieldAlert"
   | "agentInstallPlan"
   | "agentInstallStatus"
+  | "agentSupport"
+  | "agentSupportBundle"
   | "audit"
   | "cancelRemoteOperationJob"
   | "captureSnapshot"
   | "createAgentInstallPlan"
+  | "createAgentDoctorJob"
   | "createPairingToken"
   | "createRemoteOperationPreflight"
   | "createdPairingToken"
@@ -30,6 +35,8 @@ type PrintersScreenProps = ScreenPropsFor<
   | "health"
   | "loadSelectedPrinterStatus"
   | "loadAgentInstallStatus"
+  | "loadAgentSupport"
+  | "loadAgentSupportBundle"
   | "loading"
   | "openCreatePrinterModal"
   | "openEditPrinterModal"
@@ -45,6 +52,7 @@ type PrintersScreenProps = ScreenPropsFor<
   | "remoteOperations"
   | "setCreatedPairingToken"
   | "setAgentInstallPlan"
+  | "setAgentSupportBundle"
   | "setRemoteOperationConfirmation"
   | "setRotatedAgentCredential"
   | "selectPrinter"
@@ -56,10 +64,12 @@ type PrintersScreenProps = ScreenPropsFor<
 
 export function PrintersScreen(props: PrintersScreenProps) {
   const {
+    AlertTriangle,
     Camera,
     CheckCircle2,
     ClipboardCheck,
     Database,
+    FileText,
     Gauge,
     History,
     KeyRound,
@@ -71,10 +81,13 @@ export function PrintersScreen(props: PrintersScreenProps) {
     ShieldAlert,
     agentInstallPlan,
     agentInstallStatus,
+    agentSupport,
+    agentSupportBundle,
     audit,
     cancelRemoteOperationJob,
     captureSnapshot,
     createAgentInstallPlan,
+    createAgentDoctorJob,
     createPairingToken,
     createRemoteOperationPreflight,
     createdPairingToken,
@@ -84,6 +97,8 @@ export function PrintersScreen(props: PrintersScreenProps) {
     health,
     loadSelectedPrinterStatus,
     loadAgentInstallStatus,
+    loadAgentSupport,
+    loadAgentSupportBundle,
     loading,
     openCreatePrinterModal,
     openEditPrinterModal,
@@ -99,6 +114,7 @@ export function PrintersScreen(props: PrintersScreenProps) {
     remoteOperations,
     setCreatedPairingToken,
     setAgentInstallPlan,
+    setAgentSupportBundle,
     setRemoteOperationConfirmation,
     setRotatedAgentCredential,
     selectPrinter,
@@ -386,6 +402,94 @@ export function PrintersScreen(props: PrintersScreenProps) {
                 Uninstall preservando dados
                 <textarea readOnly value={agentInstallPlan.uninstall_command} />
               </label>
+            </div>
+          ) : null}
+        </article>
+
+        <article className="panel wide panel-section panel-printers">
+          <div className="panel-heading">
+            <div>
+              <h2>Saúde e suporte do agente</h2>
+              <p className="muted">Diagnóstico operacional para diferenciar agente, API, credencial, Moonraker, Klipper, versão e fila.</p>
+            </div>
+            <div className="printer-card-actions">
+              <button type="button" className="secondary-button" onClick={() => void loadAgentSupport()} disabled={!selectedPrinterId || loading}>
+                <Radio size={15} />
+                Atualizar
+              </button>
+              <button type="button" className="secondary-button" onClick={() => void createAgentDoctorJob()} disabled={!selectedPrinterId || loading || !agentInstallStatus?.ready}>
+                <ClipboardCheck size={15} />
+                Doctor remoto
+              </button>
+              <button type="button" className="primary-button" onClick={() => void loadAgentSupportBundle()} disabled={!selectedPrinterId || loading}>
+                <FileText size={16} />
+                Pacote
+              </button>
+            </div>
+          </div>
+          {!selectedPrinterId ? <p className="muted">Selecione uma impressora para ver suporte do agente.</p> : null}
+          <div className="overview-strip">
+            <Badge icon={ShieldAlert} label="Alertas" value={agentSupport?.alerts.length ?? 0} />
+            <Badge icon={Server} label="Agentes" value={agentSupport?.agents.length ?? 0} />
+            <Badge icon={History} label="Eventos" value={agentSupport?.recent_events.length ?? 0} />
+            <Badge icon={Gauge} label="Retenção" value={`${agentSupport?.retention_days ?? 180} dias`} />
+          </div>
+          {agentSupport?.alerts.length ? (
+            <div className="auth-list">
+              {agentSupport.alerts.map((alert) => (
+                <div key={`${alert.code}-${alert.detail}`}>
+                  <strong>{alert.severity === "critical" ? "Crítico" : "Atenção"} · {alert.title}</strong>
+                  <span>{alert.detail} · {alert.action}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <div className="printer-dashboard">
+            {(agentSupport?.agents ?? []).map((item) => (
+              <div key={item.agent.id} className="printer-card">
+                <div className="printer-card-header">
+                  <div>
+                    <strong>{item.agent.stable_id}</strong>
+                    <span>{item.state} · {item.agent.platform || "-"} · v{item.agent.agent_version || "-"}</span>
+                  </div>
+                  <span className={item.online ? "status-pill active" : "status-pill"}>{item.online ? "online" : "offline"}</span>
+                </div>
+                <div className="printer-card-grid">
+                  <Metric label="Heartbeat" value={item.heartbeat_age_seconds == null ? "-" : `${item.heartbeat_age_seconds}s`} />
+                  <Metric label="Protocolo" value={item.protocol_compatible ? "compatível" : `v${item.protocol_version ?? "-"}`} />
+                  <Metric label="Fila" value={`${item.pending_jobs} pend. / ${item.in_progress_jobs} exec.`} />
+                  <Metric label="Falhas 24h" value={String(item.failed_jobs_24h)} />
+                </div>
+                <p className="muted">{item.diagnostic}</p>
+                {item.latest_failure ? (
+                  <div className="auth-step">
+                    <AlertTriangle size={16} />
+                    <span>Última falha: {item.latest_failure.job_type} · {item.latest_failure.error_message || item.latest_failure.status}</span>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+          {agentSupport?.latest_doctor ? (
+            <div className="auth-step">
+              <div>
+                <strong>Último doctor remoto</strong>
+                <p className="muted">Job #{agentSupport.latest_doctor.id} · {agentSupport.latest_doctor.status} · {agentSupport.latest_doctor.finished_at ?? agentSupport.latest_doctor.created_at}</p>
+              </div>
+            </div>
+          ) : null}
+          {agentSupportBundle ? (
+            <div className="agent-install-box">
+              <div className="printer-card-header">
+                <div>
+                  <strong>Pacote de suporte sanitizado</strong>
+                  <span>Gerado em {agentSupportBundle.generated_at}; {agentSupportBundle.recent_jobs.length} jobs recentes.</span>
+                </div>
+                <button type="button" className="secondary-button" onClick={() => setAgentSupportBundle(null)}>
+                  Ocultar
+                </button>
+              </div>
+              <textarea readOnly value={JSON.stringify(agentSupportBundle, null, 2)} />
             </div>
           ) : null}
         </article>

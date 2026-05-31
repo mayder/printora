@@ -128,6 +128,9 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 		} else {
 			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
 		}
+	case "remote_doctor":
+		payload := RemoteDoctor(ctx, r.Config, r.API, r.Moonraker)
+		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
 	default:
 		_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: "unsupported job type", Result: map[string]any{"job_type": job.JobType}})
 	}
@@ -167,6 +170,7 @@ func helloPayload(r *Runner) map[string]any {
 			"heartbeat":  true,
 			"snapshot":   true,
 			"mutation":   true,
+			"doctor":     true,
 			"parity":     true,
 			"jobs":       true,
 			"websocket":  true,

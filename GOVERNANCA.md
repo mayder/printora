@@ -108,6 +108,19 @@ Mitigações:
 - preview antes de exportar;
 - lista de campos removidos.
 
+### Observabilidade Do Agente
+
+Risco: dados de suporte exporem credenciais, tokens, chaves ou payload sensível.
+
+Mitigações:
+
+- pacote de suporte sanitizado por padrão;
+- nunca retornar credencial completa do agente;
+- redigir tokens `ptr_agent_*`, `ptr_pair_*` e `ptr_sess_*`;
+- limitar log tail e eventos recentes;
+- retenção operacional de eventos/jobs de agente em 180 dias;
+- limpeza somente por rotina supervisionada enquanto não houver job dedicado de retenção.
+
 ## Priorização
 
 Ordem recomendada:

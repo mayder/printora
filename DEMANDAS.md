@@ -3194,4 +3194,16 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado em 2026-05-31.
+
+Implementado:
+
+- painel de saúde do agente em `/api/printers/{printer_id}/agent/support`;
+- indicadores por agente: online/offline, último heartbeat, versão, protocolo, fila pendente, jobs em progresso, último job, última falha e falhas em 24h;
+- alertas internos para agente ausente, offline, revogado, desatualizado, protocolo incompatível, fila acumulada e falhas recorrentes;
+- doctor remoto sob demanda por job `remote_doctor`;
+- pacote de suporte sanitizado em `/api/printers/{printer_id}/agent/support/bundle`;
+- sanitização de payload, resultado, erro e log tail para remover `password`, `token`, `secret`, `credential`, `private_key` e tokens `ptr_*`;
+- UI na tela Impressoras com saúde do agente, alertas, doctor remoto e pacote de suporte;
+- política de retenção documentada para eventos/jobs de agente usando as tabelas existentes;
+- testes backend e agente para escopo, alertas, doctor remoto e sanitização.

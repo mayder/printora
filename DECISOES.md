@@ -327,3 +327,16 @@ Impacto em testes: `backend/tests/test_remote_operations.py` cobre escopo, prefl
 Impacto em rollback: baixo; remover rotas, módulo remoto, UI e handlers do agente volta as mutações remotas ao bloqueio do PKG-46. Jobs históricos permanecem como auditoria.
 Como reverter: reverter arquivos do PKG-47 e manter agentes instalados; eles passarão a responder `unsupported job type` se algum job antigo for reenviado.
 Referencias: `backend/app/remote_operations.py`, `backend/app/routes/agents.py`, `backend/tests/test_remote_operations.py`, `agent/internal/agent/moonraker.go`, `agent/internal/agent/channel.go`, `frontend/src/screens/PrintersScreen.tsx`.
+
+### DEC-20260531-07 - Suporte do agente usa eventos/jobs existentes e pacote sanitizado
+
+Status: aceita
+Data: 2026-05-31
+Contexto: suporte precisa diagnosticar agente remoto sem acessar a rede local do cliente e sem criar um novo repositório de logs sensíveis.
+Decisao: usar `printer_agents`, `agent_jobs` e `printer_agent_events` como fonte de observabilidade. O painel calcula saúde, fila, falhas e alertas em leitura; `remote_doctor` coleta diagnóstico local pelo agente; o pacote de suporte é exportado sanitizado e não cria tabela nova.
+Alternativas consideradas: criar tabela dedicada de logs; enviar logs completos do host; diagnosticar somente por heartbeat; apagar eventos automaticamente no endpoint.
+Consequencias: a solução fica simples e auditável, sem duplicar persistência. A limpeza fica definida como retenção operacional de 180 dias e deve ser executada por rotina supervisionada futura, não pelo endpoint de suporte.
+Impacto em testes: `backend/tests/test_agent_support.py` cobre escopo, alertas, doctor e sanitização do pacote; `agent/internal/agent/agent_test.go` cobre doctor remoto com log tail sanitizado.
+Impacto em rollback: baixo; remover rotas/UI/handler `remote_doctor` preserva os eventos e jobs já existentes.
+Como reverter: reverter arquivos do PKG-48; agentes antigos passam a rejeitar `remote_doctor` como job não suportado.
+Referencias: `backend/app/agent_support.py`, `backend/app/routes/agents.py`, `backend/tests/test_agent_support.py`, `agent/internal/agent/doctor.go`, `frontend/src/screens/PrintersScreen.tsx`.

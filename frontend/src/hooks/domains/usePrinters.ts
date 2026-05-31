@@ -9,6 +9,8 @@ import type {
   AgentInstallStatusResponse,
   AgentJobRecord,
   AgentPairingOverview,
+  AgentSupportBundle,
+  AgentSupportOverview,
   MoonrakerStatus,
   PairingTokenResponse,
   PrinterConnectionTestResponse,
@@ -64,6 +66,8 @@ export function usePrinters(options: UsePrintersOptions) {
   const [remoteOperationPreflight, setRemoteOperationPreflight] = React.useState<AgentJobRecord | null>(null);
   const [remoteOperationExecution, setRemoteOperationExecution] = React.useState<AgentJobRecord | null>(null);
   const [remoteOperationConfirmation, setRemoteOperationConfirmation] = React.useState("");
+  const [agentSupport, setAgentSupport] = React.useState<AgentSupportOverview | null>(null);
+  const [agentSupportBundle, setAgentSupportBundle] = React.useState<AgentSupportBundle | null>(null);
 
   const selectedPrinter = printers.find((printer) => printer.id === selectedPrinterId);
 
@@ -236,6 +240,7 @@ export function usePrinters(options: UsePrintersOptions) {
     setPairingOverview((await response.json()) as AgentPairingOverview);
     await loadAgentInstallStatus(printerId);
     await loadRemoteOperations(printerId);
+    await loadAgentSupport(printerId);
   }
 
   async function loadAgentInstallStatus(printerId = selectedPrinterId) {
@@ -248,6 +253,58 @@ export function usePrinters(options: UsePrintersOptions) {
       return;
     }
     setAgentInstallStatus((await response.json()) as AgentInstallStatusResponse);
+  }
+
+  async function loadAgentSupport(printerId = selectedPrinterId) {
+    if (!printerId) {
+      setAgentSupport(null);
+      return;
+    }
+    const response = await printerApi.agentSupport(printerId);
+    if (!response.ok) {
+      return;
+    }
+    setAgentSupport((await response.json()) as AgentSupportOverview);
+  }
+
+  async function createAgentDoctorJob() {
+    if (!selectedPrinterId) {
+      setError("Selecione uma impressora");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await printerApi.createAgentDoctorJob(selectedPrinterId);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadAgentSupport(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadAgentSupportBundle() {
+    if (!selectedPrinterId) {
+      setError("Selecione uma impressora");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await printerApi.agentSupportBundle(selectedPrinterId);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setAgentSupportBundle((await response.json()) as AgentSupportBundle);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function createAgentInstallPlan() {
@@ -431,10 +488,13 @@ export function usePrinters(options: UsePrintersOptions) {
   return {
     agentInstallPlan,
     agentInstallStatus,
+    agentSupport,
+    agentSupportBundle,
     cancelRemoteOperationJob,
     createPrinter,
     createAgentInstallPlan,
     createPairingToken,
+    createAgentDoctorJob,
     createRemoteOperationPreflight,
     createdPairingToken,
     discoverPrinters,
@@ -444,6 +504,8 @@ export function usePrinters(options: UsePrintersOptions) {
     loadPrinters,
     loadPrinterPairing,
     loadAgentInstallStatus,
+    loadAgentSupport,
+    loadAgentSupportBundle,
     loadRemoteOperations,
     loadSelectedPrinterStatus,
     newPrinterName,
@@ -483,6 +545,7 @@ export function usePrinters(options: UsePrintersOptions) {
     setPrinterModalOpen,
     setCreatedPairingToken,
     setAgentInstallPlan,
+    setAgentSupportBundle,
     setRotatedAgentCredential,
     setRemoteOperationConfirmation,
     setRemoteOperationExecution,
