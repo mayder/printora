@@ -2795,7 +2795,19 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado localmente.
+- Agente criado em Go em `agent/`, sem dependências externas além da biblioteca padrão.
+- CLI `printora-agent` suporta `run`, `once`, `doctor`, `config-sample`, `store-credential` e `systemd`.
+- Config local JSON e arquivo de credencial separado usam permissões restritas (`0600`).
+- Cliente Moonraker coleta somente endpoints read-only locais: `server/info`, `printer/info`, `print_stats`, temperaturas e Update Manager quando disponível.
+- Heartbeat e snapshot usam HTTPS/HTTP com keep-alive e credencial operacional Bearer do PKG-41.
+- Fila local JSONL limitada guarda eventos pendentes para retry sem persistir segredo.
+- Logs rotativos passam por redaction de tokens `ptr_agent_*`, `ptr_pair_*` e `ptr_sess_*`.
+- `doctor` diferencia falha de config, permissão, credencial, Moonraker e API.
+- Serviço systemd inicial entregue em `agent/systemd/printora-agent.service`.
+- Testes Go cobrem redaction, permissão de credencial, coleta read-only, header Bearer e fila local.
+- Cross-build validado para `linux/arm64`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
 ## PKG-42: Agente Remoto Base
 

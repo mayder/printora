@@ -755,6 +755,20 @@ Critérios:
 - Testes automatizados focados: `cd backend && uv run pytest tests/test_agent_pairing.py -q`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-42 - Agente Remoto Base
+
+- Validar `agent/cmd/printora-agent` com comandos `config-sample`, `store-credential`, `doctor`, `once` e `run`.
+- Validar que o arquivo de credencial exige permissão restrita e não aceita `0644` em Linux/macOS.
+- Validar que o cliente Moonraker usa somente `GET` em endpoints read-only.
+- Validar heartbeat autenticado com `Authorization: Bearer <credencial>`.
+- Validar snapshot read-only básico com `server/info`, `printer/info`, `print_stats`, temperaturas e Update Manager quando disponível.
+- Validar fila local JSONL com limite e retry sem armazenar segredo.
+- Validar redaction em logs para `ptr_agent_*`, `ptr_pair_*` e `ptr_sess_*`.
+- Validar `doctor` classificando config, permissão, credencial, Moonraker e API.
+- Validar cross-build Linux ARM64: `cd agent && GOOS=linux GOARCH=arm64 go build ./cmd/printora-agent`.
+- Testes automatizados focados: `cd agent && go test ./...`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

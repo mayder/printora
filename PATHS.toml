@@ -42,6 +42,11 @@ frontend.framework = "Vite/React"
 frontend.tests = "/Users/brenomayder/projects/printora/frontend/tests"
 frontend.public = "/Users/brenomayder/projects/printora/frontend/public"
 
+agent.root = "/Users/brenomayder/projects/printora/agent"
+agent.language = "Go"
+agent.framework = "CLI/systemd"
+agent.tests = "/Users/brenomayder/projects/printora/agent/internal"
+
 [checks]
 required = [
   "./check.sh",
@@ -53,6 +58,7 @@ max_function_lines = 60
 runtime_dirs = [
   "backend/app",
   "frontend/src",
+  "agent",
 ]
 docs_only_paths = [
   "PATHS.toml",
@@ -78,8 +84,8 @@ forbid_runtime_patterns = [
 ]
 
 [quality.stack]
-language = "python+typescript"
-framework = "FastAPI + Vite/React"
+language = "python+typescript+go"
+framework = "FastAPI + Vite/React + Go CLI"
 
 [quality.coverage]
 enabled = false

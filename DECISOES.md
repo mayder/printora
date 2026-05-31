@@ -249,3 +249,16 @@ Impacto em testes: `backend/tests/test_agent_pairing.py` cobre uso único, expir
 Impacto em rollback: médio; remover exige reverter rotas, UI, `backend/app/agent_pairing.py` e SQL `029_agent_pairing.sql`, ou restaurar backup do banco anterior ao schema.
 Como reverter: reverter arquivos do PKG-41 e restaurar `printora.<timestamp>.before-schema.db` se o schema aplicado não puder permanecer.
 Referencias: `backend/app/agent_pairing.py`, `backend/app/routes/agents.py`, `backend/sql/029_agent_pairing.sql`, `frontend/src/screens/PrintersScreen.tsx`, `frontend/src/hooks/domains/usePrinters.ts`.
+
+### DEC-20260531-01 - Agente remoto base em Go
+
+Status: aceita
+Data: 2026-05-31
+Contexto: o agente precisa rodar em hosts Klipper variados, normalmente Raspberry/BTT Pi, com baixo uso de memória, instalação simples, atualização previsível e sem depender de Python/Node locais.
+Decisao: implementar o agente em Go, sem dependências externas, como binário único com CLI `printora-agent`. A base usa config JSON, credencial separada `0600`, HTTP keep-alive, cliente Moonraker read-only, fila JSONL local, logs com redaction e serviço systemd.
+Alternativas consideradas: Python para ficar próximo do ecossistema Klipper; Node por reaproveitar stack web; shell scripts para instalação mínima.
+Consequencias: distribuição e atualização ficam simples por arquitetura Linux (`arm64`, `armv7`, `amd64`), com menor risco de quebrar venvs Python da impressora. Em troca, integrações futuras precisarão manter contratos Go e testes próprios.
+Impacto em testes: `agent/internal/agent/agent_test.go` cobre redaction, permissões, coleta read-only, autenticação Bearer e fila local; `check.sh` passa a executar `go test ./...` em `agent/`.
+Impacto em rollback: baixo; remover o agente exige reverter `agent/`, entradas em `PATHS.toml`, `check.sh` e docs. No host real, parar/remover o serviço systemd e o binário.
+Como reverter: `sudo systemctl disable --now printora-agent`, remover `/usr/local/bin/printora-agent` e restaurar commit anterior ao PKG-42.
+Referencias: `agent/cmd/printora-agent/main.go`, `agent/internal/agent`, `agent/systemd/printora-agent.service`, `agent/docs/README.md`.

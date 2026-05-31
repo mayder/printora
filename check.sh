@@ -40,6 +40,8 @@ required_files=(
   ".gitignore"
   "backend/pyproject.toml"
   "backend/app/main.py"
+  "agent/go.mod"
+  "agent/cmd/printora-agent/main.go"
   "frontend/package.json"
   "frontend/src/main.tsx"
 )
@@ -65,6 +67,11 @@ if [[ "${RUN_PYTHON_TESTS:-0}" == "1" ]]; then
   fi
 else
   log "pytest backend pulado; use RUN_PYTHON_TESTS=1 ./check.sh"
+fi
+
+if [[ -d agent ]]; then
+  log "go test agent"
+  (cd agent && go test ./...)
 fi
 
 log "validando package.json"

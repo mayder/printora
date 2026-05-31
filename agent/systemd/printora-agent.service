@@ -1,0 +1,16 @@
+[Unit]
+Description=Printora Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/printora-agent -config /etc/printora-agent/config.json run
+Restart=always
+RestartSec=5
+User=printora-agent
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

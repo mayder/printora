@@ -398,6 +398,54 @@ Rollback:
 - se `029_agent_pairing.sql` já tiver sido aplicado e o schema não puder permanecer, restaurar o backup `printora.<timestamp>.before-schema.db` criado pelo versionador antes da aplicação;
 - não apagar tokens, agentes ou eventos manualmente sem confirmação explícita.
 
+## Agente Remoto Base
+
+O PKG-42 adiciona o agente em Go em `agent/`.
+
+Build:
+
+```bash
+cd agent
+go test ./...
+GOOS=linux GOARCH=arm64 go build ./cmd/printora-agent
+GOOS=linux GOARCH=arm GOARM=7 go build ./cmd/printora-agent
+GOOS=linux GOARCH=amd64 go build ./cmd/printora-agent
+```
+
+Config inicial:
+
+```bash
+printora-agent -config /etc/printora-agent/config.json config-sample
+printf '%s\n' 'ptr_agent_xxx' | printora-agent -config /etc/printora-agent/config.json store-credential
+chmod 600 /etc/printora-agent/config.json /etc/printora-agent/credential
+printora-agent -config /etc/printora-agent/config.json doctor
+```
+
+Execução:
+
+```bash
+printora-agent -config /etc/printora-agent/config.json once
+printora-agent -config /etc/printora-agent/config.json run
+```
+
+Serviço systemd:
+
+```bash
+sudo install -m 0755 printora-agent /usr/local/bin/printora-agent
+sudo install -m 0644 agent/systemd/printora-agent.service /etc/systemd/system/printora-agent.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now printora-agent
+```
+
+Segurança:
+
+- o agente só abre conexões de saída;
+- Moonraker local é acessado em modo read-only;
+- o agente não envia G-code, não reinicia serviços, não aplica update, não faz build e não faz flash;
+- credencial operacional fica em arquivo separado com permissão `0600`;
+- logs passam por redaction de tokens;
+- fila local JSONL é limitada e guarda payload compacto quando a API está indisponível.
+
 Segurança:
 
 - senhas usam PBKDF2 e nunca são retornadas;
