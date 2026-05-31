@@ -25,4 +25,17 @@ export const printerApi = {
     apiResponse(`/api/printers/${printerId}/snapshots/diff?from_id=${fromSnapshotId}&to_id=${toSnapshotId}`),
   health: (printerId: number) => apiResponse(`/api/printers/${printerId}/health`),
   networkDiagnostics: (printerId: number) => apiResponse(`/api/printers/${printerId}/network-diagnostics`),
+  pairing: (printerId: number) => apiResponse(`/api/printers/${printerId}/pairing`),
+  createPairingToken: (printerId: number, ttlMinutes = 15) =>
+    apiResponse(`/api/printers/${printerId}/pairing/tokens`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ttl_minutes: ttlMinutes }),
+    }),
+  revokePairingToken: (printerId: number, tokenId: number) =>
+    apiResponse(`/api/printers/${printerId}/pairing/tokens/${tokenId}/revoke`, { method: "POST" }),
+  rotateAgentCredential: (printerId: number, agentId: number) =>
+    apiResponse(`/api/printers/${printerId}/agents/${agentId}/rotate`, { method: "POST" }),
+  revokeAgent: (printerId: number, agentId: number) =>
+    apiResponse(`/api/printers/${printerId}/agents/${agentId}/revoke`, { method: "POST" }),
 };

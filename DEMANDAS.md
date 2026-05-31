@@ -2742,7 +2742,16 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado localmente.
+- SQL `backend/sql/029_agent_pairing.sql` cria tokens de pareamento, agentes pareados e eventos sanitizados.
+- Backend expõe geração/revogação de token por impressora, troca pública token -> credencial operacional, heartbeat, snapshot e fila vazia autenticados por credencial do agente.
+- Token de pareamento é curto, expira, é uso único e pode ser revogado.
+- Credencial operacional é retornada apenas na troca ou rotação; listagens mostram somente prefixo/status.
+- Agente possui identidade estável, versão, plataforma, capacidades, último contato, revogação e rotação de credencial.
+- Agente revogado ou credencial antiga após rotação não autentica em heartbeat, snapshot ou jobs.
+- UI na tela Impressoras permite gerar token, copiar segredo uma vez, listar/revogar tokens, listar/revogar agentes e rotacionar credencial.
+- Testes focados: `cd backend && uv run pytest tests/test_agent_pairing.py -q`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
 ## PKG-41: Pareamento Seguro Do Agente
 

@@ -4,7 +4,10 @@ import { printerApi } from "../../services/printerApi";
 import type {
   ConnectionCheckResult,
   DiscoveredPrinter,
+  AgentCredentialExchangeResponse,
+  AgentPairingOverview,
   MoonrakerStatus,
+  PairingTokenResponse,
   PrinterConnectionTestResponse,
   PrinterDiscoveryResponse,
   PrinterRecord,
@@ -48,6 +51,9 @@ export function usePrinters(options: UsePrintersOptions) {
   const [newPrinterSshUser, setNewPrinterSshUser] = React.useState("");
   const [newPrinterSshCredential, setNewPrinterSshCredential] = React.useState("");
   const [printerConnectionTest, setPrinterConnectionTest] = React.useState<PrinterConnectionTestResponse | null>(null);
+  const [pairingOverview, setPairingOverview] = React.useState<AgentPairingOverview | null>(null);
+  const [createdPairingToken, setCreatedPairingToken] = React.useState<PairingTokenResponse | null>(null);
+  const [rotatedAgentCredential, setRotatedAgentCredential] = React.useState<AgentCredentialExchangeResponse | null>(null);
 
   const selectedPrinter = printers.find((printer) => printer.id === selectedPrinterId);
 
@@ -68,6 +74,7 @@ export function usePrinters(options: UsePrintersOptions) {
   function selectPrinter(printerId: number) {
     setSelectedPrinterId(printerId);
     onSelectPrinter();
+    void loadPrinterPairing(printerId);
     void loadPrinterContext(printerId);
   }
 
@@ -100,6 +107,7 @@ export function usePrinters(options: UsePrintersOptions) {
       await loadPrinterContext(created.id);
       setPrinterModalOpen(false);
       setNewPrinterSshCredential("");
+      await loadPrinterPairing(created.id);
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
@@ -204,12 +212,106 @@ export function usePrinters(options: UsePrintersOptions) {
     }
   }
 
+  async function loadPrinterPairing(printerId = selectedPrinterId) {
+    if (!printerId) {
+      setPairingOverview(null);
+      return;
+    }
+    const response = await printerApi.pairing(printerId);
+    if (!response.ok) {
+      return;
+    }
+    setPairingOverview((await response.json()) as AgentPairingOverview);
+  }
+
+  async function createPairingToken() {
+    if (!selectedPrinterId) {
+      setError("Selecione uma impressora");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await printerApi.createPairingToken(selectedPrinterId, 15);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setCreatedPairingToken((await response.json()) as PairingTokenResponse);
+      await loadPrinterPairing(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function revokePairingToken(tokenId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await printerApi.revokePairingToken(selectedPrinterId, tokenId);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadPrinterPairing(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function revokePrinterAgent(agentId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await printerApi.revokeAgent(selectedPrinterId, agentId);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadPrinterPairing(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function rotatePrinterAgent(agentId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await printerApi.rotateAgentCredential(selectedPrinterId, agentId);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setRotatedAgentCredential((await response.json()) as AgentCredentialExchangeResponse);
+      await loadPrinterPairing(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return {
     createPrinter,
+    createPairingToken,
+    createdPairingToken,
     discoverPrinters,
     discovery,
     editingPrinterId,
     loadPrinters,
+    loadPrinterPairing,
     loadSelectedPrinterStatus,
     newPrinterName,
     newPrinterSshCredential,
@@ -222,7 +324,12 @@ export function usePrinters(options: UsePrintersOptions) {
     printerConnectionTest,
     printerModalMode,
     printerModalOpen,
+    pairingOverview,
     printers,
+    revokePairingToken,
+    revokePrinterAgent,
+    rotatePrinterAgent,
+    rotatedAgentCredential,
     selectPrinter,
     selectedPrinter,
     selectedPrinterId,
@@ -237,6 +344,8 @@ export function usePrinters(options: UsePrintersOptions) {
     setPrinterConnectionTest,
     setPrinterModalMode,
     setPrinterModalOpen,
+    setCreatedPairingToken,
+    setRotatedAgentCredential,
     setPrinters,
     setSelectedPrinterId,
     testPrinterConnections,

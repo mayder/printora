@@ -9,6 +9,7 @@ from app.auth import AuthRepository, set_current_auth_context
 from app.database import initialize_database
 from app.routes import (
     audit,
+    agents,
     auth,
     backups,
     calibration,
@@ -68,6 +69,7 @@ if _frontend_brand_dir.is_dir():
     app.mount("/brand", StaticFiles(directory=_frontend_brand_dir), name="frontend-brand")
 
 app.include_router(audit.router)
+app.include_router(agents.router)
 app.include_router(auth.router)
 app.include_router(backups.router)
 app.include_router(calibration.router)

@@ -236,3 +236,16 @@ Impacto em testes: `backend/tests/test_auth.py` cobre schema, cadastro/login, or
 Impacto em rollback: médio; remover a camada exige reverter rotas, UI, SQL `026_auth_identity.sql`, `027_printer_ownership.sql`, `028_operational_ownership.sql` e restaurar backup do banco se o schema aplicado não puder permanecer.
 Como reverter: reverter arquivos do PKG-39 e restaurar `printora.<timestamp>.before-schema.db` quando for necessário desfazer o schema aplicado.
 Referencias: `backend/app/auth.py`, `backend/app/routes/auth.py`, `backend/sql/026_auth_identity.sql`, `backend/sql/027_printer_ownership.sql`, `backend/sql/028_operational_ownership.sql`, `frontend/src/screens/AuthScreen.tsx`, `frontend/src/hooks/domains/useAuth.ts`.
+
+### DEC-20260530-07 - Pareamento do agente usa token curto e credencial operacional por hash
+
+Status: aceita
+Data: 2026-05-30
+Contexto: o agente precisa parear a partir da rede da impressora, sem o servidor acessar a rede local e sem transformar o token de instalação em credencial permanente.
+Decisao: usar token curto de pareamento por impressora, persistido por hash, com expiração, uso único e revogação. A troca pública gera uma credencial operacional `ptr_agent_*`, também persistida por hash, ligada a uma identidade estável do agente. Rotação substitui a credencial ativa e revogação bloqueia heartbeat, snapshot e jobs.
+Alternativas consideradas: reutilizar credenciais genéricas do PKG-39; usar token de pareamento como credencial permanente; deixar revogação para pacote futuro.
+Consequencias: o usuário consegue instalar/copiar um segredo curto uma vez e o agente passa a autenticar sem expor token permanente. A etapa ainda não instala o agente nem executa comandos remotos; isso fica para pacotes posteriores.
+Impacto em testes: `backend/tests/test_agent_pairing.py` cobre uso único, expiração, revogação, ownership, rotação e bloqueio de endpoints do agente revogado.
+Impacto em rollback: médio; remover exige reverter rotas, UI, `backend/app/agent_pairing.py` e SQL `029_agent_pairing.sql`, ou restaurar backup do banco anterior ao schema.
+Como reverter: reverter arquivos do PKG-41 e restaurar `printora.<timestamp>.before-schema.db` se o schema aplicado não puder permanecer.
+Referencias: `backend/app/agent_pairing.py`, `backend/app/routes/agents.py`, `backend/sql/029_agent_pairing.sql`, `frontend/src/screens/PrintersScreen.tsx`, `frontend/src/hooks/domains/usePrinters.ts`.

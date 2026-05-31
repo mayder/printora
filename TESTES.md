@@ -741,6 +741,20 @@ Critérios:
 - Testes automatizados focados: `cd backend && uv run pytest tests/test_auth.py tests/test_schema_versioning.py tests/test_update_self.py -q`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-41 - Pareamento Seguro Do Agente
+
+- Validar que `backend/sql/029_agent_pairing.sql` cria tokens, agentes e eventos sem armazenar token/credencial em texto puro.
+- Validar geração de token por usuário autorizado na impressora e bloqueio para usuário sem acesso.
+- Validar que token expirado, revogado ou já usado falha com mensagem clara.
+- Validar troca de token por credencial operacional uma única vez.
+- Validar que a credencial completa do agente não aparece na listagem após a troca ou rotação.
+- Validar heartbeat, snapshot e jobs com credencial ativa.
+- Validar que agente revogado não autentica em heartbeat, snapshot ou jobs.
+- Validar que rotação invalida credencial antiga e aceita a nova.
+- Validar UI da tela Impressoras para gerar/copiar/ocultar token, revogar token, revogar agente e rotacionar credencial.
+- Testes automatizados focados: `cd backend && uv run pytest tests/test_agent_pairing.py -q`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

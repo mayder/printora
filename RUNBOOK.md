@@ -369,6 +369,35 @@ Fluxos:
 - step-up auth: `POST /api/auth/step-up` antes de ações destrutivas quando houver sessão autenticada;
 - credencial de agente: `POST /api/auth/agent-credentials`, retornada completa somente uma vez.
 
+## Pareamento Seguro Do Agente
+
+O PKG-41 usa SQLite e adiciona `backend/sql/029_agent_pairing.sql`.
+
+Fluxos:
+
+- gerar token curto: `POST /api/printers/{printer_id}/pairing/tokens` com sessão do usuário;
+- listar pareamento: `GET /api/printers/{printer_id}/pairing`;
+- revogar token: `POST /api/printers/{printer_id}/pairing/tokens/{token_id}/revoke`;
+- trocar token por credencial operacional: `POST /api/agent/pairing/exchange`;
+- heartbeat do agente: `POST /api/agent/heartbeat` com `Authorization: Bearer <credencial>`;
+- snapshot do agente: `POST /api/agent/snapshots` com `Authorization: Bearer <credencial>`;
+- fila de jobs: `GET /api/agent/jobs/next` com `Authorization: Bearer <credencial>`;
+- rotacionar credencial: `POST /api/printers/{printer_id}/agents/{agent_id}/rotate`;
+- revogar agente: `POST /api/printers/{printer_id}/agents/{agent_id}/revoke`.
+
+Segurança:
+
+- token de pareamento é persistido somente por hash, possui expiração, uso único e revogação;
+- credencial operacional é persistida somente por hash e retornada completa apenas na troca ou rotação;
+- eventos de agente guardam somente prefixos/detalhes sanitizados, nunca token completo ou credencial;
+- agente revogado ou credencial antiga após rotação recebe 401 em heartbeat, snapshot e jobs.
+
+Rollback:
+
+- para desfazer o pareamento, reverter arquivos do PKG-41;
+- se `029_agent_pairing.sql` já tiver sido aplicado e o schema não puder permanecer, restaurar o backup `printora.<timestamp>.before-schema.db` criado pelo versionador antes da aplicação;
+- não apagar tokens, agentes ou eventos manualmente sem confirmação explícita.
+
 Segurança:
 
 - senhas usam PBKDF2 e nunca são retornadas;

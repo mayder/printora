@@ -120,6 +120,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Conta, o setup de 2FA deve exibir segredo/URI, validar código antes de ativar e exigir código atual para desativar quando 2FA estiver ativo.
 - Na tela Conta, autenticação reforçada gera autorização curta para ações críticas; usuários com 2FA usam código, usuários sem 2FA usam senha.
 - Na tela Conta, credencial de agente completa aparece somente no momento de criação; depois a UI mostra apenas prefixo, identificação e status.
+- Na tela Impressoras, o bloco de pareamento do agente permite gerar token curto para a impressora selecionada, copiar o token uma única vez, listar tokens por prefixo/status, revogar tokens ativos, listar agentes pareados, revogar agente e rotacionar credencial.
+- Na tela Impressoras, credencial operacional completa aparece somente no momento de troca/rotação; depois a UI mostra apenas prefixo, status, plataforma e último contato.
 - A tela Setup deve ficar disponivel sem impressora ativa, pois seu objetivo e preparar uma Pi antes do cadastro final da impressora.
 - Na tela Setup, o primeiro bloco deve deixar claro que placa virgem sem SO/rede/SSH nao pode ser acessada por SSH; a preparacao de mídia/boot e etapa manual ou futura.
 - Na tela Setup, o topo deve exibir uma receita sequencial para usuario leigo, com progresso, etapas manuais marcaveis, passos bloqueados/prontos/feitos e abertura de cada etapa em modal.

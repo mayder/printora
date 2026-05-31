@@ -6,6 +6,7 @@ type PrintersScreenProps = ScreenPropsFor<
   | "CheckCircle2"
   | "Database"
   | "Gauge"
+  | "KeyRound"
   | "Plus"
   | "Printer"
   | "Radio"
@@ -13,6 +14,8 @@ type PrintersScreenProps = ScreenPropsFor<
   | "Settings"
   | "audit"
   | "captureSnapshot"
+  | "createPairingToken"
+  | "createdPairingToken"
   | "formatDecision"
   | "formatSshStatus"
   | "health"
@@ -20,7 +23,14 @@ type PrintersScreenProps = ScreenPropsFor<
   | "loading"
   | "openCreatePrinterModal"
   | "openEditPrinterModal"
+  | "pairingOverview"
   | "printers"
+  | "revokePairingToken"
+  | "revokePrinterAgent"
+  | "rotatePrinterAgent"
+  | "rotatedAgentCredential"
+  | "setCreatedPairingToken"
+  | "setRotatedAgentCredential"
   | "selectPrinter"
   | "selectedPrinter"
   | "selectedPrinterId"
@@ -34,6 +44,7 @@ export function PrintersScreen(props: PrintersScreenProps) {
     CheckCircle2,
     Database,
     Gauge,
+    KeyRound,
     Plus,
     Printer,
     Radio,
@@ -41,6 +52,8 @@ export function PrintersScreen(props: PrintersScreenProps) {
     Settings,
     audit,
     captureSnapshot,
+    createPairingToken,
+    createdPairingToken,
     formatDecision,
     formatSshStatus,
     health,
@@ -48,7 +61,14 @@ export function PrintersScreen(props: PrintersScreenProps) {
     loading,
     openCreatePrinterModal,
     openEditPrinterModal,
+    pairingOverview,
     printers,
+    revokePairingToken,
+    revokePrinterAgent,
+    rotatePrinterAgent,
+    rotatedAgentCredential,
+    setCreatedPairingToken,
+    setRotatedAgentCredential,
     selectPrinter,
     selectedPrinter,
     selectedPrinterId,
@@ -117,6 +137,88 @@ export function PrintersScreen(props: PrintersScreenProps) {
           </div>
         </article>
 
+        <article className="panel wide panel-section">
+          <div className="panel-heading">
+            <div>
+              <h2>Pareamento do agente</h2>
+              <p className="muted">Token curto para instalar o agente sem expor credencial permanente.</p>
+            </div>
+            <button type="button" className="primary-button" onClick={() => void createPairingToken()} disabled={!selectedPrinterId || loading}>
+              <KeyRound size={16} />
+              Gerar token
+            </button>
+          </div>
+          {!selectedPrinterId ? <p className="muted">Selecione uma impressora para gerenciar o pareamento.</p> : null}
+          {createdPairingToken ? (
+            <div className="auth-step">
+              <div>
+                <strong>Token criado</strong>
+                <p className="muted">Copie agora. Ele expira em {createdPairingToken.expires_at} e não aparece novamente.</p>
+                <code>{createdPairingToken.token}</code>
+              </div>
+              <button type="button" className="secondary-button" onClick={() => setCreatedPairingToken(null)}>
+                Ocultar
+              </button>
+            </div>
+          ) : null}
+          {rotatedAgentCredential ? (
+            <div className="auth-step">
+              <div>
+                <strong>Credencial rotacionada</strong>
+                <p className="muted">Copie agora. A credencial antiga já foi invalidada.</p>
+                <code>{rotatedAgentCredential.credential}</code>
+              </div>
+              <button type="button" className="secondary-button" onClick={() => setRotatedAgentCredential(null)}>
+                Ocultar
+              </button>
+            </div>
+          ) : null}
+          <div className="printer-dashboard">
+            <div className="printer-card">
+              <div className="printer-card-header">
+                <div>
+                  <strong>Tokens</strong>
+                  <span>{pairingOverview?.pairing_tokens.length ?? 0} registros</span>
+                </div>
+              </div>
+              <div className="auth-list">
+                {(pairingOverview?.pairing_tokens ?? []).map((token) => (
+                  <div key={token.id}>
+                    <strong>{token.token_prefix}</strong>
+                    <span>{token.status} · expira {token.expires_at}</span>
+                    {token.status === "active" ? (
+                      <button type="button" className="secondary-button" onClick={() => void revokePairingToken(token.id)} disabled={loading}>
+                        Revogar
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="printer-card">
+              <div className="printer-card-header">
+                <div>
+                  <strong>Agentes</strong>
+                  <span>{pairingOverview?.agents.length ?? 0} registros</span>
+                </div>
+              </div>
+              <div className="auth-list">
+                {(pairingOverview?.agents ?? []).map((agent) => (
+                  <div key={agent.id}>
+                    <strong>{agent.stable_id}</strong>
+                    <span>{agent.status} · {agent.platform || "-"} · último contato {agent.last_seen_at || "-"}</span>
+                    <button type="button" className="secondary-button" onClick={() => void rotatePrinterAgent(agent.id)} disabled={loading || agent.status === "revoked"}>
+                      Rotacionar
+                    </button>
+                    <button type="button" className="secondary-button" onClick={() => void revokePrinterAgent(agent.id)} disabled={loading || agent.status === "revoked"}>
+                      Revogar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </article>
 
     </>
   );

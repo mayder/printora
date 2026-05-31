@@ -58,3 +58,47 @@ export type PrinterRecord = {
   notes?: string | null;
   is_active: boolean;
 };
+
+export type PairingTokenRecord = {
+  id: number;
+  printer_id: number;
+  token_prefix: string;
+  status: "active" | "used" | "revoked" | "expired";
+  expires_at: string;
+  created_at: string;
+  consumed_at?: string | null;
+  revoked_at?: string | null;
+};
+
+export type PrinterAgentRecord = {
+  id: number;
+  printer_id: number;
+  stable_id: string;
+  credential_prefix: string;
+  agent_version?: string | null;
+  platform?: string | null;
+  capabilities: Record<string, unknown>;
+  status: "active" | "revoked";
+  paired_at: string;
+  last_seen_at?: string | null;
+  revoked_at?: string | null;
+  rotated_at?: string | null;
+};
+
+export type AgentPairingOverview = {
+  printer_id: number;
+  pairing_tokens: PairingTokenRecord[];
+  agents: PrinterAgentRecord[];
+};
+
+export type PairingTokenResponse = PairingTokenRecord & {
+  token: string;
+};
+
+export type AgentCredentialExchangeResponse = {
+  agent_id: number;
+  printer_id: number;
+  credential: string;
+  credential_prefix: string;
+  status: "active" | "revoked";
+};
