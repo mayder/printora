@@ -205,6 +205,47 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     }
   }
 
+  async function updateAuthOrganization(organizationId: number, name: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      const organization = await authApi.updateOrganization(organizationId, name);
+      setAuthUser((current) => current ? {
+        ...current,
+        organizations: current.organizations.map((item) => (item.id === organization.id ? organization : item)),
+      } : current);
+      if (selectedOrganizationId === organization.id) {
+        await loadOrganizationDetail(organization.id);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao editar organização");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteAuthOrganization(organizationId: number) {
+    setLoading(true);
+    setError(null);
+    try {
+      await authApi.deleteOrganization(organizationId);
+      setAuthUser((current) => current ? {
+        ...current,
+        organizations: current.organizations.filter((item) => item.id !== organizationId),
+      } : current);
+      if (selectedOrganizationId === organizationId) {
+        setSelectedOrganizationId(null);
+        setOrganizationDetail(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao excluir organização");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function addAuthOrganizationMember() {
     if (!selectedOrganizationId) {
       setError("Selecione uma organização");
@@ -377,6 +418,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     createAuthAgentCredential,
     createAuthOrganization,
     createAuthOrganizationInvite,
+    deleteAuthOrganization,
     disableMfa,
     loadAgentCredentials,
     loadAuth,
@@ -406,6 +448,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     submitAuth,
     submitMfaLogin,
     unlinkAuthOrganizationPrinter,
+    updateAuthOrganization,
   };
 }
 

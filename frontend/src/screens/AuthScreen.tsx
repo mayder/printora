@@ -1,16 +1,21 @@
 import React from "react";
 import type { ScreenPropsFor } from "./ScreenProps";
 
-type AccountTab = "access" | "security" | "organizations";
-const accountTabKeys: AccountTab[] = ["access", "security", "organizations"];
+type AccountTab = "security" | "organizations";
+const accountTabKeys: AccountTab[] = ["organizations", "security"];
 
 type AuthScreenProps = ScreenPropsFor<
   | "KeyRound"
+  | "LogOut"
   | "Plus"
   | "Printer"
+  | "ArrowLeft"
+  | "Building2"
+  | "Pencil"
   | "ShieldCheck"
   | "Trash2"
   | "UserRound"
+  | "Users"
   | "X"
   | "ClipboardCheck"
   | "authDisplayName"
@@ -50,9 +55,11 @@ type AuthScreenProps = ScreenPropsFor<
   | "stepUpPassword"
   | "stepUpResult"
   | "addAuthOrganizationMember"
+  | "confirmAction"
   | "confirmMfaSetup"
   | "createAuthOrganization"
   | "createAuthOrganizationInvite"
+  | "deleteAuthOrganization"
   | "disableMfa"
   | "linkAuthOrganizationPrinter"
   | "loadOrganizationDetail"
@@ -63,16 +70,22 @@ type AuthScreenProps = ScreenPropsFor<
   | "submitAuth"
   | "submitMfaLogin"
   | "unlinkAuthOrganizationPrinter"
+  | "updateAuthOrganization"
 >;
 
 export function AuthScreen(props: AuthScreenProps) {
   const {
     KeyRound,
+    LogOut,
     Plus,
     Printer,
+    ArrowLeft,
+    Building2,
+    Pencil,
     ShieldCheck,
     Trash2,
     UserRound,
+    Users,
     X,
     ClipboardCheck,
     authDisplayName,
@@ -112,9 +125,11 @@ export function AuthScreen(props: AuthScreenProps) {
     stepUpPassword,
     stepUpResult,
     addAuthOrganizationMember,
+    confirmAction,
     confirmMfaSetup,
     createAuthOrganization,
     createAuthOrganizationInvite,
+    deleteAuthOrganization,
     disableMfa,
     linkAuthOrganizationPrinter,
     loadOrganizationDetail,
@@ -125,12 +140,15 @@ export function AuthScreen(props: AuthScreenProps) {
     submitAuth,
     submitMfaLogin,
     unlinkAuthOrganizationPrinter,
+    updateAuthOrganization,
   } = props;
   const [accountTab, setAccountTab] = React.useState<AccountTab>(() => readRequestedAccountTab());
-  const accountTabs: Array<{ key: AccountTab; label: string }> = [
-    { key: "access", label: "Acessos" },
-    { key: "security", label: "Segurança" },
-    { key: "organizations", label: "Organizações" },
+  const [organizationPage, setOrganizationPage] = React.useState<"list" | "detail">("list");
+  const [organizationEditOpen, setOrganizationEditOpen] = React.useState(false);
+  const [editingOrganizationName, setEditingOrganizationName] = React.useState("");
+  const accountTabs: Array<{ key: AccountTab; label: string; Icon: typeof ShieldCheck }> = [
+    { key: "organizations", label: "Organizações", Icon: Building2 },
+    { key: "security", label: "Segurança", Icon: ShieldCheck },
   ];
   React.useEffect(() => {
     function handleAccountTab(event: Event) {
@@ -147,6 +165,48 @@ export function AuthScreen(props: AuthScreenProps) {
       void loadOrganizationDetail(selectedOrganizationId);
     }
   }, [accountTab, selectedOrganizationId, organizationDetail]);
+  const organizationByDetail = organizationDetail
+    ? authUser?.organizations.find((organization) => organization.id === organizationDetail.id)
+    : null;
+  const canManageSelectedOrganization = organizationByDetail?.role === "owner" || organizationByDetail?.role === "admin";
+  const canOwnSelectedOrganization = organizationByDetail?.role === "owner";
+
+  async function openOrganizationDetail(organizationId: number) {
+    await loadOrganizationDetail(organizationId);
+    setOrganizationPage("detail");
+    setCreatedOrganizationInvite(null);
+  }
+
+  function openOrganizationEdit(organizationId: number, name: string) {
+    setSelectedOrganizationId(organizationId);
+    setEditingOrganizationName(name);
+    setOrganizationEditOpen(true);
+  }
+
+  async function saveOrganizationEdit() {
+    if (!selectedOrganizationId || !editingOrganizationName.trim()) {
+      return;
+    }
+    await updateAuthOrganization(selectedOrganizationId, editingOrganizationName);
+    setOrganizationEditOpen(false);
+  }
+
+  async function confirmOrganizationDelete(organizationId: number, name: string) {
+    const confirmed = await confirmAction({
+      tone: "danger",
+      title: "Excluir organização",
+      detail: `A organização "${name}" será removida. Membros perdem acesso compartilhado e convites pendentes são revogados.`,
+      evidence: name,
+      confirmLabel: "Excluir",
+      cancelLabel: "Cancelar",
+    });
+    if (!confirmed) {
+      return;
+    }
+    await deleteAuthOrganization(organizationId);
+    setOrganizationPage("list");
+    setCreatedOrganizationInvite(null);
+  }
 
   if (!authUser) {
     return (
@@ -251,53 +311,20 @@ export function AuthScreen(props: AuthScreenProps) {
         </div>
         <div className="account-hero-actions">
           <button type="button" className="secondary-button" onClick={() => void logoutAuth()}>
+            <LogOut size={16} />
             Sair
           </button>
         </div>
       </article>
 
       <div className="segmented-control account-tabs" role="tablist" aria-label="Áreas da conta">
-        {accountTabs.map((tab) => (
+        {accountTabs.map(({ Icon, ...tab }) => (
           <button key={tab.key} type="button" className={accountTab === tab.key ? "active" : ""} onClick={() => setAccountTab(tab.key)}>
+            <Icon size={15} />
             {tab.label}
           </button>
         ))}
       </div>
-
-      {accountTab === "access" ? (
-        <div className="account-grid">
-          <article className="panel auth-panel">
-            <div className="panel-header-row">
-              <div>
-                <h2>Acessos da conta</h2>
-                <p>O uso individual continua disponível; organizações entram só quando você quiser compartilhar impressoras.</p>
-              </div>
-              <UserRound size={20} />
-            </div>
-            <div className="auth-summary">
-              <span>2FA: <strong>{authUser.mfa_enabled ? "ativo" : "inativo"}</strong></span>
-              <span>Organizações: <strong>{authUser.organizations.length}</strong></span>
-              <span>WhatsApp: <strong>{authUser.whatsapp || "não informado"}</strong></span>
-              <span>Telegram: <strong>{authUser.telegram || "não informado"}</strong></span>
-            </div>
-          </article>
-          <article className="panel auth-panel">
-            <div className="panel-header-row">
-              <div>
-                <h2>Permissões disponíveis</h2>
-                <p>Recursos liberados para esta conta no momento.</p>
-              </div>
-              <ShieldCheck size={20} />
-            </div>
-            <div className="auth-list">
-              <div><strong>Conta individual</strong><span>ativa</span></div>
-              <div><strong>Compartilhamento por organização</strong><span>{authUser.organizations.length ? "disponível" : "opcional"}</span></div>
-              <div><strong>Ações críticas</strong><span>{authUser.mfa_enabled ? "2FA" : "senha"}</span></div>
-              <div><strong>Agentes</strong><span>gerenciados na tela Agentes</span></div>
-            </div>
-          </article>
-        </div>
-      ) : null}
 
       {accountTab === "security" ? (
         <div className="account-grid">
@@ -324,6 +351,7 @@ export function AuthScreen(props: AuthScreenProps) {
             ) : (
               <div className="auth-stack">
                 <button type="button" className="primary-button" onClick={() => void startMfaSetup()} disabled={loading}>
+                  <ShieldCheck size={16} />
                   Preparar 2FA
                 </button>
                 {authUser.mfa_enabled ? (
@@ -333,6 +361,7 @@ export function AuthScreen(props: AuthScreenProps) {
                       <input value={authMfaCode} onChange={(event) => setAuthMfaCode(event.target.value)} inputMode="numeric" />
                     </label>
                     <button type="button" className="secondary-button" onClick={() => void disableMfa()} disabled={loading || !authMfaCode.trim()}>
+                      <X size={16} />
                       Desativar
                     </button>
                   </>
@@ -362,6 +391,7 @@ export function AuthScreen(props: AuthScreenProps) {
                 </label>
               )}
               <button type="button" className="primary-button" onClick={() => void requestStepUp()} disabled={loading || (!stepUpCode.trim() && !stepUpPassword.trim())}>
+                <KeyRound size={16} />
                 Gerar autorização
               </button>
               {stepUpResult ? <small>Autorização válida até {stepUpResult.expires_at}.</small> : null}
@@ -371,12 +401,14 @@ export function AuthScreen(props: AuthScreenProps) {
       ) : null}
 
       {accountTab === "organizations" ? (
-        <div className="organization-workspace">
+        <div className={organizationPage === "detail" ? "organization-workspace organization-workspace-detail" : "organization-workspace"}>
+          {organizationPage === "list" ? (
           <article className="panel auth-panel organization-directory">
             <div className="panel-header-row">
               <div>
                 <span className="account-eyebrow">Organizações</span>
                 <h2>Minhas organizações</h2>
+                <p>Use a conta individual por padrão. Crie organizações só quando quiser compartilhar impressoras.</p>
               </div>
               <button type="button" className="secondary-button" onClick={() => setOrganizationCreateOpen(true)}>
                 <Plus size={16} />
@@ -393,12 +425,18 @@ export function AuthScreen(props: AuthScreenProps) {
                 <strong>ativo</strong>
               </div>
               <div>
-                <span>Selecionada</span>
-                <strong>{organizationDetail?.name ?? "-"}</strong>
+                <span>Compartilhamento</span>
+                <strong>{authUser.organizations.length ? "disponível" : "opcional"}</strong>
               </div>
             </div>
-            <div className="organization-list">
-              <div className="organization-card active">
+            <div className="organization-table" role="table" aria-label="Organizações">
+              <div className="organization-table-header" role="row">
+                <span>Organização</span>
+                <span>Membros</span>
+                <span>Papel</span>
+                <span>Ações</span>
+              </div>
+              <div className="organization-table-row individual" role="row">
                 <div className="organization-card-main">
                   <span className="organization-card-icon">
                     <UserRound size={16} />
@@ -408,49 +446,98 @@ export function AuthScreen(props: AuthScreenProps) {
                     <small>Conta própria</small>
                   </div>
                 </div>
+                <span>1</span>
                 <span className="status-pill active">ativo</span>
+                <span className="organization-row-actions">
+                  <button type="button" className="secondary-button" disabled>
+                    <ShieldCheck size={15} />
+                    Padrão
+                  </button>
+                </span>
               </div>
               {authUser.organizations.map((organization) => (
-                <button
-                  key={organization.id}
-                  type="button"
-                  className={`organization-card ${selectedOrganizationId === organization.id ? "active" : ""}`}
-                  onClick={() => void loadOrganizationDetail(organization.id)}
-                >
+                <div key={organization.id} className={`organization-table-row ${selectedOrganizationId === organization.id ? "active" : ""}`} role="row">
                   <div className="organization-card-main">
                     <span className="organization-card-icon">
-                      <ShieldCheck size={16} />
+                      <Building2 size={16} />
                     </span>
                     <div>
                       <strong>{organization.name}</strong>
                       <small>Organização #{organization.id}</small>
                     </div>
                   </div>
+                  <span>-</span>
                   <span className="status-pill">{organization.role}</span>
-                </button>
+                  <span className="organization-row-actions">
+                    <button type="button" className="secondary-button" onClick={() => void openOrganizationDetail(organization.id)} disabled={loading}>
+                      <Users size={15} />
+                      Detalhar
+                    </button>
+                    <button type="button" className="secondary-button" onClick={() => openOrganizationEdit(organization.id, organization.name)} disabled={loading || organization.role !== "owner"}>
+                      <Pencil size={15} />
+                      Editar
+                    </button>
+                    <button type="button" className="secondary-button danger-action" onClick={() => void confirmOrganizationDelete(organization.id, organization.name)} disabled={loading || organization.role !== "owner"}>
+                      <Trash2 size={15} />
+                      Excluir
+                    </button>
+                  </span>
+                </div>
               ))}
             </div>
           </article>
+          ) : null}
 
-          <article className="panel auth-panel organization-detail-panel">
+          {organizationPage === "detail" ? (
+          <article className="panel auth-panel organization-detail-panel organization-detail-page">
             <div className="panel-header-row">
-              <div>
-                <span className="account-eyebrow">Detalhe</span>
-                <h2>{organizationDetail ? organizationDetail.name : "Detalhe da organização"}</h2>
-                <p>{organizationDetail ? `Organização #${organizationDetail.id} · ${organizationDetail.role}` : "Selecione uma organização para gerenciar acessos e impressoras."}</p>
+              <div className="organization-detail-heading">
+                <button type="button" className="icon-button" onClick={() => setOrganizationPage("list")} aria-label="Voltar para organizações">
+                  <ArrowLeft size={16} />
+                </button>
+                <div>
+                  <span className="account-eyebrow">Detalhe da organização</span>
+                  <h2>{organizationDetail ? organizationDetail.name : "Organização"}</h2>
+                  <p>{organizationDetail ? `Organização #${organizationDetail.id} · ${organizationDetail.role}` : "Carregando organização."}</p>
+                </div>
               </div>
-              <ShieldCheck size={20} />
+              {organizationDetail ? (
+                <div className="organization-detail-actions">
+                  <button type="button" className="secondary-button" onClick={() => openOrganizationEdit(organizationDetail.id, organizationDetail.name)} disabled={loading || !canOwnSelectedOrganization}>
+                    <Pencil size={15} />
+                    Editar
+                  </button>
+                  <button type="button" className="secondary-button danger-action" onClick={() => void confirmOrganizationDelete(organizationDetail.id, organizationDetail.name)} disabled={loading || !canOwnSelectedOrganization}>
+                    <Trash2 size={15} />
+                    Excluir
+                  </button>
+                </div>
+              ) : null}
             </div>
             {organizationDetail ? (
               <div className="auth-stack">
+                <div className="organization-summary-grid detail">
+                  <div>
+                    <span>Membros</span>
+                    <strong>{organizationDetail.members.length}</strong>
+                  </div>
+                  <div>
+                    <span>Impressoras</span>
+                    <strong>{organizationDetail.printers.length}</strong>
+                  </div>
+                  <div>
+                    <span>Convites</span>
+                    <strong>{organizationDetail.invites.length}</strong>
+                  </div>
+                </div>
                 <section className="organization-detail-section">
                   <div className="panel-header-row compact">
                     <div className="organization-section-title">
-                      <UserRound size={17} />
+                      <Users size={17} />
                       <h3>Membros</h3>
                       <span>{organizationDetail.members.length}</span>
                     </div>
-                    <button type="button" className="secondary-button" onClick={() => void createAuthOrganizationInvite()}>
+                    <button type="button" className="secondary-button" onClick={() => void createAuthOrganizationInvite()} disabled={!canManageSelectedOrganization}>
                       <KeyRound size={15} />
                       Gerar link
                     </button>
@@ -460,7 +547,7 @@ export function AuthScreen(props: AuthScreenProps) {
                       <div key={member.user_id}>
                         <strong>{member.display_name || member.email}</strong>
                         <span>{member.email} · {member.role}</span>
-                        {member.role !== "owner" ? (
+                        {member.role !== "owner" && canManageSelectedOrganization ? (
                           <button type="button" className="secondary-button" onClick={() => void removeAuthOrganizationMember(member.user_id)} disabled={loading}>
                             <Trash2 size={15} />
                             Remover
@@ -496,6 +583,7 @@ export function AuthScreen(props: AuthScreenProps) {
                       <h3>Impressoras vinculadas</h3>
                       <span>{organizationDetail.printers.length}</span>
                     </div>
+                    {canManageSelectedOrganization ? (
                     <div className="printer-card-actions">
                       <select value={organizationPrinterId} onChange={(event) => setOrganizationPrinterId(event.target.value ? Number(event.target.value) : "")}>
                         <option value="">Selecionar impressora</option>
@@ -508,6 +596,7 @@ export function AuthScreen(props: AuthScreenProps) {
                         Vincular
                       </button>
                     </div>
+                    ) : null}
                   </div>
                   <div className="auth-list">
                     {organizationDetail.printers.length === 0 ? <span className="muted">Nenhuma impressora vinculada.</span> : null}
@@ -515,10 +604,12 @@ export function AuthScreen(props: AuthScreenProps) {
                       <div key={printer.printer_id}>
                         <strong>{printer.name}</strong>
                         <span>{printer.moonraker_url}</span>
+                        {canManageSelectedOrganization ? (
                         <button type="button" className="secondary-button" onClick={() => void unlinkAuthOrganizationPrinter(printer.printer_id)} disabled={loading}>
                           <Trash2 size={15} />
                           Remover
                         </button>
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -543,6 +634,7 @@ export function AuthScreen(props: AuthScreenProps) {
               </div>
             ) : null}
           </article>
+          ) : null}
 
           {organizationCreateOpen ? (
             <div className="modal-backdrop" role="presentation">
@@ -567,6 +659,29 @@ export function AuthScreen(props: AuthScreenProps) {
               </article>
             </div>
           ) : null}
+          {organizationEditOpen ? (
+            <div className="modal-backdrop" role="presentation">
+              <article className="modal-card auth-create-modal" aria-label="Editar organização">
+                <div className="modal-header">
+                  <div>
+                    <h2>Editar organização</h2>
+                    <p>Atualize o nome exibido para membros e convites.</p>
+                  </div>
+                  <button type="button" className="icon-button" onClick={() => setOrganizationEditOpen(false)} aria-label="Fechar">
+                    <X size={16} />
+                  </button>
+                </div>
+                <label>
+                  <span>Nome da organização</span>
+                  <input value={editingOrganizationName} onChange={(event) => setEditingOrganizationName(event.target.value)} />
+                </label>
+                <button type="button" className="primary-button" onClick={() => void saveOrganizationEdit()} disabled={loading || !editingOrganizationName.trim()}>
+                  <Pencil size={16} />
+                  Salvar alterações
+                </button>
+              </article>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
@@ -575,7 +690,7 @@ export function AuthScreen(props: AuthScreenProps) {
 
 function readRequestedAccountTab(): AccountTab {
   const requested = (window as Window & { printoraAccountTab?: AccountTab }).printoraAccountTab;
-  return requested && accountTabKeys.includes(requested) ? requested : "access";
+  return requested && accountTabKeys.includes(requested) ? requested : "organizations";
 }
 
 async function copyInviteLink(inviteUrl: string, showToast: (options: { tone?: "success" | "danger"; title: string; detail?: string }) => void) {

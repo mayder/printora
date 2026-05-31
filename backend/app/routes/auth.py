@@ -22,6 +22,7 @@ from app.auth import (
     OrganizationInviteCreateRequest,
     OrganizationMemberAddRequest,
     OrganizationPrinterLinkRequest,
+    OrganizationUpdateRequest,
     StepUpRequest,
     StepUpResponse,
     UserRegisterRequest,
@@ -135,6 +136,32 @@ async def list_organizations(
     repository: AuthRepository = Depends(get_auth_repository),
 ) -> list[AuthOrganization]:
     return repository.list_user_organizations(current.user.id)
+
+
+@router.patch("/organizations/{organization_id}", response_model=AuthOrganization)
+async def update_organization(
+    organization_id: int,
+    payload: OrganizationUpdateRequest,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AuthRepository = Depends(get_auth_repository),
+) -> AuthOrganization:
+    try:
+        return repository.update_organization(current.user.id, organization_id, payload)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.delete("/organizations/{organization_id}")
+async def delete_organization(
+    organization_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AuthRepository = Depends(get_auth_repository),
+) -> dict[str, bool]:
+    try:
+        repository.delete_organization(current.user.id, organization_id)
+        return {"ok": True}
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
 @router.post("/organizations/{organization_id}/members", response_model=AuthOrganization)

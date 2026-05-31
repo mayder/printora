@@ -86,6 +86,10 @@ class OrganizationCreateRequest(BaseModel):
         return cleaned
 
 
+class OrganizationUpdateRequest(OrganizationCreateRequest):
+    pass
+
+
 class OrganizationMemberAddRequest(BaseModel):
     email: str = Field(min_length=3, max_length=254)
     role: OrganizationRole = "operator"
@@ -450,6 +454,43 @@ class AuthRepository:
             ).fetchone()
         return _organization_from_row(row)
 
+    def update_organization(self, actor_user_id: int, organization_id: int, payload: OrganizationUpdateRequest) -> AuthOrganization:
+        with connect_database(self.database_path) as connection:
+            self._require_org_owner(connection, organization_id, actor_user_id, "editar organização")
+            connection.execute(
+                """
+                UPDATE auth_organizations
+                SET name = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (payload.name, organization_id),
+            )
+            row = connection.execute(
+                """
+                SELECT o.id, o.name, o.owner_user_id, m.role
+                FROM auth_organizations o
+                JOIN auth_organization_members m ON m.organization_id = o.id
+                WHERE o.id = ? AND m.user_id = ?
+                """,
+                (organization_id, actor_user_id),
+            ).fetchone()
+        return _organization_from_row(row)
+
+    def delete_organization(self, actor_user_id: int, organization_id: int) -> None:
+        with connect_database(self.database_path) as connection:
+            self._require_org_owner(connection, organization_id, actor_user_id, "excluir organização")
+            connection.execute("DELETE FROM auth_organization_printers WHERE organization_id = ?", (organization_id,))
+            connection.execute(
+                """
+                UPDATE auth_organization_invites
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE organization_id = ? AND revoked_at IS NULL AND accepted_at IS NULL
+                """,
+                (organization_id,),
+            )
+            connection.execute("DELETE FROM auth_organization_members WHERE organization_id = ?", (organization_id,))
+            connection.execute("DELETE FROM auth_organizations WHERE id = ?", (organization_id,))
+
     def add_organization_member(
         self,
         actor_user_id: int,
@@ -805,6 +846,11 @@ class AuthRepository:
         role = self._member_role(connection, organization_id, user_id)
         if role not in ("owner", "admin"):
             raise PermissionError(f"usuário sem permissão para {action}")
+
+    def _require_org_owner(self, connection, organization_id: int, user_id: int, action: str) -> None:
+        role = self._member_role(connection, organization_id, user_id)
+        if role != "owner":
+            raise PermissionError(f"somente owner pode {action}")
 
     def _printer_visible_to_user(self, connection, user_id: int, printer_id: int) -> bool:
         row = connection.execute(

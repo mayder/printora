@@ -73,6 +73,18 @@ export async function createOrganization(name: string): Promise<AuthOrganization
   });
 }
 
+export async function updateOrganization(organizationId: number, name: string): Promise<AuthOrganization> {
+  return apiRequest<AuthOrganization>(`/api/auth/organizations/${organizationId}`, {
+    method: "PATCH",
+    headers: jsonHeaders,
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function deleteOrganization(organizationId: number): Promise<void> {
+  await apiRequest<{ ok: boolean }>(`/api/auth/organizations/${organizationId}`, { method: "DELETE" });
+}
+
 export async function addOrganizationMember(organizationId: number, email: string, role: string): Promise<AuthOrganization> {
   return apiRequest<AuthOrganization>(`/api/auth/organizations/${organizationId}/members`, {
     method: "POST",

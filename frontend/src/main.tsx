@@ -37,7 +37,7 @@ import "./styles/tests.css";
 import "./styles/reports.css";
 import "./styles/about.css";
 
-type AccountTab = "access" | "security" | "organizations";
+type AccountTab = "security" | "organizations";
 
 function openAccountTab(tab: AccountTab, setActiveSection: (section: AppSection) => void) {
   (window as Window & { printoraAccountTab?: AccountTab }).printoraAccountTab = tab;
@@ -76,9 +76,8 @@ function App() {
   } = usePrintoraApp();
   const userLabel = screenProps.authUser?.display_name || screenProps.authUser?.email || "Conta";
   const accountMenuItems = [
-    { label: "Acessos da conta", icon: UserRound, tab: "access" as const },
-    { label: "Segurança", icon: ShieldCheck, tab: "security" as const },
     { label: "Organizações", icon: Users, tab: "organizations" as const },
+    { label: "Segurança", icon: ShieldCheck, tab: "security" as const },
   ];
 
   const activeScreen = (() => {

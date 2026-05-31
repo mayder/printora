@@ -10,6 +10,7 @@ from app.auth import (
     OrganizationCreateRequest,
     OrganizationInviteCreateRequest,
     OrganizationMemberAddRequest,
+    OrganizationUpdateRequest,
     StepUpRequest,
     UserRegisterRequest,
     complete_mfa_login,
@@ -123,6 +124,35 @@ def test_organization_detail_invite_members_and_printer_links(tmp_path: Path) ->
     refreshed = repository.organization_detail(owner.id, organization.id, "http://printora.local")
     assert refreshed.printers == []
     assert {member.email for member in refreshed.members} == {"owner@example.com"}
+
+
+def test_owner_can_update_and_delete_organization(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = AuthRepository(database_path)
+    owner = repository.create_user(UserRegisterRequest(email="owner@example.com", password="correct-horse"))
+    operator = repository.create_user(UserRegisterRequest(email="operator@example.com", password="correct-horse"))
+    organization = repository.create_organization(owner.id, OrganizationCreateRequest(name="Voron Lab"))
+    repository.add_organization_member(
+        owner.id,
+        organization.id,
+        OrganizationMemberAddRequest(email=operator.email, role="operator"),
+    )
+
+    renamed = repository.update_organization(owner.id, organization.id, OrganizationUpdateRequest(name="Print Farm"))
+
+    assert renamed.name == "Print Farm"
+    try:
+        repository.delete_organization(operator.id, organization.id)
+    except PermissionError:
+        pass
+    else:
+        raise AssertionError("operator should not delete organization")
+
+    repository.delete_organization(owner.id, organization.id)
+
+    assert repository.user_has_organization(owner.id, organization.id) is False
+    assert repository.user_has_organization(operator.id, organization.id) is False
 
 
 def test_mfa_login_and_step_up_for_destructive_action(tmp_path: Path) -> None:
