@@ -48,15 +48,29 @@ class UserRegisterRequest(BaseModel):
     @field_validator("display_name", "whatsapp", "telegram")
     @classmethod
     def clean_optional_text(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        cleaned = value.strip()
-        return cleaned or None
+        return clean_optional_text(value)
 
     @field_validator("email")
     @classmethod
     def clean_email(cls, value: str) -> str:
         return clean_email(value)
+
+
+class UserProfileUpdateRequest(BaseModel):
+    display_name: str | None = Field(default=None, max_length=120)
+    whatsapp: str | None = Field(default=None, max_length=40)
+    telegram: str | None = Field(default=None, max_length=80)
+    social_links: UserContactLinks = Field(default_factory=UserContactLinks)
+
+    @field_validator("display_name", "whatsapp", "telegram")
+    @classmethod
+    def clean_optional_text(cls, value: str | None) -> str | None:
+        return clean_optional_text(value)
+
+
+class UserPasswordUpdateRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=200)
+    new_password: str = Field(min_length=8, max_length=200)
 
 
 class LoginRequest(BaseModel):
@@ -312,6 +326,41 @@ class AuthRepository:
         with connect_database(self.database_path) as connection:
             row = connection.execute("SELECT password_hash FROM auth_users WHERE id = ?", (user_id,)).fetchone()
         return str(row["password_hash"]) if row else None
+
+    def update_user_profile(self, user_id: int, payload: UserProfileUpdateRequest) -> AuthUser:
+        with connect_database(self.database_path) as connection:
+            connection.execute(
+                """
+                UPDATE auth_users
+                SET display_name = ?, whatsapp = ?, telegram = ?, social_links_json = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (
+                    payload.display_name,
+                    payload.whatsapp,
+                    payload.telegram,
+                    payload.social_links.model_dump_json(),
+                    user_id,
+                ),
+            )
+        user = self.get_user(user_id)
+        if user is None:
+            raise ValueError("usuário não encontrado")
+        return user
+
+    def update_user_password(self, user_id: int, payload: UserPasswordUpdateRequest) -> None:
+        current_hash = self.get_password_hash(user_id)
+        if current_hash is None or not verify_password(payload.current_password, current_hash):
+            raise ValueError("senha atual inválida")
+        with connect_database(self.database_path) as connection:
+            connection.execute(
+                """
+                UPDATE auth_users
+                SET password_hash = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (hash_password(payload.new_password), user_id),
+            )
 
     def create_session(self, user_id: int) -> tuple[str, str]:
         token = new_secret("ptr_sess")
@@ -996,6 +1045,13 @@ def clean_email(value: str) -> str:
     if "@" not in cleaned or cleaned.startswith("@") or cleaned.endswith("@"):
         raise ValueError("email inválido")
     return cleaned
+
+
+def clean_optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    return cleaned or None
 
 
 def totp_code(secret: str, timestamp: int | None = None) -> str:

@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { useState } from "react";
-import { Bell, ChevronDown, Info, LogOut, Menu, ShieldCheck, UserRound, Users, X } from "lucide-react";
+import { Bell, ChevronDown, Info, LogOut, Menu, UserRound, Users, X } from "lucide-react";
 import { appSections } from "./app/navigation";
 import type { AppSection } from "./app/navigation";
 import { AppModals } from "./components/modals";
@@ -37,7 +37,7 @@ import "./styles/tests.css";
 import "./styles/reports.css";
 import "./styles/about.css";
 
-type AccountTab = "security" | "organizations";
+type AccountTab = "profile" | "organizations";
 
 function openAccountTab(tab: AccountTab, setActiveSection: (section: AppSection) => void) {
   (window as Window & { printoraAccountTab?: AccountTab }).printoraAccountTab = tab;
@@ -77,7 +77,7 @@ function App() {
   const userLabel = screenProps.authUser?.display_name || screenProps.authUser?.email || "Conta";
   const accountMenuItems = [
     { label: "Organizações", icon: Users, tab: "organizations" as const },
-    { label: "Segurança", icon: ShieldCheck, tab: "security" as const },
+    { label: "Perfil", icon: UserRound, tab: "profile" as const },
   ];
 
   const activeScreen = (() => {

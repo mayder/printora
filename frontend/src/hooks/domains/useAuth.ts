@@ -188,6 +188,32 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     }
   }
 
+  async function updateAuthProfile(payload: authApi.ProfileUpdatePayload) {
+    setLoading(true);
+    setError(null);
+    try {
+      setAuthUser(await authApi.updateProfile(payload));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao salvar perfil");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function updateAuthPassword(currentPassword: string, newPassword: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      await authApi.updatePassword(currentPassword, newPassword);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao alterar senha");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function createAuthOrganization() {
     setLoading(true);
     setError(null);
@@ -466,6 +492,8 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     submitAuth,
     submitMfaLogin,
     unlinkAuthOrganizationPrinter,
+    updateAuthPassword,
+    updateAuthProfile,
     updateAuthOrganization,
   };
 }

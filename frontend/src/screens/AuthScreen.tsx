@@ -1,8 +1,8 @@
 import React from "react";
 import type { ScreenPropsFor } from "./ScreenProps";
 
-type AccountTab = "security" | "organizations";
-const accountTabKeys: AccountTab[] = ["organizations", "security"];
+type AccountTab = "profile" | "organizations";
+const accountTabKeys: AccountTab[] = ["organizations", "profile"];
 
 type AuthScreenProps = ScreenPropsFor<
   | "KeyRound"
@@ -71,6 +71,8 @@ type AuthScreenProps = ScreenPropsFor<
   | "submitAuth"
   | "submitMfaLogin"
   | "unlinkAuthOrganizationPrinter"
+  | "updateAuthPassword"
+  | "updateAuthProfile"
   | "updateAuthOrganization"
 >;
 
@@ -142,15 +144,31 @@ export function AuthScreen(props: AuthScreenProps) {
     submitAuth,
     submitMfaLogin,
     unlinkAuthOrganizationPrinter,
+    updateAuthPassword,
+    updateAuthProfile,
     updateAuthOrganization,
   } = props;
   const [accountTab, setAccountTab] = React.useState<AccountTab>(() => readRequestedAccountTab());
   const [organizationPage, setOrganizationPage] = React.useState<"list" | "detail">("list");
   const [organizationEditOpen, setOrganizationEditOpen] = React.useState(false);
   const [editingOrganizationName, setEditingOrganizationName] = React.useState("");
+  const [profileDisplayName, setProfileDisplayName] = React.useState("");
+  const [profileWhatsapp, setProfileWhatsapp] = React.useState("");
+  const [profileTelegram, setProfileTelegram] = React.useState("");
+  const [profileInstagram, setProfileInstagram] = React.useState("");
+  const [profileX, setProfileX] = React.useState("");
+  const [profileFacebook, setProfileFacebook] = React.useState("");
+  const [profileWebsite, setProfileWebsite] = React.useState("");
+  const [currentPassword, setCurrentPassword] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = React.useState("");
   React.useEffect(() => {
     function handleAccountTab(event: Event) {
-      const tab = (event as CustomEvent<AccountTab>).detail;
+      const tab = (event as CustomEvent<AccountTab | "security">).detail;
+      if (tab === "security") {
+        setAccountTab("profile");
+        return;
+      }
       if (accountTabKeys.includes(tab)) {
         setAccountTab(tab);
       }
@@ -163,6 +181,15 @@ export function AuthScreen(props: AuthScreenProps) {
       void loadOrganizationDetail(selectedOrganizationId);
     }
   }, [accountTab, selectedOrganizationId, organizationDetail]);
+  React.useEffect(() => {
+    setProfileDisplayName(authUser?.display_name ?? "");
+    setProfileWhatsapp(authUser?.whatsapp ?? "");
+    setProfileTelegram(authUser?.telegram ?? "");
+    setProfileInstagram(authUser?.social_links.instagram ?? "");
+    setProfileX(authUser?.social_links.x ?? "");
+    setProfileFacebook(authUser?.social_links.facebook ?? "");
+    setProfileWebsite(authUser?.social_links.website ?? "");
+  }, [authUser]);
   const organizationByDetail = organizationDetail
     ? authUser?.organizations.find((organization) => organization.id === organizationDetail.id)
     : null;
@@ -217,6 +244,33 @@ export function AuthScreen(props: AuthScreenProps) {
     if (confirmed) {
       await revokeAuthOrganizationInvite(inviteId);
     }
+  }
+
+  async function saveProfile() {
+    await updateAuthProfile({
+      display_name: profileDisplayName || null,
+      whatsapp: profileWhatsapp || null,
+      telegram: profileTelegram || null,
+      social_links: {
+        instagram: profileInstagram || null,
+        x: profileX || null,
+        facebook: profileFacebook || null,
+        website: profileWebsite || null,
+      },
+    });
+    showToast({ tone: "success", title: "Perfil atualizado" });
+  }
+
+  async function savePassword() {
+    if (newPassword !== confirmNewPassword) {
+      showToast({ tone: "danger", title: "Senhas diferentes", detail: "Confirme a nova senha corretamente." });
+      return;
+    }
+    await updateAuthPassword(currentPassword, newPassword);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmNewPassword("");
+    showToast({ tone: "success", title: "Senha alterada" });
   }
 
   if (!authUser) {
@@ -328,75 +382,183 @@ export function AuthScreen(props: AuthScreenProps) {
         </div>
       </article>
 
-      {accountTab === "security" ? (
-        <div className="account-grid">
-          <article className="panel auth-panel">
-            <div className="panel-header-row">
+      {accountTab === "profile" ? (
+        <div className="profile-workspace">
+          <article className="panel auth-panel profile-card">
+            <div className="profile-section-title">
+              <span className="organization-card-icon"><UserRound size={17} /></span>
               <div>
-                <h2>2FA</h2>
-                <p>Opcional por usuário e usado como reforço em ações críticas.</p>
+                <span className="account-eyebrow">Perfil</span>
+                <h2>Dados da conta</h2>
+                <p>Email é usado para login; demais dados podem ser alterados quando quiser.</p>
               </div>
-              <ShieldCheck size={20} />
             </div>
-            {mfaSetup ? (
-              <div className="auth-stack">
-                <code>{mfaSetup.secret}</code>
-                <small>{mfaSetup.otpauth_uri}</small>
-                <label>
-                  <span>Código do app autenticador</span>
-                  <input value={authMfaCode} onChange={(event) => setAuthMfaCode(event.target.value)} inputMode="numeric" />
-                </label>
-                <button type="button" className="primary-button" onClick={() => void confirmMfaSetup()} disabled={loading || !authMfaCode.trim()}>
-                  Ativar 2FA
-                </button>
-              </div>
-            ) : (
-              <div className="auth-stack">
-                <button type="button" className="primary-button" onClick={() => void startMfaSetup()} disabled={loading}>
-                  <ShieldCheck size={16} />
-                  Preparar 2FA
-                </button>
-                {authUser.mfa_enabled ? (
-                  <>
-                    <label>
-                      <span>Código atual</span>
-                      <input value={authMfaCode} onChange={(event) => setAuthMfaCode(event.target.value)} inputMode="numeric" />
-                    </label>
-                    <button type="button" className="secondary-button" onClick={() => void disableMfa()} disabled={loading || !authMfaCode.trim()}>
-                      <X size={16} />
-                      Desativar
-                    </button>
-                  </>
-                ) : null}
-              </div>
-            )}
+            <div className="profile-form-grid">
+              <label>
+                <span>Email</span>
+                <input value={authUser.email} disabled />
+              </label>
+              <label>
+                <span>Nome</span>
+                <input value={profileDisplayName} onChange={(event) => setProfileDisplayName(event.target.value)} placeholder="Nome exibido" />
+              </label>
+            </div>
           </article>
 
-          <article className="panel auth-panel">
-            <div className="panel-header-row">
+          <article className="panel auth-panel profile-card">
+            <div className="profile-section-title">
+              <span className="organization-card-icon"><Users size={17} /></span>
               <div>
-                <h2>Autenticação reforçada</h2>
-                <p>Pré-validação curta para ações destrutivas na impressora.</p>
+                <span className="account-eyebrow">Contatos</span>
+                <h2>WhatsApp, Telegram e redes</h2>
+                <p>Informações opcionais para suporte, convites e identificação da conta.</p>
               </div>
-              <KeyRound size={20} />
             </div>
-            <div className="auth-stack">
-              {authUser.mfa_enabled ? (
-                <label>
-                  <span>Código 2FA</span>
-                  <input value={stepUpCode} onChange={(event) => setStepUpCode(event.target.value)} inputMode="numeric" />
-                </label>
-              ) : (
-                <label>
-                  <span>Senha</span>
-                  <input value={stepUpPassword} onChange={(event) => setStepUpPassword(event.target.value)} type="password" />
-                </label>
-              )}
-              <button type="button" className="primary-button" onClick={() => void requestStepUp()} disabled={loading || (!stepUpCode.trim() && !stepUpPassword.trim())}>
-                <KeyRound size={16} />
-                Gerar autorização
+            <div className="profile-form-grid">
+              <label>
+                <span>WhatsApp</span>
+                <input value={profileWhatsapp} onChange={(event) => setProfileWhatsapp(event.target.value)} placeholder="+55..." />
+              </label>
+              <label>
+                <span>Telegram</span>
+                <input value={profileTelegram} onChange={(event) => setProfileTelegram(event.target.value)} placeholder="@usuario" />
+              </label>
+              <label>
+                <span>Instagram</span>
+                <input value={profileInstagram} onChange={(event) => setProfileInstagram(event.target.value)} placeholder="@usuario" />
+              </label>
+              <label>
+                <span>X/Twitter</span>
+                <input value={profileX} onChange={(event) => setProfileX(event.target.value)} placeholder="@usuario" />
+              </label>
+              <label>
+                <span>Facebook</span>
+                <input value={profileFacebook} onChange={(event) => setProfileFacebook(event.target.value)} placeholder="perfil ou página" />
+              </label>
+              <label>
+                <span>Website</span>
+                <input value={profileWebsite} onChange={(event) => setProfileWebsite(event.target.value)} placeholder="https://..." />
+              </label>
+            </div>
+            <div className="profile-card-actions">
+              <button type="button" className="primary-button" onClick={() => void saveProfile()} disabled={loading}>
+                <ClipboardCheck size={16} />
+                Salvar perfil
               </button>
-              {stepUpResult ? <small>Autorização válida até {stepUpResult.expires_at}.</small> : null}
+            </div>
+          </article>
+
+          <article className="panel auth-panel profile-card">
+            <div className="profile-section-title">
+              <span className="organization-card-icon"><KeyRound size={17} /></span>
+              <div>
+                <span className="account-eyebrow">Senha</span>
+                <h2>Alterar senha</h2>
+                <p>Informe a senha atual antes de definir uma nova senha.</p>
+              </div>
+            </div>
+            <div className="profile-form-grid">
+              <label>
+                <span>Senha atual</span>
+                <input value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} type="password" autoComplete="current-password" />
+              </label>
+              <label>
+                <span>Nova senha</span>
+                <input value={newPassword} onChange={(event) => setNewPassword(event.target.value)} type="password" autoComplete="new-password" />
+              </label>
+              <label>
+                <span>Confirmar nova senha</span>
+                <input value={confirmNewPassword} onChange={(event) => setConfirmNewPassword(event.target.value)} type="password" autoComplete="new-password" />
+              </label>
+            </div>
+            <div className="profile-card-actions">
+              <button type="button" className="secondary-button" onClick={() => void savePassword()} disabled={loading || !currentPassword || !newPassword || !confirmNewPassword}>
+                <KeyRound size={16} />
+                Alterar senha
+              </button>
+            </div>
+          </article>
+
+          <article className="panel auth-panel profile-card">
+            <div className="profile-section-title">
+              <span className="organization-card-icon"><ShieldCheck size={17} /></span>
+              <div>
+                <span className="account-eyebrow">Segurança</span>
+                <h2>2FA e autenticação reforçada</h2>
+                <p>Controles usados para proteger login e ações críticas na impressora.</p>
+              </div>
+            </div>
+            <div className="profile-security-grid">
+              <section className="profile-security-block">
+                <div className="panel-header-row compact">
+                  <div>
+                    <h3>2FA</h3>
+                    <p>Opcional por usuário e usado como reforço em ações críticas.</p>
+                  </div>
+                  <span className={`status-pill ${authUser.mfa_enabled ? "active" : ""}`}>{authUser.mfa_enabled ? "ativo" : "inativo"}</span>
+                </div>
+                {mfaSetup ? (
+                  <div className="auth-stack">
+                    <code>{mfaSetup.secret}</code>
+                    <small>{mfaSetup.otpauth_uri}</small>
+                    <label>
+                      <span>Código do app autenticador</span>
+                      <input value={authMfaCode} onChange={(event) => setAuthMfaCode(event.target.value)} inputMode="numeric" />
+                    </label>
+                    <button type="button" className="primary-button" onClick={() => void confirmMfaSetup()} disabled={loading || !authMfaCode.trim()}>
+                      <ShieldCheck size={16} />
+                      Ativar 2FA
+                    </button>
+                  </div>
+                ) : (
+                  <div className="auth-stack">
+                    <button type="button" className="primary-button" onClick={() => void startMfaSetup()} disabled={loading}>
+                      <ShieldCheck size={16} />
+                      Preparar 2FA
+                    </button>
+                    {authUser.mfa_enabled ? (
+                      <>
+                        <label>
+                          <span>Código atual</span>
+                          <input value={authMfaCode} onChange={(event) => setAuthMfaCode(event.target.value)} inputMode="numeric" />
+                        </label>
+                        <button type="button" className="secondary-button" onClick={() => void disableMfa()} disabled={loading || !authMfaCode.trim()}>
+                          <X size={16} />
+                          Desativar
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                )}
+              </section>
+
+              <section className="profile-security-block">
+                <div className="panel-header-row compact">
+                  <div>
+                    <h3>Autenticação reforçada</h3>
+                    <p>Pré-validação curta para ações destrutivas na impressora.</p>
+                  </div>
+                  <KeyRound size={20} />
+                </div>
+                <div className="auth-stack">
+                  {authUser.mfa_enabled ? (
+                    <label>
+                      <span>Código 2FA</span>
+                      <input value={stepUpCode} onChange={(event) => setStepUpCode(event.target.value)} inputMode="numeric" />
+                    </label>
+                  ) : (
+                    <label>
+                      <span>Senha</span>
+                      <input value={stepUpPassword} onChange={(event) => setStepUpPassword(event.target.value)} type="password" />
+                    </label>
+                  )}
+                  <button type="button" className="primary-button" onClick={() => void requestStepUp()} disabled={loading || (!stepUpCode.trim() && !stepUpPassword.trim())}>
+                    <KeyRound size={16} />
+                    Gerar autorização
+                  </button>
+                  {stepUpResult ? <small>Autorização válida até {stepUpResult.expires_at}.</small> : null}
+                </div>
+              </section>
             </div>
           </article>
         </div>
@@ -728,7 +890,10 @@ export function AuthScreen(props: AuthScreenProps) {
 }
 
 function readRequestedAccountTab(): AccountTab {
-  const requested = (window as Window & { printoraAccountTab?: AccountTab }).printoraAccountTab;
+  const requested = (window as Window & { printoraAccountTab?: AccountTab | "security" }).printoraAccountTab;
+  if (requested === "security") {
+    return "profile";
+  }
   return requested && accountTabKeys.includes(requested) ? requested : "organizations";
 }
 

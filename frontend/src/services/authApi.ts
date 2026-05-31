@@ -24,6 +24,13 @@ export interface RegisterPayload {
   social_links?: Record<string, string | null>;
 }
 
+export interface ProfileUpdatePayload {
+  display_name?: string | null;
+  whatsapp?: string | null;
+  telegram?: string | null;
+  social_links?: Record<string, string | null>;
+}
+
 export async function registerUser(payload: RegisterPayload): Promise<AuthSessionResponse> {
   const response = await apiRequest<AuthSessionResponse>("/api/auth/register", {
     method: "POST",
@@ -63,6 +70,22 @@ export async function logoutUser(): Promise<void> {
 
 export async function loadAuthUser(): Promise<AuthUser | null> {
   return apiOptional<AuthUser>("/api/auth/me");
+}
+
+export async function updateProfile(payload: ProfileUpdatePayload): Promise<AuthUser> {
+  return apiRequest<AuthUser>("/api/auth/me", {
+    method: "PATCH",
+    headers: jsonHeaders,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updatePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await apiRequest<{ ok: boolean }>("/api/auth/password", {
+    method: "PATCH",
+    headers: jsonHeaders,
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
 }
 
 export async function createOrganization(name: string): Promise<AuthOrganization> {

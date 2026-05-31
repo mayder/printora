@@ -117,7 +117,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - A tela Conta deve concentrar autenticação cloud, cadastro, sessão, organizações opcionais, 2FA e step-up auth.
 - Usuário autenticado acessa Conta pelo menu do usuário no topo, com nome/ícone e dropdown; Conta não deve aparecer como item do menu lateral.
 - Itens do dropdown da conta devem abrir a aba interna correta no primeiro clique, mesmo quando a tela Conta ainda não está montada.
-- A área Conta deve separar responsabilidades em estados/telas internas: organizações e segurança.
+- A área Conta deve separar responsabilidades em estados/telas internas: organizações e perfil.
+- O menu do usuário deve expor `Organizações` e `Perfil`; `Perfil` concentra dados do usuário, contatos/redes, alteração de senha, 2FA e autenticação reforçada em blocos separados.
 - Organizações na Conta devem listar todas as organizações do usuário em tela própria com ações de linha; uso individual continua disponível sem CRUD.
 - Organizações na Conta devem separar lista, detalhe, criação e edição; criação/edição abrem em modal, detalhe abre como estado dedicado em largura total e mostra membros, convites por link e impressoras vinculadas em blocos/tabelas separados.
 - Organizações na Conta devem permitir editar e excluir somente quando o usuário for `owner`; exclusão deve passar por confirmação destrutiva.
@@ -126,6 +127,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Agentes devem ter tela própria no menu lateral, separada de Conta e do dashboard de Impressoras, com geração de token/comando pronto de instalação, lista de tokens, agentes pareados e saúde/suporte.
 - Usuário anônimo deve ver somente o shell mínimo de autenticação, sem menu lateral, seletor de impressora, alertas, telas internas ou dados operacionais.
 - Na tela Conta, email e senha são obrigatórios no cadastro; nome, WhatsApp, Telegram e demais contatos são opcionais e não bloqueiam a criação da conta.
+- Na tela Conta > Perfil, o usuário pode alterar nome, WhatsApp, Telegram e redes sociais opcionais; email permanece como identificador de login.
+- Na tela Conta > Perfil, alteração de senha exige senha atual e confirmação da nova senha.
 - Na tela Conta, organização não é obrigatória para uso individual; quando existir, a UI permite criar organização e vincular usuários com papel `admin` ou `operator`.
 - Na tela Conta, o setup de 2FA deve exibir segredo/URI, validar código antes de ativar e exigir código atual para desativar quando 2FA estiver ativo.
 - Na tela Conta, autenticação reforçada gera autorização curta para ações críticas; usuários com 2FA usam código, usuários sem 2FA usam senha.

@@ -26,6 +26,8 @@ from app.auth import (
     StepUpRequest,
     StepUpResponse,
     UserRegisterRequest,
+    UserPasswordUpdateRequest,
+    UserProfileUpdateRequest,
     complete_mfa_login,
     login,
     setup_mfa,
@@ -119,6 +121,31 @@ async def logout_user(
 @router.get("/me", response_model=AuthUser)
 async def auth_me(current: CurrentUser = Depends(require_current_user)) -> AuthUser:
     return current.user
+
+
+@router.patch("/me", response_model=AuthUser)
+async def update_auth_profile(
+    payload: UserProfileUpdateRequest,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AuthRepository = Depends(get_auth_repository),
+) -> AuthUser:
+    try:
+        return repository.update_user_profile(current.user.id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.patch("/password")
+async def update_auth_password(
+    payload: UserPasswordUpdateRequest,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AuthRepository = Depends(get_auth_repository),
+) -> dict[str, bool]:
+    try:
+        repository.update_user_password(current.user.id, payload)
+        return {"ok": True}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/organizations", response_model=AuthOrganization)

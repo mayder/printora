@@ -12,6 +12,8 @@ from app.auth import (
     OrganizationMemberAddRequest,
     OrganizationUpdateRequest,
     StepUpRequest,
+    UserPasswordUpdateRequest,
+    UserProfileUpdateRequest,
     UserRegisterRequest,
     complete_mfa_login,
     login,
@@ -69,6 +71,30 @@ def test_register_login_and_session_do_not_expose_password(tmp_path: Path) -> No
 
     assert row is not None
     assert "correct-horse" not in row["password_hash"]
+
+
+def test_user_can_update_profile_and_password(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = AuthRepository(database_path)
+    user = repository.create_user(UserRegisterRequest(email="owner@example.com", password="correct-horse"))
+
+    updated = repository.update_user_profile(
+        user.id,
+        UserProfileUpdateRequest(
+            display_name="Breno Mayder",
+            whatsapp="+553199999999",
+            telegram="@breno",
+            social_links={"instagram": "@printora", "x": "@printora", "facebook": None, "website": "https://printora.local"},
+        ),
+    )
+    repository.update_user_password(user.id, UserPasswordUpdateRequest(current_password="correct-horse", new_password="new-correct-horse"))
+    response = login(repository, LoginRequest(email="owner@example.com", password="new-correct-horse"))
+
+    assert updated.display_name == "Breno Mayder"
+    assert updated.whatsapp == "+553199999999"
+    assert updated.social_links["website"] == "https://printora.local"
+    assert response.access_token is not None
 
 
 def test_organization_is_optional_and_membership_is_isolated(tmp_path: Path) -> None:
