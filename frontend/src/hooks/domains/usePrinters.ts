@@ -485,6 +485,27 @@ export function usePrinters(options: UsePrintersOptions) {
     }
   }
 
+  async function removePrinterAgent(agentId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await printerApi.removeAgent(selectedPrinterId, agentId);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadPrinterPairing(selectedPrinterId);
+      await loadAgentSupport(selectedPrinterId);
+      await loadAgentInstallStatus(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function rotatePrinterAgent(agentId: number) {
     if (!selectedPrinterId) {
       return;
@@ -548,6 +569,7 @@ export function usePrinters(options: UsePrintersOptions) {
     printers,
     revokePairingToken,
     revokePrinterAgent,
+    removePrinterAgent,
     rotatePrinterAgent,
     rotatedAgentCredential,
     remoteOperationConfirmation,

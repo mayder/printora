@@ -17,7 +17,7 @@ PAIRING_TOKEN_TTL = timedelta(minutes=15)
 AGENT_PROTOCOL_VERSION = 1
 AGENT_MAX_PAYLOAD_BYTES = 64 * 1024
 EXPECTED_AGENT_VERSION = "0.1.0"
-AgentStatus = Literal["active", "revoked"]
+AgentStatus = Literal["active", "revoked", "removed"]
 AgentJobStatus = Literal["pending", "in_progress", "succeeded", "failed", "canceled"]
 AgentMessageType = Literal["hello", "heartbeat", "snapshot", "job", "ack", "nack", "result", "error", "backpressure"]
 
@@ -96,6 +96,7 @@ class AgentRecord(BaseModel):
     paired_at: str
     last_seen_at: str | None
     revoked_at: str | None
+    removed_at: str | None = None
     rotated_at: str | None
 
 
@@ -279,7 +280,7 @@ class AgentPairingRepository:
                 """
                 SELECT *
                 FROM printer_agents
-                WHERE printer_id = ?
+                WHERE printer_id = ? AND status != 'removed' AND removed_at IS NULL
                 ORDER BY paired_at DESC, id DESC
                 """,
                 (printer_id,),
@@ -383,32 +384,56 @@ class AgentPairingRepository:
                 raise ValueError("token de pareamento expirado")
 
             existing = connection.execute(
-                "SELECT id FROM printer_agents WHERE stable_id = ?",
+                "SELECT id, status FROM printer_agents WHERE stable_id = ?",
                 (request.stable_id,),
             ).fetchone()
-            if existing is not None:
+            if existing is not None and existing["status"] != "removed":
                 raise ValueError("identidade do agente já pareada")
-            cursor = connection.execute(
-                """
-                INSERT INTO printer_agents (
-                    printer_id, organization_id, owner_user_id, stable_id, credential_hash,
-                    credential_prefix, agent_version, platform, capabilities_json
+            if existing is not None:
+                agent_id = int(existing["id"])
+                connection.execute(
+                    """
+                    UPDATE printer_agents
+                    SET printer_id = ?, organization_id = ?, owner_user_id = ?, credential_hash = ?,
+                        credential_prefix = ?, agent_version = ?, platform = ?, capabilities_json = ?,
+                        status = 'active', paired_at = CURRENT_TIMESTAMP, last_seen_at = NULL,
+                        revoked_at = NULL, removed_at = NULL, rotated_at = NULL
+                    WHERE id = ?
+                    """,
+                    (
+                        printer_id,
+                        token_row["organization_id"],
+                        token_row["owner_user_id"],
+                        hash_token(credential),
+                        credential_prefix,
+                        request.agent_version,
+                        request.platform,
+                        json.dumps(request.capabilities),
+                        agent_id,
+                    ),
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    printer_id,
-                    token_row["organization_id"],
-                    token_row["owner_user_id"],
-                    request.stable_id,
-                    hash_token(credential),
-                    credential_prefix,
-                    request.agent_version,
-                    request.platform,
-                    json.dumps(request.capabilities),
-                ),
-            )
-            agent_id = int(cursor.lastrowid)
+            else:
+                cursor = connection.execute(
+                    """
+                    INSERT INTO printer_agents (
+                        printer_id, organization_id, owner_user_id, stable_id, credential_hash,
+                        credential_prefix, agent_version, platform, capabilities_json
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        printer_id,
+                        token_row["organization_id"],
+                        token_row["owner_user_id"],
+                        request.stable_id,
+                        hash_token(credential),
+                        credential_prefix,
+                        request.agent_version,
+                        request.platform,
+                        json.dumps(request.capabilities),
+                    ),
+                )
+                agent_id = int(cursor.lastrowid)
             connection.execute(
                 "UPDATE printer_pairing_tokens SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?",
                 (int(token_row["id"]),),
@@ -452,7 +477,7 @@ class AgentPairingRepository:
     def revoke_agent(self, printer_id: int, agent_id: int) -> AgentRecord | None:
         with connect_database(self.database_path) as connection:
             row = connection.execute(
-                "SELECT id FROM printer_agents WHERE id = ? AND printer_id = ?",
+                "SELECT id FROM printer_agents WHERE id = ? AND printer_id = ? AND status != 'removed'",
                 (agent_id, printer_id),
             ).fetchone()
             if row is None:
@@ -466,6 +491,28 @@ class AgentPairingRepository:
                 (agent_id,),
             )
             self._record_event(connection, printer_id, agent_id, "agent_revoked", "ok", None)
+            updated = connection.execute("SELECT * FROM printer_agents WHERE id = ?", (agent_id,)).fetchone()
+        return _agent_from_row(updated)
+
+    def remove_agent(self, printer_id: int, agent_id: int) -> AgentRecord | None:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                "SELECT id FROM printer_agents WHERE id = ? AND printer_id = ? AND status != 'removed'",
+                (agent_id, printer_id),
+            ).fetchone()
+            if row is None:
+                return None
+            connection.execute(
+                """
+                UPDATE printer_agents
+                SET status = 'removed',
+                    revoked_at = COALESCE(revoked_at, CURRENT_TIMESTAMP),
+                    removed_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (agent_id,),
+            )
+            self._record_event(connection, printer_id, agent_id, "agent_removed", "ok", None)
             updated = connection.execute("SELECT * FROM printer_agents WHERE id = ?", (agent_id,)).fetchone()
         return _agent_from_row(updated)
 
@@ -709,6 +756,7 @@ def _agent_from_row(row) -> AgentRecord:
         paired_at=str(row["paired_at"]),
         last_seen_at=row["last_seen_at"],
         revoked_at=row["revoked_at"],
+        removed_at=row["removed_at"],
         rotated_at=row["rotated_at"],
     )
 

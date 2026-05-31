@@ -39,6 +39,8 @@ export const printerApi = {
     apiResponse(`/api/printers/${printerId}/agents/${agentId}/rotate`, { method: "POST" }),
   revokeAgent: (printerId: number, agentId: number) =>
     apiResponse(`/api/printers/${printerId}/agents/${agentId}/revoke`, { method: "POST" }),
+  removeAgent: (printerId: number, agentId: number) =>
+    apiResponse(`/api/printers/${printerId}/agents/${agentId}`, { method: "DELETE" }),
   agentInstallPlan: (printerId: number) =>
     apiResponse(`/api/printers/${printerId}/agent/install-plan`, { method: "POST" }),
   agentInstallStatus: (printerId: number) => apiResponse(`/api/printers/${printerId}/agent/install-status`),

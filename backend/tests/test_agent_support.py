@@ -97,6 +97,34 @@ def test_agent_support_doctor_and_bundle_are_sanitized(tmp_path: Path, monkeypat
         get_settings.cache_clear()
 
 
+def test_removed_agent_is_not_reported_in_support(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        database_path = tmp_path / "printora.db"
+        initialize_database(database_path)
+        with TestClient(app) as client:
+            owner_token = _register(client, "owner-support-remove@example.com")
+            printer = _create_printer(client, owner_token)
+            _pair_agent(client, owner_token, printer["id"], "agent-support-remove")
+            with connect_database(database_path) as connection:
+                connection.execute(
+                    """
+                    UPDATE printer_agents
+                    SET status = 'removed', revoked_at = CURRENT_TIMESTAMP, removed_at = CURRENT_TIMESTAMP
+                    WHERE stable_id = 'agent-support-remove'
+                    """
+                )
+
+            overview = client.get(f"/api/printers/{printer['id']}/agent/support", headers=_auth(owner_token))
+            assert overview.status_code == 200
+            payload = overview.json()
+            assert payload["agents"] == []
+            assert {alert["code"] for alert in payload["alerts"]} == {"agent_missing"}
+    finally:
+        get_settings.cache_clear()
+
+
 def _register(client: TestClient, email: str) -> str:
     response = client.post("/api/auth/register", json={"email": email, "password": "correct-horse"})
     assert response.status_code == 200

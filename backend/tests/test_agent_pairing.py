@@ -189,6 +189,49 @@ def test_agent_credential_rotation_invalidates_previous_secret(tmp_path: Path, m
         get_settings.cache_clear()
 
 
+def test_removed_agent_is_hidden_and_can_pair_same_identity_again(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner_token = _register(client, "owner-remove@example.com")
+            created = _create_printer(client, owner_token)
+            token_payload = client.post(
+                f"/api/printers/{created['id']}/pairing/tokens",
+                json={"ttl_minutes": 15},
+                headers=_auth(owner_token),
+            ).json()
+            exchanged = client.post(
+                "/api/agent/pairing/exchange",
+                json={"pairing_token": token_payload["token"], "stable_id": "agent-remove-001"},
+            ).json()
+            removed = client.delete(
+                f"/api/printers/{created['id']}/agents/{exchanged['agent_id']}",
+                headers=_auth(owner_token),
+            )
+            assert removed.status_code == 200
+            assert removed.json()["status"] == "removed"
+            assert removed.json()["removed_at"] is not None
+
+            overview = client.get(f"/api/printers/{created['id']}/pairing", headers=_auth(owner_token)).json()
+            assert overview["agents"] == []
+
+            new_pairing = client.post(
+                f"/api/printers/{created['id']}/pairing/tokens",
+                json={"ttl_minutes": 15},
+                headers=_auth(owner_token),
+            ).json()
+            reinstalled = client.post(
+                "/api/agent/pairing/exchange",
+                json={"pairing_token": new_pairing["token"], "stable_id": "agent-remove-001"},
+            )
+            assert reinstalled.status_code == 200
+            assert reinstalled.json()["agent_id"] == exchanged["agent_id"]
+    finally:
+        get_settings.cache_clear()
+
+
 def _register(client: TestClient, email: str) -> str:
     response = client.post("/api/auth/register", json={"email": email, "password": "correct-horse"})
     assert response.status_code == 200

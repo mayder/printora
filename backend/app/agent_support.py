@@ -149,7 +149,12 @@ class AgentSupportRepository:
     def _agents(self, printer_id: int) -> list[AgentRecord]:
         with connect_database(self.database_path) as connection:
             rows = connection.execute(
-                "SELECT * FROM printer_agents WHERE printer_id = ? ORDER BY last_seen_at DESC, paired_at DESC, id DESC",
+                """
+                SELECT *
+                FROM printer_agents
+                WHERE printer_id = ? AND status != 'removed' AND removed_at IS NULL
+                ORDER BY last_seen_at DESC, paired_at DESC, id DESC
+                """,
                 (printer_id,),
             ).fetchall()
         return [_agent_from_row(row) for row in rows]
@@ -367,6 +372,7 @@ def _agent_from_row(row) -> AgentRecord:
         paired_at=str(row["paired_at"]),
         last_seen_at=row["last_seen_at"],
         revoked_at=row["revoked_at"],
+        removed_at=row["removed_at"],
         rotated_at=row["rotated_at"],
     )
 

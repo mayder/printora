@@ -87,10 +87,11 @@ export type PrinterAgentRecord = {
   agent_version?: string | null;
   platform?: string | null;
   capabilities: Record<string, unknown>;
-  status: "active" | "revoked";
+  status: "active" | "revoked" | "removed";
   paired_at: string;
   last_seen_at?: string | null;
   revoked_at?: string | null;
+  removed_at?: string | null;
   rotated_at?: string | null;
 };
 
@@ -134,7 +135,7 @@ export type AgentCredentialExchangeResponse = {
   printer_id: number;
   credential: string;
   credential_prefix: string;
-  status: "active" | "revoked";
+  status: "active" | "revoked" | "removed";
 };
 
 export type AgentJobRecord = {

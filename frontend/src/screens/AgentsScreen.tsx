@@ -25,6 +25,7 @@ type AgentsScreenProps = ScreenPropsFor<
   | "loadAgentSupportBundle"
   | "loading"
   | "pairingOverview"
+  | "removePrinterAgent"
   | "revokePairingToken"
   | "revokePrinterAgent"
   | "rotatePrinterAgent"
@@ -62,6 +63,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
     loadAgentSupportBundle,
     loading,
     pairingOverview,
+    removePrinterAgent,
     revokePairingToken,
     revokePrinterAgent,
     rotatePrinterAgent,
@@ -223,9 +225,12 @@ export function AgentsScreen(props: AgentsScreenProps) {
               <p className="muted">Mantidos apenas para auditoria. Eles não conseguem mais comunicar com a API.</p>
               <div className="auth-list">
                 {revokedAgents.map((agent) => (
-                  <span key={agent.id}>
-                    {agent.stable_id} · revogado · último contato {agent.last_seen_at || "-"}
-                  </span>
+                  <div key={agent.id}>
+                    <span>{agent.stable_id} · revogado · último contato {agent.last_seen_at || "-"}</span>
+                    <button type="button" className="secondary-button" onClick={() => void removePrinterAgent(agent.id)} disabled={loading}>
+                      Remover
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>

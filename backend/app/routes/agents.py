@@ -174,6 +174,23 @@ async def revoke_printer_agent(
     return agent
 
 
+@router.delete("/api/printers/{printer_id}/agents/{agent_id}", response_model=AgentRecord)
+async def remove_printer_agent(
+    printer_id: int,
+    agent_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AgentPairingRepository = Depends(get_pairing_repository),
+) -> AgentRecord:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    agent = repository.remove_agent(printer.id, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="agent not found")
+    return agent
+
+
 @router.post("/api/printers/{printer_id}/agent/install-plan", response_model=AgentInstallPlanResponse)
 async def create_agent_install_plan(
     printer_id: int,
