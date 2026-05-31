@@ -19,7 +19,7 @@ export function useAppShell(printerAvailability: PrinterAvailability) {
 
   React.useEffect(() => {
     if (shouldRedirectSection(activeSection, printerAvailability)) {
-      setActiveSection("overview");
+      setActiveSection("printer-detail");
     }
   }, [activeSection, printerAvailability]);
 

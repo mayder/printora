@@ -1,4 +1,5 @@
 import { Metric } from "../components/common";
+import type { PrinterRecord } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type OverviewScreenProps = ScreenPropsFor<
@@ -21,12 +22,14 @@ type OverviewScreenProps = ScreenPropsFor<
   | "loading"
   | "moonrakerOnline"
   | "openCreatePrinterModal"
+  | "openPrinterDetail"
   | "operationState"
   | "primaryRiskItem"
   | "riskClass"
   | "riskLabel"
   | "selectedPrinter"
   | "selectedPrinterId"
+  | "printers"
   | "setAlertCenterOpen"
   | "snapshots"
   | "status"
@@ -56,12 +59,14 @@ export function OverviewScreen(props: OverviewScreenProps) {
     loading,
     moonrakerOnline,
     openCreatePrinterModal,
+    openPrinterDetail,
     operationState,
     primaryRiskItem,
     riskClass,
     riskLabel,
     selectedPrinter,
     selectedPrinterId,
+    printers,
     setAlertCenterOpen,
     snapshots,
     status,
@@ -75,24 +80,24 @@ export function OverviewScreen(props: OverviewScreenProps) {
         <article className="panel wide panel-section panel-overview">
           <div className="overview-hero">
             <div className="overview-status-card">
-              <span className={`status-pill ${moonrakerOnline ? "online" : "offline"}`}>
+              <span className="status-pill active">
                 <span />
-                Moonraker {moonrakerOnline ? "online" : "offline"}
+                Frota
               </span>
-              <h2>{selectedPrinter?.name ?? "Nenhuma impressora selecionada"}</h2>
-              <p>{selectedPrinter?.moonraker_url ?? "Cadastre uma impressora para carregar status, snapshots e health check."}</p>
+              <h2>Visão geral</h2>
+              <p>Resumo global da frota. Abra uma impressora para acessar operação, updates, calibração, firmware, manutenção e diagnóstico.</p>
               <div className="overview-status-grid">
-                <Metric label="Estado" value={formatUnknown(operationState)} />
-                <Metric label="Horas impressas" value={typeof totalPrintHours === "number" ? formatHours(totalPrintHours) : "-"} />
-                <Metric label="Última leitura" value={lastReadingLabel} />
-                <Metric label="Origem" value={health?.data_state ? formatChecklistDataState(health.data_state) : "-"} />
-                <Metric label="Updates" value={String(countPendingUpdates(updateStatus))} />
+                <Metric label="Impressoras" value={String(printers.length)} />
+                <Metric label="Agentes online" value={String(printers.filter((printer: PrinterRecord) => printer.cloud_status === "online").length)} />
+                <Metric label="Aguardando agente" value={String(printers.filter((printer: PrinterRecord) => printer.cloud_status === "aguardando_pareamento").length)} />
+                <Metric label="Snapshots conhecidos" value={String(printers.filter((printer: PrinterRecord) => printer.latest_snapshot_at).length)} />
+                <Metric label="Contexto rápido" value={selectedPrinter?.name ?? "-"} />
               </div>
             </div>
             <div className={`overview-risk-card ${riskClass}`}>
-              <span>Risco atual</span>
-              <strong>{riskLabel}</strong>
-              <p>{health?.summary ?? "Sem health check carregado para a impressora ativa."}</p>
+              <span>Alertas do contexto rápido</span>
+              <strong>{selectedPrinter ? riskLabel : "Sem impressora aberta"}</strong>
+              <p>{selectedPrinter ? health?.summary ?? "Sem health check carregado para o contexto rápido." : "Selecione uma impressora na lista para carregar dados operacionais."}</p>
               {primaryRiskItem ? (
                 <div className="overview-risk-main">
                   <span>{primaryRiskItem.severity === "blocker" ? "Bloqueio principal" : "Alerta principal"}</span>
@@ -106,7 +111,7 @@ export function OverviewScreen(props: OverviewScreenProps) {
               <div className="overview-risk-counts">
                 <span>{alertBlockerCount} bloqueio(s)</span>
                 <span>{alertWarningCount} alerta(s)</span>
-                <span>{snapshots.length} snapshot(s)</span>
+                <span>{snapshots.length} snapshot(s) carregado(s)</span>
               </div>
               {alertCount > 0 ? (
                 <button type="button" className="ghost-button compact" onClick={() => setAlertCenterOpen(true)}>
@@ -120,18 +125,47 @@ export function OverviewScreen(props: OverviewScreenProps) {
               <Plus size={15} />
               Adicionar impressora
             </button>
-            <button type="button" className="secondary-button" onClick={() => void captureSnapshot()} disabled={!selectedPrinterId || loading}>
-              <Database size={15} />
-              Capturar snapshot
-            </button>
-            <button type="button" className="secondary-button" onClick={() => selectedPrinterId ? void loadPrinterHealth(selectedPrinterId) : undefined} disabled={!selectedPrinterId || loading}>
+            <button type="button" className="secondary-button" onClick={() => selectedPrinterId ? openPrinterDetail(selectedPrinterId, "summary") : undefined} disabled={!selectedPrinterId || loading}>
               <ShieldCheck size={15} />
-              Health check
+              Abrir contexto
             </button>
             <button type="button" className="secondary-button" onClick={() => void loadSelectedPrinterStatus()} disabled={!selectedPrinterId || loading}>
               <RefreshCw className={loading ? "button-busy-icon" : undefined} size={15} />
-              Atualizar status
+              Atualizar contexto
             </button>
+          </div>
+        </article>
+
+        <article className="panel wide panel-section panel-printers">
+          <div className="panel-heading">
+            <div>
+              <h2>Impressoras recentes</h2>
+              <p className="muted">Ações operacionais ficam no detalhe do registro, não no menu principal.</p>
+            </div>
+          </div>
+          <div className="printer-dashboard">
+            {printers.length === 0 ? <p className="muted">Nenhuma impressora cadastrada.</p> : null}
+            {printers.slice(0, 6).map((printer: PrinterRecord) => (
+              <div key={printer.id} className="printer-card">
+                <div className="printer-card-header">
+                  <div>
+                    <strong>{printer.name}</strong>
+                    <span>{printer.cloud_model || "Modelo não informado"} · {printer.location || "sem localização"}</span>
+                  </div>
+                  <span className="status-pill">{printer.cloud_status}</span>
+                </div>
+                <div className="printer-card-grid">
+                  <Metric label="Agentes" value={String(printer.active_agent_count)} />
+                  <Metric label="Último contato" value={printer.latest_agent_last_seen_at ?? "-"} />
+                  <Metric label="Snapshot" value={printer.latest_snapshot_at ?? "-"} />
+                </div>
+                <div className="printer-card-actions">
+                  <button type="button" className="primary-button" onClick={() => openPrinterDetail(printer.id, "summary")} disabled={loading}>
+                    Abrir detalhe
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </article>
 

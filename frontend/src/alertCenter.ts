@@ -123,7 +123,7 @@ export type AlertCenterItem = {
   severity: "blocker" | "warning" | "info";
   reason: string;
   actionLabel: string;
-  actionKind: "revalidate" | "open_updates" | "refresh_update" | "run_update" | "open_monitoring" | "open_maintenance";
+  actionKind: "revalidate" | "open_updates" | "refresh_update" | "run_update" | "open_monitoring" | "open_maintenance" | "open_printer";
   target?: string;
 };
 

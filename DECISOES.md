@@ -377,3 +377,16 @@ Impacto em testes: backend completo, Go completo e busca por chamadas diretas de
 Impacto em rollback: medio; reverter recoloca caminhos diretos e deve ser evitado em ambiente cloud.
 Como reverter: reverter esta decisao e os arquivos de agente/backend relacionados; reinstalar agente anterior se necessario.
 Referencias: `backend/app/agent_host.py`, `backend/app/routes/printers.py`, `backend/app/routes/setup.py`, `backend/app/routes/backups.py`, `backend/app/routes/firmware.py`, `backend/app/routes/audit.py`, `agent/internal/agent/host.go`.
+
+### DEC-20260531-10 - Navegacao cloud usa frota e detalhe de registro
+
+Status: aceita
+Data: 2026-05-31
+Contexto: o Printora deixou de ser apenas uma UI local para uma impressora e passou a operar em ambiente web/cloud com varias impressoras e agentes. A navegacao antiga escondia ou expunha secoes com base em uma impressora ativa global, o que nao escala para frota, agentes remotos e usuarios/organizacoes.
+Decisao: o menu principal passa a conter somente areas globais independentes de impressora. `Impressoras` e `Agentes` viram listas de frota; operacao, atualizacoes, calibracao, firmware, manutencao, diagnostico/backups e pareamento ficam dentro do detalhe da impressora. Saude, fila, doctor remoto, suporte e credencial ficam dentro do detalhe do agente. A topbar fica fixa e global, sem seletor de impressora e sem acoes especificas de tela; ela mostra titulo, alertas de frota, Sobre, tema e conta do usuario no extremo direito.
+Alternativas consideradas: manter grupo `Impressora ativa` no menu; esconder secoes quando a impressora estiver offline; criar rotas separadas para cada tela operacional ainda dependentes de contexto global.
+Consequencias: a UI fica coerente com cloud/frota e evita que telas globais desaparecam por falta de impressora. Acoes contextuais passam a ficar no corpo da tela ou aba especifica. A Central de alertas precisa agregar alertas de frota e permitir abrir a impressora afetada.
+Impacto em testes: build frontend deve passar e `./check.sh` valida documentacao/governanca. Validacao visual deve abrir menu global, lista de impressoras, detalhe da impressora e detalhe do agente.
+Impacto em rollback: baixo a medio; reverter restaura as secoes operacionais no menu lateral e remove `PrinterDetailScreen`/`AgentDetailScreen`.
+Como reverter: reverter alteracoes em `frontend/src/app/navigation.ts`, `frontend/src/hooks/usePrintoraApp.ts`, `frontend/src/main.tsx`, telas novas de detalhe e atualizacoes de `TELAS.md`.
+Referencias: `frontend/src/app/navigation.ts`, `frontend/src/screens/PrinterDetailScreen.tsx`, `frontend/src/screens/AgentDetailScreen.tsx`, `frontend/src/screens/PrintersScreen.tsx`, `frontend/src/screens/AgentsScreen.tsx`, `TELAS.md`.

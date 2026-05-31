@@ -4,7 +4,9 @@ import type { LucideIcon } from "lucide-react";
 export type AppSection =
   | "overview"
   | "printers"
+  | "printer-detail"
   | "agents"
+  | "agent-detail"
   | "setup"
   | "monitoring"
   | "updates"
@@ -35,15 +37,29 @@ export const appSections: Array<{
     key: "printers",
     icon: Printer,
     label: "Impressoras",
-    detail: "Cadastro, descoberta e seleção da impressora ativa.",
-    purpose: "Gerencie as impressoras cadastradas e defina qual delas controla o contexto do restante do sistema.",
+    detail: "Cadastro, busca e acesso ao detalhe de cada impressora.",
+    purpose: "Gerencie a frota e abra uma impressora para operar, diagnosticar, atualizar, calibrar ou manter.",
+  },
+  {
+    key: "printer-detail",
+    icon: Printer,
+    label: "Detalhe da impressora",
+    detail: "Contexto operacional de uma impressora.",
+    purpose: "Operação, atualização, calibração, firmware, manutenção, diagnóstico, backups e agentes ficam dentro da impressora selecionada.",
   },
   {
     key: "agents",
     icon: Radio,
     label: "Agentes",
     detail: "Lista de agentes, detalhe, instalação por token e saúde.",
-    purpose: "Gerencie todos os agentes vinculados, detalhe a impressora de cada um e gere tokens de instalação quando necessário.",
+    purpose: "Gerencie os agentes da frota e abra um agente para diagnosticar saúde, fila, versão, logs sanitizados e vínculo.",
+  },
+  {
+    key: "agent-detail",
+    icon: Radio,
+    label: "Detalhe do agente",
+    detail: "Diagnóstico e vínculo de um agente.",
+    purpose: "Veja saúde, fila, doctor remoto, suporte e credencial do agente dentro do registro selecionado.",
   },
   {
     key: "setup",
@@ -126,7 +142,6 @@ export const appSections: Array<{
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Principal", sections: ["overview", "printers", "agents", "setup"] },
-  { title: "Impressora ativa", sections: ["monitoring", "updates", "tests", "firmware", "maintenance"] },
   { title: "Diagnóstico", sections: ["reports", "settings"] },
 ];
 
@@ -142,6 +157,25 @@ export const selectedPrinterLocalSections = new Set<AppSection>(["firmware", "ma
 export type PrinterAvailability = "none" | "unknown" | "online" | "offline";
 
 export function canShowSection(sectionKey: AppSection, printerAvailability: PrinterAvailability) {
+  void printerAvailability;
+  if (sectionKey === "printer-detail" || sectionKey === "agent-detail") {
+    return false;
+  }
+  if (onlinePrinterSections.has(sectionKey) || selectedPrinterLocalSections.has(sectionKey)) {
+    return false;
+  }
+  return true;
+}
+
+export function shouldRedirectSection(sectionKey: AppSection, printerAvailability: PrinterAvailability) {
+  void printerAvailability;
+  if (sectionKey === "monitoring" || sectionKey === "updates" || sectionKey === "tests" || sectionKey === "firmware" || sectionKey === "maintenance") {
+    return true;
+  }
+  return false;
+}
+
+export function canUsePrinterTab(sectionKey: AppSection, printerAvailability: PrinterAvailability) {
   if (onlinePrinterSections.has(sectionKey)) {
     return printerAvailability === "online";
   }
@@ -149,16 +183,6 @@ export function canShowSection(sectionKey: AppSection, printerAvailability: Prin
     return printerAvailability !== "none";
   }
   return true;
-}
-
-export function shouldRedirectSection(sectionKey: AppSection, printerAvailability: PrinterAvailability) {
-  if (onlinePrinterSections.has(sectionKey)) {
-    return printerAvailability === "none" || printerAvailability === "offline";
-  }
-  if (selectedPrinterLocalSections.has(sectionKey)) {
-    return printerAvailability === "none";
-  }
-  return false;
 }
 
 export function getInitialSection(): AppSection {

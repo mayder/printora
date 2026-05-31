@@ -61,7 +61,18 @@ import { useSettings } from "./domains/useSettings";
 import { useSetup } from "./domains/useSetup";
 import { useUpdates } from "./domains/useUpdates";
 import type { PrinterAvailability } from "../app/navigation";
-import type { ConfirmActionOptions, ConfirmDialogState, ShowToastOptions, ToastRecord } from "../types";
+import type { AlertCenterItem } from "../alertCenter";
+import type { ConfirmActionOptions, ConfirmDialogState, PrinterRecord, ShowToastOptions, ToastRecord } from "../types";
+
+export type PrinterDetailTab =
+  | "summary"
+  | "operation"
+  | "updates"
+  | "tests"
+  | "firmware"
+  | "maintenance"
+  | "reports"
+  | "agents";
 
 const icons = {
   Activity,
@@ -122,6 +133,8 @@ export function usePrintoraApp() {
     cancelLabel: "Cancelar",
   });
   const [toasts, setToasts] = React.useState<ToastRecord[]>([]);
+  const [printerDetailTab, setPrinterDetailTab] = React.useState<PrinterDetailTab>("summary");
+  const [selectedAgentId, setSelectedAgentId] = React.useState<number | null>(null);
   const confirmResolverRef = React.useRef<((confirmed: boolean) => void) | null>(null);
   const toastIdRef = React.useRef(0);
 
@@ -260,6 +273,32 @@ export function usePrintoraApp() {
     setLoading,
   });
 
+  function openPrinterDetail(printerId = printers.selectedPrinterId, tab: PrinterDetailTab = "summary") {
+    if (!printerId) {
+      shell.setActiveSection("printers");
+      return;
+    }
+    setPrinterDetailTab(tab);
+    if (printerId !== printers.selectedPrinterId) {
+      printers.selectPrinter(printerId);
+    } else {
+      void loadPrinterContext(printerId);
+    }
+    shell.setActiveSection("printer-detail");
+  }
+
+  function openAgentDetail(printerId: number, agentId: number) {
+    setSelectedAgentId(agentId);
+    if (printerId !== printers.selectedPrinterId) {
+      printers.selectPrinter(printerId);
+    } else {
+      void printers.loadPrinterPairing(printerId);
+      void printers.loadAgentSupport(printerId);
+      void printers.loadAgentInstallStatus(printerId);
+    }
+    shell.setActiveSection("agent-detail");
+  }
+
   async function loadStatus() {
     setLoading(true);
     setError(null);
@@ -289,7 +328,8 @@ export function usePrintoraApp() {
     if (!auth.authUser) {
       return;
     }
-    if (!printers.selectedPrinterId || shell.activeSection !== "tests") {
+    const testsActive = shell.activeSection === "tests" || (shell.activeSection === "printer-detail" && printerDetailTab === "tests");
+    if (!printers.selectedPrinterId || !testsActive) {
       return;
     }
     void calibration.loadCalibrationTests(printers.selectedPrinterId);
@@ -304,7 +344,7 @@ export function usePrintoraApp() {
     if (shell.activeSection === "settings" && !selfUpdate.systemReleases && !selfUpdate.releaseLoading) {
       void selfUpdate.loadSystemReleases();
     }
-    if (shell.activeSection === "reports" && printers.selectedPrinterId) {
+    if ((shell.activeSection === "reports" || (shell.activeSection === "printer-detail" && printerDetailTab === "reports")) && printers.selectedPrinterId) {
       void settings.loadPrinterNetworkDiagnostics(printers.selectedPrinterId);
     }
     if (shell.activeSection === "setup") {
@@ -313,16 +353,21 @@ export function usePrintoraApp() {
     if (shell.activeSection === "account") {
       void auth.loadAuth().then(() => auth.loadAgentCredentials());
     }
-    if (shell.activeSection === "agents") {
+    if (shell.activeSection === "agents" || (shell.activeSection === "printer-detail" && printerDetailTab === "agents") || shell.activeSection === "agent-detail") {
       void printers.loadFleetAgentPairings();
+      if (printers.selectedPrinterId) {
+        void printers.loadPrinterPairing(printers.selectedPrinterId);
+        void printers.loadAgentSupport(printers.selectedPrinterId);
+      }
     }
-  }, [auth.authUser, shell.activeSection, printers.selectedPrinterId]);
+  }, [auth.authUser, shell.activeSection, printerDetailTab, printers.selectedPrinterId]);
 
   React.useEffect(() => {
     if (!auth.authUser) {
       return;
     }
-    if (!printers.selectedPrinterId || shell.activeSection !== "monitoring") {
+    const operationActive = shell.activeSection === "monitoring" || (shell.activeSection === "printer-detail" && printerDetailTab === "operation");
+    if (!printers.selectedPrinterId || !operationActive) {
       return;
     }
     void operation.loadOperationStatus(printers.selectedPrinterId, { preserveData: true });
@@ -332,7 +377,7 @@ export function usePrintoraApp() {
       void settings.loadCanRecords(printers.selectedPrinterId!);
     }, 5000);
     return () => window.clearInterval(refreshId);
-  }, [auth.authUser, shell.activeSection, printers.selectedPrinterId]);
+  }, [auth.authUser, shell.activeSection, printerDetailTab, printers.selectedPrinterId]);
 
   React.useEffect(() => {
     if (!auth.authUser) {
@@ -356,13 +401,14 @@ export function usePrintoraApp() {
   }, [auth.authUser?.id]);
 
   const liveOperationHealth = buildLiveOperationHealth(settings.health, operation.operationStatus);
-  const alertCenterItems = buildAlertCenterItems({
+  const selectedPrinterAlertItems = buildAlertCenterItems({
     health: liveOperationHealth,
     updateStatus: updates.updateStatus,
     checklist: settings.checklist,
     audit: settings.audit,
     maintenanceTasks: maintenance.maintenanceTasks,
   });
+  const alertCenterItems = [...buildFleetAlertCenterItems(printers.printers), ...selectedPrinterAlertItems];
   const alertCount = alertCenterItems.length;
   const alertBlockerCount = alertCenterItems.filter((item) => item.severity === "blocker").length;
   const alertWarningCount = alertCenterItems.filter((item) => item.severity === "warning").length;
@@ -392,6 +438,36 @@ export function usePrintoraApp() {
     }
     if (shell.activeSection === "reports") {
       return { icon: Camera, label: "Snapshot", disabled: !printers.selectedPrinterId || loading, busy: loading, run: reports.captureSnapshot };
+    }
+    if (shell.activeSection === "printer-detail") {
+      if (printerDetailTab === "reports") {
+        return { icon: Camera, label: "Snapshot", disabled: !printers.selectedPrinterId || loading, busy: loading, run: reports.captureSnapshot };
+      }
+      if (printerDetailTab === "updates") {
+        return {
+          icon: RefreshCw,
+          label: "Reanalisar",
+          disabled: !printers.selectedPrinterId || loading || Boolean(updates.updateStatus?.busy),
+          busy: loading || Boolean(updates.updateStatus?.busy),
+          run: () => updates.refreshUpdateStatus(),
+        };
+      }
+      if (printerDetailTab === "agents") {
+        return {
+          icon: ClipboardCheck,
+          label: "Instalação",
+          disabled: !printers.selectedPrinterId || loading,
+          busy: loading,
+          run: () => printers.createAgentInstallPlan(),
+        };
+      }
+      return {
+        icon: RefreshCw,
+        label: loading ? "Atualizando" : "Atualizar",
+        disabled: !printers.selectedPrinterId || loading,
+        busy: loading,
+        run: () => printers.loadSelectedPrinterStatus(),
+      };
     }
     if (shell.activeSection === "updates") {
       return {
@@ -445,6 +521,18 @@ export function usePrintoraApp() {
   })();
   const TopbarPrimaryIcon = topbarPrimaryAction.icon;
 
+  async function handleAlertCenterAction(item: AlertCenterItem) {
+    if (item.actionKind === "open_printer" && item.target?.startsWith("printer:")) {
+      const printerId = Number(item.target.replace("printer:", ""));
+      if (Number.isFinite(printerId)) {
+        openPrinterDetail(printerId, "summary");
+        shell.setAlertCenterOpen(false);
+      }
+      return;
+    }
+    await updates.handleAlertCenterAction(item);
+  }
+
   const screenProps = {
     ...icons,
     ...formatters,
@@ -472,7 +560,7 @@ export function usePrintoraApp() {
     displayDecision,
     dismissToast,
     error,
-    handleAlertCenterAction: updates.handleAlertCenterAction,
+    handleAlertCenterAction,
     health: liveOperationHealth,
     hotendTemperature,
     lastReadingLabel,
@@ -483,12 +571,18 @@ export function usePrintoraApp() {
     loadStatus,
     loading,
     moonrakerOnline,
+    openAgentDetail,
+    openPrinterDetail,
     operationState,
     primaryRiskItem,
+    printerDetailTab,
     riskClass,
     riskLabel,
     resolveConfirmDialog,
     setError,
+    setPrinterDetailTab,
+    selectedAgentId,
+    setSelectedAgentId,
     setLoading,
     showToast,
     topbarAlertTone,
@@ -563,3 +657,34 @@ function buildLiveOperationHealth(
 }
 
 export type PrintoraScreenProps = ReturnType<typeof usePrintoraApp>["screenProps"];
+
+function buildFleetAlertCenterItems(printers: PrinterRecord[]): AlertCenterItem[] {
+  return printers
+    .filter((printer) => printer.cloud_status !== "online")
+    .map((printer) => ({
+      id: `fleet-printer-${printer.id}-${printer.cloud_status}`,
+      source: `Frota · ${printer.name}`,
+      title: fleetAlertTitle(printer),
+      detail: fleetAlertDetail(printer),
+      action: "Abra o detalhe da impressora para ver agente, último contato, suporte e próximos passos.",
+      severity: printer.cloud_status === "sem_agente" ? "info" : "warning",
+      reason: "A frota possui uma impressora que não está plenamente online pelo agente.",
+      actionLabel: "Abrir impressora",
+      actionKind: "open_printer",
+      target: `printer:${printer.id}`,
+    }));
+}
+
+function fleetAlertTitle(printer: PrinterRecord) {
+  if (printer.cloud_status === "offline") return `${printer.name}: agente offline`;
+  if (printer.cloud_status === "degradado") return `${printer.name}: agente degradado`;
+  if (printer.cloud_status === "aguardando_pareamento") return `${printer.name}: aguardando pareamento`;
+  if (printer.cloud_status === "revogado") return `${printer.name}: agente revogado`;
+  return `${printer.name}: sem agente`;
+}
+
+function fleetAlertDetail(printer: PrinterRecord) {
+  const lastSeen = printer.latest_agent_last_seen_at ? `Último contato: ${printer.latest_agent_last_seen_at}.` : "Sem último contato registrado.";
+  const snapshot = printer.latest_snapshot_at ? ` Último snapshot: ${printer.latest_snapshot_at}.` : "";
+  return `${lastSeen}${snapshot}`;
+}

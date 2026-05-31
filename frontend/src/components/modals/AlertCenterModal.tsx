@@ -14,7 +14,6 @@ export type AlertCenterModalProps = ScreenPropsFor<
   | "countPendingUpdates"
   | "handleAlertCenterAction"
   | "loading"
-  | "selectedPrinter"
   | "setAlertCenterOpen"
   | "updateStatus"
 >;
@@ -32,7 +31,6 @@ export function AlertCenterModal(props: AlertCenterModalProps) {
     countPendingUpdates,
     handleAlertCenterAction,
     loading,
-    selectedPrinter,
     setAlertCenterOpen,
     updateStatus,
   } = props;
@@ -48,7 +46,7 @@ export function AlertCenterModal(props: AlertCenterModalProps) {
                     <Bell size={20} />
                     Central de alertas
                   </h2>
-                  <p>{selectedPrinter?.name ?? "Impressora não selecionada"} · riscos, updates e avisos consolidados.</p>
+                  <p>Frota · riscos, agentes, updates e avisos consolidados.</p>
                 </div>
                 <button type="button" className="ghost-button" onClick={() => setAlertCenterOpen(false)}>
                   <X size={16} />
@@ -66,7 +64,7 @@ export function AlertCenterModal(props: AlertCenterModalProps) {
                   <div className="empty-state">
                     <CheckCircle2 size={22} />
                     <strong>Nenhum alerta ativo</strong>
-                    <p className="muted">Não há bloqueios, riscos ou updates pendentes nos dados carregados da impressora selecionada.</p>
+                    <p className="muted">Não há bloqueios, riscos ou updates pendentes nos dados carregados da frota.</p>
                   </div>
                 ) : null}
                 {alertCenterItems.map((item: any) => (

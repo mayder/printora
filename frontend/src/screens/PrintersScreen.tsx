@@ -15,11 +15,11 @@ type PrintersScreenProps = ScreenPropsFor<
   | "captureSnapshot"
   | "formatDecision"
   | "formatSshStatus"
-  | "health"
   | "loadSelectedPrinterStatus"
   | "loading"
   | "openCreatePrinterModal"
   | "openEditPrinterModal"
+  | "openPrinterDetail"
   | "printers"
   | "selectPrinter"
   | "selectedPrinter"
@@ -41,11 +41,11 @@ export function PrintersScreen(props: PrintersScreenProps) {
     captureSnapshot,
     formatDecision,
     formatSshStatus,
-    health,
     loadSelectedPrinterStatus,
     loading,
     openCreatePrinterModal,
     openEditPrinterModal,
+    openPrinterDetail,
     printers,
     selectPrinter,
     selectedPrinter,
@@ -57,8 +57,8 @@ export function PrintersScreen(props: PrintersScreenProps) {
     <article className="panel wide panel-section panel-printers">
       <div className="panel-heading">
         <div>
-          <h2>Dashboard de impressoras</h2>
-          <p className="muted">Visão rápida das impressoras cadastradas e do contexto ativo do sistema.</p>
+          <h2>Impressoras</h2>
+          <p className="muted">Lista da frota. Operação, diagnóstico, atualização e manutenção ficam dentro do detalhe de cada impressora.</p>
         </div>
         <button type="button" className="primary-button" onClick={openCreatePrinterModal}>
           <Plus size={16} />
@@ -67,8 +67,8 @@ export function PrintersScreen(props: PrintersScreenProps) {
       </div>
       <div className="overview-strip">
         <Badge icon={Server} label="Impressoras" value={printers.length} />
-        <Badge icon={Printer} label="Ativa" value={selectedPrinter?.name ?? "-"} />
-        <Badge icon={Gauge} label="Decisão" value={formatDecision(health?.decision)} />
+        <Badge icon={Printer} label="Contexto rápido" value={selectedPrinter?.name ?? "-"} />
+        <Badge icon={Gauge} label="Escopo" value="frota" />
         <Badge icon={Database} label="Snapshots" value={snapshots.length} />
       </div>
       <div className="printer-dashboard">
@@ -92,8 +92,8 @@ export function PrintersScreen(props: PrintersScreenProps) {
               <Metric label="Último agente" value={printer.latest_agent_last_seen_at ?? "-"} />
               <Metric label="Host audit" value={printer.host_audit_mode} />
               <Metric label="SSH" value={formatSshStatus(printer)} />
-              <Metric label="Klipper" value={printer.id === selectedPrinterId ? health?.metrics.klipper_state ? String(health.metrics.klipper_state) : "-" : "-"} />
-              <Metric label="Moonraker" value={printer.id === selectedPrinterId ? health?.metrics.moonraker_version ? String(health.metrics.moonraker_version) : "-" : "-"} />
+              <Metric label="Status cloud" value={formatAgentStatus(printer)} />
+              <Metric label="URL Moonraker" value={printer.moonraker_url} />
             </div>
             {printer.cloud_tags?.length ? (
               <div className="auth-list">
@@ -108,9 +108,13 @@ export function PrintersScreen(props: PrintersScreenProps) {
                 <Settings size={15} />
                 Editar
               </button>
+              <button type="button" className="primary-button" onClick={() => openPrinterDetail(printer.id, "summary")} disabled={loading}>
+                <Printer size={15} />
+                Detalhar
+              </button>
               <button type="button" className="secondary-button" onClick={() => selectPrinter(printer.id)} disabled={loading || printer.id === selectedPrinterId}>
                 <CheckCircle2 size={15} />
-                Selecionar
+                Contexto rápido
               </button>
               <button type="button" className="secondary-button" onClick={() => void loadSelectedPrinterStatus()} disabled={!selectedPrinterId || printer.id !== selectedPrinterId || loading}>
                 <Radio size={15} />

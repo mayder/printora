@@ -30,6 +30,7 @@ type AgentsScreenProps = ScreenPropsFor<
   | "loadAgentSupportBundle"
   | "loadFleetAgentPairings"
   | "loading"
+  | "openAgentDetail"
   | "pairingOverview"
   | "printers"
   | "removePairingToken"
@@ -45,7 +46,9 @@ type AgentsScreenProps = ScreenPropsFor<
   | "showToast"
   | "selectedPrinter"
   | "selectedPrinterId"
->;
+> & {
+  embeddedPrinterContext?: boolean;
+};
 
 type AgentFleetRow = {
   agent: PrinterAgentRecord;
@@ -81,6 +84,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
     loadAgentSupportBundle,
     loadFleetAgentPairings,
     loading,
+    openAgentDetail,
     pairingOverview,
     printers,
     removePairingToken,
@@ -96,6 +100,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
     showToast,
     selectedPrinter,
     selectedPrinterId,
+    embeddedPrinterContext,
   } = props;
 
   const agentRows = React.useMemo(
@@ -171,13 +176,20 @@ export function AgentsScreen(props: AgentsScreenProps) {
       <article className="panel wide panel-section panel-agents">
         <div className="panel-heading">
           <div>
-            <h2>Agentes</h2>
-            <p className="muted">Veja todos os agentes pareados, entre no detalhe e use tokens apenas para nova instalação.</p>
+            <h2>{embeddedPrinterContext ? "Agentes da impressora" : "Agentes"}</h2>
+            <p className="muted">{embeddedPrinterContext ? "Pareamento, instalação e suporte vinculados à impressora aberta." : "Veja todos os agentes pareados e abra um registro para diagnóstico completo."}</p>
           </div>
-          <button type="button" className="primary-button" onClick={() => void createAgentInstallPlan()} disabled={!selectedPrinterId || loading}>
-            <ClipboardCheck size={16} />
-            Gerar instalação
-          </button>
+          {embeddedPrinterContext ? (
+            <button type="button" className="primary-button" onClick={() => void createAgentInstallPlan()} disabled={!selectedPrinterId || loading}>
+              <ClipboardCheck size={16} />
+              Gerar instalação
+            </button>
+          ) : (
+            <button type="button" className="primary-button" onClick={() => void loadFleetAgentPairings()} disabled={loading}>
+              <Radio size={16} />
+              Atualizar frota
+            </button>
+          )}
         </div>
         <div className="overview-strip">
           <Badge icon={Server} label="Impressoras" value={printers.length} />
@@ -187,11 +199,11 @@ export function AgentsScreen(props: AgentsScreenProps) {
         </div>
       </article>
 
-      <article className="panel wide panel-section panel-agents">
+      {!embeddedPrinterContext ? <article className="panel wide panel-section panel-agents">
         <div className="panel-heading">
           <div>
             <h2>Agentes da frota</h2>
-            <p className="muted">A listagem é por agente; ao selecionar, o contexto muda para a impressora vinculada.</p>
+            <p className="muted">A listagem é por agente; o detalhe concentra saúde, fila, doctor remoto e credencial.</p>
           </div>
           <button type="button" className="secondary-button" onClick={() => void loadFleetAgentPairings()} disabled={loading}>
             <Radio size={15} />
@@ -217,6 +229,10 @@ export function AgentsScreen(props: AgentsScreenProps) {
                 <div className="printer-card-actions">
                   <button type="button" className="secondary-button" onClick={() => selectAgent(row)} disabled={loading}>
                     <Printer size={15} />
+                    Contexto
+                  </button>
+                  <button type="button" className="secondary-button" onClick={() => openAgentDetail(row.printer.id, row.agent.id)} disabled={loading}>
+                    <Radio size={15} />
                     Detalhar
                   </button>
                   {row.agent.status === "revoked" ? (
@@ -253,7 +269,11 @@ export function AgentsScreen(props: AgentsScreenProps) {
                 <div className="printer-card-actions">
                   <button type="button" className="secondary-button" onClick={() => selectAgent(selectedAgentRow)} disabled={loading}>
                     <Printer size={15} />
-                    Usar impressora
+                    Contexto
+                  </button>
+                  <button type="button" className="primary-button" onClick={() => openAgentDetail(selectedAgentRow.printer.id, selectedAgentRow.agent.id)} disabled={loading}>
+                    <Radio size={15} />
+                    Abrir detalhe
                   </button>
                   <button type="button" className="secondary-button" onClick={() => void rotateAgent(selectedAgentRow)} disabled={loading || selectedAgentRow.agent.status === "revoked"}>
                     <KeyRound size={15} />
@@ -276,9 +296,9 @@ export function AgentsScreen(props: AgentsScreenProps) {
             )}
           </div>
         </div>
-      </article>
+      </article> : null}
 
-      <article className="panel wide panel-section panel-agents">
+      {embeddedPrinterContext ? <article className="panel wide panel-section panel-agents">
         <div className="panel-heading">
           <div>
             <h2>Instalação por token</h2>
@@ -346,9 +366,9 @@ export function AgentsScreen(props: AgentsScreenProps) {
             onRemove={(tokenId) => removePairingToken(tokenId)}
           />
         </div>
-      </article>
+      </article> : null}
 
-      {rotatedAgentCredential ? (
+      {embeddedPrinterContext && rotatedAgentCredential ? (
         <article className="panel wide panel-section panel-agents">
           <div className="auth-step">
             <div>
@@ -363,7 +383,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
         </article>
       ) : null}
 
-      <article className="panel wide panel-section panel-agents">
+      {embeddedPrinterContext ? <article className="panel wide panel-section panel-agents">
         <div className="panel-heading">
           <div>
             <h2>Saúde e suporte</h2>
@@ -440,7 +460,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
             <textarea readOnly value={JSON.stringify(agentSupportBundle, null, 2)} />
           </div>
         ) : null}
-      </article>
+      </article> : null}
     </>
   );
 }

@@ -234,8 +234,7 @@ label {
 
 .sidebar-close,
 .mobile-menu-button,
-.sidebar-backdrop,
-.mobile-section-action {
+.sidebar-backdrop {
   display: none;
 }
 
@@ -323,12 +322,44 @@ label {
   overflow-wrap: anywhere;
 }
 
+.printer-detail-header {
+  display: grid;
+  gap: 16px;
+}
+
+.detail-tabbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.detail-tabbar button {
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 11px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.detail-tabbar button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
 .workspace {
   min-width: 0;
   padding: 24px 28px 42px;
 }
 
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -336,6 +367,8 @@ label {
   min-height: 58px;
   margin-bottom: 14px;
   border-bottom: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  backdrop-filter: blur(10px);
   padding: 0 0 12px;
 }
 
@@ -371,7 +404,7 @@ label {
   justify-content: end;
   gap: 8px;
   min-width: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .icon-button {
@@ -396,19 +429,6 @@ label {
   background: var(--danger);
   color: #fff;
   font-size: 11px;
-}
-
-.topbar-printer {
-  display: grid;
-  min-width: 210px;
-  text-align: left;
-}
-
-.topbar-printer select {
-  min-height: 34px;
-  max-width: 240px;
-  border-color: var(--border-soft);
-  background: var(--secondary-bg);
 }
 
 .topbar-alert {
@@ -1450,8 +1470,7 @@ label {
   }
 
   .sidebar-close,
-  .mobile-menu-button,
-  .mobile-section-action {
+  .mobile-menu-button {
     display: inline-flex;
   }
 
@@ -1484,14 +1503,9 @@ label {
   }
 
   .topbar {
-    position: sticky;
-    top: 0;
-    z-index: 25;
     display: grid;
     grid-template-columns: 1fr;
     gap: 10px;
-    background: color-mix(in srgb, var(--bg) 94%, transparent);
-    backdrop-filter: blur(10px);
     padding-top: 8px;
   }
 
@@ -1506,9 +1520,9 @@ label {
 
   .topbar-actions {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 8px;
-    justify-content: stretch;
+    justify-content: flex-end;
   }
 
   .page-helper {
@@ -1519,13 +1533,9 @@ label {
     text-align: left;
   }
 
-  .topbar-printer {
-    flex: 1 1 180px;
-    min-width: 0;
-  }
-
   .topbar-account {
-    flex: 1 1 220px;
+    flex: 0 1 220px;
+    min-width: 0;
   }
 
   .account-menu-button {
@@ -1534,10 +1544,6 @@ label {
 
   .account-menu-label strong,
   .account-menu-label small {
-    max-width: none;
-  }
-
-  .topbar-printer select {
     max-width: none;
   }
 
@@ -1553,18 +1559,9 @@ label {
     display: none;
   }
 
-  .topbar-primary {
-    display: none;
-  }
-
-  .mobile-section-action {
-    position: fixed;
-    left: 14px;
-    right: 14px;
-    bottom: 14px;
-    z-index: 30;
-    min-height: 48px;
-    box-shadow: 0 14px 30px var(--shadow-strong);
+  .account-menu-label strong,
+  .account-menu-label small {
+    max-width: 120px;
   }
 
   .panel {

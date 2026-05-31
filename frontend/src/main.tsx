@@ -8,7 +8,9 @@ import { ToastViewport } from "./components/ToastViewport";
 import { OverviewScreen } from "./screens/OverviewScreen";
 import { PrintersScreen } from "./screens/PrintersScreen";
 import { AgentsScreen } from "./screens/AgentsScreen";
+import { AgentDetailScreen } from "./screens/AgentDetailScreen";
 import { SetupScreen } from "./screens/SetupScreen";
+import { PrinterDetailScreen } from "./screens/PrinterDetailScreen";
 import { MonitoringScreen } from "./screens/MonitoringScreen";
 import { UpdatesScreen } from "./screens/UpdatesScreen";
 import { TestsScreen } from "./screens/TestsScreen";
@@ -52,24 +54,19 @@ function App() {
   const {
     ActiveIcon,
     ThemeIcon,
-    TopbarPrimaryIcon,
     activeSection,
     activeSectionMeta,
     alertCount,
     error,
     mobileNavOpen,
-    printers,
     screenProps,
-    selectPrinter,
     selectedPrinter,
-    selectedPrinterId,
     setActiveSection,
     setAlertCenterOpen,
     setMobileNavOpen,
     setTheme,
     theme,
     topbarAlertTone,
-    topbarPrimaryAction,
     toasts,
     dismissToast,
     visibleNavGroups,
@@ -86,8 +83,12 @@ function App() {
         return <OverviewScreen {...screenProps} />;
       case "printers":
         return <PrintersScreen {...screenProps} />;
+      case "printer-detail":
+        return <PrinterDetailScreen {...screenProps} />;
       case "agents":
         return <AgentsScreen {...screenProps} />;
+      case "agent-detail":
+        return <AgentDetailScreen {...screenProps} />;
       case "setup":
         return <SetupScreen {...screenProps} />;
       case "monitoring":
@@ -171,9 +172,9 @@ function App() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <span>Impressora ativa</span>
-          <strong>{selectedPrinter?.name ?? "não selecionada"}</strong>
-          <small>{selectedPrinter?.moonraker_url ?? "Cadastre ou selecione uma impressora."}</small>
+          <span>Contexto rápido</span>
+          <strong>{selectedPrinter?.name ?? "nenhuma impressora"}</strong>
+          <small>{selectedPrinter?.moonraker_url ?? "Abra uma impressora pela lista."}</small>
         </div>
       </aside>
       {mobileNavOpen ? <button type="button" className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} aria-label="Fechar menu" /> : null}
@@ -194,12 +195,31 @@ function App() {
           <div className="topbar-actions">
             <button
               type="button"
+              className={`icon-button topbar-alert ${topbarAlertTone}`}
+              title="Alertas da frota"
+              aria-label={alertCount > 0 ? `${alertCount} alerta(s) da frota` : "Sem alertas da frota"}
+              onClick={() => setAlertCenterOpen(true)}
+            >
+              <Bell size={16} />
+              {alertCount > 0 ? <strong>{alertCount}</strong> : null}
+            </button>
+            <button
+              type="button"
               className={`icon-button topbar-info ${activeSection === "about" || activeSection === "license" ? "active" : ""}`}
               title="Sobre o Printora"
               aria-label="Sobre o Printora"
               onClick={() => setActiveSection("about")}
             >
               <Info size={17} />
+            </button>
+            <button
+              type="button"
+              className="icon-button"
+              title={theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
+              aria-label={theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
+              onClick={() => setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"))}
+            >
+              <ThemeIcon size={18} />
             </button>
             <div className="topbar-account">
               <button
@@ -252,52 +272,6 @@ function App() {
                 </div>
               ) : null}
             </div>
-            <label className="topbar-printer context-select" aria-label="Impressora ativa">
-              <select
-                value={selectedPrinterId ?? ""}
-                onChange={(event) => selectPrinter(Number(event.target.value))}
-              >
-                <option value="" disabled>
-                  Selecione uma impressora
-                </option>
-                {printers.map((printer) => (
-                  <option key={printer.id} value={printer.id}>
-                    {printer.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              className={`icon-button topbar-alert ${topbarAlertTone}`}
-              title="Alertas"
-              aria-label={alertCount > 0 ? `${alertCount} alerta(s)` : "Sem alertas"}
-              onClick={() => setAlertCenterOpen(true)}
-            >
-              <Bell size={16} />
-              {alertCount > 0 ? <strong>{alertCount}</strong> : null}
-            </button>
-            <button
-              type="button"
-              className="icon-button"
-              title={theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
-              aria-label={theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
-              onClick={() => setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"))}
-            >
-              <ThemeIcon size={18} />
-            </button>
-            {activeSection !== "account" ? (
-              <button
-                type="button"
-                className="icon-button topbar-primary"
-                title={topbarPrimaryAction.label}
-                aria-label={topbarPrimaryAction.label}
-                onClick={() => void topbarPrimaryAction.run()}
-                disabled={topbarPrimaryAction.disabled}
-              >
-                <TopbarPrimaryIcon className={topbarPrimaryAction.busy ? "button-busy-icon" : undefined} size={16} />
-              </button>
-            ) : null}
           </div>
         </header>
 
@@ -306,10 +280,24 @@ function App() {
           <span>
             {activeSection === "settings"
               ? "Configuração global do Printora"
+              : activeSection === "printer-detail"
+                ? selectedPrinter
+                  ? `Registro aberto: ${selectedPrinter.name}`
+                  : "Abra uma impressora pela lista"
+              : activeSection === "agent-detail"
+                ? "Registro do agente selecionado"
               : activeSection === "account"
                 ? "Identidade, segurança e organizações"
               : activeSection === "setup"
                 ? "Provisionamento começa somente depois que Linux e SSH estão ativos"
+              : activeSection === "overview"
+                ? "Resumo global da frota"
+              : activeSection === "printers"
+                ? "Lista de impressoras e acesso ao detalhe"
+              : activeSection === "agents"
+                ? "Lista global de agentes da frota"
+              : activeSection === "reports"
+                ? "Relatórios globais; diagnóstico de impressora fica no detalhe"
               : activeSection === "about"
                 ? "Autoria, roadmap público e identidade do projeto"
                 : activeSection === "license"
@@ -319,13 +307,6 @@ function App() {
                 : "Selecione uma impressora para carregar os dados por contexto."}
           </span>
         </section>
-        {activeSection !== "account" ? (
-          <button type="button" className="primary-button mobile-section-action" onClick={() => void topbarPrimaryAction.run()} disabled={topbarPrimaryAction.disabled}>
-            <TopbarPrimaryIcon size={16} />
-            {topbarPrimaryAction.label}
-          </button>
-        ) : null}
-
         {error ? <section className="alert danger">{error}</section> : null}
 
         <AppModals {...screenProps} />

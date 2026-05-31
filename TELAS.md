@@ -33,8 +33,13 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Estado, efeitos e orquestracao de API ficam em hooks por dominio em `frontend/src/hooks/domains`; `frontend/src/hooks/usePrintoraApp.ts` apenas compoe shell, contexto e dominios.
 - Chamadas HTTP ficam isoladas por dominio em `frontend/src/services`.
 - Componentes reutilizados ficam em `frontend/src/components`.
-- Secoes que exigem impressora online sao ocultadas da navegacao quando a leitura de health da impressora ativa confirma Moonraker offline; se o usuario estiver nelas nesse momento, a SPA volta para `overview`.
-- Durante o carregamento inicial, secoes que exigem impressora online permanecem ocultas ate o health confirmar Moonraker online.
+- O menu lateral principal mostra somente telas globais, que nao dependem de uma impressora selecionada: `overview`, `printers`, `agents`, `setup`, `reports` e `settings`.
+- Telas operacionais de impressora nao aparecem no menu lateral; elas ficam como abas internas de `printer-detail`, aberto a partir da lista de impressoras.
+- O seletor de impressora da topbar e o rodape lateral sao apenas contexto rapido. Eles nao definem a arquitetura de navegacao nem tornam o menu dependente de impressora.
+- A topbar e fixa/sticky e deve conter apenas controles globais: titulo da area atual, alertas da frota, Sobre, tema claro/escuro e conta do usuario no extremo direito.
+- A topbar nao deve conter seletor de impressora nem acoes especificas de tela como adicionar impressora, snapshot, instalacao ou reanalise. Essas acoes ficam no corpo da tela/aba correspondente.
+- A Central de alertas aberta pela topbar e da frota. Ela deve permitir abrir a impressora afetada quando o alerta pertencer a um registro especifico.
+- Secoes que exigem impressora online permanecem acessiveis dentro do detalhe da impressora e devem exibir estado `offline`, `cached`, `blocked` ou `not_supported` quando o agente/Moonraker nao estiver disponivel.
 - Com Moonraker offline, a Central de alertas exibe apenas o alerta de offline/conexao; pendencias que dependem da impressora ligada ou de snapshot antigo nao contam como alertas ativos atuais.
 - Enquanto a impressora ativa estiver offline, a SPA revalida status e health a cada 60 segundos para liberar as secoes online quando Moonraker voltar.
 
@@ -42,16 +47,19 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 
 | Tela | Secao | Entrada | Arquivo | Objetivo | Dependencia de impressora | Status |
 |---|---|---|---|---|---|---|
-| Visao geral | `overview` | `/`, `/?section=overview`, `/#overview` | `frontend/src/screens/OverviewScreen.tsx` | Dashboard geral da frota e da impressora selecionada, com risco principal, horas acumuladas e atalhos seguros | Opcional | existente |
-| Impressoras | `printers` | `/?section=printers`, `/#printers` | `frontend/src/screens/PrintersScreen.tsx` | Lista e cadastro das impressoras gerenciadas, descoberta, teste de conexao, selecao da impressora ativa e resumo do agente vinculado | Nao exige impressora ativa | existente |
-| Agentes | `agents` | `/?section=agents`, `/#agents` | `frontend/src/screens/AgentsScreen.tsx` | Lista de todos os agentes da frota, detalhe por agente com impressora vinculada, instalação por token único pendente e saúde/suporte da impressora ativa | Exige impressora ativa para operar instalação/suporte | existente |
+| Visao geral | `overview` | `/`, `/?section=overview`, `/#overview` | `frontend/src/screens/OverviewScreen.tsx` | Dashboard global da frota, agentes, alertas e atalhos para abrir registros | Nao exige impressora ativa | existente |
+| Impressoras | `printers` | `/?section=printers`, `/#printers` | `frontend/src/screens/PrintersScreen.tsx` | Lista e cadastro das impressoras gerenciadas; cada registro abre detalhe proprio | Nao exige impressora ativa | existente |
+| Detalhe da impressora | `printer-detail` | Estado interno da SPA | `frontend/src/screens/PrinterDetailScreen.tsx` | Registro operacional da impressora com abas de resumo, operacao, updates, calibracao, firmware, manutencao, diagnostico e agentes | Exige registro de impressora aberto | existente |
+| Agentes | `agents` | `/?section=agents`, `/#agents` | `frontend/src/screens/AgentsScreen.tsx` | Lista de todos os agentes da frota, sem operacoes de impressora no menu global | Nao exige impressora ativa | existente |
+| Detalhe do agente | `agent-detail` | Estado interno da SPA | `frontend/src/screens/AgentDetailScreen.tsx` | Registro de agente com impressora vinculada, saude, fila, doctor remoto, suporte e credencial | Exige agente aberto | existente |
 | Setup | `setup` | `/?section=setup`, `/#setup` | `frontend/src/screens/SetupScreen.tsx` | Receita guiada para preparar a Pi, habilitar SSH, validar ambiente, configurar CAN/U2C, gerar firmware, executar flash supervisionado, validar base Klipper e cadastrar a impressora | Nao exige impressora ativa | existente |
-| Operacao | `monitoring` | `/?section=monitoring`, `/#monitoring`; legado `/?section=operation` redireciona para esta tela | `frontend/src/screens/MonitoringScreen.tsx` + `frontend/src/MonitoringDashboard.tsx` | Operacao ao vivo com temperaturas, toolhead, extrusor, progresso, sistema, fans, CAN e acoes protegidas | Exige impressora ativa online | existente |
-| Atualizacoes | `updates` | `/?section=updates`, `/#updates` | `frontend/src/screens/UpdatesScreen.tsx` | Update Manager da impressora, checklist pos-update, update com confirmacao, progresso e historico | Exige impressora ativa online | existente |
-| Calibracao | `tests` | `/?section=tests`, `/#tests`; legado `/?section=calibration` redireciona para `tests` | `frontend/src/screens/TestsScreen.tsx` | Centro de calibracao Voron em cards numerados por sequencia, busca, filtros por tipo/uso, ajuda expandida, preflight, execucao com confirmacao presencial e perfil Z aprovado | Exige impressora ativa online | existente |
-| Firmware | `firmware` | `/?section=firmware`, `/#firmware` | `frontend/src/screens/FirmwareScreen.tsx` | Inventario de MCUs/placas detectadas, associacao ao modelo fisico, build, flash planejado e referencia CANBus | Exige impressora ativa; leitura ao vivo depende de Moonraker online | existente |
-| Manutencao | `maintenance` | `/?section=maintenance`, `/#maintenance` | `frontend/src/screens/MaintenanceScreen.tsx` | Tarefas preventivas, diario e horas de impressao por impressora | Exige impressora ativa com agente | existente |
-| Relatorios | `reports` | `/?section=reports`, `/#reports` | `frontend/src/screens/ReportsScreen.tsx` + `frontend/src/screens/reports/*` | Relatorio leigo da impressora com decisao de imprimir, motivo, metricas explicadas, diagnostico de rede/DNS/SSH read-only, snapshots, relatorio sanitizado, backup/restore seguro e auditoria read-only | Exige impressora ativa online | existente |
+| Operacao | aba `operation` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/MonitoringScreen.tsx` + `frontend/src/MonitoringDashboard.tsx` | Operacao ao vivo com temperaturas, toolhead, extrusor, progresso, sistema, fans, CAN e acoes protegidas | Exige impressora aberta; live exige agente/Moonraker | existente |
+| Atualizacoes | aba `updates` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/UpdatesScreen.tsx` | Update Manager da impressora, checklist pos-update, update com confirmacao, progresso e historico | Exige impressora aberta; live exige agente/Moonraker | existente |
+| Calibracao | aba `tests` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/TestsScreen.tsx` | Centro de calibracao Voron em cards numerados por sequencia, busca, filtros por tipo/uso, ajuda expandida, preflight, execucao com confirmacao presencial e perfil Z aprovado | Exige impressora aberta | existente |
+| Firmware | aba `firmware` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/FirmwareScreen.tsx` | Inventario de MCUs/placas detectadas, associacao ao modelo fisico, build, flash planejado e referencia CANBus | Exige impressora aberta | existente |
+| Manutencao | aba `maintenance` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/MaintenanceScreen.tsx` | Tarefas preventivas, diario e horas de impressao por impressora | Exige impressora aberta | existente |
+| Diagnostico da impressora | aba `reports` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/ReportsScreen.tsx` + `frontend/src/screens/reports/*` | Relatorio leigo da impressora, snapshots, relatorio sanitizado, backup/restore seguro e auditoria read-only | Exige impressora aberta | existente |
+| Relatorios globais | `reports` | `/?section=reports`, `/#reports` | `frontend/src/screens/ReportsScreen.tsx` + `frontend/src/screens/reports/*` | Entrada global de relatorios e diagnosticos, preservando fallback para contexto rapido quando houver | Nao deve bloquear menu global | existente |
 | Configuracoes | `settings` | `/?section=settings`, `/#settings` | `frontend/src/screens/SettingsScreen.tsx` | Registro tecnico CAN, releases, update/rollback do Printora, diagnostico da instalacao com energia/throttling Raspberry e diagnostico avancado do host | Nao exige impressora ativa | existente |
 | Sobre | `about` | `/?section=about`, `/#about` | `frontend/src/screens/AboutScreen.tsx` | Apresentacao do autor, motivacao do projeto, funcionalidades, roadmap publico, redes sociais e identidade visual | Nao exige impressora ativa | existente |
 | Licenca | `license` | `/?section=license`, `/#license` | `frontend/src/screens/LicenseScreen.tsx` | Resumo de licenca open source, limites de garantia e responsabilidade operacional | Nao exige impressora ativa | existente |
@@ -98,8 +106,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 
 ## Distribuicao de conteudo
 
-- Backups ficam em `reports`, junto de snapshots, comparacoes, relatorio sanitizado e evidencias diagnosticas.
-- Auditoria read-only da impressora fica em `reports`.
+- Backups de impressora ficam na aba `Diagnostico` do detalhe da impressora, junto de snapshots, comparacoes, relatorio sanitizado e evidencias diagnosticas.
+- Auditoria read-only da impressora fica na aba `Diagnostico` do detalhe da impressora.
 - Na tela Relatorios, a leitura principal deve explicar para usuario leigo se pode imprimir, por que nao imprimir quando houver bloqueio e qual acao segura seguir.
 - Na tela Relatorios, latencia deve ser apresentada como comunicacao Printora-Moonraker na rede local, nao como falha generica de API.
 - Na tela Relatorios, lentidao de comunicacao Printora-Moonraker deve ser monitoramento, nao bloqueio de impressao, quando Klipper e Moonraker estao saudaveis na Raspberry.
@@ -107,8 +115,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Relatorios, formularios tecnicos de backup, comparacao, restore e relatorio sanitizado devem abrir em modal; a tela principal e leitura diagnostica, nao cadastro.
 - Diagnostico avancado do host fica em `settings`, colapsado e com ajuda contextual por modal.
 - Diagnostico da instalacao fica em `settings`, colapsado, com refresh manual e acao para copiar um resumo tecnico sanitizado.
-- CAN de operacao fica em `monitoring` como leitura operacional; registro tecnico, parser e comparacao manual ficam em `settings`, colapsados e com ajuda contextual por modal.
-- Updates da impressora ficam em `updates`; updates do proprio Printora ficam em `settings`.
+- CAN de operacao fica na aba `Operacao` do detalhe da impressora como leitura operacional; registro tecnico, parser e comparacao manual ficam em `settings` enquanto forem globais/legados.
+- Updates da impressora ficam na aba `Atualizacoes` do detalhe da impressora; updates do proprio Printora ficam em `settings`.
 - Na tela Configuracoes, `Releases anteriores` e `Historico de updates` ficam como blocos colapsados lado a lado, no mesmo padrao dos blocos tecnicos.
 - No `Historico de updates`, a acao `Reconciliar travados` deve revalidar runs orfaos antigos sem apagar historico e liberar novo update quando nao houver execucao real em andamento.
 - A tela Sobre deve ser acessivel pelo icone de informacao no topo em todas as telas; por enquanto nao aparece no menu lateral.
@@ -124,7 +132,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Organizações na Conta devem permitir editar e excluir somente quando o usuário for `owner`; exclusão deve passar por confirmação destrutiva.
 - Convites de organização pendentes devem poder ser cancelados por gestor da organização; convites aceitos ficam apenas como histórico.
 - O vínculo de compartilhamento deve ser por impressora, não por agente; remover usuário ou impressora da organização deve estar disponível no detalhe.
-- Agentes devem ter tela própria no menu lateral, separada de Conta e do dashboard de Impressoras, com geração de token/comando pronto de instalação, lista de tokens, agentes pareados e saúde/suporte.
+- Agentes devem ter tela propria no menu lateral como lista global da frota. Geração de token, comando pronto de instalação, tokens por impressora e suporte da impressora ficam na aba `Agentes` do detalhe da impressora.
 - Usuário anônimo deve ver somente o shell mínimo de autenticação, sem menu lateral, seletor de impressora, alertas, telas internas ou dados operacionais.
 - Na tela Conta, email e senha são obrigatórios no cadastro; nome, WhatsApp, Telegram e demais contatos são opcionais e não bloqueiam a criação da conta.
 - Na tela Conta > Perfil, o usuário pode alterar nome, WhatsApp, Telegram e redes sociais opcionais; email permanece como identificador de login.
@@ -133,11 +141,11 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Conta, o setup de 2FA deve exibir segredo/URI, validar código antes de ativar e exigir código atual para desativar quando 2FA estiver ativo.
 - Na tela Conta, autenticação reforçada gera autorização curta para ações críticas; usuários com 2FA usam código, usuários sem 2FA usam senha.
 - Na tela Impressoras, o cadastro/edição da impressora separa metadados cloud, conexão Moonraker e SSH. Metadados incluem modelo, localização, tags, observações e organização opcional.
-- Na tela Impressoras, a lista mostra somente dados da impressora gerenciada: nome, organização, modelo, localização, tags, observações, conexão Moonraker/SSH e último snapshot; status, token, instalação, pareamento e saúde de agente ficam fora desta tela.
-- Na tela Agentes, o pareamento permite gerar token curto para a impressora selecionada, copiar o token uma única vez por toast e botão no token recém-criado, listar tokens por prefixo/status, revogar tokens ativos, remover tokens inativos da gestão visual, listar agentes ativos, revogar agente, rotacionar credencial e remover agentes revogados da gestão visual sem apagar auditoria.
-- Na tela Agentes, a instalação assistida gera comando de preflight, comando de instalação com token curto, comando de uninstall e mostra validação pós-instalação por agente ativo, versão e heartbeat.
-- Na tela Agentes, saúde e suporte mostram estado online/offline, versão, protocolo, fila, falhas, alertas, doctor remoto e pacote de suporte sanitizado.
-- Na tela Agentes, credencial operacional completa aparece somente no momento de troca/rotação; depois a UI mostra apenas prefixo, status, plataforma e último contato.
+- Na tela Impressoras, a lista mostra dados de frota e acoes de linha para editar, abrir detalhe e trocar contexto rapido. Status, token, instalação, pareamento e saúde de agente ficam no detalhe da impressora ou no detalhe do agente.
+- Na aba `Agentes` do detalhe da impressora, o pareamento permite gerar token curto para a impressora aberta, copiar o token uma única vez por toast e botão no token recém-criado, listar tokens por prefixo/status, revogar tokens ativos, remover tokens inativos da gestão visual, listar agentes ativos, revogar agente, rotacionar credencial e remover agentes revogados da gestão visual sem apagar auditoria.
+- Na aba `Agentes` do detalhe da impressora, a instalação assistida gera comando de preflight, comando de instalação com token curto, comando de uninstall e mostra validação pós-instalação por agente ativo, versão e heartbeat.
+- No detalhe do agente, saúde e suporte mostram estado online/offline, versão, protocolo, fila, falhas, alertas, doctor remoto e pacote de suporte sanitizado.
+- No detalhe do agente, credencial operacional completa aparece somente no momento de troca/rotação; depois a UI mostra apenas prefixo, status, plataforma e último contato.
 - Ações operacionais da impressora não ficam na tela Agentes; operação, atualização, calibração, manutenção e firmware pertencem aos menus próprios.
 - A tela Setup deve ficar disponivel sem impressora ativa, pois seu objetivo e preparar uma Pi antes do cadastro final da impressora.
 - Na tela Setup, o primeiro bloco deve deixar claro que placa virgem sem SO/rede/SSH nao pode ser acessada por SSH; a preparacao de mídia/boot e etapa manual ou futura.
