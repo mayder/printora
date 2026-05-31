@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { useState } from "react";
 import { Bell, ChevronDown, Info, LogOut, Menu, ShieldCheck, UserRound, Users, X } from "lucide-react";
 import { appSections } from "./app/navigation";
+import type { AppSection } from "./app/navigation";
 import { AppModals } from "./components/modals";
 import { ToastViewport } from "./components/ToastViewport";
 import { OverviewScreen } from "./screens/OverviewScreen";
@@ -36,6 +37,16 @@ import "./styles/tests.css";
 import "./styles/reports.css";
 import "./styles/about.css";
 
+type AccountTab = "access" | "security" | "organizations";
+
+function openAccountTab(tab: AccountTab, setActiveSection: (section: AppSection) => void) {
+  (window as Window & { printoraAccountTab?: AccountTab }).printoraAccountTab = tab;
+  setActiveSection("account");
+  window.setTimeout(() => {
+    window.dispatchEvent(new CustomEvent("printora:account-tab", { detail: tab }));
+  }, 0);
+}
+
 function App() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const {
@@ -65,9 +76,9 @@ function App() {
   } = usePrintoraApp();
   const userLabel = screenProps.authUser?.display_name || screenProps.authUser?.email || "Conta";
   const accountMenuItems = [
-    { label: "Acessos da conta", icon: UserRound, tab: "access" },
-    { label: "Segurança", icon: ShieldCheck, tab: "security" },
-    { label: "Organizações", icon: Users, tab: "organizations" },
+    { label: "Acessos da conta", icon: UserRound, tab: "access" as const },
+    { label: "Segurança", icon: ShieldCheck, tab: "security" as const },
+    { label: "Organizações", icon: Users, tab: "organizations" as const },
   ];
 
   const activeScreen = (() => {
@@ -218,8 +229,7 @@ function App() {
                         type="button"
                         role="menuitem"
                         onClick={() => {
-                          setActiveSection("account");
-                          window.dispatchEvent(new CustomEvent("printora:account-tab", { detail: item.tab }));
+                          openAccountTab(item.tab, setActiveSection);
                           setAccountMenuOpen(false);
                         }}
                       >

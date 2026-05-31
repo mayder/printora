@@ -2,6 +2,7 @@ import React from "react";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type AccountTab = "access" | "security" | "organizations";
+const accountTabKeys: AccountTab[] = ["access", "security", "organizations"];
 
 type AuthScreenProps = ScreenPropsFor<
   | "KeyRound"
@@ -89,7 +90,7 @@ export function AuthScreen(props: AuthScreenProps) {
     submitAuth,
     submitMfaLogin,
   } = props;
-  const [accountTab, setAccountTab] = React.useState<AccountTab>("access");
+  const [accountTab, setAccountTab] = React.useState<AccountTab>(() => readRequestedAccountTab());
   const accountTabs: Array<{ key: AccountTab; label: string }> = [
     { key: "access", label: "Acessos" },
     { key: "security", label: "Segurança" },
@@ -98,7 +99,7 @@ export function AuthScreen(props: AuthScreenProps) {
   React.useEffect(() => {
     function handleAccountTab(event: Event) {
       const tab = (event as CustomEvent<AccountTab>).detail;
-      if (accountTabs.some((candidate) => candidate.key === tab)) {
+      if (accountTabKeys.includes(tab)) {
         setAccountTab(tab);
       }
     }
@@ -399,4 +400,9 @@ export function AuthScreen(props: AuthScreenProps) {
       ) : null}
     </section>
   );
+}
+
+function readRequestedAccountTab(): AccountTab {
+  const requested = (window as Window & { printoraAccountTab?: AccountTab }).printoraAccountTab;
+  return requested && accountTabKeys.includes(requested) ? requested : "access";
 }
