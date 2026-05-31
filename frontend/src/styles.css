@@ -988,6 +988,11 @@ label {
   height: 28px;
 }
 
+.toast-action {
+  margin-top: 9px;
+  min-height: 30px;
+}
+
 .panel-header-row {
   display: flex;
   justify-content: space-between;

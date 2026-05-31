@@ -156,6 +156,8 @@ export function usePrintoraApp() {
         tone: options.tone ?? "info",
         title: options.title,
         detail: options.detail,
+        actionLabel: options.actionLabel,
+        onAction: options.onAction,
       },
     ].slice(-4));
     window.setTimeout(() => dismissToast(id), 5000);
@@ -474,6 +476,7 @@ export function usePrintoraApp() {
     resolveConfirmDialog,
     setError,
     setLoading,
+    showToast,
     topbarAlertTone,
     topbarPrimaryAction,
     totalPrintHours,

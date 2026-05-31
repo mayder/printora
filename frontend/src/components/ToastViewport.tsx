@@ -27,6 +27,11 @@ export function ToastViewport({ toasts, dismissToast }: ToastViewportProps) {
             <div>
               <strong>{toast.title}</strong>
               {toast.detail ? <p>{toast.detail}</p> : null}
+              {toast.actionLabel && toast.onAction ? (
+                <button type="button" className="secondary-button toast-action" onClick={() => void toast.onAction?.()}>
+                  {toast.actionLabel}
+                </button>
+              ) : null}
             </div>
             <button type="button" className="icon-button" onClick={() => dismissToast(toast.id)} aria-label="Fechar aviso">
               <X size={15} />

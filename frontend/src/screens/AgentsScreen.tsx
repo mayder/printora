@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Badge, Metric } from "../components/common";
 import type { ScreenPropsFor } from "./ScreenProps";
 
@@ -33,8 +34,8 @@ type AgentsScreenProps = ScreenPropsFor<
   | "rotatedAgentCredential"
   | "setAgentInstallPlan"
   | "setAgentSupportBundle"
-  | "setCreatedPairingToken"
   | "setRotatedAgentCredential"
+  | "showToast"
   | "selectedPrinter"
   | "selectedPrinterId"
 >;
@@ -72,8 +73,8 @@ export function AgentsScreen(props: AgentsScreenProps) {
     rotatedAgentCredential,
     setAgentInstallPlan,
     setAgentSupportBundle,
-    setCreatedPairingToken,
     setRotatedAgentCredential,
+    showToast,
     selectedPrinter,
     selectedPrinterId,
   } = props;
@@ -81,6 +82,30 @@ export function AgentsScreen(props: AgentsScreenProps) {
   const agents = pairingOverview?.agents ?? [];
   const activeAgents = agents.filter((agent) => agent.status !== "revoked");
   const revokedAgents = agents.filter((agent) => agent.status === "revoked");
+  const latestToastTokenId = React.useRef<number | null>(null);
+
+  async function copyToken(token: string) {
+    const copied = await copyTextToClipboard(token);
+    showToast({
+      tone: copied ? "success" : "danger",
+      title: copied ? "Token copiado" : "Falha ao copiar token",
+      detail: copied ? "Cole o token no instalador antes de sair da tela." : "Copie manualmente o token exibido.",
+    });
+  }
+
+  React.useEffect(() => {
+    if (!createdPairingToken || latestToastTokenId.current === createdPairingToken.id) {
+      return;
+    }
+    latestToastTokenId.current = createdPairingToken.id;
+    showToast({
+      tone: "success",
+      title: "Token criado",
+      detail: createdPairingToken.token,
+      actionLabel: "Copiar token",
+      onAction: () => copyToken(createdPairingToken.token),
+    });
+  }, [createdPairingToken]);
 
   return (
     <>
@@ -150,18 +175,6 @@ export function AgentsScreen(props: AgentsScreenProps) {
             <p className="muted">Tokens aparecem uma vez; agentes pareados ficam listados por status e último contato.</p>
           </div>
         </div>
-        {createdPairingToken ? (
-          <div className="auth-step">
-            <div>
-              <strong>Token criado</strong>
-              <p className="muted">Copie agora. Ele expira em {createdPairingToken.expires_at} e não aparece novamente.</p>
-              <code>{createdPairingToken.token}</code>
-            </div>
-            <button type="button" className="secondary-button" onClick={() => setCreatedPairingToken(null)}>
-              Ocultar
-            </button>
-          </div>
-        ) : null}
         {rotatedAgentCredential ? (
           <div className="auth-step">
             <div>
@@ -192,9 +205,16 @@ export function AgentsScreen(props: AgentsScreenProps) {
                   <strong>{token.token_prefix}</strong>
                   <span>{token.status} · expira {token.expires_at}</span>
                   {token.status === "active" ? (
-                    <button type="button" className="secondary-button" onClick={() => void revokePairingToken(token.id)} disabled={loading}>
-                      Revogar
-                    </button>
+                    <>
+                      {createdPairingToken?.id === token.id ? (
+                        <button type="button" className="secondary-button" onClick={() => void copyToken(createdPairingToken.token)} disabled={loading}>
+                          Copiar
+                        </button>
+                      ) : null}
+                      <button type="button" className="secondary-button" onClick={() => void revokePairingToken(token.id)} disabled={loading}>
+                        Revogar
+                      </button>
+                    </>
                   ) : (
                     <button type="button" className="secondary-button" onClick={() => void removePairingToken(token.id)} disabled={loading}>
                       Remover
@@ -328,4 +348,22 @@ export function AgentsScreen(props: AgentsScreenProps) {
       </article>
     </>
   );
+}
+
+async function copyTextToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return copied;
+  }
 }
