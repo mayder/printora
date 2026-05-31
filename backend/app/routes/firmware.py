@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from fastapi import Depends
 
+from app.agent_executor import AgentCommandExecutor
+from app.agent_moonraker import agent_preflight_payload, firmware_inventory_payload
 from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
 from app.firmware_catalog import FirmwareCatalogSummary, firmware_catalog_summary
@@ -57,16 +59,15 @@ async def firmware_hardware_inventory(printer_id: int) -> FirmwareHardwareInvent
     printer = printer_repository.get_printer(printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
     try:
-        object_names = await client.printer_objects_list()
-        query_objects = _firmware_inventory_query_objects(object_names)
-        object_payload = await client.printer_objects(query_objects) if query_objects else {"status": {}}
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_firmware_inventory",
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        )
+        object_names, object_payload = firmware_inventory_payload(job.result)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Moonraker indisponível para inventário de firmware: {exc}") from exc
+        raise HTTPException(status_code=502, detail=f"Agente indisponível para inventário de firmware: {exc}") from exc
     return build_firmware_hardware_inventory(
         printer_id=printer_id,
         registered_boards=firmware_repository.list_boards(printer_id),
@@ -201,11 +202,13 @@ async def firmware_flash_preflight(
     printer = printer_repository.get_printer(board.printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
+    job = await AgentCommandExecutor(settings.database_path).run(
+        printer,
+        job_type="remote_gcode_preflight",
+        payload={"action_id": f"firmware_flash:{board.id}", "criticality": "firmware"},
+        timeout_seconds=max(settings.request_timeout_seconds, 10.0),
     )
-    preflight = await _operation_execution_preflight(client)
+    preflight = agent_preflight_payload(job.result)
     try:
         return firmware_repository.build_flash_preflight(board_id, payload, preflight)
     except Exception as exc:

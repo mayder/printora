@@ -352,6 +352,7 @@ func mustJSON(value any) []byte {
 }
 
 func TestAgentUpdateAppliesValidatedBinary(t *testing.T) {
+	targetVersion := "99.0.0"
 	tmpDir := t.TempDir()
 	binaryPath := filepath.Join(tmpDir, "printora-agent")
 	if err := os.WriteFile(binaryPath, []byte("old-binary"), 0o700); err != nil {
@@ -365,13 +366,13 @@ func TestAgentUpdateAppliesValidatedBinary(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(UpdateManifest{
 				ManifestVersion:    1,
 				MinimumVersion:     Version,
-				RecommendedVersion: "0.1.7",
+				RecommendedVersion: targetVersion,
 				ProtocolMin:        ProtocolVersion,
 				ProtocolMax:        ProtocolVersion,
 				AutoUpdate:         true,
 				Releases: []UpdateRelease{{
 					Platform:    Platform(),
-					Version:     "0.1.7",
+					Version:     targetVersion,
 					URL:         "http://" + r.Host + "/binary",
 					SHA256:      fmt.Sprintf("%x", sum),
 					ProtocolMin: ProtocolVersion,
@@ -400,6 +401,7 @@ func TestAgentUpdateAppliesValidatedBinary(t *testing.T) {
 }
 
 func TestAgentUpdateRejectsInvalidHash(t *testing.T) {
+	targetVersion := "99.0.0"
 	tmpDir := t.TempDir()
 	binaryPath := filepath.Join(tmpDir, "printora-agent")
 	if err := os.WriteFile(binaryPath, []byte("old-binary"), 0o700); err != nil {
@@ -409,13 +411,13 @@ func TestAgentUpdateRejectsInvalidHash(t *testing.T) {
 		if r.URL.Path == "/manifest" {
 			_ = json.NewEncoder(w).Encode(UpdateManifest{
 				ManifestVersion:    1,
-				RecommendedVersion: "0.1.7",
+				RecommendedVersion: targetVersion,
 				ProtocolMin:        ProtocolVersion,
 				ProtocolMax:        ProtocolVersion,
 				AutoUpdate:         true,
 				Releases: []UpdateRelease{{
 					Platform:    Platform(),
-					Version:     "0.1.7",
+					Version:     targetVersion,
 					URL:         "http://" + r.Host + "/binary",
 					SHA256:      "bad",
 					ProtocolMin: ProtocolVersion,
@@ -439,6 +441,7 @@ func TestAgentUpdateRejectsInvalidHash(t *testing.T) {
 }
 
 func TestAgentUpdateRollsBackWhenHealthFails(t *testing.T) {
+	targetVersion := "99.0.0"
 	tmpDir := t.TempDir()
 	binaryPath := filepath.Join(tmpDir, "printora-agent")
 	if err := os.WriteFile(binaryPath, []byte("old-binary"), 0o700); err != nil {
@@ -450,13 +453,13 @@ func TestAgentUpdateRollsBackWhenHealthFails(t *testing.T) {
 		if r.URL.Path == "/manifest" {
 			_ = json.NewEncoder(w).Encode(UpdateManifest{
 				ManifestVersion:    1,
-				RecommendedVersion: "0.1.7",
+				RecommendedVersion: targetVersion,
 				ProtocolMin:        ProtocolVersion,
 				ProtocolMax:        ProtocolVersion,
 				AutoUpdate:         true,
 				Releases: []UpdateRelease{{
 					Platform:    Platform(),
-					Version:     "0.1.7",
+					Version:     targetVersion,
 					URL:         "http://" + r.Host + "/binary",
 					SHA256:      fmt.Sprintf("%x", sum),
 					ProtocolMin: ProtocolVersion,

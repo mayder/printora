@@ -351,3 +351,16 @@ Impacto em testes: `backend/tests/test_agent_support.py` cobre escopo, alertas, 
 Impacto em rollback: baixo; remover rotas/UI/handler `remote_doctor` preserva os eventos e jobs já existentes.
 Como reverter: reverter arquivos do PKG-48; agentes antigos passam a rejeitar `remote_doctor` como job não suportado.
 Referencias: `backend/app/agent_support.py`, `backend/app/routes/agents.py`, `backend/tests/test_agent_support.py`, `agent/internal/agent/doctor.go`, `frontend/src/screens/PrintersScreen.tsx`.
+
+### DEC-20260531-08 - Rotas operacionais usam agente como caminho principal
+
+Status: aceita
+Data: 2026-05-31
+Contexto: a aplicação precisa funcionar em cenário cloud/rede local sem depender de o servidor alcançar diretamente o Moonraker ou SSH da impressora. A impressora selecionada deve ser operada pelo agente pareado como caminho principal.
+Decisao: centralizar criação, push e espera de jobs em um executor do agente e migrar status, operação, snapshots, auditoria, relatórios, checklist, calibração, update manager e inventário de firmware para jobs outbound pelo agente. Acesso direto ao Moonraker/SSH permanece apenas como legado/bootstrap de setup ou utilitário local explícito, não como caminho operacional das telas principais.
+Alternativas consideradas: manter chamadas diretas com fallback para agente; duplicar lógica por rota; abrir conectividade inbound no host Klipper; permitir shell genérico no agente.
+Consequencias: as telas principais passam a depender de agente online e exibem erro quando não há agente, reduzindo risco de isolamento e aproximando o ambiente local do futuro cloud. O agente precisa evoluir junto do servidor, por isso a versão esperada foi atualizada para `0.1.7`.
+Impacto em testes: `./check.sh`, `go test ./...`, testes focados de backend e smoke real nas duas impressoras com status, operação, update refresh, calibração, snapshot, firmware inventory e execução segura `M106 S0`.
+Impacto em rollback: médio; reverter exige restaurar handlers diretos das rotas e reinstalar agente anterior se necessário. Jobs históricos permanecem em `agent_jobs`.
+Como reverter: reverter este commit, reinstalar binário do agente anterior em `/usr/local/bin/printora-agent` nos hosts e reiniciar apenas `printora-agent`.
+Referencias: `backend/app/agent_executor.py`, `backend/app/agent_channel.py`, `backend/app/agent_moonraker.py`, `backend/app/routes/operation.py`, `backend/app/routes/calibration.py`, `agent/internal/agent/moonraker.go`, `agent/internal/agent/channel.go`.

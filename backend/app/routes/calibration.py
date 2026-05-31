@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from fastapi import Depends
 
+from app.agent_executor import AgentCommandExecutor
+from app.agent_moonraker import agent_preflight_payload, calibration_capabilities_payload
 from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
 
@@ -37,23 +39,20 @@ async def list_available_calibration_tests(printer_id: int) -> CalibrationAvaila
     printer = printer_repository.get_printer(printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
-    connected = True
     try:
-        available_objects = await client.printer_objects_list()
-        object_payload = await client.printer_objects({"toolhead": ["axis_minimum", "axis_maximum"]}) if "toolhead" in available_objects else {}
-    except httpx.HTTPError:
-        connected = False
-        available_objects = []
-        object_payload = {}
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_calibration_capabilities",
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        )
+        available_objects, object_status, connected = calibration_capabilities_payload(job.result)
+    except HTTPException:
+        available_objects, object_status, connected = [], {}, False
     return build_available_calibration_tests(
         printer_id=printer.id,
         tests=repository.list_tests(),
         available_objects=available_objects,
-        object_status=object_payload.get("status", object_payload) if isinstance(object_payload, dict) else {},
+        object_status=object_status,
         connected=connected,
     )
 
@@ -120,11 +119,7 @@ async def calibration_test_preflight(printer_id: int, test_key: str) -> Calibrat
     test = repository.get_test(test_key)
     if test is None:
         raise HTTPException(status_code=404, detail="calibration test not found")
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
-    preflight = await _operation_execution_preflight(client)
+    preflight = await _calibration_agent_preflight(settings, printer, test.test_key)
     return build_calibration_preflight(printer_id=printer.id, test=test, preflight=preflight)
 
 
@@ -159,11 +154,7 @@ async def execute_calibration_test(
     test = repository.get_test(payload.test_key)
     if test is None:
         raise HTTPException(status_code=404, detail="calibration test not found")
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
-    preflight = await _operation_execution_preflight(client)
+    preflight = await _calibration_agent_preflight(settings, printer, test.test_key)
     gate = build_calibration_execution_gate(test=test, payload=payload, preflight=preflight)
     if gate.status == "blocked":
         return repository.create_execution_attempt(
@@ -176,22 +167,25 @@ async def execute_calibration_test(
             message=gate.message,
         )
 
-    sent_commands: list[str] = []
-    results: list[dict[str, Any]] = []
-    failed_command: str | None = None
-    for command in gate.commands:
-        result = await _send_and_monitor_gcode(client, command, settings.request_timeout_seconds)
-        results.append(result)
-        if result.get("accepted"):
-            sent_commands.append(command)
-            continue
-        failed_command = command
-        break
-
-    if failed_command is not None:
-        status = "failed_partial" if sent_commands else "failed"
-        failed_result = results[-1] if results else {}
-        error_detail = str(failed_result.get("transport_error") or failed_result.get("monitor_error") or "sem detalhe")
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_gcode_execute",
+            payload={
+                "action_id": f"calibration:{test.key}",
+                "criticality": "calibration",
+                "commands": gate.commands,
+            },
+            timeout_seconds=max(settings.request_timeout_seconds, 30.0),
+        )
+        result_payload = job.result or {}
+        sent_commands = [str(item) for item in result_payload.get("sent_commands") or []]
+        results = result_payload.get("results") if isinstance(result_payload.get("results"), list) else [result_payload]
+    except HTTPException as exc:
+        status = "failed"
+        sent_commands = []
+        results = [{"accepted": False, "agent_error": exc.detail}]
+        error_detail = str(exc.detail)
         return repository.create_execution_attempt(
             printer_id=printer.id,
             test=test,
@@ -199,7 +193,7 @@ async def execute_calibration_test(
             status=status,
             sent_commands=sent_commands,
             result=results,
-            message=f"Falha ao confirmar G-code '{failed_command}': {error_detail}",
+            message=f"Falha ao confirmar G-code pelo agente: {error_detail}",
         )
 
     return repository.create_execution_attempt(
@@ -209,5 +203,26 @@ async def execute_calibration_test(
         status="executed",
         sent_commands=sent_commands,
         result=results,
-        message="G-code de calibração enviado e confirmado por monitoramento final do Moonraker.",
+        message="G-code de calibração enviado pelo agente e confirmado.",
     )
+
+
+async def _calibration_agent_preflight(settings, printer, test_key: str) -> dict[str, Any]:
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_gcode_preflight",
+            payload={"action_id": f"calibration:{test_key}", "criticality": "calibration"},
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        )
+    except HTTPException as exc:
+        return {
+            "safe_mode": "agent_preflight",
+            "connected": False,
+            "printing": False,
+            "print_state": "",
+            "summary": "Agente indisponível no preflight.",
+            "error": str(exc.detail),
+            "source": "agent",
+        }
+    return agent_preflight_payload(job.result)

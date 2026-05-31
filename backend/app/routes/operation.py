@@ -3,6 +3,8 @@ from __future__ import annotations
 from app.routes.support import *
 from fastapi import Depends, Header
 
+from app.agent_executor import AgentCommandExecutor
+from app.agent_moonraker import agent_preflight_payload, operation_payload
 from app.auth import AuthRepository
 from app.routes.auth import require_current_user_when_configured
 from app.routes.auth import require_current_user
@@ -20,16 +22,14 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="printer not found")
     recent_snapshots = _recent_moonraker_snapshots(snapshot_repository, printer.id, limit=12)
 
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
     try:
-        printer_info, server_info, system_info, proc_stats = await _collect_status(client)
-        available_objects = await client.printer_objects_list()
-        objects = await client.printer_objects(build_operation_query_objects(available_objects))
-        objects["objects"] = available_objects
-    except httpx.HTTPError as exc:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_operation_status",
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        )
+        printer_info, server_info, system_info, proc_stats, objects, history_totals = operation_payload(job.result)
+    except HTTPException as exc:
         latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
         if latest_snapshot is not None:
             operation = build_last_known_operation(latest_snapshot)
@@ -39,11 +39,6 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
                 **operation,
             }
         return build_unreachable_operation(printer.moonraker_url, str(exc))
-
-    try:
-        history_totals = await client.history_totals()
-    except httpx.HTTPError:
-        history_totals = None
 
     operation = build_operation_status(
         printer_info=printer_info,
@@ -56,7 +51,7 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
     operation["temperature_history"] = build_temperature_history(recent_snapshots)
     return {
         "printer_id": printer.id,
-        "moonraker_url": printer.moonraker_url,
+        "moonraker_url": "agent",
         **operation,
     }
 
@@ -106,16 +101,12 @@ async def preview_printer_operation_action(printer_id: int, payload: OperationAc
     printer = repository.get_printer(printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
-    preview = await _build_live_operation_action_preview(client, payload.action_id, payload.parameters)
+    preview = await _build_agent_operation_action_preview(settings, printer, payload.action_id, payload.parameters)
     history_repository = get_operation_action_history_repository(settings)
     record = history_repository.create_preview(printer.id, preview)
     return {
         "printer_id": printer.id,
-        "moonraker_url": printer.moonraker_url,
+        "moonraker_url": "agent",
         "history_id": record.id,
         "created_at": record.created_at,
         **preview,
@@ -131,14 +122,10 @@ async def preflight_printer_operation_action(printer_id: int, payload: Operation
     printer = repository.get_printer(printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
-    action_preflight = await _build_live_operation_action_preview(client, payload.action_id, payload.parameters)
+    action_preflight = await _build_agent_operation_action_preview(settings, printer, payload.action_id, payload.parameters)
     return {
         "printer_id": printer.id,
-        "moonraker_url": printer.moonraker_url,
+        "moonraker_url": "agent",
         **action_preflight,
     }
 
@@ -161,17 +148,13 @@ async def execute_printer_operation_action(
     if preview is None or preview.printer_id != printer.id:
         raise HTTPException(status_code=404, detail="preview not found")
     _require_step_up_when_authenticated(settings, authorization, payload.step_up_token)
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
-    return await _execute_operation_preview(
-        client=client,
+    return await _execute_operation_preview_via_agent(
+        settings=settings,
+        printer=printer,
         history_repository=history_repository,
         printer_id=printer.id,
         preview=preview,
         confirmation_phrase=payload.confirmation_phrase,
-        timeout_seconds=settings.request_timeout_seconds,
     )
 
 
@@ -187,23 +170,19 @@ async def execute_direct_printer_operation_action(
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
     _require_step_up_when_authenticated(settings, authorization, payload.step_up_token)
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
-    preview = await _build_live_operation_action_preview(client, payload.action_id, payload.parameters)
+    preview = await _build_agent_operation_action_preview(settings, printer, payload.action_id, payload.parameters)
     history_repository = get_operation_action_history_repository(settings)
     record = history_repository.create_preview(printer.id, preview)
     preview_record = history_repository.get_preview(record.id)
     if preview_record is None:
         raise HTTPException(status_code=500, detail="preview not persisted")
-    return await _execute_operation_preview(
-        client=client,
+    return await _execute_operation_preview_via_agent(
+        settings=settings,
+        printer=printer,
         history_repository=history_repository,
         printer_id=printer.id,
         preview=preview_record,
         confirmation_phrase=str(preview.get("confirmation_phrase") or ""),
-        timeout_seconds=settings.request_timeout_seconds,
     )
 
 
@@ -230,6 +209,31 @@ async def _build_live_operation_action_preview(client: MoonrakerClient, action_i
             action_id=action_id,
             parameters=parameters,
             preflight=preflight,
+            objects=objects,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+async def _build_agent_operation_action_preview(settings, printer, action_id: str, parameters: dict[str, Any]) -> dict[str, Any]:
+    executor = AgentCommandExecutor(settings.database_path)
+    preflight_job = await executor.run(
+        printer,
+        job_type="remote_gcode_preflight",
+        payload={"action_id": action_id, "parameters": parameters, "criticality": "preview"},
+        timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+    )
+    status_job = await executor.run(
+        printer,
+        job_type="remote_operation_status",
+        timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+    )
+    _printer_info, _server_info, _system_info, _proc_stats, objects, _history = operation_payload(status_job.result)
+    try:
+        return build_operation_action_preflight(
+            action_id=action_id,
+            parameters=parameters,
+            preflight=agent_preflight_payload(preflight_job.result),
             objects=objects,
         )
     except ValueError as exc:
@@ -275,6 +279,80 @@ async def _execute_operation_preview(
     result = await _send_and_monitor_gcode(client, command, timeout_seconds)
     status = "executed" if result.get("accepted") else "failed"
     block_reason = "" if status == "executed" else str(result.get("transport_error") or result.get("monitor_error") or "Moonraker não confirmou o comando.")
+    return history_repository.create_execution_result(
+        printer_id=printer_id,
+        preview=preview,
+        confirmation_phrase=confirmation_phrase,
+        preflight=preflight,
+        moonraker_response=result,
+        status=status,
+        block_reason=block_reason,
+    )
+
+
+async def _execute_operation_preview_via_agent(
+    *,
+    settings,
+    printer,
+    history_repository: OperationActionHistoryRepository,
+    printer_id: int,
+    preview: OperationActionPreviewRecord,
+    confirmation_phrase: str,
+) -> OperationActionExecutionAttemptRecord:
+    preflight_job = await AgentCommandExecutor(settings.database_path).run(
+        printer,
+        job_type="remote_gcode_preflight",
+        payload={
+            "action_id": preview.action_id,
+            "criticality": "operation",
+            "command_preview": preview.command_preview,
+        },
+        timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+    )
+    preflight = agent_preflight_payload(preflight_job.result)
+    confirmation_matched = confirmation_phrase.strip() == str(preview.payload.get("confirmation_phrase") or "")
+    if not confirmation_matched:
+        return history_repository.create_execution_attempt(
+            printer_id=printer_id,
+            preview=preview,
+            confirmation_phrase=confirmation_phrase,
+            preflight=preflight,
+        )
+    blockers = []
+    if preflight.get("connected") is False:
+        blockers.append("Bloqueado: preflight sem leitura ao vivo pelo agente.")
+    if preflight.get("printing") is True:
+        blockers.append("Bloqueado: preflight detectou impressão em andamento.")
+    if not preview.executable or not preview.would_send_gcode:
+        blockers.append("Bloqueado: preview marcado como não executável.")
+    if blockers:
+        return history_repository.create_execution_result(
+            printer_id=printer_id,
+            preview=preview,
+            confirmation_phrase=confirmation_phrase,
+            preflight=preflight,
+            moonraker_response=None,
+            status="blocked",
+            block_reason=" ".join(blockers),
+        )
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_gcode_execute",
+            payload={
+                "action_id": preview.action_id,
+                "criticality": "operation",
+                "commands": preview.command_preview,
+            },
+            timeout_seconds=max(settings.request_timeout_seconds, 30.0),
+        )
+        result = job.result or {}
+        status = "executed" if result.get("status") == "executed" else "failed"
+        block_reason = "" if status == "executed" else str(result.get("detail") or "Agente não confirmou o comando.")
+    except HTTPException as exc:
+        result = {"accepted": False, "agent_error": exc.detail}
+        status = "failed"
+        block_reason = str(exc.detail)
     return history_repository.create_execution_result(
         printer_id=printer_id,
         preview=preview,

@@ -132,14 +132,31 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 	case "snapshot":
 		snapshot := r.Moonraker.Snapshot(ctx)
 		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: compactSnapshot(snapshot)})
-	case "remote_audit", "remote_snapshot", "remote_health", "remote_temperatures", "remote_update_status", "remote_can_status", "remote_final_validation", "remote_report_sanitized", "remote_backup_preview", "remote_operation_preview", "remote_firmware_preview":
+	case "remote_audit", "remote_snapshot", "remote_health", "remote_temperatures", "remote_update_status", "remote_can_status", "remote_final_validation", "remote_report_sanitized", "remote_backup_preview", "remote_operation_preview", "remote_firmware_preview", "remote_moonraker_status", "remote_operation_status", "remote_calibration_capabilities", "remote_firmware_inventory":
 		payload := r.Moonraker.RemotePayload(ctx, job.JobType)
 		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+	case "remote_update_action":
+		payload := r.Moonraker.RemoteUpdateAction(ctx, job.Payload)
+		if payload["status"] == "accepted" {
+			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+		} else {
+			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["moonraker_response_error"]), Result: mapValueOrEmpty(payload)})
+		}
 	case "remote_mutation_preflight":
 		payload := r.Moonraker.RemoteMutationPreflight(ctx, job.Payload)
 		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
 	case "remote_mutation_execute":
 		payload := r.Moonraker.RemoteMutationExecute(ctx, job.Payload)
+		if payload["status"] == "executed" {
+			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+		} else {
+			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
+		}
+	case "remote_gcode_preflight":
+		payload := r.Moonraker.RemoteGcodePreflight(ctx, job.Payload)
+		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+	case "remote_gcode_execute":
+		payload := r.Moonraker.RemoteGcodeExecute(ctx, job.Payload)
 		if payload["status"] == "executed" {
 			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
 		} else {
@@ -189,6 +206,8 @@ func helloPayload(r *Runner) map[string]any {
 			"mutation":   true,
 			"doctor":     true,
 			"parity":     true,
+			"updates":    true,
+			"gcode_jobs": true,
 			"jobs":       true,
 			"websocket":  true,
 			"polling":    r.Config.PollingEnabled,

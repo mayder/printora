@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from fastapi import Depends
 
+from app.agent_executor import AgentCommandExecutor
+from app.agent_moonraker import operation_payload, status_payload
 from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
 
@@ -17,27 +19,25 @@ async def create_moonraker_snapshot(printer_id: int) -> SnapshotDetail:
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
 
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
     try:
-        printer_info, server_info, system_info, proc_stats = await _collect_status(client)
-        update_status = await client.update_status()
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"moonraker read failed: {exc}") from exc
-
-    operation_objects = None
-    try:
-        available_objects = await client.printer_objects_list()
-        operation_objects = await client.printer_objects(build_operation_query_objects(available_objects))
-        operation_objects["objects"] = available_objects
-    except httpx.HTTPError:
-        operation_objects = None
+        status_job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_moonraker_status",
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        )
+        operation_job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_operation_status",
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        )
+    except HTTPException as exc:
+        raise HTTPException(status_code=502, detail=f"agent read failed: {exc.detail}") from exc
+    printer_info, server_info, system_info, proc_stats, update_status = status_payload(status_job.result)
+    _p, _s, _sys, _proc, operation_objects, _history = operation_payload(operation_job.result)
 
     payload = build_moonraker_snapshot_payload(
         printer_id=printer.id,
-        moonraker_url=printer.moonraker_url,
+        moonraker_url="agent",
         printer_info=printer_info,
         server_info=server_info,
         update_status=update_status,

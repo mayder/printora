@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from fastapi import Depends
 
+from app.agent_executor import AgentCommandExecutor
+from app.agent_moonraker import status_payload
 from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
 
@@ -19,18 +21,19 @@ async def refresh_printer_update_status(
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
 
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
+    job = await AgentCommandExecutor(settings.database_path).run(
+        printer,
+        job_type="remote_update_action",
+        payload={"action": "refresh", "target": payload.name or "all"},
+        timeout_seconds=max(settings.request_timeout_seconds, 30.0),
     )
-    asyncio.create_task(_refresh_update_status_background(client, payload.name, max(settings.request_timeout_seconds, 30.0)))
     return UpdateActionResponse(
-        safe_mode="moonraker_update_manager",
+        safe_mode="agent_update_manager",
         action="refresh",
         target=payload.name or "all",
         accepted=True,
-        message="Reanalise solicitada ao Moonraker. O status sera atualizado em segundo plano.",
-        result={"scheduled": True},
+        message="Reanalise solicitada ao Moonraker pelo agente.",
+        result=job.result or {},
     )
 
 
@@ -117,29 +120,23 @@ async def run_printer_update(printer_id: int, payload: UpdateRunRequest) -> Upda
         raise HTTPException(status_code=404, detail="printer not found")
 
     route, target = update_route_for_target(payload.target)
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
-    await _guard_risky_update(client, target, payload.confirmation_phrase)
+    await _guard_risky_update(settings, printer, target, payload.confirmation_phrase)
     try:
-        if target == "all":
-            result = await client.update_all()
-        elif target == "system":
-            result = await client.update_system()
-        elif target in {"klipper", "moonraker"}:
-            result = await client.update_core_component(target)
-        else:
-            result = await client.update_client(target)
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=_http_error_detail(exc)) from exc
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_update_action",
+            payload={"action": "update", "target": target},
+            timeout_seconds=max(settings.request_timeout_seconds, 60.0),
+        )
+    except HTTPException:
+        raise
     return UpdateActionResponse(
-        safe_mode="moonraker_update_manager",
+        safe_mode="agent_update_manager",
         action="update",
         target=target,
         accepted=True,
-        message=f"Update solicitado ao Moonraker via {route}.",
-        result=result,
+        message=f"Update solicitado ao Moonraker via agente ({route}).",
+        result=job.result or {},
     )
 
 
@@ -157,29 +154,35 @@ async def rollback_printer_update(printer_id: int, payload: PrinterUpdateRollbac
     if payload.confirmation_phrase.strip() != ROLLBACK_CONFIRMATION_PHRASE:
         raise HTTPException(status_code=409, detail=f"rollback exige confirmação literal: {ROLLBACK_CONFIRMATION_PHRASE}")
 
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
     try:
-        result = await client.rollback_update(target)
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=_http_error_detail(exc)) from exc
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_update_action",
+            payload={"action": "rollback", "target": target},
+            timeout_seconds=max(settings.request_timeout_seconds, 60.0),
+        )
+    except HTTPException:
+        raise
     return UpdateActionResponse(
-        safe_mode="moonraker_update_manager",
+        safe_mode="agent_update_manager",
         action="rollback",
         target=target,
         accepted=True,
-        message=f"Rollback de {target} solicitado ao Moonraker.",
-        result=result,
+        message=f"Rollback de {target} solicitado ao Moonraker pelo agente.",
+        result=job.result or {},
     )
 
 
-async def _guard_risky_update(client: MoonrakerClient, target: str, confirmation_phrase: str | None) -> None:
+async def _guard_risky_update(settings, printer, target: str, confirmation_phrase: str | None) -> None:
     try:
-        status = build_update_status(await client.update_status())
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=_http_error_detail(exc)) from exc
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_update_status",
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        )
+        status = build_update_status(status_payload(job.result)[4])
+    except HTTPException:
+        raise
     risky_components = risky_update_components(status, target)
     if not risky_components:
         return

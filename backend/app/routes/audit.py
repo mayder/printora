@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from fastapi import Depends
 
+from app.agent_executor import AgentCommandExecutor
+from app.agent_moonraker import status_payload
 from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
 
@@ -11,13 +13,16 @@ router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
 @router.get("/api/audit/read-only")
 async def read_only_audit() -> dict[str, Any]:
     settings = get_settings()
-    moonraker_url = get_moonraker_url(settings)
-    client = get_moonraker_client(settings)
+    repository = get_printer_repository(settings)
+    printers = repository.list_printers()
+    if not printers:
+        raise HTTPException(status_code=404, detail="printer not found")
+    printer = printers[0]
     try:
-        printer_info, server_info, system_info, proc_stats = await _collect_status(client)
-        update_status = await client.update_status()
-    except httpx.HTTPError as exc:
-        return _build_unreachable_audit(moonraker_url, exc)
+        job = await AgentCommandExecutor(settings.database_path).run(printer, job_type="remote_moonraker_status")
+        printer_info, server_info, system_info, proc_stats, update_status = status_payload(job.result)
+    except HTTPException as exc:
+        return _build_unreachable_audit("agent", Exception(str(exc.detail)))
 
     audit = build_read_only_audit(
         printer_info=printer_info,
@@ -25,11 +30,11 @@ async def read_only_audit() -> dict[str, Any]:
         update_status=update_status,
         system_info=system_info,
         proc_stats=proc_stats,
-        source=moonraker_url,
+        source="agent",
     )
     return {
         "connected": True,
-        "moonraker_url": moonraker_url,
+        "moonraker_url": "agent",
         **audit,
     }
 
@@ -45,14 +50,14 @@ async def printer_read_only_audit(printer_id: int) -> dict[str, Any]:
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
 
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
     try:
-        printer_info, server_info, system_info, proc_stats = await _collect_status(client)
-        update_status = await client.update_status()
-    except httpx.HTTPError as exc:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_moonraker_status",
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        )
+        printer_info, server_info, system_info, proc_stats, update_status = status_payload(job.result)
+    except HTTPException as exc:
         latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
         if latest_snapshot is not None:
             payload = latest_snapshot.payload
@@ -68,14 +73,14 @@ async def printer_read_only_audit(printer_id: int) -> dict[str, Any]:
                 proc_stats=_dict(payload.get("proc_stats")),
                 data_state="last_snapshot",
                 source=f"snapshot:{latest_snapshot.id}",
-                error=str(exc),
+                error=str(exc.detail),
             )
             return {
                 "connected": False,
-                "moonraker_url": printer.moonraker_url,
+                "moonraker_url": "agent",
                 **audit,
             }
-        return _build_unreachable_audit(printer.moonraker_url, exc)
+        return _build_unreachable_audit("agent", Exception(str(exc.detail)))
 
     update_status = apply_update_alert_silences(
         update_status,
@@ -87,11 +92,11 @@ async def printer_read_only_audit(printer_id: int) -> dict[str, Any]:
         update_status=update_status,
         system_info=system_info,
         proc_stats=proc_stats,
-        source=printer.moonraker_url,
+        source="agent",
     )
     return {
         "connected": True,
-        "moonraker_url": printer.moonraker_url,
+        "moonraker_url": "agent",
         **audit,
     }
 

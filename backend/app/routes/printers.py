@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from fastapi import Depends
 
+from app.agent_executor import AgentCommandExecutor
+from app.agent_moonraker import status_payload
 from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
 
@@ -11,20 +13,28 @@ router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
 @router.get("/api/moonraker/status")
 async def moonraker_status() -> dict[str, Any]:
     settings = get_settings()
-    moonraker_url = get_moonraker_url(settings)
-    client = get_moonraker_client(settings)
+    repository = get_printer_repository(settings)
+    printers = repository.list_printers()
+    if not printers:
+        raise HTTPException(status_code=404, detail="printer not found")
+    printer = printers[0]
     try:
-        printer_info, server_info, system_info, proc_stats = await _collect_status(client)
-    except httpx.HTTPError as exc:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_moonraker_status",
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        )
+        printer_info, server_info, system_info, proc_stats, _update_status = status_payload(job.result)
+    except HTTPException as exc:
         return {
             "connected": False,
-            "moonraker_url": moonraker_url,
-            "error": str(exc),
+            "moonraker_url": "agent",
+            "error": str(exc.detail),
         }
 
     return {
         "connected": True,
-        "moonraker_url": moonraker_url,
+        "moonraker_url": "agent",
         "printer": printer_info,
         "server": server_info,
         "system": system_info,
@@ -122,24 +132,25 @@ async def printer_moonraker_status(printer_id: int) -> dict[str, Any]:
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
 
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
     try:
-        printer_info, server_info, system_info, proc_stats = await _collect_status(client)
-    except httpx.HTTPError as exc:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_moonraker_status",
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        )
+        printer_info, server_info, system_info, proc_stats, _update_status = status_payload(job.result)
+    except HTTPException as exc:
         return {
             "connected": False,
             "printer_id": printer.id,
-            "moonraker_url": printer.moonraker_url,
-            "error": str(exc),
+            "moonraker_url": "agent",
+            "error": str(exc.detail),
         }
 
     return {
         "connected": True,
         "printer_id": printer.id,
-        "moonraker_url": printer.moonraker_url,
+        "moonraker_url": "agent",
         "printer": printer_info,
         "server": server_info,
         "system": system_info,
@@ -158,18 +169,15 @@ async def printer_health(printer_id: int) -> dict[str, Any]:
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
 
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
     started_at = time.perf_counter()
     try:
-        collected_status, update_status = await asyncio.gather(
-            _collect_status(client),
-            client.update_status(),
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_moonraker_status",
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
         )
-        printer_info, server_info, system_info, proc_stats = collected_status
-    except httpx.HTTPError as exc:
+        printer_info, server_info, system_info, proc_stats, update_status = status_payload(job.result)
+    except HTTPException as exc:
         latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
         if latest_snapshot is not None:
             snapshots = snapshot_repository.list_snapshots_by_type(printer.id, "moonraker_status", limit=2)
@@ -192,13 +200,13 @@ async def printer_health(printer_id: int) -> dict[str, Any]:
                     latest_diff=latest_diff,
                     data_state="last_snapshot",
                     source=f"snapshot:{latest_snapshot.id}",
-                    error=str(exc),
+                    error=str(exc.detail),
                 ),
             }
         return {
             "printer_id": printer.id,
-            "moonraker_url": printer.moonraker_url,
-            **build_unreachable_health(printer.moonraker_url, str(exc)),
+            "moonraker_url": "agent",
+            **build_unreachable_health("agent", str(exc.detail)),
         }
     api_latency_ms = (time.perf_counter() - started_at) * 1000
 
@@ -211,7 +219,7 @@ async def printer_health(printer_id: int) -> dict[str, Any]:
 
     return {
         "printer_id": printer.id,
-        "moonraker_url": printer.moonraker_url,
+        "moonraker_url": "agent",
         **build_printer_health(
             printer_info=printer_info,
             server_info=server_info,
@@ -220,7 +228,7 @@ async def printer_health(printer_id: int) -> dict[str, Any]:
             proc_stats=proc_stats,
             snapshots=snapshots,
             latest_diff=latest_diff,
-            source=printer.moonraker_url,
+            source="agent",
             api_latency_ms=api_latency_ms,
         ),
     }
@@ -265,13 +273,14 @@ async def printer_update_status(printer_id: int) -> UpdateStatusResponse:
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
 
-    client = MoonrakerClient(
-        base_url=printer.moonraker_url,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
     try:
-        update_status = await client.update_status()
-    except httpx.HTTPError as exc:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_update_status",
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        )
+        update_status = status_payload(job.result)[4]
+    except HTTPException:
         return build_update_status({})
     update_status = apply_update_alert_silences(
         update_status,

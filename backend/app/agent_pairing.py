@@ -18,7 +18,7 @@ AGENT_JOB_TTL = timedelta(minutes=2)
 AGENT_JOB_IN_PROGRESS_TIMEOUT = timedelta(minutes=5)
 AGENT_PROTOCOL_VERSION = 1
 AGENT_MAX_PAYLOAD_BYTES = 64 * 1024
-EXPECTED_AGENT_VERSION = "0.1.6"
+EXPECTED_AGENT_VERSION = "0.1.7"
 AgentStatus = Literal["active", "revoked", "removed"]
 AgentJobStatus = Literal["pending", "in_progress", "succeeded", "failed", "canceled"]
 AgentMessageType = Literal["hello", "heartbeat", "snapshot", "job", "ack", "nack", "result", "error", "backpressure"]
@@ -636,6 +636,33 @@ class AgentPairingRepository:
             self._record_event(connection, printer.id, request.agent_id, "job_created", "pending", request.job_type)
             row = connection.execute("SELECT * FROM agent_jobs WHERE id = ?", (int(cursor.lastrowid),)).fetchone()
         return _job_from_row(row)
+
+    def get_job(self, printer_id: int, job_id: int) -> AgentJobRecord | None:
+        with connect_database(self.database_path) as connection:
+            self._expire_jobs(connection, printer_id)
+            row = connection.execute(
+                "SELECT * FROM agent_jobs WHERE id = ? AND printer_id = ?",
+                (job_id, printer_id),
+            ).fetchone()
+        return _job_from_row(row) if row else None
+
+    def latest_active_agent(self, printer_id: int, *, max_age_seconds: int = 120) -> AgentRecord | None:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT *
+                FROM printer_agents
+                WHERE printer_id = ?
+                  AND status = 'active'
+                  AND revoked_at IS NULL
+                  AND last_seen_at IS NOT NULL
+                  AND last_seen_at >= datetime('now', ?)
+                ORDER BY last_seen_at DESC, paired_at DESC, id DESC
+                LIMIT 1
+                """,
+                (printer_id, f"-{max(1, int(max_age_seconds))} seconds"),
+            ).fetchone()
+        return _agent_from_row(row) if row else None
 
     def next_jobs(self, agent: AgentRecord, limit: int = 5) -> AgentJobResponse:
         clean_limit = max(1, min(limit, 20))
