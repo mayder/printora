@@ -98,6 +98,17 @@ class AgentSupportRepository:
             ),
         )
 
+    def create_agent_update_job(self, printer: PrinterRecord, agent_id: int) -> AgentJobRecord:
+        return AgentPairingRepository(self.database_path).create_job(
+            printer,
+            AgentJobCreateRequest(
+                agent_id=agent_id,
+                job_type="remote_agent_update_check",
+                correlation_id=f"remote_agent_update_{uuid4().hex}",
+                payload={"safe_mode": "agent_self_update", "requested_at": _now_text()},
+            ),
+        )
+
     def support_bundle(self, printer: PrinterRecord) -> AgentSupportBundle:
         overview = self.overview(printer)
         return AgentSupportBundle(

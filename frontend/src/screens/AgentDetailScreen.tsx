@@ -12,13 +12,16 @@ type AgentDetailScreenProps = ScreenPropsFor<
   | "KeyRound"
   | "Printer"
   | "Radio"
+  | "RefreshCw"
   | "Server"
   | "ShieldAlert"
   | "Trash2"
   | "agentInstallStatus"
   | "agentSupport"
   | "agentSupportBundle"
+  | "agentUpdateManifest"
   | "createAgentDoctorJob"
+  | "createAgentUpdateJob"
   | "fleetPairingOverviews"
   | "loadAgentSupport"
   | "loadAgentSupportBundle"
@@ -53,12 +56,16 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
     KeyRound,
     Printer,
     Radio,
+    RefreshCw,
     Server,
     ShieldAlert,
     Trash2,
+    agentInstallStatus,
     agentSupport,
     agentSupportBundle,
+    agentUpdateManifest,
     createAgentDoctorJob,
+    createAgentUpdateJob,
     fleetPairingOverviews,
     loadAgentSupport,
     loadAgentSupportBundle,
@@ -78,6 +85,8 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
   const rows = buildAgentRows(printers, fleetPairingOverviews);
   const row = rows.find((candidate) => candidate.agent.id === selectedAgentId) ?? rows.find((candidate) => candidate.printer.id === selectedPrinterId) ?? rows[0] ?? null;
   const health = agentSupport?.agents.find((item) => item.agent.id === row?.agent.id) ?? null;
+  const expectedAgentVersion = agentUpdateManifest?.recommended_version ?? health?.expected_version ?? agentInstallStatus?.expected_agent_version ?? "-";
+  const outdated = row ? expectedAgentVersion !== "-" && row.agent.agent_version !== expectedAgentVersion : false;
 
   if (!row) {
     return (
@@ -117,14 +126,25 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
               <Radio size={15} />
               Atualizar
             </button>
+            <button type="button" className="primary-button" onClick={() => void createAgentUpdateJob(row.agent.id, row.printer.id)} disabled={loading || row.agent.status !== "active"}>
+              <RefreshCw size={15} />
+              Atualizar agente
+            </button>
           </div>
         </div>
         <div className="overview-strip">
           <Badge icon={Server} label="Status" value={row.agent.status} />
-          <Badge icon={Gauge} label="Versão" value={row.agent.agent_version ?? "-"} />
+          <Badge icon={Gauge} label="Versão instalada" value={row.agent.agent_version ?? "-"} />
+          <Badge icon={RefreshCw} label="Versão esperada" value={expectedAgentVersion} />
           <Badge icon={Radio} label="Último contato" value={row.agent.last_seen_at ?? "-"} />
           <Badge icon={KeyRound} label="Credencial" value={row.agent.credential_prefix} />
         </div>
+        {outdated ? (
+          <div className="auth-step">
+            <AlertTriangle size={16} />
+            <span>Agente em {row.agent.agent_version || "-"}; esperado {expectedAgentVersion}. Use Atualizar agente para criar um job remoto de update.</span>
+          </div>
+        ) : null}
         <div className="printer-card-grid">
           <Metric label="Impressora vinculada" value={row.printer.name} />
           <Metric label="Organização" value={row.printer.organization_id ? `org #${row.printer.organization_id}` : "individual"} />
@@ -158,11 +178,11 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
             <p className="muted">Diagnóstico do agente sem expor token, segredo ou payload sensível.</p>
           </div>
           <div className="printer-card-actions">
-            <button type="button" className="secondary-button" onClick={() => void createAgentDoctorJob()} disabled={loading || row.agent.status !== "active"}>
+            <button type="button" className="secondary-button" onClick={() => void createAgentDoctorJob(row.printer.id)} disabled={loading || row.agent.status !== "active"}>
               <ClipboardCheck size={15} />
               Doctor remoto
             </button>
-            <button type="button" className="primary-button" onClick={() => void loadAgentSupportBundle()} disabled={loading}>
+            <button type="button" className="primary-button" onClick={() => void loadAgentSupportBundle(row.printer.id)} disabled={loading}>
               <FileText size={16} />
               Pacote
             </button>
@@ -186,7 +206,7 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
             <div className="printer-card-grid">
               <Metric label="Heartbeat" value={health.heartbeat_age_seconds == null ? "-" : `${health.heartbeat_age_seconds}s`} />
               <Metric label="Protocolo" value={health.protocol_compatible ? "compatível" : `v${health.protocol_version ?? "-"}`} />
-              <Metric label="Versão esperada" value={health.expected_version} />
+              <Metric label="Versão esperada" value={expectedAgentVersion} />
               <Metric label="Último job" value={health.latest_job?.job_type ?? "-"} />
             </div>
           </div>

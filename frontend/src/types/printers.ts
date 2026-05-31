@@ -225,3 +225,23 @@ export type AgentSupportBundle = {
   recent_jobs: AgentJobRecord[];
   support_notes: string[];
 };
+
+export type AgentUpdateManifest = {
+  manifest_version: number;
+  minimum_version: string;
+  recommended_version: string;
+  blocked_versions: string[];
+  protocol_version: number;
+  protocol_min: number;
+  protocol_max: number;
+  auto_update: boolean;
+  releases: Array<{
+    platform: string;
+    version: string;
+    url: string;
+    sha256: string;
+    signature?: string | null;
+    protocol_min: number;
+    protocol_max: number;
+  }>;
+};

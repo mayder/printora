@@ -11,6 +11,7 @@ import type {
   AgentPairingOverview,
   AgentSupportBundle,
   AgentSupportOverview,
+  AgentUpdateManifest,
   MoonrakerStatus,
   PairingTokenResponse,
   PrinterConnectionTestResponse,
@@ -74,6 +75,7 @@ export function usePrinters(options: UsePrintersOptions) {
   const [remoteOperationConfirmation, setRemoteOperationConfirmation] = React.useState("");
   const [agentSupport, setAgentSupport] = React.useState<AgentSupportOverview | null>(null);
   const [agentSupportBundle, setAgentSupportBundle] = React.useState<AgentSupportBundle | null>(null);
+  const [agentUpdateManifest, setAgentUpdateManifest] = React.useState<AgentUpdateManifest | null>(null);
 
   const selectedPrinter = printers.find((printer) => printer.id === selectedPrinterId);
 
@@ -289,6 +291,14 @@ export function usePrinters(options: UsePrintersOptions) {
     }
   }
 
+  async function loadAgentUpdateManifest() {
+    const response = await printerApi.agentUpdateManifest();
+    if (!response.ok) {
+      return;
+    }
+    setAgentUpdateManifest((await response.json()) as AgentUpdateManifest);
+  }
+
   async function loadAgentInstallStatus(printerId = selectedPrinterId) {
     if (!printerId) {
       setAgentInstallStatus(null);
@@ -313,19 +323,19 @@ export function usePrinters(options: UsePrintersOptions) {
     setAgentSupport((await response.json()) as AgentSupportOverview);
   }
 
-  async function createAgentDoctorJob() {
-    if (!selectedPrinterId) {
+  async function createAgentDoctorJob(printerId = selectedPrinterId) {
+    if (!printerId) {
       setError("Selecione uma impressora");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const response = await printerApi.createAgentDoctorJob(selectedPrinterId);
+      const response = await printerApi.createAgentDoctorJob(printerId);
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      await loadAgentSupport(selectedPrinterId);
+      await loadAgentSupport(printerId);
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
@@ -333,19 +343,40 @@ export function usePrinters(options: UsePrintersOptions) {
     }
   }
 
-  async function loadAgentSupportBundle() {
-    if (!selectedPrinterId) {
+  async function loadAgentSupportBundle(printerId = selectedPrinterId) {
+    if (!printerId) {
       setError("Selecione uma impressora");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const response = await printerApi.agentSupportBundle(selectedPrinterId);
+      const response = await printerApi.agentSupportBundle(printerId);
       if (!response.ok) {
         throw new Error(await response.text());
       }
       setAgentSupportBundle((await response.json()) as AgentSupportBundle);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createAgentUpdateJob(agentId: number, printerId = selectedPrinterId) {
+    if (!printerId) {
+      setError("Selecione uma impressora");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await printerApi.createAgentUpdateJob(printerId, agentId);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadAgentSupport(printerId);
+      await loadFleetAgentPairings();
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
@@ -582,11 +613,13 @@ export function usePrinters(options: UsePrintersOptions) {
     agentInstallStatus,
     agentSupport,
     agentSupportBundle,
+    agentUpdateManifest,
     cancelRemoteOperationJob,
     createPrinter,
     createAgentInstallPlan,
     createPairingToken,
     createAgentDoctorJob,
+    createAgentUpdateJob,
     createRemoteOperationPreflight,
     createdPairingToken,
     discoverPrinters,
@@ -600,6 +633,7 @@ export function usePrinters(options: UsePrintersOptions) {
     loadAgentInstallStatus,
     loadAgentSupport,
     loadAgentSupportBundle,
+    loadAgentUpdateManifest,
     loadRemoteOperations,
     loadSelectedPrinterStatus,
     newPrinterName,

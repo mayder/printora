@@ -139,7 +139,7 @@
 .agent-fleet-header,
 .agent-fleet-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1.1fr) minmax(150px, 0.8fr) 110px minmax(150px, 0.9fr) minmax(160px, 0.7fr);
+  grid-template-columns: minmax(180px, 1.1fr) minmax(130px, 0.7fr) 110px minmax(100px, 0.6fr) minmax(145px, 0.8fr) minmax(230px, 1fr);
   gap: 12px;
   align-items: center;
   min-width: 0;

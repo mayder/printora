@@ -814,6 +814,7 @@ Critérios:
 - Validar manifesto público `GET /api/agent/update/manifest` com versão mínima, recomendada, bloqueios e faixa de protocolo.
 - Validar que relatório `POST /api/agent/update/reports` exige credencial operacional do agente.
 - Validar que histórico `GET /api/printers/{printer_id}/agent/update-history` respeita ownership/organização.
+- Validar que `POST /api/printers/{printer_id}/agents/{agent_id}/update-check` cria job direcionado e respeita ownership/organização.
 - Validar que agente ignora release sem plataforma compatível ou sem versão superior.
 - Validar que versão bloqueada pelo servidor impede aplicação.
 - Validar que protocolo incompatível impede aplicação.

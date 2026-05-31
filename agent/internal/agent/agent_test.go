@@ -190,6 +190,81 @@ func TestReconnectBackoffIsCapped(t *testing.T) {
 	}
 }
 
+func TestAgentHandlesRemoteSelfUpdateJob(t *testing.T) {
+	var sawReport bool
+	var sawResult bool
+	var jobServed bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/agent/jobs/next":
+			if jobServed {
+				_ = json.NewEncoder(w).Encode(AgentJobsResponse{ProtocolVersion: ProtocolVersion, Jobs: []AgentJob{}})
+				return
+			}
+			jobServed = true
+			_ = json.NewEncoder(w).Encode(AgentJobsResponse{
+				ProtocolVersion: ProtocolVersion,
+				Jobs: []AgentJob{{
+					ID:            14,
+					CorrelationID: "remote-agent-update-001",
+					JobType:       "remote_agent_update_check",
+					Payload:       map[string]any{"safe_mode": "agent_self_update"},
+					Status:        "pending",
+				}},
+			})
+		case "/api/agent/jobs/14/ack":
+			w.WriteHeader(http.StatusOK)
+		case "/api/agent/update/manifest":
+			_ = json.NewEncoder(w).Encode(UpdateManifest{
+				ManifestVersion:    1,
+				RecommendedVersion: Version,
+				ProtocolMin:        ProtocolVersion,
+				ProtocolMax:        ProtocolVersion,
+				AutoUpdate:         true,
+				Releases: []UpdateRelease{{
+					Platform:    Platform(),
+					Version:     Version,
+					ProtocolMin: ProtocolVersion,
+					ProtocolMax: ProtocolVersion,
+				}},
+			})
+		case "/api/agent/update/reports":
+			sawReport = true
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":1,"printer_id":1,"agent_id":1,"event_type":"agent_update","status":"skipped","detail":"{}","created_at":"now"}`))
+		case "/api/agent/jobs/14/result":
+			sawResult = true
+			var payload AgentJobResultPayload
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatal(err)
+			}
+			if payload.CorrelationID != "remote-agent-update-001" || payload.Result["status"] != "skipped" {
+				t.Fatalf("unexpected update result: %#v", payload)
+			}
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	cfg := DefaultConfig()
+	cfg.APIBaseURL = server.URL
+	cfg.UpdateManifestURL = server.URL + "/api/agent/update/manifest"
+	cfg.QueueFile = filepath.Join(t.TempDir(), "queue.jsonl")
+	runner := &Runner{
+		Config:    cfg,
+		API:       NewAPIClient(server.URL, "ptr_agent_test", time.Second),
+		Moonraker: NewMoonrakerClient(server.URL, time.Second),
+		Logger:    discardLogger(),
+	}
+	if err := runner.PollJobsOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !sawReport || !sawResult {
+		t.Fatalf("expected update report and result, report=%v result=%v", sawReport, sawResult)
+	}
+}
+
 func TestAgentHandlesRemoteReadOnlyJobWithSanitization(t *testing.T) {
 	var sawResult bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

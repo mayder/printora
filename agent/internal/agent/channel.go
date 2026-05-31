@@ -244,6 +244,17 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 	case "remote_doctor":
 		payload := RemoteDoctor(ctx, r.Config, r.API, r.Moonraker)
 		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+	case "remote_agent_update_check":
+		result := r.CheckAgentUpdate(ctx)
+		r.RecordUpdateResult(ctx, result)
+		payload := map[string]any{
+			"safe_mode":       "agent_self_update",
+			"status":          result.Status,
+			"current_version": Version,
+			"target_version":  result.TargetVersion,
+			"detail":          result.Detail,
+		}
+		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: payload})
 	default:
 		_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: "unsupported job type", Result: map[string]any{"job_type": job.JobType}})
 	}

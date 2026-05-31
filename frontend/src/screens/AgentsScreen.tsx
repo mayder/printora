@@ -13,6 +13,7 @@ type AgentsScreenProps = ScreenPropsFor<
   | "KeyRound"
   | "Printer"
   | "Radio"
+  | "RefreshCw"
   | "Server"
   | "ShieldAlert"
   | "Trash2"
@@ -20,8 +21,10 @@ type AgentsScreenProps = ScreenPropsFor<
   | "agentInstallStatus"
   | "agentSupport"
   | "agentSupportBundle"
+  | "agentUpdateManifest"
   | "createAgentInstallPlan"
   | "createAgentDoctorJob"
+  | "createAgentUpdateJob"
   | "createPairingToken"
   | "createdPairingToken"
   | "fleetPairingOverviews"
@@ -67,6 +70,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
     KeyRound,
     Printer,
     Radio,
+    RefreshCw,
     Server,
     ShieldAlert,
     Trash2,
@@ -74,8 +78,10 @@ export function AgentsScreen(props: AgentsScreenProps) {
     agentInstallStatus,
     agentSupport,
     agentSupportBundle,
+    agentUpdateManifest,
     createAgentInstallPlan,
     createAgentDoctorJob,
+    createAgentUpdateJob,
     createPairingToken,
     createdPairingToken,
     fleetPairingOverviews,
@@ -171,6 +177,13 @@ export function AgentsScreen(props: AgentsScreenProps) {
     await loadFleetAgentPairings();
   }
 
+  async function updateAgent(row: AgentFleetRow) {
+    selectAgent(row);
+    await createAgentUpdateJob(row.agent.id, row.printer.id);
+  }
+
+  const expectedAgentVersion = agentUpdateManifest?.recommended_version ?? agentInstallStatus?.expected_agent_version ?? "-";
+
   return (
     <>
       <article className="panel wide panel-section panel-agents">
@@ -195,7 +208,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
           <Badge icon={Server} label="Impressoras" value={printers.length} />
           <Badge icon={Radio} label="Agentes" value={agentRows.length} />
           <Badge icon={CheckCircle2} label="Online" value={agentRows.filter((row) => row.printer.cloud_status === "online").length} />
-          <Badge icon={Gauge} label="Versão esperada" value={agentInstallStatus?.expected_agent_version ?? "-"} />
+          <Badge icon={Gauge} label="Versão esperada" value={expectedAgentVersion} />
         </div>
       </article>
 
@@ -216,6 +229,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
               <span>Agente</span>
               <span>Impressora</span>
               <span>Status</span>
+              <span>Versão</span>
               <span>Último contato</span>
               <span>Ações</span>
             </div>
@@ -225,6 +239,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
                 <strong>{row.agent.stable_id}</strong>
                 <span>{row.printer.name}</span>
                 <span className={`status-pill ${agentStatusTone(row)}`}>{agentStatusLabel(row)}</span>
+                <span>{agentVersionLabel(row.agent.agent_version, expectedAgentVersion)}</span>
                 <span>{row.agent.last_seen_at ?? "-"}</span>
                 <div className="printer-card-actions">
                   <button type="button" className="secondary-button" onClick={() => selectAgent(row)} disabled={loading}>
@@ -234,6 +249,10 @@ export function AgentsScreen(props: AgentsScreenProps) {
                   <button type="button" className="secondary-button" onClick={() => openAgentDetail(row.printer.id, row.agent.id)} disabled={loading}>
                     <Radio size={15} />
                     Detalhar
+                  </button>
+                  <button type="button" className="secondary-button" onClick={() => void updateAgent(row)} disabled={loading || row.agent.status !== "active"}>
+                    <RefreshCw size={15} />
+                    Atualizar
                   </button>
                   {row.agent.status === "revoked" ? (
                     <button type="button" className="secondary-button" onClick={() => void removeAgent(row)} disabled={loading}>
@@ -260,6 +279,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
                   <Metric label="Impressora" value={selectedAgentRow.printer.name} />
                   <Metric label="URL" value={selectedAgentRow.printer.moonraker_url} />
                   <Metric label="Versão" value={selectedAgentRow.agent.agent_version ?? "-"} />
+                  <Metric label="Versão esperada" value={expectedAgentVersion} />
                   <Metric label="Plataforma" value={selectedAgentRow.agent.platform ?? "-"} />
                   <Metric label="Pareado em" value={selectedAgentRow.agent.paired_at} />
                   <Metric label="Último contato" value={selectedAgentRow.agent.last_seen_at ?? "-"} />
@@ -274,6 +294,10 @@ export function AgentsScreen(props: AgentsScreenProps) {
                   <button type="button" className="primary-button" onClick={() => openAgentDetail(selectedAgentRow.printer.id, selectedAgentRow.agent.id)} disabled={loading}>
                     <Radio size={15} />
                     Abrir detalhe
+                  </button>
+                  <button type="button" className="secondary-button" onClick={() => void updateAgent(selectedAgentRow)} disabled={loading || selectedAgentRow.agent.status !== "active"}>
+                    <RefreshCw size={15} />
+                    Atualizar agente
                   </button>
                   <button type="button" className="secondary-button" onClick={() => void rotateAgent(selectedAgentRow)} disabled={loading || selectedAgentRow.agent.status === "revoked"}>
                     <KeyRound size={15} />
@@ -559,6 +583,14 @@ function agentStatusTone(row: AgentFleetRow) {
   if (row.printer.cloud_status === "online") return "up_to_date";
   if (row.printer.cloud_status === "offline" || row.printer.cloud_status === "degradado") return "warning";
   return "update_available";
+}
+
+function agentVersionLabel(version: string | null | undefined, expectedVersion: string) {
+  if (!version) return "-";
+  if (expectedVersion !== "-" && version !== expectedVersion) {
+    return `${version} -> ${expectedVersion}`;
+  }
+  return version;
 }
 
 async function copyTextToClipboard(text: string) {

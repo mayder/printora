@@ -97,6 +97,33 @@ def test_agent_support_doctor_and_bundle_are_sanitized(tmp_path: Path, monkeypat
         get_settings.cache_clear()
 
 
+def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner_token = _register(client, "owner-agent-update-job@example.com")
+            other_token = _register(client, "other-agent-update-job@example.com")
+            printer = _create_printer(client, owner_token)
+            _credential = _pair_agent(client, owner_token, printer["id"], "agent-update-job-001")
+
+            agents = client.get(f"/api/printers/{printer['id']}/pairing", headers=_auth(owner_token)).json()["agents"]
+            agent_id = agents[0]["id"]
+
+            blocked = client.post(f"/api/printers/{printer['id']}/agents/{agent_id}/update-check", headers=_auth(other_token))
+            assert blocked.status_code == 404
+
+            created = client.post(f"/api/printers/{printer['id']}/agents/{agent_id}/update-check", headers=_auth(owner_token))
+            assert created.status_code == 200
+            job = created.json()
+            assert job["job_type"] == "remote_agent_update_check"
+            assert job["agent_id"] == agent_id
+            assert job["payload"]["safe_mode"] == "agent_self_update"
+    finally:
+        get_settings.cache_clear()
+
+
 def test_removed_agent_is_not_reported_in_support(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     get_settings.cache_clear()

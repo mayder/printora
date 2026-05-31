@@ -355,6 +355,7 @@ export function usePrintoraApp() {
     }
     if (shell.activeSection === "agents" || (shell.activeSection === "printer-detail" && printerDetailTab === "agents") || shell.activeSection === "agent-detail") {
       void printers.loadFleetAgentPairings();
+      void printers.loadAgentUpdateManifest();
       if (printers.selectedPrinterId) {
         void printers.loadPrinterPairing(printers.selectedPrinterId);
         void printers.loadAgentSupport(printers.selectedPrinterId);

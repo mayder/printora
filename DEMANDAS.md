@@ -3026,13 +3026,14 @@ Implementado:
 - manifesto público `/api/agent/update/manifest` com versão mínima, recomendada, bloqueios e compatibilidade de protocolo;
 - endpoint autenticado `/api/agent/update/reports` para histórico cloud do update do agente;
 - histórico por impressora em `/api/printers/{printer_id}/agent/update-history`, isolado por usuário/organização;
+- ação remota `POST /api/printers/{printer_id}/agents/{agent_id}/update-check` criando job direcionado para o agente verificar/aplicar update;
 - agente Go consultando manifesto, bloqueando versão/protocolo incompatível e detectando release por plataforma;
 - download para staging com SHA-256 obrigatório;
 - backup do binário e config antes da troca;
 - aplicação controlada trocando somente o binário do agente;
 - health command opcional, rollback automático quando health/restart falha e restart apenas do serviço `printora-agent` quando habilitado;
 - estado local do update em JSON e relatório sanitizado ao backend;
-- testes de manifesto, relatório/histórico, hash inválido, versão bloqueada, sucesso e rollback.
+- testes de manifesto, relatório/histórico, job remoto de update, hash inválido, versão bloqueada, sucesso e rollback.
 
 ## PKG-46: Paridade Funcional Remota
 

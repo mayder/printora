@@ -537,6 +537,7 @@ Rollback PKG-44:
 Fluxos cloud:
 
 - manifesto público: `GET /api/agent/update/manifest`;
+- solicitar update remoto: `POST /api/printers/{printer_id}/agents/{agent_id}/update-check`;
 - relatório do agente: `POST /api/agent/update/reports` com `Authorization: Bearer <credencial>`;
 - histórico por impressora: `GET /api/printers/{printer_id}/agent/update-history`.
 
@@ -560,6 +561,13 @@ Execução manual:
 ```bash
 sudo printora-agent -config /etc/printora-agent/config.json update-check
 ```
+
+Execução pela UI:
+
+- abrir `Agentes`, conferir `Versão instalada` e `Versão esperada`;
+- clicar `Atualizar` na linha ou `Atualizar agente` no detalhe;
+- o servidor cria um job `remote_agent_update_check` para aquele agente;
+- o agente baixa o binário indicado no manifesto, valida SHA-256, troca somente `/usr/local/bin/printora-agent` e reinicia apenas `printora-agent` quando `allow_service_restart=true`.
 
 Segurança:
 
