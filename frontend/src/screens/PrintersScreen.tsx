@@ -79,14 +79,9 @@ export function PrintersScreen(props: PrintersScreenProps) {
                 <strong>{printer.name}</strong>
                 <span>{printer.cloud_model || "Modelo não informado"} · {printer.location || "sem localização"}</span>
               </div>
-              <span className={printer.cloud_status === "online" ? "status-pill active" : "status-pill"}>
-                {formatCloudPrinterStatus(printer.cloud_status)}
-              </span>
             </div>
             <div className="printer-card-grid">
               <Metric label="Organização" value={printer.organization_id ? `org #${printer.organization_id}` : "individual"} />
-              <Metric label="Agentes" value={printer.active_agent_count ?? 0} />
-              <Metric label="Último contato" value={printer.latest_agent_last_seen_at ?? "-"} />
               <Metric label="Último snapshot" value={printer.latest_snapshot_at ?? "-"} />
               <Metric label="Host audit" value={printer.host_audit_mode} />
               <Metric label="SSH" value={formatSshStatus(printer)} />
@@ -124,16 +119,4 @@ export function PrintersScreen(props: PrintersScreenProps) {
       </div>
     </article>
   );
-}
-
-function formatCloudPrinterStatus(status: string) {
-  const labels: Record<string, string> = {
-    sem_agente: "sem agente",
-    aguardando_pareamento: "aguardando pareamento",
-    online: "online",
-    offline: "offline",
-    degradado: "degradado",
-    revogado: "revogado",
-  };
-  return labels[status] ?? status;
 }

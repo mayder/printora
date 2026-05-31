@@ -43,7 +43,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Tela | Secao | Entrada | Arquivo | Objetivo | Dependencia de impressora | Status |
 |---|---|---|---|---|---|---|
 | Visao geral | `overview` | `/`, `/?section=overview`, `/#overview` | `frontend/src/screens/OverviewScreen.tsx` | Dashboard geral da frota e da impressora selecionada, com risco principal, horas acumuladas e atalhos seguros | Opcional | existente |
-| Impressoras | `printers` | `/?section=printers`, `/#printers` | `frontend/src/screens/PrintersScreen.tsx` | Cadastro cloud, descoberta, teste de conexao, status do agente e selecao da impressora ativa | Nao exige impressora ativa | existente |
+| Impressoras | `printers` | `/?section=printers`, `/#printers` | `frontend/src/screens/PrintersScreen.tsx` | Lista e cadastro das impressoras gerenciadas, descoberta, teste de conexao e selecao da impressora ativa | Nao exige impressora ativa | existente |
+| Agentes | `agents` | `/?section=agents`, `/#agents` | `frontend/src/screens/AgentsScreen.tsx` | Instalação, pareamento, tokens, comandos prontos, agentes vinculados e saúde/suporte do agente da impressora ativa | Exige impressora ativa para operar | existente |
 | Setup | `setup` | `/?section=setup`, `/#setup` | `frontend/src/screens/SetupScreen.tsx` | Receita guiada para preparar a Pi, habilitar SSH, validar ambiente, configurar CAN/U2C, gerar firmware, executar flash supervisionado, validar base Klipper e cadastrar a impressora | Nao exige impressora ativa | existente |
 | Operacao | `monitoring` | `/?section=monitoring`, `/#monitoring`; legado `/?section=operation` redireciona para esta tela | `frontend/src/screens/MonitoringScreen.tsx` + `frontend/src/MonitoringDashboard.tsx` | Operacao ao vivo com temperaturas, toolhead, extrusor, progresso, sistema, fans, CAN e acoes protegidas | Exige impressora ativa online | existente |
 | Atualizacoes | `updates` | `/?section=updates`, `/#updates` | `frontend/src/screens/UpdatesScreen.tsx` | Update Manager da impressora, checklist pos-update, update com confirmacao, progresso e historico | Exige impressora ativa online | existente |
@@ -123,14 +124,13 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Conta, organização não é obrigatória para uso individual; quando existir, a UI permite criar organização e vincular usuários com papel `admin` ou `operator`.
 - Na tela Conta, o setup de 2FA deve exibir segredo/URI, validar código antes de ativar e exigir código atual para desativar quando 2FA estiver ativo.
 - Na tela Conta, autenticação reforçada gera autorização curta para ações críticas; usuários com 2FA usam código, usuários sem 2FA usam senha.
-- Na tela Conta, credencial de agente completa aparece somente no momento de criação; depois a UI mostra apenas prefixo, identificação e status.
 - Na tela Impressoras, o cadastro/edição da impressora separa metadados cloud, conexão Moonraker e SSH. Metadados incluem modelo, localização, tags, observações e organização opcional.
-- Na tela Impressoras, a lista mostra status cloud derivado do agente, último contato, último snapshot, quantidade de agentes ativos, organização e tags.
-- Na tela Impressoras, o bloco de pareamento do agente permite gerar token curto para a impressora selecionada, copiar o token uma única vez, listar tokens por prefixo/status, revogar tokens ativos, listar agentes pareados, revogar agente e rotacionar credencial.
-- Na tela Impressoras, o bloco de instalação assistida do agente gera comando de preflight, comando de instalação com token curto, comando de uninstall e mostra validação pós-instalação por agente ativo, versão e heartbeat.
-- Na tela Impressoras, o bloco de operação remota segura mostra ações mutáveis permitidas por criticidade, risco e rollback, cria preflight remoto, exige confirmação textual exata, cria execução remota somente após preflight aprovado e permite cancelar jobs pendentes.
-- Na tela Impressoras, o bloco de saúde e suporte do agente mostra estado online/offline, versão, protocolo, fila, falhas, alertas, doctor remoto e pacote de suporte sanitizado.
-- Na tela Impressoras, credencial operacional completa aparece somente no momento de troca/rotação; depois a UI mostra apenas prefixo, status, plataforma e último contato.
+- Na tela Impressoras, a lista mostra somente dados da impressora gerenciada: nome, organização, modelo, localização, tags, observações, conexão Moonraker/SSH e último snapshot; status, token, instalação, pareamento e saúde de agente ficam fora desta tela.
+- Na tela Agentes, o pareamento permite gerar token curto para a impressora selecionada, copiar o token uma única vez, listar tokens por prefixo/status, revogar tokens ativos, listar agentes pareados, revogar agente e rotacionar credencial.
+- Na tela Agentes, a instalação assistida gera comando de preflight, comando de instalação com token curto, comando de uninstall e mostra validação pós-instalação por agente ativo, versão e heartbeat.
+- Na tela Agentes, a operação remota segura mostra ações mutáveis permitidas por criticidade, risco e rollback, cria preflight remoto, exige confirmação textual exata, cria execução remota somente após preflight aprovado e permite cancelar jobs pendentes.
+- Na tela Agentes, saúde e suporte mostram estado online/offline, versão, protocolo, fila, falhas, alertas, doctor remoto e pacote de suporte sanitizado.
+- Na tela Agentes, credencial operacional completa aparece somente no momento de troca/rotação; depois a UI mostra apenas prefixo, status, plataforma e último contato.
 - A tela Setup deve ficar disponivel sem impressora ativa, pois seu objetivo e preparar uma Pi antes do cadastro final da impressora.
 - Na tela Setup, o primeiro bloco deve deixar claro que placa virgem sem SO/rede/SSH nao pode ser acessada por SSH; a preparacao de mídia/boot e etapa manual ou futura.
 - Na tela Setup, o topo deve exibir uma receita sequencial para usuario leigo, com progresso, etapas manuais marcaveis, passos bloqueados/prontos/feitos e abertura de cada etapa em modal.
