@@ -216,6 +216,76 @@ def test_printers_are_isolated_by_owner_and_shared_by_organization(tmp_path: Pat
     assert guest_scoped.get_printer(created.id) is not None
 
 
+def test_cloud_printer_metadata_status_and_detail_are_scoped(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner_token = client.post(
+                "/api/auth/register",
+                json={"email": "owner@example.com", "password": "correct-horse"},
+            ).json()["access_token"]
+            guest_token = client.post(
+                "/api/auth/register",
+                json={"email": "guest@example.com", "password": "correct-horse"},
+            ).json()["access_token"]
+            organization = client.post(
+                "/api/auth/organizations",
+                json={"name": "Mayder Lab"},
+                headers={"Authorization": f"Bearer {owner_token}"},
+            ).json()
+            created = client.post(
+                "/api/printers",
+                json={
+                    "name": "Voron Cloud",
+                    "moonraker_url": "http://voron.local:7125",
+                    "host_audit_mode": "disabled",
+                    "cloud_model": "Voron 2.4 R2",
+                    "cloud_tags": ["ABS", "corexy", "abs"],
+                    "location": "Bancada 1",
+                    "notes": "Teste local",
+                    "organization_id": organization["id"],
+                },
+                headers={"Authorization": f"Bearer {owner_token}"},
+            )
+            assert created.status_code == 200
+            printer_id = created.json()["id"]
+
+            blocked = client.get(f"/api/printers/{printer_id}", headers={"Authorization": f"Bearer {guest_token}"})
+            assert blocked.status_code == 404
+
+            client.post(
+                f"/api/printers/{printer_id}/pairing/tokens",
+                json={"ttl_minutes": 15},
+                headers={"Authorization": f"Bearer {owner_token}"},
+            )
+            waiting = client.get(f"/api/printers/{printer_id}", headers={"Authorization": f"Bearer {owner_token}"}).json()
+            assert waiting["cloud_status"] == "aguardando_pareamento"
+            assert waiting["cloud_tags"] == ["abs", "corexy"]
+
+            with connect_database(tmp_path / "printora.db") as connection:
+                connection.execute(
+                    """
+                    INSERT INTO printer_agents (
+                        printer_id, organization_id, owner_user_id, stable_id, credential_hash,
+                        credential_prefix, agent_version, platform, capabilities_json, last_seen_at
+                    )
+                    VALUES (?, ?, ?, 'agent-cloud', 'hash-cloud', 'ptr_agent_test', '0.1.0', 'linux-arm64', '{}', CURRENT_TIMESTAMP)
+                    """,
+                    (printer_id, organization["id"], 1),
+                )
+            online = client.get(f"/api/printers/{printer_id}", headers={"Authorization": f"Bearer {owner_token}"}).json()
+            listed = client.get("/api/printers", headers={"Authorization": f"Bearer {owner_token}"}).json()
+
+            assert online["cloud_status"] == "online"
+            assert online["active_agent_count"] == 1
+            assert online["cloud_model"] == "Voron 2.4 R2"
+            assert listed["printers"][0]["latest_agent_last_seen_at"] is not None
+    finally:
+        get_settings.cache_clear()
+
+
 def test_cloud_api_does_not_fall_back_to_global_printer_for_other_user(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     get_settings.cache_clear()

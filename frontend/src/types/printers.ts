@@ -54,8 +54,17 @@ export type PrinterRecord = {
   ssh_port?: number | null;
   ssh_username?: string | null;
   ssh_credential_configured: boolean;
+  cloud_model?: string | null;
+  cloud_tags: string[];
+  cloud_status: "sem_agente" | "aguardando_pareamento" | "online" | "offline" | "degradado" | "revogado";
+  active_agent_count: number;
+  latest_agent_version?: string | null;
+  latest_agent_last_seen_at?: string | null;
+  latest_snapshot_at?: string | null;
   location?: string | null;
   notes?: string | null;
+  owner_user_id?: number | null;
+  organization_id?: number | null;
   is_active: boolean;
 };
 

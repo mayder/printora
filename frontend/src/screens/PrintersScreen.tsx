@@ -150,18 +150,30 @@ export function PrintersScreen(props: PrintersScreenProps) {
                 <div className="printer-card-header">
                   <div>
                     <strong>{printer.name}</strong>
-                    <span>{printer.moonraker_url}</span>
+                    <span>{printer.cloud_model || "Modelo não informado"} · {printer.location || "sem localização"}</span>
                   </div>
-                  <span className={printer.id === selectedPrinterId ? "status-pill active" : "status-pill"}>
-                    {printer.id === selectedPrinterId ? "ativa" : "cadastrada"}
+                  <span className={printer.cloud_status === "online" ? "status-pill active" : "status-pill"}>
+                    {formatCloudPrinterStatus(printer.cloud_status)}
                   </span>
                 </div>
                 <div className="printer-card-grid">
+                  <Metric label="Organização" value={printer.organization_id ? `org #${printer.organization_id}` : "individual"} />
+                  <Metric label="Agentes" value={printer.active_agent_count ?? 0} />
+                  <Metric label="Último contato" value={printer.latest_agent_last_seen_at ?? "-"} />
+                  <Metric label="Último snapshot" value={printer.latest_snapshot_at ?? "-"} />
                   <Metric label="Host audit" value={printer.host_audit_mode} />
                   <Metric label="SSH" value={formatSshStatus(printer)} />
                   <Metric label="Klipper" value={printer.id === selectedPrinterId ? health?.metrics.klipper_state ? String(health.metrics.klipper_state) : "-" : "-"} />
                   <Metric label="Moonraker" value={printer.id === selectedPrinterId ? health?.metrics.moonraker_version ? String(health.metrics.moonraker_version) : "-" : "-"} />
                 </div>
+                {printer.cloud_tags?.length ? (
+                  <div className="auth-list">
+                    {printer.cloud_tags.map((tag: string) => (
+                      <span key={tag}>{tag}</span>
+                    ))}
+                  </div>
+                ) : null}
+                {printer.notes ? <p className="muted">{printer.notes}</p> : null}
                 <div className="printer-card-actions">
                   <button type="button" className="secondary-button" onClick={() => openEditPrinterModal(printer)} disabled={loading}>
                     <Settings size={15} />
@@ -496,4 +508,16 @@ export function PrintersScreen(props: PrintersScreenProps) {
 
     </>
   );
+}
+
+function formatCloudPrinterStatus(status: string) {
+  const labels: Record<string, string> = {
+    sem_agente: "sem agente",
+    aguardando_pareamento: "aguardando pareamento",
+    online: "online",
+    offline: "offline",
+    degradado: "degradado",
+    revogado: "revogado",
+  };
+  return labels[status] ?? status;
 }

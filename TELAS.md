@@ -43,7 +43,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Tela | Secao | Entrada | Arquivo | Objetivo | Dependencia de impressora | Status |
 |---|---|---|---|---|---|---|
 | Visao geral | `overview` | `/`, `/?section=overview`, `/#overview` | `frontend/src/screens/OverviewScreen.tsx` | Dashboard geral da frota e da impressora selecionada, com risco principal, horas acumuladas e atalhos seguros | Opcional | existente |
-| Impressoras | `printers` | `/?section=printers`, `/#printers` | `frontend/src/screens/PrintersScreen.tsx` | Cadastro, descoberta, teste de conexao e selecao da impressora ativa | Nao exige impressora ativa | existente |
+| Impressoras | `printers` | `/?section=printers`, `/#printers` | `frontend/src/screens/PrintersScreen.tsx` | Cadastro cloud, descoberta, teste de conexao, status do agente e selecao da impressora ativa | Nao exige impressora ativa | existente |
 | Setup | `setup` | `/?section=setup`, `/#setup` | `frontend/src/screens/SetupScreen.tsx` | Receita guiada para preparar a Pi, habilitar SSH, validar ambiente, configurar CAN/U2C, gerar firmware, executar flash supervisionado, validar base Klipper e cadastrar a impressora | Nao exige impressora ativa | existente |
 | Operacao | `monitoring` | `/?section=monitoring`, `/#monitoring`; legado `/?section=operation` redireciona para esta tela | `frontend/src/screens/MonitoringScreen.tsx` + `frontend/src/MonitoringDashboard.tsx` | Operacao ao vivo com temperaturas, toolhead, extrusor, progresso, sistema, fans, CAN e acoes protegidas | Exige impressora ativa online | existente |
 | Atualizacoes | `updates` | `/?section=updates`, `/#updates` | `frontend/src/screens/UpdatesScreen.tsx` | Update Manager da impressora, checklist pos-update, update com confirmacao, progresso e historico | Exige impressora ativa online | existente |
@@ -120,6 +120,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Conta, o setup de 2FA deve exibir segredo/URI, validar código antes de ativar e exigir código atual para desativar quando 2FA estiver ativo.
 - Na tela Conta, autenticação reforçada gera autorização curta para ações críticas; usuários com 2FA usam código, usuários sem 2FA usam senha.
 - Na tela Conta, credencial de agente completa aparece somente no momento de criação; depois a UI mostra apenas prefixo, identificação e status.
+- Na tela Impressoras, o cadastro/edição da impressora separa metadados cloud, conexão Moonraker e SSH. Metadados incluem modelo, localização, tags, observações e organização opcional.
+- Na tela Impressoras, a lista mostra status cloud derivado do agente, último contato, último snapshot, quantidade de agentes ativos, organização e tags.
 - Na tela Impressoras, o bloco de pareamento do agente permite gerar token curto para a impressora selecionada, copiar o token uma única vez, listar tokens por prefixo/status, revogar tokens ativos, listar agentes pareados, revogar agente e rotacionar credencial.
 - Na tela Impressoras, o bloco de instalação assistida do agente gera comando de preflight, comando de instalação com token curto, comando de uninstall e mostra validação pós-instalação por agente ativo, versão e heartbeat.
 - Na tela Impressoras, o bloco de operação remota segura mostra ações mutáveis permitidas por criticidade, risco e rollback, cria preflight remoto, exige confirmação textual exata, cria execução remota somente após preflight aprovado e permite cancelar jobs pendentes.

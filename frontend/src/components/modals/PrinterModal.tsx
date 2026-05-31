@@ -2,6 +2,7 @@ import { ConnectionTestRow } from "../common";
 import type { ScreenPropsFor } from "../../screens/ScreenProps";
 
 export type PrinterModalProps = ScreenPropsFor<
+  | "authUser"
   | "Plus"
   | "Radio"
   | "Search"
@@ -13,6 +14,11 @@ export type PrinterModalProps = ScreenPropsFor<
   | "maintenanceDoneIntervalKind"
   | "maintenancePrintHoursAvailable"
   | "newPrinterName"
+  | "newPrinterCloudModel"
+  | "newPrinterCloudTags"
+  | "newPrinterLocation"
+  | "newPrinterNotes"
+  | "newPrinterOrganizationId"
   | "newPrinterSshCredential"
   | "newPrinterSshHost"
   | "newPrinterSshPort"
@@ -22,6 +28,11 @@ export type PrinterModalProps = ScreenPropsFor<
   | "printerModalMode"
   | "printerModalOpen"
   | "setNewPrinterName"
+  | "setNewPrinterCloudModel"
+  | "setNewPrinterCloudTags"
+  | "setNewPrinterLocation"
+  | "setNewPrinterNotes"
+  | "setNewPrinterOrganizationId"
   | "setNewPrinterSshCredential"
   | "setNewPrinterSshHost"
   | "setNewPrinterSshPort"
@@ -36,6 +47,7 @@ export type PrinterModalProps = ScreenPropsFor<
 
 export function PrinterModal(props: PrinterModalProps) {
   const {
+    authUser,
     Plus,
     Radio,
     Search,
@@ -47,6 +59,11 @@ export function PrinterModal(props: PrinterModalProps) {
     maintenanceDoneIntervalKind,
     maintenancePrintHoursAvailable,
     newPrinterName,
+    newPrinterCloudModel,
+    newPrinterCloudTags,
+    newPrinterLocation,
+    newPrinterNotes,
+    newPrinterOrganizationId,
     newPrinterSshCredential,
     newPrinterSshHost,
     newPrinterSshPort,
@@ -56,6 +73,11 @@ export function PrinterModal(props: PrinterModalProps) {
     printerModalMode,
     printerModalOpen,
     setNewPrinterName,
+    setNewPrinterCloudModel,
+    setNewPrinterCloudTags,
+    setNewPrinterLocation,
+    setNewPrinterNotes,
+    setNewPrinterOrganizationId,
     setNewPrinterSshCredential,
     setNewPrinterSshHost,
     setNewPrinterSshPort,
@@ -146,8 +168,8 @@ export function PrinterModal(props: PrinterModalProps) {
               <form className="printer-access-form" onSubmit={(event: any) => void createPrinter(event)}>
                 <section className="form-section">
                   <div className="form-section-heading">
-                    <strong>Conexão Moonraker</strong>
-                    <span>Usada para status, snapshots e leitura segura via HTTP.</span>
+                    <strong>Cadastro cloud</strong>
+                    <span>Identificação operacional e compartilhamento opcional por organização.</span>
                   </div>
                   <div className="form-grid two-columns">
                     <label className="form-field">
@@ -159,6 +181,66 @@ export function PrinterModal(props: PrinterModalProps) {
                         placeholder="Voron 2.4"
                       />
                     </label>
+                    <label className="form-field">
+                      <span>Modelo</span>
+                      <input
+                        aria-label="Modelo da impressora"
+                        value={newPrinterCloudModel}
+                        onChange={(event: any) => setNewPrinterCloudModel(event.target.value)}
+                        placeholder="Voron 2.4 R2"
+                      />
+                    </label>
+                    <label className="form-field">
+                      <span>Localização</span>
+                      <input
+                        aria-label="Localização da impressora"
+                        value={newPrinterLocation}
+                        onChange={(event: any) => setNewPrinterLocation(event.target.value)}
+                        placeholder="Laboratório / rack 1"
+                      />
+                    </label>
+                    <label className="form-field">
+                      <span>Organização</span>
+                      <select
+                        aria-label="Organização da impressora"
+                        value={newPrinterOrganizationId}
+                        onChange={(event: any) => setNewPrinterOrganizationId(event.target.value ? Number(event.target.value) : "")}
+                      >
+                        <option value="">Uso individual</option>
+                        {(authUser?.organizations ?? []).map((organization: any) => (
+                          <option key={organization.id} value={organization.id}>
+                            {organization.name} · {organization.role}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="form-field wide-field">
+                      <span>Tags</span>
+                      <input
+                        aria-label="Tags da impressora"
+                        value={newPrinterCloudTags}
+                        onChange={(event: any) => setNewPrinterCloudTags(event.target.value)}
+                        placeholder="produção, abs, corexy"
+                      />
+                    </label>
+                    <label className="form-field wide-field">
+                      <span>Observações</span>
+                      <textarea
+                        aria-label="Observações da impressora"
+                        value={newPrinterNotes}
+                        onChange={(event: any) => setNewPrinterNotes(event.target.value)}
+                        placeholder="Informações úteis para suporte e operação."
+                      />
+                    </label>
+                  </div>
+                </section>
+
+                <section className="form-section">
+                  <div className="form-section-heading">
+                    <strong>Conexão Moonraker</strong>
+                    <span>Usada para status, snapshots e leitura segura via HTTP.</span>
+                  </div>
+                  <div className="form-grid two-columns">
                     <label className="form-field">
                       <span>URL Moonraker</span>
                       <input

@@ -2,6 +2,7 @@ import { apiResponse } from "./http";
 
 export const printerApi = {
   list: () => apiResponse("/api/printers"),
+  detail: (printerId: number) => apiResponse(`/api/printers/${printerId}`),
   save: (printerId: number | null, body: unknown) =>
     apiResponse(printerId ? `/api/printers/${printerId}` : "/api/printers", {
       method: printerId ? "PUT" : "POST",

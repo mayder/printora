@@ -52,6 +52,11 @@ export function usePrinters(options: UsePrintersOptions) {
   const [editingPrinterId, setEditingPrinterId] = React.useState<number | null>(null);
   const [newPrinterName, setNewPrinterName] = React.useState("Voron - Mayder");
   const [newPrinterUrl, setNewPrinterUrl] = React.useState("http://voron.local:7125");
+  const [newPrinterCloudModel, setNewPrinterCloudModel] = React.useState("");
+  const [newPrinterCloudTags, setNewPrinterCloudTags] = React.useState("");
+  const [newPrinterLocation, setNewPrinterLocation] = React.useState("");
+  const [newPrinterNotes, setNewPrinterNotes] = React.useState("");
+  const [newPrinterOrganizationId, setNewPrinterOrganizationId] = React.useState<number | "">("");
   const [newPrinterSshHost, setNewPrinterSshHost] = React.useState("");
   const [newPrinterSshPort, setNewPrinterSshPort] = React.useState(22);
   const [newPrinterSshUser, setNewPrinterSshUser] = React.useState("");
@@ -106,6 +111,11 @@ export function usePrinters(options: UsePrintersOptions) {
         name: newPrinterName.trim(),
         moonraker_url: newPrinterUrl.trim(),
         host_audit_mode: newPrinterSshHost && newPrinterSshUser ? "ssh" : "local",
+        cloud_model: newPrinterCloudModel.trim() || null,
+        cloud_tags: parsePrinterTags(newPrinterCloudTags),
+        location: newPrinterLocation.trim() || null,
+        notes: newPrinterNotes.trim() || null,
+        organization_id: newPrinterOrganizationId === "" ? null : newPrinterOrganizationId,
         ssh_host: newPrinterSshHost.trim() || null,
         ssh_port: newPrinterSshPort,
         ssh_username: newPrinterSshUser.trim() || null,
@@ -184,6 +194,11 @@ export function usePrinters(options: UsePrintersOptions) {
     setEditingPrinterId(null);
     setNewPrinterName("Voron - Mayder");
     setNewPrinterUrl("http://voron.local:7125");
+    setNewPrinterCloudModel("");
+    setNewPrinterCloudTags("");
+    setNewPrinterLocation("");
+    setNewPrinterNotes("");
+    setNewPrinterOrganizationId("");
     setNewPrinterSshHost("");
     setNewPrinterSshPort(22);
     setNewPrinterSshUser("");
@@ -198,6 +213,11 @@ export function usePrinters(options: UsePrintersOptions) {
     setEditingPrinterId(printer.id);
     setNewPrinterName(printer.name);
     setNewPrinterUrl(printer.moonraker_url);
+    setNewPrinterCloudModel(printer.cloud_model ?? "");
+    setNewPrinterCloudTags((printer.cloud_tags ?? []).join(", "));
+    setNewPrinterLocation(printer.location ?? "");
+    setNewPrinterNotes(printer.notes ?? "");
+    setNewPrinterOrganizationId(printer.organization_id ?? "");
     setNewPrinterSshHost(printer.ssh_host ?? extractHost(printer.moonraker_url));
     setNewPrinterSshPort(printer.ssh_port ?? 22);
     setNewPrinterSshUser(printer.ssh_username ?? "");
@@ -509,6 +529,11 @@ export function usePrinters(options: UsePrintersOptions) {
     loadRemoteOperations,
     loadSelectedPrinterStatus,
     newPrinterName,
+    newPrinterCloudModel,
+    newPrinterCloudTags,
+    newPrinterLocation,
+    newPrinterNotes,
+    newPrinterOrganizationId,
     newPrinterSshCredential,
     newPrinterSshHost,
     newPrinterSshPort,
@@ -535,6 +560,11 @@ export function usePrinters(options: UsePrintersOptions) {
     setDiscovery,
     setEditingPrinterId,
     setNewPrinterName,
+    setNewPrinterCloudModel,
+    setNewPrinterCloudTags,
+    setNewPrinterLocation,
+    setNewPrinterNotes,
+    setNewPrinterOrganizationId,
     setNewPrinterSshCredential,
     setNewPrinterSshHost,
     setNewPrinterSshPort,
@@ -555,4 +585,19 @@ export function usePrinters(options: UsePrintersOptions) {
     testPrinterConnections,
     useDiscoveredPrinter,
   };
+}
+
+function parsePrinterTags(value: string): string[] {
+  const seen = new Set<string>();
+  return value
+    .split(",")
+    .map((tag) => tag.trim().toLowerCase())
+    .filter((tag) => {
+      if (!tag || seen.has(tag)) {
+        return false;
+      }
+      seen.add(tag);
+      return true;
+    })
+    .slice(0, 12);
 }

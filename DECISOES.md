@@ -237,6 +237,17 @@ Impacto em rollback: médio; remover a camada exige reverter rotas, UI, SQL `026
 Como reverter: reverter arquivos do PKG-39 e restaurar `printora.<timestamp>.before-schema.db` quando for necessário desfazer o schema aplicado.
 Referencias: `backend/app/auth.py`, `backend/app/routes/auth.py`, `backend/sql/026_auth_identity.sql`, `backend/sql/027_printer_ownership.sql`, `backend/sql/028_operational_ownership.sql`, `frontend/src/screens/AuthScreen.tsx`, `frontend/src/hooks/domains/useAuth.ts`.
 
+### DEC-20260531-08 - Impressora cloud é cadastro operacional com status derivado do agente
+
+Status: aceita
+Data: 2026-05-31
+Contexto: o cadastro local de impressoras dependia de Moonraker acessível pela mesma rede, mas o uso cloud precisa permitir cadastrar a impressora antes do agente existir e compartilhar acesso por organização opcional.
+Decisao: manter `printers` como entidade canônica, com owner e organização opcional do PKG-39, metadados cloud (`cloud_model`, `cloud_tags`, localização e observações) e status calculado a partir de tokens/agentes/snapshots existentes. O cadastro não tenta conectar no Moonraker automaticamente; descoberta, teste e leitura de status continuam como ações explícitas.
+Consequencias: o usuário consegue preparar as duas impressoras na aplicação local por IP da API, instalar/parear agentes depois e ver estados `sem_agente`, `aguardando_pareamento`, `online`, `offline` ou `revogado` sem criar tabela nova de inventário.
+Impacto em testes: `backend/tests/test_auth.py` cobre metadados cloud, detalhe escopado, status por token/agente e isolamento para usuário sem acesso.
+Como reverter: reverter alterações do PKG-40 em backend/UI/docs; dados existentes de impressoras permanecem preservados e podem ser mantidos até nova decisão.
+Referencias: `backend/app/printers.py`, `backend/app/routes/printers.py`, `frontend/src/screens/PrintersScreen.tsx`, `frontend/src/components/modals/PrinterModal.tsx`.
+
 ### DEC-20260530-07 - Pareamento do agente usa token curto e credencial operacional por hash
 
 Status: aceita

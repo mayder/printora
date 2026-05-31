@@ -2743,14 +2743,15 @@ Critério de aceite:
 Estado atual:
 
 - Implementado localmente.
-- SQL `backend/sql/029_agent_pairing.sql` cria tokens de pareamento, agentes pareados e eventos sanitizados.
-- Backend expõe geração/revogação de token por impressora, troca pública token -> credencial operacional, heartbeat, snapshot e fila vazia autenticados por credencial do agente.
-- Token de pareamento é curto, expira, é uso único e pode ser revogado.
-- Credencial operacional é retornada apenas na troca ou rotação; listagens mostram somente prefixo/status.
-- Agente possui identidade estável, versão, plataforma, capacidades, último contato, revogação e rotação de credencial.
-- Agente revogado ou credencial antiga após rotação não autentica em heartbeat, snapshot ou jobs.
-- UI na tela Impressoras permite gerar token, copiar segredo uma vez, listar/revogar tokens, listar/revogar agentes e rotacionar credencial.
-- Testes focados: `cd backend && uv run pytest tests/test_agent_pairing.py -q`.
+- Impressoras usam owner e organização opcional para isolamento cloud, preservando uso individual sem organização.
+- Backend expõe CRUD protegido em `/api/printers` e detalhe em `GET /api/printers/{printer_id}`.
+- Cadastro cloud aceita nome, URL Moonraker, modelo, localização, tags, observações e organização opcional.
+- Listagem e detalhe retornam status cloud derivado do agente: `sem_agente`, `aguardando_pareamento`, `online`, `offline`, `degradado` ou `revogado`.
+- Listagem e detalhe retornam quantidade de agentes ativos, última versão, último contato e último snapshot conhecido.
+- Usuário sem acesso por ownership/organização recebe lista vazia ou 404.
+- UI da tela Impressoras exibe metadados cloud, tags, organização, status do agente, último contato e último snapshot.
+- Modal de cadastro/edição separa cadastro cloud, conexão Moonraker e acesso SSH.
+- Testes focados: `cd backend && uv run pytest tests/test_auth.py -q`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
 ## PKG-41: Pareamento Seguro Do Agente

@@ -54,7 +54,6 @@ async def create_printer(payload: PrinterCreate) -> PrinterRecord:
 
 
 
-
 @router.get("/api/printers/discover")
 async def discover_printers(cidr: str | None = None) -> PrinterDiscoveryResponse:
     settings = get_settings()
@@ -85,6 +84,17 @@ async def test_printer_connection(payload: PrinterConnectionTestRequest) -> Prin
         moonraker=moonraker,
         ssh=ssh,
     )
+
+
+
+@router.get("/api/printers/{printer_id}")
+async def get_printer(printer_id: int) -> PrinterRecord:
+    settings = get_settings()
+    repository = get_printer_repository(settings)
+    record = repository.get_printer(printer_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return record
 
 
 

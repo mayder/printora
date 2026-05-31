@@ -369,6 +369,40 @@ Fluxos:
 - step-up auth: `POST /api/auth/step-up` antes de ações destrutivas quando houver sessão autenticada;
 - credencial de agente: `POST /api/auth/agent-credentials`, retornada completa somente uma vez.
 
+## Gestão Cloud De Impressoras
+
+O PKG-40 mantém o cadastro de impressoras em SQLite e usa owner/organização opcional para isolar acesso.
+
+Fluxos:
+
+- listar impressoras visíveis: `GET /api/printers`;
+- criar impressora cloud: `POST /api/printers`;
+- detalhar impressora: `GET /api/printers/{printer_id}`;
+- editar impressora: `PUT /api/printers/{printer_id}`;
+- testar conexão manualmente: `POST /api/printers/test-connection`;
+- descobrir Moonraker na rede local: `GET /api/printers/discover`.
+
+Campos cloud:
+
+- `name`, `moonraker_url`, `cloud_model`, `location`, `cloud_tags`, `notes` e `organization_id`;
+- `organization_id` é opcional; sem organização a impressora fica individual;
+- tags são normalizadas para minúsculas e deduplicadas;
+- a credencial SSH pode ser configurada, mas não é retornada pela API.
+
+Status cloud:
+
+- `sem_agente`: nenhum token ativo e nenhum agente ativo;
+- `aguardando_pareamento`: token ativo ou agente pareado sem heartbeat;
+- `online`: agente ativo com heartbeat recente;
+- `offline`: agente ativo sem heartbeat recente;
+- `revogado`: apenas agentes revogados conhecidos.
+
+Rollback PKG-40:
+
+- reverter backend/UI/docs do pacote;
+- se for necessário desfazer dados de schema, restaurar backup `printora.<timestamp>.before-schema.db` criado pelo versionador antes dos scripts aplicados;
+- não apagar impressoras, agentes ou tokens manualmente sem confirmação explícita.
+
 ## Pareamento Seguro Do Agente
 
 O PKG-41 usa SQLite e adiciona `backend/sql/029_agent_pairing.sql`.

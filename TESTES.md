@@ -741,6 +741,18 @@ Critérios:
 - Testes automatizados focados: `cd backend && uv run pytest tests/test_auth.py tests/test_schema_versioning.py tests/test_update_self.py -q`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-40 - Gestão Cloud De Impressoras
+
+- Validar cadastro cloud com nome, URL Moonraker, modelo, localização, tags, observações e organização opcional.
+- Validar que organização é opcional: impressora individual fica visível apenas ao dono.
+- Validar que impressora vinculada à organização fica visível para membros autorizados e retorna 404 para usuário fora do vínculo.
+- Validar `GET /api/printers` e `GET /api/printers/{printer_id}` com status cloud derivado de agente/token: `sem_agente`, `aguardando_pareamento`, `online`, `offline` ou `revogado`.
+- Validar que o cadastro cloud não tenta conectar no Moonraker automaticamente; conexão direta continua apenas em teste/discovery/status explícito.
+- Validar edição de modelo, tags, localização, observações e organização sem expor credencial SSH.
+- Validar UI da tela Impressoras com lista, detalhe resumido, criação/edição, status, tags, último contato e último snapshot.
+- Testes automatizados focados: `cd backend && uv run pytest tests/test_auth.py -q`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-41 - Pareamento Seguro Do Agente
 
 - Validar que `backend/sql/029_agent_pairing.sql` cria tokens, agentes e eventos sem armazenar token/credencial em texto puro.
