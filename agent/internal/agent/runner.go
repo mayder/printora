@@ -27,6 +27,7 @@ func NewRunner(cfg Config, credential string, logger *log.Logger) *Runner {
 }
 
 func (r *Runner) RunOnce(ctx context.Context) error {
+	r.MaybeCheckAgentUpdate(ctx)
 	if err := r.flushQueue(ctx); err != nil {
 		r.Logger.Printf("queue flush pendente: %v", err)
 	}
@@ -54,6 +55,7 @@ func (r *Runner) RunOnce(ctx context.Context) error {
 
 func (r *Runner) Run(ctx context.Context) error {
 	if r.Config.WebSocketEnabled {
+		go r.updateLoop(ctx)
 		return r.RunChannel(ctx)
 	}
 	ticker := time.NewTicker(time.Duration(r.Config.IntervalSeconds) * time.Second)
@@ -71,6 +73,20 @@ func (r *Runner) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
+		}
+	}
+}
+
+func (r *Runner) updateLoop(ctx context.Context) {
+	ticker := time.NewTicker(time.Duration(r.Config.UpdateCheckIntervalSeconds) * time.Second)
+	defer ticker.Stop()
+	r.MaybeCheckAgentUpdate(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			r.MaybeCheckAgentUpdate(ctx)
 		}
 	}
 }

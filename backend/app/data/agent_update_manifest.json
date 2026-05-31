@@ -1,0 +1,39 @@
+{
+  "manifest_version": 1,
+  "minimum_version": "0.1.0",
+  "recommended_version": "0.1.0",
+  "blocked_versions": [],
+  "protocol_version": 1,
+  "protocol_min": 1,
+  "protocol_max": 1,
+  "auto_update": true,
+  "releases": [
+    {
+      "platform": "linux/amd64",
+      "version": "0.1.0",
+      "url": "",
+      "sha256": "",
+      "signature": null,
+      "protocol_min": 1,
+      "protocol_max": 1
+    },
+    {
+      "platform": "linux/arm64",
+      "version": "0.1.0",
+      "url": "",
+      "sha256": "",
+      "signature": null,
+      "protocol_min": 1,
+      "protocol_max": 1
+    },
+    {
+      "platform": "linux/arm",
+      "version": "0.1.0",
+      "url": "",
+      "sha256": "",
+      "signature": null,
+      "protocol_min": 1,
+      "protocol_max": 1
+    }
+  ]
+}

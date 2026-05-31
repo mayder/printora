@@ -52,6 +52,14 @@ type AgentJobErrorPayload struct {
 	Result        map[string]any `json:"result"`
 }
 
+type AgentUpdateReportPayload struct {
+	Status         string `json:"status"`
+	CurrentVersion string `json:"current_version"`
+	TargetVersion  string `json:"target_version,omitempty"`
+	Platform       string `json:"platform,omitempty"`
+	Detail         string `json:"detail,omitempty"`
+}
+
 func NewAPIClient(baseURL string, credential string, timeout time.Duration) *APIClient {
 	return &APIClient{
 		baseURL:    strings.TrimRight(baseURL, "/"),
@@ -105,6 +113,10 @@ func (c *APIClient) ResultJob(ctx context.Context, jobID int, payload AgentJobRe
 
 func (c *APIClient) ErrorJob(ctx context.Context, jobID int, payload AgentJobErrorPayload) error {
 	return c.post(ctx, fmt.Sprintf("/api/agent/jobs/%d/error", jobID), payload)
+}
+
+func (c *APIClient) UpdateReport(ctx context.Context, payload AgentUpdateReportPayload) error {
+	return c.post(ctx, "/api/agent/update/reports", payload)
 }
 
 func (c *APIClient) post(ctx context.Context, path string, payload any) error {

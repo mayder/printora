@@ -28,6 +28,13 @@ from app.agent_pairing import (
     PairingTokenResponse,
     printer_for_user,
 )
+from app.agent_updates import (
+    AgentUpdateHistoryRecord,
+    AgentUpdateManifest,
+    AgentUpdateReportRequest,
+    AgentUpdateRepository,
+    load_agent_update_manifest,
+)
 from app.auth import CurrentUser
 from app.config import Settings, get_settings
 from app.routes.auth import require_current_user
@@ -39,6 +46,10 @@ INSTALLER_SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "insta
 
 def get_pairing_repository(settings: Settings = Depends(get_settings)) -> AgentPairingRepository:
     return AgentPairingRepository(settings.database_path)
+
+
+def get_update_repository(settings: Settings = Depends(get_settings)) -> AgentUpdateRepository:
+    return AgentUpdateRepository(settings.database_path)
 
 
 def require_agent(
@@ -164,6 +175,34 @@ async def agent_install_status(
 @router.get("/api/agent/install/linux.sh")
 async def agent_linux_installer() -> FileResponse:
     return FileResponse(INSTALLER_SCRIPT_PATH, media_type="text/x-shellscript", filename="install-printora-agent.sh")
+
+
+@router.get("/api/agent/update/manifest", response_model=AgentUpdateManifest)
+async def agent_update_manifest() -> AgentUpdateManifest:
+    return load_agent_update_manifest()
+
+
+@router.post("/api/agent/update/reports", response_model=AgentUpdateHistoryRecord)
+async def agent_update_report(
+    payload: AgentUpdateReportRequest,
+    agent: AgentRecord = Depends(require_agent),
+    repository: AgentUpdateRepository = Depends(get_update_repository),
+) -> AgentUpdateHistoryRecord:
+    return repository.report(agent, payload)
+
+
+@router.get("/api/printers/{printer_id}/agent/update-history", response_model=list[AgentUpdateHistoryRecord])
+async def printer_agent_update_history(
+    printer_id: int,
+    limit: int = Query(default=50, ge=1, le=100),
+    current: CurrentUser = Depends(require_current_user),
+    repository: AgentUpdateRepository = Depends(get_update_repository),
+) -> list[AgentUpdateHistoryRecord]:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return repository.history(printer.id, limit)
 
 
 @router.post("/api/agent/pairing/exchange", response_model=AgentCredentialExchangeResponse)

@@ -498,6 +498,52 @@ Rollback PKG-44:
 - revogar o agente ou token pela tela Impressoras quando necessário;
 - não apagar dados locais do agente sem confirmação.
 
+## Atualização Automática Do Agente
+
+Fluxos cloud:
+
+- manifesto público: `GET /api/agent/update/manifest`;
+- relatório do agente: `POST /api/agent/update/reports` com `Authorization: Bearer <credencial>`;
+- histórico por impressora: `GET /api/printers/{printer_id}/agent/update-history`.
+
+Config do agente:
+
+```json
+{
+  "update_enabled": true,
+  "update_check_interval_seconds": 3600,
+  "update_manifest_url": "https://printora.example.com/api/agent/update/manifest",
+  "update_state_file": "/var/lib/printora-agent/update-state.json",
+  "update_staging_dir": "/var/lib/printora-agent/updates",
+  "agent_binary_path": "/usr/local/bin/printora-agent",
+  "agent_service_name": "printora-agent",
+  "allow_service_restart": true
+}
+```
+
+Execução manual:
+
+```bash
+printora-agent -config /etc/printora-agent/config.json update-check
+```
+
+Segurança:
+
+- o update consulta somente o manifesto do agente e baixa o binário indicado para a plataforma do host;
+- `sha256` é obrigatório para aplicar;
+- versão/protocolo bloqueado pelo servidor impede aplicação;
+- antes da troca, o agente preserva backup do binário atual e tenta preservar o config;
+- a troca altera apenas o binário do `printora-agent`;
+- restart automático, quando habilitado, executa apenas `systemctl restart printora-agent`;
+- o fluxo não reinicia Klipper, Moonraker, firmware, Raspberry ou impressora;
+- falha em health command ou restart restaura o binário anterior quando possível.
+
+Rollback local:
+
+- se o rollback automático não for suficiente, parar o serviço, restaurar `printora-agent.backup-*` de `/var/lib/printora-agent/updates` para `/usr/local/bin/printora-agent` e iniciar `printora-agent`;
+- revogar agente pela tela Impressoras se houver suspeita de credencial comprometida;
+- não apagar histórico local sem confirmação.
+
 Segurança:
 
 - senhas usam PBKDF2 e nunca são retornadas;

@@ -797,6 +797,22 @@ Critérios:
 - Testes automatizados focados: `cd backend && uv run pytest tests/test_agent_install.py tests/test_agent_pairing.py -q`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-45 - Atualização Automática Do Agente
+
+- Validar manifesto público `GET /api/agent/update/manifest` com versão mínima, recomendada, bloqueios e faixa de protocolo.
+- Validar que relatório `POST /api/agent/update/reports` exige credencial operacional do agente.
+- Validar que histórico `GET /api/printers/{printer_id}/agent/update-history` respeita ownership/organização.
+- Validar que agente ignora release sem plataforma compatível ou sem versão superior.
+- Validar que versão bloqueada pelo servidor impede aplicação.
+- Validar que protocolo incompatível impede aplicação.
+- Validar que download sem SHA-256 ou com hash inválido bloqueia a troca do binário.
+- Validar que update bem-sucedido faz backup e troca somente o binário do agente.
+- Validar que health pós-update falho restaura o binário anterior.
+- Validar que restart automático, quando habilitado, reinicia somente o serviço do agente.
+- Validar que logs/relatórios não expõem token, credencial ou payload sensível.
+- Testes automatizados focados: `cd backend && uv run pytest tests/test_agent_updates.py tests/test_agent_pairing.py -q` e `cd agent && go test ./...`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

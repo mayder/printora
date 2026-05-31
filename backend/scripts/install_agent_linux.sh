@@ -166,6 +166,14 @@ print(json.dumps({
     "websocket_enabled": True,
     "polling_enabled": True,
     "max_payload_bytes": 65536,
+    "update_enabled": True,
+    "update_check_interval_seconds": 3600,
+    "update_manifest_url": api_base + "/api/agent/update/manifest",
+    "update_state_file": state_dir + "/update-state.json",
+    "update_staging_dir": state_dir + "/updates",
+    "agent_binary_path": "/usr/local/bin/printora-agent",
+    "agent_service_name": "printora-agent",
+    "allow_service_restart": True,
 }, indent=2))
 PY
   chmod 0600 "$CONFIG_DIR/config.json"

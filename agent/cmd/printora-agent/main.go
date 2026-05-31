@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -32,6 +33,8 @@ func main() {
 		for _, result := range agent.Doctor(ctx, *configPath) {
 			fmt.Printf("%-18s %-5s %s\n", result.Name, result.Status, result.Detail)
 		}
+	case "update-check":
+		must(updateCheck(ctx, *configPath))
 	case "once":
 		must(runOnce(ctx, *configPath))
 	case "run":
@@ -39,7 +42,7 @@ func main() {
 	case "systemd":
 		fmt.Print(systemdUnit())
 	default:
-		fmt.Fprintf(os.Stderr, "uso: printora-agent [-config path] [run|once|doctor|config-sample|store-credential|systemd]\n")
+		fmt.Fprintf(os.Stderr, "uso: printora-agent [-config path] [run|once|doctor|update-check|config-sample|store-credential|systemd]\n")
 		os.Exit(2)
 	}
 }
@@ -79,6 +82,20 @@ func run(ctx context.Context, configPath string) error {
 	}
 	defer closer()
 	return runner.Run(ctx)
+}
+
+func updateCheck(ctx context.Context, configPath string) error {
+	runner, closer, err := buildRunner(configPath)
+	if err != nil {
+		return err
+	}
+	defer closer()
+	result := runner.CheckAgentUpdate(ctx)
+	fmt.Printf("%s %s %s\n", result.Status, result.TargetVersion, result.Detail)
+	if result.Status == "failed" || result.Status == "blocked" || result.Status == "rolled_back" {
+		return errors.New(result.Detail)
+	}
+	return nil
 }
 
 func buildRunner(configPath string) (*agent.Runner, func(), error) {

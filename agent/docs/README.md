@@ -26,7 +26,15 @@ O config é JSON e deve ficar com permissão `0600`.
   "timeout_seconds": 5,
   "websocket_enabled": true,
   "polling_enabled": true,
-  "max_payload_bytes": 65536
+  "max_payload_bytes": 65536,
+  "update_enabled": true,
+  "update_check_interval_seconds": 3600,
+  "update_manifest_url": "https://printora.example.com/api/agent/update/manifest",
+  "update_state_file": "/var/lib/printora-agent/update-state.json",
+  "update_staging_dir": "/var/lib/printora-agent/updates",
+  "agent_binary_path": "/usr/local/bin/printora-agent",
+  "agent_service_name": "printora-agent",
+  "allow_service_restart": true
 }
 ```
 
@@ -68,3 +76,14 @@ fica em `/api/agent/install/linux.sh` e suporta:
 O script troca o token por credencial operacional no próprio host, grava config
 com permissão restrita e instala serviço systemd. O uninstall remove serviço e
 binário, preservando configuração, fila e logs para rollback/diagnóstico.
+
+## Atualização
+
+```bash
+printora-agent -config /etc/printora-agent/config.json update-check
+```
+
+O agente consulta `/api/agent/update/manifest`, valida plataforma, versão,
+protocolo e SHA-256 antes de trocar o binário. O restart automático reinicia
+somente o serviço `printora-agent` quando `allow_service_restart=true`. Falha de
+health/restart tenta restaurar o binário anterior.

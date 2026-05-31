@@ -2,7 +2,9 @@ package agent
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -145,6 +147,146 @@ func TestWebSocketURLUsesSecureScheme(t *testing.T) {
 	}
 }
 
+func TestAgentUpdateAppliesValidatedBinary(t *testing.T) {
+	tmpDir := t.TempDir()
+	binaryPath := filepath.Join(tmpDir, "printora-agent")
+	if err := os.WriteFile(binaryPath, []byte("old-binary"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	newBinary := []byte("new-binary")
+	sum := sha256.Sum256(newBinary)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/manifest":
+			_ = json.NewEncoder(w).Encode(UpdateManifest{
+				ManifestVersion:    1,
+				MinimumVersion:     Version,
+				RecommendedVersion: "0.1.1",
+				ProtocolMin:        ProtocolVersion,
+				ProtocolMax:        ProtocolVersion,
+				AutoUpdate:         true,
+				Releases: []UpdateRelease{{
+					Platform:    Platform(),
+					Version:     "0.1.1",
+					URL:         "http://" + r.Host + "/binary",
+					SHA256:      fmt.Sprintf("%x", sum),
+					ProtocolMin: ProtocolVersion,
+					ProtocolMax: ProtocolVersion,
+				}},
+			})
+		case "/binary":
+			_, _ = w.Write(newBinary)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	runner := updateTestRunner(tmpDir, binaryPath, server.URL+"/manifest")
+	result := runner.CheckAgentUpdate(context.Background())
+	if result.Status != "applied" {
+		t.Fatalf("expected applied, got %#v", result)
+	}
+	updated, err := os.ReadFile(binaryPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(updated) != "new-binary" {
+		t.Fatalf("binary not replaced: %q", updated)
+	}
+}
+
+func TestAgentUpdateRejectsInvalidHash(t *testing.T) {
+	tmpDir := t.TempDir()
+	binaryPath := filepath.Join(tmpDir, "printora-agent")
+	if err := os.WriteFile(binaryPath, []byte("old-binary"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/manifest" {
+			_ = json.NewEncoder(w).Encode(UpdateManifest{
+				ManifestVersion:    1,
+				RecommendedVersion: "0.1.1",
+				ProtocolMin:        ProtocolVersion,
+				ProtocolMax:        ProtocolVersion,
+				AutoUpdate:         true,
+				Releases: []UpdateRelease{{
+					Platform:    Platform(),
+					Version:     "0.1.1",
+					URL:         "http://" + r.Host + "/binary",
+					SHA256:      "bad",
+					ProtocolMin: ProtocolVersion,
+					ProtocolMax: ProtocolVersion,
+				}},
+			})
+			return
+		}
+		_, _ = w.Write([]byte("new-binary"))
+	}))
+	defer server.Close()
+	runner := updateTestRunner(tmpDir, binaryPath, server.URL+"/manifest")
+	result := runner.CheckAgentUpdate(context.Background())
+	if result.Status != "failed" || !strings.Contains(result.Detail, "sha256") {
+		t.Fatalf("expected hash failure, got %#v", result)
+	}
+	current, _ := os.ReadFile(binaryPath)
+	if string(current) != "old-binary" {
+		t.Fatalf("binary changed after hash failure: %q", current)
+	}
+}
+
+func TestAgentUpdateRollsBackWhenHealthFails(t *testing.T) {
+	tmpDir := t.TempDir()
+	binaryPath := filepath.Join(tmpDir, "printora-agent")
+	if err := os.WriteFile(binaryPath, []byte("old-binary"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	newBinary := []byte("new-binary")
+	sum := sha256.Sum256(newBinary)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/manifest" {
+			_ = json.NewEncoder(w).Encode(UpdateManifest{
+				ManifestVersion:    1,
+				RecommendedVersion: "0.1.1",
+				ProtocolMin:        ProtocolVersion,
+				ProtocolMax:        ProtocolVersion,
+				AutoUpdate:         true,
+				Releases: []UpdateRelease{{
+					Platform:    Platform(),
+					Version:     "0.1.1",
+					URL:         "http://" + r.Host + "/binary",
+					SHA256:      fmt.Sprintf("%x", sum),
+					ProtocolMin: ProtocolVersion,
+					ProtocolMax: ProtocolVersion,
+				}},
+			})
+			return
+		}
+		_, _ = w.Write(newBinary)
+	}))
+	defer server.Close()
+	runner := updateTestRunner(tmpDir, binaryPath, server.URL+"/manifest")
+	runner.Config.UpdateHealthCommand = []string{"false"}
+	result := runner.CheckAgentUpdate(context.Background())
+	if result.Status != "rolled_back" {
+		t.Fatalf("expected rollback, got %#v", result)
+	}
+	current, _ := os.ReadFile(binaryPath)
+	if string(current) != "old-binary" {
+		t.Fatalf("rollback did not restore binary: %q", current)
+	}
+}
+
+func TestAgentUpdateBlocksServerBlockedVersion(t *testing.T) {
+	_, result := selectUpdateRelease(UpdateManifest{
+		BlockedVersions: []string{Version},
+		ProtocolMin:     ProtocolVersion,
+		ProtocolMax:     ProtocolVersion,
+	}, Platform(), Version)
+	if result.Status != "blocked" {
+		t.Fatalf("expected blocked, got %#v", result)
+	}
+}
+
 func TestQueuePersistsAndTrims(t *testing.T) {
 	queue := NewQueue(filepath.Join(t.TempDir(), "queue.jsonl"))
 	for i := 0; i < 205; i++ {
@@ -158,5 +300,20 @@ func TestQueuePersistsAndTrims(t *testing.T) {
 	}
 	if len(items) != 200 {
 		t.Fatalf("expected trimmed queue, got %d", len(items))
+	}
+}
+
+func updateTestRunner(tmpDir string, binaryPath string, manifestURL string) *Runner {
+	cfg := DefaultConfig()
+	cfg.UpdateManifestURL = manifestURL
+	cfg.UpdateStagingDir = filepath.Join(tmpDir, "updates")
+	cfg.UpdateStateFile = filepath.Join(tmpDir, "update-state.json")
+	cfg.AgentBinaryPath = binaryPath
+	cfg.AllowServiceRestart = false
+	return &Runner{
+		Config:    cfg,
+		API:       NewAPIClient("http://127.0.0.1", "ptr_agent_test", time.Second),
+		Moonraker: NewMoonrakerClient("http://127.0.0.1:1", time.Second),
+		Logger:    discardLogger(),
 	}
 }
