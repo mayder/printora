@@ -1,9 +1,10 @@
-import { Activity, FileText, Home, Info, Network, Printer, RefreshCw, Scale, Settings, SlidersHorizontal, Wrench, Zap } from "lucide-react";
+import { Activity, FileText, Home, Info, Network, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
   | "overview"
   | "printers"
+  | "agents"
   | "setup"
   | "monitoring"
   | "updates"
@@ -36,6 +37,13 @@ export const appSections: Array<{
     label: "Impressoras",
     detail: "Cadastro, descoberta e seleção da impressora ativa.",
     purpose: "Gerencie as impressoras cadastradas e defina qual delas controla o contexto do restante do sistema.",
+  },
+  {
+    key: "agents",
+    icon: Radio,
+    label: "Agentes",
+    detail: "Instalação, pareamento, tokens e saúde dos agentes.",
+    purpose: "Cadastre o agente da impressora, gere tokens curtos e copie comandos prontos de instalação.",
   },
   {
     key: "setup",
@@ -98,7 +106,7 @@ export const appSections: Array<{
     icon: Info,
     label: "Conta",
     detail: "Cadastro, login, organizações opcionais e segurança.",
-    purpose: "Gerencie acesso cloud, 2FA, organizações e credenciais seguras de agente.",
+    purpose: "Gerencie acesso cloud, 2FA e organizações opcionais.",
   },
   {
     key: "about",
@@ -117,7 +125,7 @@ export const appSections: Array<{
 ];
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
-  { title: "Principal", sections: ["overview", "printers", "setup"] },
+  { title: "Principal", sections: ["overview", "printers", "agents", "setup"] },
   { title: "Impressora ativa", sections: ["monitoring", "updates", "tests", "firmware", "maintenance"] },
   { title: "Diagnóstico", sections: ["reports", "settings"] },
 ];

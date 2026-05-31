@@ -1,15 +1,13 @@
 import React from "react";
 import type { ScreenPropsFor } from "./ScreenProps";
 
-type AccountTab = "access" | "security" | "organizations" | "agents";
+type AccountTab = "access" | "security" | "organizations";
 
 type AuthScreenProps = ScreenPropsFor<
   | "KeyRound"
   | "Plus"
   | "ShieldCheck"
   | "UserRound"
-  | "agentCredentialLabel"
-  | "agentCredentials"
   | "authDisplayName"
   | "authEmail"
   | "authMfaChallengeToken"
@@ -17,14 +15,12 @@ type AuthScreenProps = ScreenPropsFor<
   | "authMode"
   | "authPassword"
   | "authUser"
-  | "createdAgentCredential"
   | "loading"
   | "memberEmail"
   | "memberRole"
   | "mfaSetup"
   | "organizationName"
   | "selectedOrganizationId"
-  | "setAgentCredentialLabel"
   | "setAuthDisplayName"
   | "setAuthEmail"
   | "setAuthMfaCode"
@@ -41,7 +37,6 @@ type AuthScreenProps = ScreenPropsFor<
   | "stepUpResult"
   | "addAuthOrganizationMember"
   | "confirmMfaSetup"
-  | "createAuthAgentCredential"
   | "createAuthOrganization"
   | "disableMfa"
   | "logoutAuth"
@@ -57,8 +52,6 @@ export function AuthScreen(props: AuthScreenProps) {
     Plus,
     ShieldCheck,
     UserRound,
-    agentCredentialLabel,
-    agentCredentials,
     authDisplayName,
     authEmail,
     authMfaChallengeToken,
@@ -66,14 +59,12 @@ export function AuthScreen(props: AuthScreenProps) {
     authMode,
     authPassword,
     authUser,
-    createdAgentCredential,
     loading,
     memberEmail,
     memberRole,
     mfaSetup,
     organizationName,
     selectedOrganizationId,
-    setAgentCredentialLabel,
     setAuthDisplayName,
     setAuthEmail,
     setAuthMfaCode,
@@ -90,7 +81,6 @@ export function AuthScreen(props: AuthScreenProps) {
     stepUpResult,
     addAuthOrganizationMember,
     confirmMfaSetup,
-    createAuthAgentCredential,
     createAuthOrganization,
     disableMfa,
     logoutAuth,
@@ -104,7 +94,6 @@ export function AuthScreen(props: AuthScreenProps) {
     { key: "access", label: "Acessos" },
     { key: "security", label: "Segurança" },
     { key: "organizations", label: "Organizações" },
-    { key: "agents", label: "Agentes" },
   ];
   React.useEffect(() => {
     function handleAccountTab(event: Event) {
@@ -262,7 +251,7 @@ export function AuthScreen(props: AuthScreenProps) {
               <div><strong>Conta individual</strong><span>ativa</span></div>
               <div><strong>Compartilhamento por organização</strong><span>{authUser.organizations.length ? "disponível" : "opcional"}</span></div>
               <div><strong>Ações críticas</strong><span>{authUser.mfa_enabled ? "2FA" : "senha"}</span></div>
-              <div><strong>Agentes</strong><span>{agentCredentials.length} credencial(is)</span></div>
+              <div><strong>Agentes</strong><span>gerenciados na tela Agentes</span></div>
             </div>
           </article>
         </div>
@@ -340,79 +329,73 @@ export function AuthScreen(props: AuthScreenProps) {
       ) : null}
 
       {accountTab === "organizations" ? (
-        <article className="panel wide auth-panel">
-          <div className="panel-header-row">
-            <div>
-              <h2>Organização opcional</h2>
-              <p>Use apenas quando quiser compartilhar impressoras com outros usuários.</p>
+        <div className="account-grid">
+          <article className="panel auth-panel">
+            <div className="panel-header-row">
+              <div>
+                <h2>Minhas organizações</h2>
+                <p>Você pode participar de mais de uma organização e manter uso individual ao mesmo tempo.</p>
+              </div>
+              <Plus size={20} />
             </div>
-            <Plus size={20} />
-          </div>
-          <div className="account-form-grid">
-            <label>
-              <span>Nova organização</span>
-              <input value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} />
-            </label>
-            <button type="button" className="primary-button" onClick={() => void createAuthOrganization()} disabled={loading || !organizationName.trim()}>
-              Criar
-            </button>
-            <label>
-              <span>Organização</span>
-              <select value={selectedOrganizationId ?? ""} onChange={(event) => setSelectedOrganizationId(Number(event.target.value) || null)}>
-                <option value="">Uso individual</option>
-                {authUser.organizations.map((organization) => (
-                  <option key={organization.id} value={organization.id}>{organization.name} · {organization.role}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Email do usuário</span>
-              <input value={memberEmail} onChange={(event) => setMemberEmail(event.target.value)} type="email" />
-            </label>
-            <label>
-              <span>Papel</span>
-              <select value={memberRole} onChange={(event) => setMemberRole(event.target.value as "admin" | "operator")}>
-                <option value="operator">Operador</option>
-                <option value="admin">Admin</option>
-              </select>
-            </label>
-            <button type="button" className="secondary-button" onClick={() => void addAuthOrganizationMember()} disabled={loading || !selectedOrganizationId || !memberEmail.trim()}>
-              Vincular usuário
-            </button>
-          </div>
-        </article>
-      ) : null}
-
-      {accountTab === "agents" ? (
-        <article className="panel wide auth-panel">
-          <div className="panel-header-row">
-            <div>
-              <h2>Credenciais de agente</h2>
-              <p>A credencial completa aparece uma única vez e pode ser revogada em pacote posterior.</p>
-            </div>
-            <KeyRound size={20} />
-          </div>
-          <div className="auth-stack">
-            <label>
-              <span>Identificação do agente</span>
-              <input value={agentCredentialLabel} onChange={(event) => setAgentCredentialLabel(event.target.value)} />
-            </label>
-            <button type="button" className="primary-button" onClick={() => void createAuthAgentCredential()} disabled={loading || !agentCredentialLabel.trim()}>
-              Criar credencial
-            </button>
-            {createdAgentCredential ? (
-              <code>{createdAgentCredential.credential}</code>
-            ) : null}
-            <div className="auth-list">
-              {agentCredentials.map((credential) => (
-                <div key={credential.id}>
-                  <strong>{credential.label}</strong>
-                  <span>{credential.credential_prefix} · {credential.revoked ? "revogada" : "ativa"}</span>
+            <div className="organization-list">
+              <div className="organization-card active">
+                <strong>Uso individual</strong>
+                <span>Conta própria</span>
+                <small>As impressoras ficam visíveis somente para você.</small>
+              </div>
+              {authUser.organizations.map((organization) => (
+                <div key={organization.id} className="organization-card">
+                  <strong>{organization.name}</strong>
+                  <span>{organization.role}</span>
+                  <small>Organização #{organization.id}</small>
                 </div>
               ))}
             </div>
-          </div>
-        </article>
+          </article>
+
+          <article className="panel auth-panel">
+            <div className="panel-header-row">
+              <div>
+                <h2>Organização opcional</h2>
+                <p>Crie organizações apenas quando quiser compartilhar impressoras com outros usuários.</p>
+              </div>
+              <Plus size={20} />
+            </div>
+            <div className="auth-stack">
+              <label>
+                <span>Nova organização</span>
+                <input value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} />
+              </label>
+              <button type="button" className="primary-button" onClick={() => void createAuthOrganization()} disabled={loading || !organizationName.trim()}>
+                Criar organização
+              </button>
+              <label>
+                <span>Organização para convite</span>
+                <select value={selectedOrganizationId ?? ""} onChange={(event) => setSelectedOrganizationId(Number(event.target.value) || null)}>
+                  <option value="">Selecione</option>
+                  {authUser.organizations.map((organization) => (
+                    <option key={organization.id} value={organization.id}>{organization.name} · {organization.role}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Email do usuário</span>
+                <input value={memberEmail} onChange={(event) => setMemberEmail(event.target.value)} type="email" />
+              </label>
+              <label>
+                <span>Papel</span>
+                <select value={memberRole} onChange={(event) => setMemberRole(event.target.value as "admin" | "operator")}>
+                  <option value="operator">Operador</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </label>
+              <button type="button" className="secondary-button" onClick={() => void addAuthOrganizationMember()} disabled={loading || !selectedOrganizationId || !memberEmail.trim()}>
+                Vincular usuário
+              </button>
+            </div>
+          </article>
+        </div>
       ) : null}
     </section>
   );

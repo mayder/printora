@@ -1,11 +1,12 @@
 import { createRoot } from "react-dom/client";
 import { useState } from "react";
-import { Bell, ChevronDown, Info, KeyRound, LogOut, Menu, ShieldCheck, UserRound, Users, X } from "lucide-react";
+import { Bell, ChevronDown, Info, LogOut, Menu, ShieldCheck, UserRound, Users, X } from "lucide-react";
 import { appSections } from "./app/navigation";
 import { AppModals } from "./components/modals";
 import { ToastViewport } from "./components/ToastViewport";
 import { OverviewScreen } from "./screens/OverviewScreen";
 import { PrintersScreen } from "./screens/PrintersScreen";
+import { AgentsScreen } from "./screens/AgentsScreen";
 import { SetupScreen } from "./screens/SetupScreen";
 import { MonitoringScreen } from "./screens/MonitoringScreen";
 import { UpdatesScreen } from "./screens/UpdatesScreen";
@@ -67,7 +68,6 @@ function App() {
     { label: "Acessos da conta", icon: UserRound, tab: "access" },
     { label: "Segurança", icon: ShieldCheck, tab: "security" },
     { label: "Organizações", icon: Users, tab: "organizations" },
-    { label: "Credenciais", icon: KeyRound, tab: "agents" },
   ];
 
   const activeScreen = (() => {
@@ -76,6 +76,8 @@ function App() {
         return <OverviewScreen {...screenProps} />;
       case "printers":
         return <PrintersScreen {...screenProps} />;
+      case "agents":
+        return <AgentsScreen {...screenProps} />;
       case "setup":
         return <SetupScreen {...screenProps} />;
       case "monitoring":
@@ -296,7 +298,7 @@ function App() {
             {activeSection === "settings"
               ? "Configuração global do Printora"
               : activeSection === "account"
-                ? "Identidade, segurança e compartilhamento cloud"
+                ? "Identidade, segurança e organizações"
               : activeSection === "setup"
                 ? "Provisionamento começa somente depois que Linux e SSH estão ativos"
               : activeSection === "about"

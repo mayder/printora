@@ -336,6 +336,42 @@
   align-items: end;
 }
 
+.organization-list {
+  display: grid;
+  gap: 10px;
+}
+
+.organization-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 12px;
+}
+
+.organization-card.active {
+  border-left: 3px solid var(--accent);
+}
+
+.organization-card strong,
+.organization-card small {
+  overflow-wrap: anywhere;
+}
+
+.organization-card span {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.organization-card small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+}
+
 .segmented-control {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -433,6 +469,10 @@
 
   .account-grid,
   .account-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .organization-card {
     grid-template-columns: 1fr;
   }
 }
