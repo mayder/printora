@@ -107,62 +107,101 @@ export function AuthScreen(props: AuthScreenProps) {
 
   if (!authUser) {
     return (
-      <article className="panel wide auth-panel">
-        <div className="panel-header-row">
-          <div>
-            <h2>{authMode === "login" ? "Entrar" : "Criar conta"}</h2>
-            <p>Email e senha são obrigatórios. Contatos são opcionais.</p>
+      <section className="auth-entry">
+        <aside className="auth-showcase" aria-label="Printora">
+          <div className="auth-showcase-inner">
+            <img className="auth-showcase-logo" src="/brand/printora-logo-horizontal-dark-bg.png" alt="Printora" />
+            <div className="auth-showcase-copy">
+              <span>Klipper Ops</span>
+              <h1>Acesso seguro para operação remota.</h1>
+              <p>Conta individual, organização opcional e agente pareado por token curto.</p>
+            </div>
+            <div className="auth-device-panel" aria-hidden="true">
+              <div className="auth-device-top">
+                <span />
+                <span />
+                <span />
+              </div>
+              <div className="auth-device-grid">
+                <div>
+                  <strong>Voron 2.4</strong>
+                  <small>agente online</small>
+                </div>
+                <div>
+                  <strong>2FA</strong>
+                  <small>opcional</small>
+                </div>
+                <div>
+                  <strong>Jobs</strong>
+                  <small>auditados</small>
+                </div>
+                <div>
+                  <strong>Cloud</strong>
+                  <small>isolado</small>
+                </div>
+              </div>
+            </div>
           </div>
-          <span className="status-pill info">{authMode === "login" ? "Sessão" : "Cadastro"}</span>
-        </div>
-        <div className="segmented-control">
-          <button type="button" className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")}>Login</button>
-          <button type="button" className={authMode === "register" ? "active" : ""} onClick={() => setAuthMode("register")}>Cadastro</button>
-        </div>
-        <div className="auth-grid">
-          <label>
-            <span>Email</span>
-            <input value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} type="email" autoComplete="email" />
-          </label>
-          <label>
-            <span>Senha</span>
-            <input value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} />
-          </label>
-          {authMode === "register" ? (
-            <>
-              <label>
-                <span>Nome</span>
-                <input value={authDisplayName} onChange={(event) => setAuthDisplayName(event.target.value)} />
-              </label>
-              <label>
-                <span>WhatsApp</span>
-                <input value={authWhatsapp} onChange={(event) => setAuthWhatsapp(event.target.value)} />
-              </label>
-              <label>
-                <span>Telegram</span>
-                <input value={authTelegram} onChange={(event) => setAuthTelegram(event.target.value)} />
-              </label>
-            </>
-          ) : null}
-        </div>
-        {authMfaChallengeToken ? (
-          <div className="auth-step">
+        </aside>
+
+        <article className="auth-card" aria-label={authMode === "login" ? "Entrar" : "Criar conta"}>
+          <div className="auth-card-brand">
+            <img src="/brand/printora-icon-app-color.png" alt="" />
+          </div>
+          <div className="auth-card-heading">
+            <span>{authMode === "login" ? "Sessão" : "Cadastro"}</span>
+            <h2>{authMode === "login" ? "Entrar no Printora" : "Criar conta"}</h2>
+            <p>Email e senha são obrigatórios. Os demais contatos são opcionais.</p>
+          </div>
+          <div className="segmented-control auth-mode-tabs">
+            <button type="button" className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")}>Login</button>
+            <button type="button" className={authMode === "register" ? "active" : ""} onClick={() => setAuthMode("register")}>Cadastro</button>
+          </div>
+          <div className="auth-grid">
             <label>
-              <span>Código 2FA</span>
-              <input value={authMfaCode} onChange={(event) => setAuthMfaCode(event.target.value)} inputMode="numeric" />
+              <span>Email</span>
+              <input value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} type="email" autoComplete="email" placeholder="voce@empresa.com" />
             </label>
-            <button type="button" className="primary-button" onClick={() => void submitMfaLogin()} disabled={loading || !authMfaCode.trim()}>
-              <ShieldCheck size={16} />
-              Validar
-            </button>
+            <label>
+              <span>Senha</span>
+              <input value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} placeholder="Sua senha" />
+            </label>
+            {authMode === "register" ? (
+              <>
+                <label>
+                  <span>Nome</span>
+                  <input value={authDisplayName} onChange={(event) => setAuthDisplayName(event.target.value)} placeholder="Opcional" />
+                </label>
+                <label>
+                  <span>WhatsApp</span>
+                  <input value={authWhatsapp} onChange={(event) => setAuthWhatsapp(event.target.value)} placeholder="Opcional" />
+                </label>
+                <label>
+                  <span>Telegram</span>
+                  <input value={authTelegram} onChange={(event) => setAuthTelegram(event.target.value)} placeholder="Opcional" />
+                </label>
+              </>
+            ) : null}
           </div>
-        ) : (
-          <button type="button" className="primary-button" onClick={() => void submitAuth()} disabled={loading || !authEmail.trim() || !authPassword.trim()}>
-            <UserRound size={16} />
-            {authMode === "login" ? "Entrar" : "Criar conta"}
-          </button>
-        )}
-      </article>
+          {authMfaChallengeToken ? (
+            <div className="auth-step">
+              <label>
+                <span>Código 2FA</span>
+                <input value={authMfaCode} onChange={(event) => setAuthMfaCode(event.target.value)} inputMode="numeric" placeholder="000000" />
+              </label>
+              <button type="button" className="primary-button" onClick={() => void submitMfaLogin()} disabled={loading || !authMfaCode.trim()}>
+                <ShieldCheck size={16} />
+                Validar
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="primary-button auth-submit" onClick={() => void submitAuth()} disabled={loading || !authEmail.trim() || !authPassword.trim()}>
+              <UserRound size={16} />
+              {authMode === "login" ? "Entrar" : "Criar conta"}
+            </button>
+          )}
+        </article>
+      </section>
     );
   }
 

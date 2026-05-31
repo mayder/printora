@@ -97,17 +97,8 @@ function App() {
   if (!screenProps.authUser) {
     return (
       <main className="auth-only-shell">
-        <section className="auth-only-brand">
-          <img src="/brand/printora-icon-app-color.png" alt="" />
-          <div>
-            <strong>Printora</strong>
-            <span>Klipper Ops</span>
-          </div>
-        </section>
         {error ? <section className="alert danger">{error}</section> : null}
-        <section className="auth-only-content">
-          <AuthScreen {...screenProps} />
-        </section>
+        <AuthScreen {...screenProps} />
         <ToastViewport toasts={toasts} dismissToast={dismissToast} />
       </main>
     );
