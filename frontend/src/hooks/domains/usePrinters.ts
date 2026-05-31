@@ -63,6 +63,7 @@ export function usePrinters(options: UsePrintersOptions) {
   const [newPrinterSshCredential, setNewPrinterSshCredential] = React.useState("");
   const [printerConnectionTest, setPrinterConnectionTest] = React.useState<PrinterConnectionTestResponse | null>(null);
   const [pairingOverview, setPairingOverview] = React.useState<AgentPairingOverview | null>(null);
+  const [fleetPairingOverviews, setFleetPairingOverviews] = React.useState<Record<number, AgentPairingOverview>>({});
   const [createdPairingToken, setCreatedPairingToken] = React.useState<PairingTokenResponse | null>(null);
   const [rotatedAgentCredential, setRotatedAgentCredential] = React.useState<AgentCredentialExchangeResponse | null>(null);
   const [agentInstallPlan, setAgentInstallPlan] = React.useState<AgentInstallPlanResponse | null>(null);
@@ -83,6 +84,7 @@ export function usePrinters(options: UsePrintersOptions) {
     }
     const payload = (await response.json()) as { printers: PrinterRecord[] };
     setPrinters(payload.printers);
+    void loadFleetAgentPairings(payload.printers.map((printer) => printer.id));
     const nextSelected = payload.printers.some((printer) => printer.id === selectedPrinterId) ? selectedPrinterId : payload.printers[0]?.id ?? null;
     setSelectedPrinterId(nextSelected);
     if (nextSelected) {
@@ -257,10 +259,34 @@ export function usePrinters(options: UsePrintersOptions) {
     if (!response.ok) {
       return;
     }
-    setPairingOverview((await response.json()) as AgentPairingOverview);
+    const overview = (await response.json()) as AgentPairingOverview;
+    setPairingOverview(overview);
+    setFleetPairingOverviews((current) => ({ ...current, [printerId]: overview }));
     await loadAgentInstallStatus(printerId);
     await loadRemoteOperations(printerId);
     await loadAgentSupport(printerId);
+  }
+
+  async function loadFleetAgentPairings(printerIds = printers.map((printer) => printer.id)) {
+    const entries = await Promise.all(
+      printerIds.map(async (printerId) => {
+        const response = await printerApi.pairing(printerId);
+        if (!response.ok) {
+          return null;
+        }
+        return [printerId, (await response.json()) as AgentPairingOverview] as const;
+      }),
+    );
+    const nextOverviews = entries.reduce<Record<number, AgentPairingOverview>>((accumulator, entry) => {
+      if (entry) {
+        accumulator[entry[0]] = entry[1];
+      }
+      return accumulator;
+    }, {});
+    setFleetPairingOverviews(nextOverviews);
+    if (selectedPrinterId && nextOverviews[selectedPrinterId]) {
+      setPairingOverview(nextOverviews[selectedPrinterId]);
+    }
   }
 
   async function loadAgentInstallStatus(printerId = selectedPrinterId) {
@@ -426,20 +452,21 @@ export function usePrinters(options: UsePrintersOptions) {
     }
   }
 
-  async function createPairingToken() {
-    if (!selectedPrinterId) {
+  async function createPairingToken(printerId = selectedPrinterId) {
+    if (!printerId) {
       setError("Selecione uma impressora");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const response = await printerApi.createPairingToken(selectedPrinterId, 15);
+      const response = await printerApi.createPairingToken(printerId, 15);
       if (!response.ok) {
         throw new Error(await response.text());
       }
       setCreatedPairingToken((await response.json()) as PairingTokenResponse);
-      await loadPrinterPairing(selectedPrinterId);
+      await loadPrinterPairing(printerId);
+      await loadFleetAgentPairings();
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
@@ -447,18 +474,19 @@ export function usePrinters(options: UsePrintersOptions) {
     }
   }
 
-  async function revokePairingToken(tokenId: number) {
-    if (!selectedPrinterId) {
+  async function revokePairingToken(tokenId: number, printerId = selectedPrinterId) {
+    if (!printerId) {
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const response = await printerApi.revokePairingToken(selectedPrinterId, tokenId);
+      const response = await printerApi.revokePairingToken(printerId, tokenId);
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      await loadPrinterPairing(selectedPrinterId);
+      await loadPrinterPairing(printerId);
+      await loadFleetAgentPairings();
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
@@ -466,18 +494,19 @@ export function usePrinters(options: UsePrintersOptions) {
     }
   }
 
-  async function removePairingToken(tokenId: number) {
-    if (!selectedPrinterId) {
+  async function removePairingToken(tokenId: number, printerId = selectedPrinterId) {
+    if (!printerId) {
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const response = await printerApi.removePairingToken(selectedPrinterId, tokenId);
+      const response = await printerApi.removePairingToken(printerId, tokenId);
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      await loadPrinterPairing(selectedPrinterId);
+      await loadPrinterPairing(printerId);
+      await loadFleetAgentPairings();
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
@@ -485,18 +514,19 @@ export function usePrinters(options: UsePrintersOptions) {
     }
   }
 
-  async function revokePrinterAgent(agentId: number) {
-    if (!selectedPrinterId) {
+  async function revokePrinterAgent(agentId: number, printerId = selectedPrinterId) {
+    if (!printerId) {
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const response = await printerApi.revokeAgent(selectedPrinterId, agentId);
+      const response = await printerApi.revokeAgent(printerId, agentId);
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      await loadPrinterPairing(selectedPrinterId);
+      await loadPrinterPairing(printerId);
+      await loadFleetAgentPairings();
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
@@ -504,20 +534,21 @@ export function usePrinters(options: UsePrintersOptions) {
     }
   }
 
-  async function removePrinterAgent(agentId: number) {
-    if (!selectedPrinterId) {
+  async function removePrinterAgent(agentId: number, printerId = selectedPrinterId) {
+    if (!printerId) {
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const response = await printerApi.removeAgent(selectedPrinterId, agentId);
+      const response = await printerApi.removeAgent(printerId, agentId);
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      await loadPrinterPairing(selectedPrinterId);
-      await loadAgentSupport(selectedPrinterId);
-      await loadAgentInstallStatus(selectedPrinterId);
+      await loadPrinterPairing(printerId);
+      await loadAgentSupport(printerId);
+      await loadAgentInstallStatus(printerId);
+      await loadFleetAgentPairings();
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
@@ -525,19 +556,20 @@ export function usePrinters(options: UsePrintersOptions) {
     }
   }
 
-  async function rotatePrinterAgent(agentId: number) {
-    if (!selectedPrinterId) {
+  async function rotatePrinterAgent(agentId: number, printerId = selectedPrinterId) {
+    if (!printerId) {
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const response = await printerApi.rotateAgentCredential(selectedPrinterId, agentId);
+      const response = await printerApi.rotateAgentCredential(printerId, agentId);
       if (!response.ok) {
         throw new Error(await response.text());
       }
       setRotatedAgentCredential((await response.json()) as AgentCredentialExchangeResponse);
-      await loadPrinterPairing(selectedPrinterId);
+      await loadPrinterPairing(printerId);
+      await loadFleetAgentPairings();
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
@@ -561,7 +593,9 @@ export function usePrinters(options: UsePrintersOptions) {
     discovery,
     editingPrinterId,
     executeRemoteOperation,
+    fleetPairingOverviews,
     loadPrinters,
+    loadFleetAgentPairings,
     loadPrinterPairing,
     loadAgentInstallStatus,
     loadAgentSupport,

@@ -206,6 +206,17 @@ class AgentPairingRepository:
         expires_at = utc_now() + timedelta(minutes=request.ttl_minutes)
         token_prefix = token[:18]
         with connect_database(self.database_path) as connection:
+            connection.execute(
+                """
+                UPDATE printer_pairing_tokens
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE printer_id = ?
+                  AND consumed_at IS NULL
+                  AND revoked_at IS NULL
+                  AND expires_at > CURRENT_TIMESTAMP
+                """,
+                (printer.id,),
+            )
             cursor = connection.execute(
                 """
                 INSERT INTO printer_pairing_tokens (

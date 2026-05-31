@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Badge, Metric } from "../components/common";
+import type { AgentPairingOverview, PairingTokenRecord, PrinterAgentRecord, PrinterRecord } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type AgentsScreenProps = ScreenPropsFor<
@@ -10,9 +11,11 @@ type AgentsScreenProps = ScreenPropsFor<
   | "Gauge"
   | "History"
   | "KeyRound"
+  | "Printer"
   | "Radio"
   | "Server"
   | "ShieldAlert"
+  | "Trash2"
   | "agentInstallPlan"
   | "agentInstallStatus"
   | "agentSupport"
@@ -21,17 +24,21 @@ type AgentsScreenProps = ScreenPropsFor<
   | "createAgentDoctorJob"
   | "createPairingToken"
   | "createdPairingToken"
+  | "fleetPairingOverviews"
   | "loadAgentInstallStatus"
   | "loadAgentSupport"
   | "loadAgentSupportBundle"
+  | "loadFleetAgentPairings"
   | "loading"
   | "pairingOverview"
+  | "printers"
   | "removePairingToken"
   | "removePrinterAgent"
   | "revokePairingToken"
   | "revokePrinterAgent"
   | "rotatePrinterAgent"
   | "rotatedAgentCredential"
+  | "selectPrinter"
   | "setAgentInstallPlan"
   | "setAgentSupportBundle"
   | "setRotatedAgentCredential"
@@ -39,6 +46,12 @@ type AgentsScreenProps = ScreenPropsFor<
   | "selectedPrinter"
   | "selectedPrinterId"
 >;
+
+type AgentFleetRow = {
+  agent: PrinterAgentRecord;
+  overview: AgentPairingOverview;
+  printer: PrinterRecord;
+};
 
 export function AgentsScreen(props: AgentsScreenProps) {
   const {
@@ -49,9 +62,11 @@ export function AgentsScreen(props: AgentsScreenProps) {
     Gauge,
     History,
     KeyRound,
+    Printer,
     Radio,
     Server,
     ShieldAlert,
+    Trash2,
     agentInstallPlan,
     agentInstallStatus,
     agentSupport,
@@ -60,17 +75,21 @@ export function AgentsScreen(props: AgentsScreenProps) {
     createAgentDoctorJob,
     createPairingToken,
     createdPairingToken,
+    fleetPairingOverviews,
     loadAgentInstallStatus,
     loadAgentSupport,
     loadAgentSupportBundle,
+    loadFleetAgentPairings,
     loading,
     pairingOverview,
+    printers,
     removePairingToken,
     removePrinterAgent,
     revokePairingToken,
     revokePrinterAgent,
     rotatePrinterAgent,
     rotatedAgentCredential,
+    selectPrinter,
     setAgentInstallPlan,
     setAgentSupportBundle,
     setRotatedAgentCredential,
@@ -79,10 +98,26 @@ export function AgentsScreen(props: AgentsScreenProps) {
     selectedPrinterId,
   } = props;
 
-  const agents = pairingOverview?.agents ?? [];
-  const activeAgents = agents.filter((agent) => agent.status !== "revoked");
-  const revokedAgents = agents.filter((agent) => agent.status === "revoked");
+  const agentRows = React.useMemo(
+    () => buildAgentRows(printers, fleetPairingOverviews),
+    [printers, fleetPairingOverviews],
+  );
+  const [selectedAgentKey, setSelectedAgentKey] = React.useState<string | null>(null);
+  const selectedAgentRow = agentRows.find((row) => agentKey(row) === selectedAgentKey) ?? agentRows[0] ?? null;
+  const selectedOverview = selectedPrinterId ? pairingOverview : null;
+  const activeTokens = selectedOverview?.pairing_tokens.filter((token) => token.status === "active") ?? [];
+  const tokenHistory = selectedOverview?.pairing_tokens.filter((token) => token.status !== "active") ?? [];
   const latestToastTokenId = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    if (!selectedAgentRow) {
+      setSelectedAgentKey(null);
+      return;
+    }
+    if (!selectedAgentKey || !agentRows.some((row) => agentKey(row) === selectedAgentKey)) {
+      setSelectedAgentKey(agentKey(selectedAgentRow));
+    }
+  }, [agentRows, selectedAgentKey, selectedAgentRow]);
 
   async function copyToken(token: string) {
     const copied = await copyTextToClipboard(token);
@@ -107,51 +142,173 @@ export function AgentsScreen(props: AgentsScreenProps) {
     });
   }, [createdPairingToken]);
 
+  function selectAgent(row: AgentFleetRow) {
+    setSelectedAgentKey(agentKey(row));
+    if (row.printer.id !== selectedPrinterId) {
+      selectPrinter(row.printer.id);
+    }
+  }
+
+  async function rotateAgent(row: AgentFleetRow) {
+    selectAgent(row);
+    await rotatePrinterAgent(row.agent.id, row.printer.id);
+  }
+
+  async function revokeAgent(row: AgentFleetRow) {
+    selectAgent(row);
+    await revokePrinterAgent(row.agent.id, row.printer.id);
+    await loadFleetAgentPairings();
+  }
+
+  async function removeAgent(row: AgentFleetRow) {
+    selectAgent(row);
+    await removePrinterAgent(row.agent.id, row.printer.id);
+    await loadFleetAgentPairings();
+  }
+
   return (
     <>
       <article className="panel wide panel-section panel-agents">
         <div className="panel-heading">
           <div>
-            <h2>Agente da impressora</h2>
-            <p className="muted">Selecione a impressora, gere o instalador e copie o comando pronto com token curto.</p>
+            <h2>Agentes</h2>
+            <p className="muted">Veja todos os agentes pareados, entre no detalhe e use tokens apenas para nova instalação.</p>
           </div>
           <button type="button" className="primary-button" onClick={() => void createAgentInstallPlan()} disabled={!selectedPrinterId || loading}>
             <ClipboardCheck size={16} />
             Gerar instalação
           </button>
         </div>
-        {!selectedPrinterId ? <p className="muted">Selecione uma impressora no topo para cadastrar o agente.</p> : null}
+        <div className="overview-strip">
+          <Badge icon={Server} label="Impressoras" value={printers.length} />
+          <Badge icon={Radio} label="Agentes" value={agentRows.length} />
+          <Badge icon={CheckCircle2} label="Online" value={agentRows.filter((row) => row.printer.cloud_status === "online").length} />
+          <Badge icon={Gauge} label="Versão esperada" value={agentInstallStatus?.expected_agent_version ?? "-"} />
+        </div>
+      </article>
+
+      <article className="panel wide panel-section panel-agents">
+        <div className="panel-heading">
+          <div>
+            <h2>Agentes da frota</h2>
+            <p className="muted">A listagem é por agente; ao selecionar, o contexto muda para a impressora vinculada.</p>
+          </div>
+          <button type="button" className="secondary-button" onClick={() => void loadFleetAgentPairings()} disabled={loading}>
+            <Radio size={15} />
+            Atualizar
+          </button>
+        </div>
+        <div className="agent-fleet-layout">
+          <div className="agent-fleet-table">
+            <div className="agent-fleet-header">
+              <span>Agente</span>
+              <span>Impressora</span>
+              <span>Status</span>
+              <span>Último contato</span>
+              <span>Ações</span>
+            </div>
+            {agentRows.length === 0 ? <div className="agent-fleet-empty">Nenhum agente pareado ainda.</div> : null}
+            {agentRows.map((row) => (
+              <div key={agentKey(row)} className={`agent-fleet-row ${selectedAgentRow && agentKey(row) === agentKey(selectedAgentRow) ? "active" : ""}`}>
+                <strong>{row.agent.stable_id}</strong>
+                <span>{row.printer.name}</span>
+                <span className={`status-pill ${agentStatusTone(row)}`}>{agentStatusLabel(row)}</span>
+                <span>{row.agent.last_seen_at ?? "-"}</span>
+                <div className="printer-card-actions">
+                  <button type="button" className="secondary-button" onClick={() => selectAgent(row)} disabled={loading}>
+                    <Printer size={15} />
+                    Detalhar
+                  </button>
+                  {row.agent.status === "revoked" ? (
+                    <button type="button" className="secondary-button" onClick={() => void removeAgent(row)} disabled={loading}>
+                      <Trash2 size={15} />
+                      Remover
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="printer-card agent-detail-card">
+            {selectedAgentRow ? (
+              <>
+                <div className="printer-card-header">
+                  <div>
+                    <strong>{selectedAgentRow.agent.stable_id}</strong>
+                    <span>{selectedAgentRow.printer.name} · {selectedAgentRow.agent.platform || "-"}</span>
+                  </div>
+                  <span className={`status-pill ${agentStatusTone(selectedAgentRow)}`}>{agentStatusLabel(selectedAgentRow)}</span>
+                </div>
+                <div className="printer-card-grid">
+                  <Metric label="Impressora" value={selectedAgentRow.printer.name} />
+                  <Metric label="URL" value={selectedAgentRow.printer.moonraker_url} />
+                  <Metric label="Versão" value={selectedAgentRow.agent.agent_version ?? "-"} />
+                  <Metric label="Plataforma" value={selectedAgentRow.agent.platform ?? "-"} />
+                  <Metric label="Pareado em" value={selectedAgentRow.agent.paired_at} />
+                  <Metric label="Último contato" value={selectedAgentRow.agent.last_seen_at ?? "-"} />
+                  <Metric label="Credencial" value={selectedAgentRow.agent.credential_prefix} />
+                  <Metric label="Status" value={selectedAgentRow.agent.status} />
+                </div>
+                <div className="printer-card-actions">
+                  <button type="button" className="secondary-button" onClick={() => selectAgent(selectedAgentRow)} disabled={loading}>
+                    <Printer size={15} />
+                    Usar impressora
+                  </button>
+                  <button type="button" className="secondary-button" onClick={() => void rotateAgent(selectedAgentRow)} disabled={loading || selectedAgentRow.agent.status === "revoked"}>
+                    <KeyRound size={15} />
+                    Rotacionar
+                  </button>
+                  <button type="button" className="secondary-button" onClick={() => void revokeAgent(selectedAgentRow)} disabled={loading || selectedAgentRow.agent.status === "revoked"}>
+                    <Trash2 size={15} />
+                    Revogar
+                  </button>
+                  {selectedAgentRow.agent.status === "revoked" ? (
+                    <button type="button" className="secondary-button" onClick={() => void removeAgent(selectedAgentRow)} disabled={loading}>
+                      <Trash2 size={15} />
+                      Remover
+                    </button>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <p className="muted">Selecione um agente para ver detalhes.</p>
+            )}
+          </div>
+        </div>
+      </article>
+
+      <article className="panel wide panel-section panel-agents">
+        <div className="panel-heading">
+          <div>
+            <h2>Instalação por token</h2>
+            <p className="muted">Cada token ativo é de uso único para parear uma instalação. Ao gerar outro token, o pendente anterior é revogado.</p>
+          </div>
+          <button type="button" className="secondary-button" onClick={() => void createPairingToken()} disabled={!selectedPrinterId || loading}>
+            <KeyRound size={15} />
+            Gerar token
+          </button>
+        </div>
+        {!selectedPrinterId ? <p className="muted">Selecione uma impressora para gerar instalação.</p> : null}
         <div className="overview-strip">
           <Badge icon={Server} label="Impressora" value={selectedPrinter?.name ?? "-"} />
           <Badge icon={CheckCircle2} label="Instalação" value={agentInstallStatus?.ready ? "validada" : "pendente"} />
           <Badge icon={Radio} label="Agentes ativos" value={agentInstallStatus?.active_agents ?? 0} />
-          <Badge icon={Gauge} label="Versão esperada" value={agentInstallStatus?.expected_agent_version ?? "-"} />
+          <Badge icon={Gauge} label="Token ativo" value={activeTokens.length ? activeTokens[0].token_prefix : "-"} />
         </div>
         {agentInstallStatus ? <p className="muted">{agentInstallStatus.diagnostic}</p> : null}
-        <div className="printer-card-actions">
-          <button type="button" className="secondary-button" onClick={() => void loadAgentInstallStatus()} disabled={!selectedPrinterId || loading}>
-            <Radio size={15} />
-            Validar instalação
-          </button>
-          <button type="button" className="secondary-button" onClick={() => void createPairingToken()} disabled={!selectedPrinterId || loading}>
-            <KeyRound size={15} />
-            Gerar token avulso
-          </button>
-        </div>
-      </article>
 
-      {agentInstallPlan ? (
-        <article className="panel wide panel-section panel-agents">
-          <div className="panel-heading">
-            <div>
-              <h2>Comandos de instalação</h2>
-              <p className="muted">Token {agentInstallPlan.token_prefix} expira em {agentInstallPlan.expires_at} e será consumido uma única vez.</p>
-            </div>
-            <button type="button" className="secondary-button" onClick={() => setAgentInstallPlan(null)}>
-              Ocultar
-            </button>
-          </div>
+        {agentInstallPlan ? (
           <div className="agent-install-box">
+            <div className="printer-card-header">
+              <div>
+                <strong>Comandos de instalação</strong>
+                <span>Token {agentInstallPlan.token_prefix} expira em {agentInstallPlan.expires_at}.</span>
+              </div>
+              <button type="button" className="secondary-button" onClick={() => setAgentInstallPlan(null)}>
+                Ocultar
+              </button>
+            </div>
             <label>
               Preflight sem instalação
               <textarea readOnly value={agentInstallPlan.preflight_command} />
@@ -165,17 +322,34 @@ export function AgentsScreen(props: AgentsScreenProps) {
               <textarea readOnly value={agentInstallPlan.uninstall_command} />
             </label>
           </div>
-        </article>
-      ) : null}
+        ) : null}
 
-      <article className="panel wide panel-section panel-agents">
-        <div className="panel-heading">
-          <div>
-            <h2>Tokens e agentes vinculados</h2>
-            <p className="muted">Tokens aparecem uma vez; agentes pareados ficam listados por status e último contato.</p>
-          </div>
+        <div className="agent-token-grid">
+          <TokenTable
+            title="Token ativo"
+            emptyText="Nenhum token pendente para esta impressora."
+            tokens={activeTokens}
+            createdPairingToken={createdPairingToken}
+            loading={loading}
+            onCopy={copyToken}
+            onRevoke={(tokenId) => revokePairingToken(tokenId)}
+            onRemove={(tokenId) => removePairingToken(tokenId)}
+          />
+          <TokenTable
+            title="Histórico de tokens"
+            emptyText="Nenhum token antigo."
+            tokens={tokenHistory}
+            createdPairingToken={createdPairingToken}
+            loading={loading}
+            onCopy={copyToken}
+            onRevoke={(tokenId) => revokePairingToken(tokenId)}
+            onRemove={(tokenId) => removePairingToken(tokenId)}
+          />
         </div>
-        {rotatedAgentCredential ? (
+      </article>
+
+      {rotatedAgentCredential ? (
+        <article className="panel wide panel-section panel-agents">
           <div className="auth-step">
             <div>
               <strong>Credencial rotacionada</strong>
@@ -186,93 +360,14 @@ export function AgentsScreen(props: AgentsScreenProps) {
               Ocultar
             </button>
           </div>
-        ) : null}
-        <div className="printer-dashboard">
-          <div className="printer-card">
-            <div className="printer-card-header">
-              <div>
-                <strong>Tokens</strong>
-                <span>{pairingOverview?.pairing_tokens.length ?? 0} registros</span>
-              </div>
-              <button type="button" className="secondary-button" onClick={() => void createPairingToken()} disabled={!selectedPrinterId || loading}>
-                <KeyRound size={15} />
-                Gerar token
-              </button>
-            </div>
-            <div className="auth-list">
-              {(pairingOverview?.pairing_tokens ?? []).map((token) => (
-                <div key={token.id}>
-                  <strong>{token.token_prefix}</strong>
-                  <span>{token.status} · expira {token.expires_at}</span>
-                  {token.status === "active" ? (
-                    <>
-                      {createdPairingToken?.id === token.id ? (
-                        <button type="button" className="secondary-button" onClick={() => void copyToken(createdPairingToken.token)} disabled={loading}>
-                          Copiar
-                        </button>
-                      ) : null}
-                      <button type="button" className="secondary-button" onClick={() => void revokePairingToken(token.id)} disabled={loading}>
-                        Revogar
-                      </button>
-                    </>
-                  ) : (
-                    <button type="button" className="secondary-button" onClick={() => void removePairingToken(token.id)} disabled={loading}>
-                      Remover
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="printer-card">
-            <div className="printer-card-header">
-              <div>
-                <strong>Agentes ativos</strong>
-                <span>{activeAgents.length} registros</span>
-              </div>
-            </div>
-            <div className="auth-list">
-              {activeAgents.length === 0 ? <span className="muted">Nenhum agente ativo pareado nesta impressora.</span> : null}
-              {activeAgents.map((agent) => (
-                <div key={agent.id}>
-                  <strong>{agent.stable_id}</strong>
-                  <span>{agent.status} · {agent.platform || "-"} · último contato {agent.last_seen_at || "-"}</span>
-                  <button type="button" className="secondary-button" onClick={() => void rotatePrinterAgent(agent.id)} disabled={loading || agent.status === "revoked"}>
-                    Rotacionar
-                  </button>
-                  <button type="button" className="secondary-button" onClick={() => void revokePrinterAgent(agent.id)} disabled={loading || agent.status === "revoked"}>
-                    Revogar
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        {revokedAgents.length ? (
-          <div className="auth-step">
-            <div>
-              <strong>Acessos removidos</strong>
-              <p className="muted">Mantidos apenas para auditoria. Eles não conseguem mais comunicar com a API.</p>
-              <div className="auth-list">
-                {revokedAgents.map((agent) => (
-                  <div key={agent.id}>
-                    <span>{agent.stable_id} · revogado · último contato {agent.last_seen_at || "-"}</span>
-                    <button type="button" className="secondary-button" onClick={() => void removePrinterAgent(agent.id)} disabled={loading}>
-                      Remover
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </article>
+        </article>
+      ) : null}
 
       <article className="panel wide panel-section panel-agents">
         <div className="panel-heading">
           <div>
             <h2>Saúde e suporte</h2>
-            <p className="muted">Diagnóstico para diferenciar agente, API, credencial, Moonraker, Klipper, versão e fila.</p>
+            <p className="muted">Diagnóstico da impressora selecionada para diferenciar agente, API, credencial, Moonraker, Klipper, versão e fila.</p>
           </div>
           <div className="printer-card-actions">
             <button type="button" className="secondary-button" onClick={() => void loadAgentSupport()} disabled={!selectedPrinterId || loading}>
@@ -348,6 +443,102 @@ export function AgentsScreen(props: AgentsScreenProps) {
       </article>
     </>
   );
+}
+
+function TokenTable({
+  title,
+  emptyText,
+  tokens,
+  createdPairingToken,
+  loading,
+  onCopy,
+  onRevoke,
+  onRemove,
+}: {
+  title: string;
+  emptyText: string;
+  tokens: PairingTokenRecord[];
+  createdPairingToken: PairingTokenRecord & { token?: string } | null;
+  loading: boolean;
+  onCopy: (token: string) => void;
+  onRevoke: (tokenId: number) => void;
+  onRemove: (tokenId: number) => void;
+}) {
+  return (
+    <div className="printer-card">
+      <div className="printer-card-header">
+        <div>
+          <strong>{title}</strong>
+          <span>{tokens.length} registros</span>
+        </div>
+      </div>
+      <div className="auth-list">
+        {tokens.length === 0 ? <span className="muted">{emptyText}</span> : null}
+        {tokens.map((token) => (
+          <div key={token.id}>
+            <strong>{token.token_prefix}</strong>
+            <span>{token.status} · expira {token.expires_at}</span>
+            <div className="printer-card-actions">
+              {token.status === "active" && createdPairingToken?.id === token.id && createdPairingToken.token ? (
+                <button type="button" className="secondary-button" onClick={() => onCopy(createdPairingToken.token!)} disabled={loading}>
+                  Copiar
+                </button>
+              ) : null}
+              {token.status === "active" ? (
+                <button type="button" className="secondary-button" onClick={() => onRevoke(token.id)} disabled={loading}>
+                  Revogar
+                </button>
+              ) : (
+                <button type="button" className="secondary-button" onClick={() => onRemove(token.id)} disabled={loading}>
+                  Remover
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function buildAgentRows(printers: PrinterRecord[], overviews: Record<number, AgentPairingOverview>) {
+  return printers
+    .flatMap((printer) => {
+      const overview = overviews[printer.id];
+      return (overview?.agents ?? [])
+        .filter((agent) => agent.status !== "removed")
+        .map((agent) => ({ agent, overview, printer }));
+    })
+    .sort((left, right) => {
+      const statusOrder = statusWeight(left.agent.status) - statusWeight(right.agent.status);
+      if (statusOrder !== 0) return statusOrder;
+      return (right.agent.last_seen_at ?? "").localeCompare(left.agent.last_seen_at ?? "");
+    });
+}
+
+function statusWeight(status: PrinterAgentRecord["status"]) {
+  if (status === "active") return 0;
+  if (status === "revoked") return 1;
+  return 2;
+}
+
+function agentKey(row: AgentFleetRow) {
+  return `${row.printer.id}:${row.agent.id}`;
+}
+
+function agentStatusLabel(row: AgentFleetRow) {
+  if (row.agent.status === "revoked") return "revogado";
+  if (row.printer.cloud_status === "online") return "online";
+  if (row.printer.cloud_status === "offline") return "offline";
+  if (row.printer.cloud_status === "degradado") return "degradado";
+  return row.agent.status;
+}
+
+function agentStatusTone(row: AgentFleetRow) {
+  if (row.agent.status === "revoked") return "silenced";
+  if (row.printer.cloud_status === "online") return "up_to_date";
+  if (row.printer.cloud_status === "offline" || row.printer.cloud_status === "degradado") return "warning";
+  return "update_available";
 }
 
 async function copyTextToClipboard(text: string) {

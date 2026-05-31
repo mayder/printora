@@ -42,8 +42,8 @@ export const appSections: Array<{
     key: "agents",
     icon: Radio,
     label: "Agentes",
-    detail: "Instalação, pareamento, tokens e saúde dos agentes.",
-    purpose: "Cadastre o agente da impressora, gere tokens curtos e copie comandos prontos de instalação.",
+    detail: "Lista de agentes, detalhe, instalação por token e saúde.",
+    purpose: "Gerencie todos os agentes vinculados, detalhe a impressora de cada um e gere tokens de instalação quando necessário.",
   },
   {
     key: "setup",

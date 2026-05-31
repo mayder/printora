@@ -313,6 +313,9 @@ export function usePrintoraApp() {
     if (shell.activeSection === "account") {
       void auth.loadAuth().then(() => auth.loadAgentCredentials());
     }
+    if (shell.activeSection === "agents") {
+      void printers.loadFleetAgentPairings();
+    }
   }, [auth.authUser, shell.activeSection, printers.selectedPrinterId]);
 
   React.useEffect(() => {
