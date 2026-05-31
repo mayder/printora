@@ -1,6 +1,7 @@
 import { Badge, Metric } from "../components/common";
 import type { AgentPairingOverview, PrinterAgentRecord, PrinterRecord } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
+import * as React from "react";
 
 type AgentDetailScreenProps = ScreenPropsFor<
   | "AlertTriangle"
@@ -91,14 +92,16 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
   const health = agentSupport?.agents.find((item) => item.agent.id === row?.agent.id) ?? null;
   const expectedAgentVersion = agentUpdateManifest?.recommended_version ?? health?.expected_version ?? agentInstallStatus?.expected_agent_version ?? "-";
   const outdated = row ? expectedAgentVersion !== "-" && row.agent.agent_version !== expectedAgentVersion : false;
+  const [manualUpdateVisible, setManualUpdateVisible] = React.useState(false);
 
   async function updateAgent(rowToUpdate: AgentFleetRow) {
     if (!supportsRemoteAgentUpdate(rowToUpdate.agent.agent_version)) {
+      setManualUpdateVisible(true);
       const copied = await copyTextToClipboard(manualAgentUpdateCommand);
       showToast({
         tone: "info",
-        title: "Atualização manual necessária",
-        detail: copied ? `Comando copiado: ${manualAgentUpdateCommand}` : manualAgentUpdateCommand,
+        title: copied ? "Comando de update copiado" : "Update manual necessário",
+        detail: "Cole e execute este comando no terminal da impressora.",
       });
       return;
     }
@@ -159,7 +162,12 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
         {outdated ? (
           <div className="auth-step">
             <AlertTriangle size={16} />
-            <span>Agente em {row.agent.agent_version || "-"}; esperado {expectedAgentVersion}. Use Atualizar agente para criar um job remoto de update.</span>
+            <span>
+              Agente em {row.agent.agent_version || "-"}; esperado {expectedAgentVersion}.{" "}
+              {supportsRemoteAgentUpdate(row.agent.agent_version)
+                ? "Use Atualizar agente para criar um job remoto de update."
+                : "Este agente ainda precisa do primeiro update manual."}
+            </span>
           </div>
         ) : null}
         <div className="printer-card-grid">
@@ -186,6 +194,20 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
             </button>
           ) : null}
         </div>
+        {!supportsRemoteAgentUpdate(row.agent.agent_version) && manualUpdateVisible ? (
+          <div className="agent-install-box">
+            <div className="printer-card-header">
+              <div>
+                <strong>Update manual do agente</strong>
+                <span>Execute este comando no terminal da impressora para atualizar o agente. Depois disso, updates remotos ficam disponíveis pela UI.</span>
+              </div>
+              <button type="button" className="secondary-button" onClick={() => void copyTextToClipboard(manualAgentUpdateCommand)}>
+                Copiar
+              </button>
+            </div>
+            <textarea readOnly value={manualAgentUpdateCommand} />
+          </div>
+        ) : null}
       </article>
 
       <article className="panel wide panel-section panel-agents">

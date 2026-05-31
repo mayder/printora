@@ -117,6 +117,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
   );
   const [selectedAgentKey, setSelectedAgentKey] = React.useState<string | null>(null);
   const selectedAgentRow = agentRows.find((row) => agentKey(row) === selectedAgentKey) ?? agentRows[0] ?? null;
+  const [manualUpdateAgentKey, setManualUpdateAgentKey] = React.useState<string | null>(null);
   const selectedOverview = selectedPrinterId ? pairingOverview : null;
   const activeTokens = selectedOverview?.pairing_tokens.filter((token) => token.status === "active") ?? [];
   const tokenHistory = selectedOverview?.pairing_tokens.filter((token) => token.status !== "active") ?? [];
@@ -182,11 +183,12 @@ export function AgentsScreen(props: AgentsScreenProps) {
   async function updateAgent(row: AgentFleetRow) {
     selectAgent(row);
     if (!supportsRemoteAgentUpdate(row.agent.agent_version)) {
+      setManualUpdateAgentKey(agentKey(row));
       const copied = await copyTextToClipboard(manualAgentUpdateCommand);
       showToast({
         tone: "info",
-        title: "Atualização manual necessária",
-        detail: copied ? `Comando copiado: ${manualAgentUpdateCommand}` : manualAgentUpdateCommand,
+        title: copied ? "Comando de update copiado" : "Update manual necessário",
+        detail: "Cole e execute este comando no terminal da impressora.",
       });
       return;
     }
@@ -263,7 +265,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
                   </button>
                   <button type="button" className="secondary-button" onClick={() => void updateAgent(row)} disabled={loading || row.agent.status !== "active"}>
                     <RefreshCw size={15} />
-                    {supportsRemoteAgentUpdate(row.agent.agent_version) ? "Atualizar" : "Comando"}
+                    {supportsRemoteAgentUpdate(row.agent.agent_version) ? "Atualizar" : "Copiar update"}
                   </button>
                   {row.agent.status === "revoked" ? (
                     <button type="button" className="secondary-button" onClick={() => void removeAgent(row)} disabled={loading}>
@@ -308,7 +310,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
                   </button>
                   <button type="button" className="secondary-button" onClick={() => void updateAgent(selectedAgentRow)} disabled={loading || selectedAgentRow.agent.status !== "active"}>
                     <RefreshCw size={15} />
-                    {supportsRemoteAgentUpdate(selectedAgentRow.agent.agent_version) ? "Atualizar agente" : "Copiar comando"}
+                    {supportsRemoteAgentUpdate(selectedAgentRow.agent.agent_version) ? "Atualizar agente" : "Copiar update manual"}
                   </button>
                   <button type="button" className="secondary-button" onClick={() => void rotateAgent(selectedAgentRow)} disabled={loading || selectedAgentRow.agent.status === "revoked"}>
                     <KeyRound size={15} />
@@ -325,6 +327,20 @@ export function AgentsScreen(props: AgentsScreenProps) {
                     </button>
                   ) : null}
                 </div>
+                {!supportsRemoteAgentUpdate(selectedAgentRow.agent.agent_version) && manualUpdateAgentKey === agentKey(selectedAgentRow) ? (
+                  <div className="agent-install-box">
+                    <div className="printer-card-header">
+                      <div>
+                        <strong>Update manual do agente</strong>
+                        <span>Este agente está em {selectedAgentRow.agent.agent_version || "-"} e ainda não aceita update remoto. Execute o comando abaixo no terminal da impressora.</span>
+                      </div>
+                      <button type="button" className="secondary-button" onClick={() => void copyTextToClipboard(manualAgentUpdateCommand)}>
+                        Copiar
+                      </button>
+                    </div>
+                    <textarea readOnly value={manualAgentUpdateCommand} />
+                  </div>
+                ) : null}
               </>
             ) : (
               <p className="muted">Selecione um agente para ver detalhes.</p>
