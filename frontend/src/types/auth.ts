@@ -7,6 +7,38 @@ export interface AuthOrganization {
   owner_user_id: number;
 }
 
+export interface AuthOrganizationMember {
+  user_id: number;
+  email: string;
+  display_name?: string | null;
+  role: AuthOrganizationRole;
+  created_at: string;
+}
+
+export interface AuthOrganizationPrinter {
+  printer_id: number;
+  name: string;
+  moonraker_url: string;
+  linked_at: string;
+}
+
+export interface AuthOrganizationInvite {
+  id: number;
+  token_prefix: string;
+  role: AuthOrganizationRole;
+  invite_url: string;
+  expires_at: string;
+  accepted_at?: string | null;
+  revoked_at?: string | null;
+  created_at: string;
+}
+
+export interface AuthOrganizationDetail extends AuthOrganization {
+  members: AuthOrganizationMember[];
+  printers: AuthOrganizationPrinter[];
+  invites: AuthOrganizationInvite[];
+}
+
 export interface AuthUser {
   id: number;
   email: string;

@@ -1,7 +1,16 @@
 import React from "react";
 import * as authApi from "../../services/authApi";
 import { getStoredAuthToken, storeAuthToken } from "../../services/http";
-import type { AgentCredentialRecord, AgentCredentialResponse, AuthOrganization, AuthUser, MfaSetupResponse, StepUpResponse } from "../../types";
+import type {
+  AgentCredentialRecord,
+  AgentCredentialResponse,
+  AuthOrganizationDetail,
+  AuthOrganizationInvite,
+  AuthOrganizationRole,
+  AuthUser,
+  MfaSetupResponse,
+  StepUpResponse,
+} from "../../types";
 
 interface UseAuthOptions {
   setError: (value: string | null) => void;
@@ -23,6 +32,10 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
   const [memberEmail, setMemberEmail] = React.useState("");
   const [memberRole, setMemberRole] = React.useState<"admin" | "operator">("operator");
   const [selectedOrganizationId, setSelectedOrganizationId] = React.useState<number | null>(null);
+  const [organizationCreateOpen, setOrganizationCreateOpen] = React.useState(false);
+  const [organizationDetail, setOrganizationDetail] = React.useState<AuthOrganizationDetail | null>(null);
+  const [createdOrganizationInvite, setCreatedOrganizationInvite] = React.useState<AuthOrganizationInvite | null>(null);
+  const [organizationPrinterId, setOrganizationPrinterId] = React.useState<number | "">("");
   const [stepUpPassword, setStepUpPassword] = React.useState("");
   const [stepUpCode, setStepUpCode] = React.useState("");
   const [stepUpResult, setStepUpResult] = React.useState<StepUpResponse | null>(null);
@@ -34,7 +47,10 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     if (!getStoredAuthToken()) {
       return null;
     }
-    const user = await authApi.loadAuthUser();
+    let user = await authApi.loadAuthUser();
+    if (user) {
+      user = await acceptPendingInvite(user);
+    }
     setAuthUser(user);
     if (!user) {
       storeAuthToken(null);
@@ -59,14 +75,14 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
           whatsapp: null,
           telegram: null,
         });
-        setAuthUser(response.user);
+        setAuthUser(await acceptPendingInvite(response.user));
         setAuthMfaChallengeToken(null);
       } else {
         const response = await authApi.loginUser(normalizedEmail, authPassword);
         if (response.mfa_required && response.challenge_token) {
           setAuthMfaChallengeToken(response.challenge_token);
         } else if (response.user) {
-          setAuthUser(response.user);
+          setAuthUser(await acceptPendingInvite(response.user));
           setAuthMfaChallengeToken(null);
         }
       }
@@ -86,13 +102,32 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     setError(null);
     try {
       const response = await authApi.completeMfaLogin(authMfaChallengeToken, authMfaCode);
-      setAuthUser(response.user);
+      setAuthUser(await acceptPendingInvite(response.user));
       setAuthMfaChallengeToken(null);
       setAuthMfaCode("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha no 2FA");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function acceptPendingInvite(user: AuthUser): Promise<AuthUser> {
+    const token = new URLSearchParams(window.location.search).get("org_invite");
+    if (!token) {
+      return user;
+    }
+    try {
+      const organization = await authApi.acceptOrganizationInvite(token);
+      const organizations = user.organizations.some((item) => item.id === organization.id)
+        ? user.organizations.map((item) => (item.id === organization.id ? organization : item))
+        : [...user.organizations, organization];
+      window.history.replaceState({}, "", `${window.location.pathname}?section=account`);
+      setSelectedOrganizationId(organization.id);
+      await loadOrganizationDetail(organization.id);
+      return { ...user, organizations };
+    } catch {
+      return user;
     }
   }
 
@@ -161,6 +196,8 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
       setAuthUser((current) => current ? { ...current, organizations: [...current.organizations, organization] } : current);
       setSelectedOrganizationId(organization.id);
       setOrganizationName("");
+      setOrganizationCreateOpen(false);
+      await loadOrganizationDetail(organization.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao criar organização");
     } finally {
@@ -178,8 +215,93 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     try {
       await authApi.addOrganizationMember(selectedOrganizationId, memberEmail, memberRole);
       setMemberEmail("");
+      await loadOrganizationDetail(selectedOrganizationId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao vincular usuário");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadOrganizationDetail(organizationId = selectedOrganizationId) {
+    if (!organizationId) {
+      setOrganizationDetail(null);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      setSelectedOrganizationId(organizationId);
+      setOrganizationDetail(await authApi.loadOrganizationDetail(organizationId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao carregar organização");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createAuthOrganizationInvite(role: AuthOrganizationRole = memberRole) {
+    if (!selectedOrganizationId) {
+      setError("Selecione uma organização");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const invite = await authApi.createOrganizationInvite(selectedOrganizationId, role);
+      setCreatedOrganizationInvite(invite);
+      await loadOrganizationDetail(selectedOrganizationId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao gerar convite");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function removeAuthOrganizationMember(userId: number) {
+    if (!selectedOrganizationId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await authApi.removeOrganizationMember(selectedOrganizationId, userId);
+      await loadOrganizationDetail(selectedOrganizationId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao remover usuário");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function linkAuthOrganizationPrinter() {
+    if (!selectedOrganizationId || organizationPrinterId === "") {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await authApi.linkOrganizationPrinter(selectedOrganizationId, organizationPrinterId);
+      setOrganizationPrinterId("");
+      await loadOrganizationDetail(selectedOrganizationId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao vincular impressora");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function unlinkAuthOrganizationPrinter(printerId: number) {
+    if (!selectedOrganizationId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await authApi.unlinkOrganizationPrinter(selectedOrganizationId, printerId);
+      await loadOrganizationDetail(selectedOrganizationId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao remover impressora");
     } finally {
       setLoading(false);
     }
@@ -241,7 +363,11 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     mfaSetup,
     memberEmail,
     memberRole,
+    createdOrganizationInvite,
+    organizationCreateOpen,
+    organizationDetail,
     organizationName,
+    organizationPrinterId,
     selectedOrganizationId,
     stepUpCode,
     stepUpPassword,
@@ -250,11 +376,16 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     confirmMfaSetup,
     createAuthAgentCredential,
     createAuthOrganization,
+    createAuthOrganizationInvite,
     disableMfa,
     loadAgentCredentials,
     loadAuth,
     logoutAuth,
     requestStepUp,
+    linkAuthOrganizationPrinter,
+    loadOrganizationDetail,
+    removeAuthOrganizationMember,
+    setCreatedOrganizationInvite,
     setAgentCredentialLabel,
     setAuthDisplayName,
     setAuthEmail,
@@ -265,13 +396,16 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     setAuthWhatsapp,
     setMemberEmail,
     setMemberRole,
+    setOrganizationCreateOpen,
     setOrganizationName,
+    setOrganizationPrinterId,
     setSelectedOrganizationId,
     setStepUpCode,
     setStepUpPassword,
     startMfaSetup,
     submitAuth,
     submitMfaLogin,
+    unlinkAuthOrganizationPrinter,
   };
 }
 

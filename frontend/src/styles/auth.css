@@ -345,9 +345,12 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 5px 12px;
+  width: 100%;
+  text-align: left;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface-3);
+  color: var(--text);
   padding: 12px;
 }
 
@@ -370,6 +373,26 @@
 .organization-card small {
   grid-column: 1 / -1;
   color: var(--muted);
+}
+
+.organization-detail-section {
+  display: grid;
+  gap: 10px;
+}
+
+.organization-detail-section h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.panel-header-row.compact {
+  align-items: center;
+}
+
+.auth-create-modal {
+  display: grid;
+  gap: 14px;
+  width: min(520px, calc(100vw - 32px));
 }
 
 .segmented-control {

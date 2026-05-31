@@ -344,6 +344,16 @@ class PrinterRepository:
             placeholders = ", ".join("?" for _ in self.organization_ids)
             clauses.append(f"{table_alias}.organization_id IN ({placeholders})")
             params.extend(self.organization_ids)
+            clauses.append(
+                f"""
+                EXISTS (
+                    SELECT 1 FROM auth_organization_printers op
+                    WHERE op.printer_id = {table_alias}.id
+                      AND op.organization_id IN ({placeholders})
+                )
+                """
+            )
+            params.extend(self.organization_ids)
         return "WHERE (" + " OR ".join(clauses) + ")", tuple(params)
 
     def _allowed_organization_id(self, organization_id: int | None) -> int | None:

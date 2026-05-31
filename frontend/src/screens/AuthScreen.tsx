@@ -16,12 +16,18 @@ type AuthScreenProps = ScreenPropsFor<
   | "authMode"
   | "authPassword"
   | "authUser"
+  | "createdOrganizationInvite"
   | "loading"
   | "memberEmail"
   | "memberRole"
   | "mfaSetup"
+  | "organizationCreateOpen"
+  | "organizationDetail"
   | "organizationName"
+  | "organizationPrinterId"
+  | "printers"
   | "selectedOrganizationId"
+  | "setCreatedOrganizationInvite"
   | "setAuthDisplayName"
   | "setAuthEmail"
   | "setAuthMfaCode"
@@ -29,22 +35,30 @@ type AuthScreenProps = ScreenPropsFor<
   | "setAuthPassword"
   | "setMemberEmail"
   | "setMemberRole"
+  | "setOrganizationCreateOpen"
   | "setOrganizationName"
+  | "setOrganizationPrinterId"
   | "setSelectedOrganizationId"
   | "setStepUpCode"
   | "setStepUpPassword"
+  | "showToast"
   | "stepUpCode"
   | "stepUpPassword"
   | "stepUpResult"
   | "addAuthOrganizationMember"
   | "confirmMfaSetup"
   | "createAuthOrganization"
+  | "createAuthOrganizationInvite"
   | "disableMfa"
+  | "linkAuthOrganizationPrinter"
+  | "loadOrganizationDetail"
   | "logoutAuth"
+  | "removeAuthOrganizationMember"
   | "requestStepUp"
   | "startMfaSetup"
   | "submitAuth"
   | "submitMfaLogin"
+  | "unlinkAuthOrganizationPrinter"
 >;
 
 export function AuthScreen(props: AuthScreenProps) {
@@ -60,12 +74,18 @@ export function AuthScreen(props: AuthScreenProps) {
     authMode,
     authPassword,
     authUser,
+    createdOrganizationInvite,
     loading,
     memberEmail,
     memberRole,
     mfaSetup,
+    organizationCreateOpen,
+    organizationDetail,
     organizationName,
+    organizationPrinterId,
+    printers,
     selectedOrganizationId,
+    setCreatedOrganizationInvite,
     setAuthDisplayName,
     setAuthEmail,
     setAuthMfaCode,
@@ -73,22 +93,30 @@ export function AuthScreen(props: AuthScreenProps) {
     setAuthPassword,
     setMemberEmail,
     setMemberRole,
+    setOrganizationCreateOpen,
     setOrganizationName,
+    setOrganizationPrinterId,
     setSelectedOrganizationId,
     setStepUpCode,
     setStepUpPassword,
+    showToast,
     stepUpCode,
     stepUpPassword,
     stepUpResult,
     addAuthOrganizationMember,
     confirmMfaSetup,
     createAuthOrganization,
+    createAuthOrganizationInvite,
     disableMfa,
+    linkAuthOrganizationPrinter,
+    loadOrganizationDetail,
     logoutAuth,
+    removeAuthOrganizationMember,
     requestStepUp,
     startMfaSetup,
     submitAuth,
     submitMfaLogin,
+    unlinkAuthOrganizationPrinter,
   } = props;
   const [accountTab, setAccountTab] = React.useState<AccountTab>(() => readRequestedAccountTab());
   const accountTabs: Array<{ key: AccountTab; label: string }> = [
@@ -106,6 +134,11 @@ export function AuthScreen(props: AuthScreenProps) {
     window.addEventListener("printora:account-tab", handleAccountTab);
     return () => window.removeEventListener("printora:account-tab", handleAccountTab);
   }, []);
+  React.useEffect(() => {
+    if (accountTab === "organizations" && selectedOrganizationId && !organizationDetail) {
+      void loadOrganizationDetail(selectedOrganizationId);
+    }
+  }, [accountTab, selectedOrganizationId, organizationDetail]);
 
   if (!authUser) {
     return (
@@ -335,9 +368,12 @@ export function AuthScreen(props: AuthScreenProps) {
             <div className="panel-header-row">
               <div>
                 <h2>Minhas organizações</h2>
-                <p>Você pode participar de mais de uma organização e manter uso individual ao mesmo tempo.</p>
+                <p>Abra uma organização para ver membros, convites e impressoras vinculadas.</p>
               </div>
-              <Plus size={20} />
+              <button type="button" className="secondary-button" onClick={() => setOrganizationCreateOpen(true)}>
+                <Plus size={16} />
+                Nova
+              </button>
             </div>
             <div className="organization-list">
               <div className="organization-card active">
@@ -346,11 +382,16 @@ export function AuthScreen(props: AuthScreenProps) {
                 <small>As impressoras ficam visíveis somente para você.</small>
               </div>
               {authUser.organizations.map((organization) => (
-                <div key={organization.id} className="organization-card">
+                <button
+                  key={organization.id}
+                  type="button"
+                  className={`organization-card ${selectedOrganizationId === organization.id ? "active" : ""}`}
+                  onClick={() => void loadOrganizationDetail(organization.id)}
+                >
                   <strong>{organization.name}</strong>
                   <span>{organization.role}</span>
                   <small>Organização #{organization.id}</small>
-                </div>
+                </button>
               ))}
             </div>
           </article>
@@ -358,44 +399,118 @@ export function AuthScreen(props: AuthScreenProps) {
           <article className="panel auth-panel">
             <div className="panel-header-row">
               <div>
-                <h2>Organização opcional</h2>
-                <p>Crie organizações apenas quando quiser compartilhar impressoras com outros usuários.</p>
+                <h2>{organizationDetail ? organizationDetail.name : "Detalhe da organização"}</h2>
+                <p>{organizationDetail ? `Organização #${organizationDetail.id} · ${organizationDetail.role}` : "Selecione uma organização para gerenciar acessos e impressoras."}</p>
               </div>
-              <Plus size={20} />
+              <ShieldCheck size={20} />
             </div>
-            <div className="auth-stack">
-              <label>
-                <span>Nova organização</span>
-                <input value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} />
-              </label>
-              <button type="button" className="primary-button" onClick={() => void createAuthOrganization()} disabled={loading || !organizationName.trim()}>
-                Criar organização
-              </button>
-              <label>
-                <span>Organização para convite</span>
-                <select value={selectedOrganizationId ?? ""} onChange={(event) => setSelectedOrganizationId(Number(event.target.value) || null)}>
-                  <option value="">Selecione</option>
-                  {authUser.organizations.map((organization) => (
-                    <option key={organization.id} value={organization.id}>{organization.name} · {organization.role}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>Email do usuário</span>
-                <input value={memberEmail} onChange={(event) => setMemberEmail(event.target.value)} type="email" />
-              </label>
-              <label>
-                <span>Papel</span>
-                <select value={memberRole} onChange={(event) => setMemberRole(event.target.value as "admin" | "operator")}>
-                  <option value="operator">Operador</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </label>
-              <button type="button" className="secondary-button" onClick={() => void addAuthOrganizationMember()} disabled={loading || !selectedOrganizationId || !memberEmail.trim()}>
-                Vincular usuário
-              </button>
-            </div>
+            {organizationDetail ? (
+              <div className="auth-stack">
+                <section className="organization-detail-section">
+                  <div className="panel-header-row compact">
+                    <h3>Membros</h3>
+                    <button type="button" className="secondary-button" onClick={() => void createAuthOrganizationInvite()}>
+                      Gerar link
+                    </button>
+                  </div>
+                  <div className="auth-list">
+                    {organizationDetail.members.map((member) => (
+                      <div key={member.user_id}>
+                        <strong>{member.display_name || member.email}</strong>
+                        <span>{member.email} · {member.role}</span>
+                        {member.role !== "owner" ? (
+                          <button type="button" className="secondary-button" onClick={() => void removeAuthOrganizationMember(member.user_id)} disabled={loading}>
+                            Remover
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {createdOrganizationInvite ? (
+                  <section className="auth-step">
+                    <div>
+                      <strong>Link de convite</strong>
+                      <p className="muted">Válido até {createdOrganizationInvite.expires_at}.</p>
+                      <code>{createdOrganizationInvite.invite_url}</code>
+                    </div>
+                    <button type="button" className="secondary-button" onClick={() => void copyInviteLink(createdOrganizationInvite.invite_url, showToast)}>
+                      Copiar
+                    </button>
+                    <button type="button" className="secondary-button" onClick={() => setCreatedOrganizationInvite(null)}>
+                      Ocultar
+                    </button>
+                  </section>
+                ) : null}
+
+                <section className="organization-detail-section">
+                  <div className="panel-header-row compact">
+                    <h3>Impressoras vinculadas</h3>
+                    <div className="printer-card-actions">
+                      <select value={organizationPrinterId} onChange={(event) => setOrganizationPrinterId(event.target.value ? Number(event.target.value) : "")}>
+                        <option value="">Selecionar impressora</option>
+                        {printers.map((printer) => (
+                          <option key={printer.id} value={printer.id}>{printer.name}</option>
+                        ))}
+                      </select>
+                      <button type="button" className="secondary-button" onClick={() => void linkAuthOrganizationPrinter()} disabled={loading || organizationPrinterId === ""}>
+                        Vincular
+                      </button>
+                    </div>
+                  </div>
+                  <div className="auth-list">
+                    {organizationDetail.printers.length === 0 ? <span className="muted">Nenhuma impressora vinculada.</span> : null}
+                    {organizationDetail.printers.map((printer) => (
+                      <div key={printer.printer_id}>
+                        <strong>{printer.name}</strong>
+                        <span>{printer.moonraker_url}</span>
+                        <button type="button" className="secondary-button" onClick={() => void unlinkAuthOrganizationPrinter(printer.printer_id)} disabled={loading}>
+                          Remover
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="organization-detail-section">
+                  <h3>Convites recentes</h3>
+                  <div className="auth-list">
+                    {organizationDetail.invites.length === 0 ? <span className="muted">Nenhum convite gerado.</span> : null}
+                    {organizationDetail.invites.map((invite) => (
+                      <div key={invite.id}>
+                        <strong>{invite.token_prefix}</strong>
+                        <span>{invite.role} · expira {invite.expires_at} · {invite.accepted_at ? "aceito" : "pendente"}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+            ) : null}
           </article>
+
+          {organizationCreateOpen ? (
+            <div className="modal-backdrop" role="presentation">
+              <article className="modal-card auth-create-modal" aria-label="Criar organização">
+                <div className="modal-header">
+                  <div>
+                    <h2>Criar organização</h2>
+                    <p>Use apenas quando for compartilhar impressoras com outras pessoas.</p>
+                  </div>
+                  <button type="button" className="icon-button" onClick={() => setOrganizationCreateOpen(false)} aria-label="Fechar">
+                    ×
+                  </button>
+                </div>
+                <label>
+                  <span>Nome da organização</span>
+                  <input value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} />
+                </label>
+                <button type="button" className="primary-button" onClick={() => void createAuthOrganization()} disabled={loading || !organizationName.trim()}>
+                  Criar organização
+                </button>
+              </article>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
@@ -405,4 +520,13 @@ export function AuthScreen(props: AuthScreenProps) {
 function readRequestedAccountTab(): AccountTab {
   const requested = (window as Window & { printoraAccountTab?: AccountTab }).printoraAccountTab;
   return requested && accountTabKeys.includes(requested) ? requested : "access";
+}
+
+async function copyInviteLink(inviteUrl: string, showToast: (options: { tone?: "success" | "danger"; title: string; detail?: string }) => void) {
+  try {
+    await navigator.clipboard.writeText(inviteUrl);
+    showToast({ tone: "success", title: "Link copiado" });
+  } catch {
+    showToast({ tone: "danger", title: "Falha ao copiar link", detail: inviteUrl });
+  }
 }

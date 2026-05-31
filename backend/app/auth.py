@@ -96,6 +96,14 @@ class OrganizationMemberAddRequest(BaseModel):
         return clean_email(value)
 
 
+class OrganizationInviteCreateRequest(BaseModel):
+    role: OrganizationRole = "operator"
+
+
+class OrganizationPrinterLinkRequest(BaseModel):
+    printer_id: int = Field(ge=1)
+
+
 class MfaCodeRequest(BaseModel):
     code: str = Field(min_length=6, max_length=8)
 
@@ -124,6 +132,38 @@ class AuthOrganization(BaseModel):
     name: str
     role: OrganizationRole
     owner_user_id: int
+
+
+class AuthOrganizationMember(BaseModel):
+    user_id: int
+    email: str
+    display_name: str | None
+    role: OrganizationRole
+    created_at: str
+
+
+class AuthOrganizationPrinter(BaseModel):
+    printer_id: int
+    name: str
+    moonraker_url: str
+    linked_at: str
+
+
+class AuthOrganizationInvite(BaseModel):
+    id: int
+    token_prefix: str
+    role: OrganizationRole
+    invite_url: str
+    expires_at: str
+    accepted_at: str | None
+    revoked_at: str | None
+    created_at: str
+
+
+class AuthOrganizationDetail(AuthOrganization):
+    members: list[AuthOrganizationMember] = Field(default_factory=list)
+    printers: list[AuthOrganizationPrinter] = Field(default_factory=list)
+    invites: list[AuthOrganizationInvite] = Field(default_factory=list)
 
 
 class AuthUser(BaseModel):
@@ -448,6 +488,166 @@ class AuthRepository:
             ).fetchone()
         return _organization_from_row(row)
 
+    def organization_detail(self, actor_user_id: int, organization_id: int, base_url: str) -> AuthOrganizationDetail:
+        with connect_database(self.database_path) as connection:
+            actor_role = self._member_role(connection, organization_id, actor_user_id)
+            if actor_role is None:
+                raise PermissionError("usuário sem acesso à organização")
+            organization = connection.execute(
+                """
+                SELECT o.id, o.name, o.owner_user_id, m.role
+                FROM auth_organizations o
+                JOIN auth_organization_members m ON m.organization_id = o.id
+                WHERE o.id = ? AND m.user_id = ?
+                """,
+                (organization_id, actor_user_id),
+            ).fetchone()
+            members = connection.execute(
+                """
+                SELECT u.id AS user_id, u.email, u.display_name, m.role, m.created_at
+                FROM auth_organization_members m
+                JOIN auth_users u ON u.id = m.user_id
+                WHERE m.organization_id = ?
+                ORDER BY m.role = 'owner' DESC, u.email ASC
+                """,
+                (organization_id,),
+            ).fetchall()
+            printers = connection.execute(
+                """
+                SELECT p.id AS printer_id, p.name, p.moonraker_url, op.created_at AS linked_at
+                FROM auth_organization_printers op
+                JOIN printers p ON p.id = op.printer_id
+                WHERE op.organization_id = ?
+                ORDER BY p.name ASC
+                """,
+                (organization_id,),
+            ).fetchall()
+            invites = connection.execute(
+                """
+                SELECT id, token_prefix, role, expires_at, accepted_at, revoked_at, created_at
+                FROM auth_organization_invites
+                WHERE organization_id = ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT 20
+                """,
+                (organization_id,),
+            ).fetchall()
+        return AuthOrganizationDetail(
+            **_organization_from_row(organization).model_dump(),
+            members=[_organization_member_from_row(row) for row in members],
+            printers=[_organization_printer_from_row(row) for row in printers],
+            invites=[_organization_invite_from_row(row, base_url) for row in invites],
+        )
+
+    def create_organization_invite(
+        self,
+        actor_user_id: int,
+        organization_id: int,
+        payload: OrganizationInviteCreateRequest,
+        base_url: str,
+    ) -> AuthOrganizationInvite:
+        token = new_secret("ptr_org")
+        expires_at = format_dt(utc_now() + timedelta(days=7))
+        with connect_database(self.database_path) as connection:
+            self._require_org_manager(connection, organization_id, actor_user_id, "gerar convite")
+            cursor = connection.execute(
+                """
+                INSERT INTO auth_organization_invites (
+                    organization_id, created_by_user_id, token_hash, token_prefix, role, expires_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (organization_id, actor_user_id, hash_token(token), token[:18], payload.role, expires_at),
+            )
+            row = connection.execute(
+                """
+                SELECT id, token_prefix, role, expires_at, accepted_at, revoked_at, created_at
+                FROM auth_organization_invites
+                WHERE id = ?
+                """,
+                (int(cursor.lastrowid),),
+            ).fetchone()
+        invite = _organization_invite_from_row(row, base_url)
+        return invite.model_copy(update={"invite_url": _organization_invite_url(base_url, token)})
+
+    def accept_organization_invite(self, user_id: int, token: str) -> AuthOrganization:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT *
+                FROM auth_organization_invites
+                WHERE token_hash = ?
+                """,
+                (hash_token(token),),
+            ).fetchone()
+            if row is None or row["revoked_at"] is not None or row["accepted_at"] is not None:
+                raise ValueError("convite inválido")
+            if str(row["expires_at"]) <= format_dt(utc_now()):
+                raise ValueError("convite expirado")
+            connection.execute(
+                """
+                INSERT INTO auth_organization_members (organization_id, user_id, role)
+                VALUES (?, ?, ?)
+                ON CONFLICT(organization_id, user_id) DO UPDATE SET
+                    role = excluded.role,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (row["organization_id"], user_id, row["role"]),
+            )
+            connection.execute(
+                """
+                UPDATE auth_organization_invites
+                SET accepted_by_user_id = ?, accepted_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (user_id, row["id"]),
+            )
+            organization = connection.execute(
+                """
+                SELECT o.id, o.name, o.owner_user_id, m.role
+                FROM auth_organizations o
+                JOIN auth_organization_members m ON m.organization_id = o.id
+                WHERE o.id = ? AND m.user_id = ?
+                """,
+                (row["organization_id"], user_id),
+            ).fetchone()
+        return _organization_from_row(organization)
+
+    def remove_organization_member(self, actor_user_id: int, organization_id: int, target_user_id: int) -> None:
+        with connect_database(self.database_path) as connection:
+            self._require_org_manager(connection, organization_id, actor_user_id, "remover membro")
+            role = self._member_role(connection, organization_id, target_user_id)
+            if role is None:
+                raise ValueError("membro não encontrado")
+            if role == "owner":
+                raise PermissionError("owner não pode ser removido")
+            connection.execute(
+                "DELETE FROM auth_organization_members WHERE organization_id = ? AND user_id = ?",
+                (organization_id, target_user_id),
+            )
+
+    def link_organization_printer(self, actor_user_id: int, organization_id: int, printer_id: int) -> None:
+        with connect_database(self.database_path) as connection:
+            self._require_org_manager(connection, organization_id, actor_user_id, "vincular impressora")
+            visible = self._printer_visible_to_user(connection, actor_user_id, printer_id)
+            if not visible:
+                raise ValueError("impressora não encontrada")
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO auth_organization_printers (organization_id, printer_id, linked_by_user_id)
+                VALUES (?, ?, ?)
+                """,
+                (organization_id, printer_id, actor_user_id),
+            )
+
+    def unlink_organization_printer(self, actor_user_id: int, organization_id: int, printer_id: int) -> None:
+        with connect_database(self.database_path) as connection:
+            self._require_org_manager(connection, organization_id, actor_user_id, "remover impressora")
+            connection.execute(
+                "DELETE FROM auth_organization_printers WHERE organization_id = ? AND printer_id = ?",
+                (organization_id, printer_id),
+            )
+
     def list_user_organizations(self, user_id: int) -> list[AuthOrganization]:
         with connect_database(self.database_path) as connection:
             return self._list_user_organizations(connection, user_id)
@@ -600,6 +800,34 @@ class AuthRepository:
             (organization_id, user_id),
         ).fetchone()
         return str(row["role"]) if row else None
+
+    def _require_org_manager(self, connection, organization_id: int, user_id: int, action: str) -> None:
+        role = self._member_role(connection, organization_id, user_id)
+        if role not in ("owner", "admin"):
+            raise PermissionError(f"usuário sem permissão para {action}")
+
+    def _printer_visible_to_user(self, connection, user_id: int, printer_id: int) -> bool:
+        row = connection.execute(
+            """
+            SELECT 1
+            FROM printers p
+            WHERE p.id = ?
+              AND (
+                p.owner_user_id = ?
+                OR p.organization_id IN (
+                    SELECT organization_id FROM auth_organization_members WHERE user_id = ?
+                )
+                OR EXISTS (
+                    SELECT 1
+                    FROM auth_organization_printers op
+                    JOIN auth_organization_members m ON m.organization_id = op.organization_id
+                    WHERE op.printer_id = p.id AND m.user_id = ?
+                )
+              )
+            """,
+            (printer_id, user_id, user_id, user_id),
+        ).fetchone()
+        return row is not None
 
 
 def login(repository: AuthRepository, payload: LoginRequest) -> LoginResponse:
@@ -766,6 +994,42 @@ def _organization_from_row(row) -> AuthOrganization:
         owner_user_id=int(row["owner_user_id"]),
         role=row["role"],
     )
+
+
+def _organization_member_from_row(row) -> AuthOrganizationMember:
+    return AuthOrganizationMember(
+        user_id=int(row["user_id"]),
+        email=str(row["email"]),
+        display_name=row["display_name"],
+        role=row["role"],
+        created_at=str(row["created_at"]),
+    )
+
+
+def _organization_printer_from_row(row) -> AuthOrganizationPrinter:
+    return AuthOrganizationPrinter(
+        printer_id=int(row["printer_id"]),
+        name=str(row["name"]),
+        moonraker_url=str(row["moonraker_url"]),
+        linked_at=str(row["linked_at"]),
+    )
+
+
+def _organization_invite_from_row(row, base_url: str) -> AuthOrganizationInvite:
+    return AuthOrganizationInvite(
+        id=int(row["id"]),
+        token_prefix=str(row["token_prefix"]),
+        role=row["role"],
+        invite_url="",
+        expires_at=str(row["expires_at"]),
+        accepted_at=row["accepted_at"],
+        revoked_at=row["revoked_at"],
+        created_at=str(row["created_at"]),
+    )
+
+
+def _organization_invite_url(base_url: str, token: str) -> str:
+    return f"{base_url.rstrip('/')}/?section=account&org_invite={token}"
 
 
 def _base32_decode(secret: str) -> bytes:

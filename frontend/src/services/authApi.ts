@@ -3,6 +3,9 @@ import type {
   AgentCredentialRecord,
   AgentCredentialResponse,
   AuthOrganization,
+  AuthOrganizationDetail,
+  AuthOrganizationInvite,
+  AuthOrganizationRole,
   AuthSessionResponse,
   AuthUser,
   LoginResponse,
@@ -76,6 +79,38 @@ export async function addOrganizationMember(organizationId: number, email: strin
     headers: jsonHeaders,
     body: JSON.stringify({ email, role }),
   });
+}
+
+export async function loadOrganizationDetail(organizationId: number): Promise<AuthOrganizationDetail> {
+  return apiRequest<AuthOrganizationDetail>(`/api/auth/organizations/${organizationId}`);
+}
+
+export async function createOrganizationInvite(organizationId: number, role: AuthOrganizationRole): Promise<AuthOrganizationInvite> {
+  return apiRequest<AuthOrganizationInvite>(`/api/auth/organizations/${organizationId}/invites`, {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function acceptOrganizationInvite(token: string): Promise<AuthOrganization> {
+  return apiRequest<AuthOrganization>(`/api/auth/organization-invites/${encodeURIComponent(token)}/accept`, { method: "POST" });
+}
+
+export async function removeOrganizationMember(organizationId: number, userId: number): Promise<void> {
+  await apiRequest<{ ok: boolean }>(`/api/auth/organizations/${organizationId}/members/${userId}`, { method: "DELETE" });
+}
+
+export async function linkOrganizationPrinter(organizationId: number, printerId: number): Promise<void> {
+  await apiRequest<{ ok: boolean }>(`/api/auth/organizations/${organizationId}/printers`, {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ printer_id: printerId }),
+  });
+}
+
+export async function unlinkOrganizationPrinter(organizationId: number, printerId: number): Promise<void> {
+  await apiRequest<{ ok: boolean }>(`/api/auth/organizations/${organizationId}/printers/${printerId}`, { method: "DELETE" });
 }
 
 export async function setupMfa(): Promise<MfaSetupResponse> {

@@ -8,6 +8,7 @@ from app.auth import (
     LoginRequest,
     MfaLoginRequest,
     OrganizationCreateRequest,
+    OrganizationInviteCreateRequest,
     OrganizationMemberAddRequest,
     StepUpRequest,
     UserRegisterRequest,
@@ -88,6 +89,40 @@ def test_organization_is_optional_and_membership_is_isolated(tmp_path: Path) -> 
     assert organization.role == "owner"
     assert linked.role == "operator"
     assert repository.user_has_organization(operator.id, organization.id) is True
+
+
+def test_organization_detail_invite_members_and_printer_links(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = AuthRepository(database_path)
+    owner = repository.create_user(UserRegisterRequest(email="owner@example.com", password="correct-horse"))
+    operator = repository.create_user(UserRegisterRequest(email="operator@example.com", password="correct-horse"))
+    organization = repository.create_organization(owner.id, OrganizationCreateRequest(name="Voron Lab"))
+    printer = PrinterRepository(database_path, user_id=owner.id).create_printer(
+        PrinterCreate(name="Voron 0.2", moonraker_url="http://voron.local:7125", host_audit_mode="disabled")
+    )
+
+    invite = repository.create_organization_invite(
+        owner.id,
+        organization.id,
+        OrganizationInviteCreateRequest(role="operator"),
+        "http://printora.local",
+    )
+    accepted = repository.accept_organization_invite(operator.id, invite.invite_url.rsplit("=", 1)[-1])
+    repository.link_organization_printer(owner.id, organization.id, printer.id)
+    detail = repository.organization_detail(owner.id, organization.id, "http://printora.local")
+    visible_to_operator = PrinterRepository(database_path, user_id=operator.id, organization_ids=(organization.id,)).list_printers()
+
+    assert accepted.id == organization.id
+    assert {member.email for member in detail.members} == {"owner@example.com", "operator@example.com"}
+    assert detail.printers[0].printer_id == printer.id
+    assert visible_to_operator[0].id == printer.id
+
+    repository.unlink_organization_printer(owner.id, organization.id, printer.id)
+    repository.remove_organization_member(owner.id, organization.id, operator.id)
+    refreshed = repository.organization_detail(owner.id, organization.id, "http://printora.local")
+    assert refreshed.printers == []
+    assert {member.email for member in refreshed.members} == {"owner@example.com"}
 
 
 def test_mfa_login_and_step_up_for_destructive_action(tmp_path: Path) -> None:

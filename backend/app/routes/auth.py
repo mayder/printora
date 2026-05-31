@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.auth import (
     AgentCredentialCreateRequest,
     AgentCredentialRecord,
     AgentCredentialResponse,
     AuthOrganization,
+    AuthOrganizationDetail,
+    AuthOrganizationInvite,
     AuthRepository,
     AuthSessionResponse,
     AuthUser,
@@ -17,7 +19,9 @@ from app.auth import (
     MfaLoginRequest,
     MfaSetupResponse,
     OrganizationCreateRequest,
+    OrganizationInviteCreateRequest,
     OrganizationMemberAddRequest,
+    OrganizationPrinterLinkRequest,
     StepUpRequest,
     StepUpResponse,
     UserRegisterRequest,
@@ -146,6 +150,91 @@ async def add_organization_member(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/organizations/{organization_id}", response_model=AuthOrganizationDetail)
+async def organization_detail(
+    organization_id: int,
+    request: Request,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AuthRepository = Depends(get_auth_repository),
+) -> AuthOrganizationDetail:
+    try:
+        return repository.organization_detail(current.user.id, organization_id, str(request.base_url).rstrip("/"))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.post("/organizations/{organization_id}/invites", response_model=AuthOrganizationInvite)
+async def create_organization_invite(
+    organization_id: int,
+    payload: OrganizationInviteCreateRequest,
+    request: Request,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AuthRepository = Depends(get_auth_repository),
+) -> AuthOrganizationInvite:
+    try:
+        return repository.create_organization_invite(current.user.id, organization_id, payload, str(request.base_url).rstrip("/"))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.post("/organization-invites/{token}/accept", response_model=AuthOrganization)
+async def accept_organization_invite(
+    token: str,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AuthRepository = Depends(get_auth_repository),
+) -> AuthOrganization:
+    try:
+        return repository.accept_organization_invite(current.user.id, token)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/organizations/{organization_id}/members/{user_id}")
+async def remove_organization_member(
+    organization_id: int,
+    user_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AuthRepository = Depends(get_auth_repository),
+) -> dict[str, bool]:
+    try:
+        repository.remove_organization_member(current.user.id, organization_id, user_id)
+        return {"ok": True}
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/organizations/{organization_id}/printers")
+async def link_organization_printer(
+    organization_id: int,
+    payload: OrganizationPrinterLinkRequest,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AuthRepository = Depends(get_auth_repository),
+) -> dict[str, bool]:
+    try:
+        repository.link_organization_printer(current.user.id, organization_id, payload.printer_id)
+        return {"ok": True}
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.delete("/organizations/{organization_id}/printers/{printer_id}")
+async def unlink_organization_printer(
+    organization_id: int,
+    printer_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AuthRepository = Depends(get_auth_repository),
+) -> dict[str, bool]:
+    try:
+        repository.unlink_organization_printer(current.user.id, organization_id, printer_id)
+        return {"ok": True}
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
 @router.post("/mfa/setup", response_model=MfaSetupResponse)
