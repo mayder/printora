@@ -109,6 +109,12 @@ def test_organization_detail_invite_members_and_printer_links(tmp_path: Path) ->
         OrganizationInviteCreateRequest(role="operator"),
         "http://printora.local",
     )
+    pending_invite = repository.create_organization_invite(
+        owner.id,
+        organization.id,
+        OrganizationInviteCreateRequest(role="admin"),
+        "http://printora.local",
+    )
     accepted = repository.accept_organization_invite(operator.id, invite.invite_url.rsplit("=", 1)[-1])
     repository.link_organization_printer(owner.id, organization.id, printer.id)
     detail = repository.organization_detail(owner.id, organization.id, "http://printora.local")
@@ -121,9 +127,11 @@ def test_organization_detail_invite_members_and_printer_links(tmp_path: Path) ->
 
     repository.unlink_organization_printer(owner.id, organization.id, printer.id)
     repository.remove_organization_member(owner.id, organization.id, operator.id)
+    repository.revoke_organization_invite(owner.id, organization.id, pending_invite.id)
     refreshed = repository.organization_detail(owner.id, organization.id, "http://printora.local")
     assert refreshed.printers == []
     assert {member.email for member in refreshed.members} == {"owner@example.com"}
+    assert any(item.id == pending_invite.id and item.revoked_at is not None for item in refreshed.invites)
 
 
 def test_owner_can_update_and_delete_organization(tmp_path: Path) -> None:

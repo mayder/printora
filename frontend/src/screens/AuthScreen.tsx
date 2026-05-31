@@ -66,6 +66,7 @@ type AuthScreenProps = ScreenPropsFor<
   | "logoutAuth"
   | "removeAuthOrganizationMember"
   | "requestStepUp"
+  | "revokeAuthOrganizationInvite"
   | "startMfaSetup"
   | "submitAuth"
   | "submitMfaLogin"
@@ -136,6 +137,7 @@ export function AuthScreen(props: AuthScreenProps) {
     logoutAuth,
     removeAuthOrganizationMember,
     requestStepUp,
+    revokeAuthOrganizationInvite,
     startMfaSetup,
     submitAuth,
     submitMfaLogin,
@@ -146,10 +148,6 @@ export function AuthScreen(props: AuthScreenProps) {
   const [organizationPage, setOrganizationPage] = React.useState<"list" | "detail">("list");
   const [organizationEditOpen, setOrganizationEditOpen] = React.useState(false);
   const [editingOrganizationName, setEditingOrganizationName] = React.useState("");
-  const accountTabs: Array<{ key: AccountTab; label: string; Icon: typeof ShieldCheck }> = [
-    { key: "organizations", label: "Organizações", Icon: Building2 },
-    { key: "security", label: "Segurança", Icon: ShieldCheck },
-  ];
   React.useEffect(() => {
     function handleAccountTab(event: Event) {
       const tab = (event as CustomEvent<AccountTab>).detail;
@@ -206,6 +204,19 @@ export function AuthScreen(props: AuthScreenProps) {
     await deleteAuthOrganization(organizationId);
     setOrganizationPage("list");
     setCreatedOrganizationInvite(null);
+  }
+
+  async function confirmInviteRevoke(inviteId: number, tokenPrefix: string) {
+    const confirmed = await confirmAction({
+      tone: "warning",
+      title: "Cancelar convite",
+      detail: `O convite ${tokenPrefix} não poderá mais ser usado para entrar na organização.`,
+      confirmLabel: "Cancelar convite",
+      cancelLabel: "Voltar",
+    });
+    if (confirmed) {
+      await revokeAuthOrganizationInvite(inviteId);
+    }
   }
 
   if (!authUser) {
@@ -316,15 +327,6 @@ export function AuthScreen(props: AuthScreenProps) {
           </button>
         </div>
       </article>
-
-      <div className="segmented-control account-tabs" role="tablist" aria-label="Áreas da conta">
-        {accountTabs.map(({ Icon, ...tab }) => (
-          <button key={tab.key} type="button" className={accountTab === tab.key ? "active" : ""} onClick={() => setAccountTab(tab.key)}>
-            <Icon size={15} />
-            {tab.label}
-          </button>
-        ))}
-      </div>
 
       {accountTab === "security" ? (
         <div className="account-grid">
@@ -530,7 +532,7 @@ export function AuthScreen(props: AuthScreenProps) {
                     <strong>{organizationDetail.invites.length}</strong>
                   </div>
                 </div>
-                <section className="organization-detail-section">
+                <section className="organization-detail-section organization-data-card">
                   <div className="panel-header-row compact">
                     <div className="organization-section-title">
                       <Users size={17} />
@@ -542,17 +544,26 @@ export function AuthScreen(props: AuthScreenProps) {
                       Gerar link
                     </button>
                   </div>
-                  <div className="auth-list">
+                  <div className="organization-data-table members" role="table" aria-label="Membros da organização">
+                    <div className="organization-data-header" role="row">
+                      <span>Usuário</span>
+                      <span>Email</span>
+                      <span>Papel</span>
+                      <span>Ações</span>
+                    </div>
                     {organizationDetail.members.map((member) => (
-                      <div key={member.user_id}>
+                      <div key={member.user_id} className="organization-data-row" role="row">
                         <strong>{member.display_name || member.email}</strong>
-                        <span>{member.email} · {member.role}</span>
+                        <span>{member.email}</span>
+                        <span className="status-pill">{member.role}</span>
+                        <span className="organization-row-actions">
                         {member.role !== "owner" && canManageSelectedOrganization ? (
                           <button type="button" className="secondary-button" onClick={() => void removeAuthOrganizationMember(member.user_id)} disabled={loading}>
                             <Trash2 size={15} />
                             Remover
                           </button>
                         ) : null}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -576,7 +587,7 @@ export function AuthScreen(props: AuthScreenProps) {
                   </section>
                 ) : null}
 
-                <section className="organization-detail-section">
+                <section className="organization-detail-section organization-data-card">
                   <div className="panel-header-row compact">
                     <div className="organization-section-title">
                       <Printer size={17} />
@@ -598,35 +609,63 @@ export function AuthScreen(props: AuthScreenProps) {
                     </div>
                     ) : null}
                   </div>
-                  <div className="auth-list">
-                    {organizationDetail.printers.length === 0 ? <span className="muted">Nenhuma impressora vinculada.</span> : null}
+                  <div className="organization-data-table printers" role="table" aria-label="Impressoras vinculadas">
+                    <div className="organization-data-header" role="row">
+                      <span>Impressora</span>
+                      <span>Moonraker</span>
+                      <span>Vinculada em</span>
+                      <span>Ações</span>
+                    </div>
+                    {organizationDetail.printers.length === 0 ? <span className="organization-empty-row muted">Nenhuma impressora vinculada.</span> : null}
                     {organizationDetail.printers.map((printer) => (
-                      <div key={printer.printer_id}>
+                      <div key={printer.printer_id} className="organization-data-row" role="row">
                         <strong>{printer.name}</strong>
                         <span>{printer.moonraker_url}</span>
+                        <span>{printer.linked_at}</span>
+                        <span className="organization-row-actions">
                         {canManageSelectedOrganization ? (
                         <button type="button" className="secondary-button" onClick={() => void unlinkAuthOrganizationPrinter(printer.printer_id)} disabled={loading}>
                           <Trash2 size={15} />
                           Remover
                         </button>
                         ) : null}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </section>
 
-                <section className="organization-detail-section">
-                  <div className="organization-section-title">
-                    <KeyRound size={17} />
-                    <h3>Convites recentes</h3>
-                    <span>{organizationDetail.invites.length}</span>
+                <section className="organization-detail-section organization-data-card">
+                  <div className="panel-header-row compact">
+                    <div className="organization-section-title">
+                      <KeyRound size={17} />
+                      <h3>Convites</h3>
+                      <span>{organizationDetail.invites.length}</span>
+                    </div>
                   </div>
-                  <div className="auth-list">
-                    {organizationDetail.invites.length === 0 ? <span className="muted">Nenhum convite gerado.</span> : null}
+                  <div className="organization-data-table invites" role="table" aria-label="Convites da organização">
+                    <div className="organization-data-header" role="row">
+                      <span>Token</span>
+                      <span>Papel</span>
+                      <span>Expiração</span>
+                      <span>Status</span>
+                      <span>Ações</span>
+                    </div>
+                    {organizationDetail.invites.length === 0 ? <span className="organization-empty-row muted">Nenhum convite gerado.</span> : null}
                     {organizationDetail.invites.map((invite) => (
-                      <div key={invite.id}>
+                      <div key={invite.id} className="organization-data-row" role="row">
                         <strong>{invite.token_prefix}</strong>
-                        <span>{invite.role} · expira {invite.expires_at} · {invite.accepted_at ? "aceito" : "pendente"}</span>
+                        <span>{invite.role}</span>
+                        <span>{invite.expires_at}</span>
+                        <span className={`status-pill ${invite.revoked_at ? "danger" : invite.accepted_at ? "active" : ""}`}>{organizationInviteStatus(invite)}</span>
+                        <span className="organization-row-actions">
+                          {!invite.accepted_at && !invite.revoked_at && canManageSelectedOrganization ? (
+                            <button type="button" className="secondary-button danger-action" onClick={() => void confirmInviteRevoke(invite.id, invite.token_prefix)} disabled={loading}>
+                              <X size={15} />
+                              Cancelar
+                            </button>
+                          ) : null}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -700,4 +739,14 @@ async function copyInviteLink(inviteUrl: string, showToast: (options: { tone?: "
   } catch {
     showToast({ tone: "danger", title: "Falha ao copiar link", detail: inviteUrl });
   }
+}
+
+function organizationInviteStatus(invite: { accepted_at?: string | null; revoked_at?: string | null }): string {
+  if (invite.revoked_at) {
+    return "cancelado";
+  }
+  if (invite.accepted_at) {
+    return "aceito";
+  }
+  return "pendente";
 }

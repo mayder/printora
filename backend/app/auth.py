@@ -611,6 +611,32 @@ class AuthRepository:
         invite = _organization_invite_from_row(row, base_url)
         return invite.model_copy(update={"invite_url": _organization_invite_url(base_url, token)})
 
+    def revoke_organization_invite(self, actor_user_id: int, organization_id: int, invite_id: int) -> None:
+        with connect_database(self.database_path) as connection:
+            self._require_org_manager(connection, organization_id, actor_user_id, "cancelar convite")
+            row = connection.execute(
+                """
+                SELECT id, accepted_at, revoked_at
+                FROM auth_organization_invites
+                WHERE id = ? AND organization_id = ?
+                """,
+                (invite_id, organization_id),
+            ).fetchone()
+            if row is None:
+                raise ValueError("convite não encontrado")
+            if row["accepted_at"] is not None:
+                raise ValueError("convite já aceito")
+            if row["revoked_at"] is not None:
+                return
+            connection.execute(
+                """
+                UPDATE auth_organization_invites
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (invite_id,),
+            )
+
     def accept_organization_invite(self, user_id: int, token: str) -> AuthOrganization:
         with connect_database(self.database_path) as connection:
             row = connection.execute(

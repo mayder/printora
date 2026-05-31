@@ -105,6 +105,10 @@ export async function createOrganizationInvite(organizationId: number, role: Aut
   });
 }
 
+export async function revokeOrganizationInvite(organizationId: number, inviteId: number): Promise<void> {
+  await apiRequest<{ ok: boolean }>(`/api/auth/organizations/${organizationId}/invites/${inviteId}`, { method: "DELETE" });
+}
+
 export async function acceptOrganizationInvite(token: string): Promise<AuthOrganization> {
   return apiRequest<AuthOrganization>(`/api/auth/organization-invites/${encodeURIComponent(token)}/accept`, { method: "POST" });
 }

@@ -299,6 +299,23 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     }
   }
 
+  async function revokeAuthOrganizationInvite(inviteId: number) {
+    if (!selectedOrganizationId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await authApi.revokeOrganizationInvite(selectedOrganizationId, inviteId);
+      await loadOrganizationDetail(selectedOrganizationId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao cancelar convite");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function removeAuthOrganizationMember(userId: number) {
     if (!selectedOrganizationId) {
       return;
@@ -427,6 +444,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     linkAuthOrganizationPrinter,
     loadOrganizationDetail,
     removeAuthOrganizationMember,
+    revokeAuthOrganizationInvite,
     setCreatedOrganizationInvite,
     setAgentCredentialLabel,
     setAuthDisplayName,

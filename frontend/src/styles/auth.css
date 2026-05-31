@@ -356,7 +356,7 @@
 }
 
 .organization-workspace-detail {
-  max-width: 1040px;
+  width: 100%;
 }
 
 .organization-directory,
@@ -519,6 +519,76 @@
   gap: 10px;
 }
 
+.organization-data-card {
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+}
+
+.organization-data-card + .organization-data-card {
+  margin-top: 8px;
+}
+
+.organization-data-table {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-3);
+}
+
+.organization-data-header,
+.organization-data-row {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 11px 12px;
+}
+
+.organization-data-header {
+  min-height: 40px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: var(--surface-2);
+}
+
+.organization-data-row:last-child {
+  border-bottom: 0;
+}
+
+.organization-data-row strong,
+.organization-data-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.organization-data-table.members .organization-data-header,
+.organization-data-table.members .organization-data-row {
+  grid-template-columns: minmax(160px, 1fr) minmax(240px, 1.2fr) 110px minmax(130px, 0.55fr);
+}
+
+.organization-data-table.printers .organization-data-header,
+.organization-data-table.printers .organization-data-row {
+  grid-template-columns: minmax(160px, 0.8fr) minmax(280px, 1.4fr) 170px minmax(130px, 0.55fr);
+}
+
+.organization-data-table.invites .organization-data-header,
+.organization-data-table.invites .organization-data-row {
+  grid-template-columns: minmax(170px, 0.8fr) 110px 180px 120px minmax(130px, 0.55fr);
+}
+
+.organization-empty-row {
+  padding: 14px 12px;
+}
+
+.status-pill.danger {
+  border-color: var(--danger);
+  color: var(--danger) !important;
+}
+
 .organization-detail-section h3 {
   margin: 0;
   font-size: 15px;
@@ -669,6 +739,17 @@
   }
 
   .organization-table-row {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+  }
+
+  .organization-data-header {
+    display: none;
+  }
+
+  .organization-data-table.members .organization-data-row,
+  .organization-data-table.printers .organization-data-row,
+  .organization-data-table.invites .organization-data-row {
     grid-template-columns: 1fr;
     align-items: flex-start;
   }

@@ -119,8 +119,9 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Itens do dropdown da conta devem abrir a aba interna correta no primeiro clique, mesmo quando a tela Conta ainda não está montada.
 - A área Conta deve separar responsabilidades em estados/telas internas: organizações e segurança.
 - Organizações na Conta devem listar todas as organizações do usuário em tela própria com ações de linha; uso individual continua disponível sem CRUD.
-- Organizações na Conta devem separar lista, detalhe, criação e edição; criação/edição abrem em modal, detalhe abre como estado dedicado e mostra membros, convites por link e impressoras vinculadas.
+- Organizações na Conta devem separar lista, detalhe, criação e edição; criação/edição abrem em modal, detalhe abre como estado dedicado em largura total e mostra membros, convites por link e impressoras vinculadas em blocos/tabelas separados.
 - Organizações na Conta devem permitir editar e excluir somente quando o usuário for `owner`; exclusão deve passar por confirmação destrutiva.
+- Convites de organização pendentes devem poder ser cancelados por gestor da organização; convites aceitos ficam apenas como histórico.
 - O vínculo de compartilhamento deve ser por impressora, não por agente; remover usuário ou impressora da organização deve estar disponível no detalhe.
 - Agentes devem ter tela própria no menu lateral, separada de Conta e do dashboard de Impressoras, com geração de token/comando pronto de instalação, lista de tokens, agentes pareados e saúde/suporte.
 - Usuário anônimo deve ver somente o shell mínimo de autenticação, sem menu lateral, seletor de impressora, alertas, telas internas ou dados operacionais.

@@ -206,6 +206,22 @@ async def create_organization_invite(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
+@router.delete("/organizations/{organization_id}/invites/{invite_id}")
+async def revoke_organization_invite(
+    organization_id: int,
+    invite_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AuthRepository = Depends(get_auth_repository),
+) -> dict[str, bool]:
+    try:
+        repository.revoke_organization_invite(current.user.id, organization_id, invite_id)
+        return {"ok": True}
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @router.post("/organization-invites/{token}/accept", response_model=AuthOrganization)
 async def accept_organization_invite(
     token: str,
