@@ -562,12 +562,20 @@ Execução manual:
 sudo printora-agent -config /etc/printora-agent/config.json update-check
 ```
 
+Publicação do binário do agente:
+
+- o arquivo servido em `releases[].url` precisa ser exatamente o mesmo binário usado para calcular `releases[].sha256`;
+- a API serve o binário em `/api/agent/update/releases/linux-arm64` a partir de `.artifacts/agent/printora-agent-linux-arm64`;
+- se o download falhar com `sha256 inválido`, conferir o SHA do arquivo servido pela URL pública/local antes de tentar reinstalar a impressora;
+- em ambiente local de teste, não depender de servidor HTTP avulso para o binário quando a API estiver acessível pela impressora.
+
 Execução pela UI:
 
 - abrir `Agentes`, conferir `Versão instalada` e `Versão esperada`;
-- clicar `Atualizar` na linha ou `Atualizar agente` no detalhe;
+- clicar `Atualizar` na linha ou `Atualizar agente`/`Atualizar via sistema` no detalhe;
 - para agentes `0.1.8+`, o servidor cria um job `remote_agent_update_check` para aquele agente;
-- para agentes mais antigos, a UI copia o comando manual porque eles ainda não conhecem o contrato remoto de update;
+- para agentes mais antigos com SSH configurado na impressora, o servidor conecta por SSH e executa o `update-check` do agente sem exigir terminal do usuário;
+- para agentes mais antigos sem SSH configurado, a UI mostra o comando manual como último caso;
 - o agente baixa o binário indicado no manifesto, valida SHA-256, troca somente `/usr/local/bin/printora-agent` e reinicia apenas `printora-agent` quando `allow_service_restart=true`.
 
 Segurança:

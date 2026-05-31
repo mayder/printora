@@ -22,6 +22,15 @@ def test_agent_update_manifest_is_public_and_versioned(tmp_path: Path, monkeypat
             assert payload["protocol_min"] == 1
             assert payload["protocol_max"] == 1
             assert payload["releases"]
+            linux_arm64 = next(release for release in payload["releases"] if release["platform"] == "linux/arm64")
+            assert linux_arm64["url"].endswith("/api/agent/update/releases/linux-arm64")
+
+            release = client.get("/api/agent/update/releases/linux-arm64")
+            assert release.status_code in {200, 404}
+            if release.status_code == 404:
+                assert release.json()["detail"] == "agent release file not published"
+            else:
+                assert release.headers["content-type"] == "application/octet-stream"
     finally:
         get_settings.cache_clear()
 

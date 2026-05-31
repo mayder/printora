@@ -95,7 +95,7 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
   const [manualUpdateVisible, setManualUpdateVisible] = React.useState(false);
 
   async function updateAgent(rowToUpdate: AgentFleetRow) {
-    if (!supportsRemoteAgentUpdate(rowToUpdate.agent.agent_version)) {
+    if (!canRequestSystemAgentUpdate(rowToUpdate)) {
       setManualUpdateVisible(true);
       const copied = await copyTextToClipboard(manualAgentUpdateCommand);
       showToast({
@@ -148,7 +148,7 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
             </button>
             <button type="button" className="primary-button" onClick={() => void updateAgent(row)} disabled={loading || row.agent.status !== "active"}>
               <RefreshCw size={15} />
-              {supportsRemoteAgentUpdate(row.agent.agent_version) ? "Atualizar agente" : "Copiar comando"}
+              {agentUpdateButtonLabel(row)}
             </button>
           </div>
         </div>
@@ -166,7 +166,9 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
               Agente em {row.agent.agent_version || "-"}; esperado {expectedAgentVersion}.{" "}
               {supportsRemoteAgentUpdate(row.agent.agent_version)
                 ? "Use Atualizar agente para criar um job remoto de update."
-                : "Este agente ainda precisa do primeiro update manual."}
+                : row.printer.ssh_credential_configured
+                  ? "Use Atualizar via sistema para aplicar o update por SSH."
+                  : "Configure SSH para update automático ou use o comando manual como último caso."}
             </span>
           </div>
         ) : null}
@@ -194,12 +196,12 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
             </button>
           ) : null}
         </div>
-        {!supportsRemoteAgentUpdate(row.agent.agent_version) && manualUpdateVisible ? (
+        {!canRequestSystemAgentUpdate(row) && manualUpdateVisible ? (
           <div className="agent-install-box">
             <div className="printer-card-header">
               <div>
                 <strong>Update manual do agente</strong>
-                <span>Execute este comando no terminal da impressora para atualizar o agente. Depois disso, updates remotos ficam disponíveis pela UI.</span>
+                <span>Execute este comando no terminal da impressora só se não houver SSH configurado para update automático pelo sistema.</span>
               </div>
               <button type="button" className="secondary-button" onClick={() => void copyTextToClipboard(manualAgentUpdateCommand)}>
                 Copiar
@@ -300,6 +302,16 @@ function buildAgentRows(printers: PrinterRecord[], overviews: Record<number, Age
 function supportsRemoteAgentUpdate(version: string | null | undefined) {
   const [major, minor, patch] = versionTuple(version);
   return major > 0 || minor > 1 || (minor === 1 && patch >= 8);
+}
+
+function canRequestSystemAgentUpdate(row: AgentFleetRow) {
+  return supportsRemoteAgentUpdate(row.agent.agent_version) || row.printer.ssh_credential_configured;
+}
+
+function agentUpdateButtonLabel(row: AgentFleetRow) {
+  if (supportsRemoteAgentUpdate(row.agent.agent_version)) return "Atualizar agente";
+  if (row.printer.ssh_credential_configured) return "Atualizar via sistema";
+  return "Copiar comando";
 }
 
 function versionTuple(version: string | null | undefined) {

@@ -245,3 +245,10 @@ export type AgentUpdateManifest = {
     protocol_max: number;
   }>;
 };
+
+export type AgentUpdateRequestResponse = {
+  mode: "remote_job" | "ssh";
+  status: "queued" | "applied" | "failed";
+  detail: string;
+  job?: AgentJobRecord | null;
+};

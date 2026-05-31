@@ -59,6 +59,22 @@ Comando obrigatório antes de commit:
 ./check.sh
 ```
 
+## Update do agente
+
+Validação focada:
+
+```bash
+cd backend && uv run pytest tests/test_agent_support.py tests/test_agent_updates.py -q
+cd frontend && npm run build
+```
+
+Aceite:
+
+- agente `0.1.8+` cria job remoto `remote_agent_update_check`;
+- agente legado com SSH configurado tenta update automático pelo backend;
+- agente legado sem SSH configurado orienta comando manual somente como último caso;
+- manifesto e binário servido têm SHA-256 compatível.
+
 ## Instalação 0.1.5
 
 Validação offline:

@@ -38,6 +38,7 @@ from app.agent_support import (
     AgentSupportBundle,
     AgentSupportOverview,
     AgentSupportRepository,
+    AgentUpdateRequestResponse,
 )
 from app.agent_updates import (
     AgentUpdateHistoryRecord,
@@ -60,6 +61,10 @@ from app.remote_operations import (
 
 router = APIRouter()
 INSTALLER_SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "install_agent_linux.sh"
+AGENT_RELEASE_DIR = Path(__file__).resolve().parents[3] / ".artifacts" / "agent"
+AGENT_RELEASE_FILES = {
+    "linux-arm64": "printora-agent-linux-arm64",
+}
 
 
 def get_pairing_repository(settings: Settings = Depends(get_settings)) -> AgentPairingRepository:
@@ -254,6 +259,17 @@ async def agent_update_manifest() -> AgentUpdateManifest:
     return load_agent_update_manifest()
 
 
+@router.get("/api/agent/update/releases/{platform}")
+async def agent_update_release(platform: str) -> FileResponse:
+    filename = AGENT_RELEASE_FILES.get(platform)
+    if filename is None:
+        raise HTTPException(status_code=404, detail="agent release not found")
+    path = AGENT_RELEASE_DIR / filename
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="agent release file not published")
+    return FileResponse(path, media_type="application/octet-stream", filename=filename)
+
+
 def _linux_arm64_release_url() -> str | None:
     manifest = load_agent_update_manifest()
     for release in manifest.releases:
@@ -341,19 +357,19 @@ async def create_printer_agent_doctor_job(
     return repository.create_doctor_job(printer)
 
 
-@router.post("/api/printers/{printer_id}/agents/{agent_id}/update-check", response_model=AgentJobRecord)
+@router.post("/api/printers/{printer_id}/agents/{agent_id}/update-check", response_model=AgentUpdateRequestResponse)
 async def create_printer_agent_update_job(
     printer_id: int,
     agent_id: int,
     current: CurrentUser = Depends(require_current_user),
     repository: AgentSupportRepository = Depends(get_support_repository),
-) -> AgentJobRecord:
+) -> AgentUpdateRequestResponse:
     settings = get_settings()
     printer = printer_for_user(settings.database_path, current.user, printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
     try:
-        return repository.create_agent_update_job(printer, agent_id)
+        return repository.request_agent_update(printer, agent_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

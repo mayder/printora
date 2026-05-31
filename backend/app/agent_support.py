@@ -1,6 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
+import pty
+import select
+import shlex
+import subprocess
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -18,7 +24,7 @@ from app.agent_pairing import (
     AgentRecord,
 )
 from app.database import connect_database
-from app.printers import PrinterRecord
+from app.printers import PrinterRecord, PrinterRepository, PrinterSshAccess
 
 
 AgentHealthState = Literal["online", "offline", "revoked", "outdated", "unknown"]
@@ -70,6 +76,13 @@ class AgentSupportBundle(BaseModel):
     support_notes: list[str]
 
 
+class AgentUpdateRequestResponse(BaseModel):
+    mode: Literal["remote_job", "ssh"]
+    status: Literal["queued", "applied", "failed"]
+    detail: str
+    job: AgentJobRecord | None = None
+
+
 class AgentSupportRepository:
     def __init__(self, database_path: Path) -> None:
         self.database_path = database_path
@@ -98,13 +111,16 @@ class AgentSupportRepository:
             ),
         )
 
-    def create_agent_update_job(self, printer: PrinterRecord, agent_id: int) -> AgentJobRecord:
+    def request_agent_update(self, printer: PrinterRecord, agent_id: int) -> AgentUpdateRequestResponse:
         agent = next((item for item in self._agents(printer.id) if item.id == agent_id), None)
         if agent is None:
             raise ValueError("agente não pertence à impressora")
         if not _supports_update_job(agent.agent_version):
-            raise ValueError("este agente ainda não suporta update remoto; rode manualmente: sudo printora-agent -config /etc/printora-agent/config.json update-check")
-        return AgentPairingRepository(self.database_path).create_job(
+            ssh_access = PrinterRepository(self.database_path).get_ssh_access(printer.id)
+            if ssh_access is None:
+                raise ValueError("este agente ainda não suporta update remoto e a impressora não tem SSH configurado")
+            return _request_legacy_update_via_ssh(ssh_access)
+        job = AgentPairingRepository(self.database_path).create_job(
             printer,
             AgentJobCreateRequest(
                 agent_id=agent_id,
@@ -113,6 +129,7 @@ class AgentSupportRepository:
                 payload={"safe_mode": "agent_self_update", "requested_at": _now_text()},
             ),
         )
+        return AgentUpdateRequestResponse(mode="remote_job", status="queued", detail="Update remoto enfileirado para o agente.", job=job)
 
     def support_bundle(self, printer: PrinterRecord) -> AgentSupportBundle:
         overview = self.overview(printer)
@@ -373,6 +390,120 @@ def _int_or_none(value: Any) -> int | None:
 
 def _now_text() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _request_legacy_update_via_ssh(ssh_access: PrinterSshAccess) -> AgentUpdateRequestResponse:
+    command = _legacy_agent_update_command(bool(ssh_access.credential))
+    output, exit_code = _run_ssh_command(ssh_access, command, timeout_seconds=180)
+    detail = output.strip()[-500:] or f"ssh exit_code={exit_code}"
+    if exit_code == 0:
+        return AgentUpdateRequestResponse(mode="ssh", status="applied", detail=detail)
+    return AgentUpdateRequestResponse(mode="ssh", status="failed", detail=detail)
+
+
+def _legacy_agent_update_command(has_credential: bool) -> str:
+    sudo_prefix = "sudo -S -p ''" if has_credential else "sudo -n"
+    return f"""
+set -euo pipefail
+CONFIG="${{PRINTORA_AGENT_CONFIG:-/etc/printora-agent/config.json}}"
+BIN="${{PRINTORA_AGENT_BIN:-/usr/local/bin/printora-agent}}"
+if [ ! -x "$BIN" ]; then
+  BIN="$(command -v printora-agent || true)"
+fi
+if [ -z "$BIN" ] || [ ! -x "$BIN" ]; then
+  echo "printora-agent não encontrado"
+  exit 127
+fi
+if [ ! -f "$CONFIG" ]; then
+  echo "config do agente não encontrado: $CONFIG"
+  exit 2
+fi
+if [ "$(id -u)" -eq 0 ]; then
+  exec "$BIN" -config "$CONFIG" update-check
+fi
+exec {sudo_prefix} "$BIN" -config "$CONFIG" update-check
+"""
+
+
+def _run_ssh_command(ssh_access: PrinterSshAccess, command: str, timeout_seconds: int) -> tuple[str, int]:
+    target = f"{ssh_access.username}@{ssh_access.host}"
+    remote = "bash -lc " + shlex.quote(command)
+    args = [
+        "ssh",
+        "-p",
+        str(ssh_access.port),
+        "-o",
+        "StrictHostKeyChecking=accept-new",
+        "-o",
+        "ConnectTimeout=10",
+    ]
+    temp_key_path: str | None = None
+    credential = ssh_access.credential
+    if credential and "PRIVATE KEY" in credential:
+        with tempfile.NamedTemporaryFile("w", delete=False) as temp_key:
+            temp_key.write(credential)
+            temp_key.write("\n")
+            temp_key_path = temp_key.name
+        os.chmod(temp_key_path, 0o600)
+        args.extend(["-i", temp_key_path, "-o", "BatchMode=yes"])
+        credential = None
+    elif not credential:
+        args.extend(["-o", "BatchMode=yes"])
+    args.extend([target, remote])
+    try:
+        if credential:
+            return _run_ssh_with_password(args, credential, timeout_seconds)
+        completed = subprocess.run(args, text=True, capture_output=True, timeout=timeout_seconds, check=False)
+        return (completed.stdout + completed.stderr, completed.returncode)
+    except subprocess.TimeoutExpired as exc:
+        return ((exc.stdout or "") + (exc.stderr or "") + "\ntimeout no SSH", 124)
+    finally:
+        if temp_key_path:
+            try:
+                os.unlink(temp_key_path)
+            except OSError:
+                pass
+
+
+def _run_ssh_with_password(args: list[str], password: str, timeout_seconds: int) -> tuple[str, int]:
+    pid, fd = pty.fork()
+    if pid == 0:
+        os.execvp(args[0], args)
+    output = bytearray()
+    deadline = datetime.now(timezone.utc).timestamp() + timeout_seconds
+    password_sent = 0
+    while True:
+        remaining = deadline - datetime.now(timezone.utc).timestamp()
+        if remaining <= 0:
+            try:
+                os.kill(pid, 15)
+            except OSError:
+                pass
+            return (output.decode(errors="replace") + "\ntimeout no SSH", 124)
+        readable, _, _ = select.select([fd], [], [], min(0.2, remaining))
+        if fd in readable:
+            try:
+                chunk = os.read(fd, 4096)
+            except OSError:
+                break
+            if not chunk:
+                break
+            output.extend(chunk)
+            lowered = output[-500:].decode(errors="ignore").lower()
+            if password_sent < 3 and ("password:" in lowered or "password for" in lowered):
+                os.write(fd, (password + "\n").encode())
+                password_sent += 1
+        try:
+            done_pid, status = os.waitpid(pid, os.WNOHANG)
+        except ChildProcessError:
+            break
+        if done_pid == pid:
+            return (output.decode(errors="replace"), os.waitstatus_to_exitcode(status))
+    try:
+        _, status = os.waitpid(pid, 0)
+        return (output.decode(errors="replace"), os.waitstatus_to_exitcode(status))
+    except ChildProcessError:
+        return (output.decode(errors="replace"), 1)
 
 
 def _supports_update_job(version: str | None) -> bool:

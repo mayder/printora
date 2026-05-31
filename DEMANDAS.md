@@ -3204,6 +3204,7 @@ Implementado:
 - indicadores por agente: online/offline, último heartbeat, versão, protocolo, fila pendente, jobs em progresso, último job, última falha e falhas em 24h;
 - alertas internos para agente ausente, offline, revogado, desatualizado, protocolo incompatível, fila acumulada e falhas recorrentes;
 - doctor remoto sob demanda por job `remote_doctor`;
+- update de agente legado pela UI usando SSH configurado da impressora, deixando comando manual somente como último caso;
 - pacote de suporte sanitizado em `/api/printers/{printer_id}/agent/support/bundle`;
 - sanitização de payload, resultado, erro e log tail para remover `password`, `token`, `secret`, `credential`, `private_key` e tokens `ptr_*`;
 - UI na tela Impressoras com saúde do agente, alertas, doctor remoto e pacote de suporte;

@@ -182,7 +182,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
 
   async function updateAgent(row: AgentFleetRow) {
     selectAgent(row);
-    if (!supportsRemoteAgentUpdate(row.agent.agent_version)) {
+    if (!canRequestSystemAgentUpdate(row)) {
       setManualUpdateAgentKey(agentKey(row));
       const copied = await copyTextToClipboard(manualAgentUpdateCommand);
       showToast({
@@ -265,7 +265,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
                   </button>
                   <button type="button" className="secondary-button" onClick={() => void updateAgent(row)} disabled={loading || row.agent.status !== "active"}>
                     <RefreshCw size={15} />
-                    {supportsRemoteAgentUpdate(row.agent.agent_version) ? "Atualizar" : "Copiar update"}
+                    {agentUpdateButtonLabel(row)}
                   </button>
                   {row.agent.status === "revoked" ? (
                     <button type="button" className="secondary-button" onClick={() => void removeAgent(row)} disabled={loading}>
@@ -310,7 +310,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
                   </button>
                   <button type="button" className="secondary-button" onClick={() => void updateAgent(selectedAgentRow)} disabled={loading || selectedAgentRow.agent.status !== "active"}>
                     <RefreshCw size={15} />
-                    {supportsRemoteAgentUpdate(selectedAgentRow.agent.agent_version) ? "Atualizar agente" : "Copiar update manual"}
+                    {agentUpdateButtonLabel(selectedAgentRow, "detail")}
                   </button>
                   <button type="button" className="secondary-button" onClick={() => void rotateAgent(selectedAgentRow)} disabled={loading || selectedAgentRow.agent.status === "revoked"}>
                     <KeyRound size={15} />
@@ -327,12 +327,12 @@ export function AgentsScreen(props: AgentsScreenProps) {
                     </button>
                   ) : null}
                 </div>
-                {!supportsRemoteAgentUpdate(selectedAgentRow.agent.agent_version) && manualUpdateAgentKey === agentKey(selectedAgentRow) ? (
+                {!canRequestSystemAgentUpdate(selectedAgentRow) && manualUpdateAgentKey === agentKey(selectedAgentRow) ? (
                   <div className="agent-install-box">
                     <div className="printer-card-header">
                       <div>
                         <strong>Update manual do agente</strong>
-                        <span>Este agente está em {selectedAgentRow.agent.agent_version || "-"} e ainda não aceita update remoto. Execute o comando abaixo no terminal da impressora.</span>
+                        <span>Este agente está em {selectedAgentRow.agent.agent_version || "-"} e não tem SSH configurado para update automático. Use este comando só como último caso.</span>
                       </div>
                       <button type="button" className="secondary-button" onClick={() => void copyTextToClipboard(manualAgentUpdateCommand)}>
                         Copiar
@@ -623,6 +623,16 @@ function agentVersionLabel(version: string | null | undefined, expectedVersion: 
 function supportsRemoteAgentUpdate(version: string | null | undefined) {
   const [major, minor, patch] = versionTuple(version);
   return major > 0 || minor > 1 || (minor === 1 && patch >= 8);
+}
+
+function canRequestSystemAgentUpdate(row: AgentFleetRow) {
+  return supportsRemoteAgentUpdate(row.agent.agent_version) || row.printer.ssh_credential_configured;
+}
+
+function agentUpdateButtonLabel(row: AgentFleetRow, context: "row" | "detail" = "row") {
+  if (supportsRemoteAgentUpdate(row.agent.agent_version)) return context === "detail" ? "Atualizar agente" : "Atualizar";
+  if (row.printer.ssh_credential_configured) return context === "detail" ? "Atualizar via sistema" : "Atualizar";
+  return context === "detail" ? "Copiar update manual" : "Copiar update";
 }
 
 function versionTuple(version: string | null | undefined) {

@@ -390,3 +390,16 @@ Impacto em testes: build frontend deve passar e `./check.sh` valida documentacao
 Impacto em rollback: baixo a medio; reverter restaura as secoes operacionais no menu lateral e remove `PrinterDetailScreen`/`AgentDetailScreen`.
 Como reverter: reverter alteracoes em `frontend/src/app/navigation.ts`, `frontend/src/hooks/usePrintoraApp.ts`, `frontend/src/main.tsx`, telas novas de detalhe e atualizacoes de `TELAS.md`.
 Referencias: `frontend/src/app/navigation.ts`, `frontend/src/screens/PrinterDetailScreen.tsx`, `frontend/src/screens/AgentDetailScreen.tsx`, `frontend/src/screens/PrintersScreen.tsx`, `frontend/src/screens/AgentsScreen.tsx`, `TELAS.md`.
+
+### DEC-20260531-11 - Update de agente legado usa SSH como ponte operacional
+
+Status: aceita
+Data: 2026-05-31
+Contexto: agentes antigos ainda não conhecem o job `remote_agent_update_check`, mas usuários leigos não devem precisar abrir terminal na impressora para fazer o primeiro update.
+Decisao: quando o agente não suporta update remoto, o backend tenta executar `printora-agent update-check` por SSH usando a credencial configurada no cadastro da impressora. O comando manual continua disponível somente quando não há SSH configurado.
+Alternativas consideradas: exigir update manual para todos os agentes antigos; manter só o job remoto e falhar em `unsupported job type`; criar shell genérico pelo agente antigo.
+Consequencias: o primeiro update fica acionável pela UI, sem ampliar o contrato do agente legado. A operação depende de SSH funcional e da URL de release da própria API servir binário com SHA igual ao manifesto.
+Impacto em testes: `backend/tests/test_agent_support.py` cobre bloqueio sem SSH, fallback SSH e job remoto em versão atual; build frontend valida os estados visuais.
+Impacto em rollback: baixo; remover o fallback SSH volta a exigir comando manual para agentes abaixo de `0.1.8`.
+Como reverter: reverter alterações em `backend/app/agent_support.py`, rota de update do agente e textos da UI/documentação.
+Referencias: `backend/app/agent_support.py`, `backend/app/routes/agents.py`, `frontend/src/screens/AgentsScreen.tsx`, `frontend/src/screens/AgentDetailScreen.tsx`, `RUNBOOK.md`.

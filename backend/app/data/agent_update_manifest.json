@@ -20,7 +20,7 @@
     {
       "platform": "linux/arm64",
       "version": "0.1.8",
-      "url": "http://192.168.15.9:8070/printora-agent-linux-arm64",
+      "url": "http://192.168.15.9:8069/api/agent/update/releases/linux-arm64",
       "sha256": "9af74bc3bb7d02b6499ca2b0e75a3f2a6f94cac7578ee88a99bfcedce00a99ec",
       "signature": null,
       "protocol_min": 1,

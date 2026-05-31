@@ -235,6 +235,7 @@ export function usePrintoraApp() {
     setError,
     setLoading,
     setStatus: (value) => settings.setStatus(value),
+    showToast,
   });
   const auth = useAuth({ setError, setLoading });
 

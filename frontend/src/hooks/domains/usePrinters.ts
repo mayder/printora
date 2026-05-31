@@ -12,12 +12,14 @@ import type {
   AgentSupportBundle,
   AgentSupportOverview,
   AgentUpdateManifest,
+  AgentUpdateRequestResponse,
   MoonrakerStatus,
   PairingTokenResponse,
   PrinterConnectionTestResponse,
   PrinterDiscoveryResponse,
   PrinterRecord,
   RemoteOperationOverview,
+  ShowToastOptions,
 } from "../../types";
 import { extractHost, validatePrinterConnectionInput } from "../../utils/formatters";
 import type { SetError, SetLoading } from "./shared";
@@ -32,6 +34,7 @@ type UsePrintersOptions = {
   setError: SetError;
   setLoading: SetLoading;
   setStatus: React.Dispatch<React.SetStateAction<MoonrakerStatus | null>>;
+  showToast: (options: ShowToastOptions) => void;
 };
 
 export function usePrinters(options: UsePrintersOptions) {
@@ -44,6 +47,7 @@ export function usePrinters(options: UsePrintersOptions) {
     setError,
     setLoading,
     setStatus,
+    showToast,
   } = options;
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = useSelectedPrinterPreference();
@@ -375,6 +379,12 @@ export function usePrinters(options: UsePrintersOptions) {
       if (!response.ok) {
         throw new Error(await response.text());
       }
+      const result = (await response.json()) as AgentUpdateRequestResponse;
+      showToast({
+        tone: result.status === "failed" ? "danger" : "success",
+        title: result.status === "failed" ? "Falha ao atualizar agente" : result.mode === "ssh" ? "Update solicitado via SSH" : "Update enfileirado",
+        detail: result.status === "failed" ? result.detail : "O sistema iniciou o update do agente.",
+      });
       await loadAgentSupport(printerId);
       await loadFleetAgentPairings();
     } catch (err) {
