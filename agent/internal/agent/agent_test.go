@@ -365,13 +365,13 @@ func TestAgentUpdateAppliesValidatedBinary(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(UpdateManifest{
 				ManifestVersion:    1,
 				MinimumVersion:     Version,
-				RecommendedVersion: "0.1.1",
+				RecommendedVersion: "0.1.7",
 				ProtocolMin:        ProtocolVersion,
 				ProtocolMax:        ProtocolVersion,
 				AutoUpdate:         true,
 				Releases: []UpdateRelease{{
 					Platform:    Platform(),
-					Version:     "0.1.1",
+					Version:     "0.1.7",
 					URL:         "http://" + r.Host + "/binary",
 					SHA256:      fmt.Sprintf("%x", sum),
 					ProtocolMin: ProtocolVersion,
@@ -409,13 +409,13 @@ func TestAgentUpdateRejectsInvalidHash(t *testing.T) {
 		if r.URL.Path == "/manifest" {
 			_ = json.NewEncoder(w).Encode(UpdateManifest{
 				ManifestVersion:    1,
-				RecommendedVersion: "0.1.1",
+				RecommendedVersion: "0.1.7",
 				ProtocolMin:        ProtocolVersion,
 				ProtocolMax:        ProtocolVersion,
 				AutoUpdate:         true,
 				Releases: []UpdateRelease{{
 					Platform:    Platform(),
-					Version:     "0.1.1",
+					Version:     "0.1.7",
 					URL:         "http://" + r.Host + "/binary",
 					SHA256:      "bad",
 					ProtocolMin: ProtocolVersion,
@@ -450,13 +450,13 @@ func TestAgentUpdateRollsBackWhenHealthFails(t *testing.T) {
 		if r.URL.Path == "/manifest" {
 			_ = json.NewEncoder(w).Encode(UpdateManifest{
 				ManifestVersion:    1,
-				RecommendedVersion: "0.1.1",
+				RecommendedVersion: "0.1.7",
 				ProtocolMin:        ProtocolVersion,
 				ProtocolMax:        ProtocolVersion,
 				AutoUpdate:         true,
 				Releases: []UpdateRelease{{
 					Platform:    Platform(),
-					Version:     "0.1.1",
+					Version:     "0.1.7",
 					URL:         "http://" + r.Host + "/binary",
 					SHA256:      fmt.Sprintf("%x", sum),
 					ProtocolMin: ProtocolVersion,

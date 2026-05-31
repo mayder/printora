@@ -91,6 +91,7 @@ func updateCheck(ctx context.Context, configPath string) error {
 	}
 	defer closer()
 	result := runner.CheckAgentUpdate(ctx)
+	runner.RecordUpdateResult(ctx, result)
 	fmt.Printf("%s %s %s\n", result.Status, result.TargetVersion, result.Detail)
 	if result.Status == "failed" || result.Status == "blocked" || result.Status == "rolled_back" {
 		return errors.New(result.Detail)

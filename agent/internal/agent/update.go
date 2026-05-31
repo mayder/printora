@@ -63,6 +63,10 @@ func (r *Runner) MaybeCheckAgentUpdate(ctx context.Context) {
 		return
 	}
 	result := r.CheckAgentUpdate(ctx)
+	r.RecordUpdateResult(ctx, result)
+}
+
+func (r *Runner) RecordUpdateResult(ctx context.Context, result UpdateResult) {
 	_ = r.API.UpdateReport(ctx, AgentUpdateReportPayload{
 		Status:         result.Status,
 		CurrentVersion: Version,
@@ -162,7 +166,7 @@ func downloadRelease(ctx context.Context, cfg Config, release UpdateRelease) (st
 	if err != nil {
 		return "", err
 	}
-	client := &http.Client{Timeout: Timeout(cfg)}
+	client := &http.Client{Timeout: updateDownloadTimeout(cfg)}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -191,6 +195,14 @@ func downloadRelease(ctx context.Context, cfg Config, release UpdateRelease) (st
 	return stagedPath, nil
 }
 
+func updateDownloadTimeout(cfg Config) time.Duration {
+	timeout := Timeout(cfg)
+	if timeout < 60*time.Second {
+		return 60 * time.Second
+	}
+	return timeout
+}
+
 func applyRelease(cfg Config, stagedPath string, targetVersion string) error {
 	binaryPath, err := currentBinaryPath(cfg)
 	if err != nil {
@@ -206,7 +218,7 @@ func applyRelease(cfg Config, stagedPath string, targetVersion string) error {
 	if cfg.configPath != "" {
 		_ = copyFile(cfg.configPath, filepath.Join(cfg.UpdateStagingDir, "config.backup-"+safeFilePart(time.Now().UTC().Format("20060102T150405Z"))+".json"), 0o600)
 	}
-	if err := copyFile(stagedPath, binaryPath, 0o755); err != nil {
+	if err := replaceExecutable(stagedPath, binaryPath); err != nil {
 		return fmt.Errorf("troca binário: %w", err)
 	}
 	if err := runUpdateHealthCommand(cfg); err != nil {
@@ -269,6 +281,18 @@ func copyFile(source string, target string, mode os.FileMode) error {
 		return err
 	}
 	return os.Chmod(target, mode)
+}
+
+func replaceExecutable(source string, target string) error {
+	tempTarget := target + ".new"
+	if err := copyFile(source, tempTarget, 0o755); err != nil {
+		return err
+	}
+	if err := os.Rename(tempTarget, target); err != nil {
+		_ = os.Remove(tempTarget)
+		return err
+	}
+	return nil
 }
 
 func loadUpdateState(path string) (UpdateState, error) {

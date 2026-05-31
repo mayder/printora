@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
@@ -59,6 +60,62 @@ from app.remote_operations import (
 
 router = APIRouter()
 INSTALLER_SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "install_agent_linux.sh"
+
+
+class _AgentWebSocketSession:
+    def __init__(self, agent: AgentRecord, websocket: WebSocket) -> None:
+        self.agent = agent
+        self.websocket = websocket
+        self.send_lock = asyncio.Lock()
+
+
+class _AgentWebSocketManager:
+    def __init__(self) -> None:
+        self._lock = asyncio.Lock()
+        self._sessions: dict[int, _AgentWebSocketSession] = {}
+
+    async def register(self, agent: AgentRecord, websocket: WebSocket) -> None:
+        async with self._lock:
+            self._sessions[agent.id] = _AgentWebSocketSession(agent, websocket)
+
+    async def unregister(self, agent_id: int) -> None:
+        async with self._lock:
+            self._sessions.pop(agent_id, None)
+
+    async def send(self, agent_id: int, message: dict) -> bool:
+        async with self._lock:
+            session = self._sessions.get(agent_id)
+        if session is None:
+            return False
+        try:
+            async with session.send_lock:
+                await session.websocket.send_json(message)
+            return True
+        except Exception:
+            await self.unregister(agent_id)
+            return False
+
+    async def push_job(self, job: AgentJobRecord) -> bool:
+        async with self._lock:
+            if job.agent_id is not None:
+                session = self._sessions.get(job.agent_id)
+            else:
+                session = next(
+                    (candidate for candidate in self._sessions.values() if candidate.agent.printer_id == job.printer_id),
+                    None,
+                )
+        if session is None:
+            return False
+        try:
+            async with session.send_lock:
+                await session.websocket.send_json(_job_message(job))
+            return True
+        except Exception:
+            await self.unregister(session.agent.id)
+            return False
+
+
+_ws_manager = _AgentWebSocketManager()
 
 
 def get_pairing_repository(settings: Settings = Depends(get_settings)) -> AgentPairingRepository:
@@ -222,7 +279,12 @@ async def create_agent_install_plan(
     printer = printer_for_user(settings.database_path, current.user, printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
-    return repository.create_install_plan(current.user, printer, str(request.base_url).rstrip("/"))
+    return repository.create_install_plan(
+        current.user,
+        printer,
+        str(request.base_url).rstrip("/"),
+        _linux_arm64_release_url(),
+    )
 
 
 @router.get("/api/printers/{printer_id}/agent/install-status", response_model=AgentInstallStatusResponse)
@@ -246,6 +308,14 @@ async def agent_linux_installer() -> FileResponse:
 @router.get("/api/agent/update/manifest", response_model=AgentUpdateManifest)
 async def agent_update_manifest() -> AgentUpdateManifest:
     return load_agent_update_manifest()
+
+
+def _linux_arm64_release_url() -> str | None:
+    manifest = load_agent_update_manifest()
+    for release in manifest.releases:
+        if release.platform == "linux/arm64" and release.url:
+            return release.url
+    return None
 
 
 @router.post("/api/agent/update/reports", response_model=AgentUpdateHistoryRecord)
@@ -457,7 +527,9 @@ async def create_printer_agent_job(
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
     try:
-        return repository.create_job(printer, payload)
+        job = repository.create_job(printer, payload)
+        await _ws_manager.push_job(job)
+        return job
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -528,24 +600,27 @@ async def agent_websocket(websocket: WebSocket) -> None:
         await websocket.close(code=1008)
         return
     await websocket.accept()
+    await _ws_manager.register(agent, websocket)
     try:
-        await websocket.send_json(_message("hello", {"protocol_version": AGENT_PROTOCOL_VERSION}))
+        await _ws_manager.send(agent.id, _message("hello", {"protocol_version": AGENT_PROTOCOL_VERSION}))
         while True:
             raw = await websocket.receive_json()
             message = AgentProtocolMessage.model_validate(raw)
             if message.protocol_version != AGENT_PROTOCOL_VERSION:
-                await websocket.send_json(_message("error", {"reason": "protocol_version_incompatible"}, message.correlation_id))
+                await _ws_manager.send(agent.id, _message("error", {"reason": "protocol_version_incompatible"}, message.correlation_id))
                 await websocket.close(code=1003)
                 return
             response = _handle_agent_message(repository, agent, message)
-            await websocket.send_json(response)
+            await _ws_manager.send(agent.id, response)
             if message.message_type in {"hello", "heartbeat", "backpressure"}:
                 for job in repository.next_jobs(agent, 10).jobs:
-                    await websocket.send_json(_job_message(job))
+                    await _ws_manager.send(agent.id, _job_message(job))
     except WebSocketDisconnect:
         return
     except Exception as exc:
-        await websocket.send_json(_message("error", {"reason": str(exc)[:160]}))
+        await _ws_manager.send(agent.id, _message("error", {"reason": str(exc)[:160]}))
+    finally:
+        await _ws_manager.unregister(agent.id)
 
 
 def _websocket_credential(websocket: WebSocket) -> str | None:

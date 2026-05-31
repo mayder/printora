@@ -35,7 +35,7 @@ func (r *Runner) RunChannel(ctx context.Context) error {
 			return ctx.Err()
 		case <-time.After(backoff):
 		}
-		if backoff < 30*time.Second {
+		if backoff < 5*time.Second {
 			backoff *= 2
 		}
 	}
@@ -66,20 +66,37 @@ func (r *Runner) runWebSocket(ctx context.Context) error {
 	if err := writeMessage(ctx, conn, "hello", "hello", helloPayload(r)); err != nil {
 		return err
 	}
-	heartbeatTicker := time.NewTicker(time.Duration(r.Config.IntervalSeconds) * time.Second)
-	defer heartbeatTicker.Stop()
+	heartbeatInterval := time.Duration(r.Config.IntervalSeconds) * time.Second
+	heartbeatCtx, stopHeartbeat := context.WithCancel(ctx)
+	defer stopHeartbeat()
+	heartbeatErrors := make(chan error, 1)
+	go func() {
+		ticker := time.NewTicker(heartbeatInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-heartbeatCtx.Done():
+				return
+			case <-ticker.C:
+				if err := writeMessage(ctx, conn, "heartbeat", "heartbeat", helloPayload(r)); err != nil {
+					heartbeatErrors <- err
+					_ = conn.Close(websocket.StatusInternalError, "heartbeat failed")
+					return
+				}
+			}
+		}
+	}()
 	for {
-		readTimeout := time.Duration(r.Config.IntervalSeconds+r.Config.TimeoutSeconds) * time.Second
-		readCtx, cancel := context.WithTimeout(ctx, readTimeout)
-		_, data, err := conn.Read(readCtx)
-		cancel()
+		select {
+		case err := <-heartbeatErrors:
+			return err
+		default:
+		}
+		_, data, err := conn.Read(ctx)
 		if err != nil {
 			select {
-			case <-heartbeatTicker.C:
-				if writeErr := writeMessage(ctx, conn, "heartbeat", "heartbeat", helloPayload(r)); writeErr != nil {
-					return writeErr
-				}
-				continue
+			case heartbeatErr := <-heartbeatErrors:
+				return heartbeatErr
 			default:
 				return err
 			}

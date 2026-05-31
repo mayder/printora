@@ -483,7 +483,7 @@ Segurança:
 
 - o agente só abre conexões de saída;
 - Moonraker local é acessado em modo read-only;
-- o agente não envia G-code, não reinicia serviços, não aplica update, não faz build e não faz flash;
+- o agente não envia G-code neste canal base, não reinicia Klipper/Moonraker, não faz build e não faz flash;
 - credencial operacional fica em arquivo separado com permissão `0600`;
 - logs passam por redaction de tokens;
 - fila local JSONL é limitada e guarda payload compacto quando a API está indisponível.
@@ -558,7 +558,7 @@ Config do agente:
 Execução manual:
 
 ```bash
-printora-agent -config /etc/printora-agent/config.json update-check
+sudo printora-agent -config /etc/printora-agent/config.json update-check
 ```
 
 Segurança:

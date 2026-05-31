@@ -12,7 +12,7 @@ SERVICE_USER="${PRINTORA_AGENT_SERVICE_USER:-printora-agent}"
 MOONRAKER_URL="${PRINTORA_MOONRAKER_URL:-http://127.0.0.1:7125}"
 API_BASE="${PRINTORA_API_BASE:-}"
 PAIRING_TOKEN="${PRINTORA_PAIRING_TOKEN:-}"
-AGENT_VERSION="${PRINTORA_AGENT_VERSION:-0.1.0}"
+AGENT_VERSION="${PRINTORA_AGENT_VERSION:-0.1.6}"
 BIN_URL="${PRINTORA_AGENT_BIN_URL:-}"
 LOCAL_BIN="${PRINTORA_AGENT_BIN:-}"
 TEST_MODE="${PRINTORA_AGENT_INSTALL_TEST_MODE:-0}"
@@ -101,7 +101,7 @@ install_binary() {
     return
   fi
   if [[ -n "$BIN_URL" ]]; then
-    curl -fsSL "$BIN_URL" -o "$target.tmp"
+    curl -fsSL --retry 5 --retry-delay 2 --connect-timeout 10 "$BIN_URL" -o "$target.tmp"
     install -m 0755 "$target.tmp" "$target"
     rm -f "$target.tmp"
     return

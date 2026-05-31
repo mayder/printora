@@ -47,17 +47,18 @@ e deve ficar com permissão `0600`.
 - O agente lê endpoints read-only do Moonraker por padrão.
 - O agente só envia G-code em jobs `remote_mutation_execute` criados após
   preflight remoto, confirmação textual e expiração controlada pela API.
-- O agente não executa shell genérico, não reinicia serviços, não faz build e
-  não faz flash.
+- O agente não executa shell genérico, não reinicia Klipper/Moonraker, não faz
+  build e não faz flash. O updater reinicia somente o serviço `printora-agent`
+  quando habilitado.
 - Logs passam por redaction de tokens `ptr_agent_*`, `ptr_pair_*` e `ptr_sess_*`.
 - A fila local é JSONL limitada e guarda payload compacto quando a API está
   indisponível.
 
 ## Canal remoto
 
-O comando `run` tenta manter WebSocket outbound com `/api/agent/ws`. Se o canal
-falhar e `polling_enabled` estiver ativo, o agente usa polling HTTPS para buscar
-jobs e enviar `ack`, `result` ou `error`.
+O comando `run` mantém WebSocket outbound com `/api/agent/ws` e heartbeat
+periódico. Se o canal falhar e `polling_enabled` estiver ativo, o agente usa
+polling HTTPS para buscar jobs e enviar `ack`, `result` ou `error`.
 
 Jobs suportados nesta etapa:
 
@@ -82,7 +83,7 @@ binário, preservando configuração, fila e logs para rollback/diagnóstico.
 ## Atualização
 
 ```bash
-printora-agent -config /etc/printora-agent/config.json update-check
+sudo printora-agent -config /etc/printora-agent/config.json update-check
 ```
 
 O agente consulta `/api/agent/update/manifest`, valida plataforma, versão,

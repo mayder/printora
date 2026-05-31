@@ -14,9 +14,11 @@ from app.printers import PrinterRecord, PrinterRepository
 
 
 PAIRING_TOKEN_TTL = timedelta(minutes=15)
+AGENT_JOB_TTL = timedelta(minutes=2)
+AGENT_JOB_IN_PROGRESS_TIMEOUT = timedelta(minutes=5)
 AGENT_PROTOCOL_VERSION = 1
 AGENT_MAX_PAYLOAD_BYTES = 64 * 1024
-EXPECTED_AGENT_VERSION = "0.1.0"
+EXPECTED_AGENT_VERSION = "0.1.6"
 AgentStatus = Literal["active", "revoked", "removed"]
 AgentJobStatus = Literal["pending", "in_progress", "succeeded", "failed", "canceled"]
 AgentMessageType = Literal["hello", "heartbeat", "snapshot", "job", "ack", "nack", "result", "error", "backpressure"]
@@ -236,20 +238,29 @@ class AgentPairingRepository:
             created_at=str(row["created_at"]),
         )
 
-    def create_install_plan(self, current_user: AuthUser, printer: PrinterRecord, api_base_url: str) -> AgentInstallPlanResponse:
+    def create_install_plan(
+        self,
+        current_user: AuthUser,
+        printer: PrinterRecord,
+        api_base_url: str,
+        agent_bin_url: str | None = None,
+    ) -> AgentInstallPlanResponse:
         token = self.create_pairing_token(current_user, printer, PairingTokenCreateRequest(ttl_minutes=15))
         script_url = f"{api_base_url.rstrip('/')}/api/agent/install/linux.sh"
+        bin_env = f"PRINTORA_AGENT_BIN_URL={_shell_quote(agent_bin_url)} " if agent_bin_url else ""
         install_command = (
             f"curl -fsSL {_shell_quote(script_url)} | "
             f"sudo PRINTORA_API_BASE={_shell_quote(api_base_url.rstrip('/'))} "
             f"PRINTORA_PAIRING_TOKEN={_shell_quote(token.token)} "
-            f"PRINTORA_MOONRAKER_URL={_shell_quote(printer.moonraker_url)} "
+            f"PRINTORA_AGENT_VERSION={_shell_quote(EXPECTED_AGENT_VERSION)} "
+            f"{bin_env}"
+            "PRINTORA_MOONRAKER_URL='http://127.0.0.1:7125' "
             "bash -s -- --apply --yes"
         )
         preflight_command = (
             f"curl -fsSL {_shell_quote(script_url)} | "
             f"PRINTORA_API_BASE={_shell_quote(api_base_url.rstrip('/'))} "
-            f"PRINTORA_MOONRAKER_URL={_shell_quote(printer.moonraker_url)} "
+            "PRINTORA_MOONRAKER_URL='http://127.0.0.1:7125' "
             "bash -s -- --preflight"
         )
         uninstall_command = f"curl -fsSL {_shell_quote(script_url)} | sudo bash -s -- --uninstall"
@@ -591,7 +602,9 @@ class AgentPairingRepository:
     def create_job(self, printer: PrinterRecord, request: AgentJobCreateRequest) -> AgentJobRecord:
         _ensure_payload_size(request.payload)
         correlation_id = request.correlation_id or f"job_{uuid4().hex}"
+        expires_at = request.expires_at or format_dt(utc_now() + AGENT_JOB_TTL)
         with connect_database(self.database_path) as connection:
+            self._expire_jobs(connection, printer.id)
             if request.agent_id is not None:
                 agent_row = connection.execute(
                     "SELECT id FROM printer_agents WHERE id = ? AND printer_id = ? AND status = 'active' AND revoked_at IS NULL",
@@ -605,7 +618,7 @@ class AgentPairingRepository:
                     INSERT INTO agent_jobs (printer_id, agent_id, correlation_id, job_type, payload_json, expires_at)
                     VALUES (?, ?, ?, ?, ?, ?)
                     """,
-                    (printer.id, request.agent_id, correlation_id, request.job_type, json.dumps(request.payload), request.expires_at),
+                    (printer.id, request.agent_id, correlation_id, request.job_type, json.dumps(request.payload), expires_at),
                 )
             except Exception as exc:
                 raise ValueError("correlation_id já usado") from exc
@@ -616,6 +629,7 @@ class AgentPairingRepository:
     def next_jobs(self, agent: AgentRecord, limit: int = 5) -> AgentJobResponse:
         clean_limit = max(1, min(limit, 20))
         with connect_database(self.database_path) as connection:
+            self._expire_jobs(connection, agent.printer_id)
             rows = connection.execute(
                 """
                 SELECT *
@@ -738,6 +752,35 @@ class AgentPairingRepository:
             sql += " AND correlation_id = ?"
             parameters = (job_id, agent.printer_id, agent.id, correlation_id)
         return connection.execute(sql, parameters).fetchone()
+
+    def _expire_jobs(self, connection, printer_id: int) -> None:
+        connection.execute(
+            """
+            UPDATE agent_jobs
+            SET status = 'failed',
+                error_message = 'job expirado antes do agente consumir',
+                finished_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE printer_id = ?
+              AND status = 'pending'
+              AND expires_at IS NOT NULL
+              AND expires_at <= CURRENT_TIMESTAMP
+            """,
+            (printer_id,),
+        )
+        connection.execute(
+            """
+            UPDATE agent_jobs
+            SET status = 'failed',
+                error_message = 'job em execução expirou sem retorno do agente',
+                finished_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE printer_id = ?
+              AND status = 'in_progress'
+              AND updated_at <= datetime(CURRENT_TIMESTAMP, ?)
+            """,
+            (printer_id, f"-{int(AGENT_JOB_IN_PROGRESS_TIMEOUT.total_seconds())} seconds"),
+        )
 
     def _record_event(self, connection, printer_id: int, agent_id: int | None, event_type: str, status: str, detail: str | None) -> None:
         connection.execute(
