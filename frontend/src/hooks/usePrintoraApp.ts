@@ -354,6 +354,10 @@ export function usePrintoraApp() {
     if (shell.activeSection === "account") {
       void auth.loadAuth().then(() => auth.loadAgentCredentials());
     }
+    if (shell.activeSection === "overview") {
+      void printers.loadFleetAgentPairings();
+      void printers.loadAgentUpdateManifest();
+    }
     if (shell.activeSection === "agents" || (shell.activeSection === "printer-detail" && printerDetailTab === "agents") || shell.activeSection === "agent-detail") {
       void printers.loadFleetAgentPairings();
       void printers.loadAgentUpdateManifest();

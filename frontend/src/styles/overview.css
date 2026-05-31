@@ -141,3 +141,69 @@
   gap: 10px;
   margin-top: 14px;
 }
+
+.fleet-dashboard-grid,
+.fleet-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fleet-dashboard-card,
+.fleet-action-card {
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 14px;
+}
+
+.fleet-dashboard-card {
+  display: grid;
+  gap: 10px;
+}
+
+.fleet-dashboard-card > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fleet-dashboard-card > strong {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.fleet-dashboard-card p,
+.fleet-action-card span {
+  margin: 0;
+  color: var(--muted);
+}
+
+.fleet-dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.fleet-action-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 10px;
+  text-align: left;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.fleet-action-card svg {
+  grid-row: span 2;
+  color: var(--accent);
+}
+
+.fleet-action-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
