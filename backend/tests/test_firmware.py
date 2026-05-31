@@ -421,28 +421,29 @@ def test_firmware_inventory_api_enriches_registered_and_detected_boards(tmp_path
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     get_settings.cache_clear()
 
-    class FakeMoonrakerClient:
-        def __init__(self, *_args, **_kwargs) -> None:
-            pass
-
-        async def printer_objects_list(self) -> list[str]:
-            return ["mcu", "mcu EBBCan", "configfile"]
-
-        async def printer_objects(self, _query: dict[str, list[str]]) -> dict[str, object]:
-            return {
-                "status": {
-                    "mcu": {"mcu_version": "stm32f446 firmware"},
-                    "mcu EBBCan": {"mcu_version": "stm32g0b1 firmware"},
-                    "configfile": {
-                        "settings": {
-                            "mcu": {"canbus_uuid": "abc123"},
-                            "mcu EBBCan": {"canbus_uuid": "def456", "canbus_interface": "can0"},
+    async def fake_agent_run(self, printer, *, job_type, payload=None, timeout_seconds=12.0, require_online=True):
+        assert job_type == "remote_firmware_inventory"
+        return SimpleNamespace(
+            result={
+                "objects_list": ["mcu", "mcu EBBCan", "configfile"],
+                "object_payload": {
+                    "result": {
+                        "status": {
+                            "mcu": {"mcu_version": "stm32f446 firmware"},
+                            "mcu EBBCan": {"mcu_version": "stm32g0b1 firmware"},
+                            "configfile": {
+                                "settings": {
+                                    "mcu": {"canbus_uuid": "abc123"},
+                                    "mcu EBBCan": {"canbus_uuid": "def456", "canbus_interface": "can0"},
+                                }
+                            },
                         }
-                    },
-                }
+                    }
+                },
             }
+        )
 
-    monkeypatch.setattr("app.routes.firmware.MoonrakerClient", FakeMoonrakerClient)
+    monkeypatch.setattr("app.routes.firmware.AgentCommandExecutor.run", fake_agent_run)
     try:
         with TestClient(app) as client:
             created = client.post(

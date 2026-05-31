@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import re
@@ -600,59 +599,18 @@ async def _run_remote_script(
     script: str,
     timeout_seconds: float | None = None,
 ) -> dict[str, object]:
-    command = _ssh_command(request.target, request.interface_name, request.bitrate)
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-    except FileNotFoundError:
-        return {"stdout": "", "stderr": "", "exit_code": None, "error": "Comando ssh não encontrado no host do Printora."}
-    except OSError as exc:
-        return {"stdout": "", "stderr": "", "exit_code": None, "error": str(exc)}
-    try:
-        stdout_bytes, stderr_bytes = await asyncio.wait_for(
-            process.communicate(script.encode()),
-            timeout=timeout_seconds or request.target.timeout_seconds,
-        )
-    except TimeoutError:
-        process.kill()
-        await process.wait()
-        return {"stdout": "", "stderr": "", "exit_code": None, "error": f"Timeout de SSH após {(timeout_seconds or request.target.timeout_seconds):.0f}s."}
-    return {
-        "stdout": stdout_bytes.decode(errors="replace"),
-        "stderr": stderr_bytes.decode(errors="replace"),
-        "exit_code": process.returncode,
-        "error": None,
-    }
+    from app.agent_host import run_host_script_via_agent
 
-
-def _ssh_command(target: SetupSshTarget, interface_name: str, bitrate: int) -> list[str]:
-    command = [
-        "ssh",
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        f"ConnectTimeout={max(1, int(target.timeout_seconds))}",
-        "-o",
-        "StrictHostKeyChecking=no",
-        "-o",
-        "UserKnownHostsFile=/dev/null",
-        "-o",
-        "LogLevel=ERROR",
-        "-p",
-        str(target.port),
-    ]
-    if target.auth_method == "key_path" and target.key_path:
-        command.extend(["-i", str(Path(target.key_path).expanduser())])
-    command.extend([
-        f"{target.username}@{target.host}",
-        f"PRINTORA_CAN_INTERFACE={interface_name} PRINTORA_CAN_BITRATE={bitrate} bash -s",
-    ])
-    return command
-
+    return await run_host_script_via_agent(
+        request.target,
+        script,
+        timeout_seconds=timeout_seconds or request.target.timeout_seconds,
+        env={
+            "PRINTORA_CAN_INTERFACE": request.interface_name,
+            "PRINTORA_CAN_BITRATE": str(request.bitrate),
+        },
+        kind="setup_can",
+    )
 
 def _blocked_apply(request: SetupCanApplyRequest, reasons: list[str], command_log: str) -> SetupCanApplyResponse:
     return SetupCanApplyResponse(

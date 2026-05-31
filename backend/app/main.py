@@ -28,9 +28,6 @@ from app.routes import (
     system,
     z_offset,
 )
-from app.routes.support import _read_printer_print_hours, _send_and_monitor_gcode
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()

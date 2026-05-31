@@ -37,13 +37,6 @@ async def refresh_printer_update_status(
     )
 
 
-async def _refresh_update_status_background(client: MoonrakerClient, name: str | None, timeout_seconds: float) -> None:
-    try:
-        await client.refresh_update_status(name, timeout_seconds=timeout_seconds)
-    except httpx.HTTPError:
-        return
-
-
 @router.post("/api/printers/{printer_id}/updates/silences")
 async def silence_printer_update_alert(
     printer_id: int,

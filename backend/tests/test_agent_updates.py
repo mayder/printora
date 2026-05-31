@@ -17,8 +17,8 @@ def test_agent_update_manifest_is_public_and_versioned(tmp_path: Path, monkeypat
             assert response.status_code == 200
             payload = response.json()
             assert payload["manifest_version"] == 1
-            assert payload["minimum_version"] == "0.1.6"
-            assert payload["recommended_version"] == "0.1.6"
+            assert payload["minimum_version"] == "0.1.8"
+            assert payload["recommended_version"] == "0.1.8"
             assert payload["protocol_min"] == 1
             assert payload["protocol_max"] == 1
             assert payload["releases"]

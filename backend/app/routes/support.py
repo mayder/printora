@@ -1,6 +1,3 @@
-import asyncio
-import sys
-import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,6 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, HttpUrl
 
 from app.audit import build_read_only_audit
+from app.agent_executor import AgentCommandExecutor
+from app.agent_moonraker import operation_payload
 from app.auth import current_auth_scope
 from app.backups import (
     BackupArchiveCompareRequest,
@@ -57,7 +56,6 @@ from app.can_monitor import (
 from app.checklists import build_post_update_checklist, build_unavailable_post_update_checklist
 from app.config import Settings, get_settings
 from app.database import get_database_version_info, initialize_database
-from app.discovery import PrinterDiscoveryResponse, discover_moonraker_printers
 from app.firmware import (
     BoardPreset,
     FirmwareBoardCreate,
@@ -76,7 +74,8 @@ from app.firmware import (
 )
 from app.firmware_catalog import FirmwareHardwareInventory, build_firmware_hardware_inventory
 from app.health import build_printer_health, build_unreachable_health
-from app.host_audit import collect_host_audit, summarize_sections
+from app.host_audit import READ_ONLY_SCRIPT as HOST_AUDIT_SCRIPT
+from app.host_audit import build_host_findings, split_sections as split_host_audit_sections, summarize_sections
 from app.maintenance import (
     MaintenanceEventCreate,
     MaintenanceEventRecord,
@@ -87,8 +86,6 @@ from app.maintenance import (
     MaintenanceTaskCreate,
     MaintenanceTaskRecord,
 )
-from app.moonraker import MoonrakerClient
-from app.network_diagnostics import build_network_diagnostics
 from app.operation import (
     build_operation_action_preflight,
     build_operation_action_preview,
@@ -198,23 +195,6 @@ class OperationActionDirectExecuteRequest(BaseModel):
     step_up_token: str | None = Field(default=None, max_length=240)
 
 
-def get_moonraker_url(settings: Settings) -> str:
-    user_id, organization_ids = current_auth_scope()
-    if user_id is None:
-        return settings.moonraker_url
-    printers = PrinterRepository(settings.database_path, user_id=user_id, organization_ids=organization_ids).list_printers()
-    if not printers:
-        raise HTTPException(status_code=404, detail="printer not found")
-    return printers[0].moonraker_url
-
-
-def get_moonraker_client(settings: Settings) -> MoonrakerClient:
-    return MoonrakerClient(
-        base_url=get_moonraker_url(settings),
-        timeout_seconds=settings.request_timeout_seconds,
-    )
-
-
 def get_printer_repository(settings: Settings) -> PrinterRepository:
     user_id, organization_ids = current_auth_scope()
     return PrinterRepository(settings.database_path, user_id=user_id, organization_ids=organization_ids)
@@ -270,7 +250,7 @@ async def _refresh_maintenance_print_hours(
     printer = printer_repository.get_printer(printer_id)
     if printer is None:
         return {"available": False, "total_print_hours": None, "read_at": None, "source": "unavailable"}
-    print_hours = await _read_printer_print_hours(printer.moonraker_url)
+    print_hours = await _read_printer_print_hours_via_agent(get_settings(), printer)
     if print_hours is None:
         if any(task.current_print_hours is not None for task in tasks):
             maintenance_repository.update_current_print_hours(printer_id, None, read_at=_now_iso(), source="cached")
@@ -280,24 +260,28 @@ async def _refresh_maintenance_print_hours(
     return {"available": True, "total_print_hours": print_hours, "read_at": read_at, "source": "live"}
 
 
-async def _read_printer_print_hours(moonraker_url: str) -> float | None:
-    main_module = sys.modules.get("app.main")
-    override = getattr(main_module, "_read_printer_print_hours", None) if main_module is not None else None
-    if override is not None and override is not _read_printer_print_hours:
-        return await override(moonraker_url)
-
-    client = MoonrakerClient(moonraker_url, timeout_seconds=3.0)
+async def _read_printer_print_hours_via_agent(settings: Settings, printer: PrinterRecord) -> float | None:
     try:
-        totals = await client.history_totals()
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_operation_status",
+            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        )
     except Exception:
         return None
-    job_totals = totals.get("job_totals")
+    *_status, history_totals = operation_payload(job.result if isinstance(job.result, dict) else {})
+    return _total_print_hours_from_history(history_totals)
+
+
+def _total_print_hours_from_history(history_totals: dict[str, Any] | None) -> float | None:
+    if not isinstance(history_totals, dict):
+        return None
+    job_totals = history_totals.get("job_totals")
     if not isinstance(job_totals, dict):
         return None
     total_seconds = job_totals.get("total_print_time")
     if not isinstance(total_seconds, int | float):
         return None
-    # Limitação: não soma print_stats.print_duration em impressão ativa; isso exigiria combinar duas leituras.
     return round(float(total_seconds) / 3600.0, 3)
 
 
@@ -305,16 +289,6 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-
-
-async def _collect_status(client: MoonrakerClient) -> tuple[dict[str, Any], ...]:
-    printer_info, server_info, system_info, proc_stats = await asyncio.gather(
-        client.printer_info(),
-        client.server_info(),
-        client.system_info(),
-        client.proc_stats(),
-    )
-    return printer_info, server_info, system_info, proc_stats
 
 
 def _latest_moonraker_snapshot(snapshot_repository: SnapshotRepository, printer_id: int) -> SnapshotDetail | None:
@@ -333,131 +307,6 @@ def _recent_moonraker_snapshots(snapshot_repository: SnapshotRepository, printer
         if detail is not None:
             snapshots.append(detail)
     return snapshots
-
-
-async def _operation_execution_preflight(client: MoonrakerClient) -> dict[str, Any]:
-    try:
-        printer_info = await client.printer_info()
-        server_info = await client.server_info()
-        available_objects = await client.printer_objects_list()
-        query_objects: dict[str, list[str]] = {"print_stats": ["state", "filename"]}
-        if "toolhead" in available_objects:
-            query_objects["toolhead"] = ["axis_minimum", "axis_maximum"]
-        objects = await client.printer_objects(query_objects)
-    except httpx.HTTPError as exc:
-        return {
-            "safe_mode": "read_only_preflight",
-            "connected": False,
-            "printing": False,
-            "print_state": "",
-            "summary": "Moonraker indisponível no preflight.",
-            "error": str(exc),
-        }
-    status = objects.get("status", objects)
-    print_stats = status.get("print_stats") if isinstance(status, dict) else {}
-    print_state = str(print_stats.get("state") or "") if isinstance(print_stats, dict) else ""
-    return {
-        "safe_mode": "read_only_preflight",
-        "connected": bool(server_info.get("klippy_connected", True)),
-        "printing": print_state not in {"", "standby", "complete", "cancelled", "error"},
-        "print_state": print_state,
-        "klipper_state": printer_info.get("state"),
-        "klippy_state": server_info.get("klippy_state"),
-        "available_objects": available_objects,
-        "object_status": status if isinstance(status, dict) else {},
-        "summary": "Preflight read-only concluído.",
-    }
-
-
-async def _send_and_monitor_gcode(
-    client: MoonrakerClient,
-    command: str,
-    request_timeout_seconds: float,
-) -> dict[str, Any]:
-    started_at = time.monotonic()
-    record: dict[str, Any] = {
-        "command": command,
-        "accepted": False,
-        "transport_status": "pending",
-        "monitor_status": "pending",
-    }
-    try:
-        record["gcode_store_before"] = await client.gcode_store(count=8)
-    except httpx.HTTPError as exc:
-        record["gcode_store_before_error"] = _http_error_detail(exc)
-
-    try:
-        record["submit_result"] = await client.gcode_script(
-            command,
-            timeout_seconds=max(request_timeout_seconds, 30.0),
-        )
-        record["transport_status"] = "ok"
-    except httpx.HTTPError as exc:
-        record["transport_status"] = "error"
-        record["transport_error"] = _http_error_detail(exc)
-
-    final_state = await _monitor_gcode_final_state(client)
-    record["final_state"] = final_state
-    record["monitor_status"] = "ok" if final_state.get("connected") else "error"
-    if final_state.get("error"):
-        record["monitor_error"] = final_state["error"]
-    record["duration_seconds"] = round(time.monotonic() - started_at, 3)
-
-    transport_ok = record["transport_status"] == "ok"
-    ready_after_send = bool(final_state.get("connected")) and _final_state_is_ready(final_state)
-    record["accepted"] = transport_ok or ready_after_send
-    if record["accepted"] and record["transport_status"] == "error":
-        record["transport_status"] = "accepted_after_monitoring"
-    return record
-
-
-async def _monitor_gcode_final_state(client: MoonrakerClient, *, timeout_seconds: float = 15.0) -> dict[str, Any]:
-    deadline = time.monotonic() + timeout_seconds
-    last_state: dict[str, Any] = {}
-    while True:
-        try:
-            printer_info = await client.printer_info()
-            server_info = await client.server_info()
-            available_objects = await client.printer_objects_list()
-            query_objects: dict[str, list[str]] = {"print_stats": ["state", "filename"]}
-            if "toolhead" in available_objects:
-                query_objects["toolhead"] = ["homed_axes", "position"]
-            objects = await client.printer_objects(query_objects)
-            status = objects.get("status", objects)
-            print_stats = status.get("print_stats") if isinstance(status, dict) else {}
-            toolhead = status.get("toolhead") if isinstance(status, dict) else {}
-            last_state = {
-                "connected": bool(server_info.get("klippy_connected", True)),
-                "klipper_state": printer_info.get("state"),
-                "klippy_state": server_info.get("klippy_state"),
-                "print_state": str(print_stats.get("state") or "") if isinstance(print_stats, dict) else "",
-                "filename": print_stats.get("filename") if isinstance(print_stats, dict) else None,
-                "homed_axes": toolhead.get("homed_axes") if isinstance(toolhead, dict) else None,
-                "position": toolhead.get("position") if isinstance(toolhead, dict) else None,
-            }
-            try:
-                last_state["gcode_store_after"] = await client.gcode_store(count=20)
-            except httpx.HTTPError as exc:
-                last_state["gcode_store_after_error"] = _http_error_detail(exc)
-            if _final_state_is_ready(last_state) or time.monotonic() >= deadline:
-                return last_state
-        except httpx.HTTPError as exc:
-            last_state = {
-                "connected": False,
-                "error": _http_error_detail(exc),
-            }
-            if time.monotonic() >= deadline:
-                return last_state
-        await asyncio.sleep(0.5)
-
-
-def _final_state_is_ready(state: dict[str, Any]) -> bool:
-    return (
-        bool(state.get("connected"))
-        and state.get("klipper_state") == "ready"
-        and state.get("klippy_state") == "ready"
-        and str(state.get("print_state") or "") in {"", "standby", "complete", "cancelled"}
-    )
 
 
 def _build_unreachable_audit(moonraker_url: str, exc: Exception) -> dict[str, Any]:
@@ -489,46 +338,6 @@ def _build_unreachable_audit(moonraker_url: str, exc: Exception) -> dict[str, An
     }
 
 
-async def _test_moonraker_connection(moonraker_url: str, timeout_seconds: float) -> ConnectionCheckResult:
-    target = f"{moonraker_url}/server/info"
-    try:
-        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-            response = await client.get(target)
-        if response.status_code >= 400:
-            return ConnectionCheckResult(
-                ok=False,
-                target=target,
-                detail=f"HTTP {response.status_code}",
-            )
-        payload = response.json()
-        result = payload.get("result", {}) if isinstance(payload, dict) else {}
-        state = result.get("klippy_state", "desconhecido")
-        version = result.get("moonraker_version", "versao desconhecida")
-        return ConnectionCheckResult(
-            ok=True,
-            target=target,
-            detail=f"Moonraker respondeu. Klippy={state}. Moonraker={version}.",
-        )
-    except Exception as exc:
-        return ConnectionCheckResult(ok=False, target=target, detail=str(exc))
-
-
-async def _test_tcp_connection(host: str, port: int, timeout_seconds: float) -> ConnectionCheckResult:
-    target = f"{host}:{port}"
-    try:
-        reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=timeout_seconds)
-        writer.close()
-        await writer.wait_closed()
-        del reader
-        return ConnectionCheckResult(
-            ok=True,
-            target=target,
-            detail="Porta SSH acessivel. Este teste nao autentica usuario/senha.",
-        )
-    except Exception as exc:
-        return ConnectionCheckResult(ok=False, target=target, detail=str(exc))
-
-
 def _count_findings(findings: list[Any]) -> dict[str, int]:
     counts = {
         "corrigir_agora": 0,
@@ -557,25 +366,6 @@ def _latest_snapshot_diff(
     if len(snapshots) < 2:
         return None
     return snapshot_repository.diff_snapshots(printer_id, snapshots[1].id, snapshots[0].id)
-
-
-def _firmware_inventory_query_objects(object_names: list[str]) -> dict[str, list[str]]:
-    objects: dict[str, list[str]] = {}
-    for name in object_names:
-        if name == "mcu" or name.startswith("mcu "):
-            objects[name] = ["mcu_version", "mcu_build_versions"]
-    if "configfile" in object_names:
-        objects["configfile"] = ["settings"]
-    return objects
-
-
-def _http_error_detail(exc: httpx.HTTPError) -> str:
-    if isinstance(exc, httpx.HTTPStatusError):
-        response_text = exc.response.text.strip()
-        if response_text:
-            return f"Moonraker HTTP {exc.response.status_code}: {response_text}"
-        return f"Moonraker HTTP {exc.response.status_code}"
-    return str(exc)
 
 
 def _is_github_rate_limit(response: httpx.Response) -> bool:

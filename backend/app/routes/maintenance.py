@@ -89,7 +89,7 @@ async def create_maintenance_task(
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
     if payload.interval_kind == "print_hours" and payload.last_done_at and payload.last_done_print_hours is None:
-        print_hours = await _read_printer_print_hours(printer.moonraker_url)
+        print_hours = await _read_printer_print_hours_via_agent(settings, printer)
         if print_hours is None:
             raise HTTPException(status_code=400, detail="print hours unavailable")
         payload.last_done_print_hours = print_hours
@@ -147,7 +147,7 @@ async def complete_maintenance_task(
     if interval_kind == "print_hours" and payload.print_hours_at is None:
         printer = printer_repository.get_printer(task.printer_id)
         if printer is not None:
-            print_hours = await _read_printer_print_hours(printer.moonraker_url)
+            print_hours = await _read_printer_print_hours_via_agent(settings, printer)
             if print_hours is None:
                 raise HTTPException(status_code=400, detail="print hours unavailable")
             payload.print_hours_at = print_hours

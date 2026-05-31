@@ -36,6 +36,7 @@ id_rsa*
 id_ed25519*
 
 # Firmware/build artifacts
+.artifacts/
 firmware_builds/
 out/
 *.bin

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import time
+
 from fastapi import Depends
 
 from app.agent_executor import AgentCommandExecutor
 from app.agent_moonraker import status_payload
+from app.discovery import PrinterDiscoveryResponse
 from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
 
@@ -66,29 +69,30 @@ async def create_printer(payload: PrinterCreate) -> PrinterRecord:
 
 @router.get("/api/printers/discover")
 async def discover_printers(cidr: str | None = None) -> PrinterDiscoveryResponse:
-    settings = get_settings()
-    repository = get_printer_repository(settings)
-    try:
-        return await discover_moonraker_printers(
-            cidr=cidr,
-            registered_printers=repository.list_printers(),
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return PrinterDiscoveryResponse(
+        cidr=cidr or "",
+        safe_mode="agent_required",
+        scanned_hosts=0,
+        candidates=[],
+        warnings=["Descoberta direta pela API desativada para cloud. Use um agente pareado na rede para descoberta futura."],
+    )
 
 
 
 
 @router.post("/api/printers/test-connection")
 async def test_printer_connection(payload: PrinterConnectionTestRequest) -> PrinterConnectionTestResponse:
-    settings = get_settings()
     moonraker_url = str(payload.moonraker_url).rstrip("/")
-    moonraker = await _test_moonraker_connection(moonraker_url, settings.request_timeout_seconds)
-    ssh = None
-    if payload.ssh_host:
-        ssh_host = payload.ssh_host.strip()
-        if ssh_host:
-            ssh = await _test_tcp_connection(ssh_host, payload.ssh_port, settings.request_timeout_seconds)
+    moonraker = ConnectionCheckResult(
+        ok=False,
+        target=moonraker_url,
+        detail="Teste direto pela API desativado para cloud. Instale/pareie o agente e valide a impressora pela tela Agentes.",
+    )
+    ssh = ConnectionCheckResult(
+        ok=False,
+        target=f"{payload.ssh_host}:{payload.ssh_port}" if payload.ssh_host else "ssh",
+        detail="Teste SSH direto pela API desativado para cloud.",
+    ) if payload.ssh_host else None
     return PrinterConnectionTestResponse(
         safe_mode="read_only",
         moonraker=moonraker,
@@ -243,11 +247,29 @@ async def printer_network_diagnostics(printer_id: int) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="printer not found")
     ssh_access = repository.get_ssh_access(printer_id)
     try:
-        return await build_network_diagnostics(
-            printer=printer,
-            ssh_access=ssh_access,
-            timeout_seconds=max(settings.request_timeout_seconds, settings.host_audit_timeout_seconds),
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_host_script",
+            payload={
+                "kind": "network_diagnostics",
+                "script": _agent_network_diagnostics_script(printer.moonraker_url),
+                "timeout_seconds": max(settings.request_timeout_seconds, settings.host_audit_timeout_seconds),
+            },
+            timeout_seconds=max(settings.request_timeout_seconds, settings.host_audit_timeout_seconds, 10.0),
         )
+        result = job.result if isinstance(job.result, dict) else {}
+        return {
+            "safe_mode": "agent_read_only",
+            "printer_id": printer.id,
+            "moonraker_url": "agent",
+            "host": printer.moonraker_url,
+            "dns": {"ok": True, "duration_ms": None, "addresses": [], "error": None},
+            "ping": {"ok": True, "source": "agent", "error": None},
+            "configured_http": {"ok": True, "url": "agent-local", "status_code": None, "total_ms": None, "error": None},
+            "direct_ip_http": None,
+            "ssh": {"ok": True, "source": "agent-local", "detail": "Diagnóstico executado no host do agente."} if ssh_access else None,
+            "recommendation": str(result.get("stdout") or "")[-1200:] or "Diagnóstico de rede executado pelo agente.",
+        }
     except Exception as exc:
         return {
             "safe_mode": "read_only",
@@ -261,6 +283,18 @@ async def printer_network_diagnostics(printer_id: int) -> dict[str, Any]:
             "ssh": None,
             "recommendation": "Diagnostico de rede nao concluiu. Tente novamente; a falha nao bloqueia o restante do Printora.",
         }
+
+
+def _agent_network_diagnostics_script(moonraker_url: str) -> str:
+    return f"""set +e
+printf 'agent_host='; hostname 2>/dev/null || true
+printf 'moonraker_local='
+curl -fsS --max-time 5 http://127.0.0.1:7125/server/info >/dev/null && printf 'ok\\n' || printf 'erro\\n'
+printf 'moonraker_configured='
+curl -fsS --max-time 5 {moonraker_url!r}/server/info >/dev/null && printf 'ok\\n' || printf 'erro\\n'
+printf 'ip='
+hostname -I 2>/dev/null || true
+"""
 
 
 

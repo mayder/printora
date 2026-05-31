@@ -359,8 +359,21 @@ Data: 2026-05-31
 Contexto: a aplicação precisa funcionar em cenário cloud/rede local sem depender de o servidor alcançar diretamente o Moonraker ou SSH da impressora. A impressora selecionada deve ser operada pelo agente pareado como caminho principal.
 Decisao: centralizar criação, push e espera de jobs em um executor do agente e migrar status, operação, snapshots, auditoria, relatórios, checklist, calibração, update manager e inventário de firmware para jobs outbound pelo agente. Acesso direto ao Moonraker/SSH permanece apenas como legado/bootstrap de setup ou utilitário local explícito, não como caminho operacional das telas principais.
 Alternativas consideradas: manter chamadas diretas com fallback para agente; duplicar lógica por rota; abrir conectividade inbound no host Klipper; permitir shell genérico no agente.
-Consequencias: as telas principais passam a depender de agente online e exibem erro quando não há agente, reduzindo risco de isolamento e aproximando o ambiente local do futuro cloud. O agente precisa evoluir junto do servidor, por isso a versão esperada foi atualizada para `0.1.7`.
+Consequencias: as telas principais passam a depender de agente online e exibem erro quando não há agente, reduzindo risco de isolamento e aproximando o ambiente local do futuro cloud. O agente precisa evoluir junto do servidor, por isso a versão esperada foi atualizada para `0.1.8`.
 Impacto em testes: `./check.sh`, `go test ./...`, testes focados de backend e smoke real nas duas impressoras com status, operação, update refresh, calibração, snapshot, firmware inventory e execução segura `M106 S0`.
 Impacto em rollback: médio; reverter exige restaurar handlers diretos das rotas e reinstalar agente anterior se necessário. Jobs históricos permanecem em `agent_jobs`.
 Como reverter: reverter este commit, reinstalar binário do agente anterior em `/usr/local/bin/printora-agent` nos hosts e reiniciar apenas `printora-agent`.
 Referencias: `backend/app/agent_executor.py`, `backend/app/agent_channel.py`, `backend/app/agent_moonraker.py`, `backend/app/routes/operation.py`, `backend/app/routes/calibration.py`, `agent/internal/agent/moonraker.go`, `agent/internal/agent/channel.go`.
+
+### DEC-20260531-09 - Fluxos de impressora em cloud nao usam rede local pela API
+
+Status: aceita
+Data: 2026-05-31
+Contexto: ao publicar a API em IP publico, ela nao tera acesso a Moonraker, SSH, CAN, arquivos ou rede local da impressora. Qualquer fluxo que ainda roda no servidor da API gera falso positivo local e falha em cloud.
+Decisao: desativar descoberta/teste direto pela API, mover setup, CAN, firmware, flash, validacao final, auditoria de host, horas de impressao, backup e build de firmware para jobs do agente. O job `remote_host_script` executa scripts controlados gerados pelo backend no host pareado; os demais fluxos continuam usando jobs Moonraker especificos do agente.
+Alternativas consideradas: manter fallback direto para ambiente local; exigir VPN/rede privada entre cloud e impressora; manter SSH via API para setup.
+Consequencias: a API passa a bloquear quando nao existe agente pareado/online em vez de tentar rede local. Setup de uma placa sem agente exige primeiro instalar/parear um agente na impressora ou em um futuro agente de rede dedicado para descoberta.
+Impacto em testes: backend completo, Go completo e busca por chamadas diretas de Moonraker/SSH nas rotas operacionais.
+Impacto em rollback: medio; reverter recoloca caminhos diretos e deve ser evitado em ambiente cloud.
+Como reverter: reverter esta decisao e os arquivos de agente/backend relacionados; reinstalar agente anterior se necessario.
+Referencias: `backend/app/agent_host.py`, `backend/app/routes/printers.py`, `backend/app/routes/setup.py`, `backend/app/routes/backups.py`, `backend/app/routes/firmware.py`, `backend/app/routes/audit.py`, `agent/internal/agent/host.go`.

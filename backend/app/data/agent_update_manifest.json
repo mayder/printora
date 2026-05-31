@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
-  "minimum_version": "0.1.7",
-  "recommended_version": "0.1.7",
+  "minimum_version": "0.1.8",
+  "recommended_version": "0.1.8",
   "blocked_versions": [],
   "protocol_version": 1,
   "protocol_min": 1,
@@ -19,9 +19,9 @@
     },
     {
       "platform": "linux/arm64",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "url": "http://192.168.15.9:8070/printora-agent-linux-arm64",
-      "sha256": "b80b5f8c196a61455be2244ca9a70e888615ab0aeae03799960a64f27bcb3bb6",
+      "sha256": "9af74bc3bb7d02b6499ca2b0e75a3f2a6f94cac7578ee88a99bfcedce00a99ec",
       "signature": null,
       "protocol_min": 1,
       "protocol_max": 1

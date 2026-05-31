@@ -195,26 +195,6 @@ def _require_step_up_when_authenticated(settings, authorization: str | None, ste
         raise HTTPException(status_code=403, detail="autenticação reforçada obrigatória para ação crítica")
 
 
-async def _build_live_operation_action_preview(client: MoonrakerClient, action_id: str, parameters: dict[str, Any]) -> dict[str, Any]:
-    preflight = await _operation_execution_preflight(client)
-    objects: dict[str, Any] = {}
-    if preflight.get("connected") is not False:
-        try:
-            available_objects = await client.printer_objects_list()
-            objects = {"objects": available_objects}
-        except httpx.HTTPError:
-            objects = {}
-    try:
-        return build_operation_action_preflight(
-            action_id=action_id,
-            parameters=parameters,
-            preflight=preflight,
-            objects=objects,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
 async def _build_agent_operation_action_preview(settings, printer, action_id: str, parameters: dict[str, Any]) -> dict[str, Any]:
     executor = AgentCommandExecutor(settings.database_path)
     preflight_job = await executor.run(
@@ -238,56 +218,6 @@ async def _build_agent_operation_action_preview(settings, printer, action_id: st
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-async def _execute_operation_preview(
-    *,
-    client: MoonrakerClient,
-    history_repository: OperationActionHistoryRepository,
-    printer_id: int,
-    preview: OperationActionPreviewRecord,
-    confirmation_phrase: str,
-    timeout_seconds: float,
-) -> OperationActionExecutionAttemptRecord:
-    preflight = await _operation_execution_preflight(client)
-    confirmation_matched = confirmation_phrase.strip() == str(preview.payload.get("confirmation_phrase") or "")
-    if not confirmation_matched:
-        return history_repository.create_execution_attempt(
-            printer_id=printer_id,
-            preview=preview,
-            confirmation_phrase=confirmation_phrase,
-            preflight=preflight,
-        )
-    blockers = []
-    if preflight.get("connected") is False:
-        blockers.append("Bloqueado: preflight sem leitura ao vivo do Moonraker.")
-    if preflight.get("printing") is True:
-        blockers.append("Bloqueado: preflight detectou impressão em andamento.")
-    if not preview.executable or not preview.would_send_gcode:
-        blockers.append("Bloqueado: preview marcado como não executável.")
-    if blockers:
-        return history_repository.create_execution_result(
-            printer_id=printer_id,
-            preview=preview,
-            confirmation_phrase=confirmation_phrase,
-            preflight=preflight,
-            moonraker_response=None,
-            status="blocked",
-            block_reason=" ".join(blockers),
-        )
-    command = "\n".join(preview.command_preview)
-    result = await _send_and_monitor_gcode(client, command, timeout_seconds)
-    status = "executed" if result.get("accepted") else "failed"
-    block_reason = "" if status == "executed" else str(result.get("transport_error") or result.get("monitor_error") or "Moonraker não confirmou o comando.")
-    return history_repository.create_execution_result(
-        printer_id=printer_id,
-        preview=preview,
-        confirmation_phrase=confirmation_phrase,
-        preflight=preflight,
-        moonraker_response=result,
-        status=status,
-        block_reason=block_reason,
-    )
 
 
 async def _execute_operation_preview_via_agent(

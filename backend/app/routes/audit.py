@@ -106,19 +106,38 @@ async def printer_read_only_audit(printer_id: int) -> dict[str, Any]:
 @router.get("/api/audit/host-read-only")
 async def host_read_only_audit() -> dict[str, Any]:
     settings = get_settings()
-    result = await collect_host_audit(
-        mode=settings.host_audit_mode,
-        ssh_target=settings.host_audit_ssh_target,
-        timeout_seconds=settings.host_audit_timeout_seconds,
-    )
+    repository = get_printer_repository(settings)
+    printers = repository.list_printers()
+    if not printers:
+        raise HTTPException(status_code=404, detail="printer not found")
+    printer = printers[0]
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_host_script",
+            payload={
+                "kind": "host_read_only_audit",
+                "script": HOST_AUDIT_SCRIPT,
+                "timeout_seconds": settings.host_audit_timeout_seconds,
+            },
+            timeout_seconds=max(settings.host_audit_timeout_seconds, 10.0),
+        )
+        result = job.result if isinstance(job.result, dict) else {}
+    except Exception as exc:
+        result = {"stdout": "", "stderr": "", "exit_code": None, "error": str(exc)}
+    stdout = str(result.get("stdout") or "")
+    stderr = str(result.get("stderr") or result.get("error") or "")
+    exit_code = result.get("exit_code") if isinstance(result.get("exit_code"), int) else 1
+    sections = split_host_audit_sections(stdout)
+    findings = build_host_findings(exit_code, sections, stderr)
     return {
         "safe_mode": "read_only",
-        "connected": result.executed and result.exit_code == 0,
-        "mode": result.mode,
-        "executed": result.executed,
-        "exit_code": result.exit_code,
-        "summary": _host_summary(result.findings),
-        "counts": _count_findings(result.findings),
-        "findings": [finding.__dict__ for finding in result.findings],
-        "section_summary": summarize_sections(result.sections),
+        "connected": exit_code == 0 and not result.get("error"),
+        "mode": "agent",
+        "executed": bool(stdout or stderr),
+        "exit_code": exit_code,
+        "summary": _host_summary(findings),
+        "counts": _count_findings(findings),
+        "findings": [finding.__dict__ for finding in findings],
+        "section_summary": summarize_sections(sections),
     }

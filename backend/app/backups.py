@@ -268,6 +268,24 @@ class BackupRepository:
             message=f"Backup criado em {archive_path}",
         )
 
+    def record_agent_backup_result(
+        self,
+        policy: BackupPolicyRecord,
+        *,
+        status: str,
+        total_files: int,
+        total_bytes: int,
+        message: str,
+    ) -> BackupRunRecord:
+        return self._record_run(
+            policy=policy,
+            status=status,
+            dry_run=False,
+            total_files=total_files,
+            total_bytes=total_bytes,
+            message=message,
+        )
+
     def list_runs(self, printer_id: int, limit: int = 20) -> list[BackupRunRecord]:
         with connect_database(self.database_path) as connection:
             rows = connection.execute(

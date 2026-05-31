@@ -262,23 +262,22 @@ curl -s -X POST http://127.0.0.1:8069/api/firmware/boards/BOARD_ID/build-runs/dr
 
 O dry-run retorna `preset_id`, `preset_build_config_status`, `generated_config_path`, `config_backup_path`, `work_dir`, `expected_build_output`, `binary_output_path`, `log_path`, checklist e comandos `PLAN ...`. Esses comandos são plano revisável, não execução. Preset incompleto bloqueia o dry-run antes de criar histórico.
 
-Executar build local controlado, sem flash:
+Executar build pelo agente, sem flash:
 
 ```bash
-PRINTORA_FIRMWARE_BUILD_MODE=local
 curl -s -X POST http://127.0.0.1:8069/api/firmware/boards/BOARD_ID/build-runs/execute-local \
   -H 'Content-Type: application/json' \
-  -d '{"klipper_path":"/caminho/local/klipper","output_root":"~/.local/share/printora/firmware_builds","confirmation":"EXECUTE_LOCAL_BUILD_NO_FLASH"}'
+  -d '{"klipper_path":"~/klipper","output_root":"~/.local/share/printora/firmware_builds","confirmation":"EXECUTE_LOCAL_BUILD_NO_FLASH"}'
 ```
 
 Travas:
 
-- sem `PRINTORA_FIRMWARE_BUILD_MODE=local`, o histórico registra `blocked_build_mode_disabled`;
 - sem confirmação textual exata `EXECUTE_LOCAL_BUILD_NO_FLASH`, o histórico registra `blocked_invalid_build_confirmation`;
-- o executor local não usa SSH, não faz flash, não reinicia Klipper/Moonraker e não executa update;
-- o executor usa apenas o diretório Klipper local informado e o `output_root` informado.
+- o executor roda no agente pareado, não no servidor da API;
+- o executor não faz flash, não reinicia Klipper/Moonraker e não executa update;
+- o executor usa apenas o diretório Klipper do host do agente e o `output_root` informado.
 
-Artefatos salvos em `output_root/local-build/<placa>/`:
+Artefatos salvos em `output_root/AGENT/<placa>/`:
 
 - `.config.before-build`: backup da `.config` original;
 - `generated/<arquivo>.config`: `.config` determinístico gerado pelo preset;
@@ -379,8 +378,8 @@ Fluxos:
 - criar impressora cloud: `POST /api/printers`;
 - detalhar impressora: `GET /api/printers/{printer_id}`;
 - editar impressora: `PUT /api/printers/{printer_id}`;
-- testar conexão manualmente: `POST /api/printers/test-connection`;
-- descobrir Moonraker na rede local: `GET /api/printers/discover`.
+- testar conexão manualmente: `POST /api/printers/test-connection` retorna bloqueio cloud-safe; validação real acontece por agente pareado;
+- descobrir Moonraker na rede local: `GET /api/printers/discover` fica bloqueado na API cloud até existir agente de rede dedicado.
 
 Campos cloud:
 
@@ -482,8 +481,8 @@ sudo systemctl enable --now printora-agent
 Segurança:
 
 - o agente só abre conexões de saída;
-- Moonraker local é acessado em modo read-only;
-- o agente não envia G-code neste canal base, não reinicia Klipper/Moonraker, não faz build e não faz flash;
+- Moonraker local é acessado pelo agente; a API cloud não acessa Moonraker/SSH/rede local diretamente;
+- jobs mutáveis usam tipos explícitos ou `remote_host_script` controlado pelo backend, com confirmação/gate quando aplicável;
 - credencial operacional fica em arquivo separado com permissão `0600`;
 - logs passam por redaction de tokens;
 - fila local JSONL é limitada e guarda payload compacto quando a API está indisponível.

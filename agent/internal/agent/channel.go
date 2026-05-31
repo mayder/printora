@@ -162,6 +162,13 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 		} else {
 			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
 		}
+	case "remote_host_script":
+		payload := RemoteHostScript(ctx, job.Payload)
+		if payload["status"] == "ok" {
+			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+		} else {
+			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["error"]), Result: mapValueOrEmpty(payload)})
+		}
 	case "remote_doctor":
 		payload := RemoteDoctor(ctx, r.Config, r.API, r.Moonraker)
 		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
@@ -201,18 +208,19 @@ func helloPayload(r *Runner) map[string]any {
 		"agent_version": Version,
 		"platform":      Platform(),
 		"capabilities": map[string]any{
-			"heartbeat":  true,
-			"snapshot":   true,
-			"mutation":   true,
-			"doctor":     true,
-			"parity":     true,
-			"updates":    true,
-			"gcode_jobs": true,
-			"jobs":       true,
-			"websocket":  true,
-			"polling":    r.Config.PollingEnabled,
-			"read_only":  true,
-			"protocol_v": ProtocolVersion,
+			"heartbeat":   true,
+			"snapshot":    true,
+			"mutation":    true,
+			"doctor":      true,
+			"parity":      true,
+			"updates":     true,
+			"gcode_jobs":  true,
+			"host_script": true,
+			"jobs":        true,
+			"websocket":   true,
+			"polling":     r.Config.PollingEnabled,
+			"read_only":   true,
+			"protocol_v":  ProtocolVersion,
 		},
 	}
 }
