@@ -314,7 +314,7 @@
 
 .account-tabs {
   width: min(620px, 100%);
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   background: var(--surface-3);
 }
 
@@ -329,11 +329,58 @@
   gap: 16px;
 }
 
+.account-workspace .primary-button,
+.account-workspace .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 .account-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   align-items: end;
+}
+
+.organization-workspace {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.42fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.organization-directory,
+.organization-detail-panel {
+  min-width: 0;
+}
+
+.organization-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.organization-summary-grid div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 10px 12px;
+}
+
+.organization-summary-grid span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.organization-summary-grid strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 15px;
 }
 
 .organization-list {
@@ -342,9 +389,10 @@
 }
 
 .organization-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 5px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   width: 100%;
   text-align: left;
   border: 1px solid var(--border);
@@ -358,12 +406,37 @@
   border-left: 3px solid var(--accent);
 }
 
+.organization-card-main {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+}
+
+.organization-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+.organization-card-main > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
 .organization-card strong,
 .organization-card small {
   overflow-wrap: anywhere;
 }
 
-.organization-card span {
+.organization-card > span:not(.organization-card-icon) {
   color: var(--accent);
   font-size: 12px;
   font-weight: 800;
@@ -371,7 +444,6 @@
 }
 
 .organization-card small {
-  grid-column: 1 / -1;
   color: var(--muted);
 }
 
@@ -385,14 +457,42 @@
   font-size: 15px;
 }
 
+.organization-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.organization-section-title svg {
+  color: var(--accent);
+}
+
+.organization-section-title span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .panel-header-row.compact {
   align-items: center;
+  gap: 12px;
 }
 
 .auth-create-modal {
   display: grid;
   gap: 14px;
   width: min(520px, calc(100vw - 32px));
+}
+
+.auth-create-modal .modal-header .icon-button {
+  flex: 0 0 auto;
 }
 
 .segmented-control {
@@ -487,15 +587,18 @@
   }
 
   .account-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .account-grid,
-  .account-form-grid {
+  .account-form-grid,
+  .organization-workspace,
+  .organization-summary-grid {
     grid-template-columns: 1fr;
   }
 
   .organization-card {
-    grid-template-columns: 1fr;
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
