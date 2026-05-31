@@ -16,13 +16,10 @@ type AgentsScreenProps = ScreenPropsFor<
   | "agentInstallStatus"
   | "agentSupport"
   | "agentSupportBundle"
-  | "cancelRemoteOperationJob"
   | "createAgentInstallPlan"
   | "createAgentDoctorJob"
   | "createPairingToken"
-  | "createRemoteOperationPreflight"
   | "createdPairingToken"
-  | "executeRemoteOperation"
   | "loadAgentInstallStatus"
   | "loadAgentSupport"
   | "loadAgentSupportBundle"
@@ -32,14 +29,9 @@ type AgentsScreenProps = ScreenPropsFor<
   | "revokePrinterAgent"
   | "rotatePrinterAgent"
   | "rotatedAgentCredential"
-  | "remoteOperationConfirmation"
-  | "remoteOperationExecution"
-  | "remoteOperationPreflight"
-  | "remoteOperations"
   | "setAgentInstallPlan"
   | "setAgentSupportBundle"
   | "setCreatedPairingToken"
-  | "setRemoteOperationConfirmation"
   | "setRotatedAgentCredential"
   | "selectedPrinter"
   | "selectedPrinterId"
@@ -61,13 +53,10 @@ export function AgentsScreen(props: AgentsScreenProps) {
     agentInstallStatus,
     agentSupport,
     agentSupportBundle,
-    cancelRemoteOperationJob,
     createAgentInstallPlan,
     createAgentDoctorJob,
     createPairingToken,
-    createRemoteOperationPreflight,
     createdPairingToken,
-    executeRemoteOperation,
     loadAgentInstallStatus,
     loadAgentSupport,
     loadAgentSupportBundle,
@@ -77,18 +66,17 @@ export function AgentsScreen(props: AgentsScreenProps) {
     revokePrinterAgent,
     rotatePrinterAgent,
     rotatedAgentCredential,
-    remoteOperationConfirmation,
-    remoteOperationExecution,
-    remoteOperationPreflight,
-    remoteOperations,
     setAgentInstallPlan,
     setAgentSupportBundle,
     setCreatedPairingToken,
-    setRemoteOperationConfirmation,
     setRotatedAgentCredential,
     selectedPrinter,
     selectedPrinterId,
   } = props;
+
+  const agents = pairingOverview?.agents ?? [];
+  const activeAgents = agents.filter((agent) => agent.status !== "revoked");
+  const revokedAgents = agents.filter((agent) => agent.status === "revoked");
 
   return (
     <>
@@ -207,12 +195,13 @@ export function AgentsScreen(props: AgentsScreenProps) {
           <div className="printer-card">
             <div className="printer-card-header">
               <div>
-                <strong>Agentes</strong>
-                <span>{pairingOverview?.agents.length ?? 0} registros</span>
+                <strong>Agentes ativos</strong>
+                <span>{activeAgents.length} registros</span>
               </div>
             </div>
             <div className="auth-list">
-              {(pairingOverview?.agents ?? []).map((agent) => (
+              {activeAgents.length === 0 ? <span className="muted">Nenhum agente ativo pareado nesta impressora.</span> : null}
+              {activeAgents.map((agent) => (
                 <div key={agent.id}>
                   <strong>{agent.stable_id}</strong>
                   <span>{agent.status} · {agent.platform || "-"} · último contato {agent.last_seen_at || "-"}</span>
@@ -227,83 +216,19 @@ export function AgentsScreen(props: AgentsScreenProps) {
             </div>
           </div>
         </div>
-      </article>
-
-      <article className="panel wide panel-section panel-agents">
-        <div className="panel-heading">
-          <div>
-            <h2>Operação remota segura</h2>
-            <p className="muted">Ações mutáveis via agente com preflight, confirmação forte, expiração e rollback visível.</p>
-          </div>
-        </div>
-        <div className="overview-strip">
-          <Badge icon={ShieldAlert} label="Modo" value={remoteOperations?.safe_mode ?? "-"} />
-          <Badge icon={Gauge} label="Ações" value={remoteOperations?.actions.length ?? 0} />
-          <Badge icon={History} label="Jobs recentes" value={remoteOperations?.recent_jobs.length ?? 0} />
-          <Badge icon={Radio} label="Agente" value={agentInstallStatus?.ready ? "pronto" : "pendente"} />
-        </div>
-        <div className="printer-dashboard">
-          {(remoteOperations?.actions ?? []).slice(0, 6).map((action) => (
-            <div key={action.action_id} className="printer-card">
-              <div className="printer-card-header">
-                <div>
-                  <strong>{action.label}</strong>
-                  <span>{action.criticality} · {action.risk}</span>
-                </div>
-                <span className="status-pill">{action.blocks_when_printing ? "bloqueia imprimindo" : "avaliar"}</span>
-              </div>
-              <div className="auth-list">
-                {action.rollback_plan.map((step) => (
-                  <span key={step}>{step}</span>
-                ))}
-              </div>
-              <div className="printer-card-actions">
-                <button type="button" className="secondary-button" onClick={() => void createRemoteOperationPreflight(action.action_id)} disabled={!selectedPrinterId || loading || !agentInstallStatus?.ready}>
-                  <ClipboardCheck size={15} />
-                  Preflight
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-        {remoteOperationPreflight ? (
-          <div className="agent-install-box">
-            <div className="printer-card-header">
-              <div>
-                <strong>Preflight remoto #{remoteOperationPreflight.id}</strong>
-                <span>{remoteOperationPreflight.status} · expira {String(remoteOperationPreflight.payload.expires_at ?? "-")}</span>
-              </div>
-              {remoteOperationPreflight.status === "pending" ? (
-                <button type="button" className="secondary-button" onClick={() => void cancelRemoteOperationJob(remoteOperationPreflight.id)} disabled={loading}>
-                  Cancelar
-                </button>
-              ) : null}
-            </div>
-            <label>
-              Frase exigida
-              <textarea readOnly value={String(remoteOperationPreflight.payload.confirmation_phrase ?? "")} />
-            </label>
-            <label>
-              Confirmação
-              <input value={remoteOperationConfirmation} onChange={(event) => setRemoteOperationConfirmation(event.target.value)} placeholder="Digite a frase exata após o preflight aprovado" />
-            </label>
-            <button type="button" className="primary-button" onClick={() => void executeRemoteOperation()} disabled={loading || remoteOperationPreflight.status !== "succeeded"}>
-              <ShieldAlert size={16} />
-              Criar execução remota
-            </button>
-          </div>
-        ) : null}
-        {remoteOperationExecution ? (
+        {revokedAgents.length ? (
           <div className="auth-step">
             <div>
-              <strong>Execução remota #{remoteOperationExecution.id}</strong>
-              <p className="muted">{remoteOperationExecution.status} · {remoteOperationExecution.job_type}</p>
+              <strong>Acessos removidos</strong>
+              <p className="muted">Mantidos apenas para auditoria. Eles não conseguem mais comunicar com a API.</p>
+              <div className="auth-list">
+                {revokedAgents.map((agent) => (
+                  <span key={agent.id}>
+                    {agent.stable_id} · revogado · último contato {agent.last_seen_at || "-"}
+                  </span>
+                ))}
+              </div>
             </div>
-            {remoteOperationExecution.status === "pending" ? (
-              <button type="button" className="secondary-button" onClick={() => void cancelRemoteOperationJob(remoteOperationExecution.id)} disabled={loading}>
-                Cancelar
-              </button>
-            ) : null}
           </div>
         ) : null}
       </article>

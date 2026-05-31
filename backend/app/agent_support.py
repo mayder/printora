@@ -247,6 +247,7 @@ def _alerts(health: list[AgentHealthSummary]) -> list[AgentSupportAlert]:
         agent_label = item.agent.stable_id
         if item.agent.status == "revoked":
             alerts.append(_alert("warning", "agent_revoked", "Agente revogado", f"{agent_label} está revogado.", "Parear novo agente ou rotacionar credencial."))
+            continue
         elif not item.online:
             alerts.append(_alert("critical", "agent_offline", "Agente sem heartbeat", f"{agent_label} não enviou heartbeat recente.", "Validar serviço printora-agent no host."))
         if item.agent.agent_version != EXPECTED_AGENT_VERSION:

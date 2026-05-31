@@ -126,11 +126,11 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Conta, autenticação reforçada gera autorização curta para ações críticas; usuários com 2FA usam código, usuários sem 2FA usam senha.
 - Na tela Impressoras, o cadastro/edição da impressora separa metadados cloud, conexão Moonraker e SSH. Metadados incluem modelo, localização, tags, observações e organização opcional.
 - Na tela Impressoras, a lista mostra somente dados da impressora gerenciada: nome, organização, modelo, localização, tags, observações, conexão Moonraker/SSH e último snapshot; status, token, instalação, pareamento e saúde de agente ficam fora desta tela.
-- Na tela Agentes, o pareamento permite gerar token curto para a impressora selecionada, copiar o token uma única vez, listar tokens por prefixo/status, revogar tokens ativos, listar agentes pareados, revogar agente e rotacionar credencial.
+- Na tela Agentes, o pareamento permite gerar token curto para a impressora selecionada, copiar o token uma única vez, listar tokens por prefixo/status, revogar tokens ativos, listar agentes ativos, revogar agente, rotacionar credencial e manter agentes revogados apenas como histórico de auditoria.
 - Na tela Agentes, a instalação assistida gera comando de preflight, comando de instalação com token curto, comando de uninstall e mostra validação pós-instalação por agente ativo, versão e heartbeat.
-- Na tela Agentes, a operação remota segura mostra ações mutáveis permitidas por criticidade, risco e rollback, cria preflight remoto, exige confirmação textual exata, cria execução remota somente após preflight aprovado e permite cancelar jobs pendentes.
 - Na tela Agentes, saúde e suporte mostram estado online/offline, versão, protocolo, fila, falhas, alertas, doctor remoto e pacote de suporte sanitizado.
 - Na tela Agentes, credencial operacional completa aparece somente no momento de troca/rotação; depois a UI mostra apenas prefixo, status, plataforma e último contato.
+- Ações operacionais da impressora não ficam na tela Agentes; operação, atualização, calibração, manutenção e firmware pertencem aos menus próprios.
 - A tela Setup deve ficar disponivel sem impressora ativa, pois seu objetivo e preparar uma Pi antes do cadastro final da impressora.
 - Na tela Setup, o primeiro bloco deve deixar claro que placa virgem sem SO/rede/SSH nao pode ser acessada por SSH; a preparacao de mídia/boot e etapa manual ou futura.
 - Na tela Setup, o topo deve exibir uma receita sequencial para usuario leigo, com progresso, etapas manuais marcaveis, passos bloqueados/prontos/feitos e abertura de cada etapa em modal.
