@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 import app.database as database_module
 from app.config import _default_data_dir, get_settings
-from app.database import DatabaseSchemaError, initialize_database
+from app.database import DatabaseSchemaError, connect_database, initialize_database
 from app.main import app
 
 
@@ -27,6 +27,17 @@ def test_initialize_database_registers_sql_scripts_on_new_database(tmp_path: Pat
             "SELECT app_name, version, schema_revision FROM app_version WHERE id = 1"
         ).fetchone()
         assert app_version == ("Printora", app.version, expected_scripts)
+
+
+def test_connect_database_closes_connection_after_context(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+
+    with connect_database(database_path) as connection:
+        assert connection.execute("SELECT 1").fetchone()[0] == 1
+
+    with pytest.raises(sqlite3.ProgrammingError):
+        connection.execute("SELECT 1")
 
 
 def test_initialize_database_ignores_macos_appledouble_sql_files(tmp_path: Path, monkeypatch) -> None:

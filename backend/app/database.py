@@ -2,6 +2,8 @@ import sqlite3
 import shutil
 import hashlib
 import json
+from contextlib import contextmanager
+from collections.abc import Iterator
 from pathlib import Path
 from datetime import datetime, timezone
 from importlib import metadata
@@ -23,45 +25,57 @@ def initialize_database(database_path: Path) -> None:
     if database_path.exists() and pending_files:
         backup_path = _backup_database(database_path)
 
+    connection = sqlite3.connect(database_path)
     try:
-        with sqlite3.connect(database_path) as connection:
-            connection.execute("PRAGMA foreign_keys = ON")
-            _ensure_versioning_tables(connection)
-            _ensure_legacy_schema_compatibility(connection)
-            applied_scripts = _applied_scripts(connection)
-            for execution_order, sql_file in enumerate(sql_files, start=1):
-                checksum = _sql_checksum(sql_file)
-                applied_checksum = applied_scripts.get(sql_file.name)
-                if applied_checksum == checksum:
-                    continue
-                if applied_checksum is not None:
-                    raise DatabaseSchemaError(
-                        f"Script SQL já aplicado com checksum diferente: {sql_file.name}"
-                    )
-                connection.executescript(sql_file.read_text())
-                connection.execute(
-                    """
-                    INSERT INTO schema_versions (script_name, checksum_sha256, execution_order)
-                    VALUES (?, ?, ?)
-                    """,
-                    (sql_file.name, checksum, execution_order),
+        connection.execute("PRAGMA foreign_keys = ON")
+        _ensure_versioning_tables(connection)
+        _ensure_legacy_schema_compatibility(connection)
+        applied_scripts = _applied_scripts(connection)
+        for execution_order, sql_file in enumerate(sql_files, start=1):
+            checksum = _sql_checksum(sql_file)
+            applied_checksum = applied_scripts.get(sql_file.name)
+            if applied_checksum == checksum:
+                continue
+            if applied_checksum is not None:
+                raise DatabaseSchemaError(
+                    f"Script SQL já aplicado com checksum diferente: {sql_file.name}"
                 )
-            schema_revision = len(sql_files)
-            _upsert_app_version(connection, schema_revision)
-            _validate_database_integrity(connection, schema_revision)
+            connection.executescript(sql_file.read_text())
+            connection.execute(
+                """
+                INSERT INTO schema_versions (script_name, checksum_sha256, execution_order)
+                VALUES (?, ?, ?)
+                """,
+                (sql_file.name, checksum, execution_order),
+            )
+        schema_revision = len(sql_files)
+        _upsert_app_version(connection, schema_revision)
+        _validate_database_integrity(connection, schema_revision)
+        connection.commit()
     except Exception as exc:
+        connection.rollback()
         if backup_path is not None:
             shutil.copy2(backup_path, database_path)
         if isinstance(exc, DatabaseSchemaError):
             raise
         raise DatabaseSchemaError(f"Falha ao aplicar schema SQLite: {exc}") from exc
+    finally:
+        connection.close()
 
 
-def connect_database(database_path: Path) -> sqlite3.Connection:
+@contextmanager
+def connect_database(database_path: Path) -> Iterator[sqlite3.Connection]:
     connection = sqlite3.connect(database_path)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
-    return connection
+    try:
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
 
 def get_database_version_info(database_path: Path, data_dir: Path | None = None) -> dict[str, object]:
@@ -154,24 +168,28 @@ def _ensure_versioning_tables(connection: sqlite3.Connection) -> None:
 def _pending_sql_files(database_path: Path, sql_files: list[Path]) -> list[Path]:
     if not database_path.exists():
         return sql_files
+    connection: sqlite3.Connection | None = None
     try:
-        with sqlite3.connect(f"file:{database_path}?mode=ro", uri=True) as connection:
-            if not _table_exists(connection, "schema_versions"):
-                return sql_files
-            applied = _applied_scripts(connection)
-            pending: list[Path] = []
-            for sql_file in sql_files:
-                checksum = _sql_checksum(sql_file)
-                applied_checksum = applied.get(sql_file.name)
-                if applied_checksum is None:
-                    pending.append(sql_file)
-                elif applied_checksum != checksum:
-                    raise DatabaseSchemaError(
-                        f"Script SQL já aplicado com checksum diferente: {sql_file.name}"
-                    )
-            return pending
+        connection = sqlite3.connect(f"file:{database_path}?mode=ro", uri=True)
+        if not _table_exists(connection, "schema_versions"):
+            return sql_files
+        applied = _applied_scripts(connection)
+        pending: list[Path] = []
+        for sql_file in sql_files:
+            checksum = _sql_checksum(sql_file)
+            applied_checksum = applied.get(sql_file.name)
+            if applied_checksum is None:
+                pending.append(sql_file)
+            elif applied_checksum != checksum:
+                raise DatabaseSchemaError(
+                    f"Script SQL já aplicado com checksum diferente: {sql_file.name}"
+                )
+        return pending
     except sqlite3.DatabaseError as exc:
         raise DatabaseSchemaError(f"Não foi possível ler o banco SQLite existente: {exc}") from exc
+    finally:
+        if connection is not None:
+            connection.close()
 
 
 def _applied_scripts(connection: sqlite3.Connection) -> dict[str, str]:

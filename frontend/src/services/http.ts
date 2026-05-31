@@ -94,7 +94,10 @@ export async function apiRequest<T>(input: RequestInfo | URL, init?: RequestInit
 export async function apiOptional<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T | null> {
   const response = await fetch(apiInput(input), apiInit(init));
   if (!response.ok) {
-    return null;
+    if (response.status === 401) {
+      return null;
+    }
+    throw new Error(await readApiError(response));
   }
   return (await response.json()) as T;
 }
