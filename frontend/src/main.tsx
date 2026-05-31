@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
-import { Bell, Info, Menu, X } from "lucide-react";
+import { useState } from "react";
+import { Bell, ChevronDown, Info, KeyRound, LogOut, Menu, ShieldCheck, UserRound, Users, X } from "lucide-react";
 import { appSections } from "./app/navigation";
 import { AppModals } from "./components/modals";
 import { ToastViewport } from "./components/ToastViewport";
@@ -35,6 +36,7 @@ import "./styles/reports.css";
 import "./styles/about.css";
 
 function App() {
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const {
     ActiveIcon,
     ThemeIcon,
@@ -60,6 +62,13 @@ function App() {
     dismissToast,
     visibleNavGroups,
   } = usePrintoraApp();
+  const userLabel = screenProps.authUser?.display_name || screenProps.authUser?.email || "Conta";
+  const accountMenuItems = [
+    { label: "Acessos da conta", icon: UserRound, tab: "access" },
+    { label: "Segurança", icon: ShieldCheck, tab: "security" },
+    { label: "Organizações", icon: Users, tab: "organizations" },
+    { label: "Credenciais", icon: KeyRound, tab: "agents" },
+  ];
 
   const activeScreen = (() => {
     switch (activeSection) {
@@ -180,6 +189,58 @@ function App() {
             >
               <Info size={17} />
             </button>
+            <div className="topbar-account">
+              <button
+                type="button"
+                className={`account-menu-button ${accountMenuOpen ? "active" : ""}`}
+                aria-expanded={accountMenuOpen}
+                aria-haspopup="menu"
+                onClick={() => setAccountMenuOpen((current) => !current)}
+              >
+                <span className="account-avatar">
+                  <UserRound size={16} />
+                </span>
+                <span className="account-menu-label">
+                  <strong>{userLabel}</strong>
+                  <small>{screenProps.authUser?.mfa_enabled ? "2FA ativo" : "2FA inativo"}</small>
+                </span>
+                <ChevronDown size={15} />
+              </button>
+              {accountMenuOpen ? (
+                <div className="account-dropdown" role="menu">
+                  {accountMenuItems.map((item) => {
+                    const ItemIcon = item.icon;
+                    return (
+                      <button
+                        key={item.label}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveSection("account");
+                          window.dispatchEvent(new CustomEvent("printora:account-tab", { detail: item.tab }));
+                          setAccountMenuOpen(false);
+                        }}
+                      >
+                        <ItemIcon size={16} />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="danger"
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      void screenProps.logoutAuth();
+                    }}
+                  >
+                    <LogOut size={16} />
+                    <span>Sair</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
             <label className="topbar-printer context-select" aria-label="Impressora ativa">
               <select
                 value={selectedPrinterId ?? ""}
@@ -214,16 +275,18 @@ function App() {
             >
               <ThemeIcon size={18} />
             </button>
-            <button
-              type="button"
-              className="icon-button topbar-primary"
-              title={topbarPrimaryAction.label}
-              aria-label={topbarPrimaryAction.label}
-              onClick={() => void topbarPrimaryAction.run()}
-              disabled={topbarPrimaryAction.disabled}
-            >
-              <TopbarPrimaryIcon className={topbarPrimaryAction.busy ? "button-busy-icon" : undefined} size={16} />
-            </button>
+            {activeSection !== "account" ? (
+              <button
+                type="button"
+                className="icon-button topbar-primary"
+                title={topbarPrimaryAction.label}
+                aria-label={topbarPrimaryAction.label}
+                onClick={() => void topbarPrimaryAction.run()}
+                disabled={topbarPrimaryAction.disabled}
+              >
+                <TopbarPrimaryIcon className={topbarPrimaryAction.busy ? "button-busy-icon" : undefined} size={16} />
+              </button>
+            ) : null}
           </div>
         </header>
 
@@ -245,10 +308,12 @@ function App() {
                 : "Selecione uma impressora para carregar os dados por contexto."}
           </span>
         </section>
-        <button type="button" className="primary-button mobile-section-action" onClick={() => void topbarPrimaryAction.run()} disabled={topbarPrimaryAction.disabled}>
-          <TopbarPrimaryIcon size={16} />
-          {topbarPrimaryAction.label}
-        </button>
+        {activeSection !== "account" ? (
+          <button type="button" className="primary-button mobile-section-action" onClick={() => void topbarPrimaryAction.run()} disabled={topbarPrimaryAction.disabled}>
+            <TopbarPrimaryIcon size={16} />
+            {topbarPrimaryAction.label}
+          </button>
+        ) : null}
 
         {error ? <section className="alert danger">{error}</section> : null}
 

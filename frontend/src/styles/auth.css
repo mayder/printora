@@ -281,6 +281,61 @@
   white-space: normal;
 }
 
+.account-workspace {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 16px;
+}
+
+.account-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-left: 3px solid var(--accent);
+}
+
+.account-hero h2 {
+  margin: 4px 0;
+  font-size: 1.45rem;
+}
+
+.account-eyebrow {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.account-hero-actions {
+  flex: 0 0 auto;
+}
+
+.account-tabs {
+  width: min(620px, 100%);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  background: var(--surface-3);
+}
+
+.account-tabs button {
+  min-height: 40px;
+  font-weight: 800;
+}
+
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.account-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
 .segmented-control {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -365,6 +420,19 @@
   }
 
   .auth-step {
+    grid-template-columns: 1fr;
+  }
+
+  .account-hero {
+    display: grid;
+  }
+
+  .account-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .account-grid,
+  .account-form-grid {
     grid-template-columns: 1fr;
   }
 }

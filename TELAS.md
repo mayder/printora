@@ -114,6 +114,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - A tela Sobre deve promover o autor, exibir LinkedIn, Instagram, GitHub do projeto, motivacao, funcionalidades atuais, aviso de teste, versao sem custo, roadmap online futuro e opcoes de marca.
 - A tela Licenca deve ser acessivel a partir da tela Sobre e deixar claro o uso open source, ausencia de garantia e responsabilidade do usuario em operacoes criticas.
 - A tela Conta deve concentrar autenticação cloud, cadastro, sessão, organizações opcionais, 2FA, step-up auth e credenciais de agente.
+- Usuário autenticado acessa Conta pelo menu do usuário no topo, com nome/ícone e dropdown; Conta não deve aparecer como item do menu lateral.
+- A área Conta deve separar responsabilidades em estados/telas internas: acessos, segurança, organizações e agentes.
 - Usuário anônimo deve ver somente o shell mínimo de autenticação, sem menu lateral, seletor de impressora, alertas, telas internas ou dados operacionais.
 - Na tela Conta, email e senha são obrigatórios no cadastro; nome, WhatsApp, Telegram e demais contatos são opcionais e não bloqueiam a criação da conta.
 - Na tela Conta, organização não é obrigatória para uso individual; quando existir, a UI permite criar organização e vincular usuários com papel `admin` ou `operator`.
