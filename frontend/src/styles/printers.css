@@ -35,6 +35,15 @@
   color: var(--muted);
 }
 
+.printer-card-header > .status-pill {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  max-width: 180px;
+  white-space: normal;
+  text-align: right;
+}
+
 .status-pill {
   border: 1px solid var(--border);
   border-radius: 999px;

@@ -1,4 +1,5 @@
 import { Badge, Metric } from "../components/common";
+import type { PrinterRecord } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type PrintersScreenProps = ScreenPropsFor<
@@ -72,17 +73,23 @@ export function PrintersScreen(props: PrintersScreenProps) {
       </div>
       <div className="printer-dashboard">
         {printers.length === 0 ? <p className="muted">Nenhuma impressora cadastrada.</p> : null}
-        {printers.map((printer: any) => (
+        {printers.map((printer: PrinterRecord) => (
           <div key={printer.id} className={`printer-card ${printer.id === selectedPrinterId ? "active" : ""}`}>
             <div className="printer-card-header">
               <div>
                 <strong>{printer.name}</strong>
                 <span>{printer.cloud_model || "Modelo não informado"} · {printer.location || "sem localização"}</span>
               </div>
+              <span className={`status-pill ${agentStatusTone(printer)}`}>
+                <Radio size={13} />
+                {formatAgentStatus(printer)}
+              </span>
             </div>
             <div className="printer-card-grid">
               <Metric label="Organização" value={printer.organization_id ? `org #${printer.organization_id}` : "individual"} />
+              <Metric label="Agente" value={formatAgentSummary(printer)} />
               <Metric label="Último snapshot" value={printer.latest_snapshot_at ?? "-"} />
+              <Metric label="Último agente" value={printer.latest_agent_last_seen_at ?? "-"} />
               <Metric label="Host audit" value={printer.host_audit_mode} />
               <Metric label="SSH" value={formatSshStatus(printer)} />
               <Metric label="Klipper" value={printer.id === selectedPrinterId ? health?.metrics.klipper_state ? String(health.metrics.klipper_state) : "-" : "-"} />
@@ -119,4 +126,29 @@ export function PrintersScreen(props: PrintersScreenProps) {
       </div>
     </article>
   );
+}
+
+function formatAgentStatus(printer: PrinterRecord) {
+  if (printer.cloud_status === "online") return "Agente online";
+  if (printer.cloud_status === "offline") return "Agente offline";
+  if (printer.cloud_status === "aguardando_pareamento") return "Aguardando agente";
+  if (printer.cloud_status === "revogado") return "Agente revogado";
+  if (printer.cloud_status === "degradado") return "Agente degradado";
+  return "Sem agente";
+}
+
+function formatAgentSummary(printer: PrinterRecord) {
+  if (printer.active_agent_count <= 0) {
+    return formatAgentStatus(printer);
+  }
+  const version = printer.latest_agent_version ? `v${printer.latest_agent_version}` : "versão -";
+  return `${printer.active_agent_count} ativo · ${version}`;
+}
+
+function agentStatusTone(printer: PrinterRecord) {
+  if (printer.cloud_status === "online") return "up_to_date";
+  if (printer.cloud_status === "offline" || printer.cloud_status === "degradado") return "warning";
+  if (printer.cloud_status === "aguardando_pareamento") return "update_available";
+  if (printer.cloud_status === "revogado") return "silenced";
+  return "";
 }
