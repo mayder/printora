@@ -51,11 +51,12 @@ class PairingTokenRecord(BaseModel):
     id: int
     printer_id: int
     token_prefix: str
-    status: Literal["active", "used", "revoked", "expired"]
+    status: Literal["active", "used", "revoked", "expired", "removed"]
     expires_at: str
     created_at: str
     consumed_at: str | None = None
     revoked_at: str | None = None
+    removed_at: str | None = None
 
 
 class AgentExchangeRequest(BaseModel):
@@ -268,9 +269,9 @@ class AgentPairingRepository:
         with connect_database(self.database_path) as connection:
             token_rows = connection.execute(
                 """
-                SELECT id, printer_id, token_prefix, expires_at, consumed_at, revoked_at, created_at
+                SELECT id, printer_id, token_prefix, expires_at, consumed_at, revoked_at, removed_at, created_at
                 FROM printer_pairing_tokens
-                WHERE printer_id = ?
+                WHERE printer_id = ? AND removed_at IS NULL
                 ORDER BY created_at DESC, id DESC
                 LIMIT 20
                 """,
@@ -328,9 +329,9 @@ class AgentPairingRepository:
         with connect_database(self.database_path) as connection:
             row = connection.execute(
                 """
-                SELECT id
+                SELECT id, consumed_at, revoked_at, removed_at, expires_at
                 FROM printer_pairing_tokens
-                WHERE id = ? AND printer_id = ?
+                WHERE id = ? AND printer_id = ? AND removed_at IS NULL
                 """,
                 (token_id, printer_id),
             ).fetchone()
@@ -347,7 +348,40 @@ class AgentPairingRepository:
             self._record_event(connection, printer_id, None, "pairing_token_revoked", "ok", f"token:{token_id}")
             updated = connection.execute(
                 """
-                SELECT id, printer_id, token_prefix, expires_at, consumed_at, revoked_at, created_at
+                SELECT id, printer_id, token_prefix, expires_at, consumed_at, revoked_at, removed_at, created_at
+                FROM printer_pairing_tokens
+                WHERE id = ?
+                """,
+                (token_id,),
+            ).fetchone()
+        return _pairing_token_from_row(updated)
+
+    def remove_pairing_token(self, printer_id: int, token_id: int) -> PairingTokenRecord | None:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT id, consumed_at, revoked_at, removed_at, expires_at
+                FROM printer_pairing_tokens
+                WHERE id = ? AND printer_id = ? AND removed_at IS NULL
+                """,
+                (token_id, printer_id),
+            ).fetchone()
+            if row is None:
+                return None
+            if _pairing_token_status(row) == "active":
+                raise ValueError("revogue o token antes de remover")
+            connection.execute(
+                """
+                UPDATE printer_pairing_tokens
+                SET removed_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (token_id,),
+            )
+            self._record_event(connection, printer_id, None, "pairing_token_removed", "ok", f"token:{token_id}")
+            updated = connection.execute(
+                """
+                SELECT id, printer_id, token_prefix, expires_at, consumed_at, revoked_at, removed_at, created_at
                 FROM printer_pairing_tokens
                 WHERE id = ?
                 """,
@@ -723,14 +757,20 @@ def printer_for_user(database_path: Path, user: AuthUser, printer_id: int) -> Pr
     ).get_printer(printer_id)
 
 
-def _pairing_token_from_row(row) -> PairingTokenRecord:
-    status: Literal["active", "used", "revoked", "expired"] = "active"
+def _pairing_token_status(row) -> Literal["active", "used", "revoked", "expired", "removed"]:
+    if row["removed_at"] is not None:
+        return "removed"
     if row["revoked_at"] is not None:
-        status = "revoked"
-    elif row["consumed_at"] is not None:
-        status = "used"
-    elif str(row["expires_at"]) <= format_dt(utc_now()):
-        status = "expired"
+        return "revoked"
+    if row["consumed_at"] is not None:
+        return "used"
+    if str(row["expires_at"]) <= format_dt(utc_now()):
+        return "expired"
+    return "active"
+
+
+def _pairing_token_from_row(row) -> PairingTokenRecord:
+    status = _pairing_token_status(row)
     return PairingTokenRecord(
         id=int(row["id"]),
         printer_id=int(row["printer_id"]),
@@ -740,6 +780,7 @@ def _pairing_token_from_row(row) -> PairingTokenRecord:
         created_at=str(row["created_at"]),
         consumed_at=row["consumed_at"],
         revoked_at=row["revoked_at"],
+        removed_at=row["removed_at"],
     )
 
 

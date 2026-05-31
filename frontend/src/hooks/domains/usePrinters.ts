@@ -466,6 +466,25 @@ export function usePrinters(options: UsePrintersOptions) {
     }
   }
 
+  async function removePairingToken(tokenId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await printerApi.removePairingToken(selectedPrinterId, tokenId);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadPrinterPairing(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function revokePrinterAgent(agentId: number) {
     if (!selectedPrinterId) {
       return;
@@ -567,6 +586,7 @@ export function usePrinters(options: UsePrintersOptions) {
     printerModalOpen,
     pairingOverview,
     printers,
+    removePairingToken,
     revokePairingToken,
     revokePrinterAgent,
     removePrinterAgent,

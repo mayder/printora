@@ -140,6 +140,26 @@ async def revoke_printer_pairing_token(
     return token
 
 
+@router.delete("/api/printers/{printer_id}/pairing/tokens/{token_id}", response_model=PairingTokenRecord)
+async def remove_printer_pairing_token(
+    printer_id: int,
+    token_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AgentPairingRepository = Depends(get_pairing_repository),
+) -> PairingTokenRecord:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        token = repository.remove_pairing_token(printer.id, token_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if token is None:
+        raise HTTPException(status_code=404, detail="token not found")
+    return token
+
+
 @router.post("/api/printers/{printer_id}/agents/{agent_id}/rotate", response_model=AgentCredentialExchangeResponse)
 async def rotate_printer_agent_credential(
     printer_id: int,

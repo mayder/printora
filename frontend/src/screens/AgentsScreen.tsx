@@ -25,6 +25,7 @@ type AgentsScreenProps = ScreenPropsFor<
   | "loadAgentSupportBundle"
   | "loading"
   | "pairingOverview"
+  | "removePairingToken"
   | "removePrinterAgent"
   | "revokePairingToken"
   | "revokePrinterAgent"
@@ -63,6 +64,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
     loadAgentSupportBundle,
     loading,
     pairingOverview,
+    removePairingToken,
     removePrinterAgent,
     revokePairingToken,
     revokePrinterAgent,
@@ -179,6 +181,10 @@ export function AgentsScreen(props: AgentsScreenProps) {
                 <strong>Tokens</strong>
                 <span>{pairingOverview?.pairing_tokens.length ?? 0} registros</span>
               </div>
+              <button type="button" className="secondary-button" onClick={() => void createPairingToken()} disabled={!selectedPrinterId || loading}>
+                <KeyRound size={15} />
+                Gerar token
+              </button>
             </div>
             <div className="auth-list">
               {(pairingOverview?.pairing_tokens ?? []).map((token) => (
@@ -189,7 +195,11 @@ export function AgentsScreen(props: AgentsScreenProps) {
                     <button type="button" className="secondary-button" onClick={() => void revokePairingToken(token.id)} disabled={loading}>
                       Revogar
                     </button>
-                  ) : null}
+                  ) : (
+                    <button type="button" className="secondary-button" onClick={() => void removePairingToken(token.id)} disabled={loading}>
+                      Remover
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

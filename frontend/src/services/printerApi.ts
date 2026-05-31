@@ -35,6 +35,8 @@ export const printerApi = {
     }),
   revokePairingToken: (printerId: number, tokenId: number) =>
     apiResponse(`/api/printers/${printerId}/pairing/tokens/${tokenId}/revoke`, { method: "POST" }),
+  removePairingToken: (printerId: number, tokenId: number) =>
+    apiResponse(`/api/printers/${printerId}/pairing/tokens/${tokenId}`, { method: "DELETE" }),
   rotateAgentCredential: (printerId: number, agentId: number) =>
     apiResponse(`/api/printers/${printerId}/agents/${agentId}/rotate`, { method: "POST" }),
   revokeAgent: (printerId: number, agentId: number) =>

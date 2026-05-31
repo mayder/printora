@@ -72,11 +72,12 @@ export type PairingTokenRecord = {
   id: number;
   printer_id: number;
   token_prefix: string;
-  status: "active" | "used" | "revoked" | "expired";
+  status: "active" | "used" | "revoked" | "expired" | "removed";
   expires_at: string;
   created_at: string;
   consumed_at?: string | null;
   revoked_at?: string | null;
+  removed_at?: string | null;
 };
 
 export type PrinterAgentRecord = {

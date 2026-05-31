@@ -104,6 +104,45 @@ def test_expired_and_revoked_pairing_tokens_are_rejected(tmp_path: Path, monkeyp
         get_settings.cache_clear()
 
 
+def test_pairing_tokens_can_be_removed_after_inactive(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner_token = _register(client, "owner-token-remove@example.com")
+            created = _create_printer(client, owner_token)
+            active = client.post(
+                f"/api/printers/{created['id']}/pairing/tokens",
+                json={"ttl_minutes": 15},
+                headers=_auth(owner_token),
+            ).json()
+
+            blocked = client.delete(
+                f"/api/printers/{created['id']}/pairing/tokens/{active['id']}",
+                headers=_auth(owner_token),
+            )
+            assert blocked.status_code == 409
+
+            revoked = client.post(
+                f"/api/printers/{created['id']}/pairing/tokens/{active['id']}/revoke",
+                headers=_auth(owner_token),
+            )
+            assert revoked.status_code == 200
+            removed = client.delete(
+                f"/api/printers/{created['id']}/pairing/tokens/{active['id']}",
+                headers=_auth(owner_token),
+            )
+            assert removed.status_code == 200
+            assert removed.json()["status"] == "removed"
+            assert removed.json()["removed_at"] is not None
+
+            overview = client.get(f"/api/printers/{created['id']}/pairing", headers=_auth(owner_token)).json()
+            assert overview["pairing_tokens"] == []
+    finally:
+        get_settings.cache_clear()
+
+
 def test_pairing_ownership_and_revoked_agent_blocks_agent_endpoints(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     get_settings.cache_clear()
