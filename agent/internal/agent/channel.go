@@ -115,6 +115,9 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 	case "snapshot":
 		snapshot := r.Moonraker.Snapshot(ctx)
 		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: compactSnapshot(snapshot)})
+	case "remote_audit", "remote_snapshot", "remote_health", "remote_temperatures", "remote_update_status", "remote_can_status", "remote_final_validation", "remote_report_sanitized", "remote_backup_preview", "remote_operation_preview", "remote_firmware_preview":
+		payload := r.Moonraker.RemotePayload(ctx, job.JobType)
+		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
 	default:
 		_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: "unsupported job type", Result: map[string]any{"job_type": job.JobType}})
 	}
@@ -153,6 +156,7 @@ func helloPayload(r *Runner) map[string]any {
 		"capabilities": map[string]any{
 			"heartbeat":  true,
 			"snapshot":   true,
+			"parity":     true,
 			"jobs":       true,
 			"websocket":  true,
 			"polling":    r.Config.PollingEnabled,
@@ -185,6 +189,13 @@ func mapValue(value any) map[string]any {
 		return mapped
 	}
 	return map[string]any{}
+}
+
+func mapValueOrEmpty(value any) map[string]any {
+	if mapped, ok := value.(map[string]any); ok {
+		return mapped
+	}
+	return map[string]any{"value": value}
 }
 
 func discardLogger() *log.Logger {

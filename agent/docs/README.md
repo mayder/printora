@@ -87,3 +87,23 @@ O agente consulta `/api/agent/update/manifest`, valida plataforma, versão,
 protocolo e SHA-256 antes de trocar o binário. O restart automático reinicia
 somente o serviço `printora-agent` quando `allow_service_restart=true`. Falha de
 health/restart tenta restaurar o binário anterior.
+
+## Paridade remota
+
+O agente executa jobs read-only e dry-run enviados pela API:
+
+- `remote_audit`
+- `remote_snapshot`
+- `remote_health`
+- `remote_temperatures`
+- `remote_update_status`
+- `remote_can_status`
+- `remote_final_validation`
+- `remote_report_sanitized`
+- `remote_backup_preview`
+- `remote_operation_preview`
+- `remote_firmware_preview`
+
+Jobs mutáveis continuam bloqueados no backend até a camada de segurança remota.
+Antes de enviar resultados, o agente sanitiza campos sensíveis como `password`,
+`token`, `secret`, `credential` e `private_key`.

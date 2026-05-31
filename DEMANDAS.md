@@ -3077,7 +3077,19 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado em 2026-05-31.
+
+Implementado:
+
+- matriz de paridade remota em `/api/printers/{printer_id}/remote/parity`;
+- criação de jobs remotos seguros em `/api/printers/{printer_id}/remote/parity/jobs`;
+- estados `implemented`, `cached`, `offline`, `blocked` e `not_supported` por funcionalidade;
+- jobs read-only via agente para auditoria, snapshot, health, temperaturas, Update Manager, CAN e validação final;
+- relatório sanitizado via agente;
+- previews/dry-runs remotos para backup, operação e firmware sem executar comandos mutáveis;
+- bloqueio explícito de backup real grande, build/flash remoto e operação mutável até PKG-47;
+- agente Go executando jobs de paridade com sanitização antes do envio;
+- testes de contrato backend e agente para isolamento, estado cached/offline/bloqueado e sanitização.
 
 ## PKG-47: Operação Segura Remota
 

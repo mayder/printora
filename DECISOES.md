@@ -301,3 +301,16 @@ Impacto em testes: `backend/tests/test_agent_updates.py` cobre manifesto, relat�
 Impacto em rollback: médio; no host real, restaurar backup local do binário em `/var/lib/printora-agent/updates` e reiniciar apenas `printora-agent`.
 Como reverter: desativar `"update_enabled": false` no config, reverter arquivos do PKG-45 e restaurar o binário anterior se necessário.
 Referencias: `backend/app/agent_updates.py`, `backend/app/data/agent_update_manifest.json`, `agent/internal/agent/update.go`, `agent/cmd/printora-agent/main.go`, `RUNBOOK.md`.
+
+### DEC-20260531-05 - Paridade remota usa matriz explícita e bloqueia mutações até PKG-47
+
+Status: aceita
+Data: 2026-05-31
+Contexto: o Printora cloud precisa reutilizar as leituras e previews existentes sem o servidor acessar a rede local da impressora. Ao mesmo tempo, operações mutáveis remotas exigem autorização, preflight e rollback próprios.
+Decisao: criar matriz de paridade por impressora com estados explícitos e jobs remotos executados pelo agente. Jobs read-only e dry-run são permitidos; backup real com payload grande, build/flash remoto e operação mutável ficam bloqueados até a camada de segurança do PKG-47.
+Alternativas consideradas: tentar chamar Moonraker diretamente do servidor; liberar mutações junto com a paridade; esconder funcionalidades ainda não suportadas da matriz.
+Consequencias: a UI/API consegue diferenciar implementado, cached, offline, bloqueado e não suportado, evitando falsa paridade. A execução remota continua outbound pelo agente e payloads são sanitizados antes de sair do host.
+Impacto em testes: `backend/tests/test_agent_parity.py` cobre matriz, isolamento, criação de job, estado cached e bloqueio; `agent/internal/agent/agent_test.go` cobre job remoto read-only com sanitização.
+Impacto em rollback: baixo; remover rotas e jobs de paridade volta o cloud ao pareamento/canal remoto sem alterar schema.
+Como reverter: reverter arquivos do PKG-46; jobs já concluídos permanecem em `agent_jobs` como histórico seguro.
+Referencias: `backend/app/agent_parity.py`, `backend/app/routes/agents.py`, `backend/tests/test_agent_parity.py`, `agent/internal/agent/moonraker.go`, `agent/internal/agent/channel.go`.

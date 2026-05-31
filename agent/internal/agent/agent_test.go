@@ -137,6 +137,59 @@ func TestAPIClientPollsAndCompletesJobs(t *testing.T) {
 	}
 }
 
+func TestAgentHandlesRemoteReadOnlyJobWithSanitization(t *testing.T) {
+	var sawResult bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/agent/jobs/next":
+			_ = json.NewEncoder(w).Encode(AgentJobsResponse{
+				ProtocolVersion: ProtocolVersion,
+				Jobs: []AgentJob{{
+					ID:            11,
+					CorrelationID: "remote-health-001",
+					JobType:       "remote_health",
+					Payload:       map[string]any{},
+					Status:        "pending",
+				}},
+			})
+		case "/api/agent/jobs/11/ack":
+			w.WriteHeader(http.StatusOK)
+		case "/api/agent/jobs/11/result":
+			sawResult = true
+			var payload AgentJobResultPayload
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatal(err)
+			}
+			if payload.CorrelationID != "remote-health-001" || payload.Result["kind"] != "health" {
+				t.Fatalf("unexpected remote result: %#v", payload)
+			}
+			if strings.Contains(string(mustJSON(payload.Result)), "secret-value") {
+				t.Fatalf("sensitive value leaked: %#v", payload.Result)
+			}
+			w.WriteHeader(http.StatusOK)
+		case "/server/info", "/printer/info", "/printer/objects/query":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"api_token": "secret-value", "state": "ready"}})
+		case "/machine/update/status":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"version": "ok"}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	runner := &Runner{
+		Config:    DefaultConfig(),
+		API:       NewAPIClient(server.URL, "ptr_agent_test", time.Second),
+		Moonraker: NewMoonrakerClient(server.URL, time.Second),
+		Logger:    discardLogger(),
+	}
+	if err := runner.PollJobsOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !sawResult {
+		t.Fatal("expected remote result")
+	}
+}
+
 func TestWebSocketURLUsesSecureScheme(t *testing.T) {
 	got, err := websocketURL("https://printora.example.com/base")
 	if err != nil {
@@ -145,6 +198,14 @@ func TestWebSocketURLUsesSecureScheme(t *testing.T) {
 	if got != "wss://printora.example.com/api/agent/ws" {
 		t.Fatalf("unexpected websocket url %q", got)
 	}
+}
+
+func mustJSON(value any) []byte {
+	data, err := json.Marshal(value)
+	if err != nil {
+		panic(err)
+	}
+	return data
 }
 
 func TestAgentUpdateAppliesValidatedBinary(t *testing.T) {

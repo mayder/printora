@@ -544,6 +544,52 @@ Rollback local:
 - revogar agente pela tela Impressoras se houver suspeita de credencial comprometida;
 - não apagar histórico local sem confirmação.
 
+## Paridade Funcional Remota
+
+Fluxos:
+
+- matriz de paridade: `GET /api/printers/{printer_id}/remote/parity`;
+- solicitar job remoto: `POST /api/printers/{printer_id}/remote/parity/jobs`;
+- execução do agente: `GET /api/agent/jobs/next`, `ack`, `result` e `error`.
+
+Funcionalidades remotas read-only:
+
+- `audit`;
+- `snapshot`;
+- `health`;
+- `temperatures`;
+- `update_manager`;
+- `can`;
+- `final_validation`;
+- `sanitized_report`.
+
+Funcionalidades remotas dry-run/preview:
+
+- `backup_preview`;
+- `operation_preview`;
+- `firmware_preview`.
+
+Bloqueios explícitos até PKG-47:
+
+- `backup_payload`;
+- `firmware_build_apply`;
+- `mutable_operation`.
+
+Estados:
+
+- `implemented`: agente recente e funcionalidade disponível;
+- `cached`: último resultado conhecido existe, mas agente não está recente;
+- `offline`: sem agente recente e sem resultado anterior;
+- `blocked`: bloqueio de segurança;
+- `not_supported`: não suportado pela plataforma/contrato atual.
+
+Segurança:
+
+- o servidor cloud não acessa Moonraker direto no modo remoto; ele agenda job para o agente;
+- o agente sanitiza campos com `password`, `token`, `secret`, `credential` e `private_key`;
+- payload grande de backup real continua bloqueado até política própria;
+- operações mutáveis, build e flash remoto continuam bloqueados até o PKG-47.
+
 Segurança:
 
 - senhas usam PBKDF2 e nunca são retornadas;

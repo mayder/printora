@@ -813,6 +813,20 @@ Critérios:
 - Testes automatizados focados: `cd backend && uv run pytest tests/test_agent_updates.py tests/test_agent_pairing.py -q` e `cd agent && go test ./...`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-46 - Paridade Funcional Remota
+
+- Validar matriz `GET /api/printers/{printer_id}/remote/parity` com executor `agent`.
+- Validar estados `implemented`, `cached`, `offline`, `blocked` e `not_supported` quando aplicável.
+- Validar bloqueio para usuário sem acesso à impressora.
+- Validar criação de jobs remotos somente para funcionalidades read-only ou dry-run.
+- Validar que `mutable_operation`, `firmware_build_apply` e payload grande de backup retornam bloqueio explícito.
+- Validar jobs read-only via agente: auditoria, snapshot, health, temperaturas, Update Manager, CAN e validação final.
+- Validar relatório sanitizado via agente sem token, credencial, senha ou segredo.
+- Validar previews remotos de backup, operação e firmware sem executar comando mutável.
+- Validar que estado offline usa último job concluído como `cached` quando existir.
+- Testes automatizados focados: `cd backend && uv run pytest tests/test_agent_parity.py tests/test_agent_channel.py tests/test_agent_pairing.py -q` e `cd agent && go test ./...`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

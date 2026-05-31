@@ -28,6 +28,11 @@ from app.agent_pairing import (
     PairingTokenResponse,
     printer_for_user,
 )
+from app.agent_parity import (
+    AgentParityRepository,
+    RemoteParityOverview,
+    RemoteParityRunRequest,
+)
 from app.agent_updates import (
     AgentUpdateHistoryRecord,
     AgentUpdateManifest,
@@ -50,6 +55,10 @@ def get_pairing_repository(settings: Settings = Depends(get_settings)) -> AgentP
 
 def get_update_repository(settings: Settings = Depends(get_settings)) -> AgentUpdateRepository:
     return AgentUpdateRepository(settings.database_path)
+
+
+def get_parity_repository(settings: Settings = Depends(get_settings)) -> AgentParityRepository:
+    return AgentParityRepository(settings.database_path)
 
 
 def require_agent(
@@ -203,6 +212,36 @@ async def printer_agent_update_history(
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
     return repository.history(printer.id, limit)
+
+
+@router.get("/api/printers/{printer_id}/remote/parity", response_model=RemoteParityOverview)
+async def printer_remote_parity(
+    printer_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AgentParityRepository = Depends(get_parity_repository),
+) -> RemoteParityOverview:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return repository.overview(printer)
+
+
+@router.post("/api/printers/{printer_id}/remote/parity/jobs", response_model=AgentJobRecord)
+async def create_printer_remote_parity_job(
+    printer_id: int,
+    payload: RemoteParityRunRequest,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AgentParityRepository = Depends(get_parity_repository),
+) -> AgentJobRecord:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        return repository.create_remote_job(printer, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/api/agent/pairing/exchange", response_model=AgentCredentialExchangeResponse)
