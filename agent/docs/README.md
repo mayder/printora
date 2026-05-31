@@ -57,8 +57,10 @@ e deve ficar com permissão `0600`.
 ## Canal remoto
 
 O comando `run` mantém WebSocket outbound com `/api/agent/ws` e heartbeat
-periódico. Se o canal falhar e `polling_enabled` estiver ativo, o agente usa
-polling HTTPS para buscar jobs e enviar `ack`, `result` ou `error`.
+periódico. Se o canal falhar, o agente continua reconectando com backoff
+limitado a 60s. Durante a reconexão, segue enviando heartbeat/snapshot por
+HTTPS e, se `polling_enabled` estiver ativo, usa polling para buscar jobs e
+enviar `ack`, `result` ou `error`.
 
 Jobs suportados nesta etapa:
 

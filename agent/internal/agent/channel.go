@@ -12,6 +12,11 @@ import (
 	"nhooyr.io/websocket"
 )
 
+const (
+	minReconnectBackoff = time.Second
+	maxReconnectBackoff = time.Minute
+)
+
 type ProtocolMessage struct {
 	ProtocolVersion int            `json:"protocol_version"`
 	MessageType     string         `json:"message_type"`
@@ -20,24 +25,21 @@ type ProtocolMessage struct {
 }
 
 func (r *Runner) RunChannel(ctx context.Context) error {
-	backoff := time.Second
+	backoff := minReconnectBackoff
 	for {
-		if err := r.runWebSocket(ctx); err != nil {
+		connected, err := r.runWebSocket(ctx)
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			r.Logger.Printf("websocket unavailable, fallback polling: %v", err)
-			if r.Config.PollingEnabled {
-				if pollErr := r.PollJobsOnce(ctx); pollErr != nil {
-					r.Logger.Printf("polling fallback failed: %v", pollErr)
-				}
+			r.runReconnectFallback(ctx, backoff)
+			if connected {
+				backoff = minReconnectBackoff
+				continue
 			}
 		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(backoff):
-		}
-		if backoff < 5*time.Second {
-			backoff *= 2
-		}
+		backoff = nextReconnectBackoff(backoff)
 	}
 }
 
@@ -52,21 +54,85 @@ func (r *Runner) PollJobsOnce(ctx context.Context) error {
 	return nil
 }
 
-func (r *Runner) runWebSocket(ctx context.Context) error {
+func (r *Runner) runReconnectFallback(ctx context.Context, duration time.Duration) {
+	if duration <= 0 {
+		duration = minReconnectBackoff
+	}
+	deadline := time.NewTimer(duration)
+	defer deadline.Stop()
+	ticker := time.NewTicker(r.loopInterval())
+	defer ticker.Stop()
+	for {
+		r.runFallbackCycle(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-deadline.C:
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+func (r *Runner) runFallbackCycle(ctx context.Context) {
+	if err := r.RunOnce(ctx); err != nil {
+		r.Logger.Printf("heartbeat fallback failed: %v", err)
+	}
+	if r.Config.PollingEnabled {
+		if pollErr := r.PollJobsOnce(ctx); pollErr != nil {
+			r.Logger.Printf("polling fallback failed: %v", pollErr)
+		}
+	}
+}
+
+func (r *Runner) loopInterval() time.Duration {
+	seconds := r.Config.IntervalSeconds
+	if seconds <= 0 {
+		seconds = DefaultConfig().IntervalSeconds
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+func (r *Runner) operationTimeout() time.Duration {
+	timeout := Timeout(r.Config)
+	if timeout <= 0 {
+		timeout = Timeout(DefaultConfig())
+	}
+	return timeout
+}
+
+func nextReconnectBackoff(current time.Duration) time.Duration {
+	if current <= 0 {
+		return minReconnectBackoff
+	}
+	next := current * 2
+	if next > maxReconnectBackoff {
+		return maxReconnectBackoff
+	}
+	return next
+}
+
+func (r *Runner) runWebSocket(ctx context.Context) (bool, error) {
 	wsURL, err := websocketURL(r.Config.APIBaseURL)
 	if err != nil {
-		return err
+		return false, err
 	}
 	headers := http.Header{"Authorization": []string{"Bearer " + r.API.credential}}
-	conn, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: headers})
+	dialCtx, cancelDial := context.WithTimeout(ctx, r.operationTimeout())
+	conn, _, err := websocket.Dial(dialCtx, wsURL, &websocket.DialOptions{HTTPHeader: headers})
+	cancelDial()
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer conn.Close(websocket.StatusNormalClosure, "closed")
-	if err := writeMessage(ctx, conn, "hello", "hello", helloPayload(r)); err != nil {
-		return err
+	helloCtx, cancelHello := context.WithTimeout(ctx, r.operationTimeout())
+	err = writeMessage(helloCtx, conn, "hello", "hello", helloPayload(r))
+	cancelHello()
+	if err != nil {
+		return false, err
 	}
-	heartbeatInterval := time.Duration(r.Config.IntervalSeconds) * time.Second
+	connected := true
+	heartbeatInterval := r.loopInterval()
 	heartbeatCtx, stopHeartbeat := context.WithCancel(ctx)
 	defer stopHeartbeat()
 	heartbeatErrors := make(chan error, 1)
@@ -78,8 +144,14 @@ func (r *Runner) runWebSocket(ctx context.Context) error {
 			case <-heartbeatCtx.Done():
 				return
 			case <-ticker.C:
-				if err := writeMessage(ctx, conn, "heartbeat", "heartbeat", helloPayload(r)); err != nil {
-					heartbeatErrors <- err
+				writeCtx, cancelWrite := context.WithTimeout(heartbeatCtx, r.operationTimeout())
+				err := writeMessage(writeCtx, conn, "heartbeat", "heartbeat", helloPayload(r))
+				cancelWrite()
+				if err != nil {
+					select {
+					case heartbeatErrors <- err:
+					default:
+					}
 					_ = conn.Close(websocket.StatusInternalError, "heartbeat failed")
 					return
 				}
@@ -89,24 +161,24 @@ func (r *Runner) runWebSocket(ctx context.Context) error {
 	for {
 		select {
 		case err := <-heartbeatErrors:
-			return err
+			return connected, err
 		default:
 		}
 		_, data, err := conn.Read(ctx)
 		if err != nil {
 			select {
 			case heartbeatErr := <-heartbeatErrors:
-				return heartbeatErr
+				return connected, heartbeatErr
 			default:
-				return err
+				return connected, err
 			}
 		}
 		var message ProtocolMessage
 		if err := json.Unmarshal(data, &message); err != nil {
-			return err
+			return connected, err
 		}
 		if message.ProtocolVersion != ProtocolVersion {
-			return fmt.Errorf("protocol version incompatible: %d", message.ProtocolVersion)
+			return connected, fmt.Errorf("protocol version incompatible: %d", message.ProtocolVersion)
 		}
 		if message.MessageType == "job" {
 			job := AgentJob{

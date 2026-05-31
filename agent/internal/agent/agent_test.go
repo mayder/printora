@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -134,6 +135,58 @@ func TestAPIClientPollsAndCompletesJobs(t *testing.T) {
 	}
 	if !sawAck || !sawResult {
 		t.Fatalf("expected ack and result, ack=%v result=%v", sawAck, sawResult)
+	}
+}
+
+func TestReconnectFallbackRepeatsHeartbeatAndPolling(t *testing.T) {
+	var heartbeats int32
+	var polls int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/agent/heartbeat":
+			atomic.AddInt32(&heartbeats, 1)
+			w.WriteHeader(http.StatusOK)
+		case "/api/agent/snapshots":
+			w.WriteHeader(http.StatusOK)
+		case "/api/agent/jobs/next":
+			atomic.AddInt32(&polls, 1)
+			_ = json.NewEncoder(w).Encode(AgentJobsResponse{ProtocolVersion: ProtocolVersion, Jobs: []AgentJob{}})
+		case "/server/info", "/printer/info", "/printer/objects/query", "/machine/update/status":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"state": "ready"}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	cfg := DefaultConfig()
+	cfg.APIBaseURL = server.URL
+	cfg.MoonrakerURL = server.URL
+	cfg.QueueFile = filepath.Join(t.TempDir(), "queue.jsonl")
+	cfg.IntervalSeconds = 1
+	cfg.TimeoutSeconds = 1
+	cfg.UpdateEnabled = false
+	runner := &Runner{
+		Config:    cfg,
+		API:       NewAPIClient(server.URL, "ptr_agent_test", time.Second),
+		Moonraker: NewMoonrakerClient(server.URL, time.Second),
+		Logger:    discardLogger(),
+	}
+	runner.runReconnectFallback(context.Background(), 1100*time.Millisecond)
+	if atomic.LoadInt32(&heartbeats) < 2 {
+		t.Fatalf("expected repeated heartbeat fallback, got %d", heartbeats)
+	}
+	if atomic.LoadInt32(&polls) < 2 {
+		t.Fatalf("expected repeated polling fallback, got %d", polls)
+	}
+}
+
+func TestReconnectBackoffIsCapped(t *testing.T) {
+	backoff := minReconnectBackoff
+	for i := 0; i < 20; i++ {
+		backoff = nextReconnectBackoff(backoff)
+	}
+	if backoff != maxReconnectBackoff {
+		t.Fatalf("expected capped backoff %s, got %s", maxReconnectBackoff, backoff)
 	}
 }
 

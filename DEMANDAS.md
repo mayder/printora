@@ -2917,9 +2917,9 @@ Implementado:
 - jobs persistidos em `agent_jobs`, sempre vinculados a `printer_id` e opcionalmente a `agent_id`;
 - fallback HTTPS em `/api/agent/jobs/next`, `/ack`, `/nack`, `/result` e `/error`;
 - correlation ID único por job, idempotência de resultado concluído e limite de payload de 64 KB;
-- agente Go com WebSocket primário, backoff, fallback polling e execução segura de jobs `ping` e `snapshot`;
+- agente Go com WebSocket primário, timeout de socket, backoff contínuo até 60s, heartbeat/snapshot por HTTPS durante reconexão, fallback polling repetido e execução segura de jobs `ping` e `snapshot`;
 - testes backend de isolamento, WebSocket, versão incompatível e idempotência;
-- testes Go de polling, ack/result, URL WebSocket segura e contrato HTTP.
+- testes Go de polling, ack/result, URL WebSocket segura, contrato HTTP, fallback repetido e limite de backoff.
 
 ## PKG-44: Instalador Online Assistido Do Agente
 

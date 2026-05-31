@@ -464,7 +464,8 @@ printora-agent -config /etc/printora-agent/config.json run
 Canal remoto:
 
 - `run` usa WebSocket outbound em `/api/agent/ws` quando `websocket_enabled=true`;
-- se o WebSocket falhar e `polling_enabled=true`, o agente faz fallback HTTPS em `/api/agent/jobs/next`;
+- se o WebSocket falhar, o agente continua tentando reconectar com backoff ate 60s;
+- durante a reconexao, o agente segue enviando heartbeat/snapshot por HTTPS e, se `polling_enabled=true`, faz fallback em `/api/agent/jobs/next`;
 - jobs suportados nesta etapa: `ping` e `snapshot`;
 - cada job usa `correlation_id` e resultado idempotente;
 - payloads acima de 64 KB são rejeitados pelo backend.
