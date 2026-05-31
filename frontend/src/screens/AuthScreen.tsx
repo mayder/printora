@@ -13,9 +13,7 @@ type AuthScreenProps = ScreenPropsFor<
   | "authMfaCode"
   | "authMode"
   | "authPassword"
-  | "authTelegram"
   | "authUser"
-  | "authWhatsapp"
   | "createdAgentCredential"
   | "loading"
   | "memberEmail"
@@ -29,8 +27,6 @@ type AuthScreenProps = ScreenPropsFor<
   | "setAuthMfaCode"
   | "setAuthMode"
   | "setAuthPassword"
-  | "setAuthTelegram"
-  | "setAuthWhatsapp"
   | "setMemberEmail"
   | "setMemberRole"
   | "setOrganizationName"
@@ -66,9 +62,7 @@ export function AuthScreen(props: AuthScreenProps) {
     authMfaCode,
     authMode,
     authPassword,
-    authTelegram,
     authUser,
-    authWhatsapp,
     createdAgentCredential,
     loading,
     memberEmail,
@@ -82,8 +76,6 @@ export function AuthScreen(props: AuthScreenProps) {
     setAuthMfaCode,
     setAuthMode,
     setAuthPassword,
-    setAuthTelegram,
-    setAuthWhatsapp,
     setMemberEmail,
     setMemberRole,
     setOrganizationName,
@@ -110,7 +102,9 @@ export function AuthScreen(props: AuthScreenProps) {
       <section className="auth-entry">
         <aside className="auth-showcase" aria-label="Printora">
           <div className="auth-showcase-inner">
-            <img className="auth-showcase-logo" src="/brand/printora-logo-horizontal-dark-bg.png" alt="Printora" />
+            <div className="auth-logo-panel">
+              <img className="auth-showcase-logo" src="/brand/printora-logo-horizontal-color.png" alt="Printora" />
+            </div>
             <div className="auth-showcase-copy">
               <span>Klipper Ops</span>
               <h1>Acesso seguro para operação remota.</h1>
@@ -124,8 +118,8 @@ export function AuthScreen(props: AuthScreenProps) {
               </div>
               <div className="auth-device-grid">
                 <div>
-                  <strong>Voron 2.4</strong>
-                  <small>agente online</small>
+                  <strong>Multi-modelo</strong>
+                  <small>Klipper/Moonraker</small>
                 </div>
                 <div>
                   <strong>2FA</strong>
@@ -151,7 +145,6 @@ export function AuthScreen(props: AuthScreenProps) {
           <div className="auth-card-heading">
             <span>{authMode === "login" ? "Sessão" : "Cadastro"}</span>
             <h2>{authMode === "login" ? "Entrar no Printora" : "Criar conta"}</h2>
-            <p>Email e senha são obrigatórios. Os demais contatos são opcionais.</p>
           </div>
           <div className="segmented-control auth-mode-tabs">
             <button type="button" className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")}>Login</button>
@@ -160,7 +153,7 @@ export function AuthScreen(props: AuthScreenProps) {
           <div className="auth-grid">
             <label>
               <span>Email</span>
-              <input value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} type="email" autoComplete="email" placeholder="voce@empresa.com" />
+              <input value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} type="email" autoComplete="email" inputMode="email" pattern="^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$" placeholder="voce@empresa.com" />
             </label>
             <label>
               <span>Senha</span>
@@ -171,14 +164,6 @@ export function AuthScreen(props: AuthScreenProps) {
                 <label>
                   <span>Nome</span>
                   <input value={authDisplayName} onChange={(event) => setAuthDisplayName(event.target.value)} placeholder="Opcional" />
-                </label>
-                <label>
-                  <span>WhatsApp</span>
-                  <input value={authWhatsapp} onChange={(event) => setAuthWhatsapp(event.target.value)} placeholder="Opcional" />
-                </label>
-                <label>
-                  <span>Telegram</span>
-                  <input value={authTelegram} onChange={(event) => setAuthTelegram(event.target.value)} placeholder="Opcional" />
                 </label>
               </>
             ) : null}

@@ -53,8 +53,21 @@
   padding: clamp(28px, 5vw, 56px);
 }
 
+.auth-logo-panel {
+  width: min(330px, 80%);
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 14px;
+  padding: 18px 22px;
+  background: rgb(255 255 255 / 0.94);
+  box-shadow: 0 18px 44px rgb(0 0 0 / 0.22);
+}
+
 .auth-showcase-logo {
-  width: min(230px, 70%);
+  display: block;
+  width: 100%;
   height: auto;
 }
 
@@ -161,7 +174,7 @@
 
 .auth-card-heading {
   display: grid;
-  gap: 7px;
+  gap: 8px;
   text-align: center;
 }
 
@@ -177,12 +190,6 @@
   color: #141b23;
   font-size: 1.65rem;
   letter-spacing: 0;
-}
-
-.auth-card-heading p {
-  margin: 0;
-  color: #697888;
-  line-height: 1.5;
 }
 
 .auth-panel {
@@ -335,7 +342,7 @@
     padding: 24px;
   }
 
-  .auth-showcase-logo {
+  .auth-logo-panel {
     display: none;
   }
 

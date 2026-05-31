@@ -46,18 +46,23 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     setLoading(true);
     setError(null);
     try {
+      const normalizedEmail = authEmail.trim().toLowerCase();
+      if (!isValidEmail(normalizedEmail)) {
+        setError("Informe um email válido.");
+        return;
+      }
       if (authMode === "register") {
         const response = await authApi.registerUser({
-          email: authEmail,
+          email: normalizedEmail,
           password: authPassword,
           display_name: authDisplayName || null,
-          whatsapp: authWhatsapp || null,
-          telegram: authTelegram || null,
+          whatsapp: null,
+          telegram: null,
         });
         setAuthUser(response.user);
         setAuthMfaChallengeToken(null);
       } else {
-        const response = await authApi.loginUser(authEmail, authPassword);
+        const response = await authApi.loginUser(normalizedEmail, authPassword);
         if (response.mfa_required && response.challenge_token) {
           setAuthMfaChallengeToken(response.challenge_token);
         } else if (response.user) {
@@ -268,4 +273,8 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     submitAuth,
     submitMfaLogin,
   };
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
 }
