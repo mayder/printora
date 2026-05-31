@@ -147,6 +147,7 @@ class AgentJobCreateRequest(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
     agent_id: int | None = None
     correlation_id: str | None = Field(default=None, min_length=3, max_length=120)
+    expires_at: str | None = None
 
 
 class AgentJobRecord(BaseModel):
@@ -520,10 +521,10 @@ class AgentPairingRepository:
             try:
                 cursor = connection.execute(
                     """
-                    INSERT INTO agent_jobs (printer_id, agent_id, correlation_id, job_type, payload_json)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO agent_jobs (printer_id, agent_id, correlation_id, job_type, payload_json, expires_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """,
-                    (printer.id, request.agent_id, correlation_id, request.job_type, json.dumps(request.payload)),
+                    (printer.id, request.agent_id, correlation_id, request.job_type, json.dumps(request.payload), request.expires_at),
                 )
             except Exception as exc:
                 raise ValueError("correlation_id já usado") from exc

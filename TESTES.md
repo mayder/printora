@@ -827,6 +827,21 @@ Critérios:
 - Testes automatizados focados: `cd backend && uv run pytest tests/test_agent_parity.py tests/test_agent_channel.py tests/test_agent_pairing.py -q` e `cd agent && go test ./...`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-47 - Operação Segura Remota
+
+- Validar matriz `GET /api/printers/{printer_id}/remote/operations` com ações, criticidade, risco e rollback.
+- Validar que usuário sem acesso à impressora não cria preflight, execução ou cancelamento.
+- Validar criação de job `remote_mutation_preflight` com confirmação única, expiração e payload sem segredo.
+- Validar que execução não é criada sem preflight remoto concluído com sucesso.
+- Validar que confirmação textual incorreta bloqueia execução.
+- Validar que preflight com `printing=true` ou `can_execute=false` bloqueia execução.
+- Validar que jobs mutáveis pendentes podem ser cancelados e deixam de ser entregues ao agente.
+- Validar que o agente executa somente `remote_mutation_preflight` e `remote_mutation_execute`, sem shell genérico.
+- Validar que o agente bloqueia execução se o preflight local detectar Moonraker indisponível, impressão em andamento ou estado incompatível.
+- Validar UI da tela Impressoras para risco/rollback, preflight, confirmação, execução e cancelamento.
+- Testes automatizados focados: `cd backend && uv run pytest tests/test_remote_operations.py tests/test_agent_channel.py tests/test_agent_pairing.py -q` e `cd agent && go test ./...`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

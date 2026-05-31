@@ -3134,7 +3134,22 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado em 2026-05-31.
+
+Implementado:
+
+- matriz de ações remotas mutáveis em `/api/printers/{printer_id}/remote/operations`, com criticidade, risco, confirmação obrigatória e rollback;
+- criação de preflight remoto por job `remote_mutation_preflight`, sempre vinculado à impressora e ao usuário autorizado;
+- criação de execução remota por job `remote_mutation_execute` somente após preflight concluído com `can_execute=true`;
+- confirmação textual forte por frase única armazenada no payload do preflight e validada antes da execução;
+- expiração de jobs mutáveis usando `expires_at` e bloqueio de jobs expirados na entrega ao agente;
+- cancelamento seguro de jobs remotos ainda pendentes;
+- bloqueio quando o preflight remoto detecta impressão em andamento, Moonraker indisponível ou Klipper/Klippy fora de `ready`;
+- auditoria por `agent_jobs` e `printer_agent_events`, com solicitante, confirmador, agente, correlation ID, status, resultado e rollback;
+- revisão de payload/log para não registrar segredo em detalhe de evento e sanitizar resultado do agente;
+- agente Go executando somente jobs mutáveis permitidos, sem shell genérico, via endpoint Moonraker `/printer/gcode/script`;
+- UI na tela Impressoras para ver riscos/rollback, criar preflight, digitar confirmação, criar execução e cancelar job pendente;
+- testes backend e agente para escopo, preflight, confirmação, bloqueio por impressão, cancelamento e execução remota.
 
 ## PKG-48: Observabilidade E Suporte Do Agente
 

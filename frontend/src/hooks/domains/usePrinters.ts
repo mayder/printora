@@ -7,12 +7,14 @@ import type {
   AgentCredentialExchangeResponse,
   AgentInstallPlanResponse,
   AgentInstallStatusResponse,
+  AgentJobRecord,
   AgentPairingOverview,
   MoonrakerStatus,
   PairingTokenResponse,
   PrinterConnectionTestResponse,
   PrinterDiscoveryResponse,
   PrinterRecord,
+  RemoteOperationOverview,
 } from "../../types";
 import { extractHost, validatePrinterConnectionInput } from "../../utils/formatters";
 import type { SetError, SetLoading } from "./shared";
@@ -58,6 +60,10 @@ export function usePrinters(options: UsePrintersOptions) {
   const [rotatedAgentCredential, setRotatedAgentCredential] = React.useState<AgentCredentialExchangeResponse | null>(null);
   const [agentInstallPlan, setAgentInstallPlan] = React.useState<AgentInstallPlanResponse | null>(null);
   const [agentInstallStatus, setAgentInstallStatus] = React.useState<AgentInstallStatusResponse | null>(null);
+  const [remoteOperations, setRemoteOperations] = React.useState<RemoteOperationOverview | null>(null);
+  const [remoteOperationPreflight, setRemoteOperationPreflight] = React.useState<AgentJobRecord | null>(null);
+  const [remoteOperationExecution, setRemoteOperationExecution] = React.useState<AgentJobRecord | null>(null);
+  const [remoteOperationConfirmation, setRemoteOperationConfirmation] = React.useState("");
 
   const selectedPrinter = printers.find((printer) => printer.id === selectedPrinterId);
 
@@ -112,6 +118,7 @@ export function usePrinters(options: UsePrintersOptions) {
       setPrinterModalOpen(false);
       setNewPrinterSshCredential("");
       await loadPrinterPairing(created.id);
+      await loadRemoteOperations(created.id);
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
@@ -228,6 +235,7 @@ export function usePrinters(options: UsePrintersOptions) {
     }
     setPairingOverview((await response.json()) as AgentPairingOverview);
     await loadAgentInstallStatus(printerId);
+    await loadRemoteOperations(printerId);
   }
 
   async function loadAgentInstallStatus(printerId = selectedPrinterId) {
@@ -256,6 +264,84 @@ export function usePrinters(options: UsePrintersOptions) {
       }
       setAgentInstallPlan((await response.json()) as AgentInstallPlanResponse);
       await loadPrinterPairing(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadRemoteOperations(printerId = selectedPrinterId) {
+    if (!printerId) {
+      setRemoteOperations(null);
+      return;
+    }
+    const response = await printerApi.remoteOperations(printerId);
+    if (!response.ok) {
+      return;
+    }
+    setRemoteOperations((await response.json()) as RemoteOperationOverview);
+  }
+
+  async function createRemoteOperationPreflight(actionId: string) {
+    if (!selectedPrinterId) {
+      setError("Selecione uma impressora");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await printerApi.remoteOperationPreflight(selectedPrinterId, { action_id: actionId, parameters: {} });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setRemoteOperationPreflight((await response.json()) as AgentJobRecord);
+      setRemoteOperationExecution(null);
+      setRemoteOperationConfirmation("");
+      await loadRemoteOperations(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function executeRemoteOperation() {
+    if (!selectedPrinterId || !remoteOperationPreflight) {
+      setError("Gere o preflight remoto antes de executar.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await printerApi.remoteOperationExecute(selectedPrinterId, {
+        preflight_job_id: remoteOperationPreflight.id,
+        confirmation_phrase: remoteOperationConfirmation,
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setRemoteOperationExecution((await response.json()) as AgentJobRecord);
+      await loadRemoteOperations(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function cancelRemoteOperationJob(jobId: number) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await printerApi.cancelRemoteOperationJob(selectedPrinterId, jobId);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadRemoteOperations(selectedPrinterId);
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
@@ -345,16 +431,20 @@ export function usePrinters(options: UsePrintersOptions) {
   return {
     agentInstallPlan,
     agentInstallStatus,
+    cancelRemoteOperationJob,
     createPrinter,
     createAgentInstallPlan,
     createPairingToken,
+    createRemoteOperationPreflight,
     createdPairingToken,
     discoverPrinters,
     discovery,
     editingPrinterId,
+    executeRemoteOperation,
     loadPrinters,
     loadPrinterPairing,
     loadAgentInstallStatus,
+    loadRemoteOperations,
     loadSelectedPrinterStatus,
     newPrinterName,
     newPrinterSshCredential,
@@ -373,6 +463,10 @@ export function usePrinters(options: UsePrintersOptions) {
     revokePrinterAgent,
     rotatePrinterAgent,
     rotatedAgentCredential,
+    remoteOperationConfirmation,
+    remoteOperationExecution,
+    remoteOperationPreflight,
+    remoteOperations,
     selectPrinter,
     selectedPrinter,
     selectedPrinterId,
@@ -390,6 +484,9 @@ export function usePrinters(options: UsePrintersOptions) {
     setCreatedPairingToken,
     setAgentInstallPlan,
     setRotatedAgentCredential,
+    setRemoteOperationConfirmation,
+    setRemoteOperationExecution,
+    setRemoteOperationPreflight,
     setPrinters,
     setSelectedPrinterId,
     testPrinterConnections,

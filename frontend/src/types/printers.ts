@@ -127,3 +127,37 @@ export type AgentCredentialExchangeResponse = {
   credential_prefix: string;
   status: "active" | "revoked";
 };
+
+export type AgentJobRecord = {
+  id: number;
+  printer_id: number;
+  agent_id?: number | null;
+  correlation_id: string;
+  job_type: string;
+  payload: Record<string, unknown>;
+  status: "pending" | "in_progress" | "succeeded" | "failed" | "canceled";
+  attempts: number;
+  result?: Record<string, unknown> | null;
+  error_message?: string | null;
+  created_at: string;
+  updated_at: string;
+  acked_at?: string | null;
+  finished_at?: string | null;
+};
+
+export type RemoteOperationAction = {
+  action_id: string;
+  label: string;
+  risk: string;
+  criticality: "low" | "high" | "critical";
+  confirmation_required: boolean;
+  blocks_when_printing: boolean;
+  rollback_plan: string[];
+};
+
+export type RemoteOperationOverview = {
+  printer_id: number;
+  safe_mode: string;
+  actions: RemoteOperationAction[];
+  recent_jobs: AgentJobRecord[];
+};

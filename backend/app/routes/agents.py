@@ -43,6 +43,13 @@ from app.agent_updates import (
 from app.auth import CurrentUser
 from app.config import Settings, get_settings
 from app.routes.auth import require_current_user
+from app.remote_operations import (
+    RemoteOperationCancelResponse,
+    RemoteOperationExecuteRequest,
+    RemoteOperationOverview,
+    RemoteOperationPreflightRequest,
+    RemoteOperationRepository,
+)
 
 
 router = APIRouter()
@@ -59,6 +66,10 @@ def get_update_repository(settings: Settings = Depends(get_settings)) -> AgentUp
 
 def get_parity_repository(settings: Settings = Depends(get_settings)) -> AgentParityRepository:
     return AgentParityRepository(settings.database_path)
+
+
+def get_remote_operation_repository(settings: Settings = Depends(get_settings)) -> RemoteOperationRepository:
+    return RemoteOperationRepository(settings.database_path)
 
 
 def require_agent(
@@ -240,6 +251,70 @@ async def create_printer_remote_parity_job(
         raise HTTPException(status_code=404, detail="printer not found")
     try:
         return repository.create_remote_job(printer, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/api/printers/{printer_id}/remote/operations", response_model=RemoteOperationOverview)
+async def printer_remote_operations(
+    printer_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: RemoteOperationRepository = Depends(get_remote_operation_repository),
+) -> RemoteOperationOverview:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return repository.overview(printer)
+
+
+@router.post("/api/printers/{printer_id}/remote/operations/preflight", response_model=AgentJobRecord)
+async def create_printer_remote_operation_preflight(
+    printer_id: int,
+    payload: RemoteOperationPreflightRequest,
+    current: CurrentUser = Depends(require_current_user),
+    repository: RemoteOperationRepository = Depends(get_remote_operation_repository),
+) -> AgentJobRecord:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        return repository.create_preflight(printer, current.user, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/printers/{printer_id}/remote/operations/execute", response_model=AgentJobRecord)
+async def create_printer_remote_operation_execution(
+    printer_id: int,
+    payload: RemoteOperationExecuteRequest,
+    current: CurrentUser = Depends(require_current_user),
+    repository: RemoteOperationRepository = Depends(get_remote_operation_repository),
+) -> AgentJobRecord:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        return repository.create_execution(printer, current.user, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/printers/{printer_id}/remote/operations/jobs/{job_id}/cancel", response_model=RemoteOperationCancelResponse)
+async def cancel_printer_remote_operation_job(
+    printer_id: int,
+    job_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: RemoteOperationRepository = Depends(get_remote_operation_repository),
+) -> RemoteOperationCancelResponse:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        return repository.cancel_job(printer, job_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

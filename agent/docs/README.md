@@ -44,9 +44,11 @@ e deve ficar com permissão `0600`.
 ## Segurança
 
 - O agente só faz chamadas de saída para a API.
-- O agente só lê endpoints read-only do Moonraker.
-- O agente não envia G-code, não reinicia serviços, não aplica update, não faz
-  build e não faz flash.
+- O agente lê endpoints read-only do Moonraker por padrão.
+- O agente só envia G-code em jobs `remote_mutation_execute` criados após
+  preflight remoto, confirmação textual e expiração controlada pela API.
+- O agente não executa shell genérico, não reinicia serviços, não faz build e
+  não faz flash.
 - Logs passam por redaction de tokens `ptr_agent_*`, `ptr_pair_*` e `ptr_sess_*`.
 - A fila local é JSONL limitada e guarda payload compacto quando a API está
   indisponível.
@@ -104,6 +106,18 @@ O agente executa jobs read-only e dry-run enviados pela API:
 - `remote_operation_preview`
 - `remote_firmware_preview`
 
-Jobs mutáveis continuam bloqueados no backend até a camada de segurança remota.
 Antes de enviar resultados, o agente sanitiza campos sensíveis como `password`,
 `token`, `secret`, `credential` e `private_key`.
+
+## Operação remota segura
+
+Jobs mutáveis suportados:
+
+- `remote_mutation_preflight`: coleta estado Moonraker/Klipper, detecta impressão
+  em andamento e retorna `can_execute`.
+- `remote_mutation_execute`: reexecuta preflight no agente e envia somente o
+  `command_preview` aprovado para `/printer/gcode/script`.
+
+O agente bloqueia execução quando Moonraker está indisponível, Klipper/Klippy
+não estão `ready` ou há impressão em andamento. O rollback vem no payload do job
+e volta no resultado para auditoria.

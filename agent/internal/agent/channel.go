@@ -118,6 +118,16 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 	case "remote_audit", "remote_snapshot", "remote_health", "remote_temperatures", "remote_update_status", "remote_can_status", "remote_final_validation", "remote_report_sanitized", "remote_backup_preview", "remote_operation_preview", "remote_firmware_preview":
 		payload := r.Moonraker.RemotePayload(ctx, job.JobType)
 		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+	case "remote_mutation_preflight":
+		payload := r.Moonraker.RemoteMutationPreflight(ctx, job.Payload)
+		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+	case "remote_mutation_execute":
+		payload := r.Moonraker.RemoteMutationExecute(ctx, job.Payload)
+		if payload["status"] == "executed" {
+			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+		} else {
+			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
+		}
 	default:
 		_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: "unsupported job type", Result: map[string]any{"job_type": job.JobType}})
 	}
@@ -156,6 +166,7 @@ func helloPayload(r *Runner) map[string]any {
 		"capabilities": map[string]any{
 			"heartbeat":  true,
 			"snapshot":   true,
+			"mutation":   true,
 			"parity":     true,
 			"jobs":       true,
 			"websocket":  true,

@@ -190,6 +190,75 @@ func TestAgentHandlesRemoteReadOnlyJobWithSanitization(t *testing.T) {
 	}
 }
 
+func TestAgentHandlesRemoteMutationPreflightAndExecute(t *testing.T) {
+	var sawExecute bool
+	var sawResult bool
+	var jobServed bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/agent/jobs/next":
+			if jobServed {
+				_ = json.NewEncoder(w).Encode(AgentJobsResponse{ProtocolVersion: ProtocolVersion, Jobs: []AgentJob{}})
+				return
+			}
+			jobServed = true
+			_ = json.NewEncoder(w).Encode(AgentJobsResponse{
+				ProtocolVersion: ProtocolVersion,
+				Jobs: []AgentJob{{
+					ID:            12,
+					CorrelationID: "remote-execute-001",
+					JobType:       "remote_mutation_execute",
+					Payload:       map[string]any{"command_preview": []any{"M106 S64"}, "rollback_plan": []any{"M107"}},
+					Status:        "pending",
+				}},
+			})
+		case "/api/agent/jobs/12/ack":
+			w.WriteHeader(http.StatusOK)
+		case "/api/agent/jobs/12/result":
+			sawResult = true
+			var payload AgentJobResultPayload
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatal(err)
+			}
+			if payload.Result["status"] != "executed" {
+				t.Fatalf("unexpected execution result: %#v", payload.Result)
+			}
+			w.WriteHeader(http.StatusOK)
+		case "/server/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"klippy_state": "ready"}})
+		case "/printer/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"state": "ready"}})
+		case "/printer/objects/query":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"status": map[string]any{"print_stats": map[string]any{"state": "standby"}}}})
+		case "/printer/gcode/script":
+			sawExecute = true
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatal(err)
+			}
+			if body["script"] != "M106 S64" {
+				t.Fatalf("unexpected script: %#v", body)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": "ok"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	runner := &Runner{
+		Config:    DefaultConfig(),
+		API:       NewAPIClient(server.URL, "ptr_agent_test", time.Second),
+		Moonraker: NewMoonrakerClient(server.URL, time.Second),
+		Logger:    discardLogger(),
+	}
+	if err := runner.PollJobsOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !sawExecute || !sawResult {
+		t.Fatalf("expected execute and result, execute=%v result=%v", sawExecute, sawResult)
+	}
+}
+
 func TestWebSocketURLUsesSecureScheme(t *testing.T) {
 	got, err := websocketURL("https://printora.example.com/base")
 	if err != nil {

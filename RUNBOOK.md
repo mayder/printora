@@ -590,6 +590,46 @@ Segurança:
 - payload grande de backup real continua bloqueado até política própria;
 - operações mutáveis, build e flash remoto continuam bloqueados até o PKG-47.
 
+## Operação Segura Remota
+
+Fluxos:
+
+- matriz de operações: `GET /api/printers/{printer_id}/remote/operations`;
+- solicitar preflight: `POST /api/printers/{printer_id}/remote/operations/preflight`;
+- solicitar execução: `POST /api/printers/{printer_id}/remote/operations/execute`;
+- cancelar job pendente: `POST /api/printers/{printer_id}/remote/operations/jobs/{job_id}/cancel`;
+- execução do agente: `remote_mutation_preflight` e `remote_mutation_execute` via `agent_jobs`.
+
+Gates obrigatórios:
+
+- usuário autenticado com acesso à impressora por ownership ou organização;
+- agente ativo pareado com a impressora;
+- job de preflight remoto concluído com `can_execute=true`;
+- confirmação textual exata do preflight;
+- job ainda não expirado;
+- estado detectável sem impressão em andamento;
+- Klipper e Klippy em `ready` quando retornados pelo Moonraker.
+
+Política de job:
+
+- preflight expira em 10 minutos;
+- execução expira em 5 minutos;
+- jobs expirados não são entregues em `/api/agent/jobs/next`;
+- cancelamento é permitido para job pendente; job em progresso não é cancelado pelo servidor para não mascarar execução já recebida pelo agente.
+
+Auditoria:
+
+- `agent_jobs` guarda solicitação, confirmação, payload sanitizado, status, agente, resultado e erro;
+- `printer_agent_events` registra criação, ack, resultado, erro e cancelamento por impressora/agente;
+- detalhes de evento ficam truncados e não devem conter token, senha, chave ou payload sensível.
+
+Rollback:
+
+- a UI mostra rollback antes da confirmação;
+- para comandos de aquecimento, enviar alvo `0`;
+- para fan, enviar `M107` ou `SPEED=0`;
+- para comportamento inesperado de movimento/extrusão, usar Emergency Stop no Mainsail/Klipper e revalidar `printer/info`.
+
 Segurança:
 
 - senhas usam PBKDF2 e nunca são retornadas;

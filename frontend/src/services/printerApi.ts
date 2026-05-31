@@ -41,4 +41,19 @@ export const printerApi = {
   agentInstallPlan: (printerId: number) =>
     apiResponse(`/api/printers/${printerId}/agent/install-plan`, { method: "POST" }),
   agentInstallStatus: (printerId: number) => apiResponse(`/api/printers/${printerId}/agent/install-status`),
+  remoteOperations: (printerId: number) => apiResponse(`/api/printers/${printerId}/remote/operations`),
+  remoteOperationPreflight: (printerId: number, body: unknown) =>
+    apiResponse(`/api/printers/${printerId}/remote/operations/preflight`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  remoteOperationExecute: (printerId: number, body: unknown) =>
+    apiResponse(`/api/printers/${printerId}/remote/operations/execute`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  cancelRemoteOperationJob: (printerId: number, jobId: number) =>
+    apiResponse(`/api/printers/${printerId}/remote/operations/jobs/${jobId}/cancel`, { method: "POST" }),
 };

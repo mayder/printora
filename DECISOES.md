@@ -314,3 +314,16 @@ Impacto em testes: `backend/tests/test_agent_parity.py` cobre matriz, isolamento
 Impacto em rollback: baixo; remover rotas e jobs de paridade volta o cloud ao pareamento/canal remoto sem alterar schema.
 Como reverter: reverter arquivos do PKG-46; jobs já concluídos permanecem em `agent_jobs` como histórico seguro.
 Referencias: `backend/app/agent_parity.py`, `backend/app/routes/agents.py`, `backend/tests/test_agent_parity.py`, `agent/internal/agent/moonraker.go`, `agent/internal/agent/channel.go`.
+
+### DEC-20260531-06 - Operação remota mutável exige preflight e execução em jobs separados
+
+Status: aceita
+Data: 2026-05-31
+Contexto: operações mutáveis pelo agente podem mover, aquecer ou alterar estado da impressora fora da rede local. A execução não pode depender só de clique na UI nem de confiança implícita no agente.
+Decisao: separar toda operação remota mutável em dois jobs persistidos: `remote_mutation_preflight` e `remote_mutation_execute`. O servidor cria execução somente para usuário com acesso à impressora, com preflight concluído, confirmação textual única, job não expirado e resultado `can_execute=true`. O agente reexecuta preflight imediatamente antes de enviar G-code e usa apenas `/printer/gcode/script`, sem shell genérico.
+Alternativas consideradas: executar direto depois da confirmação na UI; reaproveitar jobs de paridade; permitir comando arbitrário no agente; criar tabela nova de auditoria.
+Consequencias: aumenta a latência operacional, mas reduz risco de ação remota fora de estado seguro. `agent_jobs` e `printer_agent_events` viram a trilha de auditoria principal sem aumentar schema.
+Impacto em testes: `backend/tests/test_remote_operations.py` cobre escopo, preflight, confirmação, bloqueio por impressão e cancelamento; `agent/internal/agent/agent_test.go` cobre preflight/execução remota sem shell.
+Impacto em rollback: baixo; remover rotas, módulo remoto, UI e handlers do agente volta as mutações remotas ao bloqueio do PKG-46. Jobs históricos permanecem como auditoria.
+Como reverter: reverter arquivos do PKG-47 e manter agentes instalados; eles passarão a responder `unsupported job type` se algum job antigo for reenviado.
+Referencias: `backend/app/remote_operations.py`, `backend/app/routes/agents.py`, `backend/tests/test_remote_operations.py`, `agent/internal/agent/moonraker.go`, `agent/internal/agent/channel.go`, `frontend/src/screens/PrintersScreen.tsx`.
