@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 import json
 from pathlib import Path
+from uuid import uuid4
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -13,7 +14,11 @@ from app.printers import PrinterRecord, PrinterRepository
 
 
 PAIRING_TOKEN_TTL = timedelta(minutes=15)
+AGENT_PROTOCOL_VERSION = 1
+AGENT_MAX_PAYLOAD_BYTES = 64 * 1024
 AgentStatus = Literal["active", "revoked"]
+AgentJobStatus = Literal["pending", "in_progress", "succeeded", "failed", "canceled"]
+AgentMessageType = Literal["hello", "heartbeat", "snapshot", "job", "ack", "nack", "result", "error", "backpressure"]
 
 
 class PairingTokenCreateRequest(BaseModel):
@@ -104,8 +109,51 @@ class AgentSnapshotRequest(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
+class AgentProtocolMessage(BaseModel):
+    protocol_version: int = AGENT_PROTOCOL_VERSION
+    message_type: AgentMessageType
+    correlation_id: str = Field(default_factory=lambda: f"msg_{uuid4().hex}", min_length=3, max_length=120)
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentJobCreateRequest(BaseModel):
+    job_type: str = Field(min_length=2, max_length=80)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    agent_id: int | None = None
+    correlation_id: str | None = Field(default=None, min_length=3, max_length=120)
+
+
+class AgentJobRecord(BaseModel):
+    id: int
+    printer_id: int
+    agent_id: int | None
+    correlation_id: str
+    job_type: str
+    payload: dict[str, Any]
+    status: AgentJobStatus
+    attempts: int
+    result: dict[str, Any] | None = None
+    error_message: str | None = None
+    created_at: str
+    updated_at: str
+    acked_at: str | None = None
+    finished_at: str | None = None
+
+
 class AgentJobResponse(BaseModel):
-    jobs: list[dict[str, Any]] = Field(default_factory=list)
+    protocol_version: int = AGENT_PROTOCOL_VERSION
+    jobs: list[AgentJobRecord] = Field(default_factory=list)
+
+
+class AgentJobResultRequest(BaseModel):
+    correlation_id: str = Field(min_length=3, max_length=120)
+    result: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentJobErrorRequest(BaseModel):
+    correlation_id: str = Field(min_length=3, max_length=120)
+    error_message: str = Field(min_length=1, max_length=500)
+    result: dict[str, Any] = Field(default_factory=dict)
 
 
 class AgentEventRecord(BaseModel):
@@ -361,6 +409,7 @@ class AgentPairingRepository:
         return AgentHeartbeatResponse(accepted=True, agent_id=agent.id, printer_id=agent.printer_id, status="active")
 
     def store_snapshot(self, agent: AgentRecord, request: AgentSnapshotRequest) -> AgentHeartbeatResponse:
+        _ensure_payload_size(request.payload)
         with connect_database(self.database_path) as connection:
             connection.execute(
                 "UPDATE printer_agents SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?",
@@ -368,6 +417,127 @@ class AgentPairingRepository:
             )
             self._record_event(connection, agent.printer_id, agent.id, "snapshot", "ok", _snapshot_summary(request.payload))
         return AgentHeartbeatResponse(accepted=True, agent_id=agent.id, printer_id=agent.printer_id, status="active")
+
+    def create_job(self, printer: PrinterRecord, request: AgentJobCreateRequest) -> AgentJobRecord:
+        _ensure_payload_size(request.payload)
+        correlation_id = request.correlation_id or f"job_{uuid4().hex}"
+        with connect_database(self.database_path) as connection:
+            if request.agent_id is not None:
+                agent_row = connection.execute(
+                    "SELECT id FROM printer_agents WHERE id = ? AND printer_id = ? AND status = 'active' AND revoked_at IS NULL",
+                    (request.agent_id, printer.id),
+                ).fetchone()
+                if agent_row is None:
+                    raise ValueError("agente não pertence à impressora")
+            try:
+                cursor = connection.execute(
+                    """
+                    INSERT INTO agent_jobs (printer_id, agent_id, correlation_id, job_type, payload_json)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (printer.id, request.agent_id, correlation_id, request.job_type, json.dumps(request.payload)),
+                )
+            except Exception as exc:
+                raise ValueError("correlation_id já usado") from exc
+            self._record_event(connection, printer.id, request.agent_id, "job_created", "pending", request.job_type)
+            row = connection.execute("SELECT * FROM agent_jobs WHERE id = ?", (int(cursor.lastrowid),)).fetchone()
+        return _job_from_row(row)
+
+    def next_jobs(self, agent: AgentRecord, limit: int = 5) -> AgentJobResponse:
+        clean_limit = max(1, min(limit, 20))
+        with connect_database(self.database_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM agent_jobs
+                WHERE printer_id = ?
+                  AND status = 'pending'
+                  AND (agent_id IS NULL OR agent_id = ?)
+                  AND available_at <= CURRENT_TIMESTAMP
+                  AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+                ORDER BY created_at, id
+                LIMIT ?
+                """,
+                (agent.printer_id, agent.id, clean_limit),
+            ).fetchall()
+        return AgentJobResponse(jobs=[_job_from_row(row) for row in rows])
+
+    def ack_job(self, agent: AgentRecord, job_id: int) -> AgentJobRecord | None:
+        with connect_database(self.database_path) as connection:
+            row = self._job_for_agent(connection, agent, job_id)
+            if row is None:
+                return None
+            if row["status"] == "pending":
+                connection.execute(
+                    """
+                    UPDATE agent_jobs
+                    SET status = 'in_progress', agent_id = ?, attempts = attempts + 1,
+                        acked_at = COALESCE(acked_at, CURRENT_TIMESTAMP), updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND status = 'pending'
+                    """,
+                    (agent.id, job_id),
+                )
+                self._record_event(connection, agent.printer_id, agent.id, "job_ack", "in_progress", str(row["correlation_id"]))
+            updated = connection.execute("SELECT * FROM agent_jobs WHERE id = ?", (job_id,)).fetchone()
+        return _job_from_row(updated)
+
+    def nack_job(self, agent: AgentRecord, job_id: int, reason: str = "nack") -> AgentJobRecord | None:
+        with connect_database(self.database_path) as connection:
+            row = self._job_for_agent(connection, agent, job_id)
+            if row is None:
+                return None
+            if row["status"] in {"pending", "in_progress"}:
+                connection.execute(
+                    """
+                    UPDATE agent_jobs
+                    SET status = 'pending', agent_id = NULL, error_message = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (_sanitize_detail(reason), job_id),
+                )
+                self._record_event(connection, agent.printer_id, agent.id, "job_nack", "pending", str(row["correlation_id"]))
+            updated = connection.execute("SELECT * FROM agent_jobs WHERE id = ?", (job_id,)).fetchone()
+        return _job_from_row(updated)
+
+    def finish_job(self, agent: AgentRecord, job_id: int, request: AgentJobResultRequest) -> AgentJobRecord | None:
+        _ensure_payload_size(request.result)
+        with connect_database(self.database_path) as connection:
+            row = self._job_for_agent(connection, agent, job_id, request.correlation_id)
+            if row is None:
+                return None
+            if row["status"] not in {"succeeded", "failed", "canceled"}:
+                connection.execute(
+                    """
+                    UPDATE agent_jobs
+                    SET status = 'succeeded', agent_id = ?, result_json = ?, error_message = NULL,
+                        finished_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (agent.id, json.dumps(request.result), job_id),
+                )
+                self._record_event(connection, agent.printer_id, agent.id, "job_result", "succeeded", request.correlation_id)
+            updated = connection.execute("SELECT * FROM agent_jobs WHERE id = ?", (job_id,)).fetchone()
+        return _job_from_row(updated)
+
+    def fail_job(self, agent: AgentRecord, job_id: int, request: AgentJobErrorRequest) -> AgentJobRecord | None:
+        _ensure_payload_size(request.result)
+        with connect_database(self.database_path) as connection:
+            row = self._job_for_agent(connection, agent, job_id, request.correlation_id)
+            if row is None:
+                return None
+            if row["status"] not in {"succeeded", "failed", "canceled"}:
+                connection.execute(
+                    """
+                    UPDATE agent_jobs
+                    SET status = 'failed', agent_id = ?, result_json = ?, error_message = ?,
+                        finished_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (agent.id, json.dumps(request.result), _sanitize_detail(request.error_message), job_id),
+                )
+                self._record_event(connection, agent.printer_id, agent.id, "job_error", "failed", request.correlation_id)
+            updated = connection.execute("SELECT * FROM agent_jobs WHERE id = ?", (job_id,)).fetchone()
+        return _job_from_row(updated)
 
     def list_events(self, printer_id: int, limit: int = 50) -> list[AgentEventRecord]:
         clean_limit = max(1, min(limit, 100))
@@ -383,6 +553,21 @@ class AgentPairingRepository:
                 (printer_id, clean_limit),
             ).fetchall()
         return [_event_from_row(row) for row in rows]
+
+    def _job_for_agent(self, connection, agent: AgentRecord, job_id: int, correlation_id: str | None = None):
+        parameters: tuple[Any, ...]
+        sql = """
+            SELECT *
+            FROM agent_jobs
+            WHERE id = ?
+              AND printer_id = ?
+              AND (agent_id IS NULL OR agent_id = ?)
+        """
+        parameters = (job_id, agent.printer_id, agent.id)
+        if correlation_id is not None:
+            sql += " AND correlation_id = ?"
+            parameters = (job_id, agent.printer_id, agent.id, correlation_id)
+        return connection.execute(sql, parameters).fetchone()
 
     def _record_event(self, connection, printer_id: int, agent_id: int | None, event_type: str, status: str, detail: str | None) -> None:
         connection.execute(
@@ -449,6 +634,30 @@ def _event_from_row(row) -> AgentEventRecord:
         detail=row["detail"],
         created_at=str(row["created_at"]),
     )
+
+
+def _job_from_row(row) -> AgentJobRecord:
+    return AgentJobRecord(
+        id=int(row["id"]),
+        printer_id=int(row["printer_id"]),
+        agent_id=int(row["agent_id"]) if row["agent_id"] is not None else None,
+        correlation_id=str(row["correlation_id"]),
+        job_type=str(row["job_type"]),
+        payload=json.loads(row["payload_json"] or "{}"),
+        status=row["status"],
+        attempts=int(row["attempts"]),
+        result=json.loads(row["result_json"]) if row["result_json"] else None,
+        error_message=row["error_message"],
+        created_at=str(row["created_at"]),
+        updated_at=str(row["updated_at"]),
+        acked_at=row["acked_at"],
+        finished_at=row["finished_at"],
+    )
+
+
+def _ensure_payload_size(payload: dict[str, Any]) -> None:
+    if len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) > AGENT_MAX_PAYLOAD_BYTES:
+        raise ValueError("payload excede o limite do protocolo do agente")
 
 
 def _snapshot_summary(payload: dict[str, Any]) -> str:

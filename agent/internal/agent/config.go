@@ -11,28 +11,35 @@ import (
 )
 
 const Version = "0.1.0"
+const ProtocolVersion = 1
 
 type Config struct {
-	APIBaseURL      string `json:"api_base_url"`
-	MoonrakerURL    string `json:"moonraker_url"`
-	CredentialFile  string `json:"credential_file"`
-	QueueFile       string `json:"queue_file"`
-	LogFile         string `json:"log_file"`
-	IntervalSeconds int    `json:"interval_seconds"`
-	TimeoutSeconds  int    `json:"timeout_seconds"`
+	APIBaseURL       string `json:"api_base_url"`
+	MoonrakerURL     string `json:"moonraker_url"`
+	CredentialFile   string `json:"credential_file"`
+	QueueFile        string `json:"queue_file"`
+	LogFile          string `json:"log_file"`
+	IntervalSeconds  int    `json:"interval_seconds"`
+	TimeoutSeconds   int    `json:"timeout_seconds"`
+	WebSocketEnabled bool   `json:"websocket_enabled"`
+	PollingEnabled   bool   `json:"polling_enabled"`
+	MaxPayloadBytes  int    `json:"max_payload_bytes"`
 }
 
 func DefaultConfig() Config {
 	home, _ := os.UserHomeDir()
 	base := filepath.Join(home, ".config", "printora-agent")
 	return Config{
-		APIBaseURL:      "https://printora.example.com",
-		MoonrakerURL:    "http://127.0.0.1:7125",
-		CredentialFile:  filepath.Join(base, "credential"),
-		QueueFile:       filepath.Join(base, "queue.jsonl"),
-		LogFile:         filepath.Join(base, "agent.log"),
-		IntervalSeconds: 10,
-		TimeoutSeconds:  5,
+		APIBaseURL:       "https://printora.example.com",
+		MoonrakerURL:     "http://127.0.0.1:7125",
+		CredentialFile:   filepath.Join(base, "credential"),
+		QueueFile:        filepath.Join(base, "queue.jsonl"),
+		LogFile:          filepath.Join(base, "agent.log"),
+		IntervalSeconds:  10,
+		TimeoutSeconds:   5,
+		WebSocketEnabled: true,
+		PollingEnabled:   true,
+		MaxPayloadBytes:  64 * 1024,
 	}
 }
 
@@ -59,6 +66,9 @@ func LoadConfig(path string) (Config, error) {
 	}
 	if cfg.TimeoutSeconds <= 0 {
 		cfg.TimeoutSeconds = 5
+	}
+	if cfg.MaxPayloadBytes <= 0 {
+		cfg.MaxPayloadBytes = 64 * 1024
 	}
 	return cfg, nil
 }

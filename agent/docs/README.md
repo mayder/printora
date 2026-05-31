@@ -23,7 +23,10 @@ O config é JSON e deve ficar com permissão `0600`.
   "queue_file": "/var/lib/printora-agent/queue.jsonl",
   "log_file": "/var/log/printora-agent/agent.log",
   "interval_seconds": 10,
-  "timeout_seconds": 5
+  "timeout_seconds": 5,
+  "websocket_enabled": true,
+  "polling_enabled": true,
+  "max_payload_bytes": 65536
 }
 ```
 
@@ -39,3 +42,14 @@ e deve ficar com permissão `0600`.
 - Logs passam por redaction de tokens `ptr_agent_*`, `ptr_pair_*` e `ptr_sess_*`.
 - A fila local é JSONL limitada e guarda payload compacto quando a API está
   indisponível.
+
+## Canal remoto
+
+O comando `run` tenta manter WebSocket outbound com `/api/agent/ws`. Se o canal
+falhar e `polling_enabled` estiver ativo, o agente usa polling HTTPS para buscar
+jobs e enviar `ack`, `result` ou `error`.
+
+Jobs suportados nesta etapa:
+
+- `ping`: responde com `pong`.
+- `snapshot`: coleta snapshot read-only compacto do Moonraker.

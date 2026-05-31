@@ -428,6 +428,14 @@ printora-agent -config /etc/printora-agent/config.json once
 printora-agent -config /etc/printora-agent/config.json run
 ```
 
+Canal remoto:
+
+- `run` usa WebSocket outbound em `/api/agent/ws` quando `websocket_enabled=true`;
+- se o WebSocket falhar e `polling_enabled=true`, o agente faz fallback HTTPS em `/api/agent/jobs/next`;
+- jobs suportados nesta etapa: `ping` e `snapshot`;
+- cada job usa `correlation_id` e resultado idempotente;
+- payloads acima de 64 KB são rejeitados pelo backend.
+
 Serviço systemd:
 
 ```bash
@@ -445,6 +453,12 @@ Segurança:
 - credencial operacional fica em arquivo separado com permissão `0600`;
 - logs passam por redaction de tokens;
 - fila local JSONL é limitada e guarda payload compacto quando a API está indisponível.
+
+Rollback PKG-43:
+
+- reverter os arquivos do PKG-43;
+- se `backend/sql/030_agent_channel.sql` já tiver sido aplicado e a tabela não puder permanecer, restaurar o backup `printora.<timestamp>.before-schema.db` criado antes da aplicação do schema;
+- no host real, definir `"websocket_enabled": false` mantém o agente no ciclo HTTP/polling enquanto o backend é revertido.
 
 Segurança:
 

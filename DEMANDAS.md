@@ -2853,7 +2853,18 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado em 2026-05-31.
+
+Implementado:
+
+- contrato versionado v1 com `hello`, `heartbeat`, `snapshot`, `job`, `ack`, `nack`, `result`, `error` e `backpressure`;
+- WebSocket autenticado em `/api/agent/ws` com credencial operacional do agente;
+- jobs persistidos em `agent_jobs`, sempre vinculados a `printer_id` e opcionalmente a `agent_id`;
+- fallback HTTPS em `/api/agent/jobs/next`, `/ack`, `/nack`, `/result` e `/error`;
+- correlation ID único por job, idempotência de resultado concluído e limite de payload de 64 KB;
+- agente Go com WebSocket primário, backoff, fallback polling e execução segura de jobs `ping` e `snapshot`;
+- testes backend de isolamento, WebSocket, versão incompatível e idempotência;
+- testes Go de polling, ack/result, URL WebSocket segura e contrato HTTP.
 
 ## PKG-43: Canal Remoto Agente-Servidor
 

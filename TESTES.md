@@ -769,6 +769,21 @@ Critérios:
 - Testes automatizados focados: `cd agent && go test ./...`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-43 - Canal Remoto Agente-Servidor
+
+- Validar que `backend/sql/030_agent_channel.sql` cria `agent_jobs` com correlation ID único e índices por impressora/agente/status.
+- Validar que `GET /api/agent/jobs/next` retorna apenas jobs da impressora do agente autenticado.
+- Validar que agente de outra impressora não lista, ack, nack, conclui ou falha job alheio.
+- Validar WebSocket `/api/agent/ws` com `Authorization: Bearer <credencial>` e fechamento para credencial inválida.
+- Validar mensagens v1: `hello`, `heartbeat`, `snapshot`, `job`, `ack`, `nack`, `result`, `error` e `backpressure`.
+- Validar rejeição de versão incompatível com erro explícito.
+- Validar que resultado repetido de job já concluído permanece idempotente e não duplica execução.
+- Validar limite de payload de 64 KB para criação e resultado.
+- Validar que logs/eventos não persistem payload completo nem segredos, apenas tipo/status/correlation ID.
+- Validar fallback polling do agente quando WebSocket falhar.
+- Testes automatizados focados: `cd backend && uv run pytest tests/test_agent_channel.py tests/test_agent_pairing.py -q` e `cd agent && go test ./...`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

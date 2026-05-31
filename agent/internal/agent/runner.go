@@ -53,11 +53,19 @@ func (r *Runner) RunOnce(ctx context.Context) error {
 }
 
 func (r *Runner) Run(ctx context.Context) error {
+	if r.Config.WebSocketEnabled {
+		return r.RunChannel(ctx)
+	}
 	ticker := time.NewTicker(time.Duration(r.Config.IntervalSeconds) * time.Second)
 	defer ticker.Stop()
 	for {
 		if err := r.RunOnce(ctx); err != nil {
 			r.Logger.Printf("cycle failed: %v", err)
+		}
+		if r.Config.PollingEnabled {
+			if err := r.PollJobsOnce(ctx); err != nil {
+				r.Logger.Printf("polling failed: %v", err)
+			}
 		}
 		select {
 		case <-ctx.Done():

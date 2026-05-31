@@ -262,3 +262,16 @@ Impacto em testes: `agent/internal/agent/agent_test.go` cobre redaction, permiss
 Impacto em rollback: baixo; remover o agente exige reverter `agent/`, entradas em `PATHS.toml`, `check.sh` e docs. No host real, parar/remover o serviço systemd e o binário.
 Como reverter: `sudo systemctl disable --now printora-agent`, remover `/usr/local/bin/printora-agent` e restaurar commit anterior ao PKG-42.
 Referencias: `agent/cmd/printora-agent/main.go`, `agent/internal/agent`, `agent/systemd/printora-agent.service`, `agent/docs/README.md`.
+
+### DEC-20260531-02 - Canal remoto usa WebSocket primario e polling de fallback
+
+Status: aceita
+Data: 2026-05-31
+Contexto: o agente precisa receber comandos rápidos da aplicação web sem abrir portas no host Klipper e sem depender de conectividade WebSocket perfeita em todas as redes.
+Decisao: implementar protocolo v1 sobre WebSocket outbound autenticado por credencial operacional do agente, com fallback HTTPS por polling. Jobs ficam persistidos em `agent_jobs`, sempre vinculados a `printer_id` e opcionalmente a `agent_id`, com `correlation_id` único, ack/nack/result/error, limite de payload de 64 KB e resultado idempotente.
+Alternativas consideradas: manter apenas polling; abrir socket raw; abrir porta inbound no agente; executar jobs sem persistência.
+Consequencias: a latência normal fica baixa por WebSocket e ambientes restritos continuam funcionando por HTTPS. O servidor preserva isolamento por impressora e o agente continua outbound/read-only nesta etapa, aceitando apenas jobs seguros `ping` e `snapshot`.
+Impacto em testes: `backend/tests/test_agent_channel.py` cobre isolamento, WebSocket, versão incompatível e idempotência; `agent/internal/agent/agent_test.go` cobre polling, ack/result e URL WebSocket segura.
+Impacto em rollback: médio; remover exige reverter rotas, serviço de jobs, agente e SQL `030_agent_channel.sql`, ou restaurar backup do banco anterior ao schema se a tabela não puder permanecer.
+Como reverter: reverter arquivos do PKG-43, desativar WebSocket no config do agente com `"websocket_enabled": false` durante transição e restaurar `printora.<timestamp>.before-schema.db` se necessário.
+Referencias: `backend/app/agent_pairing.py`, `backend/app/routes/agents.py`, `backend/sql/030_agent_channel.sql`, `backend/tests/test_agent_channel.py`, `agent/internal/agent/channel.go`, `agent/internal/agent/api.go`.

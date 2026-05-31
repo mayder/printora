@@ -1,17 +1,23 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
 
 from app.agent_pairing import (
     AgentExchangeRequest,
     AgentHeartbeatRequest,
     AgentHeartbeatResponse,
+    AgentJobCreateRequest,
+    AgentJobErrorRequest,
+    AgentJobRecord,
+    AgentJobResultRequest,
     AgentJobResponse,
     AgentPairingOverview,
     AgentPairingRepository,
+    AgentProtocolMessage,
     AgentSnapshotRequest,
     AgentCredentialExchangeResponse,
     AgentRecord,
+    AGENT_PROTOCOL_VERSION,
     PairingTokenCreateRequest,
     PairingTokenRecord,
     PairingTokenResponse,
@@ -148,9 +154,200 @@ async def agent_snapshot(
     agent: AgentRecord = Depends(require_agent),
     repository: AgentPairingRepository = Depends(get_pairing_repository),
 ) -> AgentHeartbeatResponse:
-    return repository.store_snapshot(agent, payload)
+    try:
+        return repository.store_snapshot(agent, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
 
 
 @router.get("/api/agent/jobs/next", response_model=AgentJobResponse)
-async def agent_next_jobs(agent: AgentRecord = Depends(require_agent)) -> AgentJobResponse:
-    return AgentJobResponse(jobs=[])
+async def agent_next_jobs(
+    limit: int = Query(default=5, ge=1, le=20),
+    agent: AgentRecord = Depends(require_agent),
+    repository: AgentPairingRepository = Depends(get_pairing_repository),
+) -> AgentJobResponse:
+    return repository.next_jobs(agent, limit)
+
+
+@router.post("/api/printers/{printer_id}/agent/jobs", response_model=AgentJobRecord)
+async def create_printer_agent_job(
+    printer_id: int,
+    payload: AgentJobCreateRequest,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AgentPairingRepository = Depends(get_pairing_repository),
+) -> AgentJobRecord:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        return repository.create_job(printer, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/agent/jobs/{job_id}/ack", response_model=AgentJobRecord)
+async def agent_ack_job(
+    job_id: int,
+    agent: AgentRecord = Depends(require_agent),
+    repository: AgentPairingRepository = Depends(get_pairing_repository),
+) -> AgentJobRecord:
+    job = repository.ack_job(agent, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    return job
+
+
+@router.post("/api/agent/jobs/{job_id}/nack", response_model=AgentJobRecord)
+async def agent_nack_job(
+    job_id: int,
+    payload: AgentJobErrorRequest,
+    agent: AgentRecord = Depends(require_agent),
+    repository: AgentPairingRepository = Depends(get_pairing_repository),
+) -> AgentJobRecord:
+    job = repository.nack_job(agent, job_id, payload.error_message)
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    return job
+
+
+@router.post("/api/agent/jobs/{job_id}/result", response_model=AgentJobRecord)
+async def agent_job_result(
+    job_id: int,
+    payload: AgentJobResultRequest,
+    agent: AgentRecord = Depends(require_agent),
+    repository: AgentPairingRepository = Depends(get_pairing_repository),
+) -> AgentJobRecord:
+    try:
+        job = repository.finish_job(agent, job_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    return job
+
+
+@router.post("/api/agent/jobs/{job_id}/error", response_model=AgentJobRecord)
+async def agent_job_error(
+    job_id: int,
+    payload: AgentJobErrorRequest,
+    agent: AgentRecord = Depends(require_agent),
+    repository: AgentPairingRepository = Depends(get_pairing_repository),
+) -> AgentJobRecord:
+    try:
+        job = repository.fail_job(agent, job_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    return job
+
+
+@router.websocket("/api/agent/ws")
+async def agent_websocket(websocket: WebSocket) -> None:
+    repository = get_pairing_repository(get_settings())
+    credential = _websocket_credential(websocket)
+    agent = repository.authenticate_agent(credential) if credential else None
+    if agent is None:
+        await websocket.close(code=1008)
+        return
+    await websocket.accept()
+    try:
+        await websocket.send_json(_message("hello", {"protocol_version": AGENT_PROTOCOL_VERSION}))
+        while True:
+            raw = await websocket.receive_json()
+            message = AgentProtocolMessage.model_validate(raw)
+            if message.protocol_version != AGENT_PROTOCOL_VERSION:
+                await websocket.send_json(_message("error", {"reason": "protocol_version_incompatible"}, message.correlation_id))
+                await websocket.close(code=1003)
+                return
+            response = _handle_agent_message(repository, agent, message)
+            await websocket.send_json(response)
+            if message.message_type in {"hello", "heartbeat", "backpressure"}:
+                for job in repository.next_jobs(agent, 10).jobs:
+                    await websocket.send_json(_job_message(job))
+    except WebSocketDisconnect:
+        return
+    except Exception as exc:
+        await websocket.send_json(_message("error", {"reason": str(exc)[:160]}))
+
+
+def _websocket_credential(websocket: WebSocket) -> str | None:
+    authorization = websocket.headers.get("authorization")
+    if authorization:
+        scheme, _, credential = authorization.partition(" ")
+        if scheme.lower() == "bearer" and credential:
+            return credential.strip()
+    return None
+
+
+def _handle_agent_message(repository: AgentPairingRepository, agent: AgentRecord, message: AgentProtocolMessage) -> dict:
+    if message.message_type == "hello":
+        payload = message.payload
+        repository.heartbeat(
+            agent,
+            AgentHeartbeatRequest(
+                agent_version=payload.get("agent_version"),
+                platform=payload.get("platform"),
+                capabilities=payload.get("capabilities") or {},
+            ),
+        )
+        return _message("ack", {"message_type": "hello"}, message.correlation_id)
+    if message.message_type == "heartbeat":
+        repository.heartbeat(agent, AgentHeartbeatRequest.model_validate(message.payload))
+        return _message("ack", {"message_type": "heartbeat"}, message.correlation_id)
+    if message.message_type == "snapshot":
+        repository.store_snapshot(agent, AgentSnapshotRequest(payload=message.payload.get("payload") or message.payload))
+        return _message("ack", {"message_type": "snapshot"}, message.correlation_id)
+    if message.message_type == "ack":
+        job = repository.ack_job(agent, int(message.payload["job_id"]))
+        if job is None:
+            return _message("error", {"reason": "job not found"}, message.correlation_id)
+        return _message("ack", {"job_id": job.id}, message.correlation_id)
+    if message.message_type == "nack":
+        job = repository.nack_job(agent, int(message.payload["job_id"]), str(message.payload.get("reason") or "nack"))
+        if job is None:
+            return _message("error", {"reason": "job not found"}, message.correlation_id)
+        return _message("ack", {"job_id": job.id}, message.correlation_id)
+    if message.message_type == "result":
+        request = AgentJobResultRequest(correlation_id=str(message.payload["correlation_id"]), result=message.payload.get("result") or {})
+        job = repository.finish_job(agent, int(message.payload["job_id"]), request)
+        if job is None:
+            return _message("error", {"reason": "job not found"}, message.correlation_id)
+        return _message("ack", {"job_id": job.id, "status": job.status}, message.correlation_id)
+    if message.message_type == "error":
+        request = AgentJobErrorRequest(
+            correlation_id=str(message.payload["correlation_id"]),
+            error_message=str(message.payload.get("error_message") or "agent error"),
+            result=message.payload.get("result") or {},
+        )
+        job = repository.fail_job(agent, int(message.payload["job_id"]), request)
+        if job is None:
+            return _message("error", {"reason": "job not found"}, message.correlation_id)
+        return _message("ack", {"job_id": job.id, "status": job.status}, message.correlation_id)
+    if message.message_type == "backpressure":
+        return _message("ack", {"message_type": "backpressure"}, message.correlation_id)
+    return _message("error", {"reason": "message_type inválido"}, message.correlation_id)
+
+
+def _message(message_type: str, payload: dict, correlation_id: str | None = None) -> dict:
+    return {
+        "protocol_version": AGENT_PROTOCOL_VERSION,
+        "message_type": message_type,
+        "correlation_id": correlation_id or "server",
+        "payload": payload,
+    }
+
+
+def _job_message(job: AgentJobRecord) -> dict:
+    return _message(
+        "job",
+        {
+            "job_id": job.id,
+            "correlation_id": job.correlation_id,
+            "job_type": job.job_type,
+            "payload": job.payload,
+            "attempts": job.attempts,
+        },
+        job.correlation_id,
+    )
