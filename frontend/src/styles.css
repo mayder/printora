@@ -1279,6 +1279,7 @@ label {
   grid-template-columns: 34px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
+  min-width: 0;
   border: 1px solid var(--border-soft);
   border-radius: 6px;
   padding: 12px;
@@ -1304,13 +1305,19 @@ label {
 
 .badge-text span {
   display: block;
+  min-width: 0;
   color: var(--muted);
   font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .badge-text strong {
+  display: block;
+  min-width: 0;
   font-size: 20px;
-  overflow-wrap: break-word;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .panel-operation .badge-text strong {
