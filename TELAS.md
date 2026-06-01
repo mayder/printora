@@ -35,7 +35,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Componentes reutilizados ficam em `frontend/src/components`.
 - O menu lateral principal mostra somente telas globais, que nao dependem de uma impressora selecionada: `overview`, `printers`, `agents`, `setup` e `settings`.
 - Telas operacionais de impressora nao aparecem no menu lateral; elas ficam como abas internas de `printer-detail`, aberto a partir da lista de impressoras.
-- O seletor de impressora da topbar e o rodape lateral sao apenas contexto rapido. Eles nao definem a arquitetura de navegacao nem tornam o menu dependente de impressora.
+- O seletor de impressora da topbar e o rodape lateral sao apenas contexto rapido. Eles nao definem a arquitetura de navegacao nem tornam o menu dependente de impressora; abrir o detalhe de uma impressora nao deve trocar esse contexto rapido.
 - A topbar e fixa/sticky e deve conter apenas controles globais: titulo da area atual, alertas da frota, Sobre, tema claro/escuro e conta do usuario no extremo direito.
 - A topbar nao deve conter seletor de impressora nem acoes especificas de tela como adicionar impressora, snapshot, instalacao ou reanalise. Essas acoes ficam no corpo da tela/aba correspondente.
 - A Central de alertas aberta pela topbar e da frota. Ela usa leitura consolidada por impressora, independente do contexto rapido/registro aberto, e deve permitir filtrar por impressora, mostrar a impressora de origem em cada alerta e abrir a impressora afetada quando o alerta pertencer a um registro especifico.

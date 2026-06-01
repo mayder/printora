@@ -152,6 +152,7 @@ export function usePrintoraApp() {
   });
   const [toasts, setToasts] = React.useState<ToastRecord[]>([]);
   const [printerDetailTab, setPrinterDetailTab] = React.useState<PrinterDetailTab>("summary");
+  const [detailPrinterId, setDetailPrinterId] = React.useState<number | null>(null);
   const [selectedAgentId, setSelectedAgentId] = React.useState<number | null>(null);
   const [fleetAlertContexts, setFleetAlertContexts] = React.useState<Record<number, FleetAlertContext>>({});
   const confirmResolverRef = React.useRef<((confirmed: boolean) => void) | null>(null);
@@ -270,7 +271,7 @@ export function usePrintoraApp() {
       ...currentContexts,
       [printerId]: context,
     }));
-    if (printerId === printers.selectedPrinterId) {
+    if (printerId === contextPrinterId) {
       void Promise.allSettled([
         settings.loadPrinterChecklist(printerId),
         operation.loadOperationStatus(printerId, { preserveData: true }),
@@ -308,35 +309,43 @@ export function usePrintoraApp() {
     showToast,
   });
   const auth = useAuth({ setError, setLoading });
+  const contextPrinterId = detailPrinterId ?? printers.selectedPrinterId;
+  const contextPrinter = printers.printers.find((printer) => printer.id === contextPrinterId);
 
-  settings = useSettings({ selectedPrinterId: printers.selectedPrinterId, setError, setLoading });
-  const printerAvailability = getPrinterAvailability(printers.selectedPrinterId, settings.health);
+  settings = useSettings({ selectedPrinterId: contextPrinterId, setError, setLoading });
+  const printerAvailability = getPrinterAvailability(contextPrinterId, settings.health);
   const shell = useAppShell(printerAvailability);
+  function setActiveSection(section: Parameters<typeof shell.setActiveSection>[0]) {
+    if (section !== "printer-detail" && section !== "agent-detail") {
+      setDetailPrinterId(null);
+    }
+    shell.setActiveSection(section);
+  }
   operation = useOperation({
-    selectedPrinterId: printers.selectedPrinterId,
-    setActiveSection: shell.setActiveSection,
+    selectedPrinterId: contextPrinterId,
+    setActiveSection,
     setError,
     setLoading,
   });
   reports = useReports({
-    selectedPrinterId: printers.selectedPrinterId,
+    selectedPrinterId: contextPrinterId,
     loadPrinterHealth: settings.loadPrinterHealth,
     setError,
     setLoading,
   });
-  maintenance = useMaintenance({ selectedPrinterId: printers.selectedPrinterId, setError, setLoading });
-  calibration = useCalibration({ selectedPrinterId: printers.selectedPrinterId, setError, setLoading });
-  firmware = useFirmware({ selectedPrinterId: printers.selectedPrinterId, setError, setLoading });
+  maintenance = useMaintenance({ selectedPrinterId: contextPrinterId, setError, setLoading });
+  calibration = useCalibration({ selectedPrinterId: contextPrinterId, setError, setLoading });
+  firmware = useFirmware({ selectedPrinterId: contextPrinterId, setError, setLoading });
   setup = useSetup({ setError, setLoading });
   const selfUpdate = useSelfUpdate();
   updates = useUpdates({
-    selectedPrinter: printers.selectedPrinter,
-    selectedPrinterId: printers.selectedPrinterId,
+    selectedPrinter: contextPrinter,
+    selectedPrinterId: contextPrinterId,
     loadOperationStatus: operation.loadOperationStatus,
     loadPrinterAudit: settings.loadPrinterAudit,
     loadPrinterChecklist: settings.loadPrinterChecklist,
     loadPrinterHealth: settings.loadPrinterHealth,
-    setActiveSection: shell.setActiveSection,
+    setActiveSection,
     setAlertCenterOpen: shell.setAlertCenterOpen,
     confirmAction,
     showToast,
@@ -344,29 +353,23 @@ export function usePrintoraApp() {
     setLoading,
   });
 
-  function openPrinterDetail(printerId = printers.selectedPrinterId, tab: PrinterDetailTab = "summary") {
+  function openPrinterDetail(printerId = contextPrinterId, tab: PrinterDetailTab = "summary") {
     if (!printerId) {
-      shell.setActiveSection("printers");
+      setActiveSection("printers");
       return;
     }
     setPrinterDetailTab(tab);
-    if (printerId !== printers.selectedPrinterId) {
-      printers.selectPrinter(printerId);
-    } else {
-      void loadPrinterContext(printerId);
-    }
+    setDetailPrinterId(printerId);
+    void loadPrinterContext(printerId);
     shell.setActiveSection("printer-detail");
   }
 
   function openAgentDetail(printerId: number, agentId: number) {
     setSelectedAgentId(agentId);
-    if (printerId !== printers.selectedPrinterId) {
-      printers.selectPrinter(printerId);
-    } else {
-      void printers.loadPrinterPairing(printerId);
-      void printers.loadAgentSupport(printerId);
-      void printers.loadAgentInstallStatus(printerId);
-    }
+    setDetailPrinterId(printerId);
+    void printers.loadPrinterPairing(printerId);
+    void printers.loadAgentSupport(printerId);
+    void printers.loadAgentInstallStatus(printerId);
     shell.setActiveSection("agent-detail");
   }
 
@@ -402,13 +405,13 @@ export function usePrintoraApp() {
       return;
     }
     const testsActive = shell.activeSection === "tests" || (shell.activeSection === "printer-detail" && printerDetailTab === "tests");
-    if (!printers.selectedPrinterId || !testsActive) {
+    if (!contextPrinterId || !testsActive) {
       return;
     }
-    void calibration.loadCalibrationTests(printers.selectedPrinterId);
-    void calibration.loadCalibrationRuns(printers.selectedPrinterId);
-    void calibration.loadZOffsets(printers.selectedPrinterId);
-  }, [auth.authUser, shell.activeSection, printers.selectedPrinterId]);
+    void calibration.loadCalibrationTests(contextPrinterId);
+    void calibration.loadCalibrationRuns(contextPrinterId);
+    void calibration.loadZOffsets(contextPrinterId);
+  }, [auth.authUser, shell.activeSection, contextPrinterId]);
 
   React.useEffect(() => {
     if (!auth.authUser) {
@@ -418,9 +421,9 @@ export function usePrintoraApp() {
     if (shell.activeSection === "settings" && isPlatformAdmin && !selfUpdate.systemReleases && !selfUpdate.releaseLoading) {
       void selfUpdate.loadSystemReleases();
     }
-    if ((shell.activeSection === "reports" || (shell.activeSection === "printer-detail" && printerDetailTab === "reports")) && printers.selectedPrinterId) {
-      void settings.loadPrinterNetworkDiagnostics(printers.selectedPrinterId);
-      void settings.loadCanRecords(printers.selectedPrinterId);
+    if ((shell.activeSection === "reports" || (shell.activeSection === "printer-detail" && printerDetailTab === "reports")) && contextPrinterId) {
+      void settings.loadPrinterNetworkDiagnostics(contextPrinterId);
+      void settings.loadCanRecords(contextPrinterId);
     }
     if (shell.activeSection === "setup") {
       void setup.loadSetupHistory();
@@ -435,43 +438,43 @@ export function usePrintoraApp() {
     if (shell.activeSection === "agents" || (shell.activeSection === "printer-detail" && printerDetailTab === "agents") || shell.activeSection === "agent-detail") {
       void printers.loadFleetAgentPairings();
       void printers.loadAgentUpdateManifest();
-      if (printers.selectedPrinterId) {
-        void printers.loadPrinterPairing(printers.selectedPrinterId);
-        void printers.loadAgentSupport(printers.selectedPrinterId);
+      if (contextPrinterId) {
+        void printers.loadPrinterPairing(contextPrinterId);
+        void printers.loadAgentSupport(contextPrinterId);
       }
     }
-  }, [auth.authUser, shell.activeSection, printerDetailTab, printers.selectedPrinterId]);
+  }, [auth.authUser, shell.activeSection, printerDetailTab, contextPrinterId]);
 
   React.useEffect(() => {
     if (!auth.authUser) {
       return;
     }
     const operationActive = shell.activeSection === "monitoring" || (shell.activeSection === "printer-detail" && printerDetailTab === "operation");
-    if (!printers.selectedPrinterId || !operationActive) {
+    if (!contextPrinterId || !operationActive) {
       return;
     }
-    void operation.loadOperationStatus(printers.selectedPrinterId, { preserveData: true });
+    void operation.loadOperationStatus(contextPrinterId, { preserveData: true });
     const refreshId = window.setInterval(() => {
-      void operation.loadOperationStatus(printers.selectedPrinterId!, { preserveData: true });
-      void settings.loadPrinterHealth(printers.selectedPrinterId!);
-      void settings.loadCanRecords(printers.selectedPrinterId!);
+      void operation.loadOperationStatus(contextPrinterId!, { preserveData: true });
+      void settings.loadPrinterHealth(contextPrinterId!);
+      void settings.loadCanRecords(contextPrinterId!);
     }, 5000);
     return () => window.clearInterval(refreshId);
-  }, [auth.authUser, shell.activeSection, printerDetailTab, printers.selectedPrinterId]);
+  }, [auth.authUser, shell.activeSection, printerDetailTab, contextPrinterId]);
 
   React.useEffect(() => {
     if (!auth.authUser) {
       return;
     }
-    if (!printers.selectedPrinterId || printerAvailability !== "offline") {
+    if (!contextPrinterId || printerAvailability !== "offline") {
       return;
     }
     const refreshId = window.setInterval(() => {
-      void operation.loadOperationStatus(printers.selectedPrinterId!, { preserveData: true });
-      void settings.loadPrinterHealth(printers.selectedPrinterId!);
+      void operation.loadOperationStatus(contextPrinterId!, { preserveData: true });
+      void settings.loadPrinterHealth(contextPrinterId!);
     }, 60000);
     return () => window.clearInterval(refreshId);
-  }, [auth.authUser, printerAvailability, printers.selectedPrinterId]);
+  }, [auth.authUser, printerAvailability, contextPrinterId]);
 
   React.useEffect(() => {
     if (!auth.authUser) {
@@ -511,8 +514,8 @@ export function usePrintoraApp() {
   const alertCount = alertCenterItems.length;
   const alertBlockerCount = alertCenterItems.filter((item) => item.severity === "blocker").length;
   const alertWarningCount = alertCenterItems.filter((item) => item.severity === "warning").length;
-  const selectedPrinterRiskItems = printers.selectedPrinterId
-    ? alertCenterItems.filter((item) => item.printerId === printers.selectedPrinterId)
+  const selectedPrinterRiskItems = contextPrinterId
+    ? alertCenterItems.filter((item) => item.printerId === contextPrinterId)
     : alertCenterItems;
   const primaryRiskItem =
     selectedPrinterRiskItems.find((item) => item.severity === "blocker") ??
@@ -542,17 +545,17 @@ export function usePrintoraApp() {
       return { icon: Plus, label: "Adicionar", disabled: loading, busy: false, run: printers.openCreatePrinterModal };
     }
     if (shell.activeSection === "reports") {
-      return { icon: Camera, label: "Snapshot", disabled: !printers.selectedPrinterId || loading, busy: loading, run: reports.captureSnapshot };
+      return { icon: Camera, label: "Snapshot", disabled: !contextPrinterId || loading, busy: loading, run: reports.captureSnapshot };
     }
     if (shell.activeSection === "printer-detail") {
       if (printerDetailTab === "reports") {
-        return { icon: Camera, label: "Snapshot", disabled: !printers.selectedPrinterId || loading, busy: loading, run: reports.captureSnapshot };
+        return { icon: Camera, label: "Snapshot", disabled: !contextPrinterId || loading, busy: loading, run: reports.captureSnapshot };
       }
       if (printerDetailTab === "updates") {
         return {
           icon: RefreshCw,
           label: "Reanalisar",
-          disabled: !printers.selectedPrinterId || loading || Boolean(updates.updateStatus?.busy),
+          disabled: !contextPrinterId || loading || Boolean(updates.updateStatus?.busy),
           busy: loading || Boolean(updates.updateStatus?.busy),
           run: () => updates.refreshUpdateStatus(),
         };
@@ -561,7 +564,7 @@ export function usePrintoraApp() {
         return {
           icon: ClipboardCheck,
           label: "Instalação",
-          disabled: !printers.selectedPrinterId || loading,
+          disabled: !contextPrinterId || loading,
           busy: loading,
           run: () => printers.createAgentInstallPlan(),
         };
@@ -569,16 +572,16 @@ export function usePrintoraApp() {
       return {
         icon: RefreshCw,
         label: loading ? "Atualizando" : "Atualizar",
-        disabled: !printers.selectedPrinterId || loading,
+        disabled: !contextPrinterId || loading,
         busy: loading,
-        run: () => printers.loadSelectedPrinterStatus(),
+        run: () => printers.loadPrinterStatus(contextPrinterId),
       };
     }
     if (shell.activeSection === "updates") {
       return {
         icon: RefreshCw,
         label: "Reanalisar",
-        disabled: !printers.selectedPrinterId || loading || Boolean(updates.updateStatus?.busy),
+        disabled: !contextPrinterId || loading || Boolean(updates.updateStatus?.busy),
         busy: loading || Boolean(updates.updateStatus?.busy),
         run: () => updates.refreshUpdateStatus(),
       };
@@ -586,10 +589,10 @@ export function usePrintoraApp() {
     if (shell.activeSection === "settings") {
       return {
         icon: Settings,
-        label: printers.selectedPrinter ? "Editar" : "Adicionar",
+        label: contextPrinter ? "Editar" : "Adicionar",
         disabled: loading,
         busy: false,
-        run: () => (printers.selectedPrinter ? printers.openEditPrinterModal(printers.selectedPrinter) : printers.openCreatePrinterModal()),
+        run: () => (contextPrinter ? printers.openEditPrinterModal(contextPrinter) : printers.openCreatePrinterModal()),
       };
     }
     if (shell.activeSection === "setup") {
@@ -619,9 +622,9 @@ export function usePrintoraApp() {
     return {
       icon: RefreshCw,
       label: loading ? "Atualizando" : "Atualizar",
-      disabled: loading || (!printers.selectedPrinterId && shell.activeSection !== "overview"),
+      disabled: loading || (!contextPrinterId && shell.activeSection !== "overview"),
       busy: loading,
-      run: () => (printers.selectedPrinterId ? printers.loadSelectedPrinterStatus() : loadStatus()),
+      run: () => (contextPrinterId ? printers.loadPrinterStatus(contextPrinterId) : loadStatus()),
     };
   })();
   const TopbarPrimaryIcon = topbarPrimaryAction.icon;
@@ -715,6 +718,9 @@ export function usePrintoraApp() {
     riskLabel,
     resolveConfirmDialog,
     setError,
+    selectedPrinter: contextPrinter,
+    selectedPrinterId: contextPrinterId,
+    setActiveSection,
     setPrinterDetailTab,
     selectedAgentId,
     setSelectedAgentId,
@@ -740,7 +746,7 @@ export function usePrintoraApp() {
     selectPrinter: printers.selectPrinter,
     selectedPrinter: printers.selectedPrinter,
     selectedPrinterId: printers.selectedPrinterId,
-    setActiveSection: shell.setActiveSection,
+    setActiveSection,
     setAlertCenterOpen: shell.setAlertCenterOpen,
     setMobileNavOpen: shell.setMobileNavOpen,
     setTheme: shell.setTheme,
