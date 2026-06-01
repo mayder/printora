@@ -47,8 +47,6 @@ type AgentFleetRow = {
   printer: PrinterRecord;
 };
 
-const manualAgentUpdateCommand = "sudo printora-agent -config /etc/printora-agent/config.json update-check";
-
 export function AgentDetailScreen(props: AgentDetailScreenProps) {
   const {
     AlertTriangle,
@@ -92,7 +90,6 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
   const health = agentSupport?.agents.find((item) => item.agent.id === row?.agent.id) ?? null;
   const expectedAgentVersion = agentUpdateManifest?.recommended_version ?? health?.expected_version ?? agentInstallStatus?.expected_agent_version ?? "-";
   const outdated = row ? expectedAgentVersion !== "-" && row.agent.agent_version !== expectedAgentVersion : false;
-  const [manualUpdateVisible, setManualUpdateVisible] = React.useState(false);
   const latestDoctor = agentSupport?.latest_doctor ?? null;
   const raspberryCheck = getDoctorCheck(latestDoctor, "raspberry_throttling");
   const devicePlatform = stringFromRecord(latestDoctor?.result, "platform") || row.agent.platform || "-";
@@ -100,12 +97,10 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
 
   async function updateAgent(rowToUpdate: AgentFleetRow) {
     if (!canRequestSystemAgentUpdate(rowToUpdate)) {
-      setManualUpdateVisible(true);
-      const copied = await copyTextToClipboard(manualAgentUpdateCommand);
       showToast({
-        tone: "info",
-        title: copied ? "Comando de update copiado" : "Update manual necessário",
-        detail: "Cole e execute este comando no terminal da impressora.",
+        tone: "warning",
+        title: "Agente inativo",
+        detail: "O agente precisa estar ativo para receber o job remoto de update.",
       });
       return;
     }
@@ -167,12 +162,8 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
           <div className="auth-step">
             <AlertTriangle size={16} />
             <span>
-              Agente em {row.agent.agent_version || "-"}; esperado {expectedAgentVersion}.{" "}
-              {supportsRemoteAgentUpdate(row.agent.agent_version)
-                ? "Use Atualizar agente para criar um job remoto de update."
-                : row.printer.ssh_credential_configured
-                  ? "Use Atualizar via sistema para aplicar o update por SSH."
-                  : "Configure SSH para update automático ou use o comando manual como último caso."}
+              Agente em {row.agent.agent_version || "-"}; esperado {expectedAgentVersion}. Use Atualizar agente para
+              enviar a ação remota de autoatualização ao agente instalado.
             </span>
           </div>
         ) : null}
@@ -200,20 +191,6 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
             </button>
           ) : null}
         </div>
-        {!canRequestSystemAgentUpdate(row) && manualUpdateVisible ? (
-          <div className="agent-install-box">
-            <div className="printer-card-header">
-              <div>
-                <strong>Update manual do agente</strong>
-                <span>Execute este comando no terminal da impressora só se não houver SSH configurado para update automático pelo sistema.</span>
-              </div>
-              <button type="button" className="secondary-button" onClick={() => void copyTextToClipboard(manualAgentUpdateCommand)}>
-                Copiar
-              </button>
-            </div>
-            <textarea readOnly value={manualAgentUpdateCommand} />
-          </div>
-        ) : null}
       </article>
 
       <article className="panel wide panel-section panel-agents">
@@ -338,18 +315,16 @@ function buildAgentRows(printers: PrinterRecord[], overviews: Record<number, Age
 }
 
 function supportsRemoteAgentUpdate(version: string | null | undefined) {
-  const [major, minor, patch] = versionTuple(version);
-  return major > 0 || minor > 1 || (minor === 1 && patch >= 8);
+  return Boolean(version);
 }
 
 function canRequestSystemAgentUpdate(row: AgentFleetRow) {
-  return supportsRemoteAgentUpdate(row.agent.agent_version) || row.printer.ssh_credential_configured;
+  return row.agent.status === "active" && supportsRemoteAgentUpdate(row.agent.agent_version);
 }
 
 function agentUpdateButtonLabel(row: AgentFleetRow) {
-  if (supportsRemoteAgentUpdate(row.agent.agent_version)) return "Atualizar agente";
-  if (row.printer.ssh_credential_configured) return "Atualizar via sistema";
-  return "Copiar comando";
+  void row;
+  return "Atualizar agente";
 }
 
 type RemoteDoctorCheck = {
@@ -384,34 +359,4 @@ function formatRaspberryStatus(check: { status: string; detail: string } | null)
   }
   if (check.status === "ok") return "normal";
   return check.status;
-}
-
-function versionTuple(version: string | null | undefined) {
-  const numbers = (version ?? "")
-    .trim()
-    .replace(/^v/, "")
-    .split(".")
-    .slice(0, 3)
-    .map((part) => Number.parseInt(part, 10))
-    .map((value) => (Number.isFinite(value) ? value : 0));
-  while (numbers.length < 3) numbers.push(0);
-  return numbers as [number, number, number];
-}
-
-async function copyTextToClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.setAttribute("readonly", "true");
-    textarea.style.position = "fixed";
-    textarea.style.left = "-9999px";
-    document.body.appendChild(textarea);
-    textarea.select();
-    const copied = document.execCommand("copy");
-    document.body.removeChild(textarea);
-    return copied;
-  }
 }

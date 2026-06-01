@@ -573,10 +573,8 @@ Publicação do binário do agente:
 Execução pela UI:
 
 - abrir `Agentes`, conferir `Versão instalada` e `Versão esperada`;
-- clicar `Atualizar` na linha ou `Atualizar agente`/`Atualizar via sistema` no detalhe;
-- para agentes `0.1.8+`, o servidor cria um job `remote_agent_update_check` para aquele agente;
-- para agentes mais antigos com SSH configurado na impressora, o servidor conecta por SSH e executa o `update-check` do agente sem exigir terminal do usuário;
-- para agentes mais antigos sem SSH configurado, a UI mostra o comando manual como último caso;
+- clicar `Atualizar` na linha ou `Atualizar agente` no detalhe;
+- o servidor cria um job `remote_agent_update_check` para o agente ativo, sem SSH e sem comando manual para o usuário;
 - o agente baixa o binário indicado no manifesto, valida SHA-256, troca somente `/usr/local/bin/printora-agent` e reinicia apenas `printora-agent` quando `allow_service_restart=true`.
 
 Segurança:

@@ -8,11 +8,11 @@ CONFIG_DIR="${PRINTORA_AGENT_CONFIG_DIR:-/etc/printora-agent}"
 STATE_DIR="${PRINTORA_AGENT_STATE_DIR:-/var/lib/printora-agent}"
 LOG_DIR="${PRINTORA_AGENT_LOG_DIR:-/var/log/printora-agent}"
 SERVICE_NAME="${PRINTORA_AGENT_SERVICE_NAME:-printora-agent}"
-SERVICE_USER="${PRINTORA_AGENT_SERVICE_USER:-printora-agent}"
+SERVICE_USER="${PRINTORA_AGENT_SERVICE_USER:-root}"
 MOONRAKER_URL="${PRINTORA_MOONRAKER_URL:-http://127.0.0.1:7125}"
 API_BASE="${PRINTORA_API_BASE:-}"
 PAIRING_TOKEN="${PRINTORA_PAIRING_TOKEN:-}"
-AGENT_VERSION="${PRINTORA_AGENT_VERSION:-0.1.6}"
+AGENT_VERSION="${PRINTORA_AGENT_VERSION:-0.1.8}"
 BIN_URL="${PRINTORA_AGENT_BIN_URL:-}"
 LOCAL_BIN="${PRINTORA_AGENT_BIN:-}"
 TEST_MODE="${PRINTORA_AGENT_INSTALL_TEST_MODE:-0}"
@@ -180,7 +180,7 @@ PY
 }
 
 install_service() {
-  if ! id "$SERVICE_USER" >/dev/null 2>&1; then
+  if [[ "$SERVICE_USER" != "root" ]] && ! id "$SERVICE_USER" >/dev/null 2>&1; then
     useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
   fi
   chown -R "$SERVICE_USER:$SERVICE_USER" "$CONFIG_DIR" "$STATE_DIR" "$LOG_DIR"
@@ -196,7 +196,6 @@ ExecStart=$PREFIX/bin/printora-agent -config $CONFIG_DIR/config.json run
 Restart=always
 RestartSec=5
 User=$SERVICE_USER
-NoNewPrivileges=true
 PrivateTmp=true
 
 [Install]

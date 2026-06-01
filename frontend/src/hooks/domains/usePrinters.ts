@@ -381,9 +381,9 @@ export function usePrinters(options: UsePrintersOptions) {
       }
       const result = (await response.json()) as AgentUpdateRequestResponse;
       showToast({
-        tone: result.status === "failed" ? "danger" : "success",
-        title: result.status === "failed" ? "Falha ao atualizar agente" : result.mode === "ssh" ? "Update solicitado via SSH" : "Update enfileirado",
-        detail: result.status === "failed" ? result.detail : "O sistema iniciou o update do agente.",
+        tone: "success",
+        title: "Update enfileirado",
+        detail: result.detail || "O agente recebeu a ação e vai tentar se autoatualizar.",
       });
       await loadAgentSupport(printerId);
       await loadFleetAgentPairings();

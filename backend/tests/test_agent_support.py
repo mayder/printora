@@ -115,21 +115,11 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
             assert blocked.status_code == 404
 
             created = client.post(f"/api/printers/{printer['id']}/agents/{agent_id}/update-check", headers=_auth(owner_token))
-            assert created.status_code == 400
-            assert "update remoto" in created.json()["detail"]
-            assert "SSH" in created.json()["detail"]
-
-            ssh_configured = client.put(
-                f"/api/printers/{printer['id']}",
-                json={"ssh_host": "voron.local", "ssh_username": "pi", "ssh_credential": "secret"},
-                headers=_auth(owner_token),
-            )
-            assert ssh_configured.status_code == 200
-            monkeypatch.setattr("app.agent_support._run_ssh_command", lambda *_args, **_kwargs: ("updated", 0))
-            ssh_update = client.post(f"/api/printers/{printer['id']}/agents/{agent_id}/update-check", headers=_auth(owner_token))
-            assert ssh_update.status_code == 200
-            assert ssh_update.json()["mode"] == "ssh"
-            assert ssh_update.json()["status"] == "applied"
+            assert created.status_code == 200
+            assert created.json()["mode"] == "remote_job"
+            assert created.json()["status"] == "queued"
+            assert created.json()["job"]["job_type"] == "remote_agent_update_check"
+            assert created.json()["job"]["payload"]["safe_mode"] == "agent_self_update"
 
             with connect_database(tmp_path / "printora.db") as connection:
                 connection.execute("UPDATE printer_agents SET agent_version = '0.1.8' WHERE id = ?", (agent_id,))

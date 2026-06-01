@@ -8,8 +8,7 @@ Type=simple
 ExecStart=/usr/local/bin/printora-agent -config /etc/printora-agent/config.json run
 Restart=always
 RestartSec=5
-User=printora-agent
-NoNewPrivileges=true
+User=root
 PrivateTmp=true
 
 [Install]

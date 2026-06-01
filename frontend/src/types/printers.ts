@@ -247,8 +247,8 @@ export type AgentUpdateManifest = {
 };
 
 export type AgentUpdateRequestResponse = {
-  mode: "remote_job" | "ssh";
-  status: "queued" | "applied" | "failed";
+  mode: "remote_job";
+  status: "queued";
   detail: string;
   job?: AgentJobRecord | null;
 };

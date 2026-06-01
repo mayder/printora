@@ -305,7 +305,7 @@ Referencias: `backend/scripts/install_agent_linux.sh`, `backend/app/routes/agent
 Status: aceita
 Data: 2026-05-31
 Contexto: o agente precisa evoluir junto com o servidor cloud, mas roda no host Klipper. Um update quebrado não pode reiniciar Klipper, Moonraker, firmware ou a impressora, e precisa ter rollback local.
-Decisao: o agente consulta manifesto público versionado, escolhe release por plataforma, bloqueia versão/protocolo incompatível, exige SHA-256, baixa para staging, preserva backup do binário/config e troca somente o binário do `printora-agent`. Restart automático só é permitido para o serviço `printora-agent` quando `allow_service_restart=true`. Falha em health command ou restart restaura o binário anterior quando possível. A UI pode criar um job direcionado `remote_agent_update_check` para antecipar a verificação periódica sem acessar a rede local diretamente. Agentes que ainda não conhecem esse job recebem orientação manual pela UI, pois não há contrato remoto compatível para disparar o update.
+Decisao: o agente consulta manifesto público versionado, escolhe release por plataforma, bloqueia versão/protocolo incompatível, exige SHA-256, baixa para staging, preserva backup do binário/config e troca somente o binário do `printora-agent`. Restart automático só é permitido para o serviço `printora-agent` quando `allow_service_restart=true`. Falha em health command ou restart restaura o binário anterior quando possível. A UI cria um job direcionado `remote_agent_update_check` para antecipar a verificação periódica sem acessar a rede local diretamente.
 Alternativas consideradas: delegar update ao Moonraker Update Manager; baixar sem hash em ambiente de desenvolvimento; reiniciar todos os serviços do host; deixar update apenas manual.
 Consequencias: o update fica automatizável e auditável sem tocar na impressora. A publicação real de binários e assinatura forte ainda depende do fluxo de release do agente, mas o contrato já bloqueia aplicação sem hash.
 Impacto em testes: `backend/tests/test_agent_updates.py` cobre manifesto, relatório autenticado e histórico isolado; `backend/tests/test_agent_support.py` cobre job remoto de update direcionado; `agent/internal/agent/agent_test.go` cobre sucesso, hash inválido, rollback por health, versão bloqueada e execução do job remoto.
@@ -391,18 +391,19 @@ Impacto em rollback: baixo a medio; reverter restaura as secoes operacionais no 
 Como reverter: reverter alteracoes em `frontend/src/app/navigation.ts`, `frontend/src/hooks/usePrintoraApp.ts`, `frontend/src/main.tsx`, telas novas de detalhe e atualizacoes de `TELAS.md`.
 Referencias: `frontend/src/app/navigation.ts`, `frontend/src/screens/PrinterDetailScreen.tsx`, `frontend/src/screens/AgentDetailScreen.tsx`, `frontend/src/screens/PrintersScreen.tsx`, `frontend/src/screens/AgentsScreen.tsx`, `TELAS.md`.
 
-### DEC-20260531-11 - Update de agente legado usa SSH como ponte operacional
+### DEC-20260531-11 - Update de agente usa job remoto direto
 
-Status: aceita
+Status: substitui a decisão original de fallback por SSH
 Data: 2026-05-31
-Contexto: agentes antigos ainda não conhecem o job `remote_agent_update_check`, mas usuários leigos não devem precisar abrir terminal na impressora para fazer o primeiro update.
-Decisao: quando o agente não suporta update remoto, o backend tenta executar `printora-agent update-check` por SSH usando a credencial configurada no cadastro da impressora. O comando manual continua disponível somente quando não há SSH configurado.
-Alternativas consideradas: exigir update manual para todos os agentes antigos; manter só o job remoto e falhar em `unsupported job type`; criar shell genérico pelo agente antigo.
-Consequencias: o primeiro update fica acionável pela UI, sem ampliar o contrato do agente legado. A operação depende de SSH funcional e da URL de release da própria API servir binário com SHA igual ao manifesto.
-Impacto em testes: `backend/tests/test_agent_support.py` cobre bloqueio sem SSH, fallback SSH e job remoto em versão atual; build frontend valida os estados visuais.
-Impacto em rollback: baixo; remover o fallback SSH volta a exigir comando manual para agentes abaixo de `0.1.8`.
-Como reverter: reverter alterações em `backend/app/agent_support.py`, rota de update do agente e textos da UI/documentação.
-Referencias: `backend/app/agent_support.py`, `backend/app/routes/agents.py`, `frontend/src/screens/AgentsScreen.tsx`, `frontend/src/screens/AgentDetailScreen.tsx`, `RUNBOOK.md`.
+Atualizacao: 2026-06-01
+Contexto: o fallback por SSH gerava falha de credencial e contradizia o objetivo cloud: se o agente já está instalado e online, ele deve receber a ação pelo canal do agente e se autoatualizar.
+Decisao: a UI e o backend sempre criam `remote_agent_update_check` para o agente ativo, independentemente da versão reportada. O instalador systemd padrão roda o agente como `root` para que o próprio agente consiga trocar `/usr/local/bin/printora-agent` e reiniciar `printora-agent` sem SSH, senha ou ação manual do usuário.
+Alternativas consideradas: manter SSH como ponte para agentes antigos; exigir comando manual; usar sudoers específico para o usuário `printora-agent`; criar shell genérico remoto.
+Consequencias: o fluxo fica consistente com cloud e usuário leigo. O agente instalado tem privilégio maior no host, limitado pelo contrato de jobs explícitos e sem shell genérico. Hosts antigos instalados sem permissão suficiente podem precisar reinstalação única do serviço para ganhar o novo modelo.
+Impacto em testes: `backend/tests/test_agent_support.py` cobre criação direta do job remoto para agente antigo e atual; build frontend valida remoção dos rótulos de SSH/manual.
+Impacto em rollback: médio; voltar ao fallback SSH exige restaurar `_request_legacy_update_via_ssh` e rótulos da UI.
+Como reverter: reverter alterações em `backend/app/agent_support.py`, instalador do agente, unit systemd e textos da UI/documentação.
+Referencias: `backend/app/agent_support.py`, `backend/scripts/install_agent_linux.sh`, `agent/systemd/printora-agent.service`, `frontend/src/screens/AgentsScreen.tsx`, `frontend/src/screens/AgentDetailScreen.tsx`, `RUNBOOK.md`.
 
 ### DEC-20260601-01 - Administracao cloud separa plataforma, impressora e agente
 

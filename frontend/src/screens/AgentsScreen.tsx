@@ -59,8 +59,6 @@ type AgentFleetRow = {
   printer: PrinterRecord;
 };
 
-const manualAgentUpdateCommand = "sudo printora-agent -config /etc/printora-agent/config.json update-check";
-
 export function AgentsScreen(props: AgentsScreenProps) {
   const {
     AlertTriangle,
@@ -117,7 +115,6 @@ export function AgentsScreen(props: AgentsScreenProps) {
   );
   const [selectedAgentKey, setSelectedAgentKey] = React.useState<string | null>(null);
   const selectedAgentRow = agentRows.find((row) => agentKey(row) === selectedAgentKey) ?? agentRows[0] ?? null;
-  const [manualUpdateAgentKey, setManualUpdateAgentKey] = React.useState<string | null>(null);
   const selectedOverview = selectedPrinterId ? pairingOverview : null;
   const activeTokens = selectedOverview?.pairing_tokens.filter((token) => token.status === "active") ?? [];
   const tokenHistory = selectedOverview?.pairing_tokens.filter((token) => token.status !== "active") ?? [];
@@ -183,12 +180,10 @@ export function AgentsScreen(props: AgentsScreenProps) {
   async function updateAgent(row: AgentFleetRow) {
     selectAgent(row);
     if (!canRequestSystemAgentUpdate(row)) {
-      setManualUpdateAgentKey(agentKey(row));
-      const copied = await copyTextToClipboard(manualAgentUpdateCommand);
       showToast({
-        tone: "info",
-        title: copied ? "Comando de update copiado" : "Update manual necessário",
-        detail: "Cole e execute este comando no terminal da impressora.",
+        tone: "warning",
+        title: "Agente inativo",
+        detail: "O agente precisa estar ativo para receber o job remoto de update.",
       });
       return;
     }
@@ -327,20 +322,6 @@ export function AgentsScreen(props: AgentsScreenProps) {
                     </button>
                   ) : null}
                 </div>
-                {!canRequestSystemAgentUpdate(selectedAgentRow) && manualUpdateAgentKey === agentKey(selectedAgentRow) ? (
-                  <div className="agent-install-box">
-                    <div className="printer-card-header">
-                      <div>
-                        <strong>Update manual do agente</strong>
-                        <span>Este agente está em {selectedAgentRow.agent.agent_version || "-"} e não tem SSH configurado para update automático. Use este comando só como último caso.</span>
-                      </div>
-                      <button type="button" className="secondary-button" onClick={() => void copyTextToClipboard(manualAgentUpdateCommand)}>
-                        Copiar
-                      </button>
-                    </div>
-                    <textarea readOnly value={manualAgentUpdateCommand} />
-                  </div>
-                ) : null}
               </>
             ) : (
               <p className="muted">Selecione um agente para ver detalhes.</p>
@@ -620,31 +601,13 @@ function agentVersionLabel(version: string | null | undefined, expectedVersion: 
   return version;
 }
 
-function supportsRemoteAgentUpdate(version: string | null | undefined) {
-  const [major, minor, patch] = versionTuple(version);
-  return major > 0 || minor > 1 || (minor === 1 && patch >= 8);
-}
-
 function canRequestSystemAgentUpdate(row: AgentFleetRow) {
-  return supportsRemoteAgentUpdate(row.agent.agent_version) || row.printer.ssh_credential_configured;
+  return row.agent.status === "active" && Boolean(row.agent.agent_version);
 }
 
 function agentUpdateButtonLabel(row: AgentFleetRow, context: "row" | "detail" = "row") {
-  if (supportsRemoteAgentUpdate(row.agent.agent_version)) return context === "detail" ? "Atualizar agente" : "Atualizar";
-  if (row.printer.ssh_credential_configured) return context === "detail" ? "Atualizar via sistema" : "Atualizar";
-  return context === "detail" ? "Copiar update manual" : "Copiar update";
-}
-
-function versionTuple(version: string | null | undefined) {
-  const numbers = (version ?? "")
-    .trim()
-    .replace(/^v/, "")
-    .split(".")
-    .slice(0, 3)
-    .map((part) => Number.parseInt(part, 10))
-    .map((value) => (Number.isFinite(value) ? value : 0));
-  while (numbers.length < 3) numbers.push(0);
-  return numbers as [number, number, number];
+  void row;
+  return context === "detail" ? "Atualizar agente" : "Atualizar";
 }
 
 async function copyTextToClipboard(text: string) {

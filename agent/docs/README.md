@@ -93,6 +93,9 @@ protocolo e SHA-256 antes de trocar o binário. O restart automático reinicia
 somente o serviço `printora-agent` quando `allow_service_restart=true`. Falha de
 health/restart tenta restaurar o binário anterior.
 
+Na instalação systemd padrão, o serviço roda como `root` para conseguir trocar o
+binário em `/usr/local/bin/printora-agent` e reiniciar o próprio serviço sem SSH.
+
 ## Paridade remota
 
 O agente executa jobs read-only e dry-run enviados pela API:
