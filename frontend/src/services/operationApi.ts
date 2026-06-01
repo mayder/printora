@@ -29,12 +29,12 @@ export const operationApi = {
     apiResponse(`/api/printers/${printerId}/operation/actions/execute`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(withStepUp(body)),
     }),
   executeDirect: (printerId: number, body: unknown) =>
     apiResponse(`/api/printers/${printerId}/operation/actions/execute-direct`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(withStepUp(body)),
     }),
 };

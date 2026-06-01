@@ -9,5 +9,30 @@ export function unknownErrorMessage(error: unknown) {
   if (error instanceof TypeError && error.message === "Failed to fetch") {
     return "API do Printora indisponível. Abra pelo launcher ou verifique se o backend está rodando em http://127.0.0.1:8069.";
   }
-  return error instanceof Error ? error.message : "Erro desconhecido";
+  if (!(error instanceof Error)) {
+    return "Erro desconhecido";
+  }
+  return friendlyErrorMessage(error.message);
+}
+
+function friendlyErrorMessage(message: string) {
+  const detail = parseErrorDetail(message);
+  if (detail === "autenticação reforçada obrigatória para ação crítica") {
+    return "Ação crítica bloqueada. Gere uma autorização em Conta > 2FA e autenticação reforçada e tente novamente.";
+  }
+  if (detail === "api route not found") {
+    return "Rota da API não encontrada. Atualize a página e confirme se backend e frontend estão na mesma versão.";
+  }
+  return detail;
+}
+
+function parseErrorDetail(message: string) {
+  try {
+    const payload = JSON.parse(message) as { detail?: unknown; message?: unknown };
+    if (typeof payload.detail === "string") return payload.detail;
+    if (typeof payload.message === "string") return payload.message;
+  } catch {
+    // Mensagem já está em texto legível.
+  }
+  return message;
 }

@@ -2,6 +2,9 @@ export async function readApiError(response: Response): Promise<string> {
   try {
     const payload = await response.json();
     if (typeof payload?.detail === "string") {
+      if (payload.detail === "autenticação reforçada obrigatória para ação crítica") {
+        return "Ação crítica bloqueada. Gere uma autorização em Conta > 2FA e autenticação reforçada e tente novamente.";
+      }
       return payload.detail;
     }
     if (typeof payload?.message === "string") {
