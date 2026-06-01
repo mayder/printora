@@ -38,7 +38,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - O seletor de impressora da topbar e o rodape lateral sao apenas contexto rapido. Eles nao definem a arquitetura de navegacao nem tornam o menu dependente de impressora.
 - A topbar e fixa/sticky e deve conter apenas controles globais: titulo da area atual, alertas da frota, Sobre, tema claro/escuro e conta do usuario no extremo direito.
 - A topbar nao deve conter seletor de impressora nem acoes especificas de tela como adicionar impressora, snapshot, instalacao ou reanalise. Essas acoes ficam no corpo da tela/aba correspondente.
-- A Central de alertas aberta pela topbar e da frota. Ela deve permitir filtrar por impressora, mostrar a impressora de origem em cada alerta e abrir a impressora afetada quando o alerta pertencer a um registro especifico.
+- A Central de alertas aberta pela topbar e da frota. Ela usa leitura consolidada por impressora, independente do contexto rapido/registro aberto, e deve permitir filtrar por impressora, mostrar a impressora de origem em cada alerta e abrir a impressora afetada quando o alerta pertencer a um registro especifico.
 - Secoes que exigem impressora online permanecem acessiveis dentro do detalhe da impressora e devem exibir estado `offline`, `cached`, `blocked` ou `not_supported` quando o agente/Moonraker nao estiver disponivel.
 - Com Moonraker offline, a Central de alertas exibe apenas o alerta de offline/conexao; pendencias que dependem da impressora ligada ou de snapshot antigo nao contam como alertas ativos atuais.
 - Enquanto a impressora ativa estiver offline, a SPA revalida status e health a cada 60 segundos para liberar as secoes online quando Moonraker voltar.
@@ -138,7 +138,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Conta, o setup de 2FA deve exibir segredo/URI, validar código antes de ativar e exigir código atual para desativar quando 2FA estiver ativo.
 - Na tela Conta, autenticação reforçada gera autorização curta para ações críticas; usuários com 2FA usam código, usuários sem 2FA usam senha.
 - Na tela Impressoras, o cadastro/edição da impressora separa metadados cloud, conexão Moonraker e SSH. Metadados incluem modelo, localização, tags, observações e organização opcional.
-- Na tela Impressoras, a lista mostra dados de frota e acoes de linha para editar, abrir detalhe e trocar contexto rapido. Status, token, instalação, pareamento e saúde de agente ficam no detalhe da impressora ou no detalhe do agente.
+- Na tela Impressoras, a lista mostra dados de frota e acoes de linha para editar, abrir detalhe, ler status, gerar snapshot e trocar contexto rapido. Acoes de linha usam a impressora da propria linha; contexto rapido nao deve ser pre-requisito. Status, token, instalação, pareamento e saúde de agente ficam no detalhe da impressora ou no detalhe do agente.
 - Na tela Agentes, a lista global deve mostrar versão instalada e versão esperada, com ação contextual para atualizar o agente selecionado. Agente ativo sempre recebe job remoto `remote_agent_update_check`; a UI não deve pedir SSH nem comando manual para update.
 - Na aba `Agentes` do detalhe da impressora, o pareamento permite gerar token curto para a impressora aberta, copiar o token uma única vez por toast e botão no token recém-criado, listar tokens por prefixo/status, revogar tokens ativos, remover tokens inativos da gestão visual, listar agentes ativos, revogar agente, rotacionar credencial e remover agentes revogados da gestão visual sem apagar auditoria.
 - Na aba `Agentes` do detalhe da impressora, a instalação assistida gera comando de preflight, comando de instalação com token curto, comando de uninstall e mostra validação pós-instalação por agente ativo, versão e heartbeat.
@@ -175,7 +175,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 
 - A impressora ativa deve ser preservada no navegador e restaurada ao recarregar a tela quando ainda existir no cadastro.
 - A Home operacional deve explicar o risco principal quando o estado for `Nao imprimir` ou `Monitorar`, exibindo causa, evidencia e acao segura.
-- A Central de alertas deve consolidar Health Check, Update Manager, checklist pos-update e auditoria com botoes de revalidacao, abertura do diagnostico ou fluxo de update quando aplicavel.
+- A Central de alertas deve consolidar Health Check, Update Manager, checklist pos-update, manutencao e auditoria por impressora com botoes de revalidacao, abertura do diagnostico ou fluxo de update quando aplicavel. Ao abrir, o filtro inicia em `Todas as impressoras`.
 - Confirmacoes de decisao devem usar modal proprio do Printora; feedback temporario de sucesso/falha deve usar toast. Dialogos nativos do navegador (`alert`/`confirm`) nao devem aparecer na UI operacional.
 - A tela Operacao deve ser leitura ao vivo para operador leigo: sem cadastro manual, sem checklist pos-update, sem auditoria tecnica e com graficos/indicadores que se atualizam automaticamente.
 - Na tela Operacao, temperaturas devem aparecer em tabela compacta com estado, atual, alvo editavel para heaters suportados e potencia, acompanhadas de um unico grafico combinado de evolucao por sensor/heater.

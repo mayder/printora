@@ -45,7 +45,17 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { buildAlertCenterItems, type HealthResponse } from "../alertCenter";
+import {
+  buildAlertCenterItems,
+  type AuditResponse,
+  type ChecklistResponse,
+  type HealthResponse,
+  type MaintenanceTaskAlert,
+  type UpdateStatusResponse,
+} from "../alertCenter";
+import { maintenanceApi } from "../services/maintenanceApi";
+import { printerApi } from "../services/printerApi";
+import { updatesApi } from "../services/updatesApi";
 import * as formatters from "../utils/formatters";
 import * as selfUpdateHelpers from "../selfUpdate";
 import { useAppShell } from "./domains/useAppShell";
@@ -73,6 +83,14 @@ export type PrinterDetailTab =
   | "maintenance"
   | "reports"
   | "agents";
+
+type FleetAlertContext = {
+  health: HealthResponse | null;
+  updateStatus: UpdateStatusResponse | null;
+  checklist: ChecklistResponse | null;
+  audit: AuditResponse | null;
+  maintenanceTasks: MaintenanceTaskAlert[];
+};
 
 const icons = {
   Activity,
@@ -135,6 +153,7 @@ export function usePrintoraApp() {
   const [toasts, setToasts] = React.useState<ToastRecord[]>([]);
   const [printerDetailTab, setPrinterDetailTab] = React.useState<PrinterDetailTab>("summary");
   const [selectedAgentId, setSelectedAgentId] = React.useState<number | null>(null);
+  const [fleetAlertContexts, setFleetAlertContexts] = React.useState<Record<number, FleetAlertContext>>({});
   const confirmResolverRef = React.useRef<((confirmed: boolean) => void) | null>(null);
   const toastIdRef = React.useRef(0);
 
@@ -221,6 +240,57 @@ export function usePrintoraApp() {
   async function loadPrinterContext(printerId: number) {
     await loadPrinterLocalContext(printerId);
     void loadPrinterLiveContext(printerId);
+  }
+
+  async function loadPrinterAlertContext(printerId: number): Promise<FleetAlertContext> {
+    const [healthResponse, updateResponse, checklistResponse, auditResponse, tasksResponse] = await Promise.allSettled([
+      printerApi.health(printerId),
+      updatesApi.status(printerId),
+      printerApi.checklist(printerId),
+      printerApi.audit(printerId),
+      maintenanceApi.tasks(printerId),
+    ]);
+    const health = await jsonFromSettled<HealthResponse>(healthResponse);
+    const updateStatus = await jsonFromSettled<UpdateStatusResponse>(updateResponse);
+    const checklist = await jsonFromSettled<ChecklistResponse>(checklistResponse);
+    const audit = await jsonFromSettled<AuditResponse>(auditResponse);
+    const tasksPayload = await jsonFromSettled<{ tasks: MaintenanceTaskAlert[] }>(tasksResponse);
+    return {
+      health,
+      updateStatus,
+      checklist,
+      audit,
+      maintenanceTasks: tasksPayload?.tasks ?? [],
+    };
+  }
+
+  async function refreshPrinterAlertContext(printerId: number) {
+    const context = await loadPrinterAlertContext(printerId);
+    setFleetAlertContexts((currentContexts) => ({
+      ...currentContexts,
+      [printerId]: context,
+    }));
+    if (printerId === printers.selectedPrinterId) {
+      void Promise.allSettled([
+        settings.loadPrinterChecklist(printerId),
+        operation.loadOperationStatus(printerId, { preserveData: true }),
+        settings.loadPrinterAudit(printerId),
+        settings.loadPrinterHealth(printerId),
+        updates.loadUpdateStatus(printerId),
+        maintenance.loadMaintenance(printerId),
+      ]);
+    }
+  }
+
+  async function refreshFleetAlertContexts(printerList: PrinterRecord[] = printers.printers) {
+    if (printerList.length === 0) {
+      setFleetAlertContexts({});
+      return;
+    }
+    const contextEntries = await Promise.all(
+      printerList.map(async (printer) => [printer.id, await loadPrinterAlertContext(printer.id)] as const),
+    );
+    setFleetAlertContexts(Object.fromEntries(contextEntries));
   }
 
   const printers = usePrinters({
@@ -410,25 +480,44 @@ export function usePrintoraApp() {
     void loadStatus();
   }, [auth.authUser?.id]);
 
+  const fleetPrinterIdsKey = React.useMemo(
+    () => printers.printers.map((printer) => printer.id).sort((left, right) => left - right).join(","),
+    [printers.printers],
+  );
+
+  React.useEffect(() => {
+    if (!auth.authUser) {
+      setFleetAlertContexts({});
+      return;
+    }
+    if (printers.printers.length === 0) {
+      setFleetAlertContexts({});
+      return;
+    }
+    void refreshFleetAlertContexts(printers.printers);
+    const refreshId = window.setInterval(() => void refreshFleetAlertContexts(printers.printers), 60000);
+    return () => window.clearInterval(refreshId);
+  }, [auth.authUser?.id, fleetPrinterIdsKey]);
+
   const liveOperationHealth = buildLiveOperationHealth(settings.health, operation.operationStatus);
-  const selectedPrinterAlertItems = buildAlertCenterItems({
-    health: liveOperationHealth,
-    updateStatus: updates.updateStatus,
-    checklist: settings.checklist,
-    audit: settings.audit,
-    maintenanceTasks: maintenance.maintenanceTasks,
-  }).map((item) => ({
-    ...item,
-    id: printers.selectedPrinterId ? `printer-${printers.selectedPrinterId}-${item.id}` : item.id,
-    printerId: printers.selectedPrinterId ?? undefined,
-    printerName: printers.selectedPrinter?.name,
-    source: printers.selectedPrinter ? `${printers.selectedPrinter.name} · ${item.source}` : item.source,
-  }));
-  const alertCenterItems = [...buildFleetAlertCenterItems(printers.printers), ...selectedPrinterAlertItems];
+  const fleetPrinterAlertItems = printers.printers.flatMap((printer) => {
+    const context = fleetAlertContexts[printer.id];
+    if (!context) {
+      return [];
+    }
+    return buildPrinterAlertCenterItems(printer, context);
+  });
+  const alertCenterItems = [...buildFleetAlertCenterItems(printers.printers), ...fleetPrinterAlertItems];
   const alertCount = alertCenterItems.length;
   const alertBlockerCount = alertCenterItems.filter((item) => item.severity === "blocker").length;
   const alertWarningCount = alertCenterItems.filter((item) => item.severity === "warning").length;
-  const primaryRiskItem = alertCenterItems.find((item) => item.severity === "blocker") ?? alertCenterItems.find((item) => item.severity === "warning") ?? null;
+  const selectedPrinterRiskItems = printers.selectedPrinterId
+    ? alertCenterItems.filter((item) => item.printerId === printers.selectedPrinterId)
+    : alertCenterItems;
+  const primaryRiskItem =
+    selectedPrinterRiskItems.find((item) => item.severity === "blocker") ??
+    selectedPrinterRiskItems.find((item) => item.severity === "warning") ??
+    null;
   const latestSnapshot = reports.snapshots[0];
   const moonrakerOnline = operation.operationStatus?.connected ?? liveOperationHealth?.connected ?? settings.status?.connected ?? false;
   const displayDecision = formatters.displayHealthDecision(liveOperationHealth);
@@ -538,11 +627,41 @@ export function usePrintoraApp() {
   const TopbarPrimaryIcon = topbarPrimaryAction.icon;
 
   async function handleAlertCenterAction(item: AlertCenterItem) {
-    if (item.actionKind === "open_printer" && item.target?.startsWith("printer:")) {
-      const printerId = Number(item.target.replace("printer:", ""));
-      if (Number.isFinite(printerId)) {
-        openPrinterDetail(printerId, "summary");
-        shell.setAlertCenterOpen(false);
+    const targetPrinterId = getAlertTargetPrinterId(item);
+    if (targetPrinterId && item.actionKind === "open_printer") {
+      openPrinterDetail(targetPrinterId, "summary");
+      shell.setAlertCenterOpen(false);
+      return;
+    }
+    if (targetPrinterId && item.actionKind === "open_updates") {
+      openPrinterDetail(targetPrinterId, "updates");
+      shell.setAlertCenterOpen(false);
+      return;
+    }
+    if (targetPrinterId && item.actionKind === "run_update") {
+      openPrinterDetail(targetPrinterId, "updates");
+      shell.setAlertCenterOpen(false);
+      return;
+    }
+    if (targetPrinterId && item.actionKind === "open_monitoring") {
+      openPrinterDetail(targetPrinterId, "operation");
+      shell.setAlertCenterOpen(false);
+      return;
+    }
+    if (targetPrinterId && item.actionKind === "open_maintenance") {
+      openPrinterDetail(targetPrinterId, "maintenance");
+      shell.setAlertCenterOpen(false);
+      return;
+    }
+    if (targetPrinterId && (item.actionKind === "refresh_update" || item.actionKind === "revalidate")) {
+      setLoading(true);
+      setError(null);
+      try {
+        await refreshPrinterAlertContext(targetPrinterId);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erro ao atualizar alertas da impressora.");
+      } finally {
+        setLoading(false);
       }
       return;
     }
@@ -691,6 +810,34 @@ function buildFleetAlertCenterItems(printers: PrinterRecord[]): AlertCenterItem[
       actionKind: "open_printer",
       target: `printer:${printer.id}`,
     }));
+}
+
+function buildPrinterAlertCenterItems(printer: PrinterRecord, context: FleetAlertContext): AlertCenterItem[] {
+  return buildAlertCenterItems(context).map((item) => ({
+    ...item,
+    id: `printer-${printer.id}-${item.id}`,
+    printerId: printer.id,
+    printerName: printer.name,
+    source: `${printer.name} · ${item.source}`,
+  }));
+}
+
+async function jsonFromSettled<T>(settled: PromiseSettledResult<Response>): Promise<T | null> {
+  if (settled.status !== "fulfilled" || !settled.value.ok) {
+    return null;
+  }
+  return (await settled.value.json()) as T;
+}
+
+function getAlertTargetPrinterId(item: AlertCenterItem): number | null {
+  if (item.printerId) {
+    return item.printerId;
+  }
+  if (!item.target?.startsWith("printer:")) {
+    return null;
+  }
+  const printerId = Number(item.target.replace("printer:", ""));
+  return Number.isFinite(printerId) ? printerId : null;
 }
 
 function fleetAlertTitle(printer: PrinterRecord) {

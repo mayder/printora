@@ -235,24 +235,28 @@ export function usePrinters(options: UsePrintersOptions) {
     setPrinterModalOpen(true);
   }
 
-  async function loadSelectedPrinterStatus() {
-    if (!selectedPrinterId) {
+  async function loadPrinterStatus(printerId: number | null = selectedPrinterId) {
+    if (!printerId) {
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const response = await printerApi.moonrakerStatus(selectedPrinterId);
+      const response = await printerApi.moonrakerStatus(printerId);
       const payload = (await response.json()) as MoonrakerStatus;
       setStatus(payload);
-      await loadOperationStatus(selectedPrinterId);
-      await loadPrinterHealth(selectedPrinterId);
-      await loadUpdateStatus(selectedPrinterId);
+      await loadOperationStatus(printerId);
+      await loadPrinterHealth(printerId);
+      await loadUpdateStatus(printerId);
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadSelectedPrinterStatus() {
+    await loadPrinterStatus(selectedPrinterId);
   }
 
   async function loadPrinterPairing(printerId = selectedPrinterId) {
@@ -640,6 +644,7 @@ export function usePrinters(options: UsePrintersOptions) {
     loadPrinters,
     loadFleetAgentPairings,
     loadPrinterPairing,
+    loadPrinterStatus,
     loadAgentInstallStatus,
     loadAgentSupport,
     loadAgentSupportBundle,

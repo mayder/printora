@@ -12,10 +12,9 @@ type PrintersScreenProps = ScreenPropsFor<
   | "Radio"
   | "Server"
   | "Settings"
-  | "captureSnapshot"
-  | "formatDecision"
+  | "captureSnapshotForPrinter"
   | "formatSshStatus"
-  | "loadSelectedPrinterStatus"
+  | "loadPrinterStatus"
   | "loading"
   | "openCreatePrinterModal"
   | "openEditPrinterModal"
@@ -38,10 +37,9 @@ export function PrintersScreen(props: PrintersScreenProps) {
     Radio,
     Server,
     Settings,
-    captureSnapshot,
-    formatDecision,
+    captureSnapshotForPrinter,
     formatSshStatus,
-    loadSelectedPrinterStatus,
+    loadPrinterStatus,
     loading,
     openCreatePrinterModal,
     openEditPrinterModal,
@@ -116,11 +114,11 @@ export function PrintersScreen(props: PrintersScreenProps) {
                 <CheckCircle2 size={15} />
                 Contexto rápido
               </button>
-              <button type="button" className="secondary-button" onClick={() => void loadSelectedPrinterStatus()} disabled={!selectedPrinterId || printer.id !== selectedPrinterId || loading}>
+              <button type="button" className="secondary-button" onClick={() => void loadPrinterStatus(printer.id)} disabled={loading}>
                 <Radio size={15} />
                 Ler status
               </button>
-              <button type="button" className="secondary-button" onClick={() => void captureSnapshot()} disabled={!selectedPrinterId || printer.id !== selectedPrinterId || loading}>
+              <button type="button" className="secondary-button" onClick={() => void captureSnapshotForPrinter(printer.id)} disabled={loading}>
                 <Camera size={15} />
                 Snapshot
               </button>

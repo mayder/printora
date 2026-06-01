@@ -44,24 +44,28 @@ export function useReports({ selectedPrinterId, loadPrinterHealth, setError, set
   const [backupRestoreFiles, setBackupRestoreFiles] = React.useState("printer.cfg");
   const [backupRestoreConfirmation, setBackupRestoreConfirmation] = React.useState("");
 
-  async function captureSnapshot() {
-    if (!selectedPrinterId) {
+  async function captureSnapshotForPrinter(printerId: number | null = selectedPrinterId) {
+    if (!printerId) {
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const response = await printerApi.captureSnapshot(selectedPrinterId);
+      const response = await printerApi.captureSnapshot(printerId);
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      await loadSnapshots(selectedPrinterId);
-      await loadPrinterHealth(selectedPrinterId);
+      await loadSnapshots(printerId);
+      await loadPrinterHealth(printerId);
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
       setLoading(false);
     }
+  }
+
+  async function captureSnapshot() {
+    await captureSnapshotForPrinter(selectedPrinterId);
   }
 
   async function loadSnapshots(printerId: number) {
@@ -275,6 +279,7 @@ export function useReports({ selectedPrinterId, loadPrinterHealth, setError, set
     backupRuns,
     backupSourcePath,
     captureSnapshot,
+    captureSnapshotForPrinter,
     compareBackupArchives,
     compareSnapshots,
     createBackupDryRun,

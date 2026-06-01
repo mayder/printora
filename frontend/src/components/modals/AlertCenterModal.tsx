@@ -11,12 +11,10 @@ export type AlertCenterModalProps = ScreenPropsFor<
   | "alertCenterIcon"
   | "alertCenterItems"
   | "alertCenterOpen"
-  | "countPendingUpdates"
   | "handleAlertCenterAction"
   | "loading"
   | "printers"
   | "setAlertCenterOpen"
-  | "updateStatus"
 >;
 
 export function AlertCenterModal(props: AlertCenterModalProps) {
@@ -29,21 +27,26 @@ export function AlertCenterModal(props: AlertCenterModalProps) {
     alertCenterIcon,
     alertCenterItems,
     alertCenterOpen,
-    countPendingUpdates,
     handleAlertCenterAction,
     loading,
     printers,
     setAlertCenterOpen,
-    updateStatus,
   } = props;
   const [printerFilter, setPrinterFilter] = React.useState("all");
+  React.useEffect(() => {
+    if (alertCenterOpen) {
+      setPrinterFilter("all");
+    }
+  }, [alertCenterOpen]);
   const filteredAlertCenterItems = React.useMemo(() => {
     if (printerFilter === "all") {
       return alertCenterItems;
     }
     return alertCenterItems.filter((item: any) => String(item.printerId ?? "") === printerFilter);
   }, [alertCenterItems, printerFilter]);
-  const pendingUpdates = countPendingUpdates(updateStatus);
+  const pendingUpdates = filteredAlertCenterItems.filter((item: any) =>
+    item.actionKind === "open_updates" || item.actionKind === "run_update" || item.actionKind === "refresh_update",
+  ).length;
 
   return (
     <>
@@ -66,7 +69,7 @@ export function AlertCenterModal(props: AlertCenterModalProps) {
               <div className="overview-strip">
                 <Badge icon={AlertTriangle} label="Bloqueios" value={filteredAlertCenterItems.filter((item: any) => item.severity === "blocker").length} />
                 <Badge icon={AlertTriangle} label="Alertas" value={filteredAlertCenterItems.filter((item: any) => item.severity === "warning").length} />
-                <Badge icon={RefreshCw} label="Updates" value={printerFilter === "all" ? pendingUpdates : filteredAlertCenterItems.filter((item: any) => item.actionKind === "open_updates" || item.actionKind === "run_update" || item.actionKind === "refresh_update").length} />
+                <Badge icon={RefreshCw} label="Updates" value={pendingUpdates} />
                 <Badge icon={Bell} label="Total" value={filteredAlertCenterItems.length} />
               </div>
               <label className="alert-center-filter">
