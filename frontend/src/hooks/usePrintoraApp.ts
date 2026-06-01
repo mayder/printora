@@ -313,7 +313,9 @@ export function usePrintoraApp() {
       await catalogSummaryLoad;
       void settings.loadGlobalDiagnostics();
       void setup.loadSetupHistory();
-      void selfUpdate.loadSelfUpdateHistory();
+      if (user.email.toLowerCase() === "breno@mayder.com.br") {
+        void selfUpdate.loadSelfUpdateHistory();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -342,7 +344,8 @@ export function usePrintoraApp() {
     if (!auth.authUser) {
       return;
     }
-    if (shell.activeSection === "settings" && !selfUpdate.systemReleases && !selfUpdate.releaseLoading) {
+    const isPlatformAdmin = auth.authUser.email.toLowerCase() === "breno@mayder.com.br";
+    if (shell.activeSection === "settings" && isPlatformAdmin && !selfUpdate.systemReleases && !selfUpdate.releaseLoading) {
       void selfUpdate.loadSystemReleases();
     }
     if ((shell.activeSection === "reports" || (shell.activeSection === "printer-detail" && printerDetailTab === "reports")) && printers.selectedPrinterId) {

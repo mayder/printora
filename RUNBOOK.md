@@ -771,7 +771,7 @@ Antes de publicar:
 6. Garantir que a versao foi atualizada no backend, frontend, lockfiles e frontend pre-buildado.
 7. Criar commit de release e tag anotada no formato `vX.Y.Z`.
 8. Publicar a branch e a tag no remoto.
-9. Criar a GitHub Release da tag publicada; a tela `Administracao > Administracao do sistema` consulta GitHub Releases, nao apenas tags Git.
+9. Criar a GitHub Release da tag publicada; a area interna `Administracao > Plataforma Printora (interno)` consulta GitHub Releases, nao apenas tags Git, e fica restrita ao usuario de suporte.
 10. Confirmar que `gh release list` mostra a nova versao como `Latest`.
 
 Exemplo para `v0.1.9`:

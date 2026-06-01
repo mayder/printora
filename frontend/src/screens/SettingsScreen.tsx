@@ -2,6 +2,7 @@ import { Metric } from "../components/common";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type SettingsScreenProps = ScreenPropsFor<
+  | "authUser"
   | "FileText"
   | "History"
   | "RefreshCw"
@@ -23,6 +24,7 @@ type SettingsScreenProps = ScreenPropsFor<
 
 export function SettingsScreen(props: SettingsScreenProps) {
   const {
+    authUser,
     FileText,
     History,
     RefreshCw,
@@ -41,70 +43,24 @@ export function SettingsScreen(props: SettingsScreenProps) {
     selfUpdateRunClass,
     systemReleases,
   } = props;
+  const isPlatformAdmin = authUser?.email?.toLowerCase() === "breno@mayder.com.br";
 
   return (
     <>
-      <article className={`panel wide panel-section panel-settings releases-panel ${releasePanelClass(systemReleases)}`}>
+      <article className="panel wide panel-section panel-settings">
         <div className="panel-header-row">
           <div>
-            <h2>Administração do sistema</h2>
-            <p>
-              Versão publicada, canal, status da plataforma e changelog do Printora. Ações de impressora e agente ficam
-              dentro dos respectivos registros.
-            </p>
+            <h2>Administração</h2>
+            <p>Configurações globais do Printora Cloud. Releases da plataforma não fazem parte da operação do cliente.</p>
           </div>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => void loadSystemReleases()}
-            disabled={releaseLoading}
-          >
-            <RefreshCw className={releaseLoading ? "button-busy-icon" : undefined} size={16} />
-            {releaseLoading ? "Verificando" : "Verificar releases"}
-          </button>
+          <Settings size={20} />
         </div>
         <div className="release-summary-grid">
-          <Metric label="Versão publicada" value={systemReleases?.installed_version ?? "-"} />
-          <Metric label="Última release" value={systemReleases?.latest_release?.tag ?? "-"} />
-          <Metric label="Canal" value={systemReleases?.channel ?? "-"} />
-          <Metric label="Status" value={formatReleaseUpdateStatus(systemReleases, releaseLoading, releaseError)} />
+          <Metric label="Plataforma" value="Printora Cloud" />
+          <Metric label="Impressoras" value="por registro" />
+          <Metric label="Agentes" value="com releases próprias" />
+          <Metric label="Atualizações" value="por agente" />
         </div>
-        {releaseError ? (
-          <div className="action-result warning">
-            <strong>Erro de rede</strong>
-            <span>{releaseError}</span>
-          </div>
-        ) : null}
-        {systemReleases?.error ? (
-          <div className="action-result warning">
-            <strong>{formatReleaseSourceStatus(systemReleases.status)}</strong>
-            <span>{systemReleases.error}</span>
-          </div>
-        ) : null}
-        {systemReleases?.latest_release ? (
-          <div className="release-latest-card">
-            <div>
-              <span className={`status-pill ${releaseStatusPillClass(systemReleases)}`}>
-                {formatReleaseUpdateStatus(systemReleases, false, null)}
-              </span>
-              <strong>{systemReleases.latest_release.name}</strong>
-              <small>
-                {systemReleases.latest_release.tag} · {systemReleases.latest_release.published_at ?? "sem data"} ·{" "}
-                {systemReleases.latest_release.channel}
-              </small>
-            </div>
-            <p>{systemReleases.latest_release.changelog_summary || "Sem changelog informado."}</p>
-          </div>
-        ) : (
-          <div className="release-latest-card">
-            <div>
-              <span className="status-pill">aguardando</span>
-              <strong>Status da plataforma ainda não carregado</strong>
-              <small>Use verificar releases para consultar o estado publicado.</small>
-            </div>
-            <p>Em cloud, esta tela é informativa para operador. Update da plataforma é rotina administrativa.</p>
-          </div>
-        )}
       </article>
 
       <article className="panel wide panel-section panel-settings">
@@ -123,61 +79,128 @@ export function SettingsScreen(props: SettingsScreenProps) {
         </div>
       </article>
 
-      <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel release-history-panel">
-        <summary className="settings-advanced-summary">
-          <span>Releases anteriores</span>
-        </summary>
-        <div className="release-list">
-          {releaseLoading ? <p className="muted">Carregando releases de produção...</p> : null}
-          {!releaseLoading && displayedReleaseRows.length === 0 ? (
-            <p className="muted">Nenhuma release anterior para listar.</p>
-          ) : null}
-          {displayedReleaseRows.map((release: any) => (
-            <div key={release.tag} className={`release-row ${release.installed ? "installed" : ""}`}>
+      {isPlatformAdmin ? (
+        <>
+          <article className={`panel wide panel-section panel-settings releases-panel ${releasePanelClass(systemReleases)}`}>
+            <div className="panel-header-row">
               <div>
-                <strong>{release.name}</strong>
-                <span>
-                  {release.tag} · {release.published_at ?? "sem data"} · {release.installed ? "publicada" : release.channel}
-                </span>
+                <h2>Plataforma Printora (interno)</h2>
+                <p>Visível somente para suporte. Clientes operam releases de agente dentro dos registros de agente.</p>
               </div>
-              <p>{release.changelog_summary || "Sem changelog informado."}</p>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => void loadSystemReleases()}
+                disabled={releaseLoading}
+              >
+                <RefreshCw className={releaseLoading ? "button-busy-icon" : undefined} size={16} />
+                {releaseLoading ? "Verificando" : "Verificar plataforma"}
+              </button>
             </div>
-          ))}
-        </div>
-      </details>
+            <div className="release-summary-grid">
+              <Metric label="Versão publicada" value={systemReleases?.installed_version ?? "-"} />
+              <Metric label="Última release" value={systemReleases?.latest_release?.tag ?? "-"} />
+              <Metric label="Canal" value={systemReleases?.channel ?? "-"} />
+              <Metric label="Status" value={formatReleaseUpdateStatus(systemReleases, releaseLoading, releaseError)} />
+            </div>
+            {releaseError ? (
+              <div className="action-result warning">
+                <strong>Erro de rede</strong>
+                <span>{releaseError}</span>
+              </div>
+            ) : null}
+            {systemReleases?.error ? (
+              <div className="action-result warning">
+                <strong>{formatReleaseSourceStatus(systemReleases.status)}</strong>
+                <span>{systemReleases.error}</span>
+              </div>
+            ) : null}
+            {systemReleases?.latest_release ? (
+              <div className="release-latest-card">
+                <div>
+                  <span className={`status-pill ${releaseStatusPillClass(systemReleases)}`}>
+                    {formatReleaseUpdateStatus(systemReleases, false, null)}
+                  </span>
+                  <strong>{systemReleases.latest_release.name}</strong>
+                  <small>
+                    {systemReleases.latest_release.tag} · {systemReleases.latest_release.published_at ?? "sem data"} ·{" "}
+                    {systemReleases.latest_release.channel}
+                  </small>
+                </div>
+                <p>{systemReleases.latest_release.changelog_summary || "Sem changelog informado."}</p>
+              </div>
+            ) : (
+              <div className="release-latest-card">
+                <div>
+                  <span className="status-pill">interno</span>
+                  <strong>Status da plataforma ainda não carregado</strong>
+                  <small>Use verificar plataforma para consultar o estado publicado.</small>
+                </div>
+                <p>Em cloud, update da plataforma é rotina administrativa fora da operação do cliente.</p>
+              </div>
+            )}
+          </article>
 
-      <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel self-update-history">
-        <summary className="settings-advanced-summary">
-          <span>Histórico da plataforma</span>
-          <button
-            type="button"
-            className="secondary-button compact-summary-action"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              void loadSelfUpdateHistory();
-            }}
-          >
-            <History size={15} />
-            Recarregar
-          </button>
-        </summary>
-        <p className="muted">Histórico administrativo do Printora. Update e rollback da plataforma não são operação do usuário final.</p>
-        {selfUpdateHistory.length === 0 ? <p className="muted">Nenhum update do Printora registrado.</p> : null}
-        {selfUpdateHistory.slice(0, 5).map((run: any) => (
-          <div key={run.id} className={`update-row ${selfUpdateRunClass(run.status)}`}>
-            <div className="update-main">
-              <div>
-                <strong>#{run.id} · {run.target_tag}</strong>
-                <span>
-                  {formatSelfUpdateStatus(run.status)} · {run.created_at}
-                </span>
-              </div>
-              <FileText size={16} />
+          <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel release-history-panel">
+            <summary className="settings-advanced-summary">
+              <span>Releases anteriores</span>
+            </summary>
+            <div className="release-list">
+              {releaseLoading ? <p className="muted">Carregando releases de produção...</p> : null}
+              {!releaseLoading && displayedReleaseRows.length === 0 ? (
+                <p className="muted">Nenhuma release anterior para listar.</p>
+              ) : null}
+              {displayedReleaseRows.map((release: any) => (
+                <div key={release.tag} className={`release-row ${release.installed ? "installed" : ""}`}>
+                  <div>
+                    <strong>{release.name}</strong>
+                    <span>
+                      {release.tag} · {release.published_at ?? "sem data"} ·{" "}
+                      {release.installed ? "publicada" : release.channel}
+                    </span>
+                  </div>
+                  <p>{release.changelog_summary || "Sem changelog informado."}</p>
+                </div>
+              ))}
             </div>
-          </div>
-        ))}
-      </details>
+          </details>
+
+          <details className="panel panel-section panel-settings collapsible-panel settings-advanced-panel self-update-history">
+            <summary className="settings-advanced-summary">
+              <span>Histórico da plataforma</span>
+              <button
+                type="button"
+                className="secondary-button compact-summary-action"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void loadSelfUpdateHistory();
+                }}
+              >
+                <History size={15} />
+                Recarregar
+              </button>
+            </summary>
+            <p className="muted">
+              Histórico administrativo do Printora. Update e rollback da plataforma não são operação do usuário final.
+            </p>
+            {selfUpdateHistory.length === 0 ? <p className="muted">Nenhum update do Printora registrado.</p> : null}
+            {selfUpdateHistory.slice(0, 5).map((run: any) => (
+              <div key={run.id} className={`update-row ${selfUpdateRunClass(run.status)}`}>
+                <div className="update-main">
+                  <div>
+                    <strong>#{run.id} · {run.target_tag}</strong>
+                    <span>
+                      {formatSelfUpdateStatus(run.status)} · {run.created_at}
+                    </span>
+                  </div>
+                  <FileText size={16} />
+                </div>
+              </div>
+            ))}
+          </details>
+        </>
+      ) : null}
     </>
   );
 }

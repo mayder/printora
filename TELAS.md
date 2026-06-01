@@ -59,7 +59,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Firmware | aba `firmware` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/FirmwareScreen.tsx` | Inventario de MCUs/placas detectadas, associacao ao modelo fisico, build, flash planejado e referencia CANBus | Exige impressora aberta | existente |
 | Manutencao | aba `maintenance` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/MaintenanceScreen.tsx` | Tarefas preventivas, diario e horas de impressao por impressora | Exige impressora aberta | existente |
 | Diagnostico da impressora | aba `reports` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/ReportsScreen.tsx` + `frontend/src/screens/reports/*` | Relatorio da impressora, snapshots, relatorio sanitizado, backup/restore seguro, auditoria read-only e registro tecnico CAN da impressora | Exige impressora aberta | existente |
-| Administracao | `settings` | `/?section=settings`, `/#settings` | `frontend/src/screens/SettingsScreen.tsx` | Configuracao global, versao publicada, status da plataforma, releases e historico administrativo do Printora | Nao exige impressora ativa | existente |
+| Administracao | `settings` | `/?section=settings`, `/#settings` | `frontend/src/screens/SettingsScreen.tsx` | Configuracao global do Printora Cloud; releases e historico da plataforma ficam ocultos para usuarios comuns e visiveis apenas para suporte | Nao exige impressora ativa | existente |
 | Sobre | `about` | `/?section=about`, `/#about` | `frontend/src/screens/AboutScreen.tsx` | Apresentacao do autor, motivacao do projeto, funcionalidades, roadmap publico, redes sociais e identidade visual | Nao exige impressora ativa | existente |
 | Licenca | `license` | `/?section=license`, `/#license` | `frontend/src/screens/LicenseScreen.tsx` | Resumo de licenca open source, limites de garantia e responsabilidade operacional | Nao exige impressora ativa | existente |
 
@@ -115,7 +115,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Diagnostico de host/dispositivo fica no detalhe do agente, usando doctor remoto e pacote de suporte sanitizado. A administracao global nao mostra diagnostico local de Mac/servidor para operador.
 - CAN de operacao fica na aba `Operacao` do detalhe da impressora como leitura operacional; registro tecnico, parser e comparacao manual ficam na aba `Diagnostico` da impressora aberta.
 - Updates da impressora ficam na aba `Atualizacoes` do detalhe da impressora; update do agente fica no detalhe/lista de agentes; update da plataforma Printora fica fora da operacao comum do usuario final.
-- Na tela Administracao, `Releases anteriores` e `Historico da plataforma` ficam como blocos colapsados e somente informativos para operador.
+- Na tela Administracao, `Releases anteriores`, status e `Historico da plataforma` sao conteudo interno de suporte, visivel apenas para `breno@mayder.com.br`; usuarios comuns veem apenas escopo global e operam updates pelos registros de agente.
 - A tela Sobre deve ser acessivel pelo icone de informacao no topo em todas as telas; por enquanto nao aparece no menu lateral.
 - A tela Sobre deve promover o autor, exibir LinkedIn, Instagram, GitHub do projeto, motivacao, funcionalidades atuais, aviso de teste, versao sem custo, roadmap online futuro e opcoes de marca.
 - A tela Licenca deve ser acessivel a partir da tela Sobre e deixar claro o uso open source, ausencia de garantia e responsabilidade do usuario em operacoes criticas.
