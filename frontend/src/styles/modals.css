@@ -215,6 +215,24 @@
   width: min(880px, 100%);
 }
 
+.alert-center-filter {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.alert-center-filter span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.alert-center-filter select {
+  max-width: 320px;
+}
+
 .alert-center-list {
   display: grid;
   gap: 10px;

@@ -14,6 +14,7 @@ export type AlertCenterModalProps = ScreenPropsFor<
   | "countPendingUpdates"
   | "handleAlertCenterAction"
   | "loading"
+  | "printers"
   | "setAlertCenterOpen"
   | "updateStatus"
 >;
@@ -31,9 +32,18 @@ export function AlertCenterModal(props: AlertCenterModalProps) {
     countPendingUpdates,
     handleAlertCenterAction,
     loading,
+    printers,
     setAlertCenterOpen,
     updateStatus,
   } = props;
+  const [printerFilter, setPrinterFilter] = React.useState("all");
+  const filteredAlertCenterItems = React.useMemo(() => {
+    if (printerFilter === "all") {
+      return alertCenterItems;
+    }
+    return alertCenterItems.filter((item: any) => String(item.printerId ?? "") === printerFilter);
+  }, [alertCenterItems, printerFilter]);
+  const pendingUpdates = countPendingUpdates(updateStatus);
 
   return (
     <>
@@ -54,20 +64,31 @@ export function AlertCenterModal(props: AlertCenterModalProps) {
                 </button>
               </div>
               <div className="overview-strip">
-                <Badge icon={AlertTriangle} label="Bloqueios" value={alertCenterItems.filter((item: any) => item.severity === "blocker").length} />
-                <Badge icon={AlertTriangle} label="Alertas" value={alertCenterItems.filter((item: any) => item.severity === "warning").length} />
-                <Badge icon={RefreshCw} label="Updates" value={countPendingUpdates(updateStatus)} />
-                <Badge icon={Bell} label="Total" value={alertCenterItems.length} />
+                <Badge icon={AlertTriangle} label="Bloqueios" value={filteredAlertCenterItems.filter((item: any) => item.severity === "blocker").length} />
+                <Badge icon={AlertTriangle} label="Alertas" value={filteredAlertCenterItems.filter((item: any) => item.severity === "warning").length} />
+                <Badge icon={RefreshCw} label="Updates" value={printerFilter === "all" ? pendingUpdates : filteredAlertCenterItems.filter((item: any) => item.actionKind === "open_updates" || item.actionKind === "run_update" || item.actionKind === "refresh_update").length} />
+                <Badge icon={Bell} label="Total" value={filteredAlertCenterItems.length} />
               </div>
+              <label className="alert-center-filter">
+                <span>Impressora</span>
+                <select value={printerFilter} onChange={(event) => setPrinterFilter(event.target.value)}>
+                  <option value="all">Todas as impressoras</option>
+                  {printers.map((printer: any) => (
+                    <option key={printer.id} value={String(printer.id)}>
+                      {printer.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <div className="alert-center-list">
-                {alertCenterItems.length === 0 ? (
+                {filteredAlertCenterItems.length === 0 ? (
                   <div className="empty-state">
                     <CheckCircle2 size={22} />
                     <strong>Nenhum alerta ativo</strong>
-                    <p className="muted">Não há bloqueios, riscos ou updates pendentes nos dados carregados da frota.</p>
+                    <p className="muted">Não há bloqueios, riscos ou updates pendentes para este filtro.</p>
                   </div>
                 ) : null}
-                {alertCenterItems.map((item: any) => (
+                {filteredAlertCenterItems.map((item: any) => (
                   <div key={item.id} className={`alert-center-row ${item.severity}`}>
                     <div className="alert-center-icon">
                       {React.createElement(alertCenterIcon(item.severity), { size: 17 })}
@@ -77,6 +98,7 @@ export function AlertCenterModal(props: AlertCenterModalProps) {
                         <div>
                           <strong>{item.title}</strong>
                           <span>{item.source}</span>
+                          {item.printerName ? <small>Impressora: {item.printerName}</small> : null}
                         </div>
                         <button type="button" className="secondary-button compact" onClick={() => void handleAlertCenterAction(item)} disabled={loading}>
                           {item.actionLabel}

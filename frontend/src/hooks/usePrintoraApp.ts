@@ -417,7 +417,13 @@ export function usePrintoraApp() {
     checklist: settings.checklist,
     audit: settings.audit,
     maintenanceTasks: maintenance.maintenanceTasks,
-  });
+  }).map((item) => ({
+    ...item,
+    id: printers.selectedPrinterId ? `printer-${printers.selectedPrinterId}-${item.id}` : item.id,
+    printerId: printers.selectedPrinterId ?? undefined,
+    printerName: printers.selectedPrinter?.name,
+    source: printers.selectedPrinter ? `${printers.selectedPrinter.name} · ${item.source}` : item.source,
+  }));
   const alertCenterItems = [...buildFleetAlertCenterItems(printers.printers), ...selectedPrinterAlertItems];
   const alertCount = alertCenterItems.length;
   const alertBlockerCount = alertCenterItems.filter((item) => item.severity === "blocker").length;
@@ -674,6 +680,8 @@ function buildFleetAlertCenterItems(printers: PrinterRecord[]): AlertCenterItem[
     .map((printer) => ({
       id: `fleet-printer-${printer.id}-${printer.cloud_status}`,
       source: `Frota · ${printer.name}`,
+      printerId: printer.id,
+      printerName: printer.name,
       title: fleetAlertTitle(printer),
       detail: fleetAlertDetail(printer),
       action: "Abra o detalhe da impressora para ver agente, último contato, suporte e próximos passos.",

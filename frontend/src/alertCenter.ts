@@ -117,6 +117,8 @@ export type MaintenanceTaskAlert = {
 export type AlertCenterItem = {
   id: string;
   source: string;
+  printerId?: number;
+  printerName?: string;
   title: string;
   detail: string;
   action: string;
