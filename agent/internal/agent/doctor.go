@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
@@ -79,6 +81,7 @@ func RemoteDoctor(ctx context.Context, cfg Config, api *APIClient, moonraker *Mo
 	} else {
 		results = append(results, map[string]any{"name": "api", "status": "ok", "detail": cfg.APIBaseURL})
 	}
+	results = append(results, raspberryThrottlingCheck(ctx))
 	results = append(results, map[string]any{"name": "queue", "status": "ok", "detail": fileSummary(cfg.QueueFile)})
 	results = append(results, map[string]any{"name": "log", "status": "ok", "detail": fileSummary(cfg.LogFile)})
 	return sanitizeMap(map[string]any{
@@ -124,4 +127,69 @@ func sanitizedTail(path string, maxLines int) []string {
 		}
 	}
 	return result
+}
+
+func raspberryThrottlingCheck(ctx context.Context) map[string]any {
+	if runtime.GOOS != "linux" {
+		return map[string]any{"name": "raspberry_throttling", "status": "ok", "detail": "não aplicável fora de Linux"}
+	}
+	model := raspberryModel()
+	if model != "" && !strings.Contains(strings.ToLower(model), "raspberry") {
+		return map[string]any{"name": "raspberry_throttling", "status": "ok", "detail": "não é Raspberry Pi"}
+	}
+	vcgencmd, err := exec.LookPath("vcgencmd")
+	if err != nil {
+		if model == "" {
+			return map[string]any{"name": "raspberry_throttling", "status": "ok", "detail": "não aplicável ou vcgencmd ausente"}
+		}
+		return map[string]any{"name": "raspberry_throttling", "status": "warn", "detail": "Raspberry sem vcgencmd para ler throttling"}
+	}
+	output, err := exec.CommandContext(ctx, vcgencmd, "get_throttled").Output()
+	if err != nil {
+		return map[string]any{"name": "raspberry_throttling", "status": "warn", "detail": err.Error()}
+	}
+	raw := strings.TrimSpace(string(output))
+	valueText := strings.TrimPrefix(raw, "throttled=")
+	value, err := strconv.ParseInt(valueText, 0, 64)
+	if err != nil {
+		return map[string]any{"name": "raspberry_throttling", "status": "warn", "detail": raw}
+	}
+	flags := raspberryThrottleFlags(value)
+	if len(flags) == 0 {
+		return map[string]any{"name": "raspberry_throttling", "status": "ok", "detail": "Raspberry normal, sem throttling ou undervoltage"}
+	}
+	return map[string]any{"name": "raspberry_throttling", "status": "warn", "detail": strings.Join(flags, ", ")}
+}
+
+func raspberryModel() string {
+	for _, path := range []string{"/proc/device-tree/model", "/sys/firmware/devicetree/base/model"} {
+		data, err := os.ReadFile(path)
+		if err == nil {
+			return strings.Trim(strings.TrimSpace(string(data)), "\x00")
+		}
+	}
+	return ""
+}
+
+func raspberryThrottleFlags(value int64) []string {
+	flagNames := []struct {
+		bit  uint
+		name string
+	}{
+		{0, "undervoltage ativo"},
+		{1, "frequência limitada agora"},
+		{2, "throttling ativo"},
+		{3, "soft temperature limit ativo"},
+		{16, "undervoltage histórico"},
+		{17, "frequência limitada no histórico"},
+		{18, "throttling no histórico"},
+		{19, "soft temperature limit no histórico"},
+	}
+	var flags []string
+	for _, flag := range flagNames {
+		if value&(1<<flag.bit) != 0 {
+			flags = append(flags, flag.name)
+		}
+	}
+	return flags
 }

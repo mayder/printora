@@ -347,6 +347,7 @@ export function usePrintoraApp() {
     }
     if ((shell.activeSection === "reports" || (shell.activeSection === "printer-detail" && printerDetailTab === "reports")) && printers.selectedPrinterId) {
       void settings.loadPrinterNetworkDiagnostics(printers.selectedPrinterId);
+      void settings.loadCanRecords(printers.selectedPrinterId);
     }
     if (shell.activeSection === "setup") {
       void setup.loadSetupHistory();

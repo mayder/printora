@@ -89,6 +89,8 @@ const overviewScreenSource = await readFile(join(root, "src/screens/OverviewScre
 const selfUpdateHookSource = await readFile(join(root, "src/hooks/domains/useSelfUpdate.ts"), "utf8");
 const systemApiSource = await readFile(join(root, "src/services/systemApi.ts"), "utf8");
 const settingsScreenSource = await readFile(join(root, "src/screens/SettingsScreen.tsx"), "utf8");
+const reportsScreenSource = await readFile(join(root, "src/screens/ReportsScreen.tsx"), "utf8");
+const agentDetailScreenSource = await readFile(join(root, "src/screens/AgentDetailScreen.tsx"), "utf8");
 const selfUpdateModalSource = await readFile(join(root, "src/components/modals/SelfUpdateModal.tsx"), "utf8");
 const updatesScreenSource = await readFile(join(root, "src/screens/UpdatesScreen.tsx"), "utf8");
 
@@ -112,6 +114,7 @@ assert.match(overviewScreenSource, /alertBlockerCount/);
 assert.doesNotMatch(overviewScreenSource, /health\?\.counts\.blocker/);
 assert.match(navigationSource, /export type PrinterAvailability = "none" \| "unknown" \| "online" \| "offline";/);
 assert.match(navigationSource, /\{ title: "Principal", sections: \["overview", "printers", "agents", "setup"\] \}/);
+assert.match(navigationSource, /\{ title: "Sistema", sections: \["settings"\] \}/);
 assert.doesNotMatch(navigationSource, /title: "Impressora ativa"/);
 assert.match(navigationSource, /sectionKey === "printer-detail" \|\| sectionKey === "agent-detail"/);
 assert.match(navigationSource, /onlinePrinterSections\.has\(sectionKey\) \|\| selectedPrinterLocalSections\.has\(sectionKey\)/);
@@ -131,9 +134,14 @@ assert.match(systemApiSource, /\/api\/system\/update\/apply/);
 assert.match(systemApiSource, /\/api\/system\/update\/history/);
 assert.match(systemApiSource, /\/api\/system\/install-diagnostics/);
 assert.match(selfUpdateModalSource, /ATUALIZAR PRINTORA/);
-assert.match(settingsScreenSource, /Atualizar agora/);
-assert.match(settingsScreenSource, /Diagnóstico da instalação/);
-assert.match(settingsScreenSource, /Copiar diagnóstico/);
+assert.match(settingsScreenSource, /Administração do sistema/);
+assert.match(settingsScreenSource, /Histórico da plataforma/);
+assert.doesNotMatch(settingsScreenSource, /Atualizar agora/);
+assert.doesNotMatch(settingsScreenSource, /Diagnóstico da instalação/);
+assert.doesNotMatch(settingsScreenSource, /Copiar diagnóstico/);
+assert.match(reportsScreenSource, /Registro técnico CAN da impressora/);
+assert.match(agentDetailScreenSource, /Dispositivo do agente/);
+assert.match(agentDetailScreenSource, /raspberry_throttling/);
 assert.match(selfUpdateModalSource, /visibleSelfUpdateSteps/);
 
 console.log("Frontend release states passed.");

@@ -30,8 +30,8 @@ export const appSections: Array<{
     key: "overview",
     icon: Home,
     label: "Visão geral",
-    detail: "Dashboard geral da frota e da impressora selecionada.",
-    purpose: "Use esta tela para saber rapidamente se há bloqueios, alertas ou pendências antes de trabalhar na impressora.",
+    detail: "Dashboard global da frota, agentes, alertas e ações pendentes.",
+    purpose: "Use esta tela para acompanhar saúde, manutenção, updates, calibração, agentes e impressoras da frota inteira.",
   },
   {
     key: "printers",
@@ -113,9 +113,9 @@ export const appSections: Array<{
   {
     key: "settings",
     icon: Settings,
-    label: "Configurações",
-    detail: "Preferências, integrações e contexto da impressora ativa.",
-    purpose: "Versão instalada, releases e updates do próprio Printora.",
+    label: "Administração",
+    detail: "Configuração global, versão publicada e status da plataforma.",
+    purpose: "Administre informações globais do Printora. Diagnósticos de impressora e agente ficam dentro dos registros.",
   },
   {
     key: "account",
@@ -142,7 +142,7 @@ export const appSections: Array<{
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Principal", sections: ["overview", "printers", "agents", "setup"] },
-  { title: "Diagnóstico", sections: ["reports", "settings"] },
+  { title: "Sistema", sections: ["settings"] },
 ];
 
 export const onlinePrinterSections = new Set<AppSection>([

@@ -403,3 +403,16 @@ Impacto em testes: `backend/tests/test_agent_support.py` cobre bloqueio sem SSH,
 Impacto em rollback: baixo; remover o fallback SSH volta a exigir comando manual para agentes abaixo de `0.1.8`.
 Como reverter: reverter alterações em `backend/app/agent_support.py`, rota de update do agente e textos da UI/documentação.
 Referencias: `backend/app/agent_support.py`, `backend/app/routes/agents.py`, `frontend/src/screens/AgentsScreen.tsx`, `frontend/src/screens/AgentDetailScreen.tsx`, `RUNBOOK.md`.
+
+### DEC-20260601-01 - Administracao cloud separa plataforma, impressora e agente
+
+Status: aceita
+Data: 2026-06-01
+Contexto: a tela antiga de configuracoes misturava update do Printora, diagnostico local do servidor, CAN da impressora e diagnostico do host onde o agente roda. Em cloud isso confunde operador e expõe informacoes que pertencem a outros contextos.
+Decisao: manter `settings` como tela global de Administracao, apenas com versao publicada, releases e historico administrativo da plataforma. Registro tecnico CAN passa para `Detalhe da impressora > Diagnostico`. Diagnostico de host/dispositivo passa para `Detalhe do agente`, abastecido por doctor remoto do agente, incluindo leitura Raspberry de energia/throttling quando disponivel.
+Alternativas consideradas: manter os blocos colapsados em Configuracoes; criar uma tela global de Diagnostico tecnico; esconder os blocos apenas por permissao.
+Consequencias: o operador leigo ve menos acoes perigosas no escopo global. Suporte passa a diagnosticar impressora e agente no registro correto. O doctor remoto precisa evoluir junto do agente para ampliar leituras de hardware.
+Impacto em testes: build frontend, testes Go do agente e `./check.sh` devem validar a reorganizacao.
+Impacto em rollback: baixo; reverter esta decisao devolve os blocos para Settings e remove a leitura Raspberry do doctor.
+Como reverter: reverter alteracoes em `frontend/src/screens/SettingsScreen.tsx`, `frontend/src/screens/ReportsScreen.tsx`, `frontend/src/screens/AgentDetailScreen.tsx`, `agent/internal/agent/doctor.go` e documentacao.
+Referencias: `frontend/src/screens/SettingsScreen.tsx`, `frontend/src/screens/ReportsScreen.tsx`, `frontend/src/screens/AgentDetailScreen.tsx`, `agent/internal/agent/doctor.go`, `TELAS.md`.

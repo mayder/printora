@@ -1,5 +1,5 @@
 import { Badge, Metric } from "../components/common";
-import type { AgentPairingOverview, PrinterAgentRecord, PrinterRecord } from "../types";
+import type { AgentJobRecord, AgentPairingOverview, PrinterAgentRecord, PrinterRecord } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 import * as React from "react";
 
@@ -93,6 +93,10 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
   const expectedAgentVersion = agentUpdateManifest?.recommended_version ?? health?.expected_version ?? agentInstallStatus?.expected_agent_version ?? "-";
   const outdated = row ? expectedAgentVersion !== "-" && row.agent.agent_version !== expectedAgentVersion : false;
   const [manualUpdateVisible, setManualUpdateVisible] = React.useState(false);
+  const latestDoctor = agentSupport?.latest_doctor ?? null;
+  const raspberryCheck = getDoctorCheck(latestDoctor, "raspberry_throttling");
+  const devicePlatform = stringFromRecord(latestDoctor?.result, "platform") || row.agent.platform || "-";
+  const doctorGeneratedAt = latestDoctor?.finished_at ?? latestDoctor?.updated_at ?? "-";
 
   async function updateAgent(rowToUpdate: AgentFleetRow) {
     if (!canRequestSystemAgentUpdate(rowToUpdate)) {
@@ -215,6 +219,40 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
       <article className="panel wide panel-section panel-agents">
         <div className="panel-heading">
           <div>
+            <h2>Dispositivo do agente</h2>
+            <p className="muted">Host onde o agente roda: versão, conectividade, serviço e sinais físicos do Raspberry quando disponíveis.</p>
+          </div>
+          <button type="button" className="secondary-button" onClick={() => void createAgentDoctorJob(row.printer.id)} disabled={loading || row.agent.status !== "active"}>
+            <ClipboardCheck size={15} />
+            Doctor remoto
+          </button>
+        </div>
+        <div className="overview-strip">
+          <Badge icon={Server} label="Plataforma" value={devicePlatform} />
+          <Badge icon={Gauge} label="Agente" value={row.agent.agent_version ?? "-"} />
+          <Badge icon={RefreshCw} label="Esperada" value={expectedAgentVersion} />
+          <Badge icon={Radio} label="Moonraker" value={getDoctorCheck(latestDoctor, "moonraker")?.status ?? "sem doctor"} />
+          <Badge icon={AlertTriangle} label="Raio Raspberry" value={formatRaspberryStatus(raspberryCheck)} />
+        </div>
+        <div className="printer-card-grid">
+          <Metric label="URL Moonraker" value={row.printer.moonraker_url} />
+          <Metric label="Último doctor" value={doctorGeneratedAt} />
+          <Metric label="API" value={getDoctorCheck(latestDoctor, "api")?.status ?? "-"} />
+          <Metric label="Fila local" value={getDoctorCheck(latestDoctor, "queue")?.detail ?? "-"} />
+          <Metric label="Log local" value={getDoctorCheck(latestDoctor, "log")?.detail ?? "-"} />
+          <Metric label="Throttling" value={raspberryCheck?.detail ?? "Sem leitura do agente"} />
+        </div>
+        {latestDoctor?.status === "failed" ? (
+          <div className="auth-step">
+            <AlertTriangle size={16} />
+            <span>{latestDoctor.error_message ?? "O doctor remoto falhou. Atualize o agente ou verifique conectividade."}</span>
+          </div>
+        ) : null}
+      </article>
+
+      <article className="panel wide panel-section panel-agents">
+        <div className="panel-heading">
+          <div>
             <h2>Saúde e suporte</h2>
             <p className="muted">Diagnóstico do agente sem expor token, segredo ou payload sensível.</p>
           </div>
@@ -312,6 +350,40 @@ function agentUpdateButtonLabel(row: AgentFleetRow) {
   if (supportsRemoteAgentUpdate(row.agent.agent_version)) return "Atualizar agente";
   if (row.printer.ssh_credential_configured) return "Atualizar via sistema";
   return "Copiar comando";
+}
+
+type RemoteDoctorCheck = {
+  name?: unknown;
+  status?: unknown;
+  detail?: unknown;
+};
+
+function getDoctorCheck(job: AgentJobRecord | null | undefined, name: string): { status: string; detail: string } | null {
+  const checks = Array.isArray(job?.result?.checks) ? (job?.result?.checks as RemoteDoctorCheck[]) : [];
+  const check = checks.find((candidate) => candidate.name === name);
+  if (!check) return null;
+  return {
+    status: typeof check.status === "string" ? check.status : "-",
+    detail: typeof check.detail === "string" ? check.detail : "-",
+  };
+}
+
+function stringFromRecord(record: Record<string, unknown> | null | undefined, key: string) {
+  const value = record?.[key];
+  return typeof value === "string" ? value : "";
+}
+
+function formatRaspberryStatus(check: { status: string; detail: string } | null) {
+  if (!check) return "sem leitura";
+  const detail = check.detail.toLowerCase();
+  if (check.status === "warn" || check.status === "fail" || detail.includes("ativo") || detail.includes("undervoltage")) {
+    return "throttled";
+  }
+  if (detail.includes("não é raspberry") || detail.includes("nao e raspberry")) {
+    return "não aplicável";
+  }
+  if (check.status === "ok") return "normal";
+  return check.status;
 }
 
 function versionTuple(version: string | null | undefined) {

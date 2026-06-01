@@ -21,6 +21,7 @@ type ReportsScreenProps = ScreenPropsFor<
   | "FileText"
   | "Gauge"
   | "History"
+  | "HelpCircle"
   | "Radio"
   | "RefreshCw"
   | "ShieldCheck"
@@ -40,9 +41,22 @@ type ReportsScreenProps = ScreenPropsFor<
   | "backupRestoreRoot"
   | "backupRuns"
   | "backupSourcePath"
+  | "canBitrate"
+  | "canBusState"
+  | "canComparison"
+  | "canInterfaceName"
+  | "canNotes"
+  | "canRawOutput"
+  | "canRecords"
+  | "canRxError"
+  | "canSummary"
+  | "canTxError"
+  | "canTxRetries"
   | "checklist"
+  | "compareLatestCanRecords"
   | "compareBackupArchives"
   | "compareSnapshots"
+  | "createCanRecord"
   | "createBackupDryRun"
   | "createBackupPolicy"
   | "createBackupRestorePlan"
@@ -50,7 +64,9 @@ type ReportsScreenProps = ScreenPropsFor<
   | "formatBoolean"
   | "formatChecklistDataState"
   | "formatClassification"
+  | "formatCanAlert"
   | "formatDecision"
+  | "formatOptionalInt"
   | "formatSeverity"
   | "formatUnknown"
   | "fromSnapshotId"
@@ -72,6 +88,14 @@ type ReportsScreenProps = ScreenPropsFor<
   | "setBackupRestoreFiles"
   | "setBackupRestoreRoot"
   | "setBackupSourcePath"
+  | "setCanBitrate"
+  | "setCanBusState"
+  | "setCanInterfaceName"
+  | "setCanNotes"
+  | "setCanRawOutput"
+  | "setCanRxError"
+  | "setCanTxError"
+  | "setCanTxRetries"
   | "setFromSnapshotId"
   | "setToSnapshotId"
   | "snapshotDiff"
@@ -79,6 +103,7 @@ type ReportsScreenProps = ScreenPropsFor<
   | "status"
   | "toSnapshotId"
   | "validateBackupRestoreGate"
+  | "parseCanRawOutput"
 >;
 
 export function ReportsScreen(props: ReportsScreenProps) {
@@ -90,6 +115,7 @@ export function ReportsScreen(props: ReportsScreenProps) {
     FileText,
     Gauge,
     History,
+    HelpCircle,
     Radio,
     RefreshCw,
     ShieldCheck,
@@ -99,14 +125,29 @@ export function ReportsScreen(props: ReportsScreenProps) {
     backupRestoreGate,
     backupRestorePlan,
     backupRuns,
+    canBitrate,
+    canBusState,
+    canComparison,
+    canInterfaceName,
+    canNotes,
+    canRawOutput,
+    canRecords,
+    canRxError,
+    canSummary,
+    canTxError,
+    canTxRetries,
     checklist,
+    compareLatestCanRecords,
     compareSnapshots,
+    createCanRecord,
     createBackupDryRun,
     executeLocalBackup,
     formatBoolean,
     formatChecklistDataState,
+    formatCanAlert,
     formatClassification,
     formatDecision,
+    formatOptionalInt,
     formatSeverity,
     formatUnknown,
     fromSnapshotId,
@@ -114,8 +155,18 @@ export function ReportsScreen(props: ReportsScreenProps) {
     healthFindingClass,
     loading,
     networkDiagnostics,
+    parseCanRawOutput,
     sanitizedReport,
     selectedPrinter,
+    selectedPrinterId,
+    setCanBitrate,
+    setCanBusState,
+    setCanInterfaceName,
+    setCanNotes,
+    setCanRawOutput,
+    setCanRxError,
+    setCanTxError,
+    setCanTxRetries,
     setFromSnapshotId,
     setToSnapshotId,
     snapshotDiff,
@@ -128,6 +179,7 @@ export function ReportsScreen(props: ReportsScreenProps) {
   const diagnosticSource = health ? formatChecklistDataState(health.data_state) : "sem leitura";
   const moonrakerState = status?.connected ? "Conectado" : "Sem resposta";
   const currentSnapshot = snapshots[0];
+  const [canHelpOpen, setCanHelpOpen] = React.useState(false);
 
   return (
     <>
@@ -155,6 +207,31 @@ export function ReportsScreen(props: ReportsScreenProps) {
           <ReportStatusCard icon={Database} label="Snapshots" value={snapshots.length} detail="Leituras salvas para comparação histórica." tone="neutral" />
         </div>
       </article>
+
+      {canHelpOpen ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Ajuda: Registro técnico CAN">
+          <div className="modal-card settings-help-modal-card">
+            <div className="modal-header">
+              <div>
+                <h2>Registro técnico CAN</h2>
+                <p>Histórico técnico da comunicação CAN desta impressora.</p>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setCanHelpOpen(false)} aria-label="Fechar ajuda">
+                X
+              </button>
+            </div>
+            <div className="settings-help-content">
+              <p>Use este painel para guardar leituras de <code>ip -details -statistics link show can0</code> e comparar se erros aumentaram depois de manutenção, update, troca de cabo ou troca de placa.</p>
+              <p>Este dado pertence à impressora aberta e não à administração global do Printora.</p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="secondary-button" onClick={() => setCanHelpOpen(false)}>
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <article className="panel wide panel-section panel-reports report-section">
         <div className="report-section-heading">
@@ -196,6 +273,81 @@ export function ReportsScreen(props: ReportsScreenProps) {
           ) : (
             <p className="muted">Nenhum item de health carregado.</p>
           )}
+        </div>
+      </article>
+
+      <article className="panel wide panel-section panel-reports report-section can-technical-panel">
+        <div className="report-section-heading">
+          <div>
+            <h2>Registro técnico CAN da impressora</h2>
+            <p>Leituras manuais, parser e comparação histórica ficam no contexto de {selectedPrinter?.name ?? "impressora aberta"}.</p>
+          </div>
+          <button type="button" className="secondary-button" onClick={() => setCanHelpOpen(true)}>
+            <HelpCircle size={16} />
+            Ajuda
+          </button>
+        </div>
+        <div className="report-status-grid">
+          <ReportStatusCard icon={Database} label="Modo" value={canSummary?.safe_mode ?? "manual"} detail="Registro técnico read-only e manual." tone="neutral" />
+          <ReportStatusCard icon={Gauge} label="Dados" value={canSummary?.data_state === "manual_records" ? "manuais" : "sem registros"} detail="Origem das leituras CAN." tone={canRecords.length ? "ok" : "neutral"} />
+          <ReportStatusCard icon={ShieldCheck} label="OK" value={canSummary?.counts.ok ?? 0} detail="Leituras sem alerta." tone="ok" />
+          <ReportStatusCard icon={AlertTriangle} label="Alerta" value={(canSummary?.counts.monitorar ?? 0) + (canSummary?.counts.problema ?? 0)} detail={formatCanAlert(canSummary?.overall_alert ?? canRecords[0]?.alert_level ?? "ok")} tone={(canSummary?.counts.problema ?? 0) > 0 ? "danger" : (canSummary?.counts.monitorar ?? 0) > 0 ? "warning" : "neutral"} />
+        </div>
+        <div className="report-action-row">
+          <button type="button" className="secondary-button" onClick={() => void compareLatestCanRecords()} disabled={!selectedPrinterId || loading || canRecords.length < 2}>
+            Comparar últimas leituras
+          </button>
+        </div>
+        {canComparison ? (
+          <div className={`can-row ${canComparison.alert_level}`}>
+            <strong>Comparação #{canComparison.before_record_id} → #{canComparison.after_record_id}</strong>
+            <span>
+              {canComparison.interface_name} · rx={canComparison.delta_rx_error} · tx={canComparison.delta_tx_error} · retries={canComparison.delta_tx_retries}
+            </span>
+            <small>{canComparison.diagnosis}</small>
+            <small>{canComparison.recommended_actions.join(" · ")}</small>
+          </div>
+        ) : null}
+        <div className="can-parser">
+          <textarea
+            aria-label="Saída bruta ip link CAN"
+            value={canRawOutput}
+            onChange={(event: any) => setCanRawOutput(event.target.value)}
+            placeholder="Cole aqui a saída de ip -details -statistics link show can0 para preencher os campos."
+          />
+          <button type="button" className="secondary-button" onClick={() => void parseCanRawOutput()} disabled={!selectedPrinterId || loading || !canRawOutput.trim()}>
+            Extrair leitura
+          </button>
+        </div>
+        <form className="can-form" onSubmit={(event: any) => void createCanRecord(event)}>
+          <input aria-label="Interface CAN" value={canInterfaceName} onChange={(event: any) => setCanInterfaceName(event.target.value)} placeholder="can0" />
+          <input aria-label="RX error" type="number" min="0" value={canRxError} onChange={(event: any) => setCanRxError(Number(event.target.value))} />
+          <input aria-label="TX error" type="number" min="0" value={canTxError} onChange={(event: any) => setCanTxError(Number(event.target.value))} />
+          <input aria-label="TX retries" type="number" min="0" value={canTxRetries} onChange={(event: any) => setCanTxRetries(Number(event.target.value))} />
+          <input aria-label="Estado do barramento" value={canBusState} onChange={(event: any) => setCanBusState(event.target.value)} placeholder="ERROR-ACTIVE" />
+          <input aria-label="Bitrate CAN" type="number" min="1" value={canBitrate} onChange={(event: any) => setCanBitrate(Number(event.target.value))} />
+          <textarea aria-label="Notas CAN" value={canNotes} onChange={(event: any) => setCanNotes(event.target.value)} placeholder="Ex.: leitura manual de ip -details -statistics link show can0" />
+          <button type="submit" disabled={!selectedPrinterId || loading}>
+            Registrar
+          </button>
+        </form>
+        <div className="can-list">
+          {canRecords.length === 0 ? <p className="muted">Nenhuma leitura CAN registrada para esta impressora.</p> : null}
+          {canRecords.map((record: any) => (
+            <div key={record.id} className={`can-row ${record.alert_level}`}>
+              <strong>{formatCanAlert(record.alert_level)}</strong>
+              <span>
+                {record.interface_name} · rx={record.rx_error} · tx={record.tx_error} · retries={record.tx_retries} · {record.recorded_at}
+              </span>
+              <small>
+                Delta rx={formatOptionalInt(record.delta_rx_error)} · tx={formatOptionalInt(record.delta_tx_error)} · retries={formatOptionalInt(record.delta_tx_retries)}
+              </small>
+              <small>Estado: {record.bus_state ?? "-"} · bitrate: {record.bitrate ?? "-"}</small>
+              <small>{record.diagnosis}</small>
+              {record.recommended_actions.length ? <small>{record.recommended_actions.join(" · ")}</small> : null}
+              {record.notes ? <small>{record.notes}</small> : null}
+            </div>
+          ))}
         </div>
       </article>
 

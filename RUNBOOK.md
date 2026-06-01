@@ -36,8 +36,9 @@ Diagnostico de instalacao:
 PRINTORA_PORT=8069 ./scripts/doctor_install.sh
 ```
 
-Pela interface, use `Configuracoes > Diagnostico da instalacao` para recarregar
-checks locais e copiar um resumo tecnico para suporte.
+Em ambiente cloud, esse diagnostico nao fica na tela global. Para host de
+impressora, use `Detalhe do agente > Doctor remoto`; para diagnostico local do
+servidor, use o script acima no host da instalacao.
 
 Setup do Zero via SSH:
 
@@ -160,8 +161,8 @@ Destravar update local orfao:
 ```
 
 O script cria backup do `printora.db` no mesmo diretorio antes de marcar runs
-`running` como `failed`. A UI tambem possui acao para reconciliar updates
-travados em `Configuracoes > Historico de updates`.
+`running` como `failed`. Em cloud, a UI de `Administracao > Historico da plataforma`
+e informativa; reconciliacao de travados e rotina de suporte/admin via script.
 
 Updater local macOS/Linux/Raspberry:
 
@@ -175,7 +176,7 @@ O script detecta macOS sem systemd, Linux/Raspberry com systemd e Linux sem syst
 Em Linux/Raspberry com systemd, o run pode ser finalizado antes do restart
 efetivo, pois o `systemctl restart printora.service` encerra o processo antigo
 que iniciou o update. A validacao operacional depois do restart continua sendo
-`/openapi.json` ou o historico em `Configuracoes > Historico de updates`.
+`/openapi.json` ou o historico em `Administracao > Historico da plataforma`.
 Os instaladores Linux/Raspberry criam `/etc/sudoers.d/printora-restart` com
 permissao minima para o usuario do servico executar `systemctl restart/status
 printora.service` sem senha. Isso e necessario para update automatico do app,
@@ -188,8 +189,8 @@ Log de update iniciado pela UI:
 ```
 
 No Android/Termux, o banco e os backups ficam em `~/.local/share/printora/`.
-Se a UI cair durante o restart, consultar `Configuracoes > Historico de updates`
-ou enviar esse log junto com o resumo de `Diagnostico da instalacao`.
+Se a UI cair durante o restart, consultar `Administracao > Historico da plataforma`
+ou enviar esse log junto com o diagnostico local gerado pelo script.
 
 Windows:
 
@@ -772,7 +773,7 @@ Antes de publicar:
 6. Garantir que a versao foi atualizada no backend, frontend, lockfiles e frontend pre-buildado.
 7. Criar commit de release e tag anotada no formato `vX.Y.Z`.
 8. Publicar a branch e a tag no remoto.
-9. Criar a GitHub Release da tag publicada; a tela `Configuracoes > Releases do Printora` consulta GitHub Releases, nao apenas tags Git.
+9. Criar a GitHub Release da tag publicada; a tela `Administracao > Administracao do sistema` consulta GitHub Releases, nao apenas tags Git.
 10. Confirmar que `gh release list` mostra a nova versao como `Latest`.
 
 Exemplo para `v0.1.9`:
