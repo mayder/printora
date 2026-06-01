@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import hashlib
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -109,21 +110,52 @@ class AgentUpdateRepository:
         return [_history_from_row(row) for row in rows]
 
 
-def load_agent_update_manifest() -> AgentUpdateManifest:
+def load_agent_update_manifest(public_base_url: str | None = None) -> AgentUpdateManifest:
     if not AGENT_MANIFEST_PATH.exists():
-        return _default_manifest()
+        return _default_manifest(public_base_url)
     data = json.loads(AGENT_MANIFEST_PATH.read_text())
-    return AgentUpdateManifest.model_validate(data)
+    return _with_local_release_assets(AgentUpdateManifest.model_validate(data), public_base_url)
 
 
-def _default_manifest() -> AgentUpdateManifest:
-    return AgentUpdateManifest(
+def _default_manifest(public_base_url: str | None = None) -> AgentUpdateManifest:
+    return _with_local_release_assets(AgentUpdateManifest(
         releases=[
             AgentReleaseAsset(platform="linux/amd64", version=AGENT_CURRENT_VERSION),
             AgentReleaseAsset(platform="linux/arm64", version=AGENT_CURRENT_VERSION),
             AgentReleaseAsset(platform="linux/arm", version=AGENT_CURRENT_VERSION),
         ]
-    )
+    ), public_base_url)
+
+
+def _with_local_release_assets(manifest: AgentUpdateManifest, public_base_url: str | None) -> AgentUpdateManifest:
+    release_dir = Path(__file__).resolve().parents[2] / ".artifacts" / "agent"
+    local_files = {
+        "linux/arm64": ("linux-arm64", "printora-agent-linux-arm64"),
+    }
+    releases: list[AgentReleaseAsset] = []
+    for release in manifest.releases:
+        local = local_files.get(release.platform)
+        if local is None:
+            releases.append(release)
+            continue
+        route_platform, filename = local
+        path = release_dir / filename
+        if not path.exists() or not path.is_file():
+            releases.append(release)
+            continue
+        url = release.url
+        if public_base_url:
+            url = f"{public_base_url.rstrip('/')}/api/agent/update/releases/{route_platform}"
+        releases.append(release.model_copy(update={"url": url, "sha256": _sha256_file(path)}))
+    return manifest.model_copy(update={"releases": releases})
+
+
+def _sha256_file(path: Path) -> str:
+    hasher = hashlib.sha256()
+    with path.open("rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()
 
 
 def _history_from_row(row) -> AgentUpdateHistoryRecord:

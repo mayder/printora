@@ -382,8 +382,8 @@ export function usePrinters(options: UsePrintersOptions) {
       const result = (await response.json()) as AgentUpdateRequestResponse;
       showToast({
         tone: "success",
-        title: "Update enfileirado",
-        detail: result.detail || "O agente recebeu a ação e vai tentar se autoatualizar.",
+        title: result.websocket_delivered ? "Update enviado ao agente" : "Update aguardando agente",
+        detail: result.detail || "O agente aplica a atualização pelo próprio serviço, sem SSH.",
       });
       await loadAgentSupport(printerId);
       await loadFleetAgentPairings();

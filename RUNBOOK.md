@@ -567,6 +567,7 @@ Publicação do binário do agente:
 
 - o arquivo servido em `releases[].url` precisa ser exatamente o mesmo binário usado para calcular `releases[].sha256`;
 - a API serve o binário em `/api/agent/update/releases/linux-arm64` a partir de `.artifacts/agent/printora-agent-linux-arm64`;
+- o manifesto público recalcula `url` e `sha256` do artefato local publicado antes de responder, evitando hash estático antigo;
 - se o download falhar com `sha256 inválido`, conferir o SHA do arquivo servido pela URL pública/local antes de tentar reinstalar a impressora;
 - em ambiente local de teste, não depender de servidor HTTP avulso para o binário quando a API estiver acessível pela impressora.
 
@@ -574,7 +575,7 @@ Execução pela UI:
 
 - abrir `Agentes`, conferir `Versão instalada` e `Versão esperada`;
 - clicar `Atualizar` na linha ou `Atualizar agente` no detalhe;
-- o servidor cria um job `remote_agent_update_check` para o agente ativo, sem SSH e sem comando manual para o usuário;
+- o servidor cria um job `remote_agent_update_check` para o agente ativo, tenta entregar imediatamente pelo WebSocket e mantém fallback por heartbeat/polling, sem SSH e sem comando manual para o usuário;
 - o agente baixa o binário indicado no manifesto, valida SHA-256, troca somente `/usr/local/bin/printora-agent` e reinicia apenas `printora-agent` quando `allow_service_restart=true`.
 
 Segurança:

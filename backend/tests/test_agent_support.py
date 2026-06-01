@@ -118,6 +118,8 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
             assert created.status_code == 200
             assert created.json()["mode"] == "remote_job"
             assert created.json()["status"] == "queued"
+            assert created.json()["websocket_delivered"] is False
+            assert "sem SSH" in created.json()["detail"]
             assert created.json()["job"]["job_type"] == "remote_agent_update_check"
             assert created.json()["job"]["payload"]["safe_mode"] == "agent_self_update"
 
@@ -127,6 +129,7 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
             assert current_created.status_code == 200
             assert current_created.json()["mode"] == "remote_job"
             assert current_created.json()["status"] == "queued"
+            assert current_created.json()["websocket_delivered"] is False
             assert current_created.json()["job"]["job_type"] == "remote_agent_update_check"
             assert current_created.json()["job"]["payload"]["safe_mode"] == "agent_self_update"
     finally:

@@ -1,4 +1,5 @@
 from pathlib import Path
+import hashlib
 
 from fastapi.testclient import TestClient
 
@@ -31,6 +32,7 @@ def test_agent_update_manifest_is_public_and_versioned(tmp_path: Path, monkeypat
                 assert release.json()["detail"] == "agent release file not published"
             else:
                 assert release.headers["content-type"] == "application/octet-stream"
+                assert hashlib.sha256(release.content).hexdigest() == linux_arm64["sha256"]
     finally:
         get_settings.cache_clear()
 

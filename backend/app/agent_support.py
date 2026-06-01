@@ -74,6 +74,7 @@ class AgentUpdateRequestResponse(BaseModel):
     mode: Literal["remote_job"]
     status: Literal["queued"]
     detail: str
+    websocket_delivered: bool = False
     job: AgentJobRecord | None = None
 
 
@@ -120,7 +121,12 @@ class AgentSupportRepository:
                 payload={"safe_mode": "agent_self_update", "requested_at": _now_text()},
             ),
         )
-        return AgentUpdateRequestResponse(mode="remote_job", status="queued", detail="Update remoto enfileirado para o agente.", job=job)
+        return AgentUpdateRequestResponse(
+            mode="remote_job",
+            status="queued",
+            detail="Update remoto registrado para o agente. O agente aplica pelo próprio serviço, sem SSH.",
+            job=job,
+        )
 
     def support_bundle(self, printer: PrinterRecord) -> AgentSupportBundle:
         overview = self.overview(printer)

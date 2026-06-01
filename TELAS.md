@@ -114,7 +114,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Relatorios, formularios tecnicos de backup, comparacao, restore e relatorio sanitizado devem abrir em modal; a tela principal e leitura diagnostica, nao cadastro.
 - Diagnostico de host/dispositivo fica no detalhe do agente, usando doctor remoto e pacote de suporte sanitizado. A administracao global nao mostra diagnostico local de Mac/servidor para operador.
 - CAN de operacao fica na aba `Operacao` do detalhe da impressora como leitura operacional; registro tecnico, parser e comparacao manual ficam na aba `Diagnostico` da impressora aberta.
-- Updates da impressora ficam na aba `Atualizacoes` do detalhe da impressora; update do agente fica no detalhe/lista de agentes; update da plataforma Printora fica fora da operacao comum do usuario final.
+- Updates da impressora ficam na aba `Atualizacoes` do detalhe da impressora; update do agente fica no detalhe/lista de agentes, por job remoto entregue ao agente via WebSocket com fallback heartbeat/polling e sem SSH; update da plataforma Printora fica fora da operacao comum do usuario final.
 - Na tela Administracao, `Releases anteriores`, status e `Historico da plataforma` sao conteudo interno de suporte, visivel apenas para `breno@mayder.com.br`; usuarios comuns veem apenas escopo global e operam updates pelos registros de agente.
 - A tela Sobre deve ser acessivel pelo icone de informacao no topo em todas as telas; por enquanto nao aparece no menu lateral.
 - A tela Sobre deve promover o autor, exibir LinkedIn, Instagram, GitHub do projeto, motivacao, funcionalidades atuais, aviso de teste, versao sem custo, roadmap online futuro e opcoes de marca.

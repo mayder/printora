@@ -255,8 +255,8 @@ async def agent_linux_installer() -> FileResponse:
 
 
 @router.get("/api/agent/update/manifest", response_model=AgentUpdateManifest)
-async def agent_update_manifest() -> AgentUpdateManifest:
-    return load_agent_update_manifest()
+async def agent_update_manifest(request: Request) -> AgentUpdateManifest:
+    return load_agent_update_manifest(str(request.base_url))
 
 
 @router.get("/api/agent/update/releases/{platform}")
@@ -369,7 +369,14 @@ async def create_printer_agent_update_job(
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
     try:
-        return repository.request_agent_update(printer, agent_id)
+        response = repository.request_agent_update(printer, agent_id)
+        delivered = await agent_ws_manager.push_job(response.job) if response.job else False
+        detail = (
+            "Update enviado ao agente online pelo canal remoto. O agente baixa, valida SHA-256 e reinicia só o serviço do agente."
+            if delivered
+            else "Update enfileirado. O agente buscará a ação no próximo heartbeat/polling, sem SSH."
+        )
+        return response.model_copy(update={"websocket_delivered": delivered, "detail": detail})
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

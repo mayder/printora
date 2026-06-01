@@ -417,3 +417,12 @@ Impacto em testes: build frontend, testes Go do agente e `./check.sh` devem vali
 Impacto em rollback: baixo; reverter esta decisao devolve os blocos para Settings e remove a leitura Raspberry do doctor.
 Como reverter: reverter alteracoes em `frontend/src/screens/SettingsScreen.tsx`, `frontend/src/screens/ReportsScreen.tsx`, `frontend/src/screens/AgentDetailScreen.tsx`, `agent/internal/agent/doctor.go` e documentacao.
 Referencias: `frontend/src/screens/SettingsScreen.tsx`, `frontend/src/screens/ReportsScreen.tsx`, `frontend/src/screens/AgentDetailScreen.tsx`, `agent/internal/agent/doctor.go`, `TELAS.md`.
+
+### DEC-20260601-03 - Update de agente sem SSH e manifesto derivado do artefato publicado
+
+Status: aceita
+Data: 2026-06-01
+Contexto: o update do agente deve ser simples para usuario leigo e nao pode depender de SSH salvo como ultimo recurso. O manifesto estatico tambem pode ficar divergente do binario realmente servido, causando falha de SHA-256.
+Decisao: o endpoint de update do agente cria job `remote_agent_update_check`, tenta entregar imediatamente via WebSocket e mantém fallback por heartbeat/polling. O manifesto publico do agente recalcula URL e SHA-256 a partir do artefato local publicado em `.artifacts/agent` antes de responder.
+Consequencias: a UI deixa de sugerir update por SSH. Se o agente estiver online, a acao chega imediatamente; se nao estiver, fica pendente para o proximo contato. Falha real passa a vir do resultado do job ou do relatorio do agente, nao do SSH da impressora.
+Como reverter: voltar `backend/app/routes/agents.py`, `backend/app/agent_support.py`, `backend/app/agent_updates.py`, `frontend/src/hooks/domains/usePrinters.ts` e documentacao.

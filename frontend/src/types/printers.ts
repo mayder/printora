@@ -250,5 +250,6 @@ export type AgentUpdateRequestResponse = {
   mode: "remote_job";
   status: "queued";
   detail: string;
+  websocket_delivered: boolean;
   job?: AgentJobRecord | null;
 };
