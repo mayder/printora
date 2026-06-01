@@ -47,6 +47,8 @@ export function AlertCenterModal(props: AlertCenterModalProps) {
   const pendingUpdates = filteredAlertCenterItems.filter((item: any) =>
     item.actionKind === "open_updates" || item.actionKind === "run_update" || item.actionKind === "refresh_update",
   ).length;
+  const usePrinterButtons = printers.length <= 6;
+  const printerFilterOptions = [{ id: "all", name: "Todas" }, ...printers.map((printer: any) => ({ id: String(printer.id), name: printer.name }))];
 
   return (
     <>
@@ -72,17 +74,32 @@ export function AlertCenterModal(props: AlertCenterModalProps) {
                 <Badge icon={RefreshCw} label="Updates" value={pendingUpdates} />
                 <Badge icon={Bell} label="Total" value={filteredAlertCenterItems.length} />
               </div>
-              <label className="alert-center-filter">
+              <div className="alert-center-filter">
                 <span>Impressora</span>
-                <select value={printerFilter} onChange={(event) => setPrinterFilter(event.target.value)}>
-                  <option value="all">Todas as impressoras</option>
-                  {printers.map((printer: any) => (
-                    <option key={printer.id} value={String(printer.id)}>
-                      {printer.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                {usePrinterButtons ? (
+                  <div className="alert-center-filter-buttons" role="group" aria-label="Filtrar alertas por impressora">
+                    {printerFilterOptions.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={printerFilter === option.id ? "active" : ""}
+                        onClick={() => setPrinterFilter(option.id)}
+                      >
+                        {option.name}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <select value={printerFilter} onChange={(event) => setPrinterFilter(event.target.value)} aria-label="Filtrar alertas por impressora">
+                    <option value="all">Todas as impressoras</option>
+                    {printers.map((printer: any) => (
+                      <option key={printer.id} value={String(printer.id)}>
+                        {printer.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
               <div className="alert-center-list">
                 {filteredAlertCenterItems.length === 0 ? (
                   <div className="empty-state">
