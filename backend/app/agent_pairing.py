@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 from uuid import uuid4
@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.auth import AuthUser, format_dt, hash_token, new_secret, utc_now
 from app.database import connect_database
-from app.printers import PrinterRecord, PrinterRepository
+from app.printers import AGENT_ONLINE_WINDOW_SECONDS, PrinterRecord, PrinterRepository
 
 
 PAIRING_TOKEN_TTL = timedelta(minutes=15)
@@ -18,10 +18,19 @@ AGENT_JOB_TTL = timedelta(minutes=2)
 AGENT_JOB_IN_PROGRESS_TIMEOUT = timedelta(minutes=5)
 AGENT_PROTOCOL_VERSION = 1
 AGENT_MAX_PAYLOAD_BYTES = 64 * 1024
-EXPECTED_AGENT_VERSION = "0.1.8"
+EXPECTED_AGENT_VERSION = "0.1.17"
 AgentStatus = Literal["active", "revoked", "removed"]
 AgentJobStatus = Literal["pending", "in_progress", "succeeded", "failed", "canceled"]
 AgentMessageType = Literal["hello", "heartbeat", "snapshot", "job", "ack", "nack", "result", "error", "backpressure"]
+
+
+class AgentPairingConflictError(ValueError):
+    def __init__(self, stable_id: str) -> None:
+        self.stable_id = stable_id
+        super().__init__(
+            f"Este host já está pareado como {stable_id}. "
+            "Revogue/remova o agente antigo antes de reinstalar."
+        )
 
 
 class PairingTokenCreateRequest(BaseModel):
@@ -326,14 +335,17 @@ class AgentPairingRepository:
                 (printer_id,),
             ).fetchall()
         latest = _agent_from_row(rows[0]) if rows else None
-        ready = bool(latest and latest.last_seen_at and latest.agent_version == EXPECTED_AGENT_VERSION)
-        diagnostic = "agente pareado e heartbeat recebido"
+        latest_online = bool(latest and _last_seen_age_seconds(latest.last_seen_at) is not None and _last_seen_age_seconds(latest.last_seen_at) <= AGENT_ONLINE_WINDOW_SECONDS)
+        ready = bool(latest_online and latest and latest.agent_version == EXPECTED_AGENT_VERSION)
+        diagnostic = "agente online"
         if latest is None:
             diagnostic = "nenhum agente ativo pareado"
         elif latest.last_seen_at is None:
             diagnostic = "agente pareado, aguardando heartbeat"
+        elif not latest_online:
+            diagnostic = "agente pareado, mas offline; revogue/remova o agente antigo antes de reinstalar no mesmo host"
         elif latest.agent_version != EXPECTED_AGENT_VERSION:
-            diagnostic = f"versão recebida {latest.agent_version or '-'}, esperado {EXPECTED_AGENT_VERSION}"
+            diagnostic = f"agente online em versão antiga: {latest.agent_version or '-'}, esperado {EXPECTED_AGENT_VERSION}"
         return AgentInstallStatusResponse(
             printer_id=printer_id,
             expected_agent_version=EXPECTED_AGENT_VERSION,
@@ -444,7 +456,7 @@ class AgentPairingRepository:
                 (request.stable_id,),
             ).fetchone()
             if existing is not None and existing["status"] != "removed":
-                raise ValueError("identidade do agente já pareada")
+                raise AgentPairingConflictError(request.stable_id)
             if existing is not None:
                 agent_id = int(existing["id"])
                 connection.execute(
@@ -597,6 +609,7 @@ class AgentPairingRepository:
                 """,
                 (request.agent_version, request.platform, json.dumps(request.capabilities), agent.id),
             )
+            self._reconcile_agent_update_jobs(connection, agent, request)
             self._record_event(connection, agent.printer_id, agent.id, "heartbeat", "ok", request.agent_version)
         return AgentHeartbeatResponse(accepted=True, agent_id=agent.id, printer_id=agent.printer_id, status="active")
 
@@ -820,6 +833,49 @@ class AgentPairingRepository:
             (printer_id, f"-{int(AGENT_JOB_IN_PROGRESS_TIMEOUT.total_seconds())} seconds"),
         )
 
+    def _reconcile_agent_update_jobs(self, connection, agent: AgentRecord, request: AgentHeartbeatRequest) -> None:
+        if not request.agent_version:
+            return
+        rows = connection.execute(
+            """
+            SELECT id, correlation_id, payload_json
+            FROM agent_jobs
+            WHERE printer_id = ?
+              AND agent_id = ?
+              AND job_type = 'remote_agent_update_check'
+              AND status IN ('pending', 'in_progress')
+            ORDER BY created_at DESC, id DESC
+            LIMIT 10
+            """,
+            (agent.printer_id, agent.id),
+        ).fetchall()
+        for row in rows:
+            payload = json.loads(row["payload_json"] or "{}")
+            target_version = str(payload.get("target_version") or EXPECTED_AGENT_VERSION)
+            if request.agent_version != target_version:
+                continue
+            result = {
+                "safe_mode": "agent_self_update",
+                "status": "applied",
+                "current_version": request.agent_version,
+                "target_version": target_version,
+                "detail": "update confirmado pelo heartbeat após reinício do agente",
+            }
+            connection.execute(
+                """
+                UPDATE agent_jobs
+                SET status = 'succeeded',
+                    result_json = ?,
+                    error_message = NULL,
+                    finished_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                  AND status IN ('pending', 'in_progress')
+                """,
+                (json.dumps(result), int(row["id"])),
+            )
+            self._record_event(connection, agent.printer_id, agent.id, "job_result", "succeeded", str(row["correlation_id"]))
+
     def _record_event(self, connection, printer_id: int, agent_id: int | None, event_type: str, status: str, detail: str | None) -> None:
         connection.execute(
             """
@@ -917,6 +973,18 @@ def _job_from_row(row) -> AgentJobRecord:
 def _ensure_payload_size(payload: dict[str, Any]) -> None:
     if len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) > AGENT_MAX_PAYLOAD_BYTES:
         raise ValueError("payload excede o limite do protocolo do agente")
+
+
+def _last_seen_age_seconds(value: str | None) -> int | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return max(0, int((utc_now() - parsed.astimezone(timezone.utc)).total_seconds()))
 
 
 def _shell_quote(value: str) -> str:

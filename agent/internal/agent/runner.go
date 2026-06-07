@@ -13,6 +13,7 @@ type Runner struct {
 	Queue     Queue
 	Logger    *log.Logger
 	startedAt time.Time
+	metrics   hostMetricsCache
 }
 
 func NewRunner(cfg Config, credential string, logger *log.Logger) *Runner {
@@ -34,12 +35,7 @@ func (r *Runner) RunOnce(ctx context.Context) error {
 	heartbeat := HeartbeatPayload{
 		AgentVersion: Version,
 		Platform:     Platform(),
-		Capabilities: map[string]any{
-			"heartbeat": true,
-			"snapshot":  true,
-			"read_only": true,
-			"uptime_s":  int(time.Since(r.startedAt).Seconds()),
-		},
+		Capabilities: r.capabilities(ctx, true),
 	}
 	if err := r.API.Heartbeat(ctx, heartbeat); err != nil {
 		_ = r.Queue.Append(QueueItem{Type: "heartbeat", Payload: heartbeat.Capabilities})
@@ -51,6 +47,37 @@ func (r *Runner) RunOnce(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (r *Runner) HeartbeatOnly(ctx context.Context) error {
+	r.MaybeCheckAgentUpdate(ctx)
+	if err := r.flushQueue(ctx); err != nil {
+		r.Logger.Printf("queue flush pendente: %v", err)
+	}
+	heartbeat := HeartbeatPayload{
+		AgentVersion: Version,
+		Platform:     Platform(),
+		Capabilities: r.capabilities(ctx, false),
+	}
+	if err := r.API.Heartbeat(ctx, heartbeat); err != nil {
+		_ = r.Queue.Append(QueueItem{Type: "heartbeat", Payload: heartbeat.Capabilities})
+		return err
+	}
+	return nil
+}
+
+func (r *Runner) capabilities(ctx context.Context, includeSnapshot bool) map[string]any {
+	capabilities := map[string]any{
+		"heartbeat":    true,
+		"read_only":    true,
+		"uptime_s":     int(time.Since(r.startedAt).Seconds()),
+		"protocol_v":   ProtocolVersion,
+		"host_metrics": r.CachedHostMetrics(ctx),
+	}
+	if includeSnapshot {
+		capabilities["snapshot"] = true
+	}
+	return capabilities
 }
 
 func (r *Runner) Run(ctx context.Context) error {

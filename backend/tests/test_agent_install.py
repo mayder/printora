@@ -5,6 +5,7 @@ import subprocess
 from fastapi.testclient import TestClient
 
 from app.config import get_settings
+from app.database import connect_database
 from app.database import initialize_database
 from app.main import app
 
@@ -28,19 +29,20 @@ def test_agent_install_plan_generates_single_use_token_and_command(tmp_path: Pat
             assert plan["install_command"].startswith("curl -fsSL")
             assert "/api/agent/install/linux.sh" in plan["install_command"]
             assert "PRINTORA_PAIRING_TOKEN='ptr_pair_" in plan["install_command"]
-            assert "PRINTORA_AGENT_VERSION='0.1.8'" in plan["install_command"]
+            assert "PRINTORA_AGENT_VERSION='0.1.17'" in plan["install_command"]
+            assert "PRINTORA_AGENT_BIN_URL='http://testserver/api/agent/update/releases/linux-arm64'" in plan["install_command"]
             assert "PRINTORA_MOONRAKER_URL='http://127.0.0.1:7125'" in plan["install_command"]
             assert plan["token_prefix"] in plan["install_command"]
 
             token = _extract_token(plan["install_command"])
             exchanged = client.post(
                 "/api/agent/pairing/exchange",
-                json={"pairing_token": token, "stable_id": "agent-install-001", "agent_version": "0.1.8"},
+                json={"pairing_token": token, "stable_id": "agent-install-001", "agent_version": "0.1.17"},
             )
             assert exchanged.status_code == 200
             reused = client.post(
                 "/api/agent/pairing/exchange",
-                json={"pairing_token": token, "stable_id": "agent-install-002", "agent_version": "0.1.8"},
+                json={"pairing_token": token, "stable_id": "agent-install-002", "agent_version": "0.1.17"},
             )
             assert reused.status_code == 400
     finally:
@@ -64,7 +66,7 @@ def test_agent_install_status_requires_heartbeat_and_expected_version(tmp_path: 
             token = _extract_token(plan["install_command"])
             credential = client.post(
                 "/api/agent/pairing/exchange",
-                json={"pairing_token": token, "stable_id": "agent-install-status", "agent_version": "0.1.8"},
+                json={"pairing_token": token, "stable_id": "agent-install-status", "agent_version": "0.1.17"},
             ).json()["credential"]
             paired = client.get(f"/api/printers/{printer['id']}/agent/install-status", headers=_auth(owner_token)).json()
             assert paired["ready"] is False
@@ -72,13 +74,23 @@ def test_agent_install_status_requires_heartbeat_and_expected_version(tmp_path: 
 
             heartbeat = client.post(
                 "/api/agent/heartbeat",
-                json={"agent_version": "0.1.8", "platform": "linux/arm64", "capabilities": {"installer": True}},
+                json={"agent_version": "0.1.17", "platform": "linux/arm64", "capabilities": {"installer": True}},
                 headers=_auth(credential),
             )
             assert heartbeat.status_code == 200
             ready = client.get(f"/api/printers/{printer['id']}/agent/install-status", headers=_auth(owner_token)).json()
             assert ready["ready"] is True
-            assert ready["latest_version"] == "0.1.8"
+            assert ready["latest_version"] == "0.1.17"
+
+            with connect_database(tmp_path / "printora.db") as connection:
+                connection.execute(
+                    "UPDATE printer_agents SET last_seen_at = datetime('now', '-10 minutes') WHERE id = ?",
+                    (ready["latest_agent_id"],),
+                )
+            offline = client.get(f"/api/printers/{printer['id']}/agent/install-status", headers=_auth(owner_token)).json()
+            assert offline["ready"] is False
+            assert "offline" in offline["diagnostic"]
+            assert "revogue/remova" in offline["diagnostic"]
     finally:
         get_settings.cache_clear()
 
@@ -98,6 +110,43 @@ def test_agent_installer_preflight_is_safe_and_redacts_token() -> None:
     assert "preflight concluído" in combined
     assert "ptr_pair_secret_should_not_leak" not in combined
     assert "token: configurado" in combined
+
+
+def test_agent_installer_pairing_error_json_is_actionable_and_redacted(tmp_path: Path) -> None:
+    result = _run_exchange_with_fake_curl(
+        tmp_path,
+        status="409",
+        body='{"detail":"Este host já está pareado como printora-FrankXY-d595193a29ec. Revogue/remova o agente antigo antes de reinstalar."}',
+    )
+    combined = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "falha ao parear agente (HTTP 409)" in combined
+    assert "Revogue/remova o agente antigo" in combined
+    assert "JSONDecodeError" not in combined
+    assert "ptr_pair_secret_should_not_leak" not in combined
+
+
+def test_agent_installer_pairing_error_text_body_does_not_parse_as_json(tmp_path: Path) -> None:
+    result = _run_exchange_with_fake_curl(
+        tmp_path,
+        status="400",
+        body="<html><body>Bad request</body></html>",
+    )
+    combined = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "falha ao parear agente (HTTP 400)" in combined
+    assert "Gere um novo comando ou remova o agente antigo" in combined
+    assert "JSONDecodeError" not in combined
+    assert "Bad request" not in combined
+    assert "ptr_pair_secret_should_not_leak" not in combined
+
+
+def test_agent_installer_notifies_api_after_service_install() -> None:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "install_agent_linux.sh"
+    content = script.read_text()
+    assert "notify_install_success" in content
+    assert "$API_BASE/api/agent/heartbeat" in content
+    assert "install_success" in content
 
 
 def _register(client: TestClient, email: str) -> str:
@@ -125,3 +174,41 @@ def _extract_token(command: str) -> str:
     start = command.index(marker) + len(marker)
     end = command.index("'", start)
     return command[start:end]
+
+
+def _run_exchange_with_fake_curl(tmp_path: Path, *, status: str, body: str) -> subprocess.CompletedProcess[str]:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "install_agent_linux.sh"
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_curl = fake_bin / "curl"
+    fake_curl.write_text(
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+out=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -o) out="$2"; shift 2 ;;
+    -w) shift 2 ;;
+    *) shift ;;
+  esac
+done
+printf '%s' {body!r} > "$out"
+printf '%s' {status!r}
+"""
+    )
+    fake_curl.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        "PRINTORA_AGENT_INSTALL_SOURCE_ONLY": "1",
+        "PRINTORA_API_BASE": "https://printora.example.test",
+        "PRINTORA_PAIRING_TOKEN": "ptr_pair_secret_should_not_leak",
+        "PRINTORA_AGENT_VERSION": "0.1.17",
+    }
+    return subprocess.run(
+        ["bash", "-c", f"source {script}; exchange_token"],
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )

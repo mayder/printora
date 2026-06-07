@@ -247,7 +247,7 @@ export function PrinterModal(props: PrinterModalProps) {
                         aria-label="URL Moonraker"
                         value={newPrinterUrl}
                         onChange={(event: any) => setNewPrinterUrl(event.target.value)}
-                        placeholder="http://voron.local:7125"
+                        placeholder="http://127.0.0.1:7125"
                       />
                     </label>
                   </div>

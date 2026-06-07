@@ -10,10 +10,14 @@ type PrintersScreenProps = ScreenPropsFor<
   | "Plus"
   | "Printer"
   | "Radio"
+  | "RefreshCw"
   | "Server"
   | "Settings"
   | "captureSnapshotForPrinter"
   | "formatSshStatus"
+  | "loadFleetAgentPairings"
+  | "loadPrinterPairing"
+  | "loadPrinters"
   | "loadPrinterStatus"
   | "loading"
   | "openCreatePrinterModal"
@@ -35,10 +39,14 @@ export function PrintersScreen(props: PrintersScreenProps) {
     Plus,
     Printer,
     Radio,
+    RefreshCw,
     Server,
     Settings,
     captureSnapshotForPrinter,
     formatSshStatus,
+    loadFleetAgentPairings,
+    loadPrinterPairing,
+    loadPrinters,
     loadPrinterStatus,
     loading,
     openCreatePrinterModal,
@@ -50,6 +58,14 @@ export function PrintersScreen(props: PrintersScreenProps) {
     selectedPrinterId,
     snapshots,
   } = props;
+
+  async function refreshPrinterAgentStatus(printer: PrinterRecord) {
+    await Promise.allSettled([
+      loadPrinters(),
+      loadFleetAgentPairings([printer.id]),
+      loadPrinterPairing(printer.id),
+    ]);
+  }
 
   return (
     <article className="panel wide panel-section panel-printers">
@@ -78,10 +94,24 @@ export function PrintersScreen(props: PrintersScreenProps) {
                 <strong>{printer.name}</strong>
                 <span>{printer.cloud_model || "Modelo não informado"} · {printer.location || "sem localização"}</span>
               </div>
-              <span className={`status-pill ${agentStatusTone(printer)}`}>
-                <Radio size={13} />
-                {formatAgentStatus(printer)}
-              </span>
+              <div className="status-inline-actions">
+                <span className={`status-pill ${agentStatusTone(printer)}`}>
+                  <Radio size={13} />
+                  {formatAgentStatus(printer)}
+                </span>
+                {shouldShowAgentRefresh(printer) ? (
+                  <button
+                    type="button"
+                    className="icon-button status-refresh-button"
+                    onClick={() => void refreshPrinterAgentStatus(printer)}
+                    disabled={loading}
+                    title="Atualizar status do agente"
+                    aria-label={`Atualizar status do agente ${printer.name}`}
+                  >
+                    <RefreshCw className={loading ? "button-busy-icon" : undefined} size={14} />
+                  </button>
+                ) : null}
+              </div>
             </div>
             <div className="printer-card-grid">
               <Metric label="Organização" value={printer.organization_id ? `org #${printer.organization_id}` : "individual"} />
@@ -153,4 +183,8 @@ function agentStatusTone(printer: PrinterRecord) {
   if (printer.cloud_status === "aguardando_pareamento") return "update_available";
   if (printer.cloud_status === "revogado") return "silenced";
   return "";
+}
+
+function shouldShowAgentRefresh(printer: PrinterRecord) {
+  return printer.cloud_status !== "online";
 }

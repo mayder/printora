@@ -75,6 +75,41 @@ Aceite:
 - agente legado sem SSH configurado orienta comando manual somente como último caso;
 - manifesto e binário servido têm SHA-256 compatível.
 
+## Métricas do host do agente
+
+Validação focada:
+
+```bash
+cd agent && go test ./internal/agent
+cd backend && uv run --extra dev pytest tests/test_agent_support.py tests/test_agent_updates.py tests/test_agent_install.py -q
+cd frontend && npm run build
+```
+
+Aceite:
+
+- agente Linux envia `capabilities.host_metrics` cacheado por 5 minutos no heartbeat;
+- snapshot informa memória do host, rede agregada do host e CPU/RSS por serviço detectado;
+- coleta usa leitura local de `/proc`, sem shell remoto, sem G-code, sem Moonraker mutável e sem payload sensível;
+- tela `Detalhe do agente > Dispositivo do agente` mostra o snapshot atual sem criar histórico dedicado de métricas.
+
+## Reinstalação do agente
+
+Validação focada:
+
+```bash
+cd backend && uv run --extra dev pytest tests/test_agent_pairing.py tests/test_agent_install.py -q
+cd frontend && npm run build
+```
+
+Aceite:
+
+- `POST /api/agent/pairing/exchange` retorna erro estruturado e acionável quando a mesma identidade de host já estiver pareada;
+- instalador Linux trata body JSON, texto, HTML ou vazio em erro HTTP sem `JSONDecodeError`;
+- mensagem do instalador orienta gerar novo comando ou revogar/remover agente antigo sem vazar token, credencial ou payload;
+- UI separa `Agentes pareados`, `Online agora` e `Tokens de instalação`;
+- remover token de instalação não sugere remoção de agente já pareado;
+- fluxo de instalação alerta quando a impressora já tem agente pareado ativo/offline.
+
 ## Instalação 0.1.5
 
 Validação offline:
@@ -815,13 +850,14 @@ Critérios:
 ### PKG-44 - Instalador Online Assistido Do Agente
 
 - Validar que a tela Impressoras gera plano de instalação apenas para usuário com acesso à impressora.
-- Validar que o comando contém token curto de pareamento, endpoint público do script e URL local do Moonraker.
+- Validar que o comando contém token curto de pareamento, endpoint público do script, URL publica do binario do agente e URL local do Moonraker.
 - Validar que o token curto é consumido uma única vez por `/api/agent/pairing/exchange`.
 - Validar que `GET /api/printers/{printer_id}/agent/install-status` mostra pendente sem agente, aguardando heartbeat após pareamento e validado após heartbeat com versão esperada.
+- Validar que o instalador notifica `/api/agent/heartbeat` após instalar e iniciar o serviço, sem vazar credencial/token em log.
 - Validar que `GET /api/agent/install/linux.sh` entrega o script sem segredo embutido.
 - Validar `backend/scripts/install_agent_linux.sh --preflight` em modo seguro, sem vazar `PRINTORA_PAIRING_TOKEN`.
 - Validar que uninstall remove serviço/binário e preserva diretórios de configuração/dados/logs.
-- Validar frontend build para tela Impressoras com comandos de preflight, install e uninstall.
+- Validar frontend build para tela Impressoras com comandos de preflight, install e uninstall, botao de copiar em cada bloco e URL Moonraker padrão `http://127.0.0.1:7125` editável.
 - Testes automatizados focados: `cd backend && uv run pytest tests/test_agent_install.py tests/test_agent_pairing.py -q`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 

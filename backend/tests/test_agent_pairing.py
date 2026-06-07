@@ -104,6 +104,44 @@ def test_expired_and_revoked_pairing_tokens_are_rejected(tmp_path: Path, monkeyp
         get_settings.cache_clear()
 
 
+def test_pairing_exchange_rejects_active_same_stable_id_with_actionable_conflict(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner_token = _register(client, "owner-stable-conflict@example.com")
+            created = _create_printer(client, owner_token)
+            first_pairing = client.post(
+                f"/api/printers/{created['id']}/pairing/tokens",
+                json={"ttl_minutes": 15},
+                headers=_auth(owner_token),
+            ).json()
+            first_exchange = client.post(
+                "/api/agent/pairing/exchange",
+                json={"pairing_token": first_pairing["token"], "stable_id": "agent-conflict-001"},
+            )
+            assert first_exchange.status_code == 200
+
+            second_pairing = client.post(
+                f"/api/printers/{created['id']}/pairing/tokens",
+                json={"ttl_minutes": 15},
+                headers=_auth(owner_token),
+            ).json()
+            conflict = client.post(
+                "/api/agent/pairing/exchange",
+                json={"pairing_token": second_pairing["token"], "stable_id": "agent-conflict-001"},
+            )
+            assert conflict.status_code == 409
+            assert conflict.json()["detail"] == (
+                "Este host já está pareado como agent-conflict-001. "
+                "Revogue/remova o agente antigo antes de reinstalar."
+            )
+            assert second_pairing["token"] not in conflict.text
+    finally:
+        get_settings.cache_clear()
+
+
 def test_pairing_tokens_can_be_removed_after_inactive(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     get_settings.cache_clear()

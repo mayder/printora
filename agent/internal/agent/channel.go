@@ -75,7 +75,7 @@ func (r *Runner) runReconnectFallback(ctx context.Context, duration time.Duratio
 }
 
 func (r *Runner) runFallbackCycle(ctx context.Context) {
-	if err := r.RunOnce(ctx); err != nil {
+	if err := r.HeartbeatOnly(ctx); err != nil {
 		r.Logger.Printf("heartbeat fallback failed: %v", err)
 	}
 	if r.Config.PollingEnabled {
@@ -136,6 +136,9 @@ func (r *Runner) runWebSocket(ctx context.Context) (bool, error) {
 	heartbeatCtx, stopHeartbeat := context.WithCancel(ctx)
 	defer stopHeartbeat()
 	heartbeatErrors := make(chan error, 1)
+	if r.Config.PollingEnabled {
+		go r.pollJobsWhileConnected(heartbeatCtx)
+	}
 	go func() {
 		ticker := time.NewTicker(heartbeatInterval)
 		defer ticker.Stop()
@@ -189,6 +192,21 @@ func (r *Runner) runWebSocket(ctx context.Context) (bool, error) {
 				Attempts:      intNumber(message.Payload["attempts"]),
 			}
 			r.handleJob(ctx, job)
+		}
+	}
+}
+
+func (r *Runner) pollJobsWhileConnected(ctx context.Context) {
+	ticker := time.NewTicker(r.loopInterval())
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := r.PollJobsOnce(ctx); err != nil {
+				r.Logger.Printf("polling while connected failed: %v", err)
+			}
 		}
 	}
 }
@@ -290,22 +308,23 @@ func helloPayload(r *Runner) map[string]any {
 	return map[string]any{
 		"agent_version": Version,
 		"platform":      Platform(),
-		"capabilities": map[string]any{
-			"heartbeat":   true,
-			"snapshot":    true,
-			"mutation":    true,
-			"doctor":      true,
-			"parity":      true,
-			"updates":     true,
-			"gcode_jobs":  true,
-			"host_script": true,
-			"jobs":        true,
-			"websocket":   true,
-			"polling":     r.Config.PollingEnabled,
-			"read_only":   true,
-			"protocol_v":  ProtocolVersion,
-		},
+		"capabilities":  r.channelCapabilities(context.Background()),
 	}
+}
+
+func (r *Runner) channelCapabilities(ctx context.Context) map[string]any {
+	capabilities := r.capabilities(ctx, true)
+	capabilities["mutation"] = true
+	capabilities["doctor"] = true
+	capabilities["parity"] = true
+	capabilities["updates"] = true
+	capabilities["gcode_jobs"] = true
+	capabilities["host_script"] = true
+	capabilities["jobs"] = true
+	capabilities["websocket"] = true
+	capabilities["polling"] = r.Config.PollingEnabled
+	capabilities["protocol_v"] = ProtocolVersion
+	return capabilities
 }
 
 func stringValue(value any) string {

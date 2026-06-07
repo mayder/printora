@@ -392,13 +392,24 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
   }
 
   async function requestStepUp() {
+    const password = stepUpPassword.trim();
+    const code = stepUpCode.trim();
+    if (authUser?.mfa_enabled) {
+      if (!code) {
+        setError("Informe o código 2FA para gerar autorização.");
+        return;
+      }
+    } else if (!password) {
+      setError("Informe a senha atual da conta para gerar autorização.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       setStepUpResult(await authApi.createStepUpToken({
         purpose: "destructive_action",
-        password: stepUpPassword || undefined,
-        code: stepUpCode || undefined,
+        password: password || undefined,
+        code: code || undefined,
       }));
       setStepUpPassword("");
       setStepUpCode("");

@@ -6,7 +6,7 @@ from app.agent_executor import AgentCommandExecutor
 from app.agent_moonraker import agent_preflight_payload, firmware_inventory_payload
 from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
-from app.firmware_catalog import FirmwareCatalogSummary, firmware_catalog_summary
+from app.firmware_catalog import FirmwareCatalogSummary, build_firmware_hardware_inventory_unavailable, firmware_catalog_summary
 from app.firmware.config_generator import generate_firmware_config_preview
 
 router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
@@ -60,6 +60,9 @@ async def firmware_hardware_inventory(printer_id: int) -> FirmwareHardwareInvent
     printer = printer_repository.get_printer(printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
+    inventory_error: str | None = None
+    object_names: list[str] = []
+    object_payload: dict[str, object] = {}
     try:
         job = await AgentCommandExecutor(settings.database_path).run(
             printer,
@@ -68,13 +71,28 @@ async def firmware_hardware_inventory(printer_id: int) -> FirmwareHardwareInvent
         )
         object_names, object_payload = firmware_inventory_payload(job.result)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Agente indisponível para inventário de firmware: {exc}") from exc
+        inventory_error = _firmware_inventory_error_detail(exc)
+    if inventory_error:
+        return build_firmware_hardware_inventory_unavailable(printer_id=printer_id, reason=inventory_error)
     return build_firmware_hardware_inventory(
         printer_id=printer_id,
         registered_boards=firmware_repository.list_boards(printer_id),
         object_names=object_names,
         object_payload=object_payload,
     )
+
+
+def _firmware_inventory_error_detail(exc: Exception) -> str:
+    if isinstance(exc, HTTPException):
+        detail = str(exc.detail)
+        if exc.status_code == 409:
+            return "Nenhum agente online respondeu por esta impressora."
+        if exc.status_code == 504:
+            return "O agente demorou para responder ao inventário de firmware."
+        if exc.status_code == 502:
+            return f"O agente retornou falha ao consultar o Moonraker. {detail}"
+        return detail
+    return str(exc)
 
 
 

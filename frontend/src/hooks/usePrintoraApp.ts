@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   CircleSlash,
   ClipboardCheck,
+  Copy,
   Database,
   FileText,
   Gauge,
@@ -104,6 +105,7 @@ const icons = {
   CheckCircle2,
   CircleSlash,
   ClipboardCheck,
+  Copy,
   Database,
   FileText,
   Gauge,
@@ -443,7 +445,7 @@ export function usePrintoraApp() {
         void printers.loadAgentSupport(contextPrinterId);
       }
     }
-  }, [auth.authUser, shell.activeSection, printerDetailTab, contextPrinterId]);
+  }, [auth.authUser?.id, auth.authUser?.email, shell.activeSection, printerDetailTab, contextPrinterId]);
 
   React.useEffect(() => {
     if (!auth.authUser) {

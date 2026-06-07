@@ -21,16 +21,29 @@ async def refresh_printer_update_status(
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
 
-    job = await AgentCommandExecutor(settings.database_path).run(
-        printer,
-        job_type="remote_update_action",
-        payload={"action": "refresh", "target": payload.name or "all"},
-        timeout_seconds=max(settings.request_timeout_seconds, 30.0),
-    )
+    target = payload.name or "all"
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_update_action",
+            payload={"action": "refresh", "target": target},
+            timeout_seconds=max(settings.request_timeout_seconds, 60.0),
+        )
+    except HTTPException as exc:
+        if exc.status_code in {502, 504} and _looks_like_update_refresh_timeout(exc.detail):
+            return UpdateActionResponse(
+                safe_mode="agent_update_manager",
+                action="refresh",
+                target=target,
+                accepted=False,
+                message="Moonraker demorou para concluir a reanálise. O status será relido pelo agente sem tratar isso como falha da aplicação.",
+                result={"status": "timeout", "detail": str(exc.detail)[:500]},
+            )
+        raise
     return UpdateActionResponse(
         safe_mode="agent_update_manager",
         action="refresh",
-        target=payload.name or "all",
+        target=target,
         accepted=True,
         message="Reanalise solicitada ao Moonraker pelo agente.",
         result=job.result or {},
@@ -102,6 +115,11 @@ def _update_silence_payload(payload: UpdateSilenceRequest) -> tuple[str, dict[st
         "warnings": payload.warnings,
         "anomalies": payload.anomalies,
     }
+
+
+def _looks_like_update_refresh_timeout(detail: Any) -> bool:
+    text = str(detail).lower()
+    return "timeout" in text or "deadline exceeded" in text or "awaiting headers" in text
 
 
 @router.post("/api/printers/{printer_id}/updates/run")

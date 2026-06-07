@@ -1,0 +1,15 @@
+services:
+  printora:
+    build:
+      context: ../..
+    container_name: printora-cloud
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8069:8069"
+    env_file:
+      - ../env/printora.cloud.env.example
+    volumes:
+      - printora-cloud-data:/data
+
+volumes:
+  printora-cloud-data:

@@ -1313,6 +1313,14 @@ label {
   background: var(--surface-3);
 }
 
+.badge-with-action {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
 .badge-icon {
   display: grid !important;
   place-items: center;

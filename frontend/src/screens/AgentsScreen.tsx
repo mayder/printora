@@ -7,6 +7,7 @@ type AgentsScreenProps = ScreenPropsFor<
   | "AlertTriangle"
   | "CheckCircle2"
   | "ClipboardCheck"
+  | "Copy"
   | "FileText"
   | "Gauge"
   | "History"
@@ -32,6 +33,7 @@ type AgentsScreenProps = ScreenPropsFor<
   | "loadAgentSupport"
   | "loadAgentSupportBundle"
   | "loadFleetAgentPairings"
+  | "loadPrinters"
   | "loading"
   | "openAgentDetail"
   | "pairingOverview"
@@ -59,11 +61,14 @@ type AgentFleetRow = {
   printer: PrinterRecord;
 };
 
+const AGENT_ONLINE_WINDOW_SECONDS = 120;
+
 export function AgentsScreen(props: AgentsScreenProps) {
   const {
     AlertTriangle,
     CheckCircle2,
     ClipboardCheck,
+    Copy,
     FileText,
     Gauge,
     History,
@@ -89,6 +94,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
     loadAgentSupport,
     loadAgentSupportBundle,
     loadFleetAgentPairings,
+    loadPrinters,
     loading,
     openAgentDetail,
     pairingOverview,
@@ -116,9 +122,17 @@ export function AgentsScreen(props: AgentsScreenProps) {
   const [selectedAgentKey, setSelectedAgentKey] = React.useState<string | null>(null);
   const selectedAgentRow = agentRows.find((row) => agentKey(row) === selectedAgentKey) ?? agentRows[0] ?? null;
   const selectedOverview = selectedPrinterId ? pairingOverview : null;
+  const selectedAgentRows = React.useMemo(
+    () => buildSelectedAgentRows(selectedPrinter, selectedOverview),
+    [selectedPrinter, selectedOverview],
+  );
+  const visibleAgentRows = embeddedPrinterContext ? selectedAgentRows : agentRows;
+  const hasActivePairedAgent = selectedAgentRows.some((row) => row.agent.status === "active");
+  const hasOfflineActivePairedAgent = selectedAgentRows.some((row) => row.agent.status === "active" && !isAgentHeartbeatRecent(row.agent));
   const activeTokens = selectedOverview?.pairing_tokens.filter((token) => token.status === "active") ?? [];
   const tokenHistory = selectedOverview?.pairing_tokens.filter((token) => token.status !== "active") ?? [];
   const latestToastTokenId = React.useRef<number | null>(null);
+  const installReadyToastPrinterId = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     if (!selectedAgentRow) {
@@ -139,6 +153,15 @@ export function AgentsScreen(props: AgentsScreenProps) {
     });
   }
 
+  async function copyCommand(command: string) {
+    const copied = await copyTextToClipboard(command);
+    showToast({
+      tone: copied ? "success" : "danger",
+      title: copied ? "Comando copiado" : "Falha ao copiar comando",
+      detail: copied ? "Cole no terminal da impressora." : "Copie manualmente o comando exibido.",
+    });
+  }
+
   React.useEffect(() => {
     if (!createdPairingToken || latestToastTokenId.current === createdPairingToken.id) {
       return;
@@ -152,6 +175,51 @@ export function AgentsScreen(props: AgentsScreenProps) {
       onAction: () => copyToken(createdPairingToken.token),
     });
   }, [createdPairingToken]);
+
+  React.useEffect(() => {
+    if (!embeddedPrinterContext || !selectedPrinterId || !agentInstallPlan || agentInstallStatus?.ready) {
+      return;
+    }
+    let cancelled = false;
+    const refreshInstallState = async () => {
+      await Promise.allSettled([
+        loadAgentInstallStatus(selectedPrinterId),
+        loadFleetAgentPairings([selectedPrinterId]),
+        loadAgentSupport(selectedPrinterId),
+        loadPrinters(),
+      ]);
+    };
+    const interval = window.setInterval(() => {
+      if (!cancelled) {
+        void refreshInstallState();
+      }
+    }, 4000);
+    void refreshInstallState();
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [
+    agentInstallPlan,
+    agentInstallStatus?.ready,
+    embeddedPrinterContext,
+    selectedPrinterId,
+  ]);
+
+  React.useEffect(() => {
+    if (!embeddedPrinterContext || !selectedPrinterId || !agentInstallStatus?.ready) {
+      return;
+    }
+    if (installReadyToastPrinterId.current === selectedPrinterId) {
+      return;
+    }
+    installReadyToastPrinterId.current = selectedPrinterId;
+    showToast({
+      tone: "success",
+      title: "Agente conectado",
+      detail: agentInstallStatus.diagnostic || "Instalação validada pelo heartbeat do agente.",
+    });
+  }, [agentInstallStatus?.diagnostic, agentInstallStatus?.ready, embeddedPrinterContext, selectedPrinterId, showToast]);
 
   function selectAgent(row: AgentFleetRow) {
     setSelectedAgentKey(agentKey(row));
@@ -190,6 +258,14 @@ export function AgentsScreen(props: AgentsScreenProps) {
     await createAgentUpdateJob(row.agent.id, row.printer.id);
   }
 
+  async function refreshAgentStatus(row: AgentFleetRow) {
+    await Promise.allSettled([
+      loadPrinters(),
+      loadFleetAgentPairings([row.printer.id]),
+      loadAgentSupport(row.printer.id),
+    ]);
+  }
+
   const expectedAgentVersion = agentUpdateManifest?.recommended_version ?? agentInstallStatus?.expected_agent_version ?? "-";
 
   return (
@@ -213,9 +289,9 @@ export function AgentsScreen(props: AgentsScreenProps) {
           )}
         </div>
         <div className="overview-strip">
-          <Badge icon={Server} label="Impressoras" value={printers.length} />
-          <Badge icon={Radio} label="Agentes" value={agentRows.length} />
-          <Badge icon={CheckCircle2} label="Online" value={agentRows.filter((row) => row.printer.cloud_status === "online").length} />
+          <Badge icon={Server} label={embeddedPrinterContext ? "Impressora" : "Impressoras"} value={embeddedPrinterContext ? selectedPrinter?.name ?? "-" : printers.length} />
+          <Badge icon={Radio} label="Agentes pareados" value={visibleAgentRows.length} />
+          <Badge icon={CheckCircle2} label="Online agora" value={visibleAgentRows.filter((row) => isAgentHeartbeatRecent(row.agent)).length} />
           <Badge icon={Gauge} label="Versão esperada" value={expectedAgentVersion} />
         </div>
       </article>
@@ -246,7 +322,21 @@ export function AgentsScreen(props: AgentsScreenProps) {
               <div key={agentKey(row)} className={`agent-fleet-row ${selectedAgentRow && agentKey(row) === agentKey(selectedAgentRow) ? "active" : ""}`}>
                 <strong>{row.agent.stable_id}</strong>
                 <span>{row.printer.name}</span>
-                <span className={`status-pill ${agentStatusTone(row)}`}>{agentStatusLabel(row)}</span>
+                <span className="status-inline-actions">
+                  <span className={`status-pill ${agentStatusTone(row)}`}>{agentStatusLabel(row)}</span>
+                  {shouldShowAgentRefresh(row) ? (
+                    <button
+                      type="button"
+                      className="icon-button status-refresh-button"
+                      onClick={() => void refreshAgentStatus(row)}
+                      disabled={loading}
+                      title="Atualizar status do agente"
+                      aria-label={`Atualizar status do agente ${row.printer.name}`}
+                    >
+                      <RefreshCw className={loading ? "button-busy-icon" : undefined} size={14} />
+                    </button>
+                  ) : null}
+                </span>
                 <span>{agentVersionLabel(row.agent.agent_version, expectedAgentVersion)}</span>
                 <span>{row.agent.last_seen_at ?? "-"}</span>
                 <div className="printer-card-actions">
@@ -281,7 +371,21 @@ export function AgentsScreen(props: AgentsScreenProps) {
                     <strong>{selectedAgentRow.agent.stable_id}</strong>
                     <span>{selectedAgentRow.printer.name} · {selectedAgentRow.agent.platform || "-"}</span>
                   </div>
-                  <span className={`status-pill ${agentStatusTone(selectedAgentRow)}`}>{agentStatusLabel(selectedAgentRow)}</span>
+                  <div className="status-inline-actions">
+                    <span className={`status-pill ${agentStatusTone(selectedAgentRow)}`}>{agentStatusLabel(selectedAgentRow)}</span>
+                    {shouldShowAgentRefresh(selectedAgentRow) ? (
+                      <button
+                        type="button"
+                        className="icon-button status-refresh-button"
+                        onClick={() => void refreshAgentStatus(selectedAgentRow)}
+                        disabled={loading}
+                        title="Atualizar status do agente"
+                        aria-label={`Atualizar status do agente ${selectedAgentRow.printer.name}`}
+                      >
+                        <RefreshCw className={loading ? "button-busy-icon" : undefined} size={14} />
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="printer-card-grid">
                   <Metric label="Impressora" value={selectedAgentRow.printer.name} />
@@ -333,8 +437,55 @@ export function AgentsScreen(props: AgentsScreenProps) {
       {embeddedPrinterContext ? <article className="panel wide panel-section panel-agents">
         <div className="panel-heading">
           <div>
-            <h2>Instalação por token</h2>
-            <p className="muted">Cada token ativo é de uso único para parear uma instalação. Ao gerar outro token, o pendente anterior é revogado.</p>
+            <h2>Agentes pareados</h2>
+            <p className="muted">Agente pareado é o registro do host no Printora. Desinstalar no host não remove este vínculo.</p>
+          </div>
+        </div>
+        {selectedAgentRows.length === 0 ? <p className="muted">Nenhum agente pareado para esta impressora.</p> : null}
+        <div className="printer-dashboard">
+          {selectedAgentRows.map((row) => (
+            <div key={agentKey(row)} className="printer-card">
+              <div className="printer-card-header">
+                <div>
+                  <strong>{row.agent.stable_id}</strong>
+                  <span>{row.agent.platform || "-"} · v{row.agent.agent_version || "-"}</span>
+                </div>
+                <span className={`status-pill ${agentStatusTone(row)}`}>{agentStatusLabel(row)}</span>
+              </div>
+              <div className="printer-card-grid">
+                <Metric label="Pareado em" value={row.agent.paired_at} />
+                <Metric label="Último contato" value={row.agent.last_seen_at ?? "-"} />
+                <Metric label="Credencial" value={row.agent.credential_prefix} />
+                <Metric label="Online agora" value={isAgentHeartbeatRecent(row.agent) ? "sim" : "não"} />
+              </div>
+              <div className="printer-card-actions">
+                <button type="button" className="secondary-button" onClick={() => openAgentDetail(row.printer.id, row.agent.id)} disabled={loading}>
+                  <Radio size={15} />
+                  Detalhar
+                </button>
+                {row.agent.status === "active" ? (
+                  <button type="button" className="secondary-button" onClick={() => void revokeAgent(row)} disabled={loading}>
+                    <Trash2 size={15} />
+                    Revogar agente
+                  </button>
+                ) : null}
+                {row.agent.status === "revoked" ? (
+                  <button type="button" className="secondary-button" onClick={() => void removeAgent(row)} disabled={loading}>
+                    <Trash2 size={15} />
+                    Remover agente
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      </article> : null}
+
+      {embeddedPrinterContext ? <article className="panel wide panel-section panel-agents">
+        <div className="panel-heading">
+          <div>
+            <h2>Tokens de instalação</h2>
+            <p className="muted">Token instala ou reinstala um agente. Remover token não remove agente já pareado.</p>
           </div>
           <button type="button" className="secondary-button" onClick={() => void createPairingToken()} disabled={!selectedPrinterId || loading}>
             <KeyRound size={15} />
@@ -344,11 +495,21 @@ export function AgentsScreen(props: AgentsScreenProps) {
         {!selectedPrinterId ? <p className="muted">Selecione uma impressora para gerar instalação.</p> : null}
         <div className="overview-strip">
           <Badge icon={Server} label="Impressora" value={selectedPrinter?.name ?? "-"} />
-          <Badge icon={CheckCircle2} label="Instalação" value={agentInstallStatus?.ready ? "validada" : "pendente"} />
-          <Badge icon={Radio} label="Agentes ativos" value={agentInstallStatus?.active_agents ?? 0} />
+          <Badge icon={Radio} label="Agentes pareados" value={agentInstallStatus?.active_agents ?? selectedAgentRows.length} />
+          <Badge icon={CheckCircle2} label="Online agora" value={selectedAgentRows.filter((row) => isAgentHeartbeatRecent(row.agent)).length} />
           <Badge icon={Gauge} label="Token ativo" value={activeTokens.length ? activeTokens[0].token_prefix : "-"} />
         </div>
         {agentInstallStatus ? <p className="muted">{agentInstallStatus.diagnostic}</p> : null}
+        {hasActivePairedAgent ? (
+          <div className="auth-step">
+            <AlertTriangle size={16} />
+            <span>
+              {hasOfflineActivePairedAgent
+                ? "Esta impressora já tem um agente pareado sem heartbeat recente. Para reinstalar no mesmo host, revogue e remova o agente antigo antes de gerar novo comando."
+                : "Esta impressora já tem um agente pareado. Para reinstalar no mesmo host, revogue/remova o agente antigo antes de gerar novo comando."}
+            </span>
+          </div>
+        ) : null}
 
         {agentInstallPlan ? (
           <div className="agent-install-box">
@@ -361,18 +522,24 @@ export function AgentsScreen(props: AgentsScreenProps) {
                 Ocultar
               </button>
             </div>
-            <label>
-              Preflight sem instalação
-              <textarea readOnly value={agentInstallPlan.preflight_command} />
-            </label>
-            <label>
-              Instalar e iniciar serviço
-              <textarea readOnly value={agentInstallPlan.install_command} />
-            </label>
-            <label>
-              Uninstall preservando dados
-              <textarea readOnly value={agentInstallPlan.uninstall_command} />
-            </label>
+            <CommandBlock
+              Copy={Copy}
+              label="Preflight sem instalação"
+              command={agentInstallPlan.preflight_command}
+              onCopy={copyCommand}
+            />
+            <CommandBlock
+              Copy={Copy}
+              label="Instalar e iniciar serviço"
+              command={agentInstallPlan.install_command}
+              onCopy={copyCommand}
+            />
+            <CommandBlock
+              Copy={Copy}
+              label="Uninstall preservando dados"
+              command={agentInstallPlan.uninstall_command}
+              onCopy={copyCommand}
+            />
           </div>
         ) : null}
 
@@ -497,6 +664,30 @@ export function AgentsScreen(props: AgentsScreenProps) {
   );
 }
 
+function CommandBlock({
+  Copy,
+  label,
+  command,
+  onCopy,
+}: {
+  Copy: AgentsScreenProps["Copy"];
+  label: string;
+  command: string;
+  onCopy: (command: string) => Promise<void>;
+}) {
+  return (
+    <div className="agent-command-block">
+      <div className="agent-command-header">
+        <span>{label}</span>
+        <button type="button" className="icon-button" title={`Copiar ${label}`} aria-label={`Copiar ${label}`} onClick={() => void onCopy(command)}>
+          <Copy size={15} />
+        </button>
+      </div>
+      <textarea readOnly value={command} />
+    </div>
+  );
+}
+
 function TokenTable({
   title,
   emptyText,
@@ -568,6 +759,20 @@ function buildAgentRows(printers: PrinterRecord[], overviews: Record<number, Age
     });
 }
 
+function buildSelectedAgentRows(printer: PrinterRecord | null | undefined, overview: AgentPairingOverview | null): AgentFleetRow[] {
+  if (!printer || !overview) {
+    return [];
+  }
+  return overview.agents
+    .filter((agent) => agent.status !== "removed")
+    .map((agent) => ({ agent, overview, printer }))
+    .sort((left, right) => {
+      const statusOrder = statusWeight(left.agent.status) - statusWeight(right.agent.status);
+      if (statusOrder !== 0) return statusOrder;
+      return (right.agent.last_seen_at ?? "").localeCompare(left.agent.last_seen_at ?? "");
+    });
+}
+
 function statusWeight(status: PrinterAgentRecord["status"]) {
   if (status === "active") return 0;
   if (status === "revoked") return 1;
@@ -591,6 +796,24 @@ function agentStatusTone(row: AgentFleetRow) {
   if (row.printer.cloud_status === "online") return "up_to_date";
   if (row.printer.cloud_status === "offline" || row.printer.cloud_status === "degradado") return "warning";
   return "update_available";
+}
+
+function shouldShowAgentRefresh(row: AgentFleetRow) {
+  return row.printer.cloud_status !== "online" || row.agent.status !== "active";
+}
+
+function isAgentHeartbeatRecent(agent: PrinterAgentRecord) {
+  if (agent.status !== "active" || !agent.last_seen_at) {
+    return false;
+  }
+  const normalized = agent.last_seen_at.includes("T")
+    ? agent.last_seen_at
+    : `${agent.last_seen_at.replace(" ", "T")}Z`;
+  const timestamp = Date.parse(normalized);
+  if (Number.isNaN(timestamp)) {
+    return false;
+  }
+  return Date.now() - timestamp <= AGENT_ONLINE_WINDOW_SECONDS * 1000;
 }
 
 function agentVersionLabel(version: string | null | undefined, expectedVersion: string) {

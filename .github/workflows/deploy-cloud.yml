@@ -1,0 +1,74 @@
+name: Deploy Printora Cloud
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: printora-cloud-production
+  cancel-in-progress: false
+
+env:
+  DEFAULT_SSH_HOST: 187.45.180.181
+  DEFAULT_SSH_PORT: "1158"
+  DEFAULT_SSH_USER: deploy
+  DEFAULT_DEPLOY_BASE_PATH: /var/www/print3dmaker.xyz
+  DEFAULT_DEPLOY_BRANCH: cloud
+
+jobs:
+  deploy:
+    name: Check and prepare cloud deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout cloud branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEFAULT_DEPLOY_BRANCH }}
+
+      - name: Validate official check
+        run: ./check.sh
+
+      - name: Validate cloud target metadata
+        run: test -s packaging/cloud/production-target.env.example
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.PRINTORA_SSH_PRIVATE_KEY }}
+          SSH_HOST_SECRET: ${{ secrets.PRINTORA_SSH_HOST }}
+          SSH_PORT_SECRET: ${{ secrets.PRINTORA_SSH_PORT }}
+          SSH_USER_SECRET: ${{ secrets.PRINTORA_SSH_USER }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "::error::Secret PRINTORA_SSH_PRIVATE_KEY nao configurado."
+            exit 1
+          fi
+          SSH_HOST="${SSH_HOST_SECRET:-$DEFAULT_SSH_HOST}"
+          SSH_PORT="${SSH_PORT_SECRET:-$DEFAULT_SSH_PORT}"
+          SSH_USER="${SSH_USER_SECRET:-$DEFAULT_SSH_USER}"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/printora_key
+          chmod 600 ~/.ssh/printora_key
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+          {
+            echo "SSH_HOST=$SSH_HOST"
+            echo "SSH_PORT=$SSH_PORT"
+            echo "SSH_USER=$SSH_USER"
+          } >> "$GITHUB_ENV"
+
+      - name: Probe target
+        env:
+          DEPLOY_BASE_PATH_SECRET: ${{ secrets.PRINTORA_DEPLOY_BASE_PATH }}
+        run: |
+          set -euo pipefail
+          DEPLOY_BASE_PATH="${DEPLOY_BASE_PATH_SECRET:-$DEFAULT_DEPLOY_BASE_PATH}"
+          ssh -i ~/.ssh/printora_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            "DEPLOY_BASE_PATH='$DEPLOY_BASE_PATH' bash -s" <<'REMOTE'
+          set -euo pipefail
+          mkdir -p "$DEPLOY_BASE_PATH"
+          test -w "$DEPLOY_BASE_PATH"
+          command -v python3 >/dev/null
+          python3 --version
+          command -v nginx >/dev/null
+          REMOTE

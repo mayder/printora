@@ -250,7 +250,8 @@ func restartAgentService(serviceName string) error {
 	if serviceName == "" {
 		serviceName = "printora-agent"
 	}
-	return exec.Command("systemctl", "restart", serviceName).Run()
+	script := `service="$1"; nohup sh -c 'sleep 1; systemctl restart "$1"' sh "$service" >/dev/null 2>&1 &`
+	return exec.Command("sh", "-c", script, "sh", serviceName).Run()
 }
 
 func currentBinaryPath(cfg Config) (string, error) {

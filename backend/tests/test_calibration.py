@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from app.agent_moonraker import agent_preflight_payload
 from app.config import get_settings
 from app.calibration import (
     CalibrationExecutionRequest,
@@ -279,6 +280,39 @@ def test_calibration_preflight_never_releases_gcode_execution(tmp_path: Path) ->
     assert preflight.blocked is False
     assert preflight.block_reasons == []
     assert preflight.gcode_preview == test.gcode
+
+
+def test_agent_calibration_preflight_exposes_live_capabilities(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = CalibrationRepository(database_path)
+    test = repository.get_test("homing_endstops")
+    assert test is not None
+
+    preflight_payload = agent_preflight_payload(
+        {
+            "connected": True,
+            "printing": False,
+            "print_state": "standby",
+            "klipper_state": "ready",
+            "klippy_state": "ready",
+            "objects_list": ["print_stats", "toolhead", "gcode_move"],
+            "object_status": {
+                "result": {
+                    "status": {
+                        "print_stats": {"state": "standby"},
+                        "toolhead": {"axis_minimum": [0, 0, 0], "axis_maximum": [120, 120, 120]},
+                    }
+                }
+            },
+        }
+    )
+
+    preflight = build_calibration_preflight(printer_id=1, test=test, preflight=preflight_payload)
+
+    assert preflight.connected is True
+    assert preflight.blocked is False
+    assert preflight.can_execute_gcode is True
 
 
 def test_calibration_preflight_blocks_while_printing(tmp_path: Path) -> None:

@@ -12,7 +12,7 @@ SERVICE_USER="${PRINTORA_AGENT_SERVICE_USER:-root}"
 MOONRAKER_URL="${PRINTORA_MOONRAKER_URL:-http://127.0.0.1:7125}"
 API_BASE="${PRINTORA_API_BASE:-}"
 PAIRING_TOKEN="${PRINTORA_PAIRING_TOKEN:-}"
-AGENT_VERSION="${PRINTORA_AGENT_VERSION:-0.1.8}"
+AGENT_VERSION="${PRINTORA_AGENT_VERSION:-0.1.17}"
 BIN_URL="${PRINTORA_AGENT_BIN_URL:-}"
 LOCAL_BIN="${PRINTORA_AGENT_BIN:-}"
 TEST_MODE="${PRINTORA_AGENT_INSTALL_TEST_MODE:-0}"
@@ -37,6 +37,27 @@ log() { printf '[printora-agent-install] %s\n' "$*"; }
 fail() { printf '[printora-agent-install] ERRO: %s\n' "$*" >&2; exit 1; }
 have() { command -v "$1" >/dev/null 2>&1; }
 redacted_token_status() { [[ -n "$PAIRING_TOKEN" ]] && printf 'configurado' || printf 'ausente'; }
+
+extract_error_detail() {
+  local body_file="$1"
+  python3 - "$body_file" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+text = path.read_text(errors="replace").strip() if path.exists() else ""
+if not text:
+    raise SystemExit(0)
+try:
+    payload = json.loads(text)
+except json.JSONDecodeError:
+    raise SystemExit(0)
+detail = payload.get("detail") if isinstance(payload, dict) else None
+if isinstance(detail, str) and detail.strip():
+    print(detail.strip())
+PY
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -116,7 +137,7 @@ install_binary() {
 exchange_token() {
   [[ -n "$API_BASE" ]] || fail "PRINTORA_API_BASE obrigatório"
   [[ -n "$PAIRING_TOKEN" ]] || fail "PRINTORA_PAIRING_TOKEN obrigatório"
-  local stable_id payload response
+  local stable_id payload response_file http_status curl_status detail
   stable_id="printora-$(hostname)-$(cat /etc/machine-id 2>/dev/null | cut -c1-12 || date +%s)"
   payload="$(python3 - "$PAIRING_TOKEN" "$stable_id" "$AGENT_VERSION" <<'PY'
 import json
@@ -132,17 +153,38 @@ print(json.dumps({
 }))
 PY
 )"
-  response="$(curl -fsS -H 'Content-Type: application/json' -d "$payload" "$API_BASE/api/agent/pairing/exchange")"
-  python3 - "$response" <<'PY'
+  response_file="$(mktemp)"
+  curl_status=0
+  http_status="$(
+    curl -sS -o "$response_file" -w '%{http_code}' \
+      -H 'Content-Type: application/json' \
+      -d "$payload" \
+      "$API_BASE/api/agent/pairing/exchange"
+  )" || curl_status=$?
+  if [[ "$curl_status" -ne 0 ]]; then
+    rm -f "$response_file"
+    fail "falha de rede ao parear agente. Verifique a internet do host e tente novamente."
+  fi
+  if [[ ! "$http_status" =~ ^2 ]]; then
+    detail="$(extract_error_detail "$response_file" || true)"
+    rm -f "$response_file"
+    if [[ -n "$detail" ]]; then
+      fail "falha ao parear agente (HTTP $http_status): $detail"
+    fi
+    fail "falha ao parear agente (HTTP $http_status). Gere um novo comando ou remova o agente antigo desta impressora no Printora."
+  fi
+  python3 - "$response_file" <<'PY'
 import json
+import pathlib
 import sys
 
-payload = json.loads(sys.argv[1])
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text())
 credential = payload.get("credential")
 if not credential:
     raise SystemExit("resposta sem credential")
 print(credential)
 PY
+  rm -f "$response_file"
 }
 
 write_config() {
@@ -205,6 +247,34 @@ SERVICE
   systemctl enable --now "$SERVICE_NAME"
 }
 
+notify_install_success() {
+  local credential="$1"
+  local platform payload
+  platform="linux/$(uname -m)"
+  payload="$(python3 - "$AGENT_VERSION" "$platform" <<'PY'
+import json
+import sys
+
+print(json.dumps({
+    "agent_version": sys.argv[1],
+    "platform": sys.argv[2],
+    "capabilities": {
+        "installer": True,
+        "install_success": True,
+        "systemd": True,
+        "websocket": True,
+        "polling": True,
+    },
+}))
+PY
+)"
+  if curl -fsS --max-time 10 -H "Authorization: Bearer $credential" -H 'Content-Type: application/json' -d "$payload" "$API_BASE/api/agent/heartbeat" >/dev/null; then
+    log "api: instalação notificada"
+  else
+    log "api: aviso, instalação concluída mas heartbeat imediato falhou; o serviço tentará novamente"
+  fi
+}
+
 apply_install() {
   require_linux
   require_root
@@ -216,6 +286,7 @@ apply_install() {
   credential="$(exchange_token)"
   write_config "$credential"
   install_service
+  notify_install_success "$credential"
   log "instalação concluída; valide no Printora se o heartbeat chegou"
 }
 
@@ -231,6 +302,10 @@ uninstall() {
   log "dados preservados em $CONFIG_DIR, $STATE_DIR e $LOG_DIR"
   log "remova esses diretórios manualmente somente se tiver certeza"
 }
+
+if [[ "${PRINTORA_AGENT_INSTALL_SOURCE_ONLY:-0}" == "1" ]]; then
+  return 0 2>/dev/null || exit 0
+fi
 
 case "$MODE" in
   preflight) preflight ;;

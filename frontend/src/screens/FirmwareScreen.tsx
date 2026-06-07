@@ -109,6 +109,8 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
   } = props;
 
   const inventoryItems = firmwareHardwareInventory?.items ?? [];
+  const inventoryUnavailable = firmwareHardwareInventory?.source === "agent_unavailable";
+  const inventoryErrorMessage = firmwareInventoryError ?? (inventoryUnavailable ? firmwareHardwareInventory?.summary ?? null : null) ?? error;
   const registeredItems = inventoryItems.filter((item) => item.status === "registered");
   const detectedItems = inventoryItems.filter((item) => item.status === "detected");
   const firmwareTargets = inventoryItems.length ? inventoryItems : firmwareBoards.map(boardToHardwareItem);
@@ -185,12 +187,12 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
           </div>
         ) : null}
 
-        {firmwareInventoryError || error ? (
+        {inventoryErrorMessage ? (
           <div className="firmware-state-banner warning">
             <AlertTriangle size={16} />
             <div>
               <strong>Falha na leitura de firmware</strong>
-              <span>{formatFirmwareError(firmwareInventoryError ?? error)}</span>
+              <span>{formatFirmwareError(inventoryErrorMessage)}</span>
             </div>
           </div>
         ) : null}
@@ -638,9 +640,16 @@ function formatFirmwareError(value: string | null) {
   if (!value) {
     return "Não foi possível ler o inventário de firmware desta impressora.";
   }
+  if (/<html[\s>]/i.test(value) || /cloudflare/i.test(value) || /bad gateway/i.test(value)) {
+    return "A API do Printora retornou 502 ao consultar o inventário de firmware. Tente novamente em alguns segundos; se repetir, o agente ou o backend não respondeu dentro do prazo.";
+  }
   try {
     const parsed = JSON.parse(value) as { detail?: string };
-    return parsed.detail ?? value;
+    const detail = parsed.detail ?? value;
+    if (/<html[\s>]/i.test(detail) || /cloudflare/i.test(detail) || /bad gateway/i.test(detail)) {
+      return "A API do Printora retornou 502 ao consultar o inventário de firmware. Tente novamente em alguns segundos; se repetir, o agente ou o backend não respondeu dentro do prazo.";
+    }
+    return detail;
   } catch {
     return value;
   }

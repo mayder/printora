@@ -120,11 +120,12 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
             assert created.json()["status"] == "queued"
             assert created.json()["websocket_delivered"] is False
             assert "sem SSH" in created.json()["detail"]
-            assert created.json()["job"]["job_type"] == "remote_agent_update_check"
-            assert created.json()["job"]["payload"]["safe_mode"] == "agent_self_update"
+            assert created.json()["job"]["job_type"] == "remote_host_script"
+            assert created.json()["job"]["payload"]["safe_mode"] == "agent_update_bootstrap"
+            assert "sha256sum -c" in created.json()["job"]["payload"]["script"]
 
             with connect_database(tmp_path / "printora.db") as connection:
-                connection.execute("UPDATE printer_agents SET agent_version = '0.1.8' WHERE id = ?", (agent_id,))
+                connection.execute("UPDATE printer_agents SET agent_version = '0.1.17' WHERE id = ?", (agent_id,))
             current_created = client.post(f"/api/printers/{printer['id']}/agents/{agent_id}/update-check", headers=_auth(owner_token))
             assert current_created.status_code == 200
             assert current_created.json()["mode"] == "remote_job"
@@ -132,6 +133,41 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
             assert current_created.json()["websocket_delivered"] is False
             assert current_created.json()["job"]["job_type"] == "remote_agent_update_check"
             assert current_created.json()["job"]["payload"]["safe_mode"] == "agent_self_update"
+            assert current_created.json()["job"]["payload"]["target_version"] == "0.1.17"
+    finally:
+        get_settings.cache_clear()
+
+
+def test_agent_update_job_is_reconciled_after_restart_heartbeat(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        database_path = tmp_path / "printora.db"
+        initialize_database(database_path)
+        with TestClient(app) as client:
+            owner_token = _register(client, "owner-agent-update-reconcile@example.com")
+            printer = _create_printer(client, owner_token)
+            credential = _pair_agent(client, owner_token, printer["id"], "agent-update-reconcile-001", version="0.1.17")
+
+            agents = client.get(f"/api/printers/{printer['id']}/pairing", headers=_auth(owner_token)).json()["agents"]
+            agent_id = agents[0]["id"]
+            created = client.post(f"/api/printers/{printer['id']}/agents/{agent_id}/update-check", headers=_auth(owner_token))
+            assert created.status_code == 200
+            job_id = created.json()["job"]["id"]
+
+            ack = client.post(f"/api/agent/jobs/{job_id}/ack", headers=_auth(credential))
+            assert ack.status_code == 200
+            heartbeat = client.post(
+                "/api/agent/heartbeat",
+                json={"agent_version": "0.1.17", "platform": "linux/arm64", "capabilities": {"websocket": True}},
+                headers=_auth(credential),
+            )
+            assert heartbeat.status_code == 200
+
+            with connect_database(database_path) as connection:
+                row = connection.execute("SELECT status, result_json FROM agent_jobs WHERE id = ?", (job_id,)).fetchone()
+            assert row["status"] == "succeeded"
+            assert "update confirmado pelo heartbeat" in row["result_json"]
     finally:
         get_settings.cache_clear()
 

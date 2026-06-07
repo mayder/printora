@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, W
 from fastapi.responses import FileResponse
 
 from app.agent_pairing import (
+    AgentPairingConflictError,
     AgentExchangeRequest,
     AgentHeartbeatRequest,
     AgentHeartbeatResponse,
@@ -61,7 +62,7 @@ from app.remote_operations import (
 
 router = APIRouter()
 INSTALLER_SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "install_agent_linux.sh"
-AGENT_RELEASE_DIR = Path(__file__).resolve().parents[3] / ".artifacts" / "agent"
+AGENT_RELEASE_DIR = Path(__file__).resolve().parents[1] / "data" / "agent_releases"
 AGENT_RELEASE_FILES = {
     "linux-arm64": "printora-agent-linux-arm64",
 }
@@ -232,7 +233,7 @@ async def create_agent_install_plan(
         current.user,
         printer,
         str(request.base_url).rstrip("/"),
-        _linux_arm64_release_url(),
+        _linux_arm64_release_url(str(request.base_url)),
     )
 
 
@@ -270,8 +271,8 @@ async def agent_update_release(platform: str) -> FileResponse:
     return FileResponse(path, media_type="application/octet-stream", filename=filename)
 
 
-def _linux_arm64_release_url() -> str | None:
-    manifest = load_agent_update_manifest()
+def _linux_arm64_release_url(public_base_url: str | None = None) -> str | None:
+    manifest = load_agent_update_manifest(public_base_url)
     for release in manifest.releases:
         if release.platform == "linux/arm64" and release.url:
             return release.url
@@ -361,6 +362,7 @@ async def create_printer_agent_doctor_job(
 async def create_printer_agent_update_job(
     printer_id: int,
     agent_id: int,
+    request: Request,
     current: CurrentUser = Depends(require_current_user),
     repository: AgentSupportRepository = Depends(get_support_repository),
 ) -> AgentUpdateRequestResponse:
@@ -369,7 +371,7 @@ async def create_printer_agent_update_job(
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
     try:
-        response = repository.request_agent_update(printer, agent_id)
+        response = repository.request_agent_update(printer, agent_id, _public_base_url(request))
         delivered = await agent_ws_manager.push_job(response.job) if response.job else False
         detail = (
             "Update enviado ao agente online pelo canal remoto. O agente baixa, valida SHA-256 e reinicia só o serviço do agente."
@@ -465,6 +467,8 @@ async def exchange_agent_pairing_token(
 ) -> AgentCredentialExchangeResponse:
     try:
         return repository.exchange_token(payload)
+    except AgentPairingConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -614,6 +618,14 @@ def _websocket_credential(websocket: WebSocket) -> str | None:
         if scheme.lower() == "bearer" and credential:
             return credential.strip()
     return None
+
+
+def _public_base_url(request: Request) -> str:
+    host = request.headers.get("host")
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    if host:
+        return f"{proto}://{host}"
+    return str(request.base_url).rstrip("/")
 
 
 def _handle_agent_message(repository: AgentPairingRepository, agent: AgentRecord, message: AgentProtocolMessage) -> dict:

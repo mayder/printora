@@ -62,6 +62,10 @@ export function OverviewScreen(props: OverviewScreenProps) {
     await Promise.allSettled([loadPrinters(), loadFleetAgentPairings()]);
   }
 
+  async function refreshPrinterAgentStatus(printer: PrinterRecord) {
+    await Promise.allSettled([loadPrinters(), loadFleetAgentPairings([printer.id])]);
+  }
+
   return (
     <>
       <article className="panel wide panel-section panel-overview">
@@ -184,7 +188,21 @@ export function OverviewScreen(props: OverviewScreenProps) {
                   <strong>{printer.name}</strong>
                   <span>{printer.cloud_model || "Modelo não informado"} · {printer.location || "sem localização"}</span>
                 </div>
-                <span className={`status-pill ${printer.cloud_status === "online" ? "up_to_date" : "warning"}`}>{printer.cloud_status}</span>
+                <div className="status-inline-actions">
+                  <span className={`status-pill ${printer.cloud_status === "online" ? "up_to_date" : "warning"}`}>{printer.cloud_status}</span>
+                  {printer.cloud_status !== "online" ? (
+                    <button
+                      type="button"
+                      className="icon-button status-refresh-button"
+                      onClick={() => void refreshPrinterAgentStatus(printer)}
+                      disabled={loading}
+                      title="Atualizar status do agente"
+                      aria-label={`Atualizar status do agente ${printer.name}`}
+                    >
+                      <RefreshCw className={loading ? "button-busy-icon" : undefined} size={14} />
+                    </button>
+                  ) : null}
+                </div>
               </div>
               <div className="printer-card-grid">
                 <Metric label="Agentes" value={String(printer.active_agent_count)} />

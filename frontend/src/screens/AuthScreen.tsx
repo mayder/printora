@@ -162,6 +162,7 @@ export function AuthScreen(props: AuthScreenProps) {
   const [currentPassword, setCurrentPassword] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmNewPassword, setConfirmNewPassword] = React.useState("");
+  const hydratedProfileUserId = React.useRef<number | null>(null);
   React.useEffect(() => {
     function handleAccountTab(event: Event) {
       const tab = (event as CustomEvent<AccountTab | "security">).detail;
@@ -182,6 +183,10 @@ export function AuthScreen(props: AuthScreenProps) {
     }
   }, [accountTab, selectedOrganizationId, organizationDetail]);
   React.useEffect(() => {
+    if (!authUser || hydratedProfileUserId.current === authUser.id) {
+      return;
+    }
+    hydratedProfileUserId.current = authUser.id;
     setProfileDisplayName(authUser?.display_name ?? "");
     setProfileWhatsapp(authUser?.whatsapp ?? "");
     setProfileTelegram(authUser?.telegram ?? "");
@@ -189,7 +194,7 @@ export function AuthScreen(props: AuthScreenProps) {
     setProfileX(authUser?.social_links.x ?? "");
     setProfileFacebook(authUser?.social_links.facebook ?? "");
     setProfileWebsite(authUser?.social_links.website ?? "");
-  }, [authUser]);
+  }, [authUser?.id]);
   const organizationByDetail = organizationDetail
     ? authUser?.organizations.find((organization) => organization.id === organizationDetail.id)
     : null;
@@ -548,8 +553,14 @@ export function AuthScreen(props: AuthScreenProps) {
                     </label>
                   ) : (
                     <label>
-                      <span>Senha</span>
-                      <input value={stepUpPassword} onChange={(event) => setStepUpPassword(event.target.value)} type="password" />
+                      <span>Senha atual da conta</span>
+                      <input
+                        value={stepUpPassword}
+                        onChange={(event) => setStepUpPassword(event.target.value)}
+                        type="password"
+                        autoComplete="current-password"
+                        placeholder="Confirme sua senha de login"
+                      />
                     </label>
                   )}
                   <button type="button" className="primary-button" onClick={() => void requestStepUp()} disabled={loading || (!stepUpCode.trim() && !stepUpPassword.trim())}>

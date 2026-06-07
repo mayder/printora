@@ -17,6 +17,8 @@ type MoonrakerClient struct {
 	http    *http.Client
 }
 
+const updateManagerActionTimeout = 55 * time.Second
+
 func NewMoonrakerClient(baseURL string, timeout time.Duration) *MoonrakerClient {
 	return &MoonrakerClient{
 		baseURL: strings.TrimRight(baseURL, "/"),
@@ -174,6 +176,7 @@ func (c *MoonrakerClient) FirmwareInventory(ctx context.Context) map[string]any 
 	query := firmwareQuery(objects)
 	if query != "" {
 		c.get(ctx, "/printer/objects/query?"+query, "object_payload", payload)
+		compactFirmwareObjectPayload(payload)
 	}
 	return payload
 }
@@ -193,20 +196,20 @@ func (c *MoonrakerClient) RemoteUpdateAction(ctx context.Context, jobPayload map
 		if target != "" && target != "all" {
 			path += "?name=" + url.QueryEscape(target)
 		}
-		c.post(ctx, path, nil, "moonraker_response", payload)
+		c.postWithTimeout(ctx, path, nil, "moonraker_response", payload, updateManagerActionTimeout)
 	case "update":
 		path, ok := updatePath(target)
 		if !ok {
 			payload["moonraker_response_error"] = "target de update não suportado pelo agente"
 			break
 		}
-		c.post(ctx, path, nil, "moonraker_response", payload)
+		c.postWithTimeout(ctx, path, nil, "moonraker_response", payload, updateManagerActionTimeout)
 	case "rollback":
 		if target == "" || target == "all" {
 			payload["moonraker_response_error"] = "rollback exige componente específico"
 			break
 		}
-		c.post(ctx, "/machine/update/rollback", map[string]any{"name": target}, "moonraker_response", payload)
+		c.postWithTimeout(ctx, "/machine/update/rollback", map[string]any{"name": target}, "moonraker_response", payload, updateManagerActionTimeout)
 	default:
 		payload["moonraker_response_error"] = "ação de update não suportada"
 	}
@@ -227,6 +230,7 @@ func (c *MoonrakerClient) RemoteMutationPreflight(ctx context.Context, jobPayloa
 	}
 	c.get(ctx, "/server/info", "server_info", payload)
 	c.get(ctx, "/printer/info", "printer_info", payload)
+	payload["objects_list"] = c.objectList(ctx)
 	c.get(ctx, "/printer/objects/query?print_stats&toolhead&gcode_move&extruder", "object_status", payload)
 	blockers := remotePreflightBlockers(payload)
 	if blockers == nil {
@@ -288,6 +292,7 @@ func (c *MoonrakerClient) RemoteGcodePreflight(ctx context.Context, jobPayload m
 	}
 	c.get(ctx, "/server/info", "server_info", payload)
 	c.get(ctx, "/printer/info", "printer_info", payload)
+	payload["objects_list"] = c.objectList(ctx)
 	c.get(ctx, "/printer/objects/query?print_stats&toolhead&gcode_move&extruder", "object_status", payload)
 	blockers := remotePreflightBlockers(payload)
 	if blockers == nil {
@@ -453,6 +458,37 @@ func firmwareQuery(objects []string) string {
 	return strings.Join(parts, "&")
 }
 
+func compactFirmwareObjectPayload(payload map[string]any) {
+	objectPayload := mapValue(payload["object_payload"])
+	result := mapValue(objectPayload["result"])
+	status := mapValue(result["status"])
+	if len(status) == 0 {
+		return
+	}
+	compactStatus := map[string]any{}
+	for key, value := range status {
+		if key == "mcu" || strings.HasPrefix(key, "mcu ") {
+			compactStatus[key] = value
+		}
+	}
+	configfile := mapValue(status["configfile"])
+	settings := mapValue(configfile["settings"])
+	if len(settings) > 0 {
+		compactSettings := map[string]any{}
+		for key, value := range settings {
+			if key == "mcu" || strings.HasPrefix(key, "mcu ") {
+				compactSettings[key] = value
+			}
+		}
+		if len(compactSettings) > 0 {
+			compactStatus["configfile"] = map[string]any{"settings": compactSettings}
+		}
+	}
+	result["status"] = compactStatus
+	objectPayload["result"] = result
+	payload["object_payload"] = objectPayload
+}
+
 func remotePreflightBlockers(payload map[string]any) []string {
 	var blockers []string
 	if hasMoonrakerError(payload) {
@@ -556,6 +592,10 @@ func sanitizeMap(value map[string]any) map[string]any {
 }
 
 func (c *MoonrakerClient) post(ctx context.Context, path string, payload map[string]any, key string, out map[string]any) error {
+	return c.postWithTimeout(ctx, path, payload, key, out, 0)
+}
+
+func (c *MoonrakerClient) postWithTimeout(ctx context.Context, path string, payload map[string]any, key string, out map[string]any, timeout time.Duration) error {
 	target, err := url.JoinPath(c.baseURL, strings.TrimPrefix(path, "/"))
 	if err != nil {
 		out[key+"_error"] = err.Error()
@@ -578,7 +618,11 @@ func (c *MoonrakerClient) post(ctx context.Context, path string, payload map[str
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.http.Do(req)
+	client := c.http
+	if timeout > 0 && timeout != c.http.Timeout {
+		client = &http.Client{Timeout: timeout, Transport: c.http.Transport}
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		out[key+"_error"] = err.Error()
 		return err

@@ -61,7 +61,7 @@ python3 -m compileall -q backend/app backend/tests
 if [[ "${RUN_PYTHON_TESTS:-0}" == "1" ]]; then
   log "pytest backend"
   if command -v uv >/dev/null 2>&1; then
-    (cd backend && uv run pytest -q)
+    (cd backend && uv run --extra dev pytest -q)
   else
     (cd backend && python3 -m pytest -q)
   fi

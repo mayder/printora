@@ -2,6 +2,13 @@
 
 Runbook operacional do Printora.
 
+## Publicacao Cloud
+
+O deploy publico planejado do Printora usa o dominio `print3dmaker.xyz`, com
+GoDaddy apenas como registrador, DNS/proxy pela Cloudflare e o backend em Docker
+atrás de Nginx no servidor. O guia operacional fica em
+`docs/DEPLOY_CLOUD.md`.
+
 ## Comandos principais
 
 ```bash

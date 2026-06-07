@@ -283,6 +283,24 @@ def test_authenticated_operation_requires_step_up_token(tmp_path, monkeypatch) -
         get_settings.cache_clear()
 
 
+def test_step_up_reports_missing_and_invalid_password_separately(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = AuthRepository(database_path)
+    user = repository.create_user(UserRegisterRequest(email="owner@example.com", password="correct-horse"))
+
+    for payload, expected in (
+        (StepUpRequest(password=None), "senha obrigatória para ação crítica"),
+        (StepUpRequest(password="wrong-password"), "senha atual inválida para ação crítica"),
+    ):
+        try:
+            validate_step_up(repository, user, payload)
+        except ValueError as exc:
+            assert str(exc) == expected
+        else:
+            raise AssertionError("step-up inválido deveria falhar")
+
+
 def test_printers_are_isolated_by_owner_and_shared_by_organization(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)

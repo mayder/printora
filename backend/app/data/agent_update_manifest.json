@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
-  "minimum_version": "0.1.9",
-  "recommended_version": "0.1.9",
+  "minimum_version": "0.1.17",
+  "recommended_version": "0.1.17",
   "blocked_versions": [],
   "protocol_version": 1,
   "protocol_min": 1,
@@ -19,9 +19,9 @@
     },
     {
       "platform": "linux/arm64",
-      "version": "0.1.9",
-      "url": "http://192.168.15.9:8069/api/agent/update/releases/linux-arm64",
-      "sha256": "c97328e5a7a345a2be2c1e44354806ff0b469c14311c808cb14577b0d89e61e7",
+      "version": "0.1.17",
+      "url": "",
+      "sha256": "41a297618249c2259949782fe4f3be179f8c597505762f4a5fe0536da032388f",
       "signature": null,
       "protocol_min": 1,
       "protocol_max": 1

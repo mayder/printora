@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -25,6 +26,39 @@ func TestRedactingWriterHidesSecrets(t *testing.T) {
 	text := out.String()
 	if strings.Contains(text, "secret") || strings.Contains(text, "ptr_pair_pair") || strings.Contains(text, "ptr_sess_abc") {
 		t.Fatalf("secret leaked: %s", text)
+	}
+}
+
+func TestHostMetricsClassifiesKnownKlipperServices(t *testing.T) {
+	cases := map[string]string{
+		"/usr/local/bin/printora-agent -config /etc/printora-agent/config.json": "printora-agent",
+		"/home/pi/moonraker-env/bin/python /home/pi/moonraker/moonraker.py":     "moonraker",
+		"/home/pi/klippy-env/bin/python /home/pi/klipper/klippy/klippy.py":      "klipper",
+		"/usr/bin/nginx -g daemon off;":                                         "mainsail/nginx",
+		"/opt/spoolman/venv/bin/python -m spoolman":                             "spoolman",
+	}
+	for command, expected := range cases {
+		if got := classifyService(command); got != expected {
+			t.Fatalf("classifyService(%q)=%q, expected %q", command, got, expected)
+		}
+	}
+}
+
+func TestRunnerCapabilitiesIncludeCachedHostMetrics(t *testing.T) {
+	runner := &Runner{Config: DefaultConfig(), startedAt: time.Now()}
+	capabilities := runner.capabilities(context.Background(), false)
+	if capabilities["protocol_v"] != ProtocolVersion {
+		t.Fatalf("missing protocol_v: %#v", capabilities)
+	}
+	metrics, ok := capabilities["host_metrics"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing host metrics: %#v", capabilities)
+	}
+	if metrics["safe_mode"] != "host_metrics_current" {
+		t.Fatalf("unexpected host metrics payload: %#v", metrics)
+	}
+	if _, ok := metrics["services"]; runtime.GOOS == "linux" && !ok {
+		t.Fatalf("expected linux service metrics: %#v", metrics)
 	}
 }
 
@@ -141,17 +175,21 @@ func TestAPIClientPollsAndCompletesJobs(t *testing.T) {
 func TestReconnectFallbackRepeatsHeartbeatAndPolling(t *testing.T) {
 	var heartbeats int32
 	var polls int32
+	var snapshots int32
+	var moonrakerReads int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/agent/heartbeat":
 			atomic.AddInt32(&heartbeats, 1)
 			w.WriteHeader(http.StatusOK)
 		case "/api/agent/snapshots":
+			atomic.AddInt32(&snapshots, 1)
 			w.WriteHeader(http.StatusOK)
 		case "/api/agent/jobs/next":
 			atomic.AddInt32(&polls, 1)
 			_ = json.NewEncoder(w).Encode(AgentJobsResponse{ProtocolVersion: ProtocolVersion, Jobs: []AgentJob{}})
 		case "/server/info", "/printer/info", "/printer/objects/query", "/machine/update/status":
+			atomic.AddInt32(&moonrakerReads, 1)
 			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"state": "ready"}})
 		default:
 			http.NotFound(w, r)
@@ -177,6 +215,9 @@ func TestReconnectFallbackRepeatsHeartbeatAndPolling(t *testing.T) {
 	}
 	if atomic.LoadInt32(&polls) < 2 {
 		t.Fatalf("expected repeated polling fallback, got %d", polls)
+	}
+	if atomic.LoadInt32(&snapshots) != 0 || atomic.LoadInt32(&moonrakerReads) != 0 {
+		t.Fatalf("fallback should not read moonraker automatically, snapshots=%d moonraker=%d", snapshots, moonrakerReads)
 	}
 }
 

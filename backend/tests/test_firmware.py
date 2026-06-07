@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from collections import Counter
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.config import get_settings
@@ -481,6 +482,38 @@ def test_firmware_inventory_api_enriches_registered_and_detected_boards(tmp_path
     assert detected_main["matched_catalog_ids"]
     assert any(reference["guide_url"].startswith("https://canbus.esoterical.online/") for reference in detected_main["catalog_references"])
     assert all(item["name"] != "EBBCan" or item["status"] == "registered" for item in payload["items"])
+
+
+def test_firmware_inventory_returns_readable_unavailable_state(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    async def fail_agent_inventory(*args, **kwargs):
+        raise HTTPException(status_code=504, detail="timeout aguardando resposta do agente")
+
+    monkeypatch.setattr("app.routes.firmware.AgentCommandExecutor.run", fail_agent_inventory)
+    try:
+        with TestClient(app) as client:
+            created = client.post(
+                "/api/printers",
+                json={
+                    "name": "Voron",
+                    "moonraker_url": "http://127.0.0.1:7125",
+                    "host_audit_mode": "disabled",
+                },
+            )
+            assert created.status_code == 200
+            printer_id = created.json()["id"]
+            response = client.get(f"/api/printers/{printer_id}/firmware/hardware-inventory")
+    finally:
+        get_settings.cache_clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["safe_mode"] == "read_only_moonraker_inventory_unavailable"
+    assert payload["source"] == "agent_unavailable"
+    assert "demorou para responder" in payload["summary"]
+    assert payload["items"] == []
 
 
 def test_firmware_inventory_detects_klipper_mcus_without_manual_board() -> None:

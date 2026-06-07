@@ -48,6 +48,11 @@ def firmware_inventory_payload(result: dict[str, Any] | None) -> tuple[list[str]
 
 def agent_preflight_payload(result: dict[str, Any] | None) -> dict[str, Any]:
     payload = result or {}
+    objects = [str(item) for item in payload.get("objects_list") or [] if str(item)]
+    object_payload = unwrap_moonraker_result(payload.get("object_status"))
+    object_status = object_payload.get("status", object_payload) if isinstance(object_payload, dict) else {}
+    if not objects and isinstance(object_status, dict):
+        objects = [str(name) for name in object_status.keys()]
     return {
         "connected": payload.get("connected") is not False and not _has_error(payload),
         "printing": payload.get("printing") is True,
@@ -55,6 +60,8 @@ def agent_preflight_payload(result: dict[str, Any] | None) -> dict[str, Any]:
         "klipper_state": payload.get("klipper_state"),
         "klippy_state": payload.get("klippy_state"),
         "blockers": payload.get("blockers") or [],
+        "available_objects": objects,
+        "object_status": object_status,
         "source": "agent",
     }
 

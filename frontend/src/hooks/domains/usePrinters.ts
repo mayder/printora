@@ -56,7 +56,7 @@ export function usePrinters(options: UsePrintersOptions) {
   const [printerModalMode, setPrinterModalMode] = React.useState<"create" | "edit">("create");
   const [editingPrinterId, setEditingPrinterId] = React.useState<number | null>(null);
   const [newPrinterName, setNewPrinterName] = React.useState("Voron - Mayder");
-  const [newPrinterUrl, setNewPrinterUrl] = React.useState("http://voron.local:7125");
+  const [newPrinterUrl, setNewPrinterUrl] = React.useState("http://127.0.0.1:7125");
   const [newPrinterCloudModel, setNewPrinterCloudModel] = React.useState("");
   const [newPrinterCloudTags, setNewPrinterCloudTags] = React.useState("");
   const [newPrinterLocation, setNewPrinterLocation] = React.useState("");
@@ -201,7 +201,7 @@ export function usePrinters(options: UsePrintersOptions) {
     setPrinterModalMode("create");
     setEditingPrinterId(null);
     setNewPrinterName("Voron - Mayder");
-    setNewPrinterUrl("http://voron.local:7125");
+    setNewPrinterUrl("http://127.0.0.1:7125");
     setNewPrinterCloudModel("");
     setNewPrinterCloudTags("");
     setNewPrinterLocation("");
@@ -389,12 +389,19 @@ export function usePrinters(options: UsePrintersOptions) {
         title: result.websocket_delivered ? "Update enviado ao agente" : "Update aguardando agente",
         detail: result.detail || "O agente aplica a atualização pelo próprio serviço, sem SSH.",
       });
-      await loadAgentSupport(printerId);
-      await loadFleetAgentPairings();
+      await pollAgentUpdateRefresh(printerId);
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function pollAgentUpdateRefresh(printerId: number) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      await loadAgentSupport(printerId);
+      await loadFleetAgentPairings();
+      await new Promise((resolve) => window.setTimeout(resolve, attempt < 2 ? 1000 : 2000));
     }
   }
 

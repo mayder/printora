@@ -41,7 +41,11 @@ export function PrinterDetailScreen(props: PrinterDetailScreenProps) {
     handleAlertCenterAction,
     health,
     lastReadingLabel,
+    loadAgentSupport,
+    loadFleetAgentPairings,
+    loadPrinterPairing,
     loadPrinterHealth,
+    loadPrinters,
     loadSelectedPrinterStatus,
     loading,
     moonrakerOnline,
@@ -77,6 +81,18 @@ export function PrinterDetailScreen(props: PrinterDetailScreenProps) {
         </div>
       </article>
     );
+  }
+
+  async function refreshSelectedPrinterAgentStatus() {
+    if (!selectedPrinterId) {
+      return;
+    }
+    await Promise.allSettled([
+      loadPrinters(),
+      loadFleetAgentPairings([selectedPrinterId]),
+      loadPrinterPairing(selectedPrinterId),
+      loadAgentSupport(selectedPrinterId),
+    ]);
   }
 
   const activeContent = (() => {
@@ -174,7 +190,21 @@ export function PrinterDetailScreen(props: PrinterDetailScreenProps) {
           </div>
           <div className="overview-strip">
             <Badge icon={Gauge} label="Decisão" value={formatDecision(health?.decision)} />
-            <Badge icon={Radio} label="Agente" value={selectedPrinter.cloud_status} />
+            <div className="badge-with-action">
+              <Badge icon={Radio} label="Agente" value={selectedPrinter.cloud_status} />
+              {selectedPrinter.cloud_status !== "online" ? (
+                <button
+                  type="button"
+                  className="icon-button status-refresh-button"
+                  onClick={() => void refreshSelectedPrinterAgentStatus()}
+                  disabled={loading}
+                  title="Atualizar status do agente"
+                  aria-label={`Atualizar status do agente ${selectedPrinter.name}`}
+                >
+                  <RefreshCw className={loading ? "button-busy-icon" : undefined} size={14} />
+                </button>
+              ) : null}
+            </div>
             <Badge icon={Settings} label="Auditoria" value={selectedPrinter.host_audit_mode} />
           </div>
         </div>

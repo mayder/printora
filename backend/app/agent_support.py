@@ -17,6 +17,7 @@ from app.agent_pairing import (
     AgentPairingRepository,
     AgentRecord,
 )
+from app.agent_updates import load_agent_update_manifest
 from app.database import connect_database
 from app.printers import PrinterRecord
 
@@ -106,19 +107,35 @@ class AgentSupportRepository:
             ),
         )
 
-    def request_agent_update(self, printer: PrinterRecord, agent_id: int) -> AgentUpdateRequestResponse:
+    def request_agent_update(self, printer: PrinterRecord, agent_id: int, public_base_url: str | None = None) -> AgentUpdateRequestResponse:
         agent = next((item for item in self._agents(printer.id) if item.id == agent_id), None)
         if agent is None:
             raise ValueError("agente não pertence à impressora")
         if agent.status != "active":
             raise ValueError("agente precisa estar ativo para receber update remoto")
+        job_type = "remote_agent_update_check"
+        payload: dict[str, Any] = {
+            "safe_mode": "agent_self_update",
+            "requested_at": _now_text(),
+            "target_version": EXPECTED_AGENT_VERSION,
+        }
+        if _needs_bootstrap_update(agent.agent_version):
+            release = _linux_arm64_release(public_base_url)
+            job_type = "remote_host_script"
+            payload = {
+                "safe_mode": "agent_update_bootstrap",
+                "kind": "agent_update_bootstrap",
+                "script": _bootstrap_update_script(release.url, release.sha256),
+                "timeout_seconds": 120,
+                "target_version": EXPECTED_AGENT_VERSION,
+            }
         job = AgentPairingRepository(self.database_path).create_job(
             printer,
             AgentJobCreateRequest(
                 agent_id=agent_id,
-                job_type="remote_agent_update_check",
+                job_type=job_type,
                 correlation_id=f"remote_agent_update_{uuid4().hex}",
-                payload={"safe_mode": "agent_self_update", "requested_at": _now_text()},
+                payload=payload,
             ),
         )
         return AgentUpdateRequestResponse(
@@ -387,6 +404,43 @@ def _int_or_none(value: Any) -> int | None:
 
 def _now_text() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _needs_bootstrap_update(agent_version: str | None) -> bool:
+    return _version_tuple(agent_version) < (0, 1, 15)
+
+
+def _version_tuple(version: str | None) -> tuple[int, int, int]:
+    parts = str(version or "0.0.0").strip().lstrip("v").split(".")
+    values: list[int] = []
+    for part in parts[:3]:
+        try:
+            values.append(int(part))
+        except ValueError:
+            values.append(0)
+    while len(values) < 3:
+        values.append(0)
+    return values[0], values[1], values[2]
+
+
+def _linux_arm64_release(public_base_url: str | None):
+    manifest = load_agent_update_manifest(public_base_url)
+    for release in manifest.releases:
+        if release.platform == "linux/arm64" and release.url and release.sha256:
+            return release
+    raise ValueError("release linux/arm64 indisponível para atualização remota")
+
+
+def _bootstrap_update_script(url: str, sha256: str) -> str:
+    return f"""set -euo pipefail
+tmp="$(mktemp)"
+curl -4 -fsSL --retry 5 --retry-delay 2 '{url}' -o "$tmp"
+echo '{sha256}  '"$tmp" | sha256sum -c -
+install -m 0755 "$tmp" /usr/local/bin/printora-agent
+rm -f "$tmp"
+nohup sh -c 'sleep 1; systemctl restart printora-agent' >/dev/null 2>&1 &
+echo 'agente atualizado para {EXPECTED_AGENT_VERSION}; restart agendado'
+"""
 
 
 def _agent_from_row(row) -> AgentRecord:

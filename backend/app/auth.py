@@ -986,12 +986,16 @@ def setup_mfa(user: AuthUser) -> MfaSetupResponse:
 def validate_step_up(repository: AuthRepository, user: AuthUser, payload: StepUpRequest) -> StepUpResponse:
     if user.mfa_enabled:
         secret = repository.get_mfa_secret(user.id)
-        if secret is None or payload.code is None or not verify_totp(secret, payload.code):
+        if payload.code is None:
             raise ValueError("código 2FA obrigatório para ação crítica")
+        if secret is None or not verify_totp(secret, payload.code):
+            raise ValueError("código 2FA inválido")
     else:
         password_hash = repository.get_password_hash(user.id)
-        if payload.password is None or password_hash is None or not verify_password(payload.password, password_hash):
+        if payload.password is None:
             raise ValueError("senha obrigatória para ação crítica")
+        if password_hash is None or not verify_password(payload.password, password_hash):
+            raise ValueError("senha atual inválida para ação crítica")
     token, expires_at = repository.create_step_up(user.id, payload.purpose)
     return StepUpResponse(step_up_token=token, expires_at=expires_at)
 
