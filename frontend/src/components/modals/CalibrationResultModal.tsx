@@ -1,4 +1,3 @@
-import React from "react";
 import { Download, Save, Trash2, X } from "lucide-react";
 import type { ScreenPropsFor } from "../../screens/ScreenProps";
 import type { CalibrationRunRecord } from "../../types";
@@ -87,8 +86,6 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
     setCalibrationResultTestKey,
     summarizeCalibrationExecutionFinalState,
   } = props;
-  const [pendingDeleteKey, setPendingDeleteKey] = React.useState<string | null>(null);
-
   if (!calibrationResultTest) {
     return null;
   }
@@ -111,7 +108,6 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
             const pidParameters = calibrationExecutionPidParameters(execution);
             const isLatestExecution = latestCalibrationExecutionIdByTest.get(execution.test_key) === execution.id;
             const canDeleteExecution = !isLatestExecution;
-            const executionDeleteKey = `execution-${execution.id}`;
             const saveConfigRequired = execution.status === "executed" && calibrationExecutionRequiresSaveConfig(execution);
             const saveConfigExecuted = calibrationSaveConfigResult?.status === "executed";
             return (
@@ -143,18 +139,11 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
                     {canDeleteExecution ? (
                       <button
                         type="button"
-                        className={`icon-button ${pendingDeleteKey === executionDeleteKey ? "danger-inline" : ""}`}
-                        onClick={() => {
-                          if (pendingDeleteKey !== executionDeleteKey) {
-                            setPendingDeleteKey(executionDeleteKey);
-                            return;
-                          }
-                          setPendingDeleteKey(null);
-                          void deleteCalibrationExecutionHistoryItem(execution);
-                        }}
+                        className="icon-button danger-inline"
+                        onClick={() => void deleteCalibrationExecutionHistoryItem(execution)}
                         disabled={loading}
-                        title={pendingDeleteKey === executionDeleteKey ? "Confirmar apagar" : "Apagar"}
-                        aria-label={pendingDeleteKey === executionDeleteKey ? "Confirmar apagar execução" : "Apagar execução"}
+                        title="Apagar"
+                        aria-label="Apagar execução"
                       >
                         <Trash2 size={15} />
                       </button>
@@ -201,7 +190,6 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
           })}
           {calibrationResultRuns.map((run) => {
             const isLatestRun = latestCalibrationRunIdByTest.get(run.test_key) === run.id;
-            const runDeleteKey = `run-${run.id}`;
             return (
               <div key={`run-${run.id}`} className={`test-history-row ${run.result_status}`}>
                 <div className="test-history-row-heading">
@@ -219,18 +207,11 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
                     {!isLatestRun ? (
                       <button
                         type="button"
-                        className={`icon-button ${pendingDeleteKey === runDeleteKey ? "danger-inline" : ""}`}
-                        onClick={() => {
-                          if (pendingDeleteKey !== runDeleteKey) {
-                            setPendingDeleteKey(runDeleteKey);
-                            return;
-                          }
-                          setPendingDeleteKey(null);
-                          void deleteCalibrationRunHistoryItem(run);
-                        }}
+                        className="icon-button danger-inline"
+                        onClick={() => void deleteCalibrationRunHistoryItem(run)}
                         disabled={loading}
-                        title={pendingDeleteKey === runDeleteKey ? "Confirmar apagar" : "Apagar"}
-                        aria-label={pendingDeleteKey === runDeleteKey ? "Confirmar apagar resultado" : "Apagar resultado"}
+                        title="Apagar"
+                        aria-label="Apagar resultado"
                       >
                         <Trash2 size={15} />
                       </button>

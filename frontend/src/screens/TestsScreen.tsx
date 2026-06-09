@@ -279,7 +279,7 @@ export function TestsScreen(props: TestsScreenProps) {
               const sequenceStep = calibrationSequencePreview.find((step: any) => step.test_key === test.test_key);
               const usage = calibrationUsage(test);
               const liveEvidence = calibrationLiveEvidenceLabel(test.test_key, operationStatus);
-              const visualState = calibrationVisualState(test, lastRun, operationStatus);
+              const visualState = calibrationVisualState(test, lastRun, lastExecution, operationStatus);
               return (
                 <article key={test.test_key} className={`test-card ${visualState}`}>
                   <div className="test-card-title">

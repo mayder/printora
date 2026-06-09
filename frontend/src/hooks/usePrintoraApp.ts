@@ -336,7 +336,7 @@ export function usePrintoraApp() {
     setLoading,
   });
   maintenance = useMaintenance({ selectedPrinterId: contextPrinterId, setError, setLoading });
-  calibration = useCalibration({ selectedPrinterId: contextPrinterId, setError, setLoading });
+  calibration = useCalibration({ selectedPrinterId: contextPrinterId, confirmAction, setError, setLoading });
   firmware = useFirmware({ selectedPrinterId: contextPrinterId, setError, setLoading });
   setup = useSetup({ setError, setLoading });
   const selfUpdate = useSelfUpdate();

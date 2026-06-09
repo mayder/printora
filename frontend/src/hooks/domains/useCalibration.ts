@@ -12,6 +12,7 @@ import type {
   CalibrationSummary,
   CalibrationTestRecord,
   OperationActionExecutionAttempt,
+  ConfirmActionOptions,
   ZOffsetRecord,
   ZOffsetWizardPlan,
 } from "../../types";
@@ -21,11 +22,12 @@ import { unknownErrorMessage } from "./shared";
 
 type UseCalibrationOptions = {
   selectedPrinterId: number | null;
+  confirmAction: (options: ConfirmActionOptions) => Promise<boolean>;
   setError: SetError;
   setLoading: SetLoading;
 };
 
-export function useCalibration({ selectedPrinterId, setError, setLoading }: UseCalibrationOptions) {
+export function useCalibration({ selectedPrinterId, confirmAction, setError, setLoading }: UseCalibrationOptions) {
   const [calibrationTests, setCalibrationTests] = React.useState<CalibrationTestRecord[]>([]);
   const [calibrationHiddenTests, setCalibrationHiddenTests] = React.useState<CalibrationAvailableTestsResponse["hidden_tests"]>([]);
   const [calibrationRuns, setCalibrationRuns] = React.useState<CalibrationRunRecord[]>([]);
@@ -304,6 +306,16 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     if (!selectedPrinterId) {
       return;
     }
+    const confirmed = await confirmAction({
+      tone: "danger",
+      title: "Apagar execução",
+      detail: "Esta execução antiga sairá do histórico deste teste. O último registro permanece protegido.",
+      evidence: `${execution.created_at} · ${execution.status} · ${execution.sent_commands.length} comando(s)`,
+      confirmLabel: "Apagar",
+    });
+    if (!confirmed) {
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -321,6 +333,16 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
 
   async function deleteCalibrationRunHistoryItem(run: CalibrationRunRecord) {
     if (!selectedPrinterId) {
+      return;
+    }
+    const confirmed = await confirmAction({
+      tone: "danger",
+      title: "Apagar resultado",
+      detail: "Este resultado antigo sairá do histórico deste teste. O último registro permanece protegido.",
+      evidence: `${run.created_at} · ${run.result_status} · ${run.observed_value || run.notes || "-"}`,
+      confirmLabel: "Apagar",
+    });
+    if (!confirmed) {
       return;
     }
     setLoading(true);
