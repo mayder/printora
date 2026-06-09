@@ -262,7 +262,7 @@ async def execute_calibration_test(
             result=[],
             message=gate.message,
         )
-    recent_execution = repository.recent_sent_execution(printer.id, test.test_key)
+    recent_execution = repository.recent_sent_execution(printer.id, test.test_key, within_seconds=_calibration_duplicate_window(test))
     if recent_execution is not None:
         return repository.create_execution_attempt(
             printer_id=printer.id,
@@ -403,7 +403,7 @@ def _build_calibration_console_script(moonraker_url: str, count: int) -> str:
             store = result.get("gcode_store") if isinstance(result, dict) else []
             console = []
             if isinstance(store, list):
-                for item in store[-count:]:
+                for item in reversed(store[-count:]):
                     if isinstance(item, dict):
                         message = item.get("message")
                         console.append(str(message) if message is not None else json.dumps(item, ensure_ascii=False))
@@ -539,6 +539,15 @@ def _calibration_execution_wait_timeout(test, settings, command_timeout: float) 
     if "PID_CALIBRATE" in command_text:
         return min(max(settings.request_timeout_seconds, command_timeout + 10.0), 80.0)
     return command_timeout + 20.0
+
+
+def _calibration_duplicate_window(test) -> int:
+    command_text = "\n".join(test.gcode).upper()
+    if "PID_CALIBRATE" in command_text:
+        return 45 * 60
+    if "BED_MESH_CALIBRATE" in command_text or "QUAD_GANTRY_LEVEL" in command_text or "PROBE_ACCURACY" in command_text:
+        return 20 * 60
+    return 45
 
 
 def _calibration_execution_results(result_payload: dict[str, Any]) -> list[dict[str, Any]]:

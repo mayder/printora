@@ -878,7 +878,7 @@ def test_calibration_console_endpoint_reads_moonraker_store_via_agent(tmp_path, 
             {
                 "result": {
                     "exit_code": 0,
-                    "stdout": '{"data_state":"live","console":["B:55.0 /60.0 T0:23.7 /0.0","PID parameters: pid_Kp=1 pid_Ki=2 pid_Kd=3"]}',
+                    "stdout": '{"data_state":"live","console":["PID parameters: pid_Kp=1 pid_Ki=2 pid_Kd=3","B:55.0 /60.0 T0:23.7 /0.0"]}',
                 }
             },
         )()
@@ -903,11 +903,12 @@ def test_calibration_console_endpoint_reads_moonraker_store_via_agent(tmp_path, 
         assert response.status_code == 200
         payload = response.json()
         assert payload["data_state"] == "live"
-        assert payload["console"][-1] == "PID parameters: pid_Kp=1 pid_Ki=2 pid_Kd=3"
+        assert payload["console"][0] == "PID parameters: pid_Kp=1 pid_Ki=2 pid_Kd=3"
         assert calls[-1]["job_type"] == "remote_host_script"
         assert calls[-1]["payload"]["kind"] == "calibration_console"
         assert "server/gcode_store" in calls[-1]["payload"]["script"]
         assert 'item.get("message")' in calls[-1]["payload"]["script"]
+        assert "reversed(store[-count:])" in calls[-1]["payload"]["script"]
     finally:
         get_settings.cache_clear()
 

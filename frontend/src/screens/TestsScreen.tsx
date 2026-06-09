@@ -281,6 +281,14 @@ export function TestsScreen(props: TestsScreenProps) {
               const usage = calibrationUsage(test);
               const liveEvidence = calibrationLiveEvidenceLabel(test.test_key, operationStatus);
               const visualState = calibrationVisualState(test, lastRun, lastExecution, operationStatus);
+              const currentExecutionCandidate = calibrationExecutionResult;
+              const currentExecution =
+                currentExecutionCandidate &&
+                currentExecutionCandidate.test_key === test.test_key &&
+                currentExecutionCandidate.status === "dispatched_unconfirmed"
+                  ? currentExecutionCandidate
+                  : null;
+              const runningExecution = currentExecution ?? (lastExecution?.status === "dispatched_unconfirmed" ? lastExecution : null);
               return (
                 <article key={test.test_key} className={`test-card ${visualState}`}>
                   <div className="test-card-title">
@@ -319,7 +327,7 @@ export function TestsScreen(props: TestsScreenProps) {
                     {test.gcode.length ? (
                       <button type="button" className="maintenance-done-button calibration-main-action" onClick={() => void openCalibrationExecute(test)} disabled={!selectedPrinterId || loading}>
                         <Play size={15} />
-                        Executar
+                        {runningExecution ? "Acompanhar" : "Executar"}
                       </button>
                     ) : (
                       <button type="button" className="maintenance-done-button calibration-main-action" onClick={() => openCalibrationResult(test, true)} disabled={!selectedPrinterId || loading}>

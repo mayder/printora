@@ -280,6 +280,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
               !selectedPrinterId ||
               loading ||
               calibrationExecutionBusy ||
+              executionRunning ||
               executionCompleted ||
               !calibrationGcodeReviewed ||
               !calibrationOperatorPresent ||
@@ -287,7 +288,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
               calibrationPreflight.blocked
             }
           >
-            {calibrationExecutionBusy ? "Executando" : executionCompleted ? "Executado" : "Executar agora"}
+            {calibrationExecutionBusy ? "Executando" : executionRunning ? "Acompanhando" : executionCompleted ? "Executado" : "Executar agora"}
           </button>
         </div>
       </div>

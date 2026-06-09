@@ -210,8 +210,22 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
   }
 
   async function openCalibrationExecute(test: CalibrationTestRecord) {
+    const activeExecution =
+      calibrationExecutionResult?.test_key === test.test_key && calibrationExecutionResult.status === "dispatched_unconfirmed"
+        ? calibrationExecutionResult
+        : calibrationExecutions.find((execution) => execution.test_key === test.test_key && execution.status === "dispatched_unconfirmed");
     setCalibrationTestKey(test.test_key);
     setCalibrationExecuteTestKey(test.test_key);
+    if (activeExecution) {
+      setCalibrationExecutionResult(activeExecution);
+      if (!selectedPrinterId) {
+        return;
+      }
+      const consolePayload = await fetchCalibrationLiveConsole(selectedPrinterId);
+      setCalibrationLiveConsole(consolePayload?.console ?? []);
+      setCalibrationLiveConsoleError(consolePayload?.error || "");
+      return;
+    }
     setCalibrationExecutionResult(null);
     setCalibrationSaveConfigError("");
     setCalibrationSaveConfigResult(null);
