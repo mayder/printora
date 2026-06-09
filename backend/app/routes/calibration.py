@@ -419,9 +419,9 @@ async def _calibration_agent_preflight(settings, printer, test_key: str) -> dict
 def _calibration_execution_message(status: str, sent_commands: list[str], commands: list[str]) -> str:
     if status == "dispatched_unconfirmed":
         return (
-            f"{len(sent_commands)}/{len(commands)} comando(s) despachado(s), mas o Moonraker nao confirmou "
-            "a resposta dentro do timeout. O comando pode continuar rodando na impressora; confira o console "
-            "ou historico antes de repetir."
+            f"{len(sent_commands)}/{len(commands)} comando(s) enviado(s). O Moonraker ainda nao devolveu "
+            "a resposta final; o comando pode continuar rodando na impressora. Acompanhe o console e aguarde "
+            "a conclusao antes de repetir."
         )
     if status == "failed_partial":
         return f"{len(sent_commands)}/{len(commands)} comando(s) confirmado(s); execucao parcial."

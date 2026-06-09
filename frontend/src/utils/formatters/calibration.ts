@@ -50,7 +50,7 @@ export function formatCalibrationResult(resultStatus: CalibrationRunRecord["resu
 export function formatCalibrationExecutionStatus(status: string) {
   const labels: Record<string, string> = {
     executed: "executado",
-    dispatched_unconfirmed: "despachado sem confirmação",
+    dispatched_unconfirmed: "em andamento na impressora",
     blocked: "bloqueado",
     failed: "falhou",
     failed_partial: "falhou parcialmente",
@@ -63,7 +63,7 @@ export function calibrationExecutionRowClass(status: string) {
     return "passed";
   }
   if (status === "dispatched_unconfirmed") {
-    return "warning";
+    return "running";
   }
   if (status === "failed" || status === "failed_partial") {
     return "failed";
@@ -74,6 +74,9 @@ export function calibrationExecutionRowClass(status: string) {
 export function summarizeCalibrationExecutionFinalState(execution: CalibrationExecutionRecord) {
   const finalState = latestCalibrationExecutionFinalState(execution);
   if (!finalState) {
+    if (execution.status === "dispatched_unconfirmed") {
+      return `${execution.sent_commands.length}/${execution.commands.length} comando(s) enviado(s); aguardando resposta final no console.`;
+    }
     return `${execution.sent_commands.length}/${execution.commands.length} comando(s) confirmado(s)`;
   }
   const klipper = typeof finalState.klipper_state === "string" ? finalState.klipper_state : "-";

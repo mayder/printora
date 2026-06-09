@@ -30,8 +30,11 @@ export function calibrationVisualState(
   if (lastRun?.result_status === "warning" || lastRun?.result_status === "skipped") {
     return lastRun.result_status;
   }
-  if (lastExecution?.status === "executed" || lastExecution?.status === "dispatched_unconfirmed") {
+  if (lastExecution?.status === "executed") {
     return "passed";
+  }
+  if (lastExecution?.status === "dispatched_unconfirmed") {
+    return "running";
   }
   if (lastExecution?.status === "failed" || lastExecution?.status === "failed_partial") {
     return "failed";

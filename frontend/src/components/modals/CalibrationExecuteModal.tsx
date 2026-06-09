@@ -99,7 +99,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
   ];
   const resultConsoleExcerpt = calibrationExecutionResult ? calibrationExecutionConsoleExcerpt(calibrationExecutionResult) : [];
   const resultPidParameters = calibrationExecutionResult ? calibrationExecutionPidParameters(calibrationExecutionResult) : null;
-  const executionCompleted = calibrationExecutionResult?.status === "executed" || calibrationExecutionResult?.status === "dispatched_unconfirmed";
+  const executionCompleted = calibrationExecutionResult?.status === "executed";
   const saveConfigRequired = calibrationExecutionResult ? calibrationExecutionRequiresSaveConfig(calibrationExecutionResult) : false;
   const saveConfigExecuted = calibrationSaveConfigResult?.status === "executed";
 

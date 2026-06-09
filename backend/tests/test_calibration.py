@@ -859,7 +859,8 @@ def test_calibration_execute_endpoint_preserves_dispatched_unconfirmed_status(tm
         payload = response.json()
         assert payload["status"] == "dispatched_unconfirmed"
         assert payload["sent_commands"] == ["G28"]
-        assert "despachado" in payload["message"]
+        assert "enviado" in payload["message"]
+        assert "aguarde a conclusao" in payload["message"]
     finally:
         get_settings.cache_clear()
 
