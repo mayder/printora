@@ -1,8 +1,15 @@
 import { LoaderCircle, X } from "lucide-react";
 import type { ScreenPropsFor } from "../../screens/ScreenProps";
+import { ConfigRemediationPanel } from "./ConfigRemediationPanel";
 
 type CalibrationExecuteModalProps = ScreenPropsFor<
+  | "applyCalibrationConfigRemediation"
   | "buildCalibrationExecutionNotes"
+  | "calibrationConfigRemediationApplyResult"
+  | "calibrationConfigRemediationBusy"
+  | "calibrationConfigRemediationError"
+  | "calibrationConfigRemediationPreview"
+  | "calibrationConfigRemediationSelectedIds"
   | "calibrationExecutionConsoleExcerpt"
   | "calibrationExecutionPidParameters"
   | "calibrationExecuteTest"
@@ -23,6 +30,7 @@ type CalibrationExecuteModalProps = ScreenPropsFor<
   | "loading"
   | "openCalibrationResult"
   | "operationStatus"
+  | "previewCalibrationConfigRemediation"
   | "selectedPrinterId"
   | "saveCalibrationConfigFromExecution"
   | "setCalibrationExecuteTestKey"
@@ -32,6 +40,7 @@ type CalibrationExecuteModalProps = ScreenPropsFor<
   | "setCalibrationObservedValue"
   | "setCalibrationOperatorPresent"
   | "summarizeCalibrationExecutionFinalState"
+  | "toggleCalibrationConfigRemediationTarget"
 >;
 
 export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
@@ -50,6 +59,12 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
     calibrationSaveConfigBusy,
     calibrationSaveConfigError,
     calibrationSaveConfigResult,
+    applyCalibrationConfigRemediation,
+    calibrationConfigRemediationApplyResult,
+    calibrationConfigRemediationBusy,
+    calibrationConfigRemediationError,
+    calibrationConfigRemediationPreview,
+    calibrationConfigRemediationSelectedIds,
     executeCalibrationGcode,
     formatCalibrationExecutionResult,
     formatCalibrationExecutionStatus,
@@ -57,6 +72,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
     loading,
     openCalibrationResult,
     operationStatus,
+    previewCalibrationConfigRemediation,
     selectedPrinterId,
     saveCalibrationConfigFromExecution,
     setCalibrationExecuteTestKey,
@@ -66,6 +82,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
     setCalibrationObservedValue,
     setCalibrationOperatorPresent,
     summarizeCalibrationExecutionFinalState,
+    toggleCalibrationConfigRemediationTarget,
   } = props;
 
   if (!calibrationExecuteTest) {
@@ -190,6 +207,18 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
             ) : null}
             {calibrationSaveConfigError || calibrationSaveConfigResult?.status === "failed" ? (
               <small className="calibration-save-config-error">{formatSaveConfigFailureMessage(calibrationSaveConfigResult, calibrationSaveConfigError)}</small>
+            ) : null}
+            {saveConfigRequired && (calibrationSaveConfigError || calibrationSaveConfigResult?.status === "failed") && resultPidParameters ? (
+              <ConfigRemediationPanel
+                busy={calibrationConfigRemediationBusy}
+                error={calibrationConfigRemediationError}
+                preview={calibrationConfigRemediationPreview}
+                applyResult={calibrationConfigRemediationApplyResult}
+                selectedIds={calibrationConfigRemediationSelectedIds}
+                onPreview={() => void previewCalibrationConfigRemediation()}
+                onApply={() => void applyCalibrationConfigRemediation()}
+                onToggle={toggleCalibrationConfigRemediationTarget}
+              />
             ) : null}
             {resultConsoleExcerpt.length ? <pre className="calibration-console-excerpt">{resultConsoleExcerpt.join("\n")}</pre> : null}
             <details>

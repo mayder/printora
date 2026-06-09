@@ -2,8 +2,15 @@ import { Download, Save, Trash2, X } from "lucide-react";
 import type { ScreenPropsFor } from "../../screens/ScreenProps";
 import type { CalibrationRunRecord } from "../../types";
 import { formatDateTime } from "../../utils/formatters";
+import { ConfigRemediationPanel } from "./ConfigRemediationPanel";
 
 type CalibrationResultModalProps = ScreenPropsFor<
+  | "applyCalibrationConfigRemediation"
+  | "calibrationConfigRemediationApplyResult"
+  | "calibrationConfigRemediationBusy"
+  | "calibrationConfigRemediationError"
+  | "calibrationConfigRemediationPreview"
+  | "calibrationConfigRemediationSelectedIds"
   | "calibrationExecutionConsoleExcerpt"
   | "calibrationExecutionPidParameters"
   | "calibrationExecutionRowClass"
@@ -33,6 +40,7 @@ type CalibrationResultModalProps = ScreenPropsFor<
   | "latestCalibrationExecutionIdByTest"
   | "latestCalibrationRunIdByTest"
   | "loading"
+  | "previewCalibrationConfigRemediation"
   | "saveCalibrationConfigFromExecution"
   | "selectedPrinterId"
   | "setCalibrationMaterial"
@@ -44,6 +52,7 @@ type CalibrationResultModalProps = ScreenPropsFor<
   | "setCalibrationResultStatus"
   | "setCalibrationResultTestKey"
   | "summarizeCalibrationExecutionFinalState"
+  | "toggleCalibrationConfigRemediationTarget"
 >;
 
 export function CalibrationResultModal(props: CalibrationResultModalProps) {
@@ -55,6 +64,12 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
     calibrationSaveConfigBusy,
     calibrationSaveConfigError,
     calibrationSaveConfigResult,
+    applyCalibrationConfigRemediation,
+    calibrationConfigRemediationApplyResult,
+    calibrationConfigRemediationBusy,
+    calibrationConfigRemediationError,
+    calibrationConfigRemediationPreview,
+    calibrationConfigRemediationSelectedIds,
     calibrationMaterial,
     calibrationNotes,
     calibrationNozzle,
@@ -77,6 +92,7 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
     latestCalibrationExecutionIdByTest,
     latestCalibrationRunIdByTest,
     loading,
+    previewCalibrationConfigRemediation,
     saveCalibrationConfigFromExecution,
     selectedPrinterId,
     setCalibrationMaterial,
@@ -88,6 +104,7 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
     setCalibrationResultStatus,
     setCalibrationResultTestKey,
     summarizeCalibrationExecutionFinalState,
+    toggleCalibrationConfigRemediationTarget,
   } = props;
   if (!calibrationResultTest) {
     return null;
@@ -186,6 +203,18 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
                 ) : null}
                 {saveConfigRequired && (calibrationSaveConfigError || calibrationSaveConfigResult?.status === "failed") ? (
                   <small className="calibration-save-config-error">{formatSaveConfigFailureMessage(calibrationSaveConfigResult, calibrationSaveConfigError)}</small>
+                ) : null}
+                {saveConfigRequired && (calibrationSaveConfigError || calibrationSaveConfigResult?.status === "failed") && pidParameters ? (
+                  <ConfigRemediationPanel
+                    busy={calibrationConfigRemediationBusy}
+                    error={calibrationConfigRemediationError}
+                    preview={calibrationConfigRemediationPreview}
+                    applyResult={calibrationConfigRemediationApplyResult}
+                    selectedIds={calibrationConfigRemediationSelectedIds}
+                    onPreview={() => void previewCalibrationConfigRemediation()}
+                    onApply={() => void applyCalibrationConfigRemediation()}
+                    onToggle={toggleCalibrationConfigRemediationTarget}
+                  />
                 ) : null}
                 {consoleExcerpt.length ? <pre className="calibration-console-excerpt">{consoleExcerpt.join("\n")}</pre> : null}
               </div>

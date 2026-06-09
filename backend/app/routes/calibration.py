@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import re
 
-from fastapi import Depends
+from fastapi import Depends, Header
 
 from app.agent_executor import AgentCommandExecutor, AgentJobFailedError
 from app.agent_moonraker import agent_preflight_payload, calibration_capabilities_payload
-from app.routes.auth import require_current_user_when_configured
+from app.auth import AuthRepository
+from app.config_remediation import (
+    ConfigRemediationApplyRequest,
+    ConfigRemediationRequest,
+    build_config_remediation_script,
+    parse_config_remediation_stdout,
+)
+from app.routes.auth import require_current_user, require_current_user_when_configured
 from app.routes.support import *
 
 router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
@@ -114,6 +121,47 @@ async def delete_calibration_run(printer_id: int, run_id: int) -> dict[str, bool
     if not deleted:
         raise HTTPException(status_code=404, detail="calibration run not found")
     return {"deleted": True}
+
+
+@router.post("/api/printers/{printer_id}/calibration/config-remediation/preview")
+async def preview_calibration_config_remediation(printer_id: int, payload: ConfigRemediationRequest) -> dict[str, Any]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    printer = printer_repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    result = await _run_config_remediation_script(
+        settings,
+        printer,
+        payload,
+        mode="preview",
+        timeout_seconds=max(settings.request_timeout_seconds, 15.0),
+    )
+    return {"printer_id": printer.id, **result}
+
+
+@router.post("/api/printers/{printer_id}/calibration/config-remediation/apply")
+async def apply_calibration_config_remediation(
+    printer_id: int,
+    payload: ConfigRemediationApplyRequest,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    printer = printer_repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    _require_config_remediation_step_up(settings, authorization, payload.step_up_token)
+    result = await _run_config_remediation_script(
+        settings,
+        printer,
+        payload,
+        mode="apply",
+        timeout_seconds=max(settings.request_timeout_seconds, 20.0),
+    )
+    if result.get("status") == "applied":
+        result["firmware_restart"] = await _restart_firmware_after_config_remediation(settings, printer)
+    return {"printer_id": printer.id, **result}
 
 
 
@@ -286,6 +334,64 @@ def _calibration_agent_failure_detail(payload: dict) -> str:
             return text
     detail = payload.get("detail") or payload.get("agent_error")
     return str(detail).strip() if detail else ""
+
+
+async def _run_config_remediation_script(settings, printer, payload, *, mode: str, timeout_seconds: float) -> dict[str, Any]:
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_host_script",
+            payload={
+                "kind": f"config_remediation_{mode}",
+                "script": build_config_remediation_script(payload, mode=mode),
+                "timeout_seconds": timeout_seconds,
+            },
+            timeout_seconds=timeout_seconds + 5.0,
+        )
+    except AgentJobFailedError as exc:
+        result = exc.job.result if isinstance(exc.job.result, dict) else {}
+        stdout = str(result.get("stdout") or "")
+        parsed = parse_config_remediation_stdout(stdout)
+        parsed.setdefault("status", "failed")
+        parsed.setdefault("error", exc.detail)
+        return parsed
+    except HTTPException as exc:
+        return {"status": "failed", "error": str(exc.detail)}
+    result = job.result if isinstance(job.result, dict) else {}
+    parsed = parse_config_remediation_stdout(str(result.get("stdout") or ""))
+    if result.get("exit_code") not in (0, None):
+        parsed.setdefault("status", "failed")
+        parsed.setdefault("error", str(result.get("stderr") or result.get("error") or "script remoto falhou"))
+    return parsed
+
+
+async def _restart_firmware_after_config_remediation(settings, printer) -> dict[str, Any]:
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_gcode_execute",
+            payload={
+                "action_id": "config_remediation:firmware_restart",
+                "criticality": "config_remediation",
+                "commands": ["FIRMWARE_RESTART"],
+                "timeout_seconds": max(settings.request_timeout_seconds, 20.0),
+            },
+            timeout_seconds=max(settings.request_timeout_seconds, 25.0),
+        )
+        return job.result or {"status": "executed"}
+    except AgentJobFailedError as exc:
+        return exc.job.result or {"status": "failed", "detail": exc.detail}
+    except HTTPException as exc:
+        return {"status": "failed", "detail": str(exc.detail)}
+
+
+def _require_config_remediation_step_up(settings, authorization: str | None, step_up_token: str | None) -> None:
+    if not authorization:
+        return
+    repository = AuthRepository(settings.database_path)
+    current = require_current_user(authorization=authorization, repository=repository)
+    if not step_up_token or not repository.consume_step_up(current.user.id, step_up_token, "destructive_action"):
+        raise HTTPException(status_code=403, detail="autenticação reforçada obrigatória para ação crítica")
 
 
 async def _calibration_agent_preflight(settings, printer, test_key: str) -> dict[str, Any]:

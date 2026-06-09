@@ -595,3 +595,72 @@
 .calibration-save-config-error {
   color: #ff9aad;
 }
+
+.config-remediation-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(34, 211, 238, 0.24);
+  border-radius: 8px;
+  background: rgba(8, 13, 18, 0.72);
+}
+
+.config-remediation-heading,
+.config-remediation-actions,
+.config-remediation-candidate > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.config-remediation-heading > div,
+.config-remediation-actions small {
+  display: grid;
+  gap: 3px;
+}
+
+.config-remediation-heading span,
+.config-remediation-actions small {
+  color: var(--muted);
+}
+
+.config-remediation-heading button,
+.config-remediation-actions button {
+  min-width: 150px;
+}
+
+.config-remediation-candidate {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.45);
+}
+
+.config-remediation-candidate.unchanged {
+  opacity: 0.72;
+}
+
+.config-remediation-candidate input {
+  margin-right: 8px;
+}
+
+.config-remediation-candidate pre {
+  max-height: 220px;
+  overflow: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.config-remediation-actions {
+  padding-top: 2px;
+}
+
+.config-remediation-actions small {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}

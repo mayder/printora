@@ -133,3 +133,41 @@ export type CalibrationExecutionRecord = {
   block_reasons: string[];
   message: string;
 };
+
+export type ConfigRemediationOption = {
+  option: string;
+  value: string;
+};
+
+export type ConfigRemediationCandidate = {
+  id: string;
+  path: string;
+  section: string;
+  start_line: number;
+  end_line: number;
+  current: string;
+  proposed: string;
+  diff: string[];
+  changed: boolean;
+  status?: string;
+  error?: string;
+};
+
+export type ConfigRemediationResult = {
+  printer_id?: number;
+  status: string;
+  config_root?: string;
+  section?: string;
+  options?: ConfigRemediationOption[];
+  candidates?: ConfigRemediationCandidate[];
+  target_ids?: string[];
+  backup_path?: string;
+  applied?: Array<{
+    id: string;
+    path: string;
+    start_line: number;
+    end_line: number;
+  }>;
+  firmware_restart?: Record<string, unknown>;
+  error?: string;
+};

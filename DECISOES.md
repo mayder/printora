@@ -429,6 +429,18 @@ Consequencias: o histórico passa a guardar evidência técnica do PID e o opera
 Impacto em testes: `backend/tests/test_calibration.py` cobre extração do console/PID; `backend/tests/test_operation.py` cobre preview `SAVE_CONFIG`; `go test ./...`, build frontend e `./check.sh` validam o fluxo.
 Impacto em rollback: médio; remover a ação `save_config` volta a exigir Mainsail para salvar, mas os históricos já registrados permanecem legíveis como JSON.
 Como reverter: reverter alterações em `backend/app/routes/calibration.py`, `backend/app/operation.py`, `agent/internal/agent/moonraker.go`, modais de calibração e manifesto/binário do agente.
+
+### DEC-20260609-02 - Remediacao supervisionada de config incluida
+
+Contexto: em instalacoes Klipper com `[include ...]`, `SAVE_CONFIG` pode falhar com conflito quando a secao/opcao gerenciada esta em arquivo incluido, por exemplo `[extruder] control`. Nesse caso o usuario precisa de um caminho seguro para aplicar os valores calculados sem editar arquivo manualmente.
+
+Decisao: quando houver valores calculados em uma calibracao e o `SAVE_CONFIG` falhar por conflito de include, o Printora oferece uma remediacao supervisionada: o agente varre somente `~/printer_data/config`, considera arquivos `.cfg` e `.conf`, ignora comentarios/backups, lista todas as secoes ativas compatíveis, mostra diff por arquivo e aplica apenas os alvos selecionados pelo usuario. A aplicacao exige autenticacao reforcada, cria backup remoto antes de sobrescrever e reinicia o firmware apos aplicar.
+
+Consequencias: o fluxo continua explicito e auditavel, sem alterar arquivos fora da pasta de configuracao da impressora. A primeira implementacao expõe a remediacao para PID do hotend; o backend aceita secao/opcoes genericas para evoluir para outras calibracoes.
+
+Impacto em testes: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+Como reverter: reverter `backend/app/config_remediation.py`, endpoints de remediacao em `backend/app/routes/calibration.py` e componentes/estado de remediacao no frontend.
 Referencias: `backend/app/routes/calibration.py`, `backend/app/operation.py`, `agent/internal/agent/moonraker.go`, `frontend/src/components/modals/CalibrationExecuteModal.tsx`, `frontend/src/components/modals/CalibrationResultModal.tsx`.
 
 ### DEC-20260601-03 - Update de agente sem SSH e manifesto derivado do artefato publicado
