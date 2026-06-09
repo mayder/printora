@@ -1,4 +1,5 @@
 import { Badge } from "../components/common";
+import { calibrationLiveEvidenceLabel, isCalibrationVerifiedByLiveStatus } from "../utils/calibrationLiveState";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type CalibrationScreenProps = ScreenPropsFor<
@@ -45,7 +46,6 @@ type CalibrationScreenProps = ScreenPropsFor<
   | "setZOffsetValue"
   | "status"
   | "toggleWizardCheck"
-  | "visibleCalibrationCompletedSteps"
   | "visibleCalibrationRecommendations"
   | "zOffsetFormOpen"
   | "zOffsetMaterial"
@@ -103,7 +103,6 @@ export function CalibrationScreen(props: CalibrationScreenProps) {
     setZOffsetValue,
     status,
     toggleWizardCheck,
-    visibleCalibrationCompletedSteps,
     visibleCalibrationRecommendations,
     zOffsetFormOpen,
     zOffsetMaterial,
@@ -115,6 +114,9 @@ export function CalibrationScreen(props: CalibrationScreenProps) {
     zOffsetWizardChecks,
     zOffsetWizardPlan,
   } = props;
+  const liveCompletedStepCount = calibrationSequencePreview.filter((step: any) =>
+    step.status === "completed" || step.status === "skipped" || isCalibrationVerifiedByLiveStatus(step.test_key, operationStatus),
+  ).length;
 
   return (
     <>
@@ -161,7 +163,7 @@ export function CalibrationScreen(props: CalibrationScreenProps) {
             <section className="calibration-recommendations calibration-roadmap-panel">
               <div className="section-heading-compact">
                 <strong>Sequência de calibração</strong>
-                <span>{visibleCalibrationCompletedSteps}/{calibrationSequencePreview.length} visíveis tratados</span>
+                <span>{liveCompletedStepCount}/{calibrationSequencePreview.length} visíveis tratados</span>
               </div>
               <p className="muted calibration-section-note">
                 Siga de cima para baixo quando fizer sentido. Itens com G-code somem sem leitura ao vivo; use Pular para seguir sem aprovar.
@@ -176,15 +178,17 @@ export function CalibrationScreen(props: CalibrationScreenProps) {
                 {calibrationSequencePreview.map((step: any) => {
                   const stepTest = calibrationTests.find((test: any) => test.test_key === step.test_key);
                   const hiddenReason = calibrationHiddenTests.find((test: any) => test.test_key === step.test_key)?.reason;
+                  const liveEvidence = calibrationLiveEvidenceLabel(step.test_key, operationStatus);
+                  const rowStatus = liveEvidence ? "completed live-verified" : step.status;
                   return (
-                    <li key={`${step.order}-${step.test_key}`} className={`calibration-sequence-row ${step.status}`}>
+                    <li key={`${step.order}-${step.test_key}`} className={`calibration-sequence-row ${rowStatus}`}>
                       <span className="calibration-step-index">{step.order}</span>
                       <span className="calibration-step-phase">{formatCalibrationPhase(step.phase).replace(/^\d+\.\s*/, "")}</span>
                       <span className="calibration-step-main">
                         <strong>{step.title}</strong>
-                        <small>{formatExecutionMode(step.execution_mode)} · risco {formatRiskLevel(step.risk_level)}</small>
+                        <small>{liveEvidence || `${formatExecutionMode(step.execution_mode)} · risco ${formatRiskLevel(step.risk_level)}`}</small>
                       </span>
-                      <em>{hiddenReason ? "bloqueado" : formatCalibrationSequenceStatus(step.status)}</em>
+                      <em>{hiddenReason ? "bloqueado" : liveEvidence ? "detectado" : formatCalibrationSequenceStatus(step.status)}</em>
                       <span className="calibration-step-actions">
                         <button
                           type="button"

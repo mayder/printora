@@ -31,6 +31,7 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
   const [calibrationPreflight, setCalibrationPreflight] = React.useState<CalibrationPreflight | null>(null);
   const [calibrationExecutions, setCalibrationExecutions] = React.useState<CalibrationExecutionRecord[]>([]);
   const [calibrationExecutionResult, setCalibrationExecutionResult] = React.useState<CalibrationExecutionRecord | null>(null);
+  const [calibrationExecutionBusy, setCalibrationExecutionBusy] = React.useState(false);
   const [calibrationHelpTestKey, setCalibrationHelpTestKey] = React.useState<string | null>(null);
   const [calibrationExecuteTestKey, setCalibrationExecuteTestKey] = React.useState<string | null>(null);
   const [calibrationResultTestKey, setCalibrationResultTestKey] = React.useState<string | null>(null);
@@ -218,7 +219,7 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     if (!selectedPrinterId || !calibrationTestKey) {
       return;
     }
-    setLoading(true);
+    setCalibrationExecutionBusy(true);
     setError(null);
     try {
       const response = await calibrationApi.execute(selectedPrinterId, {
@@ -242,7 +243,7 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
-      setLoading(false);
+      setCalibrationExecutionBusy(false);
     }
   }
 
@@ -392,6 +393,7 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     calibrationExecuteTest,
     calibrationExecuteTestKey,
     calibrationExecutionConfirmation,
+    calibrationExecutionBusy,
     calibrationExecutionResult,
     calibrationExecutions,
     calibrationGcodeReviewed,

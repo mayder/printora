@@ -465,6 +465,17 @@ export function usePrintoraApp() {
   }, [auth.authUser, shell.activeSection, printerDetailTab, contextPrinterId]);
 
   React.useEffect(() => {
+    if (!auth.authUser || !contextPrinterId || !calibration.calibrationExecuteTestKey) {
+      return;
+    }
+    void operation.loadOperationStatus(contextPrinterId, { preserveData: true });
+    const refreshId = window.setInterval(() => {
+      void operation.loadOperationStatus(contextPrinterId!, { preserveData: true });
+    }, calibration.calibrationExecutionBusy ? 1500 : 5000);
+    return () => window.clearInterval(refreshId);
+  }, [auth.authUser, contextPrinterId, calibration.calibrationExecuteTestKey, calibration.calibrationExecutionBusy]);
+
+  React.useEffect(() => {
     if (!auth.authUser) {
       return;
     }

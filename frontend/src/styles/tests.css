@@ -56,6 +56,21 @@
   background: linear-gradient(180deg, var(--danger-soft), var(--surface-2));
 }
 
+.test-card.passed {
+  border-color: rgb(47 179 109 / 0.42);
+  border-left-color: var(--success);
+}
+
+.test-card.warning,
+.test-card.skipped {
+  border-left-color: var(--warning);
+}
+
+.test-card.failed {
+  border-color: rgb(217 81 93 / 0.48);
+  border-left-color: var(--danger);
+}
+
 .test-card-title {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) 40px;
@@ -422,6 +437,76 @@
   display: block;
   color: var(--muted);
   margin-top: 4px;
+}
+
+.calibration-live-progress {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border-soft);
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+  background: var(--surface-3);
+  padding: 12px;
+}
+
+.calibration-live-progress.running {
+  border-left-color: var(--warning);
+}
+
+.calibration-live-progress > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.calibration-live-progress span {
+  color: var(--muted);
+}
+
+.calibration-live-running {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  width: fit-content;
+  color: var(--warning) !important;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.calibration-live-running svg {
+  animation: spin 1.1s linear infinite;
+}
+
+.calibration-live-progress dl {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.calibration-live-progress dl div {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface-2);
+  padding: 8px;
+}
+
+.calibration-live-progress dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.calibration-live-progress dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .test-result-form {

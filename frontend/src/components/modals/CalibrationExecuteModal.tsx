@@ -1,9 +1,10 @@
-import { X } from "lucide-react";
+import { LoaderCircle, X } from "lucide-react";
 import type { ScreenPropsFor } from "../../screens/ScreenProps";
 
 type CalibrationExecuteModalProps = ScreenPropsFor<
   | "buildCalibrationExecutionNotes"
   | "calibrationExecuteTest"
+  | "calibrationExecutionBusy"
   | "calibrationExecutionResult"
   | "calibrationExecutionRowClass"
   | "calibrationGcodeReviewed"
@@ -14,6 +15,7 @@ type CalibrationExecuteModalProps = ScreenPropsFor<
   | "formatCalibrationExecutionStatus"
   | "loading"
   | "openCalibrationResult"
+  | "operationStatus"
   | "selectedPrinterId"
   | "setCalibrationExecuteTestKey"
   | "setCalibrationExecutionConfirmation"
@@ -28,6 +30,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
   const {
     buildCalibrationExecutionNotes,
     calibrationExecuteTest,
+    calibrationExecutionBusy,
     calibrationExecutionResult,
     calibrationExecutionRowClass,
     calibrationGcodeReviewed,
@@ -38,6 +41,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
     formatCalibrationExecutionStatus,
     loading,
     openCalibrationResult,
+    operationStatus,
     selectedPrinterId,
     setCalibrationExecuteTestKey,
     setCalibrationExecutionConfirmation,
@@ -51,6 +55,15 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
   if (!calibrationExecuteTest) {
     return null;
   }
+  const liveHotend = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("extruder"));
+  const liveBed = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("bed"));
+  const liveProgressRows = [
+    ["Print state", operationStatus?.miscellaneous?.print_state ?? "-"],
+    ["Hotend", formatLiveTemperature(liveHotend?.temperature, liveHotend?.target)],
+    ["Mesa", formatLiveTemperature(liveBed?.temperature, liveBed?.target)],
+    ["Home", String(operationStatus?.toolhead?.homed_axes ?? "-")],
+    ["Posição", formatLivePosition(operationStatus?.toolhead?.position)],
+  ];
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Executar ${calibrationExecuteTest.title}`}>
@@ -78,6 +91,28 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
           </ul>
         ) : null}
         <pre>{calibrationExecuteTest.gcode.join("\n")}</pre>
+        {calibrationExecutionBusy || operationStatus ? (
+          <div className={`calibration-live-progress ${calibrationExecutionBusy ? "running" : ""}`}>
+            <div>
+              <strong>{calibrationExecutionBusy ? "Executando comando" : "Status ao vivo"}</strong>
+              <span>{operationStatus?.connected ? "Leitura Moonraker/Printora ativa" : "Aguardando leitura ao vivo"}</span>
+            </div>
+            {calibrationExecutionBusy ? (
+              <span className="calibration-live-running">
+                <LoaderCircle size={15} />
+                acompanhando a impressora
+              </span>
+            ) : null}
+            <dl>
+              {liveProgressRows.map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ) : null}
         <div className="test-confirm-grid">
           <label className="inline-check">
             <input
@@ -139,12 +174,28 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
               setCalibrationExecutionConfirmation("EXECUTE_CALIBRATION_GCODE");
               void executeCalibrationGcode("EXECUTE_CALIBRATION_GCODE");
             }}
-            disabled={!selectedPrinterId || loading || !calibrationGcodeReviewed || !calibrationOperatorPresent || !calibrationPreflight || calibrationPreflight.blocked}
+            disabled={!selectedPrinterId || loading || calibrationExecutionBusy || !calibrationGcodeReviewed || !calibrationOperatorPresent || !calibrationPreflight || calibrationPreflight.blocked}
           >
-            Executar agora
+            {calibrationExecutionBusy ? "Executando" : "Executar agora"}
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+function formatLiveTemperature(current: unknown, target: unknown) {
+  const currentLabel = typeof current === "number" ? `${Number(current.toFixed(1))} °C` : "-";
+  const targetLabel = typeof target === "number" ? `${Number(target.toFixed(1))} °C` : "-";
+  return `${currentLabel} / ${targetLabel}`;
+}
+
+function formatLivePosition(value: unknown) {
+  if (!Array.isArray(value)) {
+    return "-";
+  }
+  return value
+    .slice(0, 3)
+    .map((axis) => (typeof axis === "number" ? Number(axis.toFixed(2)) : axis))
+    .join(" / ");
 }
