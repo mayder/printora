@@ -100,6 +100,13 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
           <div className={`test-history-row ${calibrationExecutionRowClass(calibrationExecutionResult.status)}`}>
             <strong>{formatCalibrationExecutionStatus(calibrationExecutionResult.status)}</strong>
             <span>{calibrationExecutionResult.message}</span>
+            {calibrationExecutionResult.block_reasons.length ? (
+              <ul className="test-blockers">
+                {calibrationExecutionResult.block_reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            ) : null}
             <small>{summarizeCalibrationExecutionFinalState(calibrationExecutionResult)}</small>
             <details>
               <summary>Retorno registrado</summary>

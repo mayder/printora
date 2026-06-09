@@ -12,6 +12,7 @@ from app.calibration import (
     build_available_calibration_tests,
     build_calibration_execution_gate,
     build_calibration_preflight,
+    _blocked_calibration_command,
 )
 from app.database import initialize_database
 from app.main import app
@@ -455,6 +456,76 @@ def test_calibration_execution_gate_can_be_ready_for_supervised_gcode(tmp_path: 
     assert gate.status == "ready"
     assert gate.block_reasons == []
     assert gate.commands == test.gcode
+
+
+def test_calibration_execution_gate_allows_pid_calibrate_command(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = CalibrationRepository(database_path)
+    test = repository.get_test("pid_hotend")
+    assert test is not None
+
+    gate = build_calibration_execution_gate(
+        test=test,
+        payload=CalibrationExecutionRequest(
+            test_key=test.test_key,
+            confirmation="EXECUTE_CALIBRATION_GCODE",
+            operator_present=True,
+            gcode_reviewed=True,
+        ),
+        preflight={
+            "connected": True,
+            "printing": False,
+            "print_state": "standby",
+            "klipper_state": "ready",
+            "klippy_state": "ready",
+            "available_objects": ["toolhead", "print_stats", "extruder"],
+        },
+    )
+
+    assert gate.status == "ready"
+    assert gate.block_reasons == []
+    assert gate.commands == ["PID_CALIBRATE HEATER=extruder TARGET=220"]
+
+
+def test_all_catalogued_gcode_commands_are_allowlisted(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = CalibrationRepository(database_path)
+
+    blocked = {
+        test.test_key: _blocked_calibration_command(test.gcode)
+        for test in repository.list_tests()
+        if test.gcode and _blocked_calibration_command(test.gcode)
+    }
+
+    assert blocked == {}
+
+
+def test_calibration_preflight_blocks_commands_outside_allowlist(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = CalibrationRepository(database_path)
+    test = repository.get_test("homing_endstops")
+    assert test is not None
+    unsafe_test = test.model_copy(update={"gcode": ["SAVE_CONFIG"]})
+
+    preflight = build_calibration_preflight(
+        printer_id=1,
+        test=unsafe_test,
+        preflight={
+            "connected": True,
+            "printing": False,
+            "print_state": "standby",
+            "klipper_state": "ready",
+            "klippy_state": "ready",
+            "available_objects": ["toolhead", "print_stats"],
+        },
+    )
+
+    assert preflight.blocked is True
+    assert preflight.can_execute_gcode is False
+    assert "Comando fora da allowlist segura: SAVE_CONFIG." in preflight.block_reasons
 
 
 def test_calibration_execution_attempt_persists_blocked_gate(tmp_path: Path) -> None:

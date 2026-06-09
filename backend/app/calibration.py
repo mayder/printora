@@ -651,6 +651,9 @@ def build_calibration_preflight(
     )
     if unsupported_reason:
         block_reasons.append(unsupported_reason)
+    blocked_command = _blocked_calibration_command([command.strip() for command in test.gcode if command.strip()])
+    if blocked_command:
+        block_reasons.append(f"Comando fora da allowlist segura: {blocked_command}.")
     checklist = [
         "Confirmar que a impressora selecionada é a correta.",
         "Confirmar que não há impressão em andamento antes de qualquer calibração.",
@@ -747,13 +750,31 @@ def build_calibration_execution_gate(
 
 
 def _blocked_calibration_command(commands: list[str]) -> str | None:
-    allowed_prefixes = ("G28", "G0 ", "G1 ", "PROBE_ACCURACY", "QUAD_GANTRY_LEVEL", "BED_MESH_CALIBRATE")
+    allowed_codes = {
+        "G28",
+        "G0",
+        "G1",
+        "G90",
+        "G91",
+        "M82",
+        "M83",
+        "M106",
+        "M107",
+        "QUAD_GANTRY_LEVEL",
+        "BED_MESH_CALIBRATE",
+    }
+    allowed_prefixes = (
+        "PROBE_ACCURACY",
+        "PID_CALIBRATE ",
+        "SET_HEATER_TEMPERATURE ",
+    )
     denied_prefixes = ("SAVE_CONFIG", "RESTART", "FIRMWARE_RESTART", "M112")
     for command in commands:
         upper = command.strip().upper()
+        code = upper.split(maxsplit=1)[0] if upper else ""
         if upper.startswith(denied_prefixes):
             return command
-        if not upper.startswith(allowed_prefixes):
+        if code not in allowed_codes and not upper.startswith(allowed_prefixes):
             return command
     return None
 
