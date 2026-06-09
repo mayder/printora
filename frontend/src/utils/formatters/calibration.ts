@@ -166,7 +166,10 @@ export function calibrationExecutionPidParameters(execution: CalibrationExecutio
 }
 
 export function calibrationExecutionPidHeater(execution: CalibrationExecutionRecord) {
-  const commands = [...execution.sent_commands, ...execution.commands];
+  const resultCommands = execution.result
+    .map((item) => item.command)
+    .filter((value): value is string => typeof value === "string");
+  const commands = [...execution.sent_commands, ...execution.commands, ...resultCommands];
   for (const command of commands) {
     const match = command.match(/\bPID_CALIBRATE\b.*\bHEATER=([^\s]+)/i);
     if (match?.[1]) {

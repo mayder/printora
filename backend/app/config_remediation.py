@@ -39,6 +39,8 @@ class ConfigRemediationRequest(BaseModel):
     @classmethod
     def validate_section(cls, value: str) -> str:
         clean = value.strip()
+        if not clean:
+            raise ValueError("seção obrigatória")
         if not re.fullmatch(r"[A-Za-z0-9_ -]+", clean):
             raise ValueError("seção inválida")
         return clean
