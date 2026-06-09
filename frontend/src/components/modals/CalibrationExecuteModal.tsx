@@ -111,7 +111,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
           <button type="button" className="secondary-button" onClick={() => setCalibrationExecuteTestKey(null)}>
             Cancelar
           </button>
-          {calibrationExecutionResult?.status === "executed" ? (
+          {calibrationExecutionResult?.status === "executed" || calibrationExecutionResult?.status === "dispatched_unconfirmed" ? (
             <button
               type="button"
               className="primary-button"

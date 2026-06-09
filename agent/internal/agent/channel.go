@@ -247,7 +247,7 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
 	case "remote_gcode_execute":
 		payload := r.Moonraker.RemoteGcodeExecute(ctx, job.Payload)
-		if payload["status"] == "executed" {
+		if payload["status"] == "executed" || payload["status"] == "dispatched_unconfirmed" {
 			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
 		} else {
 			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})

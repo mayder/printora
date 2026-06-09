@@ -336,15 +336,24 @@ func (c *MoonrakerClient) RemoteGcodeExecute(ctx context.Context, jobPayload map
 	sent := make([]any, 0, len(commands))
 	status := "executed"
 	detail := ""
+	timeout := payloadTimeout(jobPayload, c.http.Timeout)
 	for _, command := range commands {
 		result := map[string]any{"command": command}
-		if err := c.post(ctx, "/printer/gcode/script", map[string]any{"script": command}, "moonraker_response", result); err != nil {
+		if err := c.postWithTimeout(ctx, "/printer/gcode/script", map[string]any{"script": command}, "moonraker_response", result, timeout); err != nil {
+			detail = err.Error()
+			if looksLikeAwaitingHeadersTimeout(detail) {
+				result["accepted"] = true
+				result["confirmation"] = "timeout_awaiting_headers"
+				status = "dispatched_unconfirmed"
+				results = append(results, result)
+				sent = append(sent, command)
+				break
+			}
 			result["accepted"] = false
 			status = "failed_partial"
 			if len(sent) == 0 {
 				status = "failed"
 			}
-			detail = err.Error()
 			results = append(results, result)
 			break
 		}
@@ -361,6 +370,25 @@ func (c *MoonrakerClient) RemoteGcodeExecute(ctx context.Context, jobPayload map
 		"sent_commands": sent,
 		"results":       results,
 	})
+}
+
+func payloadTimeout(payload map[string]any, fallback time.Duration) time.Duration {
+	seconds := intNumber(payload["timeout_seconds"])
+	if seconds <= 0 {
+		return fallback
+	}
+	if seconds < 5 {
+		seconds = 5
+	}
+	if seconds > 180 {
+		seconds = 180
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+func looksLikeAwaitingHeadersTimeout(detail string) bool {
+	detail = strings.ToLower(detail)
+	return strings.Contains(detail, "awaiting headers") && (strings.Contains(detail, "timeout") || strings.Contains(detail, "deadline exceeded"))
 }
 
 func (c *MoonrakerClient) Doctor(ctx context.Context) error {

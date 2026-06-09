@@ -175,12 +175,16 @@ async def execute_calibration_test(
                 "action_id": f"calibration:{test.test_key}",
                 "criticality": "calibration",
                 "commands": gate.commands,
+                "timeout_seconds": max(settings.request_timeout_seconds, 45.0),
             },
             timeout_seconds=max(settings.request_timeout_seconds, 30.0),
         )
         result_payload = job.result or {}
         sent_commands = [str(item) for item in result_payload.get("sent_commands") or []]
         results = result_payload.get("results") if isinstance(result_payload.get("results"), list) else [result_payload]
+        execution_status = str(result_payload.get("status") or "executed")
+        if execution_status not in {"executed", "dispatched_unconfirmed", "failed_partial"}:
+            execution_status = "executed"
     except HTTPException as exc:
         status = "failed"
         sent_commands = []
@@ -200,10 +204,10 @@ async def execute_calibration_test(
         printer_id=printer.id,
         test=test,
         gate=gate,
-        status="executed",
+        status=execution_status,
         sent_commands=sent_commands,
         result=results,
-        message="G-code de calibração enviado pelo agente e confirmado.",
+        message=_calibration_execution_message(execution_status, sent_commands, gate.commands),
     )
 
 
@@ -226,3 +230,14 @@ async def _calibration_agent_preflight(settings, printer, test_key: str) -> dict
             "source": "agent",
         }
     return agent_preflight_payload(job.result)
+
+
+def _calibration_execution_message(status: str, sent_commands: list[str], commands: list[str]) -> str:
+    if status == "dispatched_unconfirmed":
+        return (
+            f"{len(sent_commands)}/{len(commands)} comando(s) despachado(s), mas o Moonraker nao confirmou "
+            "a resposta dentro do timeout. Confira a impressora antes de repetir."
+        )
+    if status == "failed_partial":
+        return f"{len(sent_commands)}/{len(commands)} comando(s) confirmado(s); execucao parcial."
+    return f"{len(sent_commands)}/{len(commands)} comando(s) confirmado(s)."

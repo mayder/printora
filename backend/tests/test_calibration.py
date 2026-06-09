@@ -581,6 +581,73 @@ def test_calibration_execute_endpoint_sends_gcode_when_gate_is_ready(tmp_path, m
         assert calls[-1]["job_type"] == "remote_gcode_execute"
         assert calls[-1]["payload"]["action_id"] == "calibration:homing_endstops"
         assert calls[-1]["payload"]["commands"] == ["G28"]
+        assert calls[-1]["payload"]["timeout_seconds"] == 45.0
+    finally:
+        get_settings.cache_clear()
+
+
+def test_calibration_execute_endpoint_preserves_dispatched_unconfirmed_status(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    async def fake_run(self, printer, *, job_type, payload=None, timeout_seconds=12.0, require_online=True):
+        if job_type == "remote_gcode_preflight":
+            return type(
+                "Job",
+                (),
+                {
+                    "result": {
+                        "connected": True,
+                        "printing": False,
+                        "print_state": "standby",
+                        "klipper_state": "ready",
+                        "klippy_state": "ready",
+                        "objects_list": ["toolhead", "print_stats"],
+                    }
+                },
+            )()
+        return type(
+            "Job",
+            (),
+            {
+                "result": {
+                    "status": "dispatched_unconfirmed",
+                    "sent_commands": ["G28"],
+                    "results": [{"command": "G28", "accepted": True, "confirmation": "timeout_awaiting_headers"}],
+                }
+            },
+        )()
+
+    monkeypatch.setattr("app.routes.calibration.AgentCommandExecutor.run", fake_run)
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            created = client.post(
+                "/api/printers",
+                json={
+                    "name": "Voron",
+                    "moonraker_url": "http://voron.local:7125",
+                    "host_audit_mode": "disabled",
+                },
+            )
+            assert created.status_code == 200
+            printer_id = created.json()["id"]
+
+            response = client.post(
+                f"/api/printers/{printer_id}/calibration/execute",
+                json={
+                    "test_key": "homing_endstops",
+                    "confirmation": "EXECUTE_CALIBRATION_GCODE",
+                    "operator_present": True,
+                    "gcode_reviewed": True,
+                },
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "dispatched_unconfirmed"
+        assert payload["sent_commands"] == ["G28"]
+        assert "despachado" in payload["message"]
     finally:
         get_settings.cache_clear()
 

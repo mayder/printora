@@ -50,6 +50,7 @@ export function formatCalibrationResult(resultStatus: CalibrationRunRecord["resu
 export function formatCalibrationExecutionStatus(status: string) {
   const labels: Record<string, string> = {
     executed: "executado",
+    dispatched_unconfirmed: "despachado sem confirmação",
     blocked: "bloqueado",
     failed: "falhou",
     failed_partial: "falhou parcialmente",
@@ -60,6 +61,9 @@ export function formatCalibrationExecutionStatus(status: string) {
 export function calibrationExecutionRowClass(status: string) {
   if (status === "executed") {
     return "passed";
+  }
+  if (status === "dispatched_unconfirmed") {
+    return "warning";
   }
   if (status === "failed" || status === "failed_partial") {
     return "failed";

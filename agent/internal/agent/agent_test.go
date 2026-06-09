@@ -428,6 +428,42 @@ func TestAgentHandlesRemoteMutationPreflightAndExecute(t *testing.T) {
 	}
 }
 
+func TestRemoteGcodeExecuteTreatsAwaitingHeadersTimeoutAsDispatched(t *testing.T) {
+	var sawExecute bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/server/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"klippy_state": "ready"}})
+		case "/printer/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"state": "ready"}})
+		case "/printer/objects/list":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"objects": []any{"toolhead", "print_stats"}}})
+		case "/printer/objects/query":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"status": map[string]any{"print_stats": map[string]any{"state": "standby"}}}})
+		case "/printer/gcode/script":
+			sawExecute = true
+			time.Sleep(30 * time.Millisecond)
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": "ok"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewMoonrakerClient(server.URL, time.Millisecond)
+	result := client.RemoteGcodeExecute(context.Background(), map[string]any{"commands": []any{"G28"}})
+	if !sawExecute {
+		t.Fatal("expected gcode request to reach Moonraker")
+	}
+	if result["status"] != "dispatched_unconfirmed" {
+		t.Fatalf("unexpected status: %#v", result)
+	}
+	sent, ok := result["sent_commands"].([]any)
+	if !ok || len(sent) != 1 || sent[0] != "G28" {
+		t.Fatalf("unexpected sent commands: %#v", result["sent_commands"])
+	}
+}
+
 func TestAgentHandlesRemoteDoctorWithSanitizedLogTail(t *testing.T) {
 	tmpDir := t.TempDir()
 	logPath := filepath.Join(tmpDir, "agent.log")

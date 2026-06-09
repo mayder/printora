@@ -273,11 +273,13 @@ async def _execute_operation_preview_via_agent(
                 "action_id": preview.action_id,
                 "criticality": "operation",
                 "commands": preview.command_preview,
+                "timeout_seconds": max(settings.request_timeout_seconds, 45.0),
             },
             timeout_seconds=max(settings.request_timeout_seconds, 30.0),
         )
         result = job.result or {}
-        status = "executed" if result.get("status") == "executed" else "failed"
+        result_status = str(result.get("status") or "")
+        status = "executed" if result_status in {"executed", "dispatched_unconfirmed"} else "failed"
         block_reason = "" if status == "executed" else str(result.get("detail") or "Agente não confirmou o comando.")
     except HTTPException as exc:
         result = {"accepted": False, "agent_error": exc.detail}
