@@ -2,6 +2,7 @@ import sqlite3
 import shutil
 import hashlib
 import json
+import tomllib
 from contextlib import contextmanager
 from collections.abc import Iterator
 from pathlib import Path
@@ -229,10 +230,28 @@ def _upsert_app_version(connection: sqlite3.Connection, schema_revision: int) ->
 
 
 def _installed_app_version() -> str:
+    pyproject_version = _local_pyproject_version()
+    if pyproject_version:
+        return pyproject_version
     try:
         return metadata.version("printora-backend")
     except metadata.PackageNotFoundError:
         return "0.1.0"
+
+
+def _local_pyproject_version() -> str | None:
+    pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    if not pyproject_path.is_file():
+        return None
+    try:
+        payload = tomllib.loads(pyproject_path.read_text())
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+    project = payload.get("project")
+    if not isinstance(project, dict):
+        return None
+    version = project.get("version")
+    return str(version) if version else None
 
 
 def _validate_database_integrity(connection: sqlite3.Connection, schema_revision: int) -> None:

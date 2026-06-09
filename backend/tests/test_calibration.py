@@ -578,6 +578,79 @@ def test_calibration_execution_attempt_persists_blocked_gate(tmp_path: Path) -> 
     assert len(repository.list_execution_attempts(printer.id)) == 1
 
 
+def test_calibration_execution_delete_keeps_latest_attempt(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = CalibrationRepository(database_path)
+    test = repository.get_test("probe_accuracy_center")
+    assert test is not None
+    gate = build_calibration_execution_gate(
+        test=test,
+        payload=CalibrationExecutionRequest(test_key=test.test_key),
+        preflight={"connected": False, "printing": False, "print_state": ""},
+    )
+    first = repository.create_execution_attempt(
+        printer_id=printer.id,
+        test=test,
+        gate=gate,
+        status="blocked",
+        sent_commands=[],
+        result=[],
+        message="first",
+    )
+    latest = repository.create_execution_attempt(
+        printer_id=printer.id,
+        test=test,
+        gate=gate,
+        status="blocked",
+        sent_commands=[],
+        result=[],
+        message="latest",
+    )
+
+    assert repository.delete_execution_attempt_if_not_latest(printer.id, first.id) is True
+    assert repository.get_execution_attempt(first.id) is None
+    with pytest.raises(ValueError, match="última execução"):
+        repository.delete_execution_attempt_if_not_latest(printer.id, latest.id)
+    assert repository.get_execution_attempt(latest.id) is not None
+
+
+def test_calibration_run_delete_keeps_latest_result(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = CalibrationRepository(database_path)
+    first = repository.create_run(
+        printer.id,
+        CalibrationRunCreate(
+            test_key="probe_accuracy_center",
+            result_status="passed",
+            observed_value="first",
+            gcode_reviewed=True,
+        ),
+    )
+    latest = repository.create_run(
+        printer.id,
+        CalibrationRunCreate(
+            test_key="probe_accuracy_center",
+            result_status="passed",
+            observed_value="latest",
+            gcode_reviewed=True,
+        ),
+    )
+
+    assert repository.delete_run_if_not_latest(printer.id, first.id) is True
+    assert repository.get_run(first.id) is None
+    with pytest.raises(ValueError, match="último resultado"):
+        repository.delete_run_if_not_latest(printer.id, latest.id)
+    assert repository.get_run(latest.id) is not None
+
+
 def test_calibration_execute_endpoint_blocks_offline_without_sending_gcode(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("PRINTORA_REQUEST_TIMEOUT_SECONDS", "0.05")

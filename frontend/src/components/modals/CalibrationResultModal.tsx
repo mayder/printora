@@ -1,4 +1,5 @@
-import { X } from "lucide-react";
+import React from "react";
+import { Download, Save, Trash2, X } from "lucide-react";
 import type { ScreenPropsFor } from "../../screens/ScreenProps";
 import type { CalibrationRunRecord } from "../../types";
 
@@ -7,6 +8,8 @@ type CalibrationResultModalProps = ScreenPropsFor<
   | "calibrationExecutionPidParameters"
   | "calibrationExecutionRowClass"
   | "calibrationExecutionRequiresSaveConfig"
+  | "calibrationSaveConfigBusy"
+  | "calibrationSaveConfigResult"
   | "calibrationMaterial"
   | "calibrationNotes"
   | "calibrationNozzle"
@@ -19,9 +22,16 @@ type CalibrationResultModalProps = ScreenPropsFor<
   | "calibrationResultStatus"
   | "calibrationResultTest"
   | "createCalibrationRun"
+  | "deleteCalibrationExecutionHistoryItem"
+  | "deleteCalibrationRunHistoryItem"
+  | "downloadCalibrationExecutionHistoryItem"
+  | "downloadCalibrationRunHistoryItem"
   | "formatCalibrationExecutionStatus"
   | "formatCalibrationResult"
+  | "latestCalibrationExecutionIdByTest"
+  | "latestCalibrationRunIdByTest"
   | "loading"
+  | "saveCalibrationConfigFromExecution"
   | "selectedPrinterId"
   | "setCalibrationMaterial"
   | "setCalibrationNotes"
@@ -40,6 +50,8 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
     calibrationExecutionConsoleExcerpt,
     calibrationExecutionPidParameters,
     calibrationExecutionRequiresSaveConfig,
+    calibrationSaveConfigBusy,
+    calibrationSaveConfigResult,
     calibrationMaterial,
     calibrationNotes,
     calibrationNozzle,
@@ -52,9 +64,16 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
     calibrationResultStatus,
     calibrationResultTest,
     createCalibrationRun,
+    deleteCalibrationExecutionHistoryItem,
+    deleteCalibrationRunHistoryItem,
+    downloadCalibrationExecutionHistoryItem,
+    downloadCalibrationRunHistoryItem,
     formatCalibrationExecutionStatus,
     formatCalibrationResult,
+    latestCalibrationExecutionIdByTest,
+    latestCalibrationRunIdByTest,
     loading,
+    saveCalibrationConfigFromExecution,
     selectedPrinterId,
     setCalibrationMaterial,
     setCalibrationNotes,
@@ -66,6 +85,7 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
     setCalibrationResultTestKey,
     summarizeCalibrationExecutionFinalState,
   } = props;
+  const [pendingDeleteKey, setPendingDeleteKey] = React.useState<string | null>(null);
 
   if (!calibrationResultTest) {
     return null;
@@ -87,9 +107,58 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
           {calibrationResultExecutions.map((execution) => {
             const consoleExcerpt = calibrationExecutionConsoleExcerpt(execution);
             const pidParameters = calibrationExecutionPidParameters(execution);
+            const isLatestExecution = latestCalibrationExecutionIdByTest.get(execution.test_key) === execution.id;
+            const canDeleteExecution = !isLatestExecution;
+            const executionDeleteKey = `execution-${execution.id}`;
+            const saveConfigRequired = execution.status === "executed" && calibrationExecutionRequiresSaveConfig(execution);
+            const saveConfigExecuted = calibrationSaveConfigResult?.status === "executed";
             return (
               <div key={`execution-${execution.id}`} className={`test-history-row ${calibrationExecutionRowClass(execution.status)}`}>
-                <strong>{formatCalibrationExecutionStatus(execution.status)}</strong>
+                <div className="test-history-row-heading">
+                  <strong>{formatCalibrationExecutionStatus(execution.status)}</strong>
+                  <div className="test-history-actions">
+                    {saveConfigRequired ? (
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => void saveCalibrationConfigFromExecution()}
+                        disabled={!selectedPrinterId || loading || calibrationSaveConfigBusy || saveConfigExecuted}
+                        title="Salvar config"
+                        aria-label="Salvar config"
+                      >
+                        <Save size={15} />
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="icon-button"
+                      onClick={() => downloadCalibrationExecutionHistoryItem(execution)}
+                      title="Baixar JSON"
+                      aria-label="Baixar execução em JSON"
+                    >
+                      <Download size={15} />
+                    </button>
+                    {canDeleteExecution ? (
+                      <button
+                        type="button"
+                        className={`icon-button ${pendingDeleteKey === executionDeleteKey ? "danger-inline" : ""}`}
+                        onClick={() => {
+                          if (pendingDeleteKey !== executionDeleteKey) {
+                            setPendingDeleteKey(executionDeleteKey);
+                            return;
+                          }
+                          setPendingDeleteKey(null);
+                          void deleteCalibrationExecutionHistoryItem(execution);
+                        }}
+                        disabled={loading}
+                        title={pendingDeleteKey === executionDeleteKey ? "Confirmar apagar" : "Apagar"}
+                        aria-label={pendingDeleteKey === executionDeleteKey ? "Confirmar apagar execução" : "Apagar execução"}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
                 <span>
                   {execution.created_at} · {execution.sent_commands.length} comando(s)
                 </span>
@@ -102,23 +171,75 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
                 ) : null}
                 {calibrationExecutionRequiresSaveConfig(execution) ? (
                   <div className="calibration-save-config-note">
-                    O Klipper calculou novos valores, mas ainda precisa de SAVE_CONFIG para gravar no printer.cfg e reiniciar o firmware.
+                    <span>O Klipper calculou novos valores, mas ainda precisa de SAVE_CONFIG para gravar no printer.cfg e reiniciar o firmware.</span>
+                    {saveConfigRequired ? (
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => void saveCalibrationConfigFromExecution()}
+                        disabled={!selectedPrinterId || loading || calibrationSaveConfigBusy || saveConfigExecuted}
+                      >
+                        {calibrationSaveConfigBusy ? "Salvando" : saveConfigExecuted ? "Config salva" : "Salvar config"}
+                      </button>
+                    ) : null}
                   </div>
+                ) : null}
+                {saveConfigRequired && calibrationSaveConfigResult ? (
+                  <small>
+                    SAVE_CONFIG: {calibrationSaveConfigResult.status}
+                    {calibrationSaveConfigResult.block_reason ? ` · ${calibrationSaveConfigResult.block_reason}` : ""}
+                  </small>
                 ) : null}
                 {consoleExcerpt.length ? <pre className="calibration-console-excerpt">{consoleExcerpt.join("\n")}</pre> : null}
               </div>
             );
           })}
-          {calibrationResultRuns.map((run) => (
-            <div key={`run-${run.id}`} className={`test-history-row ${run.result_status}`}>
-              <strong>{formatCalibrationResult(run.result_status)}</strong>
-              <span>
-                {run.created_at} · {run.material || "-"} · {run.plate_name || "-"} · {run.nozzle || "-"}
-              </span>
-              {run.observed_value ? <small>Valor: {run.observed_value}</small> : null}
-              {run.notes ? <small>{run.notes}</small> : null}
-            </div>
-          ))}
+          {calibrationResultRuns.map((run) => {
+            const isLatestRun = latestCalibrationRunIdByTest.get(run.test_key) === run.id;
+            const runDeleteKey = `run-${run.id}`;
+            return (
+              <div key={`run-${run.id}`} className={`test-history-row ${run.result_status}`}>
+                <div className="test-history-row-heading">
+                  <strong>{formatCalibrationResult(run.result_status)}</strong>
+                  <div className="test-history-actions">
+                    <button
+                      type="button"
+                      className="icon-button"
+                      onClick={() => downloadCalibrationRunHistoryItem(run)}
+                      title="Baixar JSON"
+                      aria-label="Baixar resultado em JSON"
+                    >
+                      <Download size={15} />
+                    </button>
+                    {!isLatestRun ? (
+                      <button
+                        type="button"
+                        className={`icon-button ${pendingDeleteKey === runDeleteKey ? "danger-inline" : ""}`}
+                        onClick={() => {
+                          if (pendingDeleteKey !== runDeleteKey) {
+                            setPendingDeleteKey(runDeleteKey);
+                            return;
+                          }
+                          setPendingDeleteKey(null);
+                          void deleteCalibrationRunHistoryItem(run);
+                        }}
+                        disabled={loading}
+                        title={pendingDeleteKey === runDeleteKey ? "Confirmar apagar" : "Apagar"}
+                        aria-label={pendingDeleteKey === runDeleteKey ? "Confirmar apagar resultado" : "Apagar resultado"}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                <span>
+                  {run.created_at} · {run.material || "-"} · {run.plate_name || "-"} · {run.nozzle || "-"}
+                </span>
+                {run.observed_value ? <small>Valor: {run.observed_value}</small> : null}
+                {run.notes ? <small>{run.notes}</small> : null}
+              </div>
+            );
+          })}
           {!calibrationResultExecutions.length && !calibrationResultRuns.length ? (
             <p className="muted">Ainda não há resultados para este teste.</p>
           ) : null}

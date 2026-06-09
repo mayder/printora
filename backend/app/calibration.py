@@ -245,6 +245,39 @@ class CalibrationRepository:
             raise RuntimeError("calibration run was not persisted")
         return record
 
+    def delete_run_if_not_latest(self, printer_id: int, run_id: int) -> bool:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT id, test_key
+                FROM calibration_test_runs
+                WHERE id = ? AND printer_id = ?
+                """,
+                (run_id, printer_id),
+            ).fetchone()
+            if row is None:
+                return False
+            latest = connection.execute(
+                """
+                SELECT id
+                FROM calibration_test_runs
+                WHERE printer_id = ? AND test_key = ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """,
+                (printer_id, row["test_key"]),
+            ).fetchone()
+            if latest is not None and int(latest["id"]) == run_id:
+                raise ValueError("não é permitido apagar o último resultado deste teste")
+            connection.execute(
+                """
+                DELETE FROM calibration_test_runs
+                WHERE id = ? AND printer_id = ?
+                """,
+                (run_id, printer_id),
+            )
+        return True
+
     def list_runs(self, printer_id: int, limit: int = 50) -> list[CalibrationRunRecord]:
         with connect_database(self.database_path) as connection:
             rows = connection.execute(
@@ -420,6 +453,39 @@ class CalibrationRepository:
                 (printer_id, clean_limit),
             ).fetchall()
         return [_execution_from_row(row) for row in rows]
+
+    def delete_execution_attempt_if_not_latest(self, printer_id: int, attempt_id: int) -> bool:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT id, test_key
+                FROM calibration_execution_attempts
+                WHERE id = ? AND printer_id = ?
+                """,
+                (attempt_id, printer_id),
+            ).fetchone()
+            if row is None:
+                return False
+            latest = connection.execute(
+                """
+                SELECT id
+                FROM calibration_execution_attempts
+                WHERE printer_id = ? AND test_key = ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """,
+                (printer_id, row["test_key"]),
+            ).fetchone()
+            if latest is not None and int(latest["id"]) == attempt_id:
+                raise ValueError("não é permitido apagar a última execução deste teste")
+            connection.execute(
+                """
+                DELETE FROM calibration_execution_attempts
+                WHERE id = ? AND printer_id = ?
+                """,
+                (attempt_id, printer_id),
+            )
+        return True
 
     def recent_sent_execution(self, printer_id: int, test_key: str, within_seconds: int = 45) -> CalibrationExecutionRecord | None:
         with connect_database(self.database_path) as connection:

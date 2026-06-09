@@ -278,6 +278,60 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     }
   }
 
+  function downloadCalibrationExecutionHistoryItem(execution: CalibrationExecutionRecord) {
+    downloadCalibrationHistoryJson(`calibracao-${execution.test_key}-execucao-${execution.id}.json`, {
+      kind: "calibration_execution",
+      exported_at: new Date().toISOString(),
+      execution,
+    });
+  }
+
+  function downloadCalibrationRunHistoryItem(run: CalibrationRunRecord) {
+    downloadCalibrationHistoryJson(`calibracao-${run.test_key}-resultado-${run.id}.json`, {
+      kind: "calibration_result",
+      exported_at: new Date().toISOString(),
+      run,
+    });
+  }
+
+  async function deleteCalibrationExecutionHistoryItem(execution: CalibrationExecutionRecord) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await calibrationApi.deleteExecution(selectedPrinterId, execution.id);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadCalibrationRuns(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteCalibrationRunHistoryItem(run: CalibrationRunRecord) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await calibrationApi.deleteRun(selectedPrinterId, run.id);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      await loadCalibrationRuns(selectedPrinterId);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function loadZOffsets(printerId: number) {
     const response = await zOffsetApi.list(printerId);
     if (!response.ok) {
@@ -367,6 +421,18 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
   const calibrationResultFormConfig = calibrationResultTest ? getCalibrationResultFormConfig(calibrationResultTest) : null;
   const calibrationResultRuns = calibrationResultTest ? calibrationRuns.filter((run) => run.test_key === calibrationResultTest.test_key) : [];
   const calibrationResultExecutions = calibrationResultTest ? calibrationExecutions.filter((execution) => execution.test_key === calibrationResultTest.test_key) : [];
+  const latestCalibrationExecutionIdByTest = new Map<string, number>();
+  calibrationExecutions.forEach((execution) => {
+    if (!latestCalibrationExecutionIdByTest.has(execution.test_key)) {
+      latestCalibrationExecutionIdByTest.set(execution.test_key, execution.id);
+    }
+  });
+  const latestCalibrationRunIdByTest = new Map<string, number>();
+  calibrationRuns.forEach((run) => {
+    if (!latestCalibrationRunIdByTest.has(run.test_key)) {
+      latestCalibrationRunIdByTest.set(run.test_key, run.id);
+    }
+  });
   const calibrationVisibleGcodeCount = calibrationTests.filter((test) => test.gcode.length > 0).length;
   const calibrationBlockedGcodeCount = calibrationHiddenTests.length;
   const calibrationRecommended = calibrationSummary?.recommended_next_tests.slice(0, 5) ?? [];
@@ -458,9 +524,15 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     calibrationVisibleGcodeCount,
     createCalibrationRun,
     createZOffsetRecord,
+    deleteCalibrationExecutionHistoryItem,
+    deleteCalibrationRunHistoryItem,
+    downloadCalibrationExecutionHistoryItem,
+    downloadCalibrationRunHistoryItem,
     evaluateZOffsetWizard,
     executeCalibrationGcode,
     hiddenCalibrationKeys,
+    latestCalibrationExecutionIdByTest,
+    latestCalibrationRunIdByTest,
     loadCalibrationPreflight,
     loadCalibrationRuns,
     loadCalibrationTests,
@@ -524,4 +596,19 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     zOffsetWizardChecks,
     zOffsetWizardPlan,
   };
+}
+
+function downloadCalibrationHistoryJson(filename: string, payload: unknown) {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return;
+  }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
 }

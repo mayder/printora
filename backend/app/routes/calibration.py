@@ -84,6 +84,38 @@ async def list_calibration_executions(printer_id: int, limit: int = 20) -> dict[
     return {"executions": repository.list_execution_attempts(printer_id, limit=limit)}
 
 
+@router.delete("/api/printers/{printer_id}/calibration/executions/{attempt_id}")
+async def delete_calibration_execution(printer_id: int, attempt_id: int) -> dict[str, bool]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    repository = get_calibration_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        deleted = repository.delete_execution_attempt_if_not_latest(printer_id, attempt_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail="calibration execution not found")
+    return {"deleted": True}
+
+
+@router.delete("/api/printers/{printer_id}/calibration/runs/{run_id}")
+async def delete_calibration_run(printer_id: int, run_id: int) -> dict[str, bool]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    repository = get_calibration_repository(settings)
+    if printer_repository.get_printer(printer_id) is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        deleted = repository.delete_run_if_not_latest(printer_id, run_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail="calibration run not found")
+    return {"deleted": True}
+
+
 
 
 @router.get("/api/printers/{printer_id}/calibration/summary")

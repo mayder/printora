@@ -567,3 +567,27 @@
   display: grid;
   gap: 8px;
 }
+
+.test-history-row-heading {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.test-history-actions {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.test-history-actions .icon-button {
+  height: 30px;
+  width: 30px;
+}
+
+.test-history-actions .danger-inline {
+  border-color: rgba(255, 91, 122, 0.72);
+  color: #ff7b96;
+}

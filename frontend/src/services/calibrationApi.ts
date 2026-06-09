@@ -21,4 +21,8 @@ export const calibrationApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
+  deleteExecution: (printerId: number, attemptId: number) =>
+    apiResponse(`/api/printers/${printerId}/calibration/executions/${attemptId}`, { method: "DELETE" }),
+  deleteRun: (printerId: number, runId: number) =>
+    apiResponse(`/api/printers/${printerId}/calibration/runs/${runId}`, { method: "DELETE" }),
 };

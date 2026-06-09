@@ -76,7 +76,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Manutencao livre | `frontend/src/components/modals/MaintenanceFreeModal.tsx` | Registro livre de manutencao, falha, ajuste ou nota |
 | Calibracao ajuda | `frontend/src/components/modals/CalibrationHelpModal.tsx` | Ajuda operacional de um teste de calibracao |
 | Calibracao execucao | `frontend/src/components/modals/CalibrationExecuteModal.tsx` | Preflight, progresso ao vivo, retorno de console Moonraker e confirmacao presencial para envio de G-code |
-| Calibracao resultado | `frontend/src/components/modals/CalibrationResultModal.tsx` | Historico técnico da execução, retorno de console/PID e registro manual de resultado de calibracao |
+| Calibracao resultado | `frontend/src/components/modals/CalibrationResultModal.tsx` | Historico técnico da execução, retorno de console/PID, ação para salvar config pendente, download JSON e limpeza protegida de registros antigos |
 
 ## Manutencao
 
