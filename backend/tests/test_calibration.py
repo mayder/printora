@@ -1,10 +1,14 @@
 from pathlib import Path
+import json
+import os
+import subprocess
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.agent_moonraker import agent_preflight_payload, calibration_capabilities_payload
 from app.config import get_settings
+from app.config_remediation import ConfigOptionPatch, ConfigRemediationRequest, build_config_remediation_script
 from app.calibration import (
     CalibrationExecutionRequest,
     CalibrationRepository,
@@ -554,6 +558,56 @@ def test_calibration_execution_results_preserve_pid_console_excerpt() -> None:
     assert console["kind"] == "moonraker_console"
     assert console["save_config_required"] is True
     assert console["pid_parameters"] == {"pid_Kp": 42.725, "pid_Ki": 11.393, "pid_Kd": 40.055}
+
+
+def test_config_remediation_previews_included_heater_bed_section(tmp_path: Path) -> None:
+    config_root = tmp_path / "printer_data" / "config"
+    config_root.mkdir(parents=True)
+    (config_root / "printer.cfg").write_text("[include heaters.cfg]\n", encoding="utf-8")
+    (config_root / "heaters.cfg").write_text(
+        "\n".join(
+            [
+                "[heater_bed]",
+                "heater_pin: PB2",
+                "control: pid",
+                "pid_Kp: 10",
+                "pid_Ki: 1",
+                "pid_Kd: 100",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    request = ConfigRemediationRequest(
+        section="heater_bed",
+        options=[
+            ConfigOptionPatch(option="pid_Kp", value="46.546"),
+            ConfigOptionPatch(option="pid_Ki", value="1.309"),
+            ConfigOptionPatch(option="pid_Kd", value="413.674"),
+        ],
+    )
+
+    result = subprocess.run(
+        ["bash", "-lc", build_config_remediation_script(request, mode="preview")],
+        check=True,
+        env={**os.environ, "HOME": str(tmp_path)},
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    payload = json.loads(result.stdout.strip().splitlines()[-1])
+
+    assert payload["status"] == "preview"
+    assert payload["section"] == "heater_bed"
+    assert len(payload["candidates"]) == 1
+    candidate = payload["candidates"][0]
+    assert candidate["path"] == "heaters.cfg"
+    assert candidate["changed"] is True
+    assert "pid_Kp: 46.546" in candidate["proposed"]
+    assert "pid_Ki: 1.309" in candidate["proposed"]
+    assert "pid_Kd: 413.674" in candidate["proposed"]
+    assert "{opt}" not in candidate["proposed"]
+    assert "{rel}" not in "\n".join(candidate["diff"])
 
 
 def test_all_catalogued_gcode_commands_are_allowlisted(tmp_path: Path) -> None:

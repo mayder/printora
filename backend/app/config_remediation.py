@@ -83,8 +83,8 @@ def build_config_remediation_script(
             sys.exit(2)
 
         excluded_dirs = {".git", "__pycache__", "backups", "backup", "logs", "database"}
-        section_re = re.compile(r"^\\s*\\[([^\\]]+)\\]\\s*(?:[#;].*)?$")
-        option_re = re.compile(r"^(\\s*)([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.*?)(\\s*(?:[#;].*)?)?$")
+        section_re = re.compile(r"^\s*\[([^\]]+)\]\s*(?:[#;].*)?$")
+        option_re = re.compile(r"^(\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*?)(\s*(?:[#;].*)?)?$")
 
         def is_active(line):
             stripped = line.lstrip()
@@ -113,7 +113,7 @@ def build_config_remediation_script(
                 yield start, end, name
 
         def target_id(rel, start, end, name):
-            return hashlib.sha256(f"{{rel}}:{{start + 1}}:{{end}}:{{name}}".encode()).hexdigest()[:16]
+            return hashlib.sha256(f"{rel}:{start + 1}:{end}:{name}".encode()).hexdigest()[:16]
 
         def patch_block(lines, start, end):
             patched = list(lines)
@@ -121,19 +121,19 @@ def build_config_remediation_script(
             for idx in range(start + 1, end):
                 if not is_active(patched[idx]):
                     continue
-                match = option_re.match(patched[idx].rstrip("\\n"))
+                match = option_re.match(patched[idx].rstrip("\n"))
                 if match:
                     existing[match.group(2)] = idx
             inserts = []
             for opt, value in options:
                 if opt in existing:
                     idx = existing[opt]
-                    match = option_re.match(patched[idx].rstrip("\\n"))
+                    match = option_re.match(patched[idx].rstrip("\n"))
                     indent = match.group(1) if match else ""
                     comment = match.group(4) if match and match.group(4) else ""
-                    patched[idx] = f"{{indent}}{{opt}}: {{value}}{{comment}}\\n"
+                    patched[idx] = f"{indent}{opt}: {value}{comment}\n"
                 else:
-                    inserts.append(f"{{opt}}: {{value}}\\n")
+                    inserts.append(f"{opt}: {value}\n")
             if inserts:
                 insert_at = end
                 patched[insert_at:insert_at] = inserts
@@ -159,8 +159,8 @@ def build_config_remediation_script(
                 diff = list(difflib.unified_diff(
                     "".join(lines[start:end]).splitlines(),
                     "".join(patched[start:end]).splitlines(),
-                    fromfile=f"{{rel}}:atual",
-                    tofile=f"{{rel}}:proposto",
+                    fromfile=f"{rel}:atual",
+                    tofile=f"{rel}:proposto",
                     lineterm="",
                 ))
                 candidates.append({
@@ -208,7 +208,8 @@ def build_config_remediation_script(
         print(json.dumps({**result, "status": "applied", "backup_path": str(backup_root), "applied": applied}, ensure_ascii=False))
         PY
         """
-    return textwrap.dedent(script).replace("__PRINTORA_PAYLOAD_B64__", encoded)
+    clean_script = script[2:] if script.startswith("\\\n") else script
+    return textwrap.dedent(clean_script).replace("__PRINTORA_PAYLOAD_B64__", encoded)
 
 
 def parse_config_remediation_stdout(stdout: str) -> dict[str, Any]:
