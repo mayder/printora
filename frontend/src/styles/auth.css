@@ -351,20 +351,28 @@
 .profile-workspace {
   display: grid;
   gap: 16px;
+  width: 100%;
+  min-width: 0;
+  justify-items: stretch;
 }
 
 .segmented-control.profile-tabs {
+  display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   justify-self: stretch;
+  align-self: stretch;
   width: 100%;
+  max-width: none;
   background: var(--surface-1);
 }
 
 .segmented-control.profile-tabs button {
+  width: 100%;
   min-width: 0;
   min-height: 42px;
   gap: 8px;
   font-weight: 800;
+  justify-content: center;
   white-space: nowrap;
 }
 
