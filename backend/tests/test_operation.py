@@ -270,6 +270,20 @@ def test_operation_pressure_advance_preview_generates_klipper_command() -> None:
     assert preview["would_send_gcode"] is True
 
 
+def test_operation_save_config_preview_is_explicit_and_supervised() -> None:
+    preview = build_operation_action_preview(
+        action_id="save_config",
+        parameters={},
+        connected=True,
+        print_state="standby",
+    )
+
+    assert preview["parameters"] == {}
+    assert preview["command_preview"] == ["SAVE_CONFIG"]
+    assert preview["would_send_gcode"] is True
+    assert preview["action"]["risk"] == "restart_firmware"
+
+
 def test_operation_named_fan_preview_uses_set_fan_speed() -> None:
     preview = build_operation_action_preview(
         action_id="set_fan",
@@ -309,6 +323,7 @@ def test_operation_capabilities_use_known_objects_without_assuming_voron() -> No
     assert by_action["set_bed_temp"]["status"] == "supported"
     assert by_action["set_fan"]["status"] == "supported"
     assert by_action["set_led"]["status"] == "supported"
+    assert by_action["save_config"]["status"] == "supported"
     assert by_action["quad_gantry_level"]["status"] == "unknown"
 
 

@@ -418,6 +418,19 @@ Impacto em rollback: baixo; reverter esta decisao devolve os blocos para Setting
 Como reverter: reverter alteracoes em `frontend/src/screens/SettingsScreen.tsx`, `frontend/src/screens/ReportsScreen.tsx`, `frontend/src/screens/AgentDetailScreen.tsx`, `agent/internal/agent/doctor.go` e documentacao.
 Referencias: `frontend/src/screens/SettingsScreen.tsx`, `frontend/src/screens/ReportsScreen.tsx`, `frontend/src/screens/AgentDetailScreen.tsx`, `agent/internal/agent/doctor.go`, `TELAS.md`.
 
+### DEC-20260609-01 - SAVE_CONFIG fica como acao supervisionada
+
+Status: aceita
+Data: 2026-06-09
+Contexto: calibrações Klipper como `PID_CALIBRATE` retornam valores úteis no console e pedem `SAVE_CONFIG` para gravar no `printer.cfg` e reiniciar o firmware. O Printora precisa guardar o retorno técnico sem aplicar alterações permanentes automaticamente.
+Decisao: o agente captura trecho do `/server/gcode_store` após execuções de calibração e o backend salva esse retorno no histórico. Quando o console indicar `SAVE_CONFIG`, a UI mostra os parâmetros e explica que a configuração ainda precisa ser salva. A aplicação oferece `Salvar config` como ação operacional supervisionada, com preflight e confirmação, mas não dispara esse comando automaticamente a partir do resultado de calibração.
+Alternativas consideradas: salvar automaticamente após PID; deixar o usuário ir sempre ao Mainsail; armazenar só uma nota manual. 
+Consequencias: o histórico passa a guardar evidência técnica do PID e o operador tem caminho explícito para aplicar valores pendentes, preservando controle humano sobre escrita em arquivo e restart do Klipper.
+Impacto em testes: `backend/tests/test_calibration.py` cobre extração do console/PID; `backend/tests/test_operation.py` cobre preview `SAVE_CONFIG`; `go test ./...`, build frontend e `./check.sh` validam o fluxo.
+Impacto em rollback: médio; remover a ação `save_config` volta a exigir Mainsail para salvar, mas os históricos já registrados permanecem legíveis como JSON.
+Como reverter: reverter alterações em `backend/app/routes/calibration.py`, `backend/app/operation.py`, `agent/internal/agent/moonraker.go`, modais de calibração e manifesto/binário do agente.
+Referencias: `backend/app/routes/calibration.py`, `backend/app/operation.py`, `agent/internal/agent/moonraker.go`, `frontend/src/components/modals/CalibrationExecuteModal.tsx`, `frontend/src/components/modals/CalibrationResultModal.tsx`.
+
 ### DEC-20260601-03 - Update de agente sem SSH e manifesto derivado do artefato publicado
 
 Status: aceita

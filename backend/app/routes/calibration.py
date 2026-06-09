@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from fastapi import Depends
 
 from app.agent_executor import AgentCommandExecutor
@@ -168,6 +170,7 @@ async def execute_calibration_test(
         )
 
     try:
+        command_timeout = _calibration_execution_timeout(test, settings)
         job = await AgentCommandExecutor(settings.database_path).run(
             printer,
             job_type="remote_gcode_execute",
@@ -175,13 +178,13 @@ async def execute_calibration_test(
                 "action_id": f"calibration:{test.test_key}",
                 "criticality": "calibration",
                 "commands": gate.commands,
-                "timeout_seconds": max(settings.request_timeout_seconds, 45.0),
+                "timeout_seconds": command_timeout,
             },
-            timeout_seconds=max(settings.request_timeout_seconds, 30.0),
+            timeout_seconds=command_timeout + 20.0,
         )
         result_payload = job.result or {}
         sent_commands = [str(item) for item in result_payload.get("sent_commands") or []]
-        results = result_payload.get("results") if isinstance(result_payload.get("results"), list) else [result_payload]
+        results = _calibration_execution_results(result_payload)
         execution_status = str(result_payload.get("status") or "executed")
         if execution_status not in {"executed", "dispatched_unconfirmed", "failed_partial"}:
             execution_status = "executed"
@@ -241,3 +244,46 @@ def _calibration_execution_message(status: str, sent_commands: list[str], comman
     if status == "failed_partial":
         return f"{len(sent_commands)}/{len(commands)} comando(s) confirmado(s); execucao parcial."
     return f"{len(sent_commands)}/{len(commands)} comando(s) confirmado(s)."
+
+
+def _calibration_execution_timeout(test, settings) -> float:
+    command_text = "\n".join(test.gcode).upper()
+    if "PID_CALIBRATE" in command_text:
+        return max(settings.request_timeout_seconds, 140.0)
+    if "BED_MESH_CALIBRATE" in command_text or "QUAD_GANTRY_LEVEL" in command_text or "PROBE_ACCURACY" in command_text:
+        return max(settings.request_timeout_seconds, 90.0)
+    return max(settings.request_timeout_seconds, 45.0)
+
+
+def _calibration_execution_results(result_payload: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_results = result_payload.get("results")
+    results = [item for item in raw_results if isinstance(item, dict)] if isinstance(raw_results, list) else [result_payload]
+    console_excerpt = [str(item) for item in result_payload.get("console_excerpt") or [] if str(item).strip()]
+    if console_excerpt:
+        results.append(
+            {
+                "kind": "moonraker_console",
+                "console_excerpt": console_excerpt,
+                "save_config_required": _console_requires_save_config(console_excerpt),
+                "pid_parameters": _extract_pid_parameters(console_excerpt),
+            }
+        )
+    return results
+
+
+def _console_requires_save_config(console_excerpt: list[str]) -> bool:
+    return "SAVE_CONFIG" in "\n".join(console_excerpt).upper()
+
+
+def _extract_pid_parameters(console_excerpt: list[str]) -> dict[str, float] | None:
+    match = re.search(
+        r"pid_Kp=(?P<kp>[0-9.]+)\s+pid_Ki=(?P<ki>[0-9.]+)\s+pid_Kd=(?P<kd>[0-9.]+)",
+        "\n".join(console_excerpt),
+    )
+    if not match:
+        return None
+    return {
+        "pid_Kp": float(match.group("kp")),
+        "pid_Ki": float(match.group("ki")),
+        "pid_Kd": float(match.group("kd")),
+    }

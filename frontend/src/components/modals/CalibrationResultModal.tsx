@@ -3,7 +3,10 @@ import type { ScreenPropsFor } from "../../screens/ScreenProps";
 import type { CalibrationRunRecord } from "../../types";
 
 type CalibrationResultModalProps = ScreenPropsFor<
+  | "calibrationExecutionConsoleExcerpt"
+  | "calibrationExecutionPidParameters"
   | "calibrationExecutionRowClass"
+  | "calibrationExecutionRequiresSaveConfig"
   | "calibrationMaterial"
   | "calibrationNotes"
   | "calibrationNozzle"
@@ -34,6 +37,9 @@ type CalibrationResultModalProps = ScreenPropsFor<
 export function CalibrationResultModal(props: CalibrationResultModalProps) {
   const {
     calibrationExecutionRowClass,
+    calibrationExecutionConsoleExcerpt,
+    calibrationExecutionPidParameters,
+    calibrationExecutionRequiresSaveConfig,
     calibrationMaterial,
     calibrationNotes,
     calibrationNozzle,
@@ -78,16 +84,31 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
           </button>
         </div>
         <div className="test-result-history">
-          {calibrationResultExecutions.map((execution) => (
-            <div key={`execution-${execution.id}`} className={`test-history-row ${calibrationExecutionRowClass(execution.status)}`}>
-              <strong>{formatCalibrationExecutionStatus(execution.status)}</strong>
-              <span>
-                {execution.created_at} · {execution.sent_commands.length} comando(s)
-              </span>
-              {execution.message ? <small>{execution.message}</small> : null}
-              <small>{summarizeCalibrationExecutionFinalState(execution)}</small>
-            </div>
-          ))}
+          {calibrationResultExecutions.map((execution) => {
+            const consoleExcerpt = calibrationExecutionConsoleExcerpt(execution);
+            const pidParameters = calibrationExecutionPidParameters(execution);
+            return (
+              <div key={`execution-${execution.id}`} className={`test-history-row ${calibrationExecutionRowClass(execution.status)}`}>
+                <strong>{formatCalibrationExecutionStatus(execution.status)}</strong>
+                <span>
+                  {execution.created_at} · {execution.sent_commands.length} comando(s)
+                </span>
+                {execution.message ? <small>{execution.message}</small> : null}
+                <small>{summarizeCalibrationExecutionFinalState(execution)}</small>
+                {pidParameters ? (
+                  <small>
+                    PID: Kp {pidParameters.kp} · Ki {pidParameters.ki} · Kd {pidParameters.kd}
+                  </small>
+                ) : null}
+                {calibrationExecutionRequiresSaveConfig(execution) ? (
+                  <div className="calibration-save-config-note">
+                    O Klipper calculou novos valores, mas ainda precisa de SAVE_CONFIG para gravar no printer.cfg e reiniciar o firmware.
+                  </div>
+                ) : null}
+                {consoleExcerpt.length ? <pre className="calibration-console-excerpt">{consoleExcerpt.join("\n")}</pre> : null}
+              </div>
+            );
+          })}
           {calibrationResultRuns.map((run) => (
             <div key={`run-${run.id}`} className={`test-history-row ${run.result_status}`}>
               <strong>{formatCalibrationResult(run.result_status)}</strong>

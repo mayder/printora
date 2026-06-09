@@ -16,6 +16,7 @@ from app.calibration import (
 )
 from app.database import initialize_database
 from app.main import app
+from app.routes.calibration import _calibration_execution_results
 from app.printers import PrinterCreate, PrinterRepository
 
 
@@ -486,6 +487,24 @@ def test_calibration_execution_gate_allows_pid_calibrate_command(tmp_path: Path)
     assert gate.status == "ready"
     assert gate.block_reasons == []
     assert gate.commands == ["PID_CALIBRATE HEATER=extruder TARGET=220"]
+
+
+def test_calibration_execution_results_preserve_pid_console_excerpt() -> None:
+    results = _calibration_execution_results(
+        {
+            "results": [{"command": "PID_CALIBRATE HEATER=extruder TARGET=220", "accepted": True}],
+            "console_excerpt": [
+                "PID parameters: pid_Kp=42.725 pid_Ki=11.393 pid_Kd=40.055",
+                "The SAVE_CONFIG command will update the printer config file",
+                "with these parameters and restart the printer.",
+            ],
+        }
+    )
+
+    console = results[-1]
+    assert console["kind"] == "moonraker_console"
+    assert console["save_config_required"] is True
+    assert console["pid_parameters"] == {"pid_Kp": 42.725, "pid_Ki": 11.393, "pid_Kd": 40.055}
 
 
 def test_all_catalogued_gcode_commands_are_allowlisted(tmp_path: Path) -> None:

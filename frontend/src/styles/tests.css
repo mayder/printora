@@ -509,6 +509,25 @@
   overflow-wrap: anywhere;
 }
 
+.calibration-save-config-note {
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--warning);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.test-modal-card .calibration-console-excerpt {
+  max-height: 180px;
+  margin: 4px 0 0;
+  padding: 10px;
+  font-size: 12px;
+}
+
 .test-result-form {
   display: grid;
   gap: 10px;

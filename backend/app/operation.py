@@ -214,6 +214,11 @@ def build_operation_capabilities(objects: dict[str, Any]) -> list[dict[str, str]
             "supported" if "extruder" in names else "unknown",
             "Objeto extruder detectado." if "extruder" in names else "Pressure advance depende do extrusor configurado.",
         ),
+        _capability(
+            "save_config",
+            "supported" if "webhooks" in names or names else "unknown",
+            "Klipper online; SAVE_CONFIG pode salvar printer.cfg e reiniciar o firmware." if "webhooks" in names or names else "SAVE_CONFIG exige Klipper online.",
+        ),
     ]
 
 
@@ -351,6 +356,7 @@ def _operation_action_catalog() -> list[dict[str, Any]]:
         {"id": "set_velocity_limit", "group": "movimento", "label": "Limites da máquina", "command": "SET_VELOCITY_LIMIT", "risk": "change_velocity_limit", "compatibility": ["toolhead disponível"]},
         {"id": "set_extrusion_factor", "group": "extrusão", "label": "Extrusion factor", "command": "M221", "risk": "change_extrusion_factor", "compatibility": ["gcode_move disponível"]},
         {"id": "set_pressure_advance", "group": "extrusão", "label": "Pressure advance", "command": "SET_PRESSURE_ADVANCE", "risk": "change_pressure_advance", "compatibility": ["extrusor configurado"]},
+        {"id": "save_config", "group": "configuração", "label": "Salvar config", "command": "SAVE_CONFIG", "risk": "restart_firmware", "compatibility": ["Klipper SAVE_CONFIG", "reinicia o firmware após salvar"]},
     ]
 
 
@@ -445,6 +451,8 @@ def _operation_action_commands(action_id: str, parameters: dict[str, Any]) -> li
         return [f"M221 S{_number(parameters.get('extrusion_percent'), 100)}"]
     if action_id == "set_pressure_advance":
         return [f"SET_PRESSURE_ADVANCE ADVANCE={_number(parameters.get('advance'), 0)} SMOOTH_TIME={_number(parameters.get('smooth_time'), 0.04)}"]
+    if action_id == "save_config":
+        return ["SAVE_CONFIG"]
     return []
 
 

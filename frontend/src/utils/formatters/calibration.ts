@@ -89,13 +89,52 @@ export function formatCalibrationExecutionResult(execution: CalibrationExecution
 
 export function buildCalibrationExecutionNotes(execution: CalibrationExecutionRecord) {
   const commandText = execution.sent_commands.length ? execution.sent_commands.join(", ") : "-";
+  const consoleExcerpt = calibrationExecutionConsoleExcerpt(execution);
+  const saveConfigNote = calibrationExecutionRequiresSaveConfig(execution)
+    ? "Atenção: o Klipper pediu SAVE_CONFIG. Os valores só entram no printer.cfg depois de salvar a configuração; isso reinicia o firmware."
+    : "";
   return [
     execution.message,
     summarizeCalibrationExecutionFinalState(execution),
     `Comandos confirmados: ${commandText}`,
+    saveConfigNote,
+    consoleExcerpt.length ? "Console Moonraker:" : "",
+    consoleExcerpt.length ? consoleExcerpt.join("\n") : "",
     "Retorno final Moonraker:",
     formatCalibrationExecutionResult(execution),
   ].filter(Boolean).join("\n");
+}
+
+export function calibrationExecutionConsoleExcerpt(execution: CalibrationExecutionRecord) {
+  const consoleRecord = calibrationExecutionConsoleRecord(execution);
+  const excerpt = consoleRecord?.console_excerpt;
+  if (!Array.isArray(excerpt)) {
+    return [];
+  }
+  return excerpt.map((item) => String(item).trim()).filter(Boolean);
+}
+
+export function calibrationExecutionRequiresSaveConfig(execution: CalibrationExecutionRecord) {
+  const consoleRecord = calibrationExecutionConsoleRecord(execution);
+  if (consoleRecord?.save_config_required === true) {
+    return true;
+  }
+  return calibrationExecutionConsoleExcerpt(execution).join("\n").toUpperCase().includes("SAVE_CONFIG");
+}
+
+export function calibrationExecutionPidParameters(execution: CalibrationExecutionRecord) {
+  const params = calibrationExecutionConsoleRecord(execution)?.pid_parameters;
+  if (!params || typeof params !== "object" || Array.isArray(params)) {
+    return null;
+  }
+  const mapped = params as Record<string, unknown>;
+  const kp = Number(mapped.pid_Kp);
+  const ki = Number(mapped.pid_Ki);
+  const kd = Number(mapped.pid_Kd);
+  if (![kp, ki, kd].every(Number.isFinite)) {
+    return null;
+  }
+  return { kp, ki, kd };
 }
 
 export function latestCalibrationExecutionFinalState(execution: CalibrationExecutionRecord) {
@@ -107,6 +146,10 @@ export function latestCalibrationExecutionFinalState(execution: CalibrationExecu
     }
   }
   return null;
+}
+
+function calibrationExecutionConsoleRecord(execution: CalibrationExecutionRecord) {
+  return execution.result.find((item) => item.kind === "moonraker_console") ?? null;
 }
 
 export function formatCalibrationTestTitle(testKey: string, tests: CalibrationTestRecord[]) {

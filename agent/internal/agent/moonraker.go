@@ -337,6 +337,7 @@ func (c *MoonrakerClient) RemoteGcodeExecute(ctx context.Context, jobPayload map
 	status := "executed"
 	detail := ""
 	timeout := payloadTimeout(jobPayload, c.http.Timeout)
+	initialConsole := c.gcodeStore(ctx, 20)
 	for _, command := range commands {
 		result := map[string]any{"command": command}
 		if err := c.postWithTimeout(ctx, "/printer/gcode/script", map[string]any{"script": command}, "moonraker_response", result, timeout); err != nil {
@@ -361,14 +362,19 @@ func (c *MoonrakerClient) RemoteGcodeExecute(ctx context.Context, jobPayload map
 		results = append(results, result)
 		sent = append(sent, command)
 	}
+	time.Sleep(350 * time.Millisecond)
+	finalConsole := c.gcodeStore(ctx, 30)
 	return sanitizeMap(map[string]any{
-		"safe_mode":     "remote_gcode_execute",
-		"kind":          "gcode_execute",
-		"status":        status,
-		"detail":        detail,
-		"preflight":     preflight,
-		"sent_commands": sent,
-		"results":       results,
+		"safe_mode":       "remote_gcode_execute",
+		"kind":            "gcode_execute",
+		"status":          status,
+		"detail":          detail,
+		"preflight":       preflight,
+		"sent_commands":   sent,
+		"results":         results,
+		"console_before":  initialConsole,
+		"console_after":   finalConsole,
+		"console_excerpt": gcodeStoreMessages(finalConsole),
 	})
 }
 
@@ -389,6 +395,40 @@ func payloadTimeout(payload map[string]any, fallback time.Duration) time.Duratio
 func looksLikeAwaitingHeadersTimeout(detail string) bool {
 	detail = strings.ToLower(detail)
 	return strings.Contains(detail, "awaiting headers") && (strings.Contains(detail, "timeout") || strings.Contains(detail, "deadline exceeded"))
+}
+
+func (c *MoonrakerClient) gcodeStore(ctx context.Context, count int) any {
+	payload := map[string]any{}
+	if count <= 0 {
+		count = 20
+	}
+	if err := c.get(ctx, fmt.Sprintf("/server/gcode_store?count=%d", count), "gcode_store", payload); err != nil {
+		return map[string]any{"error": err.Error()}
+	}
+	return payload["gcode_store"]
+}
+
+func gcodeStoreMessages(value any) []string {
+	root, ok := value.(map[string]any)
+	if !ok {
+		return nil
+	}
+	entries, ok := nestedAny(root, "result", "gcode_store").([]any)
+	if !ok {
+		return nil
+	}
+	result := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		mapped, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		message := strings.TrimSpace(stringValue(mapped["message"]))
+		if message != "" {
+			result = append(result, message)
+		}
+	}
+	return result
 }
 
 func (c *MoonrakerClient) Doctor(ctx context.Context) error {
@@ -560,15 +600,19 @@ func remotePrintIdle(state string) bool {
 }
 
 func nestedString(value any, path ...string) string {
+	return stringValue(nestedAny(value, path...))
+}
+
+func nestedAny(value any, path ...string) any {
 	current := value
 	for _, key := range path {
 		mapped, ok := current.(map[string]any)
 		if !ok {
-			return ""
+			return nil
 		}
 		current = mapped[key]
 	}
-	return stringValue(current)
+	return current
 }
 
 func stringList(value any) []string {

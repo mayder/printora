@@ -53,7 +53,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Agentes | `agents` | `/?section=agents`, `/#agents` | `frontend/src/screens/AgentsScreen.tsx` | Lista de todos os agentes da frota, sem operacoes de impressora no menu global | Nao exige impressora ativa | existente |
 | Detalhe do agente | `agent-detail` | Estado interno da SPA | `frontend/src/screens/AgentDetailScreen.tsx` | Registro de agente com impressora vinculada, dispositivo/host, versao, saude, fila, doctor remoto, suporte e credencial | Exige agente aberto | existente |
 | Setup | `setup` | `/?section=setup`, `/#setup` | `frontend/src/screens/SetupScreen.tsx` | Receita guiada para preparar a Pi, habilitar SSH, validar ambiente, configurar CAN/U2C, gerar firmware, executar flash supervisionado, validar base Klipper e cadastrar a impressora | Nao exige impressora ativa | existente |
-| Operacao | aba `operation` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/MonitoringScreen.tsx` + `frontend/src/MonitoringDashboard.tsx` | Operacao ao vivo com temperaturas, toolhead, extrusor, progresso, sistema, fans, CAN e acoes protegidas | Exige impressora aberta; live exige agente/Moonraker | existente |
+| Operacao | aba `operation` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/MonitoringScreen.tsx` + `frontend/src/MonitoringDashboard.tsx` | Operacao ao vivo com temperaturas, toolhead, extrusor, progresso, sistema, fans, CAN e acoes protegidas, incluindo `Salvar config` supervisionado para aplicar valores Klipper pendentes | Exige impressora aberta; live exige agente/Moonraker | existente |
 | Atualizacoes | aba `updates` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/UpdatesScreen.tsx` | Update Manager da impressora, checklist pos-update, update com confirmacao, progresso e historico | Exige impressora aberta; live exige agente/Moonraker | existente |
 | Calibracao | aba `tests` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/TestsScreen.tsx` | Centro de calibracao Voron em cards numerados por sequencia, busca, filtros por tipo/uso, ajuda expandida, preflight, execucao com confirmacao presencial e perfil Z aprovado | Exige impressora aberta | existente |
 | Firmware | aba `firmware` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/FirmwareScreen.tsx` | Inventario de MCUs/placas detectadas, associacao ao modelo fisico, build, flash planejado e referencia CANBus | Exige impressora aberta | existente |
@@ -75,8 +75,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Manutencao concluida | `frontend/src/components/modals/MaintenanceDoneModal.tsx` | Conclusao de tarefa preventiva e ajuste do proximo lembrete |
 | Manutencao livre | `frontend/src/components/modals/MaintenanceFreeModal.tsx` | Registro livre de manutencao, falha, ajuste ou nota |
 | Calibracao ajuda | `frontend/src/components/modals/CalibrationHelpModal.tsx` | Ajuda operacional de um teste de calibracao |
-| Calibracao execucao | `frontend/src/components/modals/CalibrationExecuteModal.tsx` | Preflight e confirmacao presencial para envio de G-code |
-| Calibracao resultado | `frontend/src/components/modals/CalibrationResultModal.tsx` | Historico e registro manual de resultado de calibracao |
+| Calibracao execucao | `frontend/src/components/modals/CalibrationExecuteModal.tsx` | Preflight, progresso ao vivo, retorno de console Moonraker e confirmacao presencial para envio de G-code |
+| Calibracao resultado | `frontend/src/components/modals/CalibrationResultModal.tsx` | Historico técnico da execução, retorno de console/PID e registro manual de resultado de calibracao |
 
 ## Manutencao
 

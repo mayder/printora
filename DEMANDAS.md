@@ -997,7 +997,7 @@ Estado atual:
 - UI permite executar G-code catalogado somente com `G-code revisado`, `Operador presente` e confirmação `EXECUTE_CALIBRATION_GCODE`.
 - Execução real valida Moonraker/Klipper live, bloqueia impressão em andamento, bloqueia Klipper/Klippy não ready, bloqueia comandos fora da allowlist e registra exatamente comandos enviados.
 - Envio de G-code monitora o estado final da impressora após o POST; timeout de transporte não vira falha se Moonraker/Klipper voltarem `ready` e o estado final for confirmado.
-- O retorno final monitorado fica salvo no histórico de execução e pode preencher o modal de registro de resultado.
+- O retorno final monitorado e o trecho de console Moonraker ficam salvos no histórico de execução; retornos de PID exibem parâmetros e aviso de `SAVE_CONFIG`.
 - Histórico de tentativas de execução fica em `GET /api/printers/{printer_id}/calibration/executions`.
 - UI de Testes refeita para fluxo por cards: cada teste tem ação principal `Executar` ou `Registrar`, ajuda fica em modal via ícone de interrogação e detalhes técnicos deixam de poluir a tela principal.
 - UI de Calibração preserva os cards como fluxo principal, numera a sequência nos cards, expõe busca e filtros por tipo/uso, mantém ação `Pular` e perfil aprovado de primeira camada.

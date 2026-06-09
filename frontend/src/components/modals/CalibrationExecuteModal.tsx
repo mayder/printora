@@ -3,10 +3,13 @@ import type { ScreenPropsFor } from "../../screens/ScreenProps";
 
 type CalibrationExecuteModalProps = ScreenPropsFor<
   | "buildCalibrationExecutionNotes"
+  | "calibrationExecutionConsoleExcerpt"
+  | "calibrationExecutionPidParameters"
   | "calibrationExecuteTest"
   | "calibrationExecutionBusy"
   | "calibrationExecutionResult"
   | "calibrationExecutionRowClass"
+  | "calibrationExecutionRequiresSaveConfig"
   | "calibrationGcodeReviewed"
   | "calibrationOperatorPresent"
   | "calibrationPreflight"
@@ -29,10 +32,13 @@ type CalibrationExecuteModalProps = ScreenPropsFor<
 export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
   const {
     buildCalibrationExecutionNotes,
+    calibrationExecutionConsoleExcerpt,
+    calibrationExecutionPidParameters,
     calibrationExecuteTest,
     calibrationExecutionBusy,
     calibrationExecutionResult,
     calibrationExecutionRowClass,
+    calibrationExecutionRequiresSaveConfig,
     calibrationGcodeReviewed,
     calibrationOperatorPresent,
     calibrationPreflight,
@@ -64,6 +70,8 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
     ["Home", String(operationStatus?.toolhead?.homed_axes ?? "-")],
     ["Posição", formatLivePosition(operationStatus?.toolhead?.position)],
   ];
+  const resultConsoleExcerpt = calibrationExecutionResult ? calibrationExecutionConsoleExcerpt(calibrationExecutionResult) : [];
+  const resultPidParameters = calibrationExecutionResult ? calibrationExecutionPidParameters(calibrationExecutionResult) : null;
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Executar ${calibrationExecuteTest.title}`}>
@@ -143,6 +151,17 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
               </ul>
             ) : null}
             <small>{summarizeCalibrationExecutionFinalState(calibrationExecutionResult)}</small>
+            {resultPidParameters ? (
+              <small>
+                PID: Kp {resultPidParameters.kp} · Ki {resultPidParameters.ki} · Kd {resultPidParameters.kd}
+              </small>
+            ) : null}
+            {calibrationExecutionRequiresSaveConfig(calibrationExecutionResult) ? (
+              <div className="calibration-save-config-note">
+                Valores calculados. Para aplicar no printer.cfg, execute SAVE_CONFIG pelo Mainsail ou pela ação Salvar config em Operação. O Klipper será reiniciado.
+              </div>
+            ) : null}
+            {resultConsoleExcerpt.length ? <pre className="calibration-console-excerpt">{resultConsoleExcerpt.join("\n")}</pre> : null}
             <details>
               <summary>Retorno registrado</summary>
               <pre>{formatCalibrationExecutionResult(calibrationExecutionResult)}</pre>
