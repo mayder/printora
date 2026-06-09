@@ -109,6 +109,7 @@ export type OperationActionExecutionAttempt = {
       summary?: string;
       error?: string;
     };
+    moonraker_response?: Record<string, unknown>;
   };
 };
 

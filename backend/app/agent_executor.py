@@ -61,7 +61,7 @@ class AgentCommandExecutor:
             if job.status == "succeeded":
                 return job
             if job.status in {"failed", "canceled"}:
-                raise HTTPException(status_code=502, detail=job.error_message or "job do agente falhou")
+                raise AgentJobFailedError(job)
             if asyncio.get_running_loop().time() >= deadline:
                 raise HTTPException(status_code=504, detail="timeout aguardando resposta do agente")
             await asyncio.sleep(interval)
@@ -72,6 +72,12 @@ def unwrap_moonraker_result(value: Any) -> dict[str, Any]:
     if isinstance(value, dict) and isinstance(value.get("result"), dict):
         return value["result"]
     return value if isinstance(value, dict) else {}
+
+
+class AgentJobFailedError(HTTPException):
+    def __init__(self, job: AgentJobRecord) -> None:
+        self.job = job
+        super().__init__(status_code=502, detail=job.error_message or "job do agente falhou")
 
 
 def unwrap_moonraker_list(value: Any, key: str) -> list[str]:

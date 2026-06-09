@@ -4,7 +4,7 @@ import re
 
 from fastapi import Depends
 
-from app.agent_executor import AgentCommandExecutor
+from app.agent_executor import AgentCommandExecutor, AgentJobFailedError
 from app.agent_moonraker import agent_preflight_payload, calibration_capabilities_payload
 from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
@@ -237,6 +237,22 @@ async def execute_calibration_test(
         execution_status = str(result_payload.get("status") or "executed")
         if execution_status not in {"executed", "dispatched_unconfirmed", "failed_partial"}:
             execution_status = "executed"
+    except AgentJobFailedError as exc:
+        result_payload = exc.job.result or {"agent_error": exc.detail}
+        sent_commands = [str(item) for item in result_payload.get("sent_commands") or []]
+        results = _calibration_execution_results(result_payload)
+        if not results:
+            results = [{"accepted": False, "agent_error": exc.detail}]
+        error_detail = _calibration_agent_failure_detail(result_payload) or str(exc.detail)
+        return repository.create_execution_attempt(
+            printer_id=printer.id,
+            test=test,
+            gate=gate,
+            status="failed",
+            sent_commands=sent_commands,
+            result=results,
+            message=f"Falha ao confirmar G-code pelo agente: {error_detail}",
+        )
     except HTTPException as exc:
         status = "failed"
         sent_commands = []
@@ -261,6 +277,15 @@ async def execute_calibration_test(
         result=results,
         message=_calibration_execution_message(execution_status, sent_commands, gate.commands),
     )
+
+
+def _calibration_agent_failure_detail(payload: dict) -> str:
+    for message in payload.get("console_excerpt") or []:
+        text = str(message).strip()
+        if "SAVE_CONFIG" in text or "conflicts with included value" in text:
+            return text
+    detail = payload.get("detail") or payload.get("agent_error")
+    return str(detail).strip() if detail else ""
 
 
 async def _calibration_agent_preflight(settings, printer, test_key: str) -> dict[str, Any]:

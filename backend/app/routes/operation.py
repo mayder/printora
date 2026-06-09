@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.routes.support import *
 from fastapi import Depends, Header
 
-from app.agent_executor import AgentCommandExecutor
+from app.agent_executor import AgentCommandExecutor, AgentJobFailedError
 from app.agent_moonraker import agent_preflight_payload, operation_payload
 from app.auth import AuthRepository
 from app.routes.auth import require_current_user_when_configured
@@ -281,6 +281,11 @@ async def _execute_operation_preview_via_agent(
         result_status = str(result.get("status") or "")
         status = "executed" if result_status in {"executed", "dispatched_unconfirmed"} else "failed"
         block_reason = "" if status == "executed" else _remote_gcode_failure_detail(result)
+    except AgentJobFailedError as exc:
+        result = exc.job.result or {"accepted": False, "agent_error": exc.detail}
+        result.setdefault("agent_error", exc.detail)
+        status = "failed"
+        block_reason = _remote_gcode_failure_detail(result)
     except HTTPException as exc:
         result = {"accepted": False, "agent_error": exc.detail}
         status = "failed"
@@ -315,6 +320,10 @@ def _remote_gcode_failure_detail(result: dict) -> str:
                 _nested_string(item.get("moonraker_response"), "result"),
             ]
         )
+    for message in result.get("console_excerpt") or []:
+        text = _string_value(message)
+        if "SAVE_CONFIG" in text or "conflicts with included value" in text:
+            candidates.append(text)
     candidates.extend([_string_value(result.get("detail")), _string_value(result.get("agent_error"))])
     for candidate in candidates:
         if candidate:

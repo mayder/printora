@@ -90,6 +90,19 @@
   gap: 10px;
 }
 
+.calibration-step-up-card {
+  display: grid;
+  gap: 14px;
+}
+
+.calibration-step-up-card .modal-header {
+  margin-bottom: 0;
+}
+
+.calibration-step-up-card .confirm-dialog-actions {
+  margin-top: 4px;
+}
+
 .connection-test-box {
   display: grid;
   gap: 8px;

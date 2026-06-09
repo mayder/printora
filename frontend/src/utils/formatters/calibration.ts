@@ -1,4 +1,4 @@
-import type { CalibrationExecutionRecord, CalibrationResultFormConfig, CalibrationRunRecord, CalibrationSequencePlan, CalibrationTestRecord } from "../../types";
+import type { CalibrationExecutionRecord, CalibrationResultFormConfig, CalibrationRunRecord, CalibrationSequencePlan, CalibrationTestRecord, OperationActionExecutionAttempt } from "../../types";
 
 export function formatCalibrationCategory(category: string) {
   const labels: Record<string, string> = {
@@ -122,6 +122,31 @@ export function calibrationExecutionRequiresSaveConfig(execution: CalibrationExe
   return calibrationExecutionConsoleExcerpt(execution).join("\n").toUpperCase().includes("SAVE_CONFIG");
 }
 
+export function formatSaveConfigFailureMessage(result?: OperationActionExecutionAttempt | null, fallbackError = "") {
+  const raw = [
+    result?.block_reason,
+    operationAttemptConsoleExcerpt(result).join("\n"),
+    fallbackError,
+  ].filter(Boolean).join("\n");
+  const compact = raw.trim();
+  if (!compact) {
+    return "";
+  }
+  if (compact.includes("conflicts with included value")) {
+    return [
+      firstMatchingLine(compact, "conflicts with included value") || compact,
+      "O Klipper recusou o SAVE_CONFIG porque a opção já vem de um arquivo incluído. Ajuste/remova a duplicidade no include correto ou mova essa opção para o printer.cfg antes de salvar.",
+    ].join(" ");
+  }
+  if (compact.includes("status 400")) {
+    return [
+      "Moonraker recusou o SAVE_CONFIG (HTTP 400).",
+      "A causa detalhada aparece no console do Klipper/Mainsail; quando for conflito com arquivo incluído, corrija a opção no include correto ou salve manualmente os valores no arquivo onde ela está definida.",
+    ].join(" ");
+  }
+  return compact;
+}
+
 export function calibrationExecutionPidParameters(execution: CalibrationExecutionRecord) {
   const params = calibrationExecutionConsoleRecord(execution)?.pid_parameters;
   if (!params || typeof params !== "object" || Array.isArray(params)) {
@@ -150,6 +175,22 @@ export function latestCalibrationExecutionFinalState(execution: CalibrationExecu
 
 function calibrationExecutionConsoleRecord(execution: CalibrationExecutionRecord) {
   return execution.result.find((item) => item.kind === "moonraker_console") ?? null;
+}
+
+function operationAttemptConsoleExcerpt(result?: OperationActionExecutionAttempt | null) {
+  const response = result?.payload?.moonraker_response;
+  if (!response || typeof response !== "object" || Array.isArray(response)) {
+    return [];
+  }
+  const excerpt = (response as Record<string, unknown>).console_excerpt;
+  if (!Array.isArray(excerpt)) {
+    return [];
+  }
+  return excerpt.map((item) => String(item).trim()).filter(Boolean);
+}
+
+function firstMatchingLine(value: string, needle: string) {
+  return value.split(/\r?\n/).map((line) => line.trim()).find((line) => line.includes(needle)) ?? "";
 }
 
 export function formatCalibrationTestTitle(testKey: string, tests: CalibrationTestRecord[]) {

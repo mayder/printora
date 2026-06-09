@@ -29,6 +29,7 @@ type CalibrationResultModalProps = ScreenPropsFor<
   | "downloadCalibrationRunHistoryItem"
   | "formatCalibrationExecutionStatus"
   | "formatCalibrationResult"
+  | "formatSaveConfigFailureMessage"
   | "latestCalibrationExecutionIdByTest"
   | "latestCalibrationRunIdByTest"
   | "loading"
@@ -72,6 +73,7 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
     downloadCalibrationRunHistoryItem,
     formatCalibrationExecutionStatus,
     formatCalibrationResult,
+    formatSaveConfigFailureMessage,
     latestCalibrationExecutionIdByTest,
     latestCalibrationRunIdByTest,
     loading,
@@ -182,8 +184,8 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
                     {calibrationSaveConfigResult.block_reason ? ` · ${calibrationSaveConfigResult.block_reason}` : ""}
                   </small>
                 ) : null}
-                {saveConfigRequired && calibrationSaveConfigError ? (
-                  <small className="calibration-save-config-error">{calibrationSaveConfigError}</small>
+                {saveConfigRequired && (calibrationSaveConfigError || calibrationSaveConfigResult?.status === "failed") ? (
+                  <small className="calibration-save-config-error">{formatSaveConfigFailureMessage(calibrationSaveConfigResult, calibrationSaveConfigError)}</small>
                 ) : null}
                 {consoleExcerpt.length ? <pre className="calibration-console-excerpt">{consoleExcerpt.join("\n")}</pre> : null}
               </div>

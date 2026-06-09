@@ -37,7 +37,7 @@ export function CalibrationStepUpModal(props: CalibrationStepUpModalProps) {
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Autorizar ação crítica">
-      <div className="modal-card confirm-dialog-card warning">
+      <div className="modal-card confirm-dialog-card calibration-step-up-card warning">
         <div className="modal-header">
           <div>
             <h2>
