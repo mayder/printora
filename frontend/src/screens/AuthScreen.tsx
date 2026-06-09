@@ -411,10 +411,22 @@ export function AuthScreen(props: AuthScreenProps) {
       {accountTab === "profile" ? (
         <div className="profile-workspace">
           <div className="segmented-control profile-tabs" role="tablist" aria-label="Perfil">
-            <button type="button" className={profileSection === "account" ? "active" : ""} onClick={() => setProfileSection("account")}>Conta</button>
-            <button type="button" className={profileSection === "contacts" ? "active" : ""} onClick={() => setProfileSection("contacts")}>Contatos</button>
-            <button type="button" className={profileSection === "password" ? "active" : ""} onClick={() => setProfileSection("password")}>Senha</button>
-            <button type="button" className={profileSection === "security" ? "active" : ""} onClick={() => setProfileSection("security")}>Segurança</button>
+            <button type="button" className={profileSection === "account" ? "active" : ""} onClick={() => setProfileSection("account")}>
+              <UserRound size={16} />
+              Conta
+            </button>
+            <button type="button" className={profileSection === "contacts" ? "active" : ""} onClick={() => setProfileSection("contacts")}>
+              <Users size={16} />
+              Contatos
+            </button>
+            <button type="button" className={profileSection === "password" ? "active" : ""} onClick={() => setProfileSection("password")}>
+              <KeyRound size={16} />
+              Senha
+            </button>
+            <button type="button" className={profileSection === "security" ? "active" : ""} onClick={() => setProfileSection("security")}>
+              <ShieldCheck size={16} />
+              Segurança
+            </button>
           </div>
           {profileSection === "account" ? (
           <article className="panel auth-panel profile-card">
