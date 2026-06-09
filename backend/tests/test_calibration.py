@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.agent_moonraker import agent_preflight_payload
+from app.agent_moonraker import agent_preflight_payload, calibration_capabilities_payload
 from app.config import get_settings
 from app.calibration import (
     CalibrationExecutionRequest,
@@ -253,6 +253,37 @@ def test_available_calibration_tests_include_qgl_when_printer_supports_it(tmp_pa
     visible_keys = {test.test_key for test in response.tests}
     assert "quad_gantry_level" in visible_keys
     assert "bed_mesh_regular" in visible_keys
+
+
+def test_calibration_capabilities_keeps_connected_when_optional_toolhead_query_fails() -> None:
+    objects, object_status, connected = calibration_capabilities_payload(
+        {
+            "objects_list": ["toolhead", "probe", "bed_mesh", "quad_gantry_level", "print_stats"],
+            "toolhead_error": "query failed",
+        }
+    )
+
+    assert connected is True
+    assert "toolhead" in objects
+    assert object_status == {}
+
+
+def test_calibration_capabilities_uses_toolhead_status_as_object_source() -> None:
+    objects, object_status, connected = calibration_capabilities_payload(
+        {
+            "toolhead": {
+                "result": {
+                    "status": {
+                        "toolhead": {"axis_minimum": [0, 0, 0], "axis_maximum": [350, 350, 350]},
+                    }
+                }
+            }
+        }
+    )
+
+    assert connected is True
+    assert objects == ["toolhead"]
+    assert object_status["toolhead"]["axis_maximum"] == [350, 350, 350]
 
 
 def test_available_calibration_tests_hide_gcode_outside_printer_volume(tmp_path: Path) -> None:

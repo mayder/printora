@@ -340,7 +340,7 @@ export function TestsScreen(props: TestsScreenProps) {
               );
             })}
             {visibleHiddenCalibrationTests.map((test: any) => (
-              <article key={test.test_key} className="test-card high blocked">
+              <article key={test.test_key} className="test-card high blocked hidden-test-card">
                 <div className="test-card-title">
                   <div>
                     <strong>{test.title}</strong>

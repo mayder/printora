@@ -83,9 +83,23 @@
   min-width: 0;
 }
 
+.hidden-test-card .test-card-title {
+  grid-template-columns: minmax(0, 1fr) 32px;
+}
+
+.hidden-test-card .test-card-title > div {
+  grid-column: 1;
+}
+
+.hidden-test-card .test-card-title > svg {
+  grid-column: 2;
+  justify-self: end;
+}
+
 .test-card-title strong {
   display: block;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .test-card-title span,

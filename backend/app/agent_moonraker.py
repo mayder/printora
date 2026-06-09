@@ -36,7 +36,13 @@ def calibration_capabilities_payload(result: dict[str, Any] | None) -> tuple[lis
     payload = result or {}
     objects = [str(item) for item in payload.get("objects_list") or [] if str(item)]
     toolhead = unwrap_moonraker_result(payload.get("toolhead"))
-    return objects, toolhead.get("status", toolhead) if isinstance(toolhead, dict) else {}, not _has_error(payload)
+    object_status = toolhead.get("status", toolhead) if isinstance(toolhead, dict) else {}
+    if isinstance(object_status, dict) and object_status and "toolhead" not in object_status:
+        object_status = {"toolhead": object_status}
+    if not objects and isinstance(object_status, dict):
+        objects = [str(name) for name in object_status.keys()]
+    connected = bool(objects or object_status) and not _has_capability_connection_error(payload)
+    return objects, object_status if isinstance(object_status, dict) else {}, connected
 
 
 def firmware_inventory_payload(result: dict[str, Any] | None) -> tuple[list[str], dict[str, Any]]:
@@ -68,3 +74,7 @@ def agent_preflight_payload(result: dict[str, Any] | None) -> dict[str, Any]:
 
 def _has_error(payload: dict[str, Any]) -> bool:
     return any(str(key).endswith("_error") for key in payload)
+
+
+def _has_capability_connection_error(payload: dict[str, Any]) -> bool:
+    return any(str(key).endswith("_error") and key != "toolhead_error" for key in payload)
