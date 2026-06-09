@@ -1,6 +1,7 @@
 import { Download, Save, Trash2, X } from "lucide-react";
 import type { ScreenPropsFor } from "../../screens/ScreenProps";
 import type { CalibrationRunRecord } from "../../types";
+import { formatDateTime } from "../../utils/formatters";
 
 type CalibrationResultModalProps = ScreenPropsFor<
   | "calibrationExecutionConsoleExcerpt"
@@ -151,7 +152,7 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
                   </div>
                 </div>
                 <span>
-                  {execution.created_at} · {execution.sent_commands.length} comando(s)
+                  {formatDateTime(execution.created_at)} · {execution.sent_commands.length} comando(s)
                 </span>
                 {execution.message ? <small>{execution.message}</small> : null}
                 <small>{summarizeCalibrationExecutionFinalState(execution)}</small>
@@ -219,7 +220,7 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
                   </div>
                 </div>
                 <span>
-                  {run.created_at} · {run.material || "-"} · {run.plate_name || "-"} · {run.nozzle || "-"}
+                  {formatDateTime(run.created_at)} · {run.material || "-"} · {run.plate_name || "-"} · {run.nozzle || "-"}
                 </span>
                 {run.observed_value ? <small>Valor: {run.observed_value}</small> : null}
                 {run.notes ? <small>{run.notes}</small> : null}

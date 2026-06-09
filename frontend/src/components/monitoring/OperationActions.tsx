@@ -1,5 +1,6 @@
 import { Box, Fan, Home, Move3D, SendHorizontal, ShieldCheck } from "lucide-react";
 import { formatCapabilityStatus, formatOperationValue, numericValue } from "./formatters";
+import { formatDateTime } from "../../utils/formatters";
 import type {
   OperationAction,
   OperationActionExecutionAttempt,
@@ -165,7 +166,7 @@ export function OperationActions({
         <div className="operation-execution-result">
           <strong>Última tentativa: {executionAttempt.status}</strong>
           <span>{executionAttempt.block_reason || (executionAttempt.confirmation_matched ? "Confirmação validada." : "Confirmação não validada.")}</span>
-          <small>{executionAttempt.created_at}</small>
+          <small>{formatDateTime(executionAttempt.created_at)}</small>
         </div>
       ) : null}
 

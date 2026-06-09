@@ -1,4 +1,5 @@
 import { Badge, Metric } from "../components/common";
+import { formatDateTime } from "../utils/formatters";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type OperationScreenProps = ScreenPropsFor<
@@ -100,7 +101,7 @@ export function OperationScreen(props: OperationScreenProps) {
               <div>
                 <strong>Último estado conhecido</strong>
                 <span>
-                  Snapshot #{operationStatus.last_snapshot?.id ?? "-"} de {operationStatus.last_snapshot?.created_at ?? "-"}.
+                  Snapshot #{operationStatus.last_snapshot?.id ?? "-"} de {formatDateTime(operationStatus.last_snapshot?.created_at)}.
                   A impressora não foi consultada ao exibir estes dados.
                 </span>
               </div>

@@ -23,7 +23,7 @@ OrganizationRole = Literal["owner", "admin", "operator"]
 
 SESSION_TTL = timedelta(hours=12)
 MFA_CHALLENGE_TTL = timedelta(minutes=5)
-STEP_UP_TTL = timedelta(minutes=5)
+STEP_UP_TTL = timedelta(minutes=15)
 PBKDF2_ITERATIONS = 210_000
 
 CURRENT_AUTH_USER_ID: ContextVar[int | None] = ContextVar("current_auth_user_id", default=None)

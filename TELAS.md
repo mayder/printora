@@ -77,6 +77,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Calibracao ajuda | `frontend/src/components/modals/CalibrationHelpModal.tsx` | Ajuda operacional de um teste de calibracao |
 | Calibracao execucao | `frontend/src/components/modals/CalibrationExecuteModal.tsx` | Preflight, progresso ao vivo, retorno de console Moonraker e confirmacao presencial para envio de G-code |
 | Calibracao resultado | `frontend/src/components/modals/CalibrationResultModal.tsx` | Historico técnico da execução, retorno de console/PID, ação para salvar config pendente, download JSON e limpeza protegida de registros antigos |
+| Calibracao autorizacao critica | `frontend/src/components/modals/CalibrationStepUpModal.tsx` | Modal contextual para senha ou codigo 2FA quando uma acao critica de calibracao exige step-up auth |
 
 ## Manutencao
 
@@ -136,7 +137,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Conta > Perfil, alteração de senha exige senha atual e confirmação da nova senha.
 - Na tela Conta, organização não é obrigatória para uso individual; quando existir, a UI permite criar organização e vincular usuários com papel `admin` ou `operator`.
 - Na tela Conta, o setup de 2FA deve exibir segredo/URI, validar código antes de ativar e exigir código atual para desativar quando 2FA estiver ativo.
-- Na tela Conta, autenticação reforçada gera autorização curta para ações críticas; usuários com 2FA usam código, usuários sem 2FA usam senha.
+- Na tela Conta, autenticação reforçada gera autorização curta para ações críticas; usuários com 2FA usam código, usuários sem 2FA usam senha. Se a autorização faltar durante uma ação crítica de calibração, o usuário deve poder informar senha/código em modal contextual sem sair do fluxo.
+- Datas visíveis na Conta, convites e calibração devem ser exibidas em formato brasileiro e horário local do navegador enquanto não houver internacionalização dedicada.
 - Na tela Impressoras, o cadastro/edição da impressora separa metadados cloud, conexão Moonraker e SSH. Metadados incluem modelo, localização, tags, observações e organização opcional.
 - Na tela Impressoras, a lista mostra dados de frota e acoes de linha para editar, abrir detalhe, ler status, gerar snapshot e trocar contexto rapido. Acoes de linha usam a impressora da propria linha; contexto rapido nao deve ser pre-requisito. Status, token, instalação, pareamento e saúde de agente ficam no detalhe da impressora ou no detalhe do agente.
 - Na tela Agentes, a lista global deve mostrar versão instalada e versão esperada, com ação contextual para atualizar o agente selecionado. Agente ativo sempre recebe job remoto `remote_agent_update_check`; a UI não deve pedir SSH nem comando manual para update.

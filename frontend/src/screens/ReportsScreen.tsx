@@ -1,5 +1,6 @@
 import React from "react";
 import type { ScreenPropsFor } from "./ScreenProps";
+import { formatDateTime } from "../utils/formatters";
 import { ReportModals, type ReportModalKind } from "./reports/ReportModals";
 import "./reports/ReportsScreen.css";
 import {
@@ -429,7 +430,7 @@ export function ReportsScreen(props: ReportsScreenProps) {
           <div className="report-snapshot-current">
             <span>Snapshot atual</span>
             <strong>{currentSnapshot ? `#${currentSnapshot.id}` : "Nenhum snapshot"}</strong>
-            <p>{currentSnapshot?.created_at ?? "Use o botão Snapshot no topo para registrar uma leitura."}</p>
+            <p>{currentSnapshot ? formatDateTime(currentSnapshot.created_at) : "Use o botão Snapshot no topo para registrar uma leitura."}</p>
             <small>{currentSnapshot ? formatUnknown(currentSnapshot.summary) : "Snapshots ajudam a comparar mudanças depois de updates ou ajustes."}</small>
           </div>
 
@@ -440,7 +441,7 @@ export function ReportsScreen(props: ReportsScreenProps) {
                 <select value={fromSnapshotId ?? ""} onChange={(event) => setFromSnapshotId(Number(event.target.value))}>
                   {snapshots.map((snapshot) => (
                     <option key={snapshot.id} value={snapshot.id}>
-                      #{snapshot.id} · {snapshot.created_at}
+                      #{snapshot.id} · {formatDateTime(snapshot.created_at)}
                     </option>
                   ))}
                 </select>
@@ -450,7 +451,7 @@ export function ReportsScreen(props: ReportsScreenProps) {
                 <select value={toSnapshotId ?? ""} onChange={(event) => setToSnapshotId(Number(event.target.value))}>
                   {snapshots.map((snapshot) => (
                     <option key={snapshot.id} value={snapshot.id}>
-                      #{snapshot.id} · {snapshot.created_at}
+                      #{snapshot.id} · {formatDateTime(snapshot.created_at)}
                     </option>
                   ))}
                 </select>

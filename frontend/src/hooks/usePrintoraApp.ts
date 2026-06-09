@@ -336,7 +336,7 @@ export function usePrintoraApp() {
     setLoading,
   });
   maintenance = useMaintenance({ selectedPrinterId: contextPrinterId, setError, setLoading });
-  calibration = useCalibration({ selectedPrinterId: contextPrinterId, confirmAction, setError, setLoading });
+  calibration = useCalibration({ authUser: auth.authUser, selectedPrinterId: contextPrinterId, confirmAction, setError, setLoading });
   firmware = useFirmware({ selectedPrinterId: contextPrinterId, setError, setLoading });
   setup = useSetup({ setError, setLoading });
   const selfUpdate = useSelfUpdate();
@@ -542,7 +542,7 @@ export function usePrintoraApp() {
   const riskClass = formatters.overviewRiskClass(displayDecision);
   const riskLabel = formatters.formatDecision(displayDecision);
   const lastReadingLabel = latestSnapshot
-    ? `Snapshot #${latestSnapshot.id} · ${latestSnapshot.created_at}`
+    ? `Snapshot #${latestSnapshot.id} · ${formatters.formatDateTime(latestSnapshot.created_at)}`
     : settings.health?.data_state
       ? formatters.formatChecklistDataState(settings.health.data_state)
       : "Sem leitura";

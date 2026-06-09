@@ -1,5 +1,6 @@
 import React from "react";
 import type { ScreenPropsFor } from "./ScreenProps";
+import { formatDateTime } from "../utils/formatters";
 
 type AccountTab = "profile" | "organizations";
 const accountTabKeys: AccountTab[] = ["organizations", "profile"];
@@ -567,7 +568,7 @@ export function AuthScreen(props: AuthScreenProps) {
                     <KeyRound size={16} />
                     Gerar autorização
                   </button>
-                  {stepUpResult ? <small>Autorização válida até {stepUpResult.expires_at}.</small> : null}
+                  {stepUpResult ? <small>Autorização válida até {formatDateTime(stepUpResult.expires_at)}.</small> : null}
                 </div>
               </section>
             </div>
@@ -746,7 +747,7 @@ export function AuthScreen(props: AuthScreenProps) {
                   <section className="auth-step">
                     <div>
                       <strong>Link de convite</strong>
-                      <p className="muted">Válido até {createdOrganizationInvite.expires_at}.</p>
+                      <p className="muted">Válido até {formatDateTime(createdOrganizationInvite.expires_at)}.</p>
                       <code>{createdOrganizationInvite.invite_url}</code>
                     </div>
                     <button type="button" className="secondary-button" onClick={() => void copyInviteLink(createdOrganizationInvite.invite_url, showToast)}>
@@ -794,7 +795,7 @@ export function AuthScreen(props: AuthScreenProps) {
                       <div key={printer.printer_id} className="organization-data-row" role="row">
                         <strong>{printer.name}</strong>
                         <span>{printer.moonraker_url}</span>
-                        <span>{printer.linked_at}</span>
+                        <span>{formatDateTime(printer.linked_at)}</span>
                         <span className="organization-row-actions">
                         {canManageSelectedOrganization ? (
                         <button type="button" className="secondary-button" onClick={() => void unlinkAuthOrganizationPrinter(printer.printer_id)} disabled={loading}>
@@ -829,7 +830,7 @@ export function AuthScreen(props: AuthScreenProps) {
                       <div key={invite.id} className="organization-data-row" role="row">
                         <strong>{invite.token_prefix}</strong>
                         <span>{invite.role}</span>
-                        <span>{invite.expires_at}</span>
+                        <span>{formatDateTime(invite.expires_at)}</span>
                         <span className={`status-pill ${invite.revoked_at ? "danger" : invite.accepted_at ? "active" : ""}`}>{organizationInviteStatus(invite)}</span>
                         <span className="organization-row-actions">
                           {!invite.accepted_at && !invite.revoked_at && canManageSelectedOrganization ? (

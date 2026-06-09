@@ -1,4 +1,5 @@
 import { Metric } from "../components/common";
+import { formatDateTime } from "../utils/formatters";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type SettingsScreenProps = ScreenPropsFor<
@@ -191,7 +192,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
                   <div>
                     <strong>#{run.id} · {run.target_tag}</strong>
                     <span>
-                      {formatSelfUpdateStatus(run.status)} · {run.created_at}
+                      {formatSelfUpdateStatus(run.status)} · {formatDateTime(run.created_at)}
                     </span>
                   </div>
                   <FileText size={16} />

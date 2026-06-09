@@ -1,5 +1,6 @@
 import { Badge } from "../components/common";
 import { calibrationLiveEvidenceLabel, calibrationVisualState, isCalibrationVerifiedByLiveStatus } from "../utils/calibrationLiveState";
+import { formatDateTime } from "../utils/formatters";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type TestsScreenProps = ScreenPropsFor<
@@ -499,7 +500,7 @@ export function TestsScreen(props: TestsScreenProps) {
               <div key={execution.id} className={`test-history-row ${calibrationExecutionRowClass(execution.status)}`}>
                 <strong>{formatCalibrationTestTitle(execution.test_key, calibrationTests)}</strong>
                 <span>
-                  {formatCalibrationExecutionStatus(execution.status)} · {execution.created_at}
+                  {formatCalibrationExecutionStatus(execution.status)} · {formatDateTime(execution.created_at)}
                 </span>
                 <small>{summarizeCalibrationExecutionFinalState(execution)}</small>
               </div>
@@ -509,7 +510,7 @@ export function TestsScreen(props: TestsScreenProps) {
               <div key={`run-${run.id}`} className={`test-history-row ${run.result_status}`}>
                 <strong>{run.test_title}</strong>
                 <span>
-                  {formatCalibrationResult(run.result_status)} · {run.created_at}
+                  {formatCalibrationResult(run.result_status)} · {formatDateTime(run.created_at)}
                 </span>
               </div>
             ))}

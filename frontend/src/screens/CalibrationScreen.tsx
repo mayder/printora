@@ -1,5 +1,6 @@
 import { Badge } from "../components/common";
 import { calibrationLiveEvidenceLabel, isCalibrationVerifiedByLiveStatus } from "../utils/calibrationLiveState";
+import { formatDateTime } from "../utils/formatters";
 import type { ScreenPropsFor } from "./ScreenProps";
 
 type CalibrationScreenProps = ScreenPropsFor<
@@ -144,7 +145,7 @@ export function CalibrationScreen(props: CalibrationScreenProps) {
               <div>
                 <strong>Usando último snapshot conhecido</strong>
                 <span>
-                  Snapshot #{operationStatus.last_snapshot?.id ?? "-"} de {operationStatus.last_snapshot?.created_at ?? "-"}.
+                  Snapshot #{operationStatus.last_snapshot?.id ?? "-"} de {formatDateTime(operationStatus.last_snapshot?.created_at)}.
                   A impressora selecionada existe, mas a leitura ao vivo do Moonraker não respondeu neste carregamento.
                 </span>
               </div>

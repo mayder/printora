@@ -1,4 +1,5 @@
 import { Badge } from "../components/common";
+import { formatDateTime } from "../utils/formatters";
 import type {
   BoardPreset,
   FirmwareBoardRecord,
@@ -234,7 +235,7 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
                   </button>
                 </div>
                 <small className="muted">
-                  Último build: {latestBuild ? `${latestBuild.status} · ${latestBuild.created_at}` : "nenhum"}.
+                  Último build: {latestBuild ? `${latestBuild.status} · ${formatDateTime(latestBuild.created_at)}` : "nenhum"}.
                   {latestBuild?.binary_output_path ? ` Artefato: ${latestBuild.binary_output_path}` : ""}
                 </small>
               </>

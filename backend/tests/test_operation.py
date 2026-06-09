@@ -10,6 +10,7 @@ from app.operation import (
     build_temperature_history,
     build_unreachable_operation,
 )
+from app.routes.operation import _remote_gcode_failure_detail
 from app.snapshots import SnapshotDetail
 
 
@@ -282,6 +283,26 @@ def test_operation_save_config_preview_is_explicit_and_supervised() -> None:
     assert preview["command_preview"] == ["SAVE_CONFIG"]
     assert preview["would_send_gcode"] is True
     assert preview["action"]["risk"] == "restart_firmware"
+
+
+def test_operation_failure_detail_prefers_moonraker_error_message() -> None:
+    result = {
+        "status": "failed",
+        "detail": 'moonraker /printer/gcode/script: status 400',
+        "results": [
+            {
+                "command": "SAVE_CONFIG",
+                "accepted": False,
+                "moonraker_response": {
+                    "error": {
+                        "message": "SAVE_CONFIG section 'extruder' option 'control' conflicts with included value",
+                    },
+                },
+            },
+        ],
+    }
+
+    assert _remote_gcode_failure_detail(result) == "SAVE_CONFIG section 'extruder' option 'control' conflicts with included value"
 
 
 def test_operation_named_fan_preview_uses_set_fan_speed() -> None:

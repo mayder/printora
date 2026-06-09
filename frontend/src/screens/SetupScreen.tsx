@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { Metric } from "../components/common";
+import { formatDateTime } from "../utils/formatters";
 import type { SetupCanPlanStep, SetupFinalValidationStatus, SetupFirmwarePlanStep, SetupFlashPlanStep, SetupPlanStep, SetupRunStatus } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 
@@ -1186,7 +1187,7 @@ export function SetupScreen(props: SetupScreenProps) {
               <tbody>
                 {setupHistory.slice(0, 8).map((run) => (
                   <tr key={run.id}>
-                    <td>{run.created_at}</td>
+                    <td>{formatDateTime(run.created_at)}</td>
                     <td>{run.run_type === "plan" ? "Plano" : "Preflight"}</td>
                     <td>{run.target_user}@{run.target_host}:{run.target_port}</td>
                     <td><StatusBadge status={run.status} /></td>
@@ -1212,7 +1213,7 @@ export function SetupScreen(props: SetupScreenProps) {
               <tbody>
                 {setupCanHistory.slice(0, 8).map((run) => (
                   <tr key={run.id}>
-                    <td>{run.created_at}</td>
+                    <td>{formatDateTime(run.created_at)}</td>
                     <td>{run.run_type} · {run.interface_name} · {run.bitrate}</td>
                     <td>{run.target_user}@{run.target_host}:{run.target_port}</td>
                     <td><StatusBadge status={run.status === "blocked" ? "error" : run.status} /></td>
@@ -1236,7 +1237,7 @@ export function SetupScreen(props: SetupScreenProps) {
               <tbody>
                 {setupFirmwareHistory.slice(0, 8).map((run) => (
                   <tr key={run.id}>
-                    <td>{run.created_at}</td>
+                    <td>{formatDateTime(run.created_at)}</td>
                     <td>{run.run_type} · {run.board_name} · {run.preset_id}</td>
                     <td>{run.target_user}@{run.target_host}:{run.target_port}</td>
                     <td><StatusBadge status={run.status === "blocked" ? "error" : run.status} /></td>
@@ -1260,7 +1261,7 @@ export function SetupScreen(props: SetupScreenProps) {
               <tbody>
                 {setupFlashHistory.slice(0, 8).map((run) => (
                   <tr key={run.id}>
-                    <td>{run.created_at}</td>
+                    <td>{formatDateTime(run.created_at)}</td>
                     <td>{run.run_type} · {run.board_name} · {run.flash_method}</td>
                     <td>{run.target_user}@{run.target_host}:{run.target_port}</td>
                     <td><StatusBadge status={run.status} /></td>
@@ -1284,7 +1285,7 @@ export function SetupScreen(props: SetupScreenProps) {
               <tbody>
                 {setupFinalHistory.slice(0, 8).map((run) => (
                   <tr key={run.id}>
-                    <td>{run.created_at}</td>
+                    <td>{formatDateTime(run.created_at)}</td>
                     <td>{run.interface_name} · {run.summary}</td>
                     <td>{run.target_user}@{run.target_host}:{run.target_port}</td>
                     <td><FinalStatusBadge status={run.status} /></td>

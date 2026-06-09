@@ -1,4 +1,5 @@
 import React from "react";
+import * as authApi from "../../services/authApi";
 import { calibrationApi } from "../../services/calibrationApi";
 import { readApiError } from "../../services/http";
 import { operationApi } from "../../services/operationApi";
@@ -15,19 +16,21 @@ import type {
   ConfirmActionOptions,
   ZOffsetRecord,
   ZOffsetWizardPlan,
+  AuthUser,
 } from "../../types";
-import { getCalibrationResultFormConfig } from "../../utils/formatters";
+import { formatDateTime, getCalibrationResultFormConfig } from "../../utils/formatters";
 import type { SetError, SetLoading } from "./shared";
 import { unknownErrorMessage } from "./shared";
 
 type UseCalibrationOptions = {
+  authUser: AuthUser | null;
   selectedPrinterId: number | null;
   confirmAction: (options: ConfirmActionOptions) => Promise<boolean>;
   setError: SetError;
   setLoading: SetLoading;
 };
 
-export function useCalibration({ selectedPrinterId, confirmAction, setError, setLoading }: UseCalibrationOptions) {
+export function useCalibration({ authUser, selectedPrinterId, confirmAction, setError, setLoading }: UseCalibrationOptions) {
   const [calibrationTests, setCalibrationTests] = React.useState<CalibrationTestRecord[]>([]);
   const [calibrationHiddenTests, setCalibrationHiddenTests] = React.useState<CalibrationAvailableTestsResponse["hidden_tests"]>([]);
   const [calibrationRuns, setCalibrationRuns] = React.useState<CalibrationRunRecord[]>([]);
@@ -40,6 +43,11 @@ export function useCalibration({ selectedPrinterId, confirmAction, setError, set
   const [calibrationSaveConfigBusy, setCalibrationSaveConfigBusy] = React.useState(false);
   const [calibrationSaveConfigError, setCalibrationSaveConfigError] = React.useState("");
   const [calibrationSaveConfigResult, setCalibrationSaveConfigResult] = React.useState<OperationActionExecutionAttempt | null>(null);
+  const [calibrationStepUpOpen, setCalibrationStepUpOpen] = React.useState(false);
+  const [calibrationStepUpPassword, setCalibrationStepUpPassword] = React.useState("");
+  const [calibrationStepUpCode, setCalibrationStepUpCode] = React.useState("");
+  const [calibrationStepUpBusy, setCalibrationStepUpBusy] = React.useState(false);
+  const [calibrationStepUpError, setCalibrationStepUpError] = React.useState("");
   const [calibrationHelpTestKey, setCalibrationHelpTestKey] = React.useState<string | null>(null);
   const [calibrationExecuteTestKey, setCalibrationExecuteTestKey] = React.useState<string | null>(null);
   const [calibrationResultTestKey, setCalibrationResultTestKey] = React.useState<string | null>(null);
@@ -262,7 +270,7 @@ export function useCalibration({ selectedPrinterId, confirmAction, setError, set
     }
   }
 
-  async function saveCalibrationConfigFromExecution() {
+  async function saveCalibrationConfigFromExecution(options: { suppressStepUpPrompt?: boolean } = {}) {
     if (!selectedPrinterId || calibrationSaveConfigBusy) {
       return;
     }
@@ -275,7 +283,12 @@ export function useCalibration({ selectedPrinterId, confirmAction, setError, set
         parameters: {},
       });
       if (!response.ok) {
-        setCalibrationSaveConfigError(await readApiError(response));
+        const apiError = await readOperationApiError(response);
+        setCalibrationSaveConfigError(apiError.message);
+        if (apiError.stepUpRequired && !options.suppressStepUpPrompt) {
+          setCalibrationStepUpOpen(true);
+          setCalibrationStepUpError("");
+        }
         return;
       }
       setCalibrationSaveConfigResult((await response.json()) as OperationActionExecutionAttempt);
@@ -283,6 +296,37 @@ export function useCalibration({ selectedPrinterId, confirmAction, setError, set
       setError(unknownErrorMessage(err));
     } finally {
       setCalibrationSaveConfigBusy(false);
+    }
+  }
+
+  async function submitCalibrationStepUp() {
+    const password = calibrationStepUpPassword.trim();
+    const code = calibrationStepUpCode.trim();
+    if (authUser?.mfa_enabled) {
+      if (!code) {
+        setCalibrationStepUpError("Informe o código 2FA para autorizar esta ação.");
+        return;
+      }
+    } else if (!password) {
+      setCalibrationStepUpError("Informe a senha atual da conta para autorizar esta ação.");
+      return;
+    }
+    setCalibrationStepUpBusy(true);
+    setCalibrationStepUpError("");
+    try {
+      await authApi.createStepUpToken({
+        purpose: "destructive_action",
+        password: password || undefined,
+        code: code || undefined,
+      });
+      setCalibrationStepUpPassword("");
+      setCalibrationStepUpCode("");
+      setCalibrationStepUpOpen(false);
+      await saveCalibrationConfigFromExecution({ suppressStepUpPrompt: true });
+    } catch (err) {
+      setCalibrationStepUpError(err instanceof Error ? err.message : "Falha ao gerar autorização.");
+    } finally {
+      setCalibrationStepUpBusy(false);
     }
   }
 
@@ -310,7 +354,7 @@ export function useCalibration({ selectedPrinterId, confirmAction, setError, set
       tone: "danger",
       title: "Apagar execução",
       detail: "Esta execução antiga sairá do histórico deste teste. O último registro permanece protegido.",
-      evidence: `${execution.created_at} · ${execution.status} · ${execution.sent_commands.length} comando(s)`,
+      evidence: `${formatDateTime(execution.created_at)} · ${execution.status} · ${execution.sent_commands.length} comando(s)`,
       confirmLabel: "Apagar",
     });
     if (!confirmed) {
@@ -339,7 +383,7 @@ export function useCalibration({ selectedPrinterId, confirmAction, setError, set
       tone: "danger",
       title: "Apagar resultado",
       detail: "Este resultado antigo sairá do histórico deste teste. O último registro permanece protegido.",
-      evidence: `${run.created_at} · ${run.result_status} · ${run.observed_value || run.notes || "-"}`,
+      evidence: `${formatDateTime(run.created_at)} · ${run.result_status} · ${run.observed_value || run.notes || "-"}`,
       confirmLabel: "Apagar",
     });
     if (!confirmed) {
@@ -524,6 +568,11 @@ export function useCalibration({ selectedPrinterId, confirmAction, setError, set
     calibrationSaveConfigBusy,
     calibrationSaveConfigError,
     calibrationSaveConfigResult,
+    calibrationStepUpBusy,
+    calibrationStepUpCode,
+    calibrationStepUpError,
+    calibrationStepUpOpen,
+    calibrationStepUpPassword,
     calibrationGcodeReviewed,
     calibrationHelpTest,
     calibrationHelpTestKey,
@@ -595,6 +644,9 @@ export function useCalibration({ selectedPrinterId, confirmAction, setError, set
     setCalibrationSummary,
     setCalibrationTestKey,
     setCalibrationTests,
+    setCalibrationStepUpCode,
+    setCalibrationStepUpOpen,
+    setCalibrationStepUpPassword,
     setTestFilter,
     setTestSearch,
     setTestUsageFilter,
@@ -607,6 +659,7 @@ export function useCalibration({ selectedPrinterId, confirmAction, setError, set
     setZOffsetValue,
     setZOffsetWizardChecks,
     setZOffsetWizardPlan,
+    submitCalibrationStepUp,
     testFilter,
     testSearch,
     testUsageFilter,
@@ -625,6 +678,21 @@ export function useCalibration({ selectedPrinterId, confirmAction, setError, set
     zOffsetWizardChecks,
     zOffsetWizardPlan,
   };
+}
+
+async function readOperationApiError(response: Response) {
+  try {
+    const payload = await response.clone().json();
+    if (payload?.detail === "autenticação reforçada obrigatória para ação crítica") {
+      return {
+        stepUpRequired: true,
+        message: "Ação crítica bloqueada. Informe sua senha para gerar autorização e continuar.",
+      };
+    }
+  } catch {
+    // Fall back to the common API error reader.
+  }
+  return { stepUpRequired: false, message: await readApiError(response) };
 }
 
 function downloadCalibrationHistoryJson(filename: string, payload: unknown) {

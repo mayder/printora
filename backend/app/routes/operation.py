@@ -280,7 +280,7 @@ async def _execute_operation_preview_via_agent(
         result = job.result or {}
         result_status = str(result.get("status") or "")
         status = "executed" if result_status in {"executed", "dispatched_unconfirmed"} else "failed"
-        block_reason = "" if status == "executed" else str(result.get("detail") or "Agente não confirmou o comando.")
+        block_reason = "" if status == "executed" else _remote_gcode_failure_detail(result)
     except HTTPException as exc:
         result = {"accepted": False, "agent_error": exc.detail}
         status = "failed"
@@ -294,3 +294,53 @@ async def _execute_operation_preview_via_agent(
         status=status,
         block_reason=block_reason,
     )
+
+
+def _remote_gcode_failure_detail(result: dict) -> str:
+    candidates = [
+        _string_value(result.get("moonraker_response_error")),
+        _nested_string(result.get("moonraker_response"), "error", "message"),
+        _nested_string(result.get("moonraker_response"), "error"),
+        _nested_string(result.get("moonraker_response"), "result"),
+    ]
+    for item in result.get("results") or []:
+        if not isinstance(item, dict):
+            continue
+        candidates.extend(
+            [
+                _string_value(item.get("detail")),
+                _string_value(item.get("moonraker_response_error")),
+                _nested_string(item.get("moonraker_response"), "error", "message"),
+                _nested_string(item.get("moonraker_response"), "error"),
+                _nested_string(item.get("moonraker_response"), "result"),
+            ]
+        )
+    candidates.extend([_string_value(result.get("detail")), _string_value(result.get("agent_error"))])
+    for candidate in candidates:
+        if candidate:
+            return candidate
+    return "Agente não confirmou o comando."
+
+
+def _string_value(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        message = value.get("message")
+        if isinstance(message, str) and message.strip():
+            return message.strip()
+        error = value.get("error")
+        if isinstance(error, str) and error.strip():
+            return error.strip()
+    return str(value).strip()
+
+
+def _nested_string(value, *keys: str) -> str:
+    current = value
+    for key in keys:
+        if not isinstance(current, dict):
+            return ""
+        current = current.get(key)
+    return _string_value(current)

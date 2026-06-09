@@ -4,6 +4,7 @@ import { LoadMeter, MonitorBadge, RadialProgress } from "./common";
 import { MachinePanel, OperationActions } from "./OperationActions";
 import { TemperatureMonitor, buildTemperatureSeries } from "./temperature";
 import { canTone, formatCanAlert, formatDataState, formatDecision, formatOptional, formatTemperature, healthTone } from "./formatters";
+import { formatDateTime } from "../../utils/formatters";
 import type { CanBusRecord, CanBusRecordComparison, CanBusSummary, HealthResponse } from "./types";
 import type {
   OperationAction,
@@ -122,7 +123,7 @@ export function MonitoringDashboard({
         <div className="monitor-note">
           <Database size={17} />
           <span>
-            Último estado conhecido: snapshot #{operationStatus.last_snapshot?.id ?? "-"} de {operationStatus.last_snapshot?.created_at ?? "-"}.
+            Último estado conhecido: snapshot #{operationStatus.last_snapshot?.id ?? "-"} de {formatDateTime(operationStatus.last_snapshot?.created_at)}.
           </span>
         </div>
       ) : null}

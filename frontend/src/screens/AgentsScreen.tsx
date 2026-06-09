@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Badge, Metric } from "../components/common";
+import { formatDateTime } from "../utils/formatters";
 import type { AgentPairingOverview, PairingTokenRecord, PrinterAgentRecord, PrinterRecord } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 
@@ -516,7 +517,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
             <div className="printer-card-header">
               <div>
                 <strong>Comandos de instalação</strong>
-                <span>Token {agentInstallPlan.token_prefix} expira em {agentInstallPlan.expires_at}.</span>
+                <span>Token {agentInstallPlan.token_prefix} expira em {formatDateTime(agentInstallPlan.expires_at)}.</span>
               </div>
               <button type="button" className="secondary-button" onClick={() => setAgentInstallPlan(null)}>
                 Ocultar
@@ -720,7 +721,7 @@ function TokenTable({
         {tokens.map((token) => (
           <div key={token.id}>
             <strong>{token.token_prefix}</strong>
-            <span>{token.status} · expira {token.expires_at}</span>
+            <span>{token.status} · expira {formatDateTime(token.expires_at)}</span>
             <div className="printer-card-actions">
               {token.status === "active" && createdPairingToken?.id === token.id && createdPairingToken.token ? (
                 <button type="button" className="secondary-button" onClick={() => onCopy(createdPairingToken.token!)} disabled={loading}>
