@@ -9,6 +9,7 @@ type CalibrationResultModalProps = ScreenPropsFor<
   | "calibrationExecutionRowClass"
   | "calibrationExecutionRequiresSaveConfig"
   | "calibrationSaveConfigBusy"
+  | "calibrationSaveConfigError"
   | "calibrationSaveConfigResult"
   | "calibrationMaterial"
   | "calibrationNotes"
@@ -51,6 +52,7 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
     calibrationExecutionPidParameters,
     calibrationExecutionRequiresSaveConfig,
     calibrationSaveConfigBusy,
+    calibrationSaveConfigError,
     calibrationSaveConfigResult,
     calibrationMaterial,
     calibrationNotes,
@@ -189,6 +191,9 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
                     SAVE_CONFIG: {calibrationSaveConfigResult.status}
                     {calibrationSaveConfigResult.block_reason ? ` · ${calibrationSaveConfigResult.block_reason}` : ""}
                   </small>
+                ) : null}
+                {saveConfigRequired && calibrationSaveConfigError ? (
+                  <small className="calibration-save-config-error">{calibrationSaveConfigError}</small>
                 ) : null}
                 {consoleExcerpt.length ? <pre className="calibration-console-excerpt">{consoleExcerpt.join("\n")}</pre> : null}
               </div>

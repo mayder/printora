@@ -14,6 +14,7 @@ type CalibrationExecuteModalProps = ScreenPropsFor<
   | "calibrationOperatorPresent"
   | "calibrationPreflight"
   | "calibrationSaveConfigBusy"
+  | "calibrationSaveConfigError"
   | "calibrationSaveConfigResult"
   | "executeCalibrationGcode"
   | "formatCalibrationExecutionResult"
@@ -46,6 +47,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
     calibrationOperatorPresent,
     calibrationPreflight,
     calibrationSaveConfigBusy,
+    calibrationSaveConfigError,
     calibrationSaveConfigResult,
     executeCalibrationGcode,
     formatCalibrationExecutionResult,
@@ -184,6 +186,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
                 {calibrationSaveConfigResult.block_reason ? ` · ${calibrationSaveConfigResult.block_reason}` : ""}
               </small>
             ) : null}
+            {calibrationSaveConfigError ? <small className="calibration-save-config-error">{calibrationSaveConfigError}</small> : null}
             {resultConsoleExcerpt.length ? <pre className="calibration-console-excerpt">{resultConsoleExcerpt.join("\n")}</pre> : null}
             <details>
               <summary>JSON técnico</summary>

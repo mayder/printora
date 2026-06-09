@@ -591,3 +591,7 @@
   border-color: rgba(255, 91, 122, 0.72);
   color: #ff7b96;
 }
+
+.calibration-save-config-error {
+  color: #ff9aad;
+}
