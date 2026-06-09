@@ -693,7 +693,7 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
     if (!execution) {
       return null;
     }
-    const pid = calibrationExecutionPidParameters(execution);
+    const pid = calibrationExecutionPidParameters(execution) ?? extractPidParametersFromConsole(calibrationLiveConsole);
     if (!pid) {
       return null;
     }
@@ -881,4 +881,18 @@ function downloadCalibrationHistoryJson(filename: string, payload: unknown) {
   link.click();
   link.remove();
   window.URL.revokeObjectURL(url);
+}
+
+function extractPidParametersFromConsole(lines: string[]) {
+  const match = lines
+    .join("\n")
+    .match(/pid_Kp=(?<kp>[0-9.]+)\s+pid_Ki=(?<ki>[0-9.]+)\s+pid_Kd=(?<kd>[0-9.]+)/);
+  if (!match?.groups) {
+    return null;
+  }
+  return {
+    kp: Number(match.groups.kp),
+    ki: Number(match.groups.ki),
+    kd: Number(match.groups.kd),
+  };
 }

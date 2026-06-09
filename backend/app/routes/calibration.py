@@ -401,7 +401,14 @@ def _build_calibration_console_script(moonraker_url: str, count: int) -> str:
                 raw = json.loads(response.read().decode("utf-8"))
             result = raw.get("result") if isinstance(raw, dict) else {{}}
             store = result.get("gcode_store") if isinstance(result, dict) else []
-            console = [str(item) for item in store[-count:]] if isinstance(store, list) else []
+            console = []
+            if isinstance(store, list):
+                for item in store[-count:]:
+                    if isinstance(item, dict):
+                        message = item.get("message")
+                        console.append(str(message) if message is not None else json.dumps(item, ensure_ascii=False))
+                    else:
+                        console.append(str(item))
             print(json.dumps({{"data_state": "live", "console": console}}, ensure_ascii=False))
         except Exception as exc:
             print(json.dumps({{"data_state": "offline", "console": [], "error": str(exc)}}, ensure_ascii=False))

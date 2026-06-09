@@ -104,9 +104,12 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
   const resultConsoleExcerpt = calibrationExecutionResult ? calibrationExecutionConsoleExcerpt(calibrationExecutionResult) : [];
   const visibleConsole = calibrationLiveConsole.length ? calibrationLiveConsole : resultConsoleExcerpt;
   const resultPidParameters = calibrationExecutionResult ? calibrationExecutionPidParameters(calibrationExecutionResult) : null;
+  const livePidParameters = resultPidParameters ?? extractPidParametersFromConsole(visibleConsole);
   const executionCompleted = calibrationExecutionResult?.status === "executed";
   const executionRunning = calibrationExecutionResult?.status === "dispatched_unconfirmed";
   const saveConfigRequired = calibrationExecutionResult ? calibrationExecutionRequiresSaveConfig(calibrationExecutionResult) : false;
+  const liveSaveConfigRequired = visibleConsole.join("\n").toUpperCase().includes("SAVE_CONFIG");
+  const effectiveSaveConfigRequired = saveConfigRequired || liveSaveConfigRequired;
   const saveConfigExecuted = calibrationSaveConfigResult?.status === "executed";
 
   return (
@@ -135,13 +138,13 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
           </ul>
         ) : null}
         <pre>{calibrationExecuteTest.gcode.join("\n")}</pre>
-        {calibrationExecutionBusy || operationStatus ? (
-          <div className={`calibration-live-progress ${calibrationExecutionBusy ? "running" : ""}`}>
+        {calibrationExecutionBusy || executionRunning || operationStatus ? (
+          <div className={`calibration-live-progress ${calibrationExecutionBusy || executionRunning ? "running" : ""}`}>
             <div>
-              <strong>{calibrationExecutionBusy ? "Executando comando" : "Status ao vivo"}</strong>
+              <strong>{calibrationExecutionBusy || executionRunning ? "Acompanhando comando" : "Status ao vivo"}</strong>
               <span>{operationStatus?.connected ? "Leitura Moonraker/Printora ativa" : "Aguardando leitura ao vivo"}</span>
             </div>
-            {calibrationExecutionBusy ? (
+            {calibrationExecutionBusy || executionRunning ? (
               <span className="calibration-live-running">
                 <LoaderCircle size={15} />
                 acompanhando a impressora
@@ -187,12 +190,12 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
               </ul>
             ) : null}
             <small>{summarizeCalibrationExecutionFinalState(calibrationExecutionResult)}</small>
-            {resultPidParameters ? (
+            {livePidParameters ? (
               <small>
-                PID: Kp {resultPidParameters.kp} · Ki {resultPidParameters.ki} · Kd {resultPidParameters.kd}
+                PID: Kp {livePidParameters.kp} · Ki {livePidParameters.ki} · Kd {livePidParameters.kd}
               </small>
             ) : null}
-            {saveConfigRequired ? (
+            {effectiveSaveConfigRequired ? (
               <div className="calibration-save-config-note">
                 <span>Valores calculados. Para aplicar no printer.cfg, execute SAVE_CONFIG. O Klipper será reiniciado.</span>
                 <button
@@ -214,7 +217,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
             {calibrationSaveConfigError || calibrationSaveConfigResult?.status === "failed" ? (
               <small className="calibration-save-config-error">{formatSaveConfigFailureMessage(calibrationSaveConfigResult, calibrationSaveConfigError)}</small>
             ) : null}
-            {saveConfigRequired && (calibrationSaveConfigError || calibrationSaveConfigResult?.status === "failed") && resultPidParameters ? (
+            {effectiveSaveConfigRequired && (calibrationSaveConfigError || calibrationSaveConfigResult?.status === "failed") && livePidParameters ? (
               <ConfigRemediationPanel
                 busy={calibrationConfigRemediationBusy}
                 error={calibrationConfigRemediationError}
@@ -306,4 +309,18 @@ function formatLivePosition(value: unknown) {
     .slice(0, 3)
     .map((axis) => (typeof axis === "number" ? Number(axis.toFixed(2)) : axis))
     .join(" / ");
+}
+
+function extractPidParametersFromConsole(lines: string[]) {
+  const match = lines
+    .join("\n")
+    .match(/pid_Kp=(?<kp>[0-9.]+)\s+pid_Ki=(?<ki>[0-9.]+)\s+pid_Kd=(?<kd>[0-9.]+)/);
+  if (!match?.groups) {
+    return null;
+  }
+  return {
+    kp: Number(match.groups.kp),
+    ki: Number(match.groups.ki),
+    kd: Number(match.groups.kd),
+  };
 }

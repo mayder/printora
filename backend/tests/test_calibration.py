@@ -907,6 +907,7 @@ def test_calibration_console_endpoint_reads_moonraker_store_via_agent(tmp_path, 
         assert calls[-1]["job_type"] == "remote_host_script"
         assert calls[-1]["payload"]["kind"] == "calibration_console"
         assert "server/gcode_store" in calls[-1]["payload"]["script"]
+        assert 'item.get("message")' in calls[-1]["payload"]["script"]
     finally:
         get_settings.cache_clear()
 
