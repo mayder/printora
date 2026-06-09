@@ -172,7 +172,7 @@ async def execute_calibration_test(
             printer,
             job_type="remote_gcode_execute",
             payload={
-                "action_id": f"calibration:{test.key}",
+                "action_id": f"calibration:{test.test_key}",
                 "criticality": "calibration",
                 "commands": gate.commands,
             },
