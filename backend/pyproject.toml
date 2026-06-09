@@ -1,6 +1,6 @@
 [project]
 name = "printora-backend"
-version = "0.1.26"
+version = "0.1.27"
 description = "Backend API for Printora."
 requires-python = ">=3.11"
 dependencies = [

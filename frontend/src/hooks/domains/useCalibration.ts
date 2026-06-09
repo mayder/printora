@@ -1,5 +1,6 @@
 import React from "react";
 import { calibrationApi } from "../../services/calibrationApi";
+import { operationApi } from "../../services/operationApi";
 import { zOffsetApi } from "../../services/zOffsetApi";
 import type {
   CalibrationAvailableTestsResponse,
@@ -9,6 +10,7 @@ import type {
   CalibrationSequencePlan,
   CalibrationSummary,
   CalibrationTestRecord,
+  OperationActionExecutionAttempt,
   ZOffsetRecord,
   ZOffsetWizardPlan,
 } from "../../types";
@@ -32,6 +34,8 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
   const [calibrationExecutions, setCalibrationExecutions] = React.useState<CalibrationExecutionRecord[]>([]);
   const [calibrationExecutionResult, setCalibrationExecutionResult] = React.useState<CalibrationExecutionRecord | null>(null);
   const [calibrationExecutionBusy, setCalibrationExecutionBusy] = React.useState(false);
+  const [calibrationSaveConfigBusy, setCalibrationSaveConfigBusy] = React.useState(false);
+  const [calibrationSaveConfigResult, setCalibrationSaveConfigResult] = React.useState<OperationActionExecutionAttempt | null>(null);
   const [calibrationHelpTestKey, setCalibrationHelpTestKey] = React.useState<string | null>(null);
   const [calibrationExecuteTestKey, setCalibrationExecuteTestKey] = React.useState<string | null>(null);
   const [calibrationResultTestKey, setCalibrationResultTestKey] = React.useState<string | null>(null);
@@ -163,6 +167,7 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     setCalibrationTestKey(test.test_key);
     setCalibrationExecuteTestKey(test.test_key);
     setCalibrationExecutionResult(null);
+    setCalibrationSaveConfigResult(null);
     setCalibrationPreflight(null);
     setCalibrationGcodeReviewed(false);
     setCalibrationOperatorPresent(false);
@@ -235,6 +240,7 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
       }
       const payload = (await response.json()) as CalibrationExecutionRecord;
       setCalibrationExecutionResult(payload);
+      setCalibrationSaveConfigResult(null);
       setCalibrationActivityCleared(false);
       await loadCalibrationRuns(selectedPrinterId);
       if (payload.status === "executed") {
@@ -247,6 +253,28 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     } finally {
       calibrationExecutionInFlightRef.current = false;
       setCalibrationExecutionBusy(false);
+    }
+  }
+
+  async function saveCalibrationConfigFromExecution() {
+    if (!selectedPrinterId || calibrationSaveConfigBusy) {
+      return;
+    }
+    setCalibrationSaveConfigBusy(true);
+    setError(null);
+    try {
+      const response = await operationApi.executeDirect(selectedPrinterId, {
+        action_id: "save_config",
+        parameters: {},
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setCalibrationSaveConfigResult((await response.json()) as OperationActionExecutionAttempt);
+    } catch (err) {
+      setError(unknownErrorMessage(err));
+    } finally {
+      setCalibrationSaveConfigBusy(false);
     }
   }
 
@@ -399,6 +427,8 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     calibrationExecutionBusy,
     calibrationExecutionResult,
     calibrationExecutions,
+    calibrationSaveConfigBusy,
+    calibrationSaveConfigResult,
     calibrationGcodeReviewed,
     calibrationHelpTest,
     calibrationHelpTestKey,
@@ -438,6 +468,7 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     openCalibrationExecute,
     openCalibrationResult,
     recentCalibrationActivityCount,
+    saveCalibrationConfigFromExecution,
     selectedCalibrationTest,
     setCalibrationActivityCleared,
     setCalibrationExecuteTestKey,

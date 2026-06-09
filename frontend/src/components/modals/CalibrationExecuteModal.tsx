@@ -13,6 +13,8 @@ type CalibrationExecuteModalProps = ScreenPropsFor<
   | "calibrationGcodeReviewed"
   | "calibrationOperatorPresent"
   | "calibrationPreflight"
+  | "calibrationSaveConfigBusy"
+  | "calibrationSaveConfigResult"
   | "executeCalibrationGcode"
   | "formatCalibrationExecutionResult"
   | "formatCalibrationExecutionStatus"
@@ -20,6 +22,7 @@ type CalibrationExecuteModalProps = ScreenPropsFor<
   | "openCalibrationResult"
   | "operationStatus"
   | "selectedPrinterId"
+  | "saveCalibrationConfigFromExecution"
   | "setCalibrationExecuteTestKey"
   | "setCalibrationExecutionConfirmation"
   | "setCalibrationGcodeReviewed"
@@ -42,6 +45,8 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
     calibrationGcodeReviewed,
     calibrationOperatorPresent,
     calibrationPreflight,
+    calibrationSaveConfigBusy,
+    calibrationSaveConfigResult,
     executeCalibrationGcode,
     formatCalibrationExecutionResult,
     formatCalibrationExecutionStatus,
@@ -49,6 +54,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
     openCalibrationResult,
     operationStatus,
     selectedPrinterId,
+    saveCalibrationConfigFromExecution,
     setCalibrationExecuteTestKey,
     setCalibrationExecutionConfirmation,
     setCalibrationGcodeReviewed,
@@ -73,6 +79,8 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
   const resultConsoleExcerpt = calibrationExecutionResult ? calibrationExecutionConsoleExcerpt(calibrationExecutionResult) : [];
   const resultPidParameters = calibrationExecutionResult ? calibrationExecutionPidParameters(calibrationExecutionResult) : null;
   const executionCompleted = calibrationExecutionResult?.status === "executed" || calibrationExecutionResult?.status === "dispatched_unconfirmed";
+  const saveConfigRequired = calibrationExecutionResult ? calibrationExecutionRequiresSaveConfig(calibrationExecutionResult) : false;
+  const saveConfigExecuted = calibrationSaveConfigResult?.status === "executed";
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Executar ${calibrationExecuteTest.title}`}>
@@ -157,10 +165,24 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
                 PID: Kp {resultPidParameters.kp} · Ki {resultPidParameters.ki} · Kd {resultPidParameters.kd}
               </small>
             ) : null}
-            {calibrationExecutionRequiresSaveConfig(calibrationExecutionResult) ? (
+            {saveConfigRequired ? (
               <div className="calibration-save-config-note">
-                Valores calculados. Para aplicar no printer.cfg, execute SAVE_CONFIG pelo Mainsail ou pela ação Salvar config em Operação. O Klipper será reiniciado.
+                <span>Valores calculados. Para aplicar no printer.cfg, execute SAVE_CONFIG. O Klipper será reiniciado.</span>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => void saveCalibrationConfigFromExecution()}
+                  disabled={!selectedPrinterId || loading || calibrationSaveConfigBusy || saveConfigExecuted}
+                >
+                  {calibrationSaveConfigBusy ? "Salvando" : saveConfigExecuted ? "Config salva" : "Salvar config"}
+                </button>
               </div>
+            ) : null}
+            {calibrationSaveConfigResult ? (
+              <small>
+                SAVE_CONFIG: {calibrationSaveConfigResult.status}
+                {calibrationSaveConfigResult.block_reason ? ` · ${calibrationSaveConfigResult.block_reason}` : ""}
+              </small>
             ) : null}
             {resultConsoleExcerpt.length ? <pre className="calibration-console-excerpt">{resultConsoleExcerpt.join("\n")}</pre> : null}
             <details>

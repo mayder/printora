@@ -510,6 +510,10 @@
 }
 
 .calibration-save-config-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   border: 1px solid var(--border-soft);
   border-left: 3px solid var(--warning);
   border-radius: 6px;
@@ -519,6 +523,14 @@
   font-size: 12px;
   line-height: 1.4;
   overflow-wrap: anywhere;
+}
+
+.calibration-save-config-note span {
+  min-width: 0;
+}
+
+.calibration-save-config-note button {
+  flex: 0 0 auto;
 }
 
 .test-modal-card .calibration-console-excerpt {
