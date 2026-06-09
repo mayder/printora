@@ -162,6 +162,17 @@ export function calibrationExecutionPidParameters(execution: CalibrationExecutio
   return { kp, ki, kd };
 }
 
+export function calibrationExecutionPidHeater(execution: CalibrationExecutionRecord) {
+  const commands = [...execution.sent_commands, ...execution.commands];
+  for (const command of commands) {
+    const match = command.match(/\bPID_CALIBRATE\b.*\bHEATER=([^\s]+)/i);
+    if (match?.[1]) {
+      return match[1].trim();
+    }
+  }
+  return null;
+}
+
 export function latestCalibrationExecutionFinalState(execution: CalibrationExecutionRecord) {
   for (let index = execution.result.length - 1; index >= 0; index -= 1) {
     const item = execution.result[index];

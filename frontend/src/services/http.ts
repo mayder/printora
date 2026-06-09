@@ -1,19 +1,45 @@
 export async function readApiError(response: Response): Promise<string> {
+  const clone = response.clone();
   try {
     const payload = await response.json();
     if (typeof payload?.detail === "string") {
       if (payload.detail === "autenticação reforçada obrigatória para ação crítica") {
         return "Ação crítica bloqueada. Gere uma autorização em Conta > 2FA e autenticação reforçada e tente novamente.";
       }
-      return payload.detail;
+      return readableApiError(payload.detail, response.status);
     }
     if (typeof payload?.message === "string") {
-      return payload.message;
+      return readableApiError(payload.message, response.status);
     }
   } catch {
-    // Fall back to the HTTP status below when the body is not JSON.
+    try {
+      return readableApiError(await clone.text(), response.status);
+    } catch {
+      // Fall back to the HTTP status below.
+    }
   }
   return `Erro ${response.status}`;
+}
+
+function readableApiError(message: string, status: number): string {
+  const compact = message.replace(/\s+/g, " ").trim();
+  const lower = compact.toLowerCase();
+  if (
+    lower.includes("error 524") ||
+    lower.includes("cloudflare") ||
+    lower.includes("cf-error") ||
+    lower.includes("<!doctype") ||
+    lower.includes("<html")
+  ) {
+    return "A requisição demorou mais que o limite do gateway. A impressora pode continuar executando; confira o histórico e o console antes de repetir.";
+  }
+  if (!compact) {
+    return `Erro ${status}`;
+  }
+  if (compact.length > 500) {
+    return `${compact.slice(0, 497)}...`;
+  }
+  return compact;
 }
 
 const AUTH_TOKEN_KEY = "printora.authToken";

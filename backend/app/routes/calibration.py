@@ -268,6 +268,7 @@ async def execute_calibration_test(
 
     try:
         command_timeout = _calibration_execution_timeout(test, settings)
+        wait_timeout = _calibration_execution_wait_timeout(test, settings, command_timeout)
         job = await AgentCommandExecutor(settings.database_path).run(
             printer,
             job_type="remote_gcode_execute",
@@ -277,7 +278,7 @@ async def execute_calibration_test(
                 "commands": gate.commands,
                 "timeout_seconds": command_timeout,
             },
-            timeout_seconds=command_timeout + 20.0,
+            timeout_seconds=wait_timeout,
         )
         result_payload = job.result or {}
         sent_commands = [str(item) for item in result_payload.get("sent_commands") or []]
@@ -419,7 +420,8 @@ def _calibration_execution_message(status: str, sent_commands: list[str], comman
     if status == "dispatched_unconfirmed":
         return (
             f"{len(sent_commands)}/{len(commands)} comando(s) despachado(s), mas o Moonraker nao confirmou "
-            "a resposta dentro do timeout. Confira a impressora antes de repetir."
+            "a resposta dentro do timeout. O comando pode continuar rodando na impressora; confira o console "
+            "ou historico antes de repetir."
         )
     if status == "failed_partial":
         return f"{len(sent_commands)}/{len(commands)} comando(s) confirmado(s); execucao parcial."
@@ -429,10 +431,17 @@ def _calibration_execution_message(status: str, sent_commands: list[str], comman
 def _calibration_execution_timeout(test, settings) -> float:
     command_text = "\n".join(test.gcode).upper()
     if "PID_CALIBRATE" in command_text:
-        return max(settings.request_timeout_seconds, 140.0)
+        return max(settings.request_timeout_seconds, 65.0)
     if "BED_MESH_CALIBRATE" in command_text or "QUAD_GANTRY_LEVEL" in command_text or "PROBE_ACCURACY" in command_text:
         return max(settings.request_timeout_seconds, 90.0)
     return max(settings.request_timeout_seconds, 45.0)
+
+
+def _calibration_execution_wait_timeout(test, settings, command_timeout: float) -> float:
+    command_text = "\n".join(test.gcode).upper()
+    if "PID_CALIBRATE" in command_text:
+        return min(max(settings.request_timeout_seconds, command_timeout + 10.0), 80.0)
+    return command_timeout + 20.0
 
 
 def _calibration_execution_results(result_payload: dict[str, Any]) -> list[dict[str, Any]]:

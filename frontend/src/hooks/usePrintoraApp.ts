@@ -200,7 +200,7 @@ export function usePrintoraApp() {
         id,
         tone: options.tone ?? "info",
         title: options.title,
-        detail: options.detail,
+        detail: compactToastDetail(options.detail),
         actionLabel: options.actionLabel,
         onAction: options.onAction,
       },
@@ -856,6 +856,17 @@ async function jsonFromSettled<T>(settled: PromiseSettledResult<Response>): Prom
     return null;
   }
   return (await settled.value.json()) as T;
+}
+
+function compactToastDetail(detail?: string): string | undefined {
+  if (!detail) {
+    return undefined;
+  }
+  const compact = detail.replace(/\s+/g, " ").trim();
+  if (compact.length <= 260) {
+    return compact;
+  }
+  return `${compact.slice(0, 257)}...`;
 }
 
 function getAlertTargetPrinterId(item: AlertCenterItem): number | null {

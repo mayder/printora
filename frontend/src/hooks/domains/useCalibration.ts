@@ -19,7 +19,7 @@ import type {
   ZOffsetWizardPlan,
   AuthUser,
 } from "../../types";
-import { calibrationExecutionPidParameters, formatDateTime, getCalibrationResultFormConfig } from "../../utils/formatters";
+import { calibrationExecutionPidHeater, calibrationExecutionPidParameters, formatDateTime, getCalibrationResultFormConfig } from "../../utils/formatters";
 import type { SetError, SetLoading } from "./shared";
 import { unknownErrorMessage } from "./shared";
 
@@ -651,8 +651,12 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
     if (!pid) {
       return null;
     }
+    const heater = calibrationExecutionPidHeater(execution);
+    if (!heater) {
+      return null;
+    }
     return {
-      section: "extruder",
+      section: heater,
       source: `calibration:${execution.test_key}`,
       options: [
         { option: "pid_Kp", value: String(pid.kp) },

@@ -16,7 +16,7 @@ export function unknownErrorMessage(error: unknown) {
 }
 
 function friendlyErrorMessage(message: string) {
-  const detail = parseErrorDetail(message);
+  const detail = normalizeReadableError(parseErrorDetail(message));
   if (detail === "autenticação reforçada obrigatória para ação crítica") {
     return "Ação crítica bloqueada. Gere uma autorização em Conta > 2FA e autenticação reforçada e tente novamente.";
   }
@@ -24,6 +24,24 @@ function friendlyErrorMessage(message: string) {
     return "Rota da API não encontrada. Atualize a página e confirme se backend e frontend estão na mesma versão.";
   }
   return detail;
+}
+
+function normalizeReadableError(message: string) {
+  const compact = message.replace(/\s+/g, " ").trim();
+  const lower = compact.toLowerCase();
+  if (
+    lower.includes("error 524") ||
+    lower.includes("cloudflare") ||
+    lower.includes("cf-error") ||
+    lower.includes("<!doctype") ||
+    lower.includes("<html")
+  ) {
+    return "A requisição demorou mais que o limite do gateway. A impressora pode continuar executando; confira o histórico e o console antes de repetir.";
+  }
+  if (compact.length > 500) {
+    return `${compact.slice(0, 497)}...`;
+  }
+  return compact;
 }
 
 function parseErrorDetail(message: string) {

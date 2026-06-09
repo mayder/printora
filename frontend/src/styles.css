@@ -1003,6 +1003,8 @@ label {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.35;
+  max-height: 4.1em;
+  overflow: hidden;
 }
 
 .toast .icon-button {

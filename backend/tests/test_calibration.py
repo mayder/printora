@@ -16,7 +16,7 @@ from app.calibration import (
 )
 from app.database import initialize_database
 from app.main import app
-from app.routes.calibration import _calibration_execution_results
+from app.routes.calibration import _calibration_execution_results, _calibration_execution_timeout, _calibration_execution_wait_timeout
 from app.printers import PrinterCreate, PrinterRepository
 
 
@@ -45,6 +45,24 @@ def test_calibration_catalog_is_seeded(tmp_path: Path) -> None:
     assert "retraction_tuning" in keys
     assert "dimensional_skew" in keys
     assert len(tests) >= 10
+
+
+def test_pid_calibration_timeout_stays_below_gateway_limit(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = CalibrationRepository(database_path)
+    settings = type("Settings", (), {"request_timeout_seconds": 5.0})()
+
+    pid_hotend = repository.get_test("pid_hotend")
+    pid_bed = repository.get_test("pid_bed")
+
+    assert pid_hotend is not None
+    assert pid_bed is not None
+    for test in (pid_hotend, pid_bed):
+        command_timeout = _calibration_execution_timeout(test, settings)
+        wait_timeout = _calibration_execution_wait_timeout(test, settings, command_timeout)
+        assert command_timeout == 65.0
+        assert wait_timeout == 75.0
 
 
 def test_calibration_catalog_is_read_only_and_classified(tmp_path: Path) -> None:
