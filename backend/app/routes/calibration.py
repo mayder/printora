@@ -98,11 +98,17 @@ async def list_calibration_executions(printer_id: int, limit: int = 20) -> dict[
 async def get_calibration_console(printer_id: int, count: int = 80) -> dict[str, Any]:
     settings = get_settings()
     printer_repository = get_printer_repository(settings)
+    repository = get_calibration_repository(settings)
     printer = printer_repository.get_printer(printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
     clean_count = min(max(count, 1), 120)
-    return await _run_calibration_console_script(settings, printer, clean_count)
+    payload = await _run_calibration_console_script(settings, printer, clean_count)
+    if payload.get("data_state") == "live":
+        updated_execution = _refresh_pending_pid_execution_from_console(repository, printer.id, payload.get("console") or [])
+        if updated_execution is not None:
+            payload["updated_execution"] = updated_execution.model_dump()
+    return payload
 
 
 @router.delete("/api/printers/{printer_id}/calibration/executions/{attempt_id}")
@@ -432,6 +438,46 @@ def _parse_calibration_console_stdout(stdout: str) -> dict[str, Any]:
             **({"error": str(parsed["error"])} if parsed.get("error") else {}),
         }
     return {"data_state": "offline", "console": [], "error": "retorno do console remoto invalido"}
+
+
+def _refresh_pending_pid_execution_from_console(
+    repository: CalibrationRepository,
+    printer_id: int,
+    console_lines: list[Any],
+) -> CalibrationExecutionRecord | None:
+    console_excerpt = [str(item) for item in console_lines if str(item).strip()]
+    if not _extract_pid_parameters(console_excerpt):
+        return None
+    execution = next(
+        (
+            item
+            for item in repository.list_execution_attempts(printer_id, limit=20)
+            if item.status == "dispatched_unconfirmed" and _execution_has_pid_calibrate_command(item)
+        ),
+        None,
+    )
+    if execution is None:
+        return None
+    result_without_old_console = [item for item in execution.result if item.get("kind") != "moonraker_console"]
+    result = [
+        *result_without_old_console,
+        *_calibration_execution_results({"console_excerpt": console_excerpt}),
+    ]
+    return repository.update_execution_attempt_result(
+        execution.id,
+        status="executed",
+        result=result,
+        message=_calibration_execution_message("executed", execution.sent_commands, execution.commands),
+    )
+
+
+def _execution_has_pid_calibrate_command(execution: CalibrationExecutionRecord) -> bool:
+    commands = [*execution.commands, *execution.sent_commands]
+    for item in execution.result:
+        command = item.get("command")
+        if isinstance(command, str):
+            commands.append(command)
+    return any(command.strip().upper().startswith("PID_CALIBRATE") for command in commands)
 
 
 async def _run_config_remediation_script(settings, printer, payload, *, mode: str, timeout_seconds: float) -> dict[str, Any]:

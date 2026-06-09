@@ -211,8 +211,8 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
                     preview={calibrationConfigRemediationPreview}
                     applyResult={calibrationConfigRemediationApplyResult}
                     selectedIds={calibrationConfigRemediationSelectedIds}
-                    onPreview={() => void previewCalibrationConfigRemediation()}
-                    onApply={() => void applyCalibrationConfigRemediation()}
+                    onPreview={() => void previewCalibrationConfigRemediation(execution)}
+                    onApply={() => void applyCalibrationConfigRemediation({ execution })}
                     onToggle={toggleCalibrationConfigRemediationTarget}
                   />
                 ) : null}

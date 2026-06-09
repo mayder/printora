@@ -138,6 +138,7 @@ export type CalibrationConsoleResponse = {
   data_state: "live" | "offline";
   console: string[];
   error?: string;
+  updated_execution?: CalibrationExecutionRecord | null;
 };
 
 export type ConfigRemediationOption = {

@@ -967,6 +967,108 @@ def test_calibration_console_endpoint_reads_moonraker_store_via_agent(tmp_path, 
         get_settings.cache_clear()
 
 
+def test_calibration_console_endpoint_completes_pending_pid_execution(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    async def fake_run(self, printer, *, job_type, payload=None, timeout_seconds=12.0, require_online=True):
+        if job_type == "remote_gcode_preflight":
+            return type(
+                "Job",
+                (),
+                {
+                    "result": {
+                        "connected": True,
+                        "printing": False,
+                        "print_state": "standby",
+                        "klipper_state": "ready",
+                        "klippy_state": "ready",
+                        "objects_list": ["toolhead", "print_stats", "heater_bed"],
+                    }
+                },
+            )()
+        if job_type == "remote_gcode_execute":
+            return type(
+                "Job",
+                (),
+                {
+                    "result": {
+                        "status": "dispatched_unconfirmed",
+                        "sent_commands": ["PID_CALIBRATE HEATER=heater_bed TARGET=60"],
+                        "results": [
+                            {
+                                "command": "PID_CALIBRATE HEATER=heater_bed TARGET=60",
+                                "accepted": True,
+                                "confirmation": "timeout_awaiting_headers",
+                            }
+                        ],
+                    }
+                },
+            )()
+        return type(
+            "Job",
+            (),
+            {
+                "result": {
+                    "exit_code": 0,
+                    "stdout": (
+                        '{"data_state":"live","console":['
+                        '"B:59.9 /60.0 T0:28.7 /0.0",'
+                        '"// PID parameters: pid_Kp=46.546 pid_Ki=1.309 pid_Kd=413.674",'
+                        '"// The SAVE_CONFIG command will update the printer config file"'
+                        "]}"
+                    ),
+                }
+            },
+        )()
+
+    monkeypatch.setattr("app.routes.calibration.AgentCommandExecutor.run", fake_run)
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            created = client.post(
+                "/api/printers",
+                json={
+                    "name": "Voron",
+                    "moonraker_url": "http://127.0.0.1:7125",
+                    "host_audit_mode": "disabled",
+                },
+            )
+            assert created.status_code == 200
+            printer_id = created.json()["id"]
+
+            execution = client.post(
+                f"/api/printers/{printer_id}/calibration/execute",
+                json={
+                    "test_key": "pid_bed",
+                    "confirmation": "EXECUTE_CALIBRATION_GCODE",
+                    "operator_present": True,
+                    "gcode_reviewed": True,
+                },
+            )
+            assert execution.status_code == 200
+            assert execution.json()["status"] == "dispatched_unconfirmed"
+
+            console = client.get(f"/api/printers/{printer_id}/calibration/console?count=20")
+            executions = client.get(f"/api/printers/{printer_id}/calibration/executions")
+
+        assert console.status_code == 200
+        updated = console.json()["updated_execution"]
+        assert updated["test_key"] == "pid_bed"
+        assert updated["status"] == "executed"
+        assert updated["result"][-1]["pid_parameters"] == {
+            "pid_Kp": 46.546,
+            "pid_Ki": 1.309,
+            "pid_Kd": 413.674,
+        }
+        assert executions.status_code == 200
+        [record] = executions.json()["executions"]
+        assert record["test_key"] == "pid_bed"
+        assert record["status"] == "executed"
+    finally:
+        get_settings.cache_clear()
+
+
 def test_calibration_execute_endpoint_blocks_immediate_duplicate(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     get_settings.cache_clear()

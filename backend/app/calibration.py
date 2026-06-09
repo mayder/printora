@@ -454,6 +454,30 @@ class CalibrationRepository:
             ).fetchall()
         return [_execution_from_row(row) for row in rows]
 
+    def update_execution_attempt_result(
+        self,
+        attempt_id: int,
+        *,
+        status: str,
+        result: list[dict[str, Any]],
+        message: str,
+    ) -> CalibrationExecutionRecord | None:
+        with connect_database(self.database_path) as connection:
+            connection.execute(
+                """
+                UPDATE calibration_execution_attempts
+                SET status = ?, result_json = ?, message = ?
+                WHERE id = ?
+                """,
+                (
+                    status,
+                    json.dumps(result, ensure_ascii=False, sort_keys=True),
+                    message,
+                    attempt_id,
+                ),
+            )
+        return self.get_execution_attempt(attempt_id)
+
     def delete_execution_attempt_if_not_latest(self, printer_id: int, attempt_id: int) -> bool:
         with connect_database(self.database_path) as connection:
             row = connection.execute(
