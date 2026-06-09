@@ -72,6 +72,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
   ];
   const resultConsoleExcerpt = calibrationExecutionResult ? calibrationExecutionConsoleExcerpt(calibrationExecutionResult) : [];
   const resultPidParameters = calibrationExecutionResult ? calibrationExecutionPidParameters(calibrationExecutionResult) : null;
+  const executionCompleted = calibrationExecutionResult?.status === "executed" || calibrationExecutionResult?.status === "dispatched_unconfirmed";
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Executar ${calibrationExecuteTest.title}`}>
@@ -163,7 +164,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
             ) : null}
             {resultConsoleExcerpt.length ? <pre className="calibration-console-excerpt">{resultConsoleExcerpt.join("\n")}</pre> : null}
             <details>
-              <summary>Retorno registrado</summary>
+              <summary>JSON técnico</summary>
               <pre>{formatCalibrationExecutionResult(calibrationExecutionResult)}</pre>
             </details>
           </div>
@@ -172,7 +173,7 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
           <button type="button" className="secondary-button" onClick={() => setCalibrationExecuteTestKey(null)}>
             Cancelar
           </button>
-          {calibrationExecutionResult?.status === "executed" || calibrationExecutionResult?.status === "dispatched_unconfirmed" ? (
+          {executionCompleted ? (
             <button
               type="button"
               className="primary-button"
@@ -193,9 +194,18 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
               setCalibrationExecutionConfirmation("EXECUTE_CALIBRATION_GCODE");
               void executeCalibrationGcode("EXECUTE_CALIBRATION_GCODE");
             }}
-            disabled={!selectedPrinterId || loading || calibrationExecutionBusy || !calibrationGcodeReviewed || !calibrationOperatorPresent || !calibrationPreflight || calibrationPreflight.blocked}
+            disabled={
+              !selectedPrinterId ||
+              loading ||
+              calibrationExecutionBusy ||
+              executionCompleted ||
+              !calibrationGcodeReviewed ||
+              !calibrationOperatorPresent ||
+              !calibrationPreflight ||
+              calibrationPreflight.blocked
+            }
           >
-            {calibrationExecutionBusy ? "Executando" : "Executar agora"}
+            {calibrationExecutionBusy ? "Executando" : executionCompleted ? "Executado" : "Executar agora"}
           </button>
         </div>
       </div>

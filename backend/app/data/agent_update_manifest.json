@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "minimum_version": "0.1.17",
-  "recommended_version": "0.1.19",
+  "recommended_version": "0.1.20",
   "blocked_versions": [],
   "protocol_version": 1,
   "protocol_min": 1,
@@ -19,9 +19,9 @@
     },
     {
       "platform": "linux/arm64",
-      "version": "0.1.19",
+      "version": "0.1.20",
       "url": "",
-      "sha256": "79348e957165760c98dc707c3e525fe12385c7fe4f2bd13fad08b14b2a645182",
+      "sha256": "e1fd8e5048eac24fb91ab8dbeaf603558ecad7dfc5b6dbf4830fc65571ae87cc",
       "signature": null,
       "protocol_min": 1,
       "protocol_max": 1

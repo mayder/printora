@@ -61,6 +61,7 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
   const [calibrationPhotoReference, setCalibrationPhotoReference] = React.useState("");
   const [calibrationOperatorPresent, setCalibrationOperatorPresent] = React.useState(false);
   const [calibrationExecutionConfirmation, setCalibrationExecutionConfirmation] = React.useState("");
+  const calibrationExecutionInFlightRef = React.useRef(false);
 
   async function loadCalibrationTests(printerId?: number) {
     const response = await calibrationApi.availableTests(printerId);
@@ -216,9 +217,10 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
   }
 
   async function executeCalibrationGcode(confirmationOverride?: string) {
-    if (!selectedPrinterId || !calibrationTestKey) {
+    if (!selectedPrinterId || !calibrationTestKey || calibrationExecutionInFlightRef.current) {
       return;
     }
+    calibrationExecutionInFlightRef.current = true;
     setCalibrationExecutionBusy(true);
     setError(null);
     try {
@@ -243,6 +245,7 @@ export function useCalibration({ selectedPrinterId, setError, setLoading }: UseC
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
+      calibrationExecutionInFlightRef.current = false;
       setCalibrationExecutionBusy(false);
     }
   }

@@ -29,6 +29,30 @@ func TestRedactingWriterHidesSecrets(t *testing.T) {
 	}
 }
 
+func TestGcodeStoreDeltaKeepsOnlyNewConsoleMessages(t *testing.T) {
+	before := []string{
+		"B:21.2 /0.0 T0:216.3 /220.0",
+		"// PID parameters: pid_Kp=42.725 pid_Ki=11.393 pid_Kd=40.055",
+		"G28",
+		"// Found active tool probe: tool_probe T0",
+	}
+	after := []string{
+		"B:21.1 /0.0 T0:214.5 /220.0",
+		"B:21.2 /0.0 T0:216.3 /220.0",
+		"// PID parameters: pid_Kp=42.725 pid_Ki=11.393 pid_Kd=40.055",
+		"G28",
+		"// Found active tool probe: tool_probe T0",
+		"G28",
+		"// toolchanger initialized, active tool T0",
+	}
+
+	delta := gcodeStoreDelta(before, after)
+
+	if strings.Join(delta, "\n") != "G28\n// toolchanger initialized, active tool T0" {
+		t.Fatalf("unexpected delta: %#v", delta)
+	}
+}
+
 func TestHostMetricsClassifiesKnownKlipperServices(t *testing.T) {
 	cases := map[string]string{
 		"/usr/local/bin/printora-agent -config /etc/printora-agent/config.json": "printora-agent",

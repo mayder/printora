@@ -526,6 +526,8 @@
   margin: 4px 0 0;
   padding: 10px;
   font-size: 12px;
+  overflow: auto;
+  white-space: pre-wrap;
 }
 
 .test-result-form {

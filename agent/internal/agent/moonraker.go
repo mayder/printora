@@ -338,6 +338,7 @@ func (c *MoonrakerClient) RemoteGcodeExecute(ctx context.Context, jobPayload map
 	detail := ""
 	timeout := payloadTimeout(jobPayload, c.http.Timeout)
 	initialConsole := c.gcodeStore(ctx, 20)
+	initialMessages := gcodeStoreMessages(initialConsole)
 	for _, command := range commands {
 		result := map[string]any{"command": command}
 		if err := c.postWithTimeout(ctx, "/printer/gcode/script", map[string]any{"script": command}, "moonraker_response", result, timeout); err != nil {
@@ -364,6 +365,7 @@ func (c *MoonrakerClient) RemoteGcodeExecute(ctx context.Context, jobPayload map
 	}
 	time.Sleep(350 * time.Millisecond)
 	finalConsole := c.gcodeStore(ctx, 30)
+	finalMessages := gcodeStoreMessages(finalConsole)
 	return sanitizeMap(map[string]any{
 		"safe_mode":       "remote_gcode_execute",
 		"kind":            "gcode_execute",
@@ -374,7 +376,7 @@ func (c *MoonrakerClient) RemoteGcodeExecute(ctx context.Context, jobPayload map
 		"results":         results,
 		"console_before":  initialConsole,
 		"console_after":   finalConsole,
-		"console_excerpt": gcodeStoreMessages(finalConsole),
+		"console_excerpt": gcodeStoreDelta(initialMessages, finalMessages),
 	})
 }
 
@@ -429,6 +431,51 @@ func gcodeStoreMessages(value any) []string {
 		}
 	}
 	return result
+}
+
+func gcodeStoreDelta(before []string, after []string) []string {
+	if len(after) == 0 {
+		return nil
+	}
+	if len(before) == 0 {
+		return after
+	}
+	start := 0
+	for overlap := minInt(len(before), len(after)); overlap > 0; overlap-- {
+		beforeSuffix := before[len(before)-overlap:]
+		for offset := 0; offset+overlap <= len(after); offset++ {
+			if !stringSlicesEqual(beforeSuffix, after[offset:offset+overlap]) {
+				continue
+			}
+			start = offset + overlap
+		}
+		if start > 0 {
+			break
+		}
+	}
+	if start >= len(after) {
+		return nil
+	}
+	return after[start:]
+}
+
+func stringSlicesEqual(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func minInt(left int, right int) int {
+	if left < right {
+		return left
+	}
+	return right
 }
 
 func (c *MoonrakerClient) Doctor(ctx context.Context) error {

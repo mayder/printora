@@ -168,6 +168,23 @@ async def execute_calibration_test(
             result=[],
             message=gate.message,
         )
+    recent_execution = repository.recent_sent_execution(printer.id, test.test_key)
+    if recent_execution is not None:
+        return repository.create_execution_attempt(
+            printer_id=printer.id,
+            test=test,
+            gate=gate,
+            status="blocked",
+            sent_commands=[],
+            result=[
+                {
+                    "blocked_duplicate_of": recent_execution.id,
+                    "last_execution_at": recent_execution.created_at,
+                    "last_sent_commands": recent_execution.sent_commands,
+                }
+            ],
+            message="Execução repetida bloqueada por segurança; aguarde alguns segundos antes de repetir o mesmo teste.",
+        )
 
     try:
         command_timeout = _calibration_execution_timeout(test, settings)

@@ -742,6 +742,76 @@ def test_calibration_execute_endpoint_preserves_dispatched_unconfirmed_status(tm
         get_settings.cache_clear()
 
 
+def test_calibration_execute_endpoint_blocks_immediate_duplicate(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    execute_calls = 0
+
+    async def fake_run(self, printer, *, job_type, payload=None, timeout_seconds=12.0, require_online=True):
+        nonlocal execute_calls
+        if job_type == "remote_gcode_preflight":
+            return type(
+                "Job",
+                (),
+                {
+                    "result": {
+                        "connected": True,
+                        "printing": False,
+                        "print_state": "standby",
+                        "klipper_state": "ready",
+                        "klippy_state": "ready",
+                        "objects_list": ["toolhead", "print_stats"],
+                    }
+                },
+            )()
+        execute_calls += 1
+        return type(
+            "Job",
+            (),
+            {
+                "result": {
+                    "status": "executed",
+                    "sent_commands": ["G28"],
+                    "results": [{"command": "G28", "accepted": True}],
+                }
+            },
+        )()
+
+    monkeypatch.setattr("app.routes.calibration.AgentCommandExecutor.run", fake_run)
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            created = client.post(
+                "/api/printers",
+                json={
+                    "name": "Voron",
+                    "moonraker_url": "http://voron.local:7125",
+                    "host_audit_mode": "disabled",
+                },
+            )
+            assert created.status_code == 200
+            printer_id = created.json()["id"]
+            body = {
+                "test_key": "homing_endstops",
+                "confirmation": "EXECUTE_CALIBRATION_GCODE",
+                "operator_present": True,
+                "gcode_reviewed": True,
+            }
+
+            first = client.post(f"/api/printers/{printer_id}/calibration/execute", json=body)
+            second = client.post(f"/api/printers/{printer_id}/calibration/execute", json=body)
+
+        assert first.status_code == 200
+        assert first.json()["status"] == "executed"
+        assert second.status_code == 200
+        assert second.json()["status"] == "blocked"
+        assert second.json()["sent_commands"] == []
+        assert "repetida bloqueada" in second.json()["message"]
+        assert execute_calls == 1
+    finally:
+        get_settings.cache_clear()
+
+
 def test_calibration_run_requires_existing_test(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)

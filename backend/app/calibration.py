@@ -421,6 +421,27 @@ class CalibrationRepository:
             ).fetchall()
         return [_execution_from_row(row) for row in rows]
 
+    def recent_sent_execution(self, printer_id: int, test_key: str, within_seconds: int = 45) -> CalibrationExecutionRecord | None:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT id, printer_id, test_key, created_at, status, confirmation_matched,
+                       operator_present, gcode_reviewed, connected, printing, print_state,
+                       klipper_state, klippy_state, commands_json, sent_commands_json,
+                       result_json, block_reasons_json, message
+                FROM calibration_execution_attempts
+                WHERE printer_id = ?
+                  AND test_key = ?
+                  AND status IN ('executed', 'dispatched_unconfirmed', 'failed_partial')
+                  AND sent_commands_json != '[]'
+                  AND created_at >= datetime('now', ?)
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """,
+                (printer_id, test_key, f"-{max(1, int(within_seconds))} seconds"),
+            ).fetchone()
+        return _execution_from_row(row) if row else None
+
 
 def _record_from_row(row) -> CalibrationTestRecord:
     return CalibrationTestRecord(
