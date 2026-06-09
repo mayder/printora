@@ -14,6 +14,8 @@ type CalibrationExecuteModalProps = ScreenPropsFor<
   | "calibrationExecutionPidParameters"
   | "calibrationExecuteTest"
   | "calibrationExecutionBusy"
+  | "calibrationLiveConsole"
+  | "calibrationLiveConsoleError"
   | "calibrationExecutionResult"
   | "calibrationExecutionRowClass"
   | "calibrationExecutionRequiresSaveConfig"
@@ -50,6 +52,8 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
     calibrationExecutionPidParameters,
     calibrationExecuteTest,
     calibrationExecutionBusy,
+    calibrationLiveConsole,
+    calibrationLiveConsoleError,
     calibrationExecutionResult,
     calibrationExecutionRowClass,
     calibrationExecutionRequiresSaveConfig,
@@ -98,8 +102,10 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
     ["Posição", formatLivePosition(operationStatus?.toolhead?.position)],
   ];
   const resultConsoleExcerpt = calibrationExecutionResult ? calibrationExecutionConsoleExcerpt(calibrationExecutionResult) : [];
+  const visibleConsole = calibrationLiveConsole.length ? calibrationLiveConsole : resultConsoleExcerpt;
   const resultPidParameters = calibrationExecutionResult ? calibrationExecutionPidParameters(calibrationExecutionResult) : null;
   const executionCompleted = calibrationExecutionResult?.status === "executed";
+  const executionRunning = calibrationExecutionResult?.status === "dispatched_unconfirmed";
   const saveConfigRequired = calibrationExecutionResult ? calibrationExecutionRequiresSaveConfig(calibrationExecutionResult) : false;
   const saveConfigExecuted = calibrationSaveConfigResult?.status === "executed";
 
@@ -220,7 +226,22 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
                 onToggle={toggleCalibrationConfigRemediationTarget}
               />
             ) : null}
-            {resultConsoleExcerpt.length ? <pre className="calibration-console-excerpt">{resultConsoleExcerpt.join("\n")}</pre> : null}
+            {executionRunning || visibleConsole.length ? (
+              <div className="calibration-live-console-panel">
+                <div>
+                  <strong>{executionRunning ? "Console ao vivo do Printora" : "Console registrado"}</strong>
+                  <span>
+                    {executionRunning
+                      ? "Atualiza automaticamente enquanto a impressora termina o comando."
+                      : "Trecho salvo com o resultado da execução."}
+                  </span>
+                </div>
+                {calibrationLiveConsoleError ? <small className="calibration-save-config-error">{calibrationLiveConsoleError}</small> : null}
+                <pre className="calibration-console-excerpt">
+                  {visibleConsole.length ? visibleConsole.join("\n") : "Aguardando novas linhas do console..."}
+                </pre>
+              </div>
+            ) : null}
             <details>
               <summary>JSON técnico</summary>
               <pre>{formatCalibrationExecutionResult(calibrationExecutionResult)}</pre>

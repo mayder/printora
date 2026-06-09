@@ -99,8 +99,13 @@
   margin-bottom: 0;
 }
 
+.calibration-step-up-card label {
+  display: grid;
+  gap: 8px;
+}
+
 .calibration-step-up-card .confirm-dialog-actions {
-  margin-top: 4px;
+  margin-top: 10px;
 }
 
 .connection-test-box {

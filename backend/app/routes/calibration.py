@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import base64
+import json
 import re
+import textwrap
 
 from fastapi import Depends, Header
 
@@ -89,6 +92,17 @@ async def list_calibration_executions(printer_id: int, limit: int = 20) -> dict[
     if printer_repository.get_printer(printer_id) is None:
         raise HTTPException(status_code=404, detail="printer not found")
     return {"executions": repository.list_execution_attempts(printer_id, limit=limit)}
+
+
+@router.get("/api/printers/{printer_id}/calibration/console")
+async def get_calibration_console(printer_id: int, count: int = 80) -> dict[str, Any]:
+    settings = get_settings()
+    printer_repository = get_printer_repository(settings)
+    printer = printer_repository.get_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    clean_count = min(max(count, 1), 120)
+    return await _run_calibration_console_script(settings, printer, clean_count)
 
 
 @router.delete("/api/printers/{printer_id}/calibration/executions/{attempt_id}")
@@ -337,6 +351,82 @@ def _calibration_agent_failure_detail(payload: dict) -> str:
     return str(detail).strip() if detail else ""
 
 
+async def _run_calibration_console_script(settings, printer, count: int) -> dict[str, Any]:
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_host_script",
+            payload={
+                "kind": "calibration_console",
+                "script": _build_calibration_console_script(str(printer.moonraker_url), count),
+                "timeout_seconds": max(settings.request_timeout_seconds, 8.0),
+            },
+            timeout_seconds=max(settings.request_timeout_seconds, 12.0),
+        )
+    except AgentJobFailedError as exc:
+        result = exc.job.result if isinstance(exc.job.result, dict) else {}
+        parsed = _parse_calibration_console_stdout(str(result.get("stdout") or ""))
+        parsed.setdefault("data_state", "offline")
+        parsed.setdefault("console", [])
+        parsed.setdefault("error", exc.detail)
+        return parsed
+    except HTTPException as exc:
+        return {"data_state": "offline", "console": [], "error": str(exc.detail)}
+    result = job.result if isinstance(job.result, dict) else {}
+    parsed = _parse_calibration_console_stdout(str(result.get("stdout") or ""))
+    if result.get("exit_code") not in (0, None):
+        parsed.setdefault("data_state", "offline")
+        parsed.setdefault("console", [])
+        parsed.setdefault("error", str(result.get("stderr") or result.get("error") or "script remoto falhou"))
+    return parsed
+
+
+def _build_calibration_console_script(moonraker_url: str, count: int) -> str:
+    payload = base64.b64encode(
+        json.dumps({"moonraker_url": moonraker_url, "count": count}, separators=(",", ":")).encode("utf-8")
+    ).decode("ascii")
+    return textwrap.dedent(
+        f"""
+        python3 - <<'PY'
+        import base64
+        import json
+        import urllib.request
+
+        payload = json.loads(base64.b64decode("{payload}").decode("utf-8"))
+        base = str(payload["moonraker_url"]).rstrip("/")
+        count = max(1, min(int(payload["count"]), 120))
+        url = f"{{base}}/server/gcode_store?count={{count}}"
+        try:
+            with urllib.request.urlopen(url, timeout=4) as response:
+                raw = json.loads(response.read().decode("utf-8"))
+            result = raw.get("result") if isinstance(raw, dict) else {{}}
+            store = result.get("gcode_store") if isinstance(result, dict) else []
+            console = [str(item) for item in store[-count:]] if isinstance(store, list) else []
+            print(json.dumps({{"data_state": "live", "console": console}}, ensure_ascii=False))
+        except Exception as exc:
+            print(json.dumps({{"data_state": "offline", "console": [], "error": str(exc)}}, ensure_ascii=False))
+        PY
+        """
+    ).strip()
+
+
+def _parse_calibration_console_stdout(stdout: str) -> dict[str, Any]:
+    for line in reversed([item.strip() for item in stdout.splitlines() if item.strip()]):
+        if not line.startswith("{"):
+            continue
+        try:
+            parsed = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        console = parsed.get("console")
+        return {
+            "data_state": "live" if parsed.get("data_state") == "live" else "offline",
+            "console": [str(item) for item in console] if isinstance(console, list) else [],
+            **({"error": str(parsed["error"])} if parsed.get("error") else {}),
+        }
+    return {"data_state": "offline", "console": [], "error": "retorno do console remoto invalido"}
+
+
 async def _run_config_remediation_script(settings, printer, payload, *, mode: str, timeout_seconds: float) -> dict[str, Any]:
     try:
         job = await AgentCommandExecutor(settings.database_path).run(
@@ -420,7 +510,7 @@ def _calibration_execution_message(status: str, sent_commands: list[str], comman
     if status == "dispatched_unconfirmed":
         return (
             f"{len(sent_commands)}/{len(commands)} comando(s) enviado(s). O Moonraker ainda nao devolveu "
-            "a resposta final; o comando pode continuar rodando na impressora. Acompanhe o console e aguarde "
+            "a resposta final; o comando pode continuar rodando na impressora. Acompanhe o console do Printora e aguarde "
             "a conclusao antes de repetir."
         )
     if status == "failed_partial":

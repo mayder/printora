@@ -558,6 +558,33 @@
   flex: 0 0 auto;
 }
 
+.calibration-live-console-panel {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  background: var(--surface-2);
+  padding: 10px;
+}
+
+.calibration-live-console-panel > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.calibration-live-console-panel strong {
+  font-size: 13px;
+}
+
+.calibration-live-console-panel span {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+
 .test-modal-card .calibration-console-excerpt {
   max-height: 180px;
   margin: 4px 0 0;

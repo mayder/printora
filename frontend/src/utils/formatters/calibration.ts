@@ -75,7 +75,7 @@ export function summarizeCalibrationExecutionFinalState(execution: CalibrationEx
   const finalState = latestCalibrationExecutionFinalState(execution);
   if (!finalState) {
     if (execution.status === "dispatched_unconfirmed") {
-      return `${execution.sent_commands.length}/${execution.commands.length} comando(s) enviado(s); aguardando resposta final no console.`;
+      return `${execution.sent_commands.length}/${execution.commands.length} comando(s) enviado(s); aguardando resposta final no console do Printora.`;
     }
     return `${execution.sent_commands.length}/${execution.commands.length} comando(s) confirmado(s)`;
   }
@@ -144,7 +144,7 @@ export function formatSaveConfigFailureMessage(result?: OperationActionExecution
   if (compact.includes("status 400")) {
     return [
       "Moonraker recusou o SAVE_CONFIG (HTTP 400).",
-      "A causa detalhada aparece no console do Klipper/Mainsail; quando for conflito com arquivo incluído, corrija a opção no include correto ou salve manualmente os valores no arquivo onde ela está definida.",
+      "A causa detalhada aparece no console do Printora; quando for conflito com arquivo incluído, corrija a opção no include correto ou salve manualmente os valores no arquivo onde ela está definida.",
     ].join(" ");
   }
   return compact;

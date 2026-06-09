@@ -15,6 +15,7 @@ export const calibrationApi = {
   summary: (printerId: number) => apiResponse(`/api/printers/${printerId}/calibration/summary`),
   sequence: (printerId: number) => apiResponse(`/api/printers/${printerId}/calibration/sequence`),
   executions: (printerId: number) => apiResponse(`/api/printers/${printerId}/calibration/executions`),
+  console: (printerId: number, count = 80) => apiResponse(`/api/printers/${printerId}/calibration/console?count=${count}`),
   createRun: (printerId: number, body: unknown) =>
     apiResponse(`/api/printers/${printerId}/calibration/runs`, {
       method: "POST",

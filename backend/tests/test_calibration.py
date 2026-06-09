@@ -860,7 +860,53 @@ def test_calibration_execute_endpoint_preserves_dispatched_unconfirmed_status(tm
         assert payload["status"] == "dispatched_unconfirmed"
         assert payload["sent_commands"] == ["G28"]
         assert "enviado" in payload["message"]
-        assert "aguarde a conclusao" in payload["message"]
+        assert "console do Printora" in payload["message"]
+    finally:
+        get_settings.cache_clear()
+
+
+def test_calibration_console_endpoint_reads_moonraker_store_via_agent(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    calls: list[dict] = []
+
+    async def fake_run(self, printer, *, job_type, payload=None, timeout_seconds=12.0, require_online=True):
+        calls.append({"job_type": job_type, "payload": payload, "timeout_seconds": timeout_seconds})
+        return type(
+            "Job",
+            (),
+            {
+                "result": {
+                    "exit_code": 0,
+                    "stdout": '{"data_state":"live","console":["B:55.0 /60.0 T0:23.7 /0.0","PID parameters: pid_Kp=1 pid_Ki=2 pid_Kd=3"]}',
+                }
+            },
+        )()
+
+    monkeypatch.setattr("app.routes.calibration.AgentCommandExecutor.run", fake_run)
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            created = client.post(
+                "/api/printers",
+                json={
+                    "name": "Voron",
+                    "moonraker_url": "http://127.0.0.1:7125",
+                    "host_audit_mode": "disabled",
+                },
+            )
+            assert created.status_code == 200
+            printer_id = created.json()["id"]
+
+            response = client.get(f"/api/printers/{printer_id}/calibration/console?count=2")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["data_state"] == "live"
+        assert payload["console"][-1] == "PID parameters: pid_Kp=1 pid_Ki=2 pid_Kd=3"
+        assert calls[-1]["job_type"] == "remote_host_script"
+        assert calls[-1]["payload"]["kind"] == "calibration_console"
+        assert "server/gcode_store" in calls[-1]["payload"]["script"]
     finally:
         get_settings.cache_clear()
 

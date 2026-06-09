@@ -134,6 +134,12 @@ export type CalibrationExecutionRecord = {
   message: string;
 };
 
+export type CalibrationConsoleResponse = {
+  data_state: "live" | "offline";
+  console: string[];
+  error?: string;
+};
+
 export type ConfigRemediationOption = {
   option: string;
   value: string;

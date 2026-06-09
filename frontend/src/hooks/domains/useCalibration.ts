@@ -6,6 +6,7 @@ import { operationApi } from "../../services/operationApi";
 import { zOffsetApi } from "../../services/zOffsetApi";
 import type {
   CalibrationAvailableTestsResponse,
+  CalibrationConsoleResponse,
   CalibrationExecutionRecord,
   CalibrationPreflight,
   CalibrationRunRecord,
@@ -41,6 +42,8 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
   const [calibrationExecutions, setCalibrationExecutions] = React.useState<CalibrationExecutionRecord[]>([]);
   const [calibrationExecutionResult, setCalibrationExecutionResult] = React.useState<CalibrationExecutionRecord | null>(null);
   const [calibrationExecutionBusy, setCalibrationExecutionBusy] = React.useState(false);
+  const [calibrationLiveConsole, setCalibrationLiveConsole] = React.useState<string[]>([]);
+  const [calibrationLiveConsoleError, setCalibrationLiveConsoleError] = React.useState("");
   const [calibrationSaveConfigBusy, setCalibrationSaveConfigBusy] = React.useState(false);
   const [calibrationSaveConfigError, setCalibrationSaveConfigError] = React.useState("");
   const [calibrationSaveConfigResult, setCalibrationSaveConfigResult] = React.useState<OperationActionExecutionAttempt | null>(null);
@@ -85,6 +88,30 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
   const [calibrationOperatorPresent, setCalibrationOperatorPresent] = React.useState(false);
   const [calibrationExecutionConfirmation, setCalibrationExecutionConfirmation] = React.useState("");
   const calibrationExecutionInFlightRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!selectedPrinterId || calibrationExecutionResult?.status !== "dispatched_unconfirmed") {
+      return;
+    }
+    const printerId = selectedPrinterId;
+    let canceled = false;
+    async function tick() {
+      const payload = await fetchCalibrationLiveConsole(printerId);
+      if (canceled || !payload) {
+        return;
+      }
+      setCalibrationLiveConsole(payload.console);
+      setCalibrationLiveConsoleError(payload.error || "");
+    }
+    void tick();
+    const intervalId = window.setInterval(() => {
+      void tick();
+    }, 3000);
+    return () => {
+      canceled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [selectedPrinterId, calibrationExecutionResult?.status, calibrationExecutionResult?.id]);
 
   async function loadCalibrationTests(printerId?: number) {
     const response = await calibrationApi.availableTests(printerId);
@@ -188,6 +215,8 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
     setCalibrationExecutionResult(null);
     setCalibrationSaveConfigError("");
     setCalibrationSaveConfigResult(null);
+    setCalibrationLiveConsole([]);
+    setCalibrationLiveConsoleError("");
     setCalibrationPreflight(null);
     setCalibrationGcodeReviewed(false);
     setCalibrationOperatorPresent(false);
@@ -264,6 +293,11 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
       setCalibrationSaveConfigResult(null);
       resetCalibrationConfigRemediation();
       setCalibrationActivityCleared(false);
+      if (payload.status === "dispatched_unconfirmed") {
+        const consolePayload = await fetchCalibrationLiveConsole(selectedPrinterId);
+        setCalibrationLiveConsole(consolePayload?.console ?? []);
+        setCalibrationLiveConsoleError(consolePayload?.error || "");
+      }
       await loadCalibrationRuns(selectedPrinterId);
       if (payload.status === "executed") {
         setCalibrationOperatorPresent(false);
@@ -305,6 +339,18 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
       setError(unknownErrorMessage(err));
     } finally {
       setCalibrationSaveConfigBusy(false);
+    }
+  }
+
+  async function fetchCalibrationLiveConsole(printerId: number) {
+    try {
+      const response = await calibrationApi.console(printerId, 80);
+      if (!response.ok) {
+        return { data_state: "offline", console: [], error: await readApiError(response) } satisfies CalibrationConsoleResponse;
+      }
+      return (await response.json()) as CalibrationConsoleResponse;
+    } catch (err) {
+      return { data_state: "offline", console: [], error: unknownErrorMessage(err) } satisfies CalibrationConsoleResponse;
     }
   }
 
@@ -685,6 +731,8 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
     calibrationExecuteTestKey,
     calibrationExecutionConfirmation,
     calibrationExecutionBusy,
+    calibrationLiveConsole,
+    calibrationLiveConsoleError,
     calibrationExecutionResult,
     calibrationExecutions,
     calibrationSaveConfigBusy,

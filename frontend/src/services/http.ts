@@ -31,7 +31,7 @@ function readableApiError(message: string, status: number): string {
     lower.includes("<!doctype") ||
     lower.includes("<html")
   ) {
-    return "A requisição demorou mais que o limite do gateway. A impressora pode continuar executando; confira o histórico e o console antes de repetir.";
+    return "A requisição demorou mais que o limite do gateway. A impressora pode continuar executando; confira o histórico no Printora antes de repetir.";
   }
   if (!compact) {
     return `Erro ${status}`;
