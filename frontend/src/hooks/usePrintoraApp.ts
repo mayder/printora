@@ -143,7 +143,7 @@ const icons = {
 
 export function usePrintoraApp() {
   const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setErrorState] = React.useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = React.useState<ConfirmDialogState>({
     open: false,
     tone: "info",
@@ -210,6 +210,16 @@ export function usePrintoraApp() {
 
   function dismissToast(toastId: number) {
     setToasts((currentToasts) => currentToasts.filter((toast) => toast.id !== toastId));
+  }
+
+  function setError(value: React.SetStateAction<string | null>) {
+    setErrorState((current) => {
+      const next = typeof value === "function" ? value(current) : value;
+      if (next) {
+        showToast({ tone: "danger", title: "Atenção", detail: next });
+      }
+      return next;
+    });
   }
 
   async function loadPrinterLocalContext(printerId: number) {
@@ -868,7 +878,7 @@ function fleetAlertTitle(printer: PrinterRecord) {
 }
 
 function fleetAlertDetail(printer: PrinterRecord) {
-  const lastSeen = printer.latest_agent_last_seen_at ? `Último contato: ${printer.latest_agent_last_seen_at}.` : "Sem último contato registrado.";
-  const snapshot = printer.latest_snapshot_at ? ` Último snapshot: ${printer.latest_snapshot_at}.` : "";
+  const lastSeen = printer.latest_agent_last_seen_at ? `Último contato: ${formatters.formatDateTime(printer.latest_agent_last_seen_at)}.` : "Sem último contato registrado.";
+  const snapshot = printer.latest_snapshot_at ? ` Último snapshot: ${formatters.formatDateTime(printer.latest_snapshot_at)}.` : "";
   return `${lastSeen}${snapshot}`;
 }

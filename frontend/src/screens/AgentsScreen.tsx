@@ -339,7 +339,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
                   ) : null}
                 </span>
                 <span>{agentVersionLabel(row.agent.agent_version, expectedAgentVersion)}</span>
-                <span>{row.agent.last_seen_at ?? "-"}</span>
+                <span>{formatDateTime(row.agent.last_seen_at)}</span>
                 <div className="printer-card-actions">
                   <button type="button" className="secondary-button" onClick={() => selectAgent(row)} disabled={loading}>
                     <Printer size={15} />
@@ -394,8 +394,8 @@ export function AgentsScreen(props: AgentsScreenProps) {
                   <Metric label="Versão" value={selectedAgentRow.agent.agent_version ?? "-"} />
                   <Metric label="Versão esperada" value={expectedAgentVersion} />
                   <Metric label="Plataforma" value={selectedAgentRow.agent.platform ?? "-"} />
-                  <Metric label="Pareado em" value={selectedAgentRow.agent.paired_at} />
-                  <Metric label="Último contato" value={selectedAgentRow.agent.last_seen_at ?? "-"} />
+                  <Metric label="Pareado em" value={formatDateTime(selectedAgentRow.agent.paired_at)} />
+                  <Metric label="Último contato" value={formatDateTime(selectedAgentRow.agent.last_seen_at)} />
                   <Metric label="Credencial" value={selectedAgentRow.agent.credential_prefix} />
                   <Metric label="Status" value={selectedAgentRow.agent.status} />
                 </div>
@@ -454,8 +454,8 @@ export function AgentsScreen(props: AgentsScreenProps) {
                 <span className={`status-pill ${agentStatusTone(row)}`}>{agentStatusLabel(row)}</span>
               </div>
               <div className="printer-card-grid">
-                <Metric label="Pareado em" value={row.agent.paired_at} />
-                <Metric label="Último contato" value={row.agent.last_seen_at ?? "-"} />
+                <Metric label="Pareado em" value={formatDateTime(row.agent.paired_at)} />
+                <Metric label="Último contato" value={formatDateTime(row.agent.last_seen_at)} />
                 <Metric label="Credencial" value={row.agent.credential_prefix} />
                 <Metric label="Online agora" value={isAgentHeartbeatRecent(row.agent) ? "sim" : "não"} />
               </div>

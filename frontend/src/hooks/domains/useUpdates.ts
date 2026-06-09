@@ -2,6 +2,7 @@ import React from "react";
 import { updatesApi } from "../../services/updatesApi";
 import { readApiError } from "../../services/http";
 import { delay, isUpdateTargetConfirmedUpdated, moonrakerWebsocketUrl, parseMoonrakerUpdateMessage } from "../../utils/formatters";
+import { formatTime } from "../../utils/formatters/dates";
 import type { PrinterRecord, UpdateActionResponse, UpdateDialogState, UpdateLogEntry } from "../../types";
 import type { ConfirmActionOptions, ShowToastOptions } from "../../types";
 import type { AlertCenterItem, UpdateComponent, UpdateStatusResponse } from "../../alertCenter";
@@ -247,7 +248,7 @@ export function useUpdates(options: UseUpdatesOptions) {
         id,
         level,
         message,
-        time: new Date().toLocaleTimeString("pt-BR", { hour12: false }),
+        time: formatTime(),
       },
     ]);
   }

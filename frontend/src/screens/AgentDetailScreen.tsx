@@ -1,4 +1,5 @@
 import { Badge, Metric } from "../components/common";
+import { formatDateTime } from "../utils/formatters";
 import type { AgentJobRecord, AgentPairingOverview, PrinterAgentRecord, PrinterRecord } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 import * as React from "react";
@@ -546,20 +547,6 @@ function numberOrNull(value: unknown) {
 
 function formatPercent(value: number | null) {
   return value == null ? "-" : `${value.toFixed(1)}%`;
-}
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value || value === "-") return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(date);
 }
 
 function formatBytes(value: number | null) {

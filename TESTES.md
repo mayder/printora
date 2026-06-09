@@ -787,6 +787,8 @@ Critérios:
 - Validar setup, ativação, login e desativação de 2FA opcional.
 - Validar step-up auth para ação destrutiva: usuário com 2FA exige código; usuário sem 2FA exige senha.
 - Validar que step-up token é curto e de uso único.
+- Validar que timezone do usuário é persistida no perfil e usada na formatação de datas da UI, sem alterar o valor bruto salvo no banco.
+- Validar que erros temporários de autenticação/perfil aparecem como toast, não como banner fixo no topo.
 - Validar que credencial completa de agente é exibida apenas na criação e armazenada somente por hash.
 - Validar que operação destrutiva chamada com sessão autenticada exige `step_up_token`.
 - Testes automatizados focados: `cd backend && uv run pytest tests/test_auth.py tests/test_schema_versioning.py tests/test_update_self.py -q`.

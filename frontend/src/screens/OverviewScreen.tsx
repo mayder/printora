@@ -1,4 +1,5 @@
 import { Badge, Metric } from "../components/common";
+import { formatDateTime } from "../utils/formatters";
 import type { AlertCenterItem } from "../alertCenter";
 import type { AgentPairingOverview, PrinterRecord } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
@@ -207,8 +208,8 @@ export function OverviewScreen(props: OverviewScreenProps) {
               <div className="printer-card-grid">
                 <Metric label="Agentes" value={String(printer.active_agent_count)} />
                 <Metric label="Versão agente" value={printer.latest_agent_version ?? "-"} />
-                <Metric label="Último contato" value={printer.latest_agent_last_seen_at ?? "-"} />
-                <Metric label="Snapshot" value={printer.latest_snapshot_at ?? "-"} />
+                <Metric label="Último contato" value={formatDateTime(printer.latest_agent_last_seen_at)} />
+                <Metric label="Snapshot" value={formatDateTime(printer.latest_snapshot_at)} />
               </div>
               <div className="printer-card-actions">
                 <button type="button" className="primary-button" onClick={() => openPrinterDetail(printer.id, "summary")} disabled={loading}>

@@ -13,6 +13,7 @@ import secrets
 import struct
 import time
 from typing import Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -44,6 +45,7 @@ class UserRegisterRequest(BaseModel):
     whatsapp: str | None = Field(default=None, max_length=40)
     telegram: str | None = Field(default=None, max_length=80)
     social_links: UserContactLinks = Field(default_factory=UserContactLinks)
+    timezone: str = Field(default="America/Sao_Paulo", min_length=1, max_length=80)
 
     @field_validator("display_name", "whatsapp", "telegram")
     @classmethod
@@ -55,17 +57,28 @@ class UserRegisterRequest(BaseModel):
     def clean_email(cls, value: str) -> str:
         return clean_email(value)
 
+    @field_validator("timezone")
+    @classmethod
+    def clean_timezone(cls, value: str) -> str:
+        return clean_timezone(value)
+
 
 class UserProfileUpdateRequest(BaseModel):
     display_name: str | None = Field(default=None, max_length=120)
     whatsapp: str | None = Field(default=None, max_length=40)
     telegram: str | None = Field(default=None, max_length=80)
     social_links: UserContactLinks = Field(default_factory=UserContactLinks)
+    timezone: str = Field(default="America/Sao_Paulo", min_length=1, max_length=80)
 
     @field_validator("display_name", "whatsapp", "telegram")
     @classmethod
     def clean_optional_text(cls, value: str | None) -> str | None:
         return clean_optional_text(value)
+
+    @field_validator("timezone")
+    @classmethod
+    def clean_profile_timezone(cls, value: str) -> str:
+        return clean_timezone(value)
 
 
 class UserPasswordUpdateRequest(BaseModel):
@@ -193,6 +206,7 @@ class AuthUser(BaseModel):
     whatsapp: str | None
     telegram: str | None
     social_links: dict[str, str | None]
+    timezone: str
     mfa_enabled: bool
     is_active: bool
     created_at: str
@@ -285,9 +299,9 @@ class AuthRepository:
                 cursor = connection.execute(
                     """
                     INSERT INTO auth_users (
-                        email, password_hash, display_name, whatsapp, telegram, social_links_json
+                        email, password_hash, display_name, whatsapp, telegram, social_links_json, timezone
                     )
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         payload.email.lower(),
@@ -296,6 +310,7 @@ class AuthRepository:
                         payload.whatsapp,
                         payload.telegram,
                         payload.social_links.model_dump_json(),
+                        payload.timezone,
                     ),
                 )
             except Exception as exc:
@@ -332,7 +347,7 @@ class AuthRepository:
             connection.execute(
                 """
                 UPDATE auth_users
-                SET display_name = ?, whatsapp = ?, telegram = ?, social_links_json = ?, updated_at = CURRENT_TIMESTAMP
+                SET display_name = ?, whatsapp = ?, telegram = ?, social_links_json = ?, timezone = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 """,
                 (
@@ -340,6 +355,7 @@ class AuthRepository:
                     payload.whatsapp,
                     payload.telegram,
                     payload.social_links.model_dump_json(),
+                    payload.timezone,
                     user_id,
                 ),
             )
@@ -1104,6 +1120,15 @@ def format_dt(value: datetime) -> str:
     return value.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def clean_timezone(value: str) -> str:
+    cleaned = value.strip()
+    try:
+        ZoneInfo(cleaned)
+    except ZoneInfoNotFoundError as exc:
+        raise ValueError("timezone inválido") from exc
+    return cleaned
+
+
 def _user_from_row(row, organizations: list[AuthOrganization]) -> AuthUser:
     return AuthUser(
         id=int(row["id"]),
@@ -1112,6 +1137,7 @@ def _user_from_row(row, organizations: list[AuthOrganization]) -> AuthUser:
         whatsapp=row["whatsapp"],
         telegram=row["telegram"],
         social_links=json.loads(row["social_links_json"] or "{}"),
+        timezone=str(row["timezone"] or "America/Sao_Paulo"),
         mfa_enabled=bool(row["mfa_enabled"]),
         is_active=bool(row["is_active"]),
         created_at=str(row["created_at"]),

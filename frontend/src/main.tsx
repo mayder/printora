@@ -57,7 +57,6 @@ function App() {
     activeSection,
     activeSectionMeta,
     alertCount,
-    error,
     mobileNavOpen,
     screenProps,
     selectedPrinter,
@@ -119,7 +118,6 @@ function App() {
   if (!screenProps.authUser) {
     return (
       <main className="auth-only-shell">
-        {error ? <section className="alert danger">{error}</section> : null}
         <AuthScreen {...screenProps} />
         <ToastViewport toasts={toasts} dismissToast={dismissToast} />
       </main>
@@ -307,8 +305,6 @@ function App() {
                 : "Selecione uma impressora para carregar os dados por contexto."}
           </span>
         </section>
-        {error ? <section className="alert danger">{error}</section> : null}
-
         <AppModals {...screenProps} />
         <ToastViewport toasts={toasts} dismissToast={dismissToast} />
 

@@ -1,16 +1,11 @@
+import { formatDateTime } from "./dates";
+
 export function formatOptionalLocalDateTime(value?: string | null) {
   return value ? formatLocalDateTime(value) : "nunca";
 }
 
 export function formatLocalDateTime(value: string | Date) {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return typeof value === "string" ? value : "-";
-  }
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(date);
+  return formatDateTime(value instanceof Date ? value.toISOString() : value);
 }
 
 export function formatOptionalNumber(value: number | null | undefined) {

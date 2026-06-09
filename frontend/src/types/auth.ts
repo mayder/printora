@@ -46,6 +46,7 @@ export interface AuthUser {
   whatsapp?: string | null;
   telegram?: string | null;
   social_links: Record<string, string | null>;
+  timezone: string;
   mfa_enabled: boolean;
   is_active: boolean;
   created_at: string;

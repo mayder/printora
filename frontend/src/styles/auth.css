@@ -353,6 +353,10 @@
   gap: 16px;
 }
 
+.profile-tabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .profile-card {
   display: grid;
   gap: 16px;

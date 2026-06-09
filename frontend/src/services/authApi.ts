@@ -22,6 +22,7 @@ export interface RegisterPayload {
   whatsapp?: string | null;
   telegram?: string | null;
   social_links?: Record<string, string | null>;
+  timezone?: string;
 }
 
 export interface ProfileUpdatePayload {
@@ -29,6 +30,7 @@ export interface ProfileUpdatePayload {
   whatsapp?: string | null;
   telegram?: string | null;
   social_links?: Record<string, string | null>;
+  timezone?: string;
 }
 
 export async function registerUser(payload: RegisterPayload): Promise<AuthSessionResponse> {

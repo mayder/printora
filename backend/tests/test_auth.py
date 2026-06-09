@@ -39,10 +39,12 @@ def test_auth_schema_is_created(tmp_path: Path) -> None:
         users = connection.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'auth_users'").fetchone()
         organizations = connection.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'auth_organizations'").fetchone()
         credentials = connection.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'agent_credentials'").fetchone()
+        timezone = connection.execute("PRAGMA table_info(auth_users)").fetchall()
 
     assert users is not None
     assert organizations is not None
     assert credentials is not None
+    assert "timezone" in {row["name"] for row in timezone}
 
 
 def test_register_login_and_session_do_not_expose_password(tmp_path: Path) -> None:
@@ -62,6 +64,7 @@ def test_register_login_and_session_do_not_expose_password(tmp_path: Path) -> No
     session_user = repository.get_user_by_session(response.access_token or "")
 
     assert user.email == "owner@example.com"
+    assert user.timezone == "America/Sao_Paulo"
     assert response.access_token is not None
     assert session_user is not None
     assert session_user.whatsapp == "+550099999999"
@@ -85,6 +88,7 @@ def test_user_can_update_profile_and_password(tmp_path: Path) -> None:
             display_name="Breno Mayder",
             whatsapp="+553199999999",
             telegram="@breno",
+            timezone="America/Sao_Paulo",
             social_links={"instagram": "@printora", "x": "@printora", "facebook": None, "website": "https://printora.local"},
         ),
     )
@@ -93,6 +97,7 @@ def test_user_can_update_profile_and_password(tmp_path: Path) -> None:
 
     assert updated.display_name == "Breno Mayder"
     assert updated.whatsapp == "+553199999999"
+    assert updated.timezone == "America/Sao_Paulo"
     assert updated.social_links["website"] == "https://printora.local"
     assert response.access_token is not None
 

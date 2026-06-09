@@ -4,6 +4,17 @@ import { formatDateTime } from "../utils/formatters";
 
 type AccountTab = "profile" | "organizations";
 const accountTabKeys: AccountTab[] = ["organizations", "profile"];
+type ProfileSection = "account" | "contacts" | "password" | "security";
+const commonTimezones = [
+  "America/Sao_Paulo",
+  "America/Manaus",
+  "America/Cuiaba",
+  "America/Rio_Branco",
+  "America/New_York",
+  "America/Los_Angeles",
+  "Europe/Lisbon",
+  "UTC",
+];
 
 type AuthScreenProps = ScreenPropsFor<
   | "KeyRound"
@@ -25,6 +36,7 @@ type AuthScreenProps = ScreenPropsFor<
   | "authMfaCode"
   | "authMode"
   | "authPassword"
+  | "authTimezone"
   | "authUser"
   | "createdOrganizationInvite"
   | "loading"
@@ -43,6 +55,7 @@ type AuthScreenProps = ScreenPropsFor<
   | "setAuthMfaCode"
   | "setAuthMode"
   | "setAuthPassword"
+  | "setAuthTimezone"
   | "setMemberEmail"
   | "setMemberRole"
   | "setOrganizationCreateOpen"
@@ -98,6 +111,7 @@ export function AuthScreen(props: AuthScreenProps) {
     authMfaCode,
     authMode,
     authPassword,
+    authTimezone,
     authUser,
     createdOrganizationInvite,
     loading,
@@ -116,6 +130,7 @@ export function AuthScreen(props: AuthScreenProps) {
     setAuthMfaCode,
     setAuthMode,
     setAuthPassword,
+    setAuthTimezone,
     setMemberEmail,
     setMemberRole,
     setOrganizationCreateOpen,
@@ -160,6 +175,8 @@ export function AuthScreen(props: AuthScreenProps) {
   const [profileX, setProfileX] = React.useState("");
   const [profileFacebook, setProfileFacebook] = React.useState("");
   const [profileWebsite, setProfileWebsite] = React.useState("");
+  const [profileTimezone, setProfileTimezone] = React.useState(authTimezone);
+  const [profileSection, setProfileSection] = React.useState<ProfileSection>("account");
   const [currentPassword, setCurrentPassword] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmNewPassword, setConfirmNewPassword] = React.useState("");
@@ -195,6 +212,8 @@ export function AuthScreen(props: AuthScreenProps) {
     setProfileX(authUser?.social_links.x ?? "");
     setProfileFacebook(authUser?.social_links.facebook ?? "");
     setProfileWebsite(authUser?.social_links.website ?? "");
+    setProfileTimezone(authUser?.timezone ?? authTimezone);
+    setAuthTimezone(authUser?.timezone ?? authTimezone);
   }, [authUser?.id]);
   const organizationByDetail = organizationDetail
     ? authUser?.organizations.find((organization) => organization.id === organizationDetail.id)
@@ -257,6 +276,7 @@ export function AuthScreen(props: AuthScreenProps) {
       display_name: profileDisplayName || null,
       whatsapp: profileWhatsapp || null,
       telegram: profileTelegram || null,
+      timezone: profileTimezone,
       social_links: {
         instagram: profileInstagram || null,
         x: profileX || null,
@@ -390,6 +410,13 @@ export function AuthScreen(props: AuthScreenProps) {
 
       {accountTab === "profile" ? (
         <div className="profile-workspace">
+          <div className="segmented-control profile-tabs" role="tablist" aria-label="Perfil">
+            <button type="button" className={profileSection === "account" ? "active" : ""} onClick={() => setProfileSection("account")}>Conta</button>
+            <button type="button" className={profileSection === "contacts" ? "active" : ""} onClick={() => setProfileSection("contacts")}>Contatos</button>
+            <button type="button" className={profileSection === "password" ? "active" : ""} onClick={() => setProfileSection("password")}>Senha</button>
+            <button type="button" className={profileSection === "security" ? "active" : ""} onClick={() => setProfileSection("security")}>Segurança</button>
+          </div>
+          {profileSection === "account" ? (
           <article className="panel auth-panel profile-card">
             <div className="profile-section-title">
               <span className="organization-card-icon"><UserRound size={17} /></span>
@@ -408,9 +435,25 @@ export function AuthScreen(props: AuthScreenProps) {
                 <span>Nome</span>
                 <input value={profileDisplayName} onChange={(event) => setProfileDisplayName(event.target.value)} placeholder="Nome exibido" />
               </label>
+              <label>
+                <span>Timezone</span>
+                <select value={profileTimezone} onChange={(event) => setProfileTimezone(event.target.value)}>
+                  {timezoneOptions(profileTimezone).map((timezone) => (
+                    <option key={timezone} value={timezone}>{timezone}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="profile-card-actions">
+              <button type="button" className="primary-button" onClick={() => void saveProfile()} disabled={loading}>
+                <ClipboardCheck size={16} />
+                Salvar perfil
+              </button>
             </div>
           </article>
+          ) : null}
 
+          {profileSection === "contacts" ? (
           <article className="panel auth-panel profile-card">
             <div className="profile-section-title">
               <span className="organization-card-icon"><Users size={17} /></span>
@@ -453,7 +496,9 @@ export function AuthScreen(props: AuthScreenProps) {
               </button>
             </div>
           </article>
+          ) : null}
 
+          {profileSection === "password" ? (
           <article className="panel auth-panel profile-card">
             <div className="profile-section-title">
               <span className="organization-card-icon"><KeyRound size={17} /></span>
@@ -484,7 +529,9 @@ export function AuthScreen(props: AuthScreenProps) {
               </button>
             </div>
           </article>
+          ) : null}
 
+          {profileSection === "security" ? (
           <article className="panel auth-panel profile-card">
             <div className="profile-section-title">
               <span className="organization-card-icon"><ShieldCheck size={17} /></span>
@@ -573,6 +620,7 @@ export function AuthScreen(props: AuthScreenProps) {
               </section>
             </div>
           </article>
+          ) : null}
         </div>
       ) : null}
 
@@ -899,6 +947,10 @@ export function AuthScreen(props: AuthScreenProps) {
       ) : null}
     </section>
   );
+}
+
+function timezoneOptions(current: string) {
+  return Array.from(new Set([current, ...commonTimezones].filter(Boolean)));
 }
 
 function readRequestedAccountTab(): AccountTab {

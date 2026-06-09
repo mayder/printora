@@ -1,4 +1,5 @@
 import { Badge, Metric } from "../components/common";
+import { formatDateTime } from "../utils/formatters";
 import type { PrinterRecord } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 
@@ -116,8 +117,8 @@ export function PrintersScreen(props: PrintersScreenProps) {
             <div className="printer-card-grid">
               <Metric label="Organização" value={printer.organization_id ? `org #${printer.organization_id}` : "individual"} />
               <Metric label="Agente" value={formatAgentSummary(printer)} />
-              <Metric label="Último snapshot" value={printer.latest_snapshot_at ?? "-"} />
-              <Metric label="Último agente" value={printer.latest_agent_last_seen_at ?? "-"} />
+              <Metric label="Último snapshot" value={formatDateTime(printer.latest_snapshot_at)} />
+              <Metric label="Último agente" value={formatDateTime(printer.latest_agent_last_seen_at)} />
               <Metric label="Host audit" value={printer.host_audit_mode} />
               <Metric label="SSH" value={formatSshStatus(printer)} />
               <Metric label="Status cloud" value={formatAgentStatus(printer)} />

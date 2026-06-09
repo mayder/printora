@@ -439,3 +439,14 @@ Contexto: o update do agente deve ser simples para usuario leigo e nao pode depe
 Decisao: o endpoint de update do agente cria job `remote_agent_update_check`, tenta entregar imediatamente via WebSocket e mantém fallback por heartbeat/polling. O manifesto publico do agente recalcula URL e SHA-256 a partir do artefato local publicado em `.artifacts/agent` antes de responder.
 Consequencias: a UI deixa de sugerir update por SSH. Se o agente estiver online e suportar o job de update, a acao chega imediatamente; se nao estiver, fica pendente para o proximo contato. Agentes legados que ainda nao suportam `remote_agent_update_check` precisam de uma atualizacao/reinstalacao manual unica para entrar no fluxo novo. Falha real passa a vir do resultado do job ou do relatorio do agente, nao do SSH da impressora.
 Como reverter: voltar `backend/app/routes/agents.py`, `backend/app/agent_support.py`, `backend/app/agent_updates.py`, `frontend/src/hooks/domains/usePrinters.ts` e documentacao.
+
+### DEC-20260609-02 - Datas usam timezone do usuario na UI
+
+Status: aceita
+Data: 2026-06-09
+Contexto: dados persistidos em SQLite usam timestamps UTC/texto sem offset em vários módulos. Somar ou subtrair horas no banco corromperia histórico e criaria divergência entre usuários.
+Decisao: adicionar `timezone` em `auth_users` e usar esse valor apenas na camada de formatação do frontend. A regra para datas novas e existentes é manter o valor bruto persistido e converter na UI por `formatDateTime`.
+Consequencias: cada usuário vê horários no próprio fuso sem regravar históricos. Novas telas devem usar o formatter centralizado em vez de `new Date(...).toLocaleString(...)` local.
+Impacto em testes: schema SQL, testes de auth, build frontend e `./check.sh`.
+Impacto em rollback: baixo; remover a coluna volta ao fuso padrão do navegador/servidor, mas históricos permanecem intactos.
+Como reverter: reverter `backend/sql/034_auth_user_timezone.sql`, campos de auth e formatter de datas do frontend.

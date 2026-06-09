@@ -1,6 +1,7 @@
 import React from "react";
 import * as authApi from "../../services/authApi";
 import { getStoredAuthToken, storeAuthToken } from "../../services/http";
+import { browserTimezone, setPrintoraUserTimezone } from "../../utils/formatters";
 import type {
   AgentCredentialRecord,
   AgentCredentialResponse,
@@ -25,6 +26,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
   const [authDisplayName, setAuthDisplayName] = React.useState("");
   const [authWhatsapp, setAuthWhatsapp] = React.useState("");
   const [authTelegram, setAuthTelegram] = React.useState("");
+  const [authTimezone, setAuthTimezone] = React.useState(browserTimezone());
   const [authMfaChallengeToken, setAuthMfaChallengeToken] = React.useState<string | null>(null);
   const [authMfaCode, setAuthMfaCode] = React.useState("");
   const [mfaSetup, setMfaSetup] = React.useState<MfaSetupResponse | null>(null);
@@ -52,6 +54,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
       user = await acceptPendingInvite(user);
     }
     setAuthUser(user);
+    setPrintoraUserTimezone(user?.timezone);
     if (!user) {
       storeAuthToken(null);
     }
@@ -74,15 +77,20 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
           display_name: authDisplayName || null,
           whatsapp: null,
           telegram: null,
+          timezone: authTimezone,
         });
-        setAuthUser(await acceptPendingInvite(response.user));
+        const user = await acceptPendingInvite(response.user);
+        setAuthUser(user);
+        setPrintoraUserTimezone(user.timezone);
         setAuthMfaChallengeToken(null);
       } else {
         const response = await authApi.loginUser(normalizedEmail, authPassword);
         if (response.mfa_required && response.challenge_token) {
           setAuthMfaChallengeToken(response.challenge_token);
         } else if (response.user) {
-          setAuthUser(await acceptPendingInvite(response.user));
+          const user = await acceptPendingInvite(response.user);
+          setAuthUser(user);
+          setPrintoraUserTimezone(user.timezone);
           setAuthMfaChallengeToken(null);
         }
       }
@@ -102,7 +110,9 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     setError(null);
     try {
       const response = await authApi.completeMfaLogin(authMfaChallengeToken, authMfaCode);
-      setAuthUser(await acceptPendingInvite(response.user));
+      const user = await acceptPendingInvite(response.user);
+      setAuthUser(user);
+      setPrintoraUserTimezone(user.timezone);
       setAuthMfaChallengeToken(null);
       setAuthMfaCode("");
     } catch (err) {
@@ -137,6 +147,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     try {
       await authApi.logoutUser();
       setAuthUser(null);
+      setPrintoraUserTimezone(null);
       setMfaSetup(null);
       setAgentCredentials([]);
       setCreatedAgentCredential(null);
@@ -192,7 +203,9 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     setLoading(true);
     setError(null);
     try {
-      setAuthUser(await authApi.updateProfile(payload));
+      const user = await authApi.updateProfile(payload);
+      setAuthUser(user);
+      setPrintoraUserTimezone(user.timezone);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao salvar perfil");
       throw err;
@@ -452,6 +465,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     authMode,
     authPassword,
     authTelegram,
+    authTimezone,
     authUser,
     authWhatsapp,
     createdAgentCredential,
@@ -490,6 +504,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     setAuthMode,
     setAuthPassword,
     setAuthTelegram,
+    setAuthTimezone,
     setAuthWhatsapp,
     setMemberEmail,
     setMemberRole,

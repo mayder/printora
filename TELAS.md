@@ -124,7 +124,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Usuário autenticado acessa Conta pelo menu do usuário no topo, com nome/ícone e dropdown; Conta não deve aparecer como item do menu lateral.
 - Itens do dropdown da conta devem abrir a aba interna correta no primeiro clique, mesmo quando a tela Conta ainda não está montada.
 - A área Conta deve separar responsabilidades em estados/telas internas: organizações e perfil.
-- O menu do usuário deve expor `Organizações` e `Perfil`; `Perfil` concentra dados do usuário, contatos/redes, alteração de senha, 2FA e autenticação reforçada em blocos separados.
+- O menu do usuário deve expor `Organizações` e `Perfil`; `Perfil` usa abas internas para `Conta`, `Contatos`, `Senha` e `Segurança`, evitando página longa.
 - Organizações na Conta devem listar todas as organizações do usuário em tela própria com ações de linha; uso individual continua disponível sem CRUD.
 - Organizações na Conta devem separar lista, detalhe, criação e edição; criação/edição abrem em modal, detalhe abre como estado dedicado em largura total e mostra membros, convites por link e impressoras vinculadas em blocos/tabelas separados.
 - Organizações na Conta devem permitir editar e excluir somente quando o usuário for `owner`; exclusão deve passar por confirmação destrutiva.
@@ -133,12 +133,12 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Agentes devem ter tela propria no menu lateral como lista global da frota. Geração de token, comando pronto de instalação, tokens por impressora e suporte da impressora ficam na aba `Agentes` do detalhe da impressora.
 - Usuário anônimo deve ver somente o shell mínimo de autenticação, sem menu lateral, seletor de impressora, alertas, telas internas ou dados operacionais.
 - Na tela Conta, email e senha são obrigatórios no cadastro; nome, WhatsApp, Telegram e demais contatos são opcionais e não bloqueiam a criação da conta.
-- Na tela Conta > Perfil, o usuário pode alterar nome, WhatsApp, Telegram e redes sociais opcionais; email permanece como identificador de login.
+- Na tela Conta > Perfil, o usuário pode alterar nome, timezone, WhatsApp, Telegram e redes sociais opcionais; email permanece como identificador de login.
 - Na tela Conta > Perfil, alteração de senha exige senha atual e confirmação da nova senha.
 - Na tela Conta, organização não é obrigatória para uso individual; quando existir, a UI permite criar organização e vincular usuários com papel `admin` ou `operator`.
 - Na tela Conta, o setup de 2FA deve exibir segredo/URI, validar código antes de ativar e exigir código atual para desativar quando 2FA estiver ativo.
 - Na tela Conta, autenticação reforçada gera autorização curta para ações críticas; usuários com 2FA usam código, usuários sem 2FA usam senha. Se a autorização faltar durante uma ação crítica de calibração, o usuário deve poder informar senha/código em modal contextual sem sair do fluxo.
-- Datas visíveis na Conta, convites e calibração devem ser exibidas em formato brasileiro e horário local do navegador enquanto não houver internacionalização dedicada.
+- Datas visíveis no sistema devem ser exibidas em formato brasileiro usando a timezone do usuário logado. O banco mantém UTC/texto original; a conversão acontece somente na formatação da UI.
 - Na tela Impressoras, o cadastro/edição da impressora separa metadados cloud, conexão Moonraker e SSH. Metadados incluem modelo, localização, tags, observações e organização opcional.
 - Na tela Impressoras, a lista mostra dados de frota e acoes de linha para editar, abrir detalhe, ler status, gerar snapshot e trocar contexto rapido. Acoes de linha usam a impressora da propria linha; contexto rapido nao deve ser pre-requisito. Status, token, instalação, pareamento e saúde de agente ficam no detalhe da impressora ou no detalhe do agente.
 - Na tela Agentes, a lista global deve mostrar versão instalada e versão esperada, com ação contextual para atualizar o agente selecionado. Agente ativo sempre recebe job remoto `remote_agent_update_check`; a UI não deve pedir SSH nem comando manual para update.
@@ -148,7 +148,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na aba `Agentes` do detalhe da impressora, a instalação assistida gera comando de preflight, comando de instalação com token curto, URL publica do binario do agente, comando de uninstall, botoes de copiar por bloco de comando e mostra validação pós-instalação por agente ativo, versão e heartbeat.
 - No detalhe do agente, saúde e suporte mostram estado online/offline, versão, protocolo, fila, falhas, alertas, doctor remoto e pacote de suporte sanitizado.
 - No detalhe do agente, o bloco `Dispositivo do agente` mostra plataforma, versão instalada/esperada, status Moonraker em card legível, API, fila/log local, leitura Raspberry de energia/throttling quando o doctor remoto retornar `raspberry_throttling` e snapshot cacheado de consumo do host enviado pelo agente a cada 5 minutos. O snapshot separa CPU/RSS por serviço detectado, usa gauges/barras para consumo atual e deixa claro que a rede é agregada do host, sem histórico dedicado.
-- No detalhe do agente, datas visíveis devem ser exibidas no formato brasileiro enquanto não houver internacionalização dedicada.
+- No detalhe do agente, datas visíveis devem ser exibidas no formato brasileiro usando a timezone do usuário logado enquanto não houver internacionalização dedicada.
 - No detalhe do agente, credencial operacional completa aparece somente no momento de troca/rotação; depois a UI mostra apenas prefixo, status, plataforma e último contato.
 - Ações operacionais da impressora não ficam na tela Agentes; operação, atualização, calibração, manutenção e firmware pertencem aos menus próprios.
 - A tela Setup deve ficar disponivel sem impressora ativa, pois seu objetivo e preparar uma Pi antes do cadastro final da impressora.
@@ -181,7 +181,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - A impressora ativa deve ser preservada no navegador e restaurada ao recarregar a tela quando ainda existir no cadastro.
 - A Home operacional deve explicar o risco principal quando o estado for `Nao imprimir` ou `Monitorar`, exibindo causa, evidencia e acao segura.
 - A Central de alertas deve consolidar Health Check, Update Manager, checklist pos-update, manutencao e auditoria por impressora com botoes de revalidacao, abertura do diagnostico ou fluxo de update quando aplicavel. Ao abrir, o filtro inicia em `Todas as impressoras`.
-- Confirmacoes de decisao devem usar modal proprio do Printora; feedback temporario de sucesso/falha deve usar toast. Dialogos nativos do navegador (`alert`/`confirm`) nao devem aparecer na UI operacional.
+- Confirmacoes de decisao devem usar modal proprio do Printora; feedback temporario de sucesso/falha/erro deve usar toast. Dialogos nativos do navegador (`alert`/`confirm`) e banners globais fixos no topo nao devem aparecer na UI operacional.
 - A tela Operacao deve ser leitura ao vivo para operador leigo: sem cadastro manual, sem checklist pos-update, sem auditoria tecnica e com graficos/indicadores que se atualizam automaticamente.
 - Na tela Operacao, temperaturas devem aparecer em tabela compacta com estado, atual, alvo editavel para heaters suportados e potencia, acompanhadas de um unico grafico combinado de evolucao por sensor/heater.
 - Na tela Operacao, extrusor, progresso de impressao, sistema, fans e CAN devem ficar na mesma tela para evitar duplicidade entre menus; o progresso de impressao deve alinhar percentual/rotulo e exibir camada atual/total quando Moonraker/Klipper fornecer esse dado. Sistema, CAN e leituras visuais devem ficar abaixo dos controles operacionais quando nao houver acao direta associada.
