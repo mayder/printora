@@ -118,11 +118,28 @@ export function calibrationExecutionConsoleExcerpt(execution: CalibrationExecuti
 }
 
 export function calibrationExecutionRequiresSaveConfig(execution: CalibrationExecutionRecord) {
+  if (calibrationExecutionConfigRemediationApplied(execution)) {
+    return false;
+  }
   const consoleRecord = calibrationExecutionConsoleRecord(execution);
   if (consoleRecord?.save_config_required === true) {
     return true;
   }
   return calibrationExecutionConsoleExcerpt(execution).join("\n").toUpperCase().includes("SAVE_CONFIG");
+}
+
+export function calibrationExecutionConfigRemediationRecord(execution: CalibrationExecutionRecord) {
+  for (let index = execution.result.length - 1; index >= 0; index -= 1) {
+    const item = execution.result[index];
+    if (item.kind === "config_remediation") {
+      return item;
+    }
+  }
+  return null;
+}
+
+export function calibrationExecutionConfigRemediationApplied(execution: CalibrationExecutionRecord) {
+  return calibrationExecutionConfigRemediationRecord(execution)?.status === "applied";
 }
 
 export function formatSaveConfigFailureMessage(result?: OperationActionExecutionAttempt | null, fallbackError = "") {

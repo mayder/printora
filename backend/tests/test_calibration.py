@@ -8,7 +8,12 @@ from fastapi.testclient import TestClient
 
 from app.agent_moonraker import agent_preflight_payload, calibration_capabilities_payload
 from app.config import get_settings
-from app.config_remediation import ConfigOptionPatch, ConfigRemediationRequest, build_config_remediation_script
+from app.config_remediation import (
+    ConfigOptionPatch,
+    ConfigRemediationApplyRequest,
+    ConfigRemediationRequest,
+    build_config_remediation_script,
+)
 from app.calibration import (
     CalibrationExecutionRequest,
     CalibrationRepository,
@@ -20,7 +25,12 @@ from app.calibration import (
 )
 from app.database import initialize_database
 from app.main import app
-from app.routes.calibration import _calibration_execution_results, _calibration_execution_timeout, _calibration_execution_wait_timeout
+from app.routes.calibration import (
+    _append_config_remediation_to_execution,
+    _calibration_execution_results,
+    _calibration_execution_timeout,
+    _calibration_execution_wait_timeout,
+)
 from app.printers import PrinterCreate, PrinterRepository
 
 
@@ -765,6 +775,82 @@ def test_calibration_execution_delete_keeps_latest_attempt(tmp_path: Path) -> No
     with pytest.raises(ValueError, match="última execução"):
         repository.delete_execution_attempt_if_not_latest(printer.id, latest.id)
     assert repository.get_execution_attempt(latest.id) is not None
+
+
+def test_config_remediation_apply_is_persisted_on_target_execution(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    printer = PrinterRepository(database_path).create_printer(
+        PrinterCreate(name="Voron", moonraker_url="http://voron.local:7125")
+    )
+    repository = CalibrationRepository(database_path)
+    test = repository.get_test("pid_bed")
+    assert test is not None
+    gate = build_calibration_execution_gate(
+        test=test,
+        payload=CalibrationExecutionRequest(
+            test_key=test.test_key,
+            confirmation="EXECUTE_CALIBRATION_GCODE",
+            operator_present=True,
+            gcode_reviewed=True,
+        ),
+        preflight={
+            "connected": True,
+            "printing": False,
+            "print_state": "standby",
+            "klipper_state": "ready",
+            "klippy_state": "ready",
+            "available_objects": ["heater_bed", "print_stats"],
+        },
+    )
+    execution = repository.create_execution_attempt(
+        printer_id=printer.id,
+        test=test,
+        gate=gate,
+        status="executed",
+        sent_commands=["PID_CALIBRATE HEATER=heater_bed TARGET=60"],
+        result=[
+            {
+                "kind": "moonraker_console",
+                "pid_parameters": {"pid_Kp": 46.869, "pid_Ki": 1.746, "pid_Kd": 314.607},
+                "save_config_required": True,
+            }
+        ],
+        message="1/1 comando(s) confirmado(s).",
+    )
+    payload = ConfigRemediationApplyRequest(
+        section="heater_bed",
+        source=f"calibration:{test.test_key}",
+        execution_id=execution.id,
+        options=[
+            ConfigOptionPatch(option="pid_Kp", value="46.869"),
+            ConfigOptionPatch(option="pid_Ki", value="1.746"),
+            ConfigOptionPatch(option="pid_Kd", value="314.607"),
+        ],
+        target_ids=["thermal/bed.cfg:heater_bed:1"],
+        step_up_token="token",
+    )
+    settings = type("Settings", (), {"database_path": database_path})()
+
+    _append_config_remediation_to_execution(
+        settings,
+        printer.id,
+        payload,
+        {
+            "status": "applied",
+            "backup_path": "/home/pi/printer_data/config/backups/printora_config_remediation",
+            "applied": [{"id": "thermal/bed.cfg:heater_bed:1"}],
+            "firmware_restart": {"status": "executed"},
+        },
+    )
+
+    updated = repository.get_execution_attempt(execution.id)
+    assert updated is not None
+    remediation = [item for item in updated.result if item.get("kind") == "config_remediation"]
+    assert len(remediation) == 1
+    assert remediation[0]["status"] == "applied"
+    assert remediation[0]["section"] == "heater_bed"
+    assert remediation[0]["backup_path"].endswith("printora_config_remediation")
 
 
 def test_calibration_run_delete_keeps_latest_result(tmp_path: Path) -> None:

@@ -157,6 +157,7 @@ async def preview_calibration_config_remediation(printer_id: int, payload: Confi
         mode="preview",
         timeout_seconds=max(settings.request_timeout_seconds, 15.0),
     )
+    result["execution_id"] = payload.execution_id
     return {"printer_id": printer.id, **result}
 
 
@@ -179,8 +180,10 @@ async def apply_calibration_config_remediation(
         mode="apply",
         timeout_seconds=max(settings.request_timeout_seconds, 20.0),
     )
+    result["execution_id"] = payload.execution_id
     if result.get("status") == "applied":
         result["firmware_restart"] = await _restart_firmware_after_config_remediation(settings, printer)
+        _append_config_remediation_to_execution(settings, printer.id, payload, result)
     return {"printer_id": printer.id, **result}
 
 
@@ -585,6 +588,47 @@ def _calibration_execution_wait_timeout(test, settings, command_timeout: float) 
     if "PID_CALIBRATE" in command_text:
         return min(max(settings.request_timeout_seconds, command_timeout + 10.0), 80.0)
     return command_timeout + 20.0
+
+
+def _append_config_remediation_to_execution(
+    settings,
+    printer_id: int,
+    payload: ConfigRemediationApplyRequest,
+    result: dict[str, Any],
+) -> None:
+    if payload.execution_id is None:
+        return
+    repository = get_calibration_repository(settings)
+    execution = repository.get_execution_attempt(payload.execution_id)
+    if execution is None or execution.printer_id != printer_id:
+        return
+    remediation_record = {
+        "kind": "config_remediation",
+        "status": result.get("status"),
+        "section": payload.section,
+        "source": payload.source,
+        "options": [option.model_dump() for option in payload.options],
+        "target_ids": payload.target_ids,
+        "backup_path": result.get("backup_path"),
+        "applied": result.get("applied"),
+        "firmware_restart": result.get("firmware_restart"),
+    }
+    merged_result = [
+        item
+        for item in execution.result
+        if not (
+            item.get("kind") == "config_remediation"
+            and item.get("section") == payload.section
+            and item.get("source") == payload.source
+        )
+    ]
+    merged_result.append(remediation_record)
+    repository.update_execution_attempt_result(
+        execution.id,
+        status=execution.status,
+        result=merged_result,
+        message=execution.message,
+    )
 
 
 def _calibration_duplicate_window(test) -> int:

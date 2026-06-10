@@ -34,6 +34,7 @@ class ConfigRemediationRequest(BaseModel):
     section: str = Field(min_length=1, max_length=120)
     options: list[ConfigOptionPatch] = Field(min_length=1, max_length=20)
     source: str = Field(default="calibration", max_length=80)
+    execution_id: int | None = Field(default=None, ge=1)
 
     @field_validator("section")
     @classmethod

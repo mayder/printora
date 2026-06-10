@@ -1,5 +1,6 @@
 import { LoaderCircle, X } from "lucide-react";
 import type { ScreenPropsFor } from "../../screens/ScreenProps";
+import { calibrationExecutionConfigRemediationApplied } from "../../utils/formatters";
 import { ConfigRemediationPanel } from "./ConfigRemediationPanel";
 
 type CalibrationExecuteModalProps = ScreenPropsFor<
@@ -24,7 +25,9 @@ type CalibrationExecuteModalProps = ScreenPropsFor<
   | "calibrationPreflight"
   | "calibrationSaveConfigBusy"
   | "calibrationSaveConfigError"
+  | "calibrationSaveConfigExecutionId"
   | "calibrationSaveConfigResult"
+  | "calibrationConfigRemediationExecutionId"
   | "executeCalibrationGcode"
   | "formatCalibrationExecutionResult"
   | "formatCalibrationExecutionStatus"
@@ -62,7 +65,9 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
     calibrationPreflight,
     calibrationSaveConfigBusy,
     calibrationSaveConfigError,
+    calibrationSaveConfigExecutionId,
     calibrationSaveConfigResult,
+    calibrationConfigRemediationExecutionId,
     applyCalibrationConfigRemediation,
     calibrationConfigRemediationApplyResult,
     calibrationConfigRemediationBusy,
@@ -109,8 +114,22 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
   const executionRunning = calibrationExecutionResult?.status === "dispatched_unconfirmed";
   const saveConfigRequired = calibrationExecutionResult ? calibrationExecutionRequiresSaveConfig(calibrationExecutionResult) : false;
   const liveSaveConfigRequired = visibleConsole.join("\n").toUpperCase().includes("SAVE_CONFIG");
-  const effectiveSaveConfigRequired = saveConfigRequired || liveSaveConfigRequired;
-  const saveConfigExecuted = calibrationSaveConfigResult?.status === "executed";
+  const currentExecutionId = calibrationExecutionResult?.id ?? null;
+  const saveConfigMatchesExecution = currentExecutionId !== null && calibrationSaveConfigExecutionId === currentExecutionId;
+  const remediationMatchesExecution = currentExecutionId !== null && calibrationConfigRemediationExecutionId === currentExecutionId;
+  const remediationApplied =
+    Boolean(calibrationExecutionResult && calibrationExecutionConfigRemediationApplied(calibrationExecutionResult)) ||
+    (remediationMatchesExecution && calibrationConfigRemediationApplyResult?.status === "applied");
+  const saveConfigExecuted = saveConfigMatchesExecution && calibrationSaveConfigResult?.status === "executed";
+  const saveConfigFailed =
+    saveConfigMatchesExecution &&
+    !remediationApplied &&
+    (Boolean(calibrationSaveConfigError) || calibrationSaveConfigResult?.status === "failed");
+  const effectiveSaveConfigRequired = !remediationApplied && (saveConfigRequired || liveSaveConfigRequired);
+  const matchingSaveConfigResult = saveConfigMatchesExecution ? calibrationSaveConfigResult : null;
+  const matchingPreview = remediationMatchesExecution ? calibrationConfigRemediationPreview : null;
+  const matchingApplyResult = remediationMatchesExecution ? calibrationConfigRemediationApplyResult : null;
+  const showRemediationPanel = livePidParameters && (saveConfigFailed || Boolean(matchingPreview) || Boolean(matchingApplyResult));
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Executar ${calibrationExecuteTest.title}`}>
@@ -201,31 +220,34 @@ export function CalibrationExecuteModal(props: CalibrationExecuteModalProps) {
                 <button
                   type="button"
                   className="secondary-button"
-                  onClick={() => void saveCalibrationConfigFromExecution()}
-                  disabled={!selectedPrinterId || loading || calibrationSaveConfigBusy || saveConfigExecuted}
+                  onClick={() => void saveCalibrationConfigFromExecution({ execution: calibrationExecutionResult })}
+                  disabled={!selectedPrinterId || loading || calibrationSaveConfigBusy || saveConfigExecuted || remediationApplied}
                 >
                   {calibrationSaveConfigBusy ? "Salvando" : saveConfigExecuted ? "Config salva" : "Salvar config"}
                 </button>
               </div>
             ) : null}
-            {calibrationSaveConfigResult ? (
+            {remediationApplied ? (
+              <small>Config aplicada no arquivo incluído com backup; o erro original do SAVE_CONFIG já foi tratado.</small>
+            ) : null}
+            {matchingSaveConfigResult && !remediationApplied ? (
               <small>
-                SAVE_CONFIG: {calibrationSaveConfigResult.status}
-                {calibrationSaveConfigResult.block_reason ? ` · ${calibrationSaveConfigResult.block_reason}` : ""}
+                SAVE_CONFIG: {matchingSaveConfigResult.status}
+                {matchingSaveConfigResult.block_reason ? ` · ${matchingSaveConfigResult.block_reason}` : ""}
               </small>
             ) : null}
-            {calibrationSaveConfigError || calibrationSaveConfigResult?.status === "failed" ? (
-              <small className="calibration-save-config-error">{formatSaveConfigFailureMessage(calibrationSaveConfigResult, calibrationSaveConfigError)}</small>
+            {saveConfigFailed ? (
+              <small className="calibration-save-config-error">{formatSaveConfigFailureMessage(matchingSaveConfigResult, calibrationSaveConfigError)}</small>
             ) : null}
-            {effectiveSaveConfigRequired && (calibrationSaveConfigError || calibrationSaveConfigResult?.status === "failed") && livePidParameters ? (
+            {showRemediationPanel ? (
               <ConfigRemediationPanel
                 busy={calibrationConfigRemediationBusy}
                 error={calibrationConfigRemediationError}
-                preview={calibrationConfigRemediationPreview}
-                applyResult={calibrationConfigRemediationApplyResult}
+                preview={matchingPreview}
+                applyResult={matchingApplyResult}
                 selectedIds={calibrationConfigRemediationSelectedIds}
-                onPreview={() => void previewCalibrationConfigRemediation()}
-                onApply={() => void applyCalibrationConfigRemediation()}
+                onPreview={() => void previewCalibrationConfigRemediation(calibrationExecutionResult)}
+                onApply={() => void applyCalibrationConfigRemediation({ execution: calibrationExecutionResult })}
                 onToggle={toggleCalibrationConfigRemediationTarget}
               />
             ) : null}

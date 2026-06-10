@@ -163,6 +163,7 @@ export type ConfigRemediationCandidate = {
 export type ConfigRemediationResult = {
   printer_id?: number;
   status: string;
+  execution_id?: number | null;
   config_root?: string;
   section?: string;
   options?: ConfigRemediationOption[];

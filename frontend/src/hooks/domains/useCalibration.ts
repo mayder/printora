@@ -47,10 +47,12 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
   const [calibrationSaveConfigBusy, setCalibrationSaveConfigBusy] = React.useState(false);
   const [calibrationSaveConfigError, setCalibrationSaveConfigError] = React.useState("");
   const [calibrationSaveConfigResult, setCalibrationSaveConfigResult] = React.useState<OperationActionExecutionAttempt | null>(null);
+  const [calibrationSaveConfigExecutionId, setCalibrationSaveConfigExecutionId] = React.useState<number | null>(null);
   const [calibrationConfigRemediationBusy, setCalibrationConfigRemediationBusy] = React.useState(false);
   const [calibrationConfigRemediationError, setCalibrationConfigRemediationError] = React.useState("");
   const [calibrationConfigRemediationPreview, setCalibrationConfigRemediationPreview] = React.useState<ConfigRemediationResult | null>(null);
   const [calibrationConfigRemediationApplyResult, setCalibrationConfigRemediationApplyResult] = React.useState<ConfigRemediationResult | null>(null);
+  const [calibrationConfigRemediationExecutionId, setCalibrationConfigRemediationExecutionId] = React.useState<number | null>(null);
   const [calibrationConfigRemediationSelectedIds, setCalibrationConfigRemediationSelectedIds] = React.useState<string[]>([]);
   const [calibrationStepUpOpen, setCalibrationStepUpOpen] = React.useState(false);
   const [calibrationStepUpPassword, setCalibrationStepUpPassword] = React.useState("");
@@ -230,8 +232,7 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
       return;
     }
     setCalibrationExecutionResult(null);
-    setCalibrationSaveConfigError("");
-    setCalibrationSaveConfigResult(null);
+    resetCalibrationSaveConfig();
     setCalibrationLiveConsole([]);
     setCalibrationLiveConsoleError("");
     setCalibrationPreflight(null);
@@ -285,8 +286,7 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
     } else if (!calibrationNozzle.trim()) {
       setCalibrationNozzle("T0");
     }
-    setCalibrationSaveConfigError("");
-    setCalibrationSaveConfigResult(null);
+    resetCalibrationSaveConfig();
     resetCalibrationConfigRemediation();
     if (selectedPrinterId && calibrationExecutions.some((execution) => execution.test_key === test.test_key && execution.status === "dispatched_unconfirmed")) {
       void fetchCalibrationLiveConsole(selectedPrinterId).then((consolePayload) => {
@@ -316,8 +316,7 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
       }
       const payload = (await response.json()) as CalibrationExecutionRecord;
       setCalibrationExecutionResult(payload);
-      setCalibrationSaveConfigError("");
-      setCalibrationSaveConfigResult(null);
+      resetCalibrationSaveConfig();
       resetCalibrationConfigRemediation();
       setCalibrationActivityCleared(false);
       if (payload.status === "dispatched_unconfirmed") {
@@ -340,12 +339,15 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
     }
   }
 
-  async function saveCalibrationConfigFromExecution(options: { suppressStepUpPrompt?: boolean } = {}) {
+  async function saveCalibrationConfigFromExecution(options: { suppressStepUpPrompt?: boolean; execution?: CalibrationExecutionRecord } = {}) {
     if (!selectedPrinterId || calibrationSaveConfigBusy) {
       return;
     }
+    const execution = options.execution ?? calibrationExecutionResult ?? calibrationResultExecutions[0] ?? null;
     setCalibrationSaveConfigBusy(true);
     setCalibrationSaveConfigError("");
+    setCalibrationSaveConfigResult(null);
+    setCalibrationSaveConfigExecutionId(execution?.id ?? null);
     setError(null);
     try {
       const response = await operationApi.executeDirect(selectedPrinterId, {
@@ -357,6 +359,7 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
         setCalibrationSaveConfigError(apiError.message);
         if (apiError.stepUpRequired && !options.suppressStepUpPrompt) {
           setCalibrationStepUpPendingAction("save_config");
+          setCalibrationStepUpPendingExecution(execution);
           setCalibrationStepUpOpen(true);
           setCalibrationStepUpError("");
         }
@@ -391,6 +394,7 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
       setCalibrationConfigRemediationError("Não consegui identificar valores calculados para corrigir o arquivo.");
       return;
     }
+    setCalibrationConfigRemediationExecutionId(request.execution_id ?? null);
     setCalibrationConfigRemediationBusy(true);
     setCalibrationConfigRemediationError("");
     setCalibrationConfigRemediationApplyResult(null);
@@ -421,6 +425,7 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
       setCalibrationConfigRemediationError("Selecione pelo menos um arquivo para aplicar.");
       return;
     }
+    setCalibrationConfigRemediationExecutionId(request.execution_id ?? null);
     setCalibrationConfigRemediationBusy(true);
     setCalibrationConfigRemediationError("");
     try {
@@ -443,6 +448,7 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
       setCalibrationConfigRemediationApplyResult(payload);
       setCalibrationConfigRemediationPreview(payload);
       await loadCalibrationRuns(selectedPrinterId);
+      await refreshCalibrationExecutionsAfterRemediation(selectedPrinterId, request.execution_id ?? null);
     } catch (err) {
       setError(unknownErrorMessage(err));
     } finally {
@@ -486,7 +492,7 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
       if (pendingAction === "config_remediation") {
         await applyCalibrationConfigRemediation({ suppressStepUpPrompt: true, execution: pendingExecution ?? undefined });
       } else {
-        await saveCalibrationConfigFromExecution({ suppressStepUpPrompt: true });
+        await saveCalibrationConfigFromExecution({ suppressStepUpPrompt: true, execution: pendingExecution ?? undefined });
       }
     } catch (err) {
       setCalibrationStepUpError(err instanceof Error ? err.message : "Falha ao gerar autorização.");
@@ -752,6 +758,7 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
     return {
       section: heater,
       source: `calibration:${execution.test_key}`,
+      execution_id: execution.id,
       options: [
         { option: "pid_Kp", value: String(pid.kp) },
         { option: "pid_Ki", value: String(pid.ki) },
@@ -764,7 +771,29 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
     setCalibrationConfigRemediationError("");
     setCalibrationConfigRemediationPreview(null);
     setCalibrationConfigRemediationApplyResult(null);
+    setCalibrationConfigRemediationExecutionId(null);
     setCalibrationConfigRemediationSelectedIds([]);
+  }
+
+  function resetCalibrationSaveConfig() {
+    setCalibrationSaveConfigError("");
+    setCalibrationSaveConfigResult(null);
+    setCalibrationSaveConfigExecutionId(null);
+  }
+
+  async function refreshCalibrationExecutionsAfterRemediation(printerId: number, executionId: number | null) {
+    const response = await calibrationApi.executions(printerId);
+    if (!response.ok) {
+      return;
+    }
+    const payload = (await response.json()) as { executions: CalibrationExecutionRecord[] };
+    setCalibrationExecutions(payload.executions);
+    if (executionId) {
+      const updated = payload.executions.find((execution) => execution.id === executionId);
+      if (updated) {
+        setCalibrationExecutionResult((current) => (current?.id === updated.id ? updated : current));
+      }
+    }
   }
 
   return {
@@ -785,7 +814,9 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
     calibrationExecutions,
     calibrationSaveConfigBusy,
     calibrationSaveConfigError,
+    calibrationSaveConfigExecutionId,
     calibrationSaveConfigResult,
+    calibrationConfigRemediationExecutionId,
     calibrationStepUpBusy,
     calibrationStepUpCode,
     calibrationStepUpError,

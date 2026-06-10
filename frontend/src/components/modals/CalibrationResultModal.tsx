@@ -1,7 +1,7 @@
 import { Download, Save, Trash2, X } from "lucide-react";
 import type { ScreenPropsFor } from "../../screens/ScreenProps";
 import type { CalibrationRunRecord } from "../../types";
-import { formatDateTime } from "../../utils/formatters";
+import { calibrationExecutionConfigRemediationApplied, formatDateTime } from "../../utils/formatters";
 import { ConfigRemediationPanel } from "./ConfigRemediationPanel";
 
 type CalibrationResultModalProps = ScreenPropsFor<
@@ -17,7 +17,9 @@ type CalibrationResultModalProps = ScreenPropsFor<
   | "calibrationExecutionRequiresSaveConfig"
   | "calibrationSaveConfigBusy"
   | "calibrationSaveConfigError"
+  | "calibrationSaveConfigExecutionId"
   | "calibrationSaveConfigResult"
+  | "calibrationConfigRemediationExecutionId"
   | "calibrationMaterial"
   | "calibrationNotes"
   | "calibrationNozzle"
@@ -63,7 +65,9 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
     calibrationExecutionRequiresSaveConfig,
     calibrationSaveConfigBusy,
     calibrationSaveConfigError,
+    calibrationSaveConfigExecutionId,
     calibrationSaveConfigResult,
+    calibrationConfigRemediationExecutionId,
     applyCalibrationConfigRemediation,
     calibrationConfigRemediationApplyResult,
     calibrationConfigRemediationBusy,
@@ -129,7 +133,20 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
             const isLatestExecution = latestCalibrationExecutionIdByTest.get(execution.test_key) === execution.id;
             const canDeleteExecution = !isLatestExecution;
             const saveConfigRequired = execution.status === "executed" && calibrationExecutionRequiresSaveConfig(execution);
-            const saveConfigExecuted = calibrationSaveConfigResult?.status === "executed";
+            const saveConfigMatchesExecution = calibrationSaveConfigExecutionId === execution.id;
+            const remediationMatchesExecution = calibrationConfigRemediationExecutionId === execution.id;
+            const remediationApplied =
+              calibrationExecutionConfigRemediationApplied(execution) ||
+              (remediationMatchesExecution && calibrationConfigRemediationApplyResult?.status === "applied");
+            const saveConfigExecuted = saveConfigMatchesExecution && calibrationSaveConfigResult?.status === "executed";
+            const saveConfigFailed =
+              saveConfigMatchesExecution &&
+              !remediationApplied &&
+              (Boolean(calibrationSaveConfigError) || calibrationSaveConfigResult?.status === "failed");
+            const matchingSaveConfigResult = saveConfigMatchesExecution ? calibrationSaveConfigResult : null;
+            const matchingPreview = remediationMatchesExecution ? calibrationConfigRemediationPreview : null;
+            const matchingApplyResult = remediationMatchesExecution ? calibrationConfigRemediationApplyResult : null;
+            const showRemediationPanel = pidParameters && (saveConfigFailed || Boolean(matchingPreview) || Boolean(matchingApplyResult));
             return (
               <div key={`execution-${execution.id}`} className={`test-history-row ${calibrationExecutionRowClass(execution.status)}`}>
                 <div className="test-history-row-heading">
@@ -139,8 +156,8 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
                       <button
                         type="button"
                         className="icon-button"
-                        onClick={() => void saveCalibrationConfigFromExecution()}
-                        disabled={!selectedPrinterId || loading || calibrationSaveConfigBusy || saveConfigExecuted}
+                        onClick={() => void saveCalibrationConfigFromExecution({ execution })}
+                        disabled={!selectedPrinterId || loading || calibrationSaveConfigBusy || saveConfigExecuted || remediationApplied}
                         title="Salvar config"
                         aria-label="Salvar config"
                       >
@@ -180,36 +197,39 @@ export function CalibrationResultModal(props: CalibrationResultModalProps) {
                     PID: Kp {pidParameters.kp} · Ki {pidParameters.ki} · Kd {pidParameters.kd}
                   </small>
                 ) : null}
-                {calibrationExecutionRequiresSaveConfig(execution) ? (
+                {calibrationExecutionRequiresSaveConfig(execution) && !remediationApplied ? (
                   <div className="calibration-save-config-note">
                     <span>O Klipper calculou novos valores, mas ainda precisa de SAVE_CONFIG para gravar no printer.cfg e reiniciar o firmware.</span>
                     {saveConfigRequired ? (
                       <button
                         type="button"
                         className="secondary-button"
-                        onClick={() => void saveCalibrationConfigFromExecution()}
-                        disabled={!selectedPrinterId || loading || calibrationSaveConfigBusy || saveConfigExecuted}
+                        onClick={() => void saveCalibrationConfigFromExecution({ execution })}
+                        disabled={!selectedPrinterId || loading || calibrationSaveConfigBusy || saveConfigExecuted || remediationApplied}
                       >
                         {calibrationSaveConfigBusy ? "Salvando" : saveConfigExecuted ? "Config salva" : "Salvar config"}
                       </button>
                     ) : null}
                   </div>
                 ) : null}
-                {saveConfigRequired && calibrationSaveConfigResult ? (
+                {remediationApplied ? (
+                  <small>Config aplicada no arquivo incluído com backup; o erro original do SAVE_CONFIG já foi tratado.</small>
+                ) : null}
+                {saveConfigRequired && matchingSaveConfigResult && !remediationApplied ? (
                   <small>
-                    SAVE_CONFIG: {calibrationSaveConfigResult.status}
-                    {calibrationSaveConfigResult.block_reason ? ` · ${calibrationSaveConfigResult.block_reason}` : ""}
+                    SAVE_CONFIG: {matchingSaveConfigResult.status}
+                    {matchingSaveConfigResult.block_reason ? ` · ${matchingSaveConfigResult.block_reason}` : ""}
                   </small>
                 ) : null}
-                {saveConfigRequired && (calibrationSaveConfigError || calibrationSaveConfigResult?.status === "failed") ? (
-                  <small className="calibration-save-config-error">{formatSaveConfigFailureMessage(calibrationSaveConfigResult, calibrationSaveConfigError)}</small>
+                {saveConfigFailed ? (
+                  <small className="calibration-save-config-error">{formatSaveConfigFailureMessage(matchingSaveConfigResult, calibrationSaveConfigError)}</small>
                 ) : null}
-                {saveConfigRequired && (calibrationSaveConfigError || calibrationSaveConfigResult?.status === "failed") && pidParameters ? (
+                {showRemediationPanel ? (
                   <ConfigRemediationPanel
                     busy={calibrationConfigRemediationBusy}
                     error={calibrationConfigRemediationError}
-                    preview={calibrationConfigRemediationPreview}
-                    applyResult={calibrationConfigRemediationApplyResult}
+                    preview={matchingPreview}
+                    applyResult={matchingApplyResult}
                     selectedIds={calibrationConfigRemediationSelectedIds}
                     onPreview={() => void previewCalibrationConfigRemediation(execution)}
                     onApply={() => void applyCalibrationConfigRemediation({ execution })}
