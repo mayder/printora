@@ -610,6 +610,52 @@ def test_config_remediation_previews_included_heater_bed_section(tmp_path: Path)
     assert "{rel}" not in "\n".join(candidate["diff"])
 
 
+def test_config_remediation_does_not_depend_on_home_for_config_root(tmp_path: Path) -> None:
+    service_home = tmp_path / "agent-home"
+    service_home.mkdir()
+    config_root = tmp_path / "real-klipper-config"
+    config_root.mkdir(parents=True)
+    (config_root / "printer.cfg").write_text("[include bed.conf]\n", encoding="utf-8")
+    (config_root / "bed.conf").write_text(
+        "\n".join(
+            [
+                "[heater_bed]",
+                "heater_pin: PB2",
+                "control: pid",
+                "pid_Kp: 10",
+                "pid_Ki: 1",
+                "pid_Kd: 100",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    request = ConfigRemediationRequest(
+        section="heater_bed",
+        options=[
+            ConfigOptionPatch(option="pid_Kp", value="46.869"),
+            ConfigOptionPatch(option="pid_Ki", value="1.746"),
+            ConfigOptionPatch(option="pid_Kd", value="314.607"),
+        ],
+    )
+
+    result = subprocess.run(
+        ["bash", "-lc", build_config_remediation_script(request, mode="preview")],
+        check=True,
+        env={**os.environ, "HOME": str(service_home), "PRINTORA_KLIPPER_CONFIG_DIR": str(config_root)},
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    payload = json.loads(result.stdout.strip().splitlines()[-1])
+
+    assert payload["status"] == "preview"
+    assert payload["config_root"] == str(config_root)
+    assert len(payload["candidates"]) == 1
+    assert payload["matched_sections"] == [{"path": "bed.conf", "start_line": 1, "end_line": 6}]
+    assert "pid_Kp: 46.869" in payload["candidates"][0]["proposed"]
+
+
 def test_all_catalogued_gcode_commands_are_allowlisted(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)

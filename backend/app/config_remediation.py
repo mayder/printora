@@ -79,9 +79,54 @@ def build_config_remediation_script(
         section = str(payload.get("section") or "").strip()
         options = [(str(item.get("option") or "").strip(), str(item.get("value") or "").strip()) for item in payload.get("options") or []]
         selected = set(str(item) for item in payload.get("target_ids") or [])
-        root = Path.home() / "printer_data" / "config"
-        if not root.is_dir():
-            print(json.dumps({"status": "failed", "error": f"config root não encontrado: {root}"}, ensure_ascii=False))
+        def _candidate_config_roots():
+            values = []
+            for env_name in ("PRINTORA_KLIPPER_CONFIG_DIR", "KLIPPER_CONFIG_DIR", "PRINTER_CONFIG_DIR", "MOONRAKER_CONFIG_DIR"):
+                raw = os.environ.get(env_name)
+                if raw:
+                    values.append(Path(raw).expanduser())
+            values.extend([
+                Path.cwd(),
+                Path.cwd() / "printer_data" / "config",
+                Path.home() / "printer_data" / "config",
+                Path("/home/pi/printer_data/config"),
+                Path("/home/biqu/printer_data/config"),
+                Path("/home/mks/printer_data/config"),
+                Path("/home/orangepi/printer_data/config"),
+            ])
+            home_root = Path("/home")
+            if home_root.is_dir():
+                values.extend(sorted(home_root.glob("*/printer_data/config")))
+            resolved = []
+            seen = set()
+            for value in values:
+                options_to_check = [value]
+                if value.name != "config":
+                    options_to_check.append(value / "printer_data" / "config")
+                for option in options_to_check:
+                    try:
+                        candidate = option.resolve()
+                    except Exception:
+                        candidate = option
+                    key = str(candidate)
+                    if key in seen or not candidate.is_dir():
+                        continue
+                    if not any(candidate.glob("*.cfg")) and not any(candidate.glob("*.conf")):
+                        continue
+                    seen.add(key)
+                    resolved.append(candidate)
+            return resolved
+
+        roots = _candidate_config_roots()
+        if not roots:
+            checked = [
+                str(Path.home() / "printer_data" / "config"),
+                "/home/pi/printer_data/config",
+                "/home/biqu/printer_data/config",
+                "/home/mks/printer_data/config",
+                "/home/orangepi/printer_data/config",
+            ]
+            print(json.dumps({"status": "failed", "error": "config root não encontrado", "checked_roots": checked}, ensure_ascii=False))
             sys.exit(2)
 
         excluded_dirs = {".git", "__pycache__", "backups", "backup", "logs", "database"}
@@ -92,15 +137,24 @@ def build_config_remediation_script(
             stripped = line.lstrip()
             return stripped and not stripped.startswith("#") and not stripped.startswith(";")
 
+        def rel_path(root, path):
+            return str(path.relative_to(root))
+
+        def display_path(root, path):
+            if len(roots) == 1:
+                return rel_path(root, path)
+            return f"{root}:{rel_path(root, path)}"
+
         def iter_config_files():
-            for path in sorted(root.rglob("*")):
-                if not path.is_file():
-                    continue
-                if any(part in excluded_dirs for part in path.relative_to(root).parts[:-1]):
-                    continue
-                if path.suffix.lower() not in {".cfg", ".conf"}:
-                    continue
-                yield path
+            for root in roots:
+                for path in sorted(root.rglob("*")):
+                    if not path.is_file():
+                        continue
+                    if any(part in excluded_dirs for part in path.relative_to(root).parts[:-1]):
+                        continue
+                    if path.suffix.lower() not in {".cfg", ".conf"}:
+                        continue
+                    yield root, path
 
         def section_blocks(lines):
             starts = []
@@ -114,8 +168,8 @@ def build_config_remediation_script(
                 end = starts[pos + 1][0] if pos + 1 < len(starts) else len(lines)
                 yield start, end, name
 
-        def target_id(rel, start, end, name):
-            return hashlib.sha256(f"{rel}:{start + 1}:{end}:{name}".encode()).hexdigest()[:16]
+        def target_id(root, rel, start, end, name):
+            return hashlib.sha256(f"{root}:{rel}:{start + 1}:{end}:{name}".encode()).hexdigest()[:16]
 
         def patch_block(lines, start, end):
             patched = list(lines)
@@ -144,15 +198,32 @@ def build_config_remediation_script(
 
         candidates = []
         file_cache = {}
-        for path in iter_config_files():
-            rel = str(path.relative_to(root))
+        scanned_files = []
+        discovered_sections = {}
+        for root, path in iter_config_files():
+            rel = rel_path(root, path)
+            label = display_path(root, path)
+            scanned_files.append(label)
             try:
                 lines = path.read_text(errors="replace").splitlines(keepends=True)
             except Exception as exc:
-                candidates.append({"path": rel, "status": "unreadable", "error": str(exc)})
+                candidates.append({
+                    "id": hashlib.sha256(f"{root}:{rel}:unreadable".encode()).hexdigest()[:16],
+                    "path": label,
+                    "status": "unreadable",
+                    "error": str(exc),
+                    "section": section,
+                    "start_line": 0,
+                    "end_line": 0,
+                    "current": "",
+                    "proposed": "",
+                    "diff": [],
+                    "changed": False,
+                })
                 continue
-            file_cache[rel] = (path, lines)
+            file_cache[str(path)] = (root, path, lines)
             for start, end, name in section_blocks(lines):
+                discovered_sections.setdefault(name, []).append({"path": label, "start_line": start + 1, "end_line": end})
                 if name != section:
                     continue
                 patched, _ = patch_block(lines, start, end)
@@ -161,13 +232,14 @@ def build_config_remediation_script(
                 diff = list(difflib.unified_diff(
                     "".join(lines[start:end]).splitlines(),
                     "".join(patched[start:end]).splitlines(),
-                    fromfile=f"{rel}:atual",
-                    tofile=f"{rel}:proposto",
+                    fromfile=f"{label}:atual",
+                    tofile=f"{label}:proposto",
                     lineterm="",
                 ))
                 candidates.append({
-                    "id": target_id(rel, start, end, name),
-                    "path": rel,
+                    "id": target_id(root, rel, start, end, name),
+                    "path": label,
+                    "file_key": str(path),
                     "section": name,
                     "start_line": start + 1,
                     "end_line": end,
@@ -177,7 +249,16 @@ def build_config_remediation_script(
                     "changed": block_before != block_after,
                 })
 
-        result = {"status": "preview", "config_root": str(root), "section": section, "options": [{"option": opt, "value": value} for opt, value in options], "candidates": candidates}
+        result = {
+            "status": "preview",
+            "config_root": ", ".join(str(root) for root in roots),
+            "section": section,
+            "options": [{"option": opt, "value": value} for opt, value in options],
+            "candidates": candidates,
+            "scanned_files": scanned_files,
+            "matched_sections": discovered_sections.get(section, []),
+            "available_sections": sorted(discovered_sections)[:80],
+        }
         if mode != "apply":
             print(json.dumps(result, ensure_ascii=False))
             sys.exit(0)
@@ -191,20 +272,22 @@ def build_config_remediation_script(
             print(json.dumps({**result, "status": "blocked", "error": "alvo inválido", "invalid_target_ids": invalid}, ensure_ascii=False))
             sys.exit(2)
 
-        backup_root = root / "backups" / ("printora_config_remediation_" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ"))
+        backup_root = roots[0] / "backups" / ("printora_config_remediation_" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ"))
         backup_root.mkdir(parents=True, exist_ok=True)
         applied = []
-        for rel, (path, original_lines) in file_cache.items():
-            selected_for_file = [item for item in candidates if item.get("path") == rel and item.get("id") in selected]
+        for file_key, (root, path, original_lines) in file_cache.items():
+            rel = rel_path(root, path)
+            selected_for_file = [item for item in candidates if item.get("file_key") == file_key and item.get("id") in selected]
             if not selected_for_file:
                 continue
             lines = list(original_lines)
-            shutil.copy2(path, backup_root / rel.replace("/", "__"))
+            backup_name = hashlib.sha256(f"{root}:{rel}".encode()).hexdigest()[:10] + "__" + rel.replace("/", "__")
+            shutil.copy2(path, backup_root / backup_name)
             for candidate in sorted(selected_for_file, key=lambda item: int(item["start_line"]), reverse=True):
                 start = int(candidate["start_line"]) - 1
                 end = int(candidate["end_line"])
                 lines, _ = patch_block(lines, start, end)
-                applied.append({"id": candidate["id"], "path": rel, "start_line": candidate["start_line"], "end_line": candidate["end_line"]})
+                applied.append({"id": candidate["id"], "path": candidate["path"], "start_line": candidate["start_line"], "end_line": candidate["end_line"]})
             path.write_text("".join(lines))
 
         print(json.dumps({**result, "status": "applied", "backup_path": str(backup_root), "applied": applied}, ensure_ascii=False))
