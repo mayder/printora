@@ -113,7 +113,12 @@ jobs:
           fi
 
           ln -sfn "$RELEASE_DIR" "$DEPLOY_BASE_PATH/current"
-          sudo -n systemctl restart printora-cloud.service
+          if sudo -n systemctl restart printora-cloud.service; then
+            echo "printora-cloud.service restarted by systemctl"
+          else
+            echo "sudo restart unavailable; terminating deploy-owned uvicorn process for systemd restart"
+            pkill -TERM -f 'uvicorn app.main:app' || true
+          fi
 
           for attempt in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8069/health >/dev/null; then
