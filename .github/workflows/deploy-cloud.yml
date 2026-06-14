@@ -139,5 +139,12 @@ jobs:
       - name: Validate public endpoint
         run: |
           set -euo pipefail
+          for attempt in $(seq 1 30); do
+            if curl -fsS https://print3dmaker.xyz/health >/dev/null \
+              && curl -fsS https://print3dmaker.xyz/api/catalog >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
           curl -fsS https://print3dmaker.xyz/health
           curl -fsS https://print3dmaker.xyz/api/catalog >/dev/null
