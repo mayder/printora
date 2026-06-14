@@ -35,12 +35,14 @@ jobs:
       - name: Package release
         run: |
           set -euo pipefail
+          DEPLOY_SHA="$(git rev-parse HEAD)"
+          echo "DEPLOY_SHA=$DEPLOY_SHA" >> "$GITHUB_ENV"
           tar \
             --exclude='.git' \
             --exclude='backend/.venv' \
             --exclude='frontend/node_modules' \
             --exclude='agent/bin' \
-            -czf /tmp/printora-cloud-release.tgz .
+            -czf "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz" .
 
       - name: Configure SSH
         env:
@@ -70,7 +72,7 @@ jobs:
       - name: Upload release bundle
         run: |
           set -euo pipefail
-          scp -i ~/.ssh/printora_key -P "$SSH_PORT" /tmp/printora-cloud-release.tgz "$SSH_USER@$SSH_HOST:/tmp/printora-cloud-release-${GITHUB_SHA}.tgz"
+          scp -i ~/.ssh/printora_key -P "$SSH_PORT" "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz" "$SSH_USER@$SSH_HOST:/tmp/printora-cloud-release-$DEPLOY_SHA.tgz"
 
       - name: Publish release on target
         env:
@@ -79,7 +81,7 @@ jobs:
           set -euo pipefail
           DEPLOY_BASE_PATH="${DEPLOY_BASE_PATH_SECRET:-$DEFAULT_DEPLOY_BASE_PATH}"
           ssh -i ~/.ssh/printora_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
-            "DEPLOY_BASE_PATH='$DEPLOY_BASE_PATH' RELEASE_SHA='$GITHUB_SHA' bash -s" <<'REMOTE'
+            "DEPLOY_BASE_PATH='$DEPLOY_BASE_PATH' RELEASE_SHA='$DEPLOY_SHA' bash -s" <<'REMOTE'
           set -euo pipefail
           RELEASE_DIR="$DEPLOY_BASE_PATH/releases/$RELEASE_SHA"
           BUNDLE="/tmp/printora-cloud-release-$RELEASE_SHA.tgz"
