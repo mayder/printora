@@ -93,6 +93,7 @@ const reportsScreenSource = await readFile(join(root, "src/screens/ReportsScreen
 const agentDetailScreenSource = await readFile(join(root, "src/screens/AgentDetailScreen.tsx"), "utf8");
 const selfUpdateModalSource = await readFile(join(root, "src/components/modals/SelfUpdateModal.tsx"), "utf8");
 const updatesScreenSource = await readFile(join(root, "src/screens/UpdatesScreen.tsx"), "utf8");
+const socialStylesSource = await readFile(join(root, "src/styles/social.css"), "utf8");
 
 assert.doesNotMatch(appSource, /fetch\(/);
 assert.match(appHookSource, /await Promise\.allSettled\(\[firmware\.loadBoardPresets\(\), printers\.loadPrinters\(\)\]\);[\s\S]*void selfUpdate\.loadSystemReleases\(\);/);
@@ -150,5 +151,7 @@ assert.match(reportsScreenSource, /Registro técnico CAN da impressora/);
 assert.match(agentDetailScreenSource, /Dispositivo do agente/);
 assert.match(agentDetailScreenSource, /raspberry_throttling/);
 assert.match(selfUpdateModalSource, /visibleSelfUpdateSteps/);
+assert.match(socialStylesSource, /\.social-screen\s*\{[\s\S]*grid-column: 1 \/ -1;/);
+assert.match(socialStylesSource, /\.social-screen\s*\{[\s\S]*min-width: 0;/);
 
 console.log("Frontend release states passed.");
