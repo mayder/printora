@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260614-01 - Social usa catálogo canônico e não permissões operacionais
+
+Status: aceita
+Data: 2026-06-14
+Contexto: os pacotes PKG-49 a PKG-53 introduzem perfil público, impressoras públicas, comunidades automáticas e grafo social. Esses recursos precisam usar inventário real e modelo canônico sem vazar endpoints, agentes, credenciais ou permissões de operação.
+Decisao: criar o domínio `social_catalog` com SQL idempotente próprio. O catálogo mestre versiona fabricante, modelo, variante e componentes. Impressoras públicas exigem `catalog_variant_id`; comunidades são derivadas automaticamente do catálogo e da publicação consentida da impressora; relações sociais ficam isoladas em `social_relationships` e não alteram organizações, ownership ou acesso operacional.
+Alternativas consideradas: usar texto livre `cloud_model`; transformar comunidade em organização operacional; misturar perfil público nos campos de conta; criar comunidades manuais antes do catálogo.
+Consequencias: recursos sociais ficam consistentes e auditáveis, com menor risco de vazamento operacional. A primeira UI é enxuta e pode evoluir para curadoria avançada sem mudar o contrato base.
+Impacto em testes: testes focados cobrem seed do catálogo, privacidade do perfil, vínculo obrigatório de impressora pública, sincronização de comunidade e bloqueio social.
+Impacto em rollback: médio; o schema adiciona tabelas sociais e colunas públicas em `printers`. O inicializador cria backup do SQLite antes de aplicar script pendente.
+Como reverter: restaurar backup do SQLite anterior ao `035_social_catalog.sql`, remover `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, tela `Social`, serviço `socialApi` e a inclusão da rota no `main.py`.
+Referencias: `backend/sql/035_social_catalog.sql`, `backend/app/social_catalog.py`, `frontend/src/screens/SocialScreen.tsx`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260530-01 - Setup do Zero começa após Linux e SSH ativo
 
 Status: aceita

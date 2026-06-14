@@ -219,6 +219,35 @@ O updater Windows usa apenas escopo de processo para a política de execução, 
 
 O catalogo do PKG-30 usa o guia Esoterical CANBus como fonte publica, mas o runtime do Printora consulta somente arquivos locais versionados em `backend/app/data/`.
 
+## Social, catálogo mestre e comunidades
+
+Endpoints principais:
+
+```bash
+curl -s http://127.0.0.1:8069/api/catalog
+curl -s http://127.0.0.1:8069/api/social/communities
+curl -s http://127.0.0.1:8069/api/social/me/profile -H "Authorization: Bearer <token>"
+```
+
+Publicação de impressora:
+
+```bash
+curl -s -X PUT http://127.0.0.1:8069/api/printers/1/public-profile \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"public_profile_enabled":true,"catalog_variant_id":1,"public_name":"Voron ABS","public_description":"Perfil público","public_mods":["Tap"]}'
+```
+
+O payload público de impressora não retorna Moonraker, SSH, agente, token, IP
+ou credencial. Comunidades são sincronizadas automaticamente quando a impressora
+é publicada/despublicada. Relações sociais e bloqueios não alteram organizações,
+ownership ou permissões operacionais.
+
+Rollback:
+
+- restaurar o backup SQLite criado automaticamente antes do script `035_social_catalog.sql`;
+- remover a tela `Social` e as rotas `/api/catalog`, `/api/social/*` se o pacote precisar ser revertido no código.
+
 Atualizar manifesto em dry-run:
 
 ```bash

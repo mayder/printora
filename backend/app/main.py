@@ -25,6 +25,7 @@ from app.routes import (
     reports,
     setup,
     snapshots,
+    social_catalog,
     system,
     z_offset,
 )
@@ -41,7 +42,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -81,6 +82,7 @@ app.include_router(printers.router)
 app.include_router(reports.router)
 app.include_router(setup.router)
 app.include_router(snapshots.router)
+app.include_router(social_catalog.router)
 app.include_router(system.router)
 app.include_router(z_offset.router)
 app.include_router(frontend.router)

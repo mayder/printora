@@ -115,7 +115,7 @@ assert.match(updatesScreenSource, /update-row-busy/);
 assert.match(overviewScreenSource, /alertBlockerCount/);
 assert.doesNotMatch(overviewScreenSource, /health\?\.counts\.blocker/);
 assert.match(navigationSource, /export type PrinterAvailability = "none" \| "unknown" \| "online" \| "offline";/);
-assert.match(navigationSource, /\{ title: "Principal", sections: \["overview", "printers", "agents", "setup"\] \}/);
+assert.match(navigationSource, /\{ title: "Principal", sections: \["overview", "printers", "agents", "social", "setup"\] \}/);
 assert.match(navigationSource, /\{ title: "Sistema", sections: \["settings"\] \}/);
 assert.doesNotMatch(navigationSource, /title: "Impressora ativa"/);
 assert.match(navigationSource, /sectionKey === "printer-detail" \|\| sectionKey === "agent-detail"/);

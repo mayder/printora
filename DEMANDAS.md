@@ -75,6 +75,34 @@
 - PKG-46: Paridade funcional remota
 - PKG-47: Operação segura remota
 - PKG-48: Observabilidade e suporte do agente
+- PKG-49: Catálogo mestre de impressoras e componentes
+- PKG-50: Perfil social do usuário
+- PKG-51: Impressoras públicas do usuário e vínculo com inventário real
+- PKG-52: Comunidades automáticas por fabricante, modelo e variante
+- PKG-53: Grafo social, amizades e bloqueios
+- PKG-54: Feed técnico por comunidade de impressora
+- PKG-55: Posts, comentários, reações e discussões técnicas
+- PKG-56: Biblioteca base de arquivos STL/3MF
+- PKG-57: Upload seguro, validação e quarentena de arquivos 3D
+- PKG-58: Visualização 3D, thumbnails e análise técnica de modelos
+- PKG-59: Licenças, autoria e atribuição de modelos
+- PKG-60: Versionamento, remix e derivados de modelos
+- PKG-61: Coleções, favoritos, downloads e listas de impressão
+- PKG-62: Configurações técnicas compartilhadas por impressora
+- PKG-63: Perfis de material e fatiamento compartilháveis
+- PKG-64: Busca, tags e descoberta de conteúdo
+- PKG-65: Ranking, recomendações e reputação técnica
+- PKG-66: Moderação, denúncias e curadoria
+- PKG-67: Notificações sociais e acompanhamento de conteúdo
+- PKG-68: Privacidade, segurança social e antiabuso
+- PKG-69: Armazenamento, cotas, retenção e custos de arquivos
+- PKG-70: Ponte controlada com engine de fatiamento
+- PKG-71: Pipeline de fatiamento por perfil e impressora
+- PKG-72: Preflight de impressão a partir de arquivo fatiado
+- PKG-73: Envio seguro de G-code para impressora
+- PKG-74: Histórico de trabalhos, resultados e telemetria de impressão
+- PKG-75: Marketplace e curadoria de conteúdo premium
+- PKG-76: Integrações externas e importação de bibliotecas
 
 ## Política De Backlog
 
@@ -3210,3 +3238,1135 @@ Implementado:
 - UI na tela Impressoras com saúde do agente, alertas, doctor remoto e pacote de suporte;
 - política de retenção documentada para eventos/jobs de agente usando as tabelas existentes;
 - testes backend e agente para escopo, alertas, doctor remoto e sanitização.
+
+## PKG-49: Catálogo Mestre De Impressoras E Componentes
+
+Objetivo:
+
+Criar a base canônica de fabricantes, modelos, variantes e componentes para sustentar comunidades automáticas, biblioteca de modelos, perfis técnicos e fatiamento seguro.
+
+Dependências:
+
+- PKG-39 para autenticação e ownership.
+- PKG-40 para cadastro cloud de impressoras.
+
+Entregáveis:
+
+- catálogo versionado de fabricantes, modelos de impressora e variantes;
+- componentes normalizados: mainboard, MCU, toolhead, extrusor, hotend, probe, mesa, volume útil, cinemática e firmware;
+- vínculo entre impressora cadastrada e entrada do catálogo;
+- estado de confiança do item: oficial, comunidade, rascunho, obsoleto ou bloqueado;
+- origem e auditoria de alteração do catálogo;
+- UI administrativa para curadoria inicial;
+- documentação em `TELAS.md`, `TESTES.md` e `DECISOES.md` se houver decisão de schema.
+
+Lotes:
+
+1. Modelo de dados e SQL idempotente do catálogo.
+2. Seed inicial com Voron 0.2, Voron 2.4 e variantes comuns.
+3. Endpoints read-only e administrativos protegidos.
+4. Vínculo da impressora cloud ao catálogo.
+5. UI de curadoria e seleção assistida.
+6. Testes de contrato, duplicidade e obsolescência.
+
+Critério de aceite:
+
+- nenhum recurso social depende de texto livre de modelo de impressora;
+- variantes técnicas podem evoluir sem quebrar impressoras já cadastradas;
+- alteração de catálogo é auditável;
+- usuário comum não edita catálogo canônico sem fluxo de curadoria;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado via SQL idempotente `backend/sql/035_social_catalog.sql`.
+- Seed inicial inclui Voron Design, Voron 0.2, Voron 2.4 e variantes 120/300/350mm.
+- Endpoints `/api/catalog` e rotas administrativas protegidas por usuário administrador foram criados.
+- Impressoras cloud podem ser vinculadas a variante canônica para publicação social.
+- UI inicial de curadoria/seleção fica na tela `Social`.
+- Testes cobrem seed, privacidade, vínculo obrigatório com catálogo e duplicidade de mods públicos.
+
+## PKG-50: Perfil Social Do Usuário
+
+Objetivo:
+
+Separar a identidade pública/social do usuário da conta operacional, permitindo exibir perfil, bio, foto, impressoras públicas e preferências de comunidade sem expor permissões ou dados sensíveis.
+
+Dependências:
+
+- PKG-39.
+
+Entregáveis:
+
+- perfil público com nome exibido, avatar, bio curta, localização opcional e links sociais opcionais;
+- slug público único e editável com histórico mínimo para evitar abuso;
+- controles de visibilidade do perfil;
+- separação explícita entre perfil social e organização operacional;
+- UI de edição de perfil;
+- testes de privacidade, slug, visibilidade e sanitização.
+
+Lotes:
+
+1. SQL idempotente e contrato de perfil público.
+2. Serviço de perfil e slug.
+3. Visibilidade e privacidade.
+4. UI de edição e visualização pública.
+5. Testes e documentação.
+
+Critério de aceite:
+
+- perfil social não concede acesso a impressoras;
+- dados privados da conta não aparecem no perfil público;
+- usuário pode ocultar perfil ou campos opcionais;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado via tabela `social_profiles`, histórico de slug e endpoints `/api/social/me/profile`.
+- Perfil público separa display/bio/avatar/localização/links da conta operacional e não expõe email, WhatsApp, permissões ou organização.
+- UI de edição e visualização resumida fica na tela `Social`.
+- Testes cobrem sanitização de links, privacidade e slug público.
+
+## PKG-51: Impressoras Públicas Do Usuário E Vínculo Com Inventário Real
+
+Objetivo:
+
+Permitir que o usuário escolha quais impressoras aparecem publicamente e usar esse vínculo para entrar nas comunidades corretas por fabricante, modelo e variante.
+
+Dependências:
+
+- PKG-40.
+- PKG-49.
+- PKG-50.
+
+Entregáveis:
+
+- estado público/privado por impressora;
+- página pública da impressora com modelo, variante, mods públicos e imagens opcionais;
+- vínculo obrigatório com catálogo mestre para impressoras públicas;
+- prova de posse operacional pelo cadastro autenticado, sem expor endpoint Moonraker, agente ou credenciais;
+- sincronização de comunidades automáticas por modelo;
+- UI para tornar impressora pública ou privada.
+
+Lotes:
+
+1. Modelo de visibilidade por impressora.
+2. Página pública da impressora.
+3. Vínculo com catálogo e validação de variante.
+4. Sincronização inicial de comunidade.
+5. UI e testes de privacidade.
+
+Critério de aceite:
+
+- impressora privada não aparece em busca, perfil público ou comunidade;
+- URL Moonraker, agente, token, IP e SSH nunca aparecem publicamente;
+- comunidade automática só usa impressora pública ou autorizada pelo usuário;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado via colunas públicas em `printers` e endpoint `/api/printers/{printer_id}/public-profile`.
+- Publicação exige `catalog_variant_id` válido e pertence ao usuário autenticado dono da impressora.
+- Payload público não retorna `moonraker_url`, SSH, agente, token, IP ou credenciais.
+- UI permite publicar/despublicar impressora real a partir do inventário autenticado.
+- Testes cobrem bloqueio sem catálogo e ausência de endpoint operacional no payload público.
+
+## PKG-52: Comunidades Automáticas Por Fabricante, Modelo E Variante
+
+Objetivo:
+
+Criar comunidades técnicas derivadas do catálogo e das impressoras públicas, sem depender de grupos genéricos criados manualmente.
+
+Dependências:
+
+- PKG-49.
+- PKG-51.
+
+Entregáveis:
+
+- comunidade automática por fabricante e modelo;
+- subcomunidades ou filtros por variante técnica relevante;
+- associação automática do usuário com base em impressoras públicas;
+- contagem de membros, impressoras e arquivos por comunidade;
+- página da comunidade com abas de feed, arquivos, mods, perfis e membros;
+- estados para comunidade sem curadoria, obsoleta ou mesclada.
+
+Lotes:
+
+1. Modelo de comunidade derivada do catálogo.
+2. Associação automática por impressora pública.
+3. Página de comunidade por modelo.
+4. Filtros por variante e componente.
+5. Mesclagem/obsolescência controlada.
+6. Testes de associação e privacidade.
+
+Critério de aceite:
+
+- comunidade não é o mesmo que organização operacional;
+- entrar em comunidade não concede acesso a impressoras;
+- mudança de modelo/visibilidade atualiza associação;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado via `social_communities` e `social_community_members`.
+- Comunidades são derivadas automaticamente por fabricante, modelo e variante do catálogo.
+- Associação do usuário é sincronizada a partir das impressoras públicas e removida quando a publicação é desligada.
+- Tela `Social` mostra comunidades, escopo, status, membros e impressoras.
+- Testes cobrem associação automática sem conceder permissão operacional.
+
+## PKG-53: Grafo Social, Amizades E Bloqueios
+
+Objetivo:
+
+Adicionar relacionamento entre usuários para seguir, conectar amigos e bloquear interações abusivas sem interferir em organizações ou permissões de impressora.
+
+Dependências:
+
+- PKG-50.
+
+Entregáveis:
+
+- seguir/deixar de seguir;
+- solicitação e aceite de amizade quando o usuário exigir reciprocidade;
+- bloqueio de usuário;
+- lista de seguidores, seguindo e amigos;
+- regras de visibilidade para conteúdo de amigos;
+- testes de bloqueio, privacidade e isolamento.
+
+Lotes:
+
+1. Modelo de relacionamento social.
+2. APIs de seguir, amizade e bloqueio.
+3. Regras de visibilidade.
+4. UI de relações no perfil.
+5. Testes de abuso e privacidade.
+
+Critério de aceite:
+
+- usuário bloqueado não interage nem vê conteúdo restrito;
+- relação social não concede permissão operacional;
+- histórico mínimo permite auditoria de abuso sem expor dados sensíveis;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Implementado via `social_relationships`.
+- APIs permitem seguir, deixar de seguir, solicitar/aceitar amizade, bloquear e desbloquear.
+- Bloqueio encerra follows/amizades existentes e impede nova relação social não bloqueio.
+- Relações sociais não alteram organizações, ownership ou permissões de impressora.
+- Testes cobrem bloqueio, privacidade e isolamento do grafo social.
+
+## PKG-54: Feed Técnico Por Comunidade De Impressora
+
+Objetivo:
+
+Criar feed técnico inicial por comunidade, priorizando conteúdo útil por modelo de impressora em vez de timeline genérica.
+
+Dependências:
+
+- PKG-52.
+- PKG-53 para regras sociais opcionais.
+
+Entregáveis:
+
+- feed por comunidade de impressora;
+- tipos iniciais: post técnico, dúvida, mod, resultado de impressão, anúncio de arquivo e aviso de curadoria;
+- ordenação por recente, recomendado e fixado;
+- filtros por componente, material, firmware, problema e tipo de conteúdo;
+- paginação e cache seguro;
+- UI responsiva.
+
+Lotes:
+
+1. Contrato de item de feed.
+2. Feed por comunidade com paginação.
+3. Tipos e filtros técnicos.
+4. Conteúdo fixado e avisos de curadoria.
+5. UI e testes.
+
+Critério de aceite:
+
+- feed sempre pertence a uma comunidade ou perfil, não a uma organização;
+- conteúdo privado não aparece em comunidade pública;
+- filtros usam catálogo técnico quando aplicável;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-55: Posts, Comentários, Reações E Discussões Técnicas
+
+Objetivo:
+
+Permitir conversas estruturadas com posts, comentários, respostas, reações e edição segura para suporte técnico e troca de experiência.
+
+Dependências:
+
+- PKG-54.
+- PKG-68 para regras antiabuso completas em lote posterior.
+
+Entregáveis:
+
+- criação, edição e remoção lógica de posts;
+- comentários em árvore curta;
+- reações simples;
+- anexos leves como imagens e links;
+- marcação de resposta útil ou solução quando for dúvida;
+- histórico de edição mínimo;
+- testes de permissão, sanitização e remoção lógica.
+
+Lotes:
+
+1. Modelo de post e comentário.
+2. API de publicação e edição.
+3. Reações e solução marcada.
+4. UI de discussão.
+5. Sanitização e testes.
+
+Critério de aceite:
+
+- remoção não quebra encadeamento da discussão;
+- HTML/script malicioso é bloqueado;
+- autor, moderador e admin têm permissões distintas;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-56: Biblioteca Base De Arquivos STL/3MF
+
+Objetivo:
+
+Criar a biblioteca de modelos 3D vinculada a usuários, comunidades, impressoras e componentes, começando por metadados e controle de acesso antes de fatiamento.
+
+Dependências:
+
+- PKG-52.
+- PKG-55.
+
+Entregáveis:
+
+- cadastro de item de biblioteca;
+- suporte inicial a STL, 3MF e pacote com múltiplos arquivos;
+- vínculo com fabricante/modelo/variante/componente;
+- visibilidade: privado, amigos, comunidade ou público;
+- metadados: descrição, versão, material sugerido, suporte necessário, orientação e licença;
+- histórico de downloads;
+- UI de biblioteca por comunidade e por perfil.
+
+Lotes:
+
+1. Modelo de item de biblioteca e SQL idempotente.
+2. Metadados técnicos e vínculos com catálogo.
+3. Visibilidade e permissões.
+4. Listagem por comunidade/perfil.
+5. Testes de isolamento.
+
+Critério de aceite:
+
+- arquivo privado não aparece em comunidade pública;
+- modelo sempre tem dono e visibilidade explícitos;
+- vínculo técnico usa catálogo quando existir;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-57: Upload Seguro, Validação E Quarentena De Arquivos 3D
+
+Objetivo:
+
+Adicionar upload real de arquivos 3D com validação, quarentena, limites e proteção contra conteúdo malicioso ou custo excessivo.
+
+Dependências:
+
+- PKG-56.
+- PKG-69 para cotas completas em pacote posterior.
+
+Entregáveis:
+
+- upload com limite de tamanho e extensão;
+- validação de MIME e assinatura quando possível;
+- quarentena até processamento técnico;
+- checksum e deduplicação básica;
+- bloqueio de zip bombs, paths perigosos e formatos não suportados;
+- status de processamento;
+- testes com fixtures controladas.
+
+Lotes:
+
+1. Storage local controlado e metadados de upload.
+2. Validação de extensão, MIME, tamanho e checksum.
+3. Quarentena e estados de processamento.
+4. Deduplicação básica.
+5. Testes de arquivos inválidos e limites.
+
+Critério de aceite:
+
+- upload não grava fora do diretório controlado;
+- arquivo em quarentena não fica disponível para download/fatiamento;
+- falha de validação é acionável e auditável;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-58: Visualização 3D, Thumbnails E Análise Técnica De Modelos
+
+Objetivo:
+
+Gerar preview visual e análise técnica mínima dos arquivos para o usuário entender o modelo antes de baixar, remixar ou fatiar.
+
+Dependências:
+
+- PKG-57.
+
+Entregáveis:
+
+- extração de dimensões, volume aproximado, quantidade de malhas e bounding box;
+- thumbnail ou preview 3D no frontend;
+- detecção básica de problemas: arquivo vazio, escala suspeita, malha inválida, dimensões incompatíveis;
+- orientação inicial sobre necessidade provável de suporte;
+- armazenamento de metadados derivados;
+- testes com arquivos pequenos e determinísticos.
+
+Lotes:
+
+1. Parser/analisador seguro em processo isolado ou biblioteca controlada.
+2. Metadados derivados.
+3. Thumbnail/preview.
+4. Alertas técnicos básicos.
+5. UI e testes.
+
+Critério de aceite:
+
+- análise não executa código do arquivo;
+- arquivo problemático não bloqueia a biblioteca inteira;
+- preview falho aparece como estado controlado;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-59: Licenças, Autoria E Atribuição De Modelos
+
+Objetivo:
+
+Formalizar direitos de uso, autoria, créditos e regras de redistribuição para reduzir risco legal e operacional da biblioteca.
+
+Dependências:
+
+- PKG-56.
+
+Entregáveis:
+
+- seleção obrigatória de licença no modelo publicado;
+- campo de autor original e fonte;
+- suporte a remix/derivado com atribuição;
+- termos de publicação e responsabilidade;
+- bloqueio de publicação pública sem licença;
+- UI de licença e créditos.
+
+Lotes:
+
+1. Catálogo de licenças permitidas.
+2. Campos de autoria e fonte.
+3. Validação antes de publicação pública.
+4. UI e documentação.
+5. Testes de licença obrigatória.
+
+Critério de aceite:
+
+- modelo público sempre tem licença e autoria declaradas;
+- remix referencia origem quando aplicável;
+- download mostra licença de forma clara;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-60: Versionamento, Remix E Derivados De Modelos
+
+Objetivo:
+
+Permitir evoluir modelos com versões, changelog e remixes sem sobrescrever artefatos já usados por outros usuários.
+
+Dependências:
+
+- PKG-56.
+- PKG-59.
+
+Entregáveis:
+
+- versões imutáveis de arquivos publicados;
+- versão atual destacada;
+- changelog por versão;
+- relação de remix/derivado;
+- comparação de metadados entre versões;
+- rollback lógico para versão anterior como atual;
+- testes de imutabilidade.
+
+Lotes:
+
+1. Modelo de versão e arquivo imutável.
+2. Changelog e versão atual.
+3. Remix e derivado.
+4. UI de histórico.
+5. Testes de imutabilidade e permissões.
+
+Critério de aceite:
+
+- arquivo publicado não é sobrescrito silenciosamente;
+- usuários conseguem baixar versão específica;
+- remoção respeita dependências e moderação;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-61: Coleções, Favoritos, Downloads E Listas De Impressão
+
+Objetivo:
+
+Organizar modelos em coleções pessoais ou comunitárias e preparar listas de impressão sem ainda executar fatiamento.
+
+Dependências:
+
+- PKG-56.
+- PKG-60.
+
+Entregáveis:
+
+- favoritos;
+- coleções públicas, privadas e por comunidade;
+- listas de impressão por impressora;
+- histórico de downloads;
+- marcação de impresso, quero imprimir e problema encontrado;
+- UI de coleções e listas.
+
+Lotes:
+
+1. Favoritos e histórico de download.
+2. Coleções pessoais.
+3. Coleções por comunidade.
+4. Lista de impressão por impressora.
+5. UI e testes.
+
+Critério de aceite:
+
+- coleção privada não vaza itens;
+- lista de impressão referencia versão específica do modelo;
+- histórico respeita retenção e privacidade;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-62: Configurações Técnicas Compartilhadas Por Impressora
+
+Objetivo:
+
+Permitir compartilhar configurações técnicas de hardware, mods e calibração por modelo/variante sem transformar isso em permissão operacional.
+
+Dependências:
+
+- PKG-49.
+- PKG-52.
+
+Entregáveis:
+
+- configuração pública de impressora por usuário;
+- mods instalados;
+- componentes usados;
+- calibrações e observações públicas opcionais;
+- vínculo com posts e modelos;
+- comparação entre configurações de membros da mesma comunidade.
+
+Lotes:
+
+1. Modelo de configuração técnica pública.
+2. Vínculo com catálogo e impressora do usuário.
+3. Mods/componentes.
+4. Comparação por comunidade.
+5. UI e testes.
+
+Critério de aceite:
+
+- configuração pública não expõe IP, host, agente, token ou path sensível;
+- usuário controla o que é público;
+- comparação usa campos normalizados quando existirem;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-63: Perfis De Material E Fatiamento Compartilháveis
+
+Objetivo:
+
+Criar base para perfis de material e fatiamento compartilháveis por impressora, material, nozzle e objetivo de impressão, antes de executar slicer.
+
+Dependências:
+
+- PKG-49.
+- PKG-62.
+
+Entregáveis:
+
+- perfil de material: marca, tipo, temperatura, cama, fluxo, observações;
+- perfil de fatiamento: nozzle, camada, velocidade, suporte, preenchimento, resistência/qualidade;
+- vínculo com impressora, componente e modelo 3D;
+- escopo: privado, comunidade ou público;
+- import/export inicial em formato neutro;
+- testes de versionamento e compatibilidade.
+
+Lotes:
+
+1. Modelo de perfil de material.
+2. Modelo de perfil de fatiamento.
+3. Compatibilidade por impressora/nozzle/material.
+4. UI de cadastro e comparação.
+5. Import/export seguro.
+6. Testes.
+
+Critério de aceite:
+
+- perfil não é aplicado automaticamente na impressora;
+- compatibilidade aparece de forma explícita;
+- versão do perfil é rastreável;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-64: Busca, Tags E Descoberta De Conteúdo
+
+Objetivo:
+
+Criar busca e navegação eficiente para comunidades, modelos, posts, arquivos e perfis técnicos.
+
+Dependências:
+
+- PKG-54.
+- PKG-56.
+- PKG-63.
+
+Entregáveis:
+
+- busca por texto;
+- tags normalizadas e livres com curadoria;
+- filtros por impressora, componente, material, licença, arquivo, popularidade e atualização;
+- páginas de descoberta;
+- índice incremental;
+- testes de permissão na busca.
+
+Lotes:
+
+1. Contrato de busca unificado.
+2. Indexação de comunidades e posts.
+3. Indexação de modelos e perfis.
+4. Tags e filtros.
+5. UI de descoberta.
+6. Testes de privacidade.
+
+Critério de aceite:
+
+- conteúdo privado não aparece na busca;
+- filtro técnico usa catálogo quando possível;
+- resultado indica tipo e comunidade;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-65: Ranking, Recomendações E Reputação Técnica
+
+Objetivo:
+
+Priorizar conteúdo útil e confiável usando sinais técnicos, feedback de impressão e reputação, sem criar ranking manipulável ou opaco.
+
+Dependências:
+
+- PKG-61.
+- PKG-64.
+- PKG-74 para sinais reais de impressão em pacote posterior.
+
+Entregáveis:
+
+- sinais: downloads, favoritos, prints bem-sucedidos, solução marcada, denúncias e curadoria;
+- reputação por usuário baseada em contribuição técnica;
+- recomendações por modelo de impressora e material;
+- proteção contra auto-voto e abuso;
+- explicação básica do motivo da recomendação.
+
+Lotes:
+
+1. Modelo de sinais de qualidade.
+2. Score inicial determinístico.
+3. Reputação técnica.
+4. Recomendações por comunidade.
+5. Proteção antiabuso.
+6. Testes.
+
+Critério de aceite:
+
+- score não depende de dados privados;
+- usuário entende por que algo foi recomendado;
+- denúncia e moderação reduzem exposição;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-66: Moderação, Denúncias E Curadoria
+
+Objetivo:
+
+Criar mecanismos para denunciar, revisar, ocultar, bloquear e curar conteúdo social e arquivos 3D com segurança.
+
+Dependências:
+
+- PKG-55.
+- PKG-56.
+- PKG-59.
+
+Entregáveis:
+
+- denúncia de post, comentário, perfil e modelo;
+- fila de moderação;
+- estados: ativo, oculto, removido, bloqueado, em revisão;
+- ação de moderador com motivo e auditoria;
+- curadoria de catálogo, tags e comunidades;
+- documentação de retenção e rollback lógico.
+
+Lotes:
+
+1. Modelo de denúncia e estado moderado.
+2. Fila de moderação.
+3. Ações de ocultar/remover/bloquear.
+4. Curadoria de tags e catálogo social.
+5. UI administrativa.
+6. Testes de auditoria e permissão.
+
+Critério de aceite:
+
+- remoção é lógica, auditável e reversível quando aplicável;
+- conteúdo ilegal/perigoso pode ser bloqueado rapidamente;
+- usuário comum não acessa fila de moderação;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-67: Notificações Sociais E Acompanhamento De Conteúdo
+
+Objetivo:
+
+Notificar o usuário sobre interações sociais, comunidades, atualizações de modelos e respostas técnicas sem misturar alertas operacionais da impressora.
+
+Dependências:
+
+- PKG-53.
+- PKG-55.
+- PKG-60.
+
+Entregáveis:
+
+- notificações in-app sociais;
+- preferências por tipo de notificação;
+- acompanhamento de post, modelo, coleção e comunidade;
+- digest opcional;
+- separação visual entre alerta operacional e notificação social;
+- testes de isolamento e preferências.
+
+Lotes:
+
+1. Modelo de notificação social.
+2. Preferências por usuário.
+3. Follow de conteúdo.
+4. UI de central social.
+5. Digest e testes.
+
+Critério de aceite:
+
+- alerta de impressora não se mistura com like/comentário;
+- usuário pode silenciar comunidade ou conteúdo;
+- notificações respeitam bloqueio e privacidade;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-68: Privacidade, Segurança Social E Antiabuso
+
+Objetivo:
+
+Endurecer a camada social contra spam, scraping, assédio, enumeração de usuários, vazamento de dados e uso indevido de arquivos.
+
+Dependências:
+
+- PKG-50.
+- PKG-53.
+- PKG-55.
+- PKG-56.
+
+Entregáveis:
+
+- rate limit por ação social;
+- proteção contra enumeração de usuários;
+- controles de perfil público, seguidores e mensagens;
+- bloqueio, silenciamento e denúncia integrados;
+- revisão de payloads para não expor email, IP, tokens ou dados operacionais;
+- logs seguros de abuso.
+
+Lotes:
+
+1. Matriz de ameaças social.
+2. Rate limits e proteção de enumeração.
+3. Regras de visibilidade reforçadas.
+4. Integração com bloqueio/denúncia.
+5. Auditoria e testes de segurança.
+
+Critério de aceite:
+
+- APIs públicas não retornam dados operacionais;
+- usuário bloqueado não contorna via busca ou comunidade;
+- abuso repetido gera estado acionável para moderação;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-69: Armazenamento, Cotas, Retenção E Custos De Arquivos
+
+Objetivo:
+
+Controlar crescimento de arquivos, custos e retenção da biblioteca, preparando migração futura para storage externo sem acoplar a lógica ao filesystem local.
+
+Dependências:
+
+- PKG-57.
+- PKG-60.
+
+Entregáveis:
+
+- cotas por usuário e organização quando aplicável;
+- política de retenção para arquivos removidos e versões antigas;
+- abstraction simples de storage local com caminho seguro;
+- relatório de uso;
+- limpeza supervisionada;
+- plano futuro para object storage.
+
+Lotes:
+
+1. Modelo de cota e uso.
+2. Storage adapter local.
+3. Retenção e remoção supervisionada.
+4. Relatório de uso.
+5. Testes de limite e cleanup.
+
+Critério de aceite:
+
+- upload respeita cota antes de gravar definitivo;
+- remoção não apaga arquivo referenciado por versão ativa;
+- cleanup é auditável e não destrutivo sem retenção definida;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-70: Ponte Controlada Com Engine De Fatiamento
+
+Objetivo:
+
+Preparar integração com engine de fatiamento, inicialmente OrcaSlicer/PrusaSlicer em modo controlado, sem embutir a UI do slicer no Printora.
+
+Dependências:
+
+- PKG-56.
+- PKG-63.
+- PKG-69.
+
+Entregáveis:
+
+- decisão técnica sobre engine de fatiamento suportada;
+- execução isolada em worker local ou agente;
+- detecção de versão do slicer;
+- contrato de entrada: modelo, perfil, impressora, material e qualidade;
+- contrato de saída: G-code, logs, tempo estimado, peso estimado e warnings;
+- bloqueio padrão quando engine não estiver configurada;
+- documentação de instalação e riscos.
+
+Lotes:
+
+1. Decisão técnica e contrato do slicer.
+2. Detector de engine e versão.
+3. Worker isolado em modo dry-run.
+4. Contrato de entrada/saída.
+5. Logs sanitizados.
+6. Testes com fixtures.
+
+Critério de aceite:
+
+- Printora não embute UI do OrcaSlicer como primeira solução;
+- fatiamento não executa se engine/perfil/impressora forem incompatíveis;
+- logs não expõem paths sensíveis sem sanitização;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-71: Pipeline De Fatiamento Por Perfil E Impressora
+
+Objetivo:
+
+Executar fatiamento controlado usando modelo, perfil de material, perfil de fatiamento e impressora selecionada, gerando artefatos rastreáveis.
+
+Dependências:
+
+- PKG-70.
+- PKG-63.
+
+Entregáveis:
+
+- criação de job de fatiamento;
+- fila e estados: planejado, executando, concluído, falhou, cancelado;
+- validação de volume útil da impressora;
+- seleção de perfil compatível;
+- artefatos: G-code, logs, preview quando disponível e metadados;
+- histórico por usuário, modelo e impressora.
+
+Lotes:
+
+1. Modelo de job de fatiamento.
+2. Validação de compatibilidade.
+3. Execução controlada no worker/agente.
+4. Persistência de artefatos.
+5. UI de progresso e resultado.
+6. Testes de falha e cancelamento.
+
+Critério de aceite:
+
+- job não fatiará modelo maior que o volume útil sem confirmação/erro claro;
+- G-code fica associado à versão do modelo e perfis usados;
+- falha preserva logs acionáveis;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-72: Preflight De Impressão A Partir De Arquivo Fatiado
+
+Objetivo:
+
+Validar o G-code gerado antes de permitir envio para uma impressora, reduzindo risco de arquivo incompatível, temperatura perigosa ou impressora em estado inadequado.
+
+Dependências:
+
+- PKG-71.
+- PKG-47.
+
+Entregáveis:
+
+- análise de metadados do G-code;
+- validação contra impressora selecionada: volume, nozzle, material, temperatura, cama e firmware;
+- preflight remoto via agente para estado atual da impressora;
+- bloqueio se estiver imprimindo, offline ou incompatível;
+- preview de riscos e checklist antes do envio;
+- testes com G-code fixture.
+
+Lotes:
+
+1. Parser seguro de metadados G-code.
+2. Compatibilidade com impressora/perfil.
+3. Preflight remoto via agente.
+4. Checklist e bloqueios.
+5. UI e testes.
+
+Critério de aceite:
+
+- G-code não é enviado sem preflight aprovado;
+- impressão em andamento bloqueia envio;
+- divergências de nozzle/material/volume aparecem antes da execução;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-73: Envio Seguro De G-code Para Impressora
+
+Objetivo:
+
+Permitir enviar G-code fatiado para a impressora correta com confirmação explícita, auditoria e opção de iniciar ou apenas salvar no host.
+
+Dependências:
+
+- PKG-72.
+- PKG-47.
+
+Entregáveis:
+
+- upload remoto do G-code para Moonraker via agente;
+- confirmação textual ou step-up para iniciar impressão;
+- opção de apenas salvar arquivo sem imprimir;
+- auditoria de usuário, impressora, arquivo, versão do modelo e perfil;
+- rollback operacional: cancelar job pendente, remover arquivo enviado quando seguro;
+- UI de envio e status.
+
+Lotes:
+
+1. Contrato de upload remoto.
+2. Salvar sem imprimir.
+3. Iniciar impressão com confirmação forte.
+4. Auditoria e cancelamento.
+5. UI e testes.
+
+Critério de aceite:
+
+- envio para impressora errada é evitado por confirmação visual clara;
+- iniciar impressão exige preflight recente e confirmação;
+- arquivo enviado não expõe token ou path sensível no frontend;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-74: Histórico De Trabalhos, Resultados E Telemetria De Impressão
+
+Objetivo:
+
+Registrar resultado de impressões vindas do fluxo social/fatiamento para melhorar recomendações, troubleshooting e qualidade dos modelos.
+
+Dependências:
+
+- PKG-73.
+- PKG-65.
+
+Entregáveis:
+
+- histórico de job de impressão vinculado a modelo, versão, perfil, impressora e usuário;
+- status: enviado, iniciado, concluído, falhou, cancelado;
+- feedback do usuário: deu certo, falhou, ajuste necessário, foto opcional;
+- telemetria mínima segura quando disponível;
+- vínculo com ranking e recomendações;
+- retenção e privacidade documentadas.
+
+Lotes:
+
+1. Modelo de histórico de impressão.
+2. Eventos via agente/Moonraker.
+3. Feedback manual do usuário.
+4. Integração com ranking.
+5. UI e testes.
+
+Critério de aceite:
+
+- histórico não expõe impressora privada em página pública;
+- feedback pode ser público ou privado;
+- falhas ajudam ranking sem revelar dados sensíveis;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-75: Marketplace E Curadoria De Conteúdo Premium
+
+Objetivo:
+
+Preparar uma camada opcional de conteúdo premium, curado ou patrocinado, sem bloquear a biblioteca comunitária gratuita.
+
+Dependências:
+
+- PKG-56.
+- PKG-59.
+- PKG-66.
+
+Entregáveis:
+
+- classificação de conteúdo: comunidade, curado, premium ou patrocinado;
+- política de destaque e transparência;
+- fluxo de revisão antes de premium;
+- metadados comerciais sem pagamento real no primeiro lote;
+- separação clara entre recomendação técnica e promoção;
+- documentação de risco e rollback.
+
+Lotes:
+
+1. Modelo de classificação comercial.
+2. Curadoria premium sem cobrança.
+3. Destaques e transparência.
+4. Revisão/moderação.
+5. UI e testes.
+
+Critério de aceite:
+
+- conteúdo patrocinado não parece recomendação técnica neutra;
+- premium não remove acesso ao conteúdo comunitário;
+- cobrança real fica fora até pacote futuro específico;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-76: Integrações Externas E Importação De Bibliotecas
+
+Objetivo:
+
+Permitir importar ou referenciar conteúdo externo de forma controlada, evitando cópia indevida e preparando integrações futuras com repositórios de modelos e slicers.
+
+Dependências:
+
+- PKG-56.
+- PKG-59.
+- PKG-64.
+
+Entregáveis:
+
+- cadastro de fonte externa;
+- importação por URL com metadados e licença;
+- bookmark externo sem copiar arquivo;
+- detecção de duplicidade por checksum quando houver arquivo;
+- política de atribuição obrigatória;
+- testes com fixtures e sem dependência de serviço externo instável.
+
+Lotes:
+
+1. Modelo de fonte externa.
+2. Bookmark externo.
+3. Importação controlada de metadados.
+4. Deduplicação e atribuição.
+5. UI e testes.
+
+Critério de aceite:
+
+- sistema não copia arquivo externo sem licença/atribuição;
+- falha de fonte externa não quebra biblioteca local;
+- usuário distingue arquivo hospedado no Printora de referência externa;
+- `./check.sh` passa.
+
+Estado atual:
+
+- Planejado.

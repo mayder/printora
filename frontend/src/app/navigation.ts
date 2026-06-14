@@ -1,4 +1,4 @@
-import { Activity, FileText, Home, Info, Network, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Wrench, Zap } from "lucide-react";
+import { Activity, FileText, Home, Info, Network, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
@@ -7,6 +7,7 @@ export type AppSection =
   | "printer-detail"
   | "agents"
   | "agent-detail"
+  | "social"
   | "setup"
   | "monitoring"
   | "updates"
@@ -60,6 +61,13 @@ export const appSections: Array<{
     label: "Detalhe do agente",
     detail: "Diagnóstico e vínculo de um agente.",
     purpose: "Veja saúde, fila, doctor remoto, suporte e credencial do agente dentro do registro selecionado.",
+  },
+  {
+    key: "social",
+    icon: Users,
+    label: "Social",
+    detail: "Perfil público, catálogo, comunidades e relações.",
+    purpose: "Gerencie identidade social, impressoras públicas, comunidades automáticas e relações sem conceder acesso operacional.",
   },
   {
     key: "setup",
@@ -141,7 +149,7 @@ export const appSections: Array<{
 ];
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
-  { title: "Principal", sections: ["overview", "printers", "agents", "setup"] },
+  { title: "Principal", sections: ["overview", "printers", "agents", "social", "setup"] },
   { title: "Sistema", sections: ["settings"] },
 ];
 

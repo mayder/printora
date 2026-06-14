@@ -59,6 +59,23 @@ Comando obrigatório antes de commit:
 ./check.sh
 ```
 
+## Social, Catálogo E Comunidades
+
+Validação focada:
+
+```bash
+cd backend && uv run pytest tests/test_social_catalog.py -q
+cd frontend && npm run build
+```
+
+Aceite:
+
+- catálogo seedado contém fabricantes, modelos e variantes canônicas sem depender de texto livre;
+- perfil social não expõe email, WhatsApp, organizações, permissões ou credenciais operacionais;
+- impressora pública exige vínculo com variante do catálogo e não retorna Moonraker, SSH, agente, token ou IP;
+- comunidades automáticas são derivadas de impressoras públicas e não concedem permissão operacional;
+- bloqueio social encerra follows/amizades e impede nova interação social sem apagar histórico operacional.
+
 ## Update do agente
 
 Validação focada:

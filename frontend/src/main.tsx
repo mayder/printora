@@ -9,6 +9,7 @@ import { OverviewScreen } from "./screens/OverviewScreen";
 import { PrintersScreen } from "./screens/PrintersScreen";
 import { AgentsScreen } from "./screens/AgentsScreen";
 import { AgentDetailScreen } from "./screens/AgentDetailScreen";
+import { SocialScreen } from "./screens/SocialScreen";
 import { SetupScreen } from "./screens/SetupScreen";
 import { PrinterDetailScreen } from "./screens/PrinterDetailScreen";
 import { MonitoringScreen } from "./screens/MonitoringScreen";
@@ -38,6 +39,7 @@ import "./styles/calibration.css";
 import "./styles/tests.css";
 import "./styles/reports.css";
 import "./styles/about.css";
+import "./styles/social.css";
 
 type AccountTab = "profile" | "organizations";
 
@@ -88,6 +90,8 @@ function App() {
         return <AgentsScreen {...screenProps} />;
       case "agent-detail":
         return <AgentDetailScreen {...screenProps} />;
+      case "social":
+        return <SocialScreen {...screenProps} />;
       case "setup":
         return <SetupScreen {...screenProps} />;
       case "monitoring":
@@ -294,6 +298,8 @@ function App() {
                 ? "Lista de impressoras e acesso ao detalhe"
               : activeSection === "agents"
                 ? "Lista global de agentes da frota"
+              : activeSection === "social"
+                ? "Perfil público, catálogo e comunidades"
               : activeSection === "reports"
                 ? "Relatórios globais; diagnóstico de impressora fica no detalhe"
               : activeSection === "about"
