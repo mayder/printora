@@ -149,7 +149,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Bloqueios sociais devem encerrar interações sociais existentes e não devem apagar histórico operacional, organização, inventário ou auditoria de impressora.
 - A tela Catálogo é a superfície administrativa de curadoria do catálogo canônico, separada da tela Social.
 - A tela Catálogo deve separar lista/filtros por modelo e detalhe de fabricante/modelo. A listagem principal deve ser uma tabela em largura total, com ação de linha por ícone para abrir detalhe; o detalhe deve substituir a listagem como tela/estado dedicado, com ação explícita de voltar.
-- Filtros do Catálogo devem usar selects para fabricante, modelo, tamanho/versão, componente, cinemática, firmware e estado de confiança. Campo de texto livre não é o fluxo principal para selecionar fabricante/modelo.
+- Filtros do Catálogo devem usar combobox pesquisável para fabricante, modelo, tamanho/versão, componente, cinemática, firmware e estado de confiança. Fabricante restringe os modelos disponíveis e modelo restringe as variações; campo de texto livre não é o fluxo principal para selecionar fabricante/modelo.
 - A tela Catálogo deve exibir fabricante, site, repositório, documentação, BOM quando disponível, modelo, variações técnicas, volume útil, cinemática, firmware, componentes e `trust_state`. Identificadores internos de pacote ou campos de origem técnica não devem aparecer para o usuário.
 - Usuário comum pode usar variantes para publicação/consulta, mas não acessa edição administrativa do catálogo canônico.
 - Estados administráveis do catálogo: `official`, `community`, `draft`, `obsolete` e `blocked`. Itens obsoletos/bloqueados não devem quebrar impressoras já vinculadas.

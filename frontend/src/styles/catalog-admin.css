@@ -76,22 +76,119 @@
   min-width: 0;
 }
 
-.catalog-select-field select {
+.catalog-search-select {
+  position: relative;
+}
+
+.catalog-search-select-button {
+  align-items: center;
   background: var(--input-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  color-scheme: dark;
+  cursor: pointer;
+  display: flex;
   font: inherit;
+  justify-content: space-between;
   min-height: 40px;
   min-width: 0;
   padding: 9px 10px;
+  text-align: left;
   width: 100%;
 }
 
-.catalog-select-field option {
-  background: #0f141b;
-  color: #e5edf7;
+.catalog-search-select-button:hover,
+.catalog-search-select-button:focus-visible {
+  border-color: var(--accent);
+  outline: 0;
+}
+
+.catalog-search-select-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.catalog-search-select-button > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalog-search-select-menu {
+  background: #0d1218;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  left: 0;
+  overflow: hidden;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+}
+
+.catalog-search-select-input {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.catalog-search-select-input input {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font: inherit;
+  min-width: 0;
+  outline: 0;
+  width: 100%;
+}
+
+.catalog-search-select-input input::placeholder {
+  color: var(--muted);
+}
+
+.catalog-search-options {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.catalog-search-option {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 36px;
+  padding: 9px 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.catalog-search-option:hover,
+.catalog-search-option.active {
+  background: var(--panel-soft);
+}
+
+.catalog-search-option.active {
+  color: var(--accent);
+}
+
+.catalog-search-option > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.catalog-search-empty {
+  color: var(--muted);
+  padding: 12px 10px;
 }
 
 .catalog-filter-actions {

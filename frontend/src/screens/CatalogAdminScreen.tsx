@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowLeft, Boxes, Database, ExternalLink, Eye, FileText, Filter, GitBranch, RefreshCw, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, Boxes, Check, ChevronDown, Database, ExternalLink, Eye, FileText, Filter, GitBranch, RefreshCw, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi, type CatalogAdminFilters } from "../services/socialApi";
 import type { ScreenPropsFor } from "./ScreenProps";
@@ -130,46 +130,30 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
               <Filter size={17} />
               <strong>Filtros</strong>
             </div>
-            <SelectField label="Fabricante" value={filters.manufacturer ?? ""} onChange={(value) => updateFilter("manufacturer", value)}>
-              <option value="">Todos fabricantes</option>
-              {filterOptions.manufacturers.map((manufacturer) => (
-                <option key={manufacturer.slug} value={manufacturer.slug}>{manufacturer.name}</option>
-              ))}
-            </SelectField>
-            <SelectField label="Modelo" value={filters.model ?? ""} onChange={(value) => updateFilter("model", value)}>
-              <option value="">Todos modelos</option>
-              {modelOptions.map((model) => (
-                <option key={`${model.manufacturer_slug}:${model.slug}`} value={model.slug}>{model.name}</option>
-              ))}
-            </SelectField>
-            <SelectField label="Tamanho / versão" value={filters.variant ?? ""} onChange={(value) => updateFilter("variant", value)}>
-              <option value="">Todas variações</option>
-              {variationOptions.map((variation) => (
-                <option key={`${variation.model_slug}:${variation.slug}`} value={variation.slug}>{variation.name}</option>
-              ))}
-            </SelectField>
-            <SelectField label="Componente" value={filters.component ?? ""} onChange={(value) => updateFilter("component", value)}>
-              <option value="">Todos componentes</option>
-              {filterOptions.components.map((component) => (
-                <option key={component} value={component}>{componentLabel(component)}</option>
-              ))}
-            </SelectField>
-            <SelectField label="Cinemática" value={filters.kinematics ?? ""} onChange={(value) => updateFilter("kinematics", value)}>
-              <option value="">Todas cinemáticas</option>
-              {filterOptions.kinematics.map((kinematics) => (
-                <option key={kinematics} value={kinematics}>{kinematics}</option>
-              ))}
-            </SelectField>
-            <SelectField label="Firmware" value={filters.firmware_family ?? ""} onChange={(value) => updateFilter("firmware_family", value)}>
-              <option value="">Todos firmwares</option>
-              {filterOptions.firmwareFamilies.map((firmware) => (
-                <option key={firmware} value={firmware}>{firmware}</option>
-              ))}
-            </SelectField>
-            <SelectField label="Estado" value={filters.trust_state ?? ""} onChange={(value) => updateFilter("trust_state", value)}>
-              <option value="">Todos estados</option>
-              {trustStates.map((state) => <option key={state} value={state}>{state}</option>)}
-            </SelectField>
+            <SearchSelectField label="Fabricante" placeholder="Todos fabricantes" value={filters.manufacturer ?? ""} options={filterOptions.manufacturers.map((item) => ({ value: item.slug, label: item.name }))} onChange={(value) => updateFilter("manufacturer", value)} />
+            <SearchSelectField
+              label="Modelo"
+              placeholder="Todos modelos"
+              value={filters.model ?? ""}
+              options={modelOptions.map((item) => ({ value: item.slug, label: filters.manufacturer ? item.name : `${item.manufacturer_name} · ${item.name}` }))}
+              onChange={(value) => updateFilter("model", value)}
+              disabled={modelOptions.length === 0}
+            />
+            <SearchSelectField
+              label="Tamanho / versão"
+              placeholder="Todas variações"
+              value={filters.variant ?? ""}
+              options={variationOptions.map((item) => ({
+                value: item.slug,
+                label: filters.model ? item.name : `${filters.manufacturer ? item.model_name : `${item.manufacturer_name} · ${item.model_name}`} · ${item.name}`,
+              }))}
+              onChange={(value) => updateFilter("variant", value)}
+              disabled={variationOptions.length === 0}
+            />
+            <SearchSelectField label="Componente" placeholder="Todos componentes" value={filters.component ?? ""} options={filterOptions.components.map((component) => ({ value: component, label: componentLabel(component) }))} onChange={(value) => updateFilter("component", value)} />
+            <SearchSelectField label="Cinemática" placeholder="Todas cinemáticas" value={filters.kinematics ?? ""} options={filterOptions.kinematics.map((kinematics) => ({ value: kinematics, label: kinematics }))} onChange={(value) => updateFilter("kinematics", value)} />
+            <SearchSelectField label="Firmware" placeholder="Todos firmwares" value={filters.firmware_family ?? ""} options={filterOptions.firmwareFamilies.map((firmware) => ({ value: firmware, label: firmware }))} onChange={(value) => updateFilter("firmware_family", value)} />
+            <SearchSelectField label="Estado" placeholder="Todos estados" value={filters.trust_state ?? ""} options={trustStates.map((state) => ({ value: state, label: state }))} onChange={(value) => updateFilter("trust_state", value)} />
             <div className="catalog-filter-actions">
               <button type="button" className="secondary-action" onClick={() => void clearFilters()} disabled={busy}>
                 Limpar
@@ -197,14 +181,60 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
   );
 }
 
-function SelectField({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: React.ReactNode }) {
+function SearchSelectField({ label, placeholder, value, options, onChange, disabled = false }: { label: string; placeholder: string; value: string; options: Array<{ value: string; label: string }>; onChange: (value: string) => void; disabled?: boolean }) {
+  const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const fieldRef = React.useRef<HTMLDivElement | null>(null);
+  const selected = options.find((option) => option.value === value);
+  const normalizedQuery = normalizeSearch(query);
+  const visibleOptions = normalizedQuery ? options.filter((option) => normalizeSearch(option.label).includes(normalizedQuery)) : options;
+
+  React.useEffect(() => {
+    function onDocumentPointerDown(event: PointerEvent) {
+      if (fieldRef.current && !fieldRef.current.contains(event.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    }
+    document.addEventListener("pointerdown", onDocumentPointerDown);
+    return () => document.removeEventListener("pointerdown", onDocumentPointerDown);
+  }, []);
+
+  function selectValue(nextValue: string) {
+    onChange(nextValue);
+    setOpen(false);
+    setQuery("");
+  }
+
   return (
-    <label className="catalog-select-field">
+    <div className="catalog-select-field catalog-search-select" ref={fieldRef}>
       <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
-        {children}
-      </select>
-    </label>
+      <button type="button" className="catalog-search-select-button" onClick={() => !disabled && setOpen((current) => !current)} disabled={disabled}>
+        <span>{selected?.label ?? placeholder}</span>
+        <ChevronDown size={15} />
+      </button>
+      {open ? (
+        <div className="catalog-search-select-menu">
+          <div className="catalog-search-select-input">
+            <Search size={14} />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar..." autoFocus />
+          </div>
+          <button type="button" className={`catalog-search-option ${value ? "" : "active"}`} onClick={() => selectValue("")}>
+            <span>{placeholder}</span>
+            {!value ? <Check size={14} /> : null}
+          </button>
+          <div className="catalog-search-options">
+            {visibleOptions.map((option) => (
+              <button key={option.value} type="button" className={`catalog-search-option ${option.value === value ? "active" : ""}`} onClick={() => selectValue(option.value)}>
+                <span>{option.label}</span>
+                {option.value === value ? <Check size={14} /> : null}
+              </button>
+            ))}
+            {visibleOptions.length === 0 ? <div className="catalog-search-empty">Nenhum resultado.</div> : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -351,18 +381,25 @@ function JsonBlock({ title, value }: { title: string; value: Record<string, unkn
 
 function buildFilterOptions(models: CatalogModelAdmin[]) {
   const manufacturers = new Map<string, string>();
-  const modelOptions: Array<{ slug: string; name: string; manufacturer_slug: string }> = [];
-  const variationOptions: Array<{ slug: string; name: string; model_slug: string; manufacturer_slug: string }> = [];
+  const modelOptions: Array<{ slug: string; name: string; manufacturer_slug: string; manufacturer_name: string }> = [];
+  const variationOptions: Array<{ slug: string; name: string; model_slug: string; model_name: string; manufacturer_slug: string; manufacturer_name: string }> = [];
   const components = new Set<string>();
   const kinematics = new Set<string>();
   const firmwareFamilies = new Set<string>();
 
   models.forEach((model) => {
     manufacturers.set(model.manufacturer_slug, model.manufacturer_name);
-    modelOptions.push({ slug: model.slug, name: model.name, manufacturer_slug: model.manufacturer_slug });
+    modelOptions.push({ slug: model.slug, name: model.name, manufacturer_slug: model.manufacturer_slug, manufacturer_name: model.manufacturer_name });
     kinematics.add(model.kinematics);
     model.variants.forEach((variation) => {
-      variationOptions.push({ slug: variation.slug, name: variation.name, model_slug: model.slug, manufacturer_slug: model.manufacturer_slug });
+      variationOptions.push({
+        slug: variation.slug,
+        name: variation.name,
+        model_slug: model.slug,
+        model_name: model.name,
+        manufacturer_slug: model.manufacturer_slug,
+        manufacturer_name: model.manufacturer_name,
+      });
       if (variation.firmware_family) firmwareFamilies.add(variation.firmware_family);
       Object.keys(variation.components).forEach((component) => components.add(component));
     });
@@ -402,6 +439,10 @@ function componentLabel(value: string) {
     toolhead: "Toolhead",
   };
   return labels[value] ?? value;
+}
+
+function normalizeSearch(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
 
 function byName<T extends { name: string }>(left: T, right: T) {
