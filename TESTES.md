@@ -71,9 +71,11 @@ cd frontend && npm run build
 
 Aceite:
 
-- catálogo seedado contém fabricantes, modelos e variantes canônicas além de Voron, com RatRig, VzBot, Annex, HevORT, Jubilee/Machine Agency, Printers For Ants, ZeroG, RailCore, SecKit, BLV, HyperCube, D-Bot, V-King, CroXY, Rook, Positron, The 100, Doron e SnakeOilXY;
+- catálogo seedado contém fabricantes, modelos e variações técnicas canônicas além de Voron, com RatRig, VzBot, Annex, HevORT, Printers For Ants, ZeroG, RailCore, SecKit, BLV, HyperCube, D-Bot, V-King, CroXY, Rook, Positron, The 100, Doron e SnakeOilXY;
 - itens com dado técnico menos seguro ficam em `community` ou `draft`, sem inventar precisão frágil;
-- endpoint administrativo filtra por fabricante, modelo, variante, componente, cinemática, firmware e `trust_state`;
+- endpoint administrativo filtra por fabricante, modelo, variação/tamanho, componente, cinemática, firmware e `trust_state`;
+- contrato administrativo retorna modelos agrupados com variações dentro do detalhe, sem depender de uma lista plana de variantes;
+- fontes técnicas internas não expõem identificadores de pacote no seed/API;
 - duplicidade de slug/modelo/variante é bloqueada por contrato de banco/API;
 - estados `official`, `community`, `draft`, `obsolete` e `blocked` são administráveis;
 - variante `obsolete` ou `blocked` não quebra impressora já vinculada, mas não é aceita em nova publicação pública;

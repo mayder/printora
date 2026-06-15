@@ -3252,11 +3252,11 @@ Dependências:
 
 Entregáveis:
 
-- catálogo versionado de fabricantes, modelos de impressora e variantes;
+- catálogo versionado de fabricantes, modelos de impressora e variações técnicas;
 - componentes normalizados: mainboard, MCU, toolhead, extrusor, hotend, probe, mesa, volume útil, cinemática e firmware;
 - vínculo entre impressora cadastrada e entrada do catálogo;
 - estado de confiança do item: oficial, comunidade, rascunho, obsoleto ou bloqueado;
-- origem e auditoria de alteração do catálogo;
+- metadados de fabricante/modelo, fonte técnica interna e auditoria de alteração do catálogo;
 - UI administrativa para curadoria inicial;
 - documentação em `TELAS.md`, `TESTES.md` e `DECISOES.md` se houver decisão de schema.
 
@@ -3272,7 +3272,7 @@ Lotes:
 Critério de aceite:
 
 - nenhum recurso social depende de texto livre de modelo de impressora;
-- variantes técnicas podem evoluir sem quebrar impressoras já cadastradas;
+- variações técnicas podem evoluir dentro do modelo sem quebrar impressoras já cadastradas;
 - alteração de catálogo é auditável;
 - usuário comum não edita catálogo canônico sem fluxo de curadoria;
 - `./check.sh` passa.
@@ -3280,12 +3280,12 @@ Critério de aceite:
 Estado atual:
 
 - Implementado via SQL idempotente `backend/sql/035_social_catalog.sql`.
-- Expansões idempotentes em `backend/sql/036_expand_printer_catalog_seed.sql` e `backend/sql/037_expand_diy_catalog_breadth.sql` incluem catálogo DIY inicial além de Voron: RatRig, VzBot, Annex, HevORT, Jubilee/Machine Agency, Printers For Ants, ZeroG, RailCore, SecKit, BLV, HyperCube, D-Bot, V-King, CroXY, Rook, Positron, The 100, Doron e SnakeOilXY; itens com dado menos seguro ficam como `community` ou `draft`.
+- Expansões idempotentes em `backend/sql/036_expand_printer_catalog_seed.sql`, `backend/sql/037_expand_diy_catalog_breadth.sql`, `backend/sql/038_catalog_manufacturer_model_metadata.sql`, `backend/sql/039_catalog_block_toolchanger_entries.sql`, `backend/sql/040_catalog_add_voron_phoenix_draft.sql` e `backend/sql/041_catalog_sanitize_internal_sources.sql` incluem catálogo DIY inicial além de Voron: RatRig, VzBot, Annex, HevORT, Printers For Ants, ZeroG, RailCore, SecKit, BLV, HyperCube, D-Bot, V-King, CroXY, Rook, Positron, The 100, Doron e SnakeOilXY; itens com dado menos seguro ficam como `community` ou `draft`, e projetos toolchanger fora do recorte DIY principal ficam `blocked` por padrão.
 - Endpoints `/api/catalog`, `/api/catalog/admin` e rotas administrativas protegidas por usuário administrador foram criados.
 - Impressoras cloud podem ser vinculadas a variante canônica para publicação social.
-- UI administrativa real fica na seção `Catálogo`, separada da tela `Social`, com listagem/filtros, detalhe, criação de variante e edição de curadoria.
+- UI administrativa real fica na seção `Catálogo`, separada da tela `Social`, com listagem/filtros por modelo, detalhe de fabricante/modelo, links oficiais/Git/docs/BOM quando disponíveis, variações dentro do detalhe e edição de curadoria.
 - Estados `official`, `community`, `draft`, `obsolete` e `blocked` são visíveis e administráveis; `obsolete`/`blocked` não removem vínculo existente, mas impedem nova publicação pública.
-- Testes cobrem seed amplo, filtros, contrato, duplicidade, obsolescência/bloqueio, permissão administrativa, vínculo de impressora com variante canônica, privacidade social e comunidades automáticas.
+- Testes cobrem seed amplo, filtros, contrato agrupado por modelo, ausência de identificador interno de pacote em fonte técnica, duplicidade, obsolescência/bloqueio, permissão administrativa, vínculo de impressora com variante canônica, privacidade social e comunidades automáticas.
 - PKG-49 fechado em implementação local; publicação/deploy depende do fluxo de release permitido e execução do check oficial.
 
 ## PKG-50: Perfil Social Do Usuário

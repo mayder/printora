@@ -75,7 +75,7 @@ export const appSections: Array<{
     icon: Database,
     label: "Catálogo",
     detail: "Curadoria administrativa de impressoras e componentes.",
-    purpose: "Filtre, revise, crie e cure variantes canônicas, componentes, origem e estado de confiança do catálogo mestre.",
+    purpose: "Filtre, revise e cure fabricantes, modelos, variações técnicas, componentes e estado de confiança do catálogo mestre.",
   },
   {
     key: "setup",

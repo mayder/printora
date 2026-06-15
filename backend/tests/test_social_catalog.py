@@ -38,7 +38,6 @@ def test_catalog_seed_has_broad_diy_klipper_catalog(tmp_path: Path) -> None:
         "vzbot",
         "annex-engineering",
         "hevort",
-        "jubilee",
         "printers-for-ants",
         "zero-g",
         "railcore-labs",
@@ -54,10 +53,9 @@ def test_catalog_seed_has_broad_diy_klipper_catalog(tmp_path: Path) -> None:
         "doron",
         "snakeoilxy",
     }.issubset(manufacturer_slugs)
-    assert {"RatRig V-Core 3 400mm", "RatRig V-Core 4 500mm", "VzBot 330", "Annex K3 180mm", "Micron+ 180mm", "Salad Fork 160mm", "ZeroG Mercury One.1 Ender 5 conversion", "RailCore II 300ZL", "The 100 100mm"}.issubset(variant_names)
+    assert {"RatRig V-Core 3 400mm", "RatRig V-Core 4 500mm", "VzBot 330", "Annex K3 180mm", "Micron+ 180mm", "Salad Fork 160mm", "ZeroG Mercury One.1 Ender 5 conversion", "RailCore II 300ZL", "The 100 100mm", "Voron Phoenix 600mm draft"}.issubset(variant_names)
     assert len(variant_names) >= 45
     assert variant_states["HevORT 500 draft"] == "draft"
-    assert variant_states["Jubilee Toolchanger draft"] == "draft"
     assert variant_states["SnakeOilXY 250mm draft"] == "draft"
 
 
@@ -68,10 +66,38 @@ def test_catalog_admin_search_filters_component_kinematics_firmware_and_state(tm
 
     corexy = repository.search_catalog_admin(component="Stealthburner", kinematics="corexy", firmware_family="klipper", trust_state="official")
     drafts = repository.search_catalog_admin(trust_state="draft")
+    blocked = repository.search_catalog_admin(trust_state="blocked")
+    default_catalog = repository.search_catalog_admin()
 
-    assert any(item.manufacturer_slug == "voron-design" and item.model_slug == "voron-2-4" for item in corexy.variants)
-    assert {item.trust_state for item in drafts.variants} == {"draft"}
-    assert {"hevort", "jubilee"}.issubset({item.manufacturer_slug for item in drafts.variants})
+    corexy_variants = [variant for model in corexy.models for variant in model.variants]
+    draft_variants = [variant for model in drafts.models for variant in model.variants]
+    blocked_variants = [variant for model in blocked.models for variant in model.variants]
+    default_slugs = {model.manufacturer_slug for model in default_catalog.models}
+
+    assert any(model.manufacturer_slug == "voron-design" and model.slug == "voron-2-4" for model in corexy.models)
+    assert any(variant.name == "Voron 2.4 R2 350mm" for variant in corexy_variants)
+    assert {item.trust_state for item in draft_variants} == {"draft"}
+    assert "hevort" in {item.manufacturer_slug for item in drafts.models}
+    assert "jubilee" in {item.manufacturer_slug for item in blocked.models}
+    assert all(variant.trust_state == "blocked" for variant in blocked_variants)
+    assert "jubilee" not in default_slugs
+
+
+def test_catalog_seed_does_not_expose_package_ids_in_source_fields(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+
+    with connect_database(database_path) as connection:
+        sources = connection.execute(
+            """
+            SELECT source FROM catalog_manufacturers
+            UNION ALL SELECT source FROM catalog_printer_models
+            UNION ALL SELECT source FROM catalog_printer_variants
+            """
+        ).fetchall()
+
+    assert sources
+    assert all("pkg" not in str(row["source"]).lower() for row in sources)
 
 
 def test_catalog_duplicate_variant_slug_is_rejected(tmp_path: Path) -> None:
@@ -143,7 +169,7 @@ def test_catalog_admin_api_blocks_common_user_and_allows_admin_update(tmp_path, 
 
             blocked = client.get("/api/catalog/admin", headers={"Authorization": f"Bearer {common_token}"})
             allowed = client.get("/api/catalog/admin", headers={"Authorization": f"Bearer {admin_token}"})
-            variant_id = allowed.json()["variants"][0]["id"]
+            variant_id = allowed.json()["models"][0]["variants"][0]["id"]
             updated = client.put(
                 f"/api/catalog/variants/{variant_id}",
                 headers={"Authorization": f"Bearer {admin_token}"},

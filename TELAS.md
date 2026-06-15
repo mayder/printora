@@ -144,12 +144,12 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Conta, autenticação reforçada gera autorização curta para ações críticas; usuários com 2FA usam código, usuários sem 2FA usam senha. Se a autorização faltar durante uma ação crítica de calibração, o usuário deve poder informar senha/código em modal contextual sem sair do fluxo.
 - Datas visíveis no sistema devem ser exibidas em formato brasileiro usando a timezone do usuário logado. O banco mantém UTC/texto original; a conversão acontece somente na formatação da UI.
 - A tela Social deve separar identidade pública/social da conta operacional. Perfil público, seguidores, amizades, bloqueios, comunidades e impressoras públicas não concedem acesso a organizações, agentes, Moonraker, SSH, tokens ou permissões de impressora.
-- Na tela Social, uma impressora só pode ser publicada quando estiver vinculada a uma variante do catálogo mestre; a publicação exibe apenas nome público, descrição, mods/imagens opcionais e fabricante/modelo/variante.
+- Na tela Social, uma impressora só pode ser publicada quando estiver vinculada a uma variação técnica do catálogo mestre; a publicação exibe apenas nome público, descrição, mods/imagens opcionais e fabricante/modelo/variação.
 - Comunidades sociais são derivadas automaticamente do catálogo por fabricante, modelo e variante. Elas não são organizações operacionais e não aparecem como controle de permissão.
 - Bloqueios sociais devem encerrar interações sociais existentes e não devem apagar histórico operacional, organização, inventário ou auditoria de impressora.
 - A tela Catálogo é a superfície administrativa de curadoria do catálogo canônico, separada da tela Social.
-- A tela Catálogo deve separar lista/filtros, detalhe, criação de variante e edição de curadoria. Filtros visíveis: fabricante, modelo, variante, componente e estado de confiança.
-- A tela Catálogo deve exibir fabricante, modelo, variante, volume útil, cinemática, firmware, componentes, origem e `trust_state`.
+- A tela Catálogo deve separar lista/filtros por modelo, detalhe de fabricante/modelo, criação de variação e edição de curadoria. Filtros visíveis: fabricante, modelo, tamanho/versão, componente e estado de confiança.
+- A tela Catálogo deve exibir fabricante, site, repositório, documentação, BOM quando disponível, modelo, variações técnicas, volume útil, cinemática, firmware, componentes e `trust_state`. Identificadores internos de pacote ou campos de origem técnica não devem aparecer para o usuário.
 - Usuário comum pode usar variantes para publicação/consulta, mas não acessa edição administrativa do catálogo canônico.
 - Estados administráveis do catálogo: `official`, `community`, `draft`, `obsolete` e `blocked`. Itens obsoletos/bloqueados não devem quebrar impressoras já vinculadas.
 - Na tela Impressoras, o cadastro/edição da impressora separa metadados cloud, conexão Moonraker e SSH. Metadados incluem modelo, localização, tags, observações e organização opcional.

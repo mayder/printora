@@ -39,6 +39,26 @@ class CatalogVariantDetail(CatalogVariant):
     kinematics: str
 
 
+class CatalogModelAdmin(BaseModel):
+    id: int
+    slug: str
+    name: str
+    kinematics: str
+    trust_state: TrustState
+    manufacturer_id: int
+    manufacturer_slug: str
+    manufacturer_name: str
+    manufacturer_website_url: str | None = None
+    manufacturer_repository_url: str | None = None
+    manufacturer_documentation_url: str | None = None
+    website_url: str | None = None
+    repository_url: str | None = None
+    documentation_url: str | None = None
+    bom_url: str | None = None
+    description: str | None = None
+    variants: list[CatalogVariant] = Field(default_factory=list)
+
+
 class CatalogModel(BaseModel):
     id: int
     slug: str
@@ -63,7 +83,10 @@ class CatalogSummary(BaseModel):
 
 
 class CatalogAdminSummary(BaseModel):
-    variants: list[CatalogVariantDetail]
+    models: list[CatalogModelAdmin]
+    manufacturer_count: int
+    model_count: int
+    variant_count: int
 
 
 class CatalogVariantUpdate(BaseModel):
@@ -285,6 +308,10 @@ class SocialCatalogRepository:
         if trust_state:
             clauses.append("v.trust_state = ?")
             parameters.append(trust_state)
+        else:
+            clauses.append("v.trust_state != 'blocked'")
+            clauses.append("m.trust_state != 'blocked'")
+            clauses.append("mf.trust_state != 'blocked'")
         where_sql = " AND ".join(clauses)
         with connect_database(self.database_path) as connection:
             rows = connection.execute(
@@ -292,7 +319,13 @@ class SocialCatalogRepository:
                 SELECT v.id, v.slug, v.name, v.build_volume_json, v.components_json,
                        v.firmware_family, v.trust_state, v.source,
                        m.id AS model_id, m.slug AS model_slug, m.name AS model_name, m.kinematics,
-                       mf.id AS manufacturer_id, mf.slug AS manufacturer_slug, mf.name AS manufacturer_name
+                       m.trust_state AS model_trust_state, m.website_url AS model_website_url,
+                       m.repository_url AS model_repository_url, m.documentation_url AS model_documentation_url,
+                       m.bom_url AS model_bom_url, m.description AS model_description,
+                       mf.id AS manufacturer_id, mf.slug AS manufacturer_slug, mf.name AS manufacturer_name,
+                       mf.website_url AS manufacturer_website_url,
+                       mf.repository_url AS manufacturer_repository_url,
+                       mf.documentation_url AS manufacturer_documentation_url
                 FROM catalog_printer_variants v
                 JOIN catalog_printer_models m ON m.id = v.model_id
                 JOIN catalog_manufacturers mf ON mf.id = m.manufacturer_id
@@ -301,7 +334,41 @@ class SocialCatalogRepository:
                 """,
                 tuple(parameters),
             ).fetchall()
-        return CatalogAdminSummary(variants=[_variant_detail_from_row(row) for row in rows])
+        models_by_id: dict[int, CatalogModelAdmin] = {}
+        manufacturers: set[int] = set()
+        variant_count = 0
+        for row in rows:
+            model_id = int(row["model_id"])
+            manufacturers.add(int(row["manufacturer_id"]))
+            if model_id not in models_by_id:
+                models_by_id[model_id] = CatalogModelAdmin(
+                    id=model_id,
+                    slug=str(row["model_slug"]),
+                    name=str(row["model_name"]),
+                    kinematics=str(row["kinematics"]),
+                    trust_state=row["model_trust_state"],
+                    manufacturer_id=int(row["manufacturer_id"]),
+                    manufacturer_slug=str(row["manufacturer_slug"]),
+                    manufacturer_name=str(row["manufacturer_name"]),
+                    manufacturer_website_url=clean_optional_text(row["manufacturer_website_url"]),
+                    manufacturer_repository_url=clean_optional_text(row["manufacturer_repository_url"]),
+                    manufacturer_documentation_url=clean_optional_text(row["manufacturer_documentation_url"]),
+                    website_url=clean_optional_text(row["model_website_url"]),
+                    repository_url=clean_optional_text(row["model_repository_url"]),
+                    documentation_url=clean_optional_text(row["model_documentation_url"]),
+                    bom_url=clean_optional_text(row["model_bom_url"]),
+                    description=clean_optional_text(row["model_description"]),
+                    variants=[],
+                )
+            models_by_id[model_id].variants.append(_variant_from_row(row))
+            variant_count += 1
+        models = list(models_by_id.values())
+        return CatalogAdminSummary(
+            models=models,
+            manufacturer_count=len(manufacturers),
+            model_count=len(models),
+            variant_count=variant_count,
+        )
 
     def create_manufacturer(self, payload: CatalogManufacturerCreate, actor_user_id: int) -> CatalogManufacturer:
         slug = normalize_slug(payload.slug or payload.name)

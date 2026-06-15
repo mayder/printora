@@ -233,12 +233,13 @@ curl -s http://127.0.0.1:8069/api/social/me/profile -H "Authorization: Bearer <t
 Curadoria administrativa:
 
 - abrir `/?section=catalog-admin`;
-- filtrar por fabricante, modelo, variante, componente, cinemática, firmware ou `trust_state`;
-- revisar detalhe antes de editar volume útil, componentes, firmware, origem ou estado;
+- filtrar por fabricante, modelo, tamanho/versão, componente, cinemática, firmware ou `trust_state`;
+- revisar detalhe do fabricante/modelo antes de editar volume útil, componentes, firmware ou estado da variação;
+- conferir links de site, repositório, documentação e BOM quando existirem; se a fonte não estiver segura, manter `community` ou `draft`;
 - promover `community` para `official` somente depois de revisão de fonte/variante;
 - manter `draft` quando volume/componentes forem incertos;
 - usar `obsolete` para item substituído que ainda pode existir em impressoras vinculadas;
-- usar `blocked` para item incorreto/inseguro que não deve aparecer em consulta pública;
+- usar `blocked` para item incorreto, fora do recorte ou inseguro que não deve aparecer em consulta pública nem na curadoria padrão; consultar bloqueados pelo filtro `trust_state=blocked`;
 - não apagar variantes com impressoras vinculadas; para merge/rename, criar/curar destino e manter origem como `obsolete` até migração revisada.
 
 Publicação de impressora:
@@ -258,7 +259,7 @@ ownership ou permissões operacionais.
 Rollback:
 
 - restaurar o backup SQLite criado automaticamente antes do script `035_social_catalog.sql`;
-- se o problema estiver só no catálogo ampliado, restaurar backup anterior aos scripts `036_expand_printer_catalog_seed.sql`/`037_expand_diy_catalog_breadth.sql` ou reverter esses scripts e manter dados vinculados como legado até curadoria;
+- se o problema estiver só no catálogo ampliado, restaurar backup anterior aos scripts `036_expand_printer_catalog_seed.sql` a `041_catalog_sanitize_internal_sources.sql` ou reverter esses scripts e manter dados vinculados como legado até curadoria;
 - remover a tela `Catálogo`, a inclusão `catalog-admin` na navegação e as rotas administrativas novas se apenas a curadoria precisar ser revertida;
 - remover a tela `Social` e as rotas `/api/catalog`, `/api/social/*` se todo o domínio social/catálogo precisar ser revertido no código.
 

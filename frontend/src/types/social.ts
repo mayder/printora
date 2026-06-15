@@ -26,7 +26,30 @@ export interface CatalogVariantDetail extends CatalogVariant {
 }
 
 export interface CatalogAdminSummary {
-  variants: CatalogVariantDetail[];
+  models: CatalogModelAdmin[];
+  manufacturer_count: number;
+  model_count: number;
+  variant_count: number;
+}
+
+export interface CatalogModelAdmin {
+  id: number;
+  slug: string;
+  name: string;
+  kinematics: string;
+  trust_state: CatalogTrustState;
+  manufacturer_id: number;
+  manufacturer_slug: string;
+  manufacturer_name: string;
+  manufacturer_website_url: string | null;
+  manufacturer_repository_url: string | null;
+  manufacturer_documentation_url: string | null;
+  website_url: string | null;
+  repository_url: string | null;
+  documentation_url: string | null;
+  bom_url: string | null;
+  description: string | null;
+  variants: CatalogVariant[];
 }
 
 export interface CatalogModel {
