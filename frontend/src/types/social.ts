@@ -58,6 +58,8 @@ export interface CatalogModelAdmin {
   forum_url: string | null;
   description: string | null;
   curation_notes: string | null;
+  detail: Record<string, unknown>;
+  source_links: Record<string, unknown>;
   variants: CatalogVariant[];
 }
 

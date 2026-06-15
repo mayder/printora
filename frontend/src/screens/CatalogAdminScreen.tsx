@@ -410,6 +410,11 @@ function CatalogDetailView({ model, onBack }: { model: CatalogModelAdmin; onBack
         </section>
       ) : null}
 
+      <section className="catalog-curation-grid">
+        <CatalogSpecPanel title="Ficha de curadoria" icon={ShieldCheck} values={model.detail} />
+        <CatalogSourcePanel values={model.source_links} />
+      </section>
+
       <section className="catalog-variations-panel">
         <header>
           <Database size={17} />
@@ -438,6 +443,52 @@ function CatalogDetailView({ model, onBack }: { model: CatalogModelAdmin; onBack
           <JsonBlock key={variation.id} title={`Componentes · ${variation.name}`} value={variation.components} />
         ))}
       </section>
+    </section>
+  );
+}
+
+function CatalogSpecPanel({ title, icon: Icon, values }: { title: string; icon: LucideIcon; values: Record<string, unknown> }) {
+  const entries = objectEntries(values);
+  if (entries.length === 0) {
+    return null;
+  }
+  return (
+    <section className="catalog-spec-panel">
+      <header>
+        <Icon size={17} />
+        <strong>{title}</strong>
+      </header>
+      <dl className="catalog-spec-list">
+        {entries.map(([key, value]) => (
+          <div key={key}>
+            <dt>{detailLabel(key)}</dt>
+            <dd>{formatDetailValue(value)}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function CatalogSourcePanel({ values }: { values: Record<string, unknown> }) {
+  const links = objectEntries(values).filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].startsWith("http"));
+  if (links.length === 0) {
+    return null;
+  }
+  return (
+    <section className="catalog-spec-panel">
+      <header>
+        <ExternalLink size={17} />
+        <strong>Fontes usadas na curadoria</strong>
+      </header>
+      <div className="catalog-source-list">
+        {links.map(([key, url]) => (
+          <a className="catalog-source-link" href={url} target="_blank" rel="noreferrer" key={key}>
+            <ExternalLink size={15} />
+            <span>{detailLabel(key)}</span>
+          </a>
+        ))}
+      </div>
     </section>
   );
 }
@@ -512,6 +563,55 @@ function formatVolume(value: Record<string, unknown>) {
   const y = value.y ?? "-";
   const z = value.z ?? "-";
   return `${x} x ${y} x ${z} mm`;
+}
+
+function objectEntries(value: Record<string, unknown>) {
+  return Object.entries(value).filter(([, item]) => item !== null && item !== undefined && String(item).trim() !== "");
+}
+
+function formatDetailValue(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+  if (typeof value === "object" && value !== null) {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+
+function detailLabel(value: string) {
+  const labels: Record<string, string> = {
+    build_volume: "Volume útil",
+    confidence: "Confiança",
+    documentation: "Documentação",
+    extrusion: "Extrusão",
+    firmware: "Firmware",
+    frame: "Estrutura",
+    github: "GitHub",
+    github_org: "GitHub",
+    github_outdated: "GitHub histórico",
+    github_vz235: "GitHub Vz-235",
+    github_vz330: "GitHub Vz-330",
+    hardware: "Hardware",
+    known_sizes: "Tamanhos conhecidos",
+    license: "Licença",
+    lineage: "Origem técnica",
+    manual: "Manual",
+    manufacturer: "Fabricante",
+    motion: "Movimento",
+    origin: "Origem",
+    parts: "Partes",
+    printables: "Printables",
+    probe: "Probe",
+    release: "Release",
+    site: "Site",
+    source: "Fonte",
+    standard: "Padrão",
+    status: "Status",
+    volume: "Volume útil",
+    wiki: "Wiki",
+  };
+  return labels[value] ?? value.replace(/_/g, " ");
 }
 
 function formatFirmwareSummary(variants: CatalogVariant[]) {

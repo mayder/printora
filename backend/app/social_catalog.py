@@ -65,6 +65,8 @@ class CatalogModelAdmin(BaseModel):
     forum_url: str | None = None
     description: str | None = None
     curation_notes: str | None = None
+    detail: dict[str, object] = Field(default_factory=dict)
+    source_links: dict[str, object] = Field(default_factory=dict)
     variants: list[CatalogVariant] = Field(default_factory=list)
 
 
@@ -334,6 +336,8 @@ class SocialCatalogRepository:
                        m.discord_url AS model_discord_url, m.reddit_url AS model_reddit_url,
                        m.forum_url AS model_forum_url, m.description AS model_description,
                        m.curation_notes AS model_curation_notes,
+                       m.detail_json AS model_detail_json,
+                       m.source_links_json AS model_source_links_json,
                        mf.id AS manufacturer_id, mf.slug AS manufacturer_slug, mf.name AS manufacturer_name,
                        mf.website_url AS manufacturer_website_url,
                        mf.repository_url AS manufacturer_repository_url,
@@ -383,6 +387,8 @@ class SocialCatalogRepository:
                     forum_url=clean_optional_text(row["model_forum_url"]),
                     description=clean_optional_text(row["model_description"]),
                     curation_notes=clean_optional_text(row["model_curation_notes"]),
+                    detail=_json_dict(row["model_detail_json"]),
+                    source_links=_json_dict(row["model_source_links_json"]),
                     variants=[],
                 )
             models_by_id[model_id].variants.append(_variant_from_row(row))
