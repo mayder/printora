@@ -403,12 +403,7 @@ function CatalogDetailView({ model, onBack }: { model: CatalogModelAdmin; onBack
         <div><dt>Variações</dt><dd>{model.variants.length}</dd></div>
       </dl>
 
-      {model.curation_notes ? (
-        <section className="catalog-note-panel">
-          <Info size={17} />
-          <span>{model.curation_notes}</span>
-        </section>
-      ) : null}
+      <CurationStatusPanel model={model} />
 
       <section className="catalog-curation-grid">
         <CatalogSpecPanel title="Ficha de curadoria" icon={ShieldCheck} values={model.detail} />
@@ -443,6 +438,36 @@ function CatalogDetailView({ model, onBack }: { model: CatalogModelAdmin; onBack
           <ComponentSummary key={variation.id} variation={variation} />
         ))}
       </section>
+    </section>
+  );
+}
+
+function CurationStatusPanel({ model }: { model: CatalogModelAdmin }) {
+  if (!model.curation_notes && model.trust_state === "official") {
+    return null;
+  }
+  return (
+    <section className="catalog-curation-status">
+      <div className="catalog-curation-status-icon">
+        <Info size={17} />
+      </div>
+      <div className="catalog-curation-status-body">
+        <header>
+          <strong>Status de curadoria</strong>
+          <span className={`catalog-state state-${model.trust_state}`}>{model.trust_state}</span>
+        </header>
+        <p>{curationStatusText(model)}</p>
+        <dl>
+          <div>
+            <dt>Evidência</dt>
+            <dd>{curationEvidenceText(model)}</dd>
+          </div>
+          <div>
+            <dt>Próxima ação</dt>
+            <dd>{curationNextAction(model)}</dd>
+          </div>
+        </dl>
+      </div>
     </section>
   );
 }
@@ -625,6 +650,49 @@ function formatDetailValue(value: unknown) {
     return JSON.stringify(value);
   }
   return String(value);
+}
+
+function curationStatusText(model: CatalogModelAdmin) {
+  if (model.curation_notes) {
+    return model.curation_notes;
+  }
+  if (model.trust_state === "community") {
+    return "Cadastro aceito como referência comunitária, ainda sem revisão completa para virar oficial.";
+  }
+  if (model.trust_state === "draft") {
+    return "Cadastro em rascunho técnico, usado para mapear o modelo sem afirmar dados ainda não verificados.";
+  }
+  if (model.trust_state === "obsolete") {
+    return "Cadastro mantido para preservar histórico e vínculos existentes, mas não recomendado para novos cadastros.";
+  }
+  if (model.trust_state === "blocked") {
+    return "Cadastro bloqueado na curadoria e fora da consulta pública padrão.";
+  }
+  return "Cadastro revisado e aceito como referência oficial no catálogo.";
+}
+
+function curationEvidenceText(model: CatalogModelAdmin) {
+  const confidence = typeof model.detail.confidence === "string" ? model.detail.confidence : "";
+  const links = objectEntries(model.source_links).filter(([, value]) => typeof value === "string" && value.startsWith("http"));
+  if (confidence && links.length) {
+    return `${confidence}; ${links.length} ${links.length === 1 ? "fonte vinculada" : "fontes vinculadas"}.`;
+  }
+  if (confidence) {
+    return confidence;
+  }
+  if (links.length) {
+    return `${links.length} ${links.length === 1 ? "fonte vinculada" : "fontes vinculadas"} na ficha do modelo.`;
+  }
+  return "Sem fonte externa vinculada nesta ficha.";
+}
+
+function curationNextAction(model: CatalogModelAdmin) {
+  if (model.trust_state === "official") return "Manter revisão periódica e atualizar se o projeto publicar nova versão.";
+  if (model.trust_state === "community") return "Conferir BOM, documentação e variações antes de promover para official.";
+  if (model.trust_state === "draft") return "Validar BOM, versão de release, componentes e volumes antes de promover.";
+  if (model.trust_state === "obsolete") return "Manter vínculos existentes e orientar novos cadastros para o modelo substituto.";
+  if (model.trust_state === "blocked") return "Revisar bloqueio antes de qualquer reativação.";
+  return "Revisar metadados do modelo.";
 }
 
 function isPendingComponentValue(value: unknown) {
