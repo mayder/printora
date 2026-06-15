@@ -42,6 +42,19 @@ Impacto em rollback: médio; o schema adiciona tabelas sociais e colunas públic
 Como reverter: restaurar backup do SQLite anterior ao `035_social_catalog.sql`, remover `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, tela `Social`, serviço `socialApi` e a inclusão da rota no `main.py`.
 Referencias: `backend/sql/035_social_catalog.sql`, `backend/app/social_catalog.py`, `frontend/src/screens/SocialScreen.tsx`, `backend/tests/test_social_catalog.py`.
 
+### DEC-20260615-01 - Curadoria do catálogo mestre fica em superfície administrativa própria
+
+Status: aceita
+Data: 2026-06-15
+Contexto: o catálogo mestre precisa sustentar comunidades, publicação de impressoras, biblioteca de modelos e fatiamento seguro. Misturar curadoria canônica na tela Social deixaria regras administrativas pouco auditáveis e permitiria confundir identidade pública com administração de dados técnicos.
+Decisao: manter o domínio `social_catalog`, mas separar a superfície de curadoria na seção `Catálogo`. A API administrativa expõe busca filtrável e atualização de variantes. Os estados válidos são `official`, `community`, `draft`, `obsolete` e `blocked`; `community` exige revisão de fonte antes de virar `official`; `draft` é usado quando volume/componentes ainda têm incerteza; `obsolete` preserva vínculos existentes e bloqueia nova publicação; `blocked` remove o item da consulta pública e também preserva vínculos para auditoria/rollback. Merge/rename deve criar nova entrada ou atualizar metadados sem apagar a variante antiga enquanto houver impressora vinculada.
+Alternativas consideradas: manter tudo na tela Social; aceitar edição por usuários comuns; apagar variantes bloqueadas; alterar `035_social_catalog.sql` já versionado.
+Consequencias: a curadoria fica auditável e reversível, usuário comum não edita catálogo canônico e dados incertos entram como `community`/`draft` sem promessa técnica falsa.
+Impacto em testes: testes cobrem seed amplo DIY, filtros administrativos, permissão 403 para usuário comum, duplicidade, obsolescência/bloqueio e vínculo de impressora com variante canônica.
+Impacto em rollback: médio; novo seed `036_expand_printer_catalog_seed.sql` e tela `CatalogAdminScreen` podem ser revertidos sem apagar dados de impressoras existentes.
+Como reverter: reverter `backend/sql/036_expand_printer_catalog_seed.sql`, endpoints administrativos novos, `frontend/src/screens/CatalogAdminScreen.tsx`, estilos/rota `catalog-admin` e restaurar docs; em banco já aplicado, manter linhas órfãs ou restaurar backup SQLite anterior ao script 036.
+Referencias: `backend/sql/036_expand_printer_catalog_seed.sql`, `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, `frontend/src/screens/CatalogAdminScreen.tsx`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260530-01 - Setup do Zero começa após Linux e SSH ativo
 
 Status: aceita

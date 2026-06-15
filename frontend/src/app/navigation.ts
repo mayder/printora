@@ -1,4 +1,4 @@
-import { Activity, FileText, Home, Info, Network, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
+import { Activity, Database, FileText, Home, Info, Network, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
@@ -8,6 +8,7 @@ export type AppSection =
   | "agents"
   | "agent-detail"
   | "social"
+  | "catalog-admin"
   | "setup"
   | "monitoring"
   | "updates"
@@ -66,8 +67,15 @@ export const appSections: Array<{
     key: "social",
     icon: Users,
     label: "Social",
-    detail: "Perfil público, catálogo, comunidades e relações.",
+    detail: "Perfil público, comunidades e relações.",
     purpose: "Gerencie identidade social, impressoras públicas, comunidades automáticas e relações sem conceder acesso operacional.",
+  },
+  {
+    key: "catalog-admin",
+    icon: Database,
+    label: "Catálogo",
+    detail: "Curadoria administrativa de impressoras e componentes.",
+    purpose: "Filtre, revise, crie e cure variantes canônicas, componentes, origem e estado de confiança do catálogo mestre.",
   },
   {
     key: "setup",
@@ -149,7 +157,7 @@ export const appSections: Array<{
 ];
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
-  { title: "Principal", sections: ["overview", "printers", "agents", "social", "setup"] },
+  { title: "Principal", sections: ["overview", "printers", "agents", "social", "catalog-admin", "setup"] },
   { title: "Sistema", sections: ["settings"] },
 ];
 

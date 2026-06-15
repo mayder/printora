@@ -6,6 +6,7 @@ from app.auth import CurrentUser
 from app.config import get_settings
 from app.routes.auth import get_auth_repository, require_current_user, require_current_user_when_configured
 from app.social_catalog import (
+    CatalogAdminSummary,
     CatalogManufacturer,
     CatalogManufacturerCreate,
     CatalogModel,
@@ -13,6 +14,7 @@ from app.social_catalog import (
     CatalogSummary,
     CatalogVariant,
     CatalogVariantCreate,
+    CatalogVariantUpdate,
     Community,
     CommunityDetail,
     PrinterPublicUpdate,
@@ -22,6 +24,7 @@ from app.social_catalog import (
     RelationshipRecord,
     RelationshipSummary,
     SocialCatalogRepository,
+    TrustState,
 )
 
 
@@ -51,7 +54,30 @@ def optional_current_user(
 
 @router.get("/api/catalog", response_model=CatalogSummary)
 async def list_catalog(repository: SocialCatalogRepository = Depends(get_social_repository)) -> CatalogSummary:
-    return repository.list_catalog()
+    return repository.list_catalog(include_blocked=False, include_obsolete=True)
+
+
+@router.get("/api/catalog/admin", response_model=CatalogAdminSummary)
+async def search_catalog_admin(
+    manufacturer: str | None = None,
+    model: str | None = None,
+    variant: str | None = None,
+    component: str | None = None,
+    kinematics: str | None = None,
+    firmware_family: str | None = None,
+    trust_state: TrustState | None = None,
+    _current: CurrentUser = Depends(require_catalog_admin),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> CatalogAdminSummary:
+    return repository.search_catalog_admin(
+        manufacturer=manufacturer,
+        model=model,
+        variant=variant,
+        component=component,
+        kinematics=kinematics,
+        firmware_family=firmware_family,
+        trust_state=trust_state,
+    )
 
 
 @router.post("/api/catalog/manufacturers", response_model=CatalogManufacturer)
@@ -86,6 +112,19 @@ async def create_catalog_variant(
 ) -> CatalogVariant:
     try:
         return repository.create_variant(payload, current.user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.put("/api/catalog/variants/{variant_id}", response_model=CatalogVariant)
+async def update_catalog_variant(
+    variant_id: int,
+    payload: CatalogVariantUpdate,
+    current: CurrentUser = Depends(require_catalog_admin),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> CatalogVariant:
+    try:
+        return repository.update_variant(variant_id, payload, current.user.id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

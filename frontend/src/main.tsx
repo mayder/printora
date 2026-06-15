@@ -10,6 +10,7 @@ import { PrintersScreen } from "./screens/PrintersScreen";
 import { AgentsScreen } from "./screens/AgentsScreen";
 import { AgentDetailScreen } from "./screens/AgentDetailScreen";
 import { SocialScreen } from "./screens/SocialScreen";
+import { CatalogAdminScreen } from "./screens/CatalogAdminScreen";
 import { SetupScreen } from "./screens/SetupScreen";
 import { PrinterDetailScreen } from "./screens/PrinterDetailScreen";
 import { MonitoringScreen } from "./screens/MonitoringScreen";
@@ -40,6 +41,7 @@ import "./styles/tests.css";
 import "./styles/reports.css";
 import "./styles/about.css";
 import "./styles/social.css";
+import "./styles/catalog-admin.css";
 
 type AccountTab = "profile" | "organizations";
 
@@ -92,6 +94,8 @@ function App() {
         return <AgentDetailScreen {...screenProps} />;
       case "social":
         return <SocialScreen {...screenProps} />;
+      case "catalog-admin":
+        return <CatalogAdminScreen {...screenProps} />;
       case "setup":
         return <SetupScreen {...screenProps} />;
       case "monitoring":

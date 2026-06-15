@@ -3280,11 +3280,13 @@ Critério de aceite:
 Estado atual:
 
 - Implementado via SQL idempotente `backend/sql/035_social_catalog.sql`.
-- Seed inicial inclui Voron Design, Voron 0.2, Voron 2.4 e variantes 120/300/350mm.
-- Endpoints `/api/catalog` e rotas administrativas protegidas por usuário administrador foram criados.
+- Expansão idempotente em `backend/sql/036_expand_printer_catalog_seed.sql` inclui catálogo DIY inicial além de Voron: RatRig V-Core/V-Minion, VzBot, Annex K3, HevORT, Jubilee, Micron+ e Salad Fork; itens com dado menos seguro ficam como `community` ou `draft`.
+- Endpoints `/api/catalog`, `/api/catalog/admin` e rotas administrativas protegidas por usuário administrador foram criados.
 - Impressoras cloud podem ser vinculadas a variante canônica para publicação social.
-- UI inicial de curadoria/seleção fica na tela `Social`.
-- Testes cobrem seed, privacidade, vínculo obrigatório com catálogo e duplicidade de mods públicos.
+- UI administrativa real fica na seção `Catálogo`, separada da tela `Social`, com listagem/filtros, detalhe, criação de variante e edição de curadoria.
+- Estados `official`, `community`, `draft`, `obsolete` e `blocked` são visíveis e administráveis; `obsolete`/`blocked` não removem vínculo existente, mas impedem nova publicação pública.
+- Testes cobrem seed amplo, filtros, contrato, duplicidade, obsolescência/bloqueio, permissão administrativa, vínculo de impressora com variante canônica, privacidade social e comunidades automáticas.
+- PKG-49 fechado em implementação local; publicação/deploy depende do fluxo de release permitido e execução do check oficial.
 
 ## PKG-50: Perfil Social Do Usuário
 

@@ -65,16 +65,29 @@ Validação focada:
 
 ```bash
 cd backend && uv run pytest tests/test_social_catalog.py -q
+cd frontend && npm run test:releases
 cd frontend && npm run build
 ```
 
 Aceite:
 
-- catálogo seedado contém fabricantes, modelos e variantes canônicas sem depender de texto livre;
+- catálogo seedado contém fabricantes, modelos e variantes canônicas além de Voron, com RatRig, VzBot, Annex, HevORT, Jubilee, Micron e Salad Fork;
+- itens com dado técnico menos seguro ficam em `community` ou `draft`, sem inventar precisão frágil;
+- endpoint administrativo filtra por fabricante, modelo, variante, componente, cinemática, firmware e `trust_state`;
+- duplicidade de slug/modelo/variante é bloqueada por contrato de banco/API;
+- estados `official`, `community`, `draft`, `obsolete` e `blocked` são administráveis;
+- variante `obsolete` ou `blocked` não quebra impressora já vinculada, mas não é aceita em nova publicação pública;
+- usuário comum recebe 403 ao tentar curar catálogo canônico;
 - perfil social não expõe email, WhatsApp, organizações, permissões ou credenciais operacionais;
 - impressora pública exige vínculo com variante do catálogo e não retorna Moonraker, SSH, agente, token ou IP;
 - comunidades automáticas são derivadas de impressoras públicas e não concedem permissão operacional;
 - bloqueio social encerra follows/amizades e impede nova interação social sem apagar histórico operacional.
+
+Fechamento do pacote:
+
+```bash
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
 
 ## Update do agente
 

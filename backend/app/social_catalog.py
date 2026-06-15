@@ -29,6 +29,16 @@ class CatalogVariant(BaseModel):
     source: str
 
 
+class CatalogVariantDetail(CatalogVariant):
+    manufacturer_id: int
+    manufacturer_slug: str
+    manufacturer_name: str
+    model_id: int
+    model_slug: str
+    model_name: str
+    kinematics: str
+
+
 class CatalogModel(BaseModel):
     id: int
     slug: str
@@ -50,6 +60,19 @@ class CatalogManufacturer(BaseModel):
 
 class CatalogSummary(BaseModel):
     manufacturers: list[CatalogManufacturer]
+
+
+class CatalogAdminSummary(BaseModel):
+    variants: list[CatalogVariantDetail]
+
+
+class CatalogVariantUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    build_volume: dict[str, object] | None = None
+    components: dict[str, object] | None = None
+    firmware_family: str | None = Field(default=None, max_length=80)
+    trust_state: TrustState | None = None
+    source: str | None = Field(default=None, max_length=120)
 
 
 class CatalogManufacturerCreate(BaseModel):
@@ -176,30 +199,31 @@ class RelationshipSummary(BaseModel):
 class SocialCatalogRepository:
     database_path: Path
 
-    def list_catalog(self) -> CatalogSummary:
+    def list_catalog(self, *, include_blocked: bool = False, include_obsolete: bool = True) -> CatalogSummary:
+        state_filter = _catalog_state_filter("trust_state", include_blocked, include_obsolete)
         with connect_database(self.database_path) as connection:
             manufacturers = connection.execute(
-                """
+                f"""
                 SELECT id, slug, name, trust_state, source
                 FROM catalog_manufacturers
-                WHERE trust_state != 'blocked'
+                WHERE {state_filter}
                 ORDER BY name
                 """
             ).fetchall()
             models = connection.execute(
-                """
+                f"""
                 SELECT id, manufacturer_id, slug, name, kinematics, trust_state, source
                 FROM catalog_printer_models
-                WHERE trust_state != 'blocked'
+                WHERE {state_filter}
                 ORDER BY name
                 """
             ).fetchall()
             variants = connection.execute(
-                """
+                f"""
                 SELECT id, model_id, slug, name, build_volume_json, components_json,
                        firmware_family, trust_state, source
                 FROM catalog_printer_variants
-                WHERE trust_state != 'blocked'
+                WHERE {state_filter}
                 ORDER BY name
                 """
             ).fetchall()
@@ -231,6 +255,53 @@ class SocialCatalogRepository:
                 for row in manufacturers
             ]
         )
+
+    def search_catalog_admin(
+        self,
+        *,
+        manufacturer: str | None = None,
+        model: str | None = None,
+        variant: str | None = None,
+        component: str | None = None,
+        kinematics: str | None = None,
+        firmware_family: str | None = None,
+        trust_state: TrustState | None = None,
+    ) -> CatalogAdminSummary:
+        clauses = ["1 = 1"]
+        parameters: list[object] = []
+        like_filters = [
+            ("mf.name || ' ' || mf.slug", manufacturer),
+            ("m.name || ' ' || m.slug", model),
+            ("v.name || ' ' || v.slug", variant),
+            ("v.components_json", component),
+            ("m.kinematics", kinematics),
+            ("COALESCE(v.firmware_family, '')", firmware_family),
+        ]
+        for expression, value in like_filters:
+            cleaned = clean_optional_text(value)
+            if cleaned:
+                clauses.append(f"LOWER({expression}) LIKE ?")
+                parameters.append(f"%{cleaned.lower()}%")
+        if trust_state:
+            clauses.append("v.trust_state = ?")
+            parameters.append(trust_state)
+        where_sql = " AND ".join(clauses)
+        with connect_database(self.database_path) as connection:
+            rows = connection.execute(
+                f"""
+                SELECT v.id, v.slug, v.name, v.build_volume_json, v.components_json,
+                       v.firmware_family, v.trust_state, v.source,
+                       m.id AS model_id, m.slug AS model_slug, m.name AS model_name, m.kinematics,
+                       mf.id AS manufacturer_id, mf.slug AS manufacturer_slug, mf.name AS manufacturer_name
+                FROM catalog_printer_variants v
+                JOIN catalog_printer_models m ON m.id = v.model_id
+                JOIN catalog_manufacturers mf ON mf.id = m.manufacturer_id
+                WHERE {where_sql}
+                ORDER BY mf.name, m.name, v.name
+                """,
+                tuple(parameters),
+            ).fetchall()
+        return CatalogAdminSummary(variants=[_variant_detail_from_row(row) for row in rows])
 
     def create_manufacturer(self, payload: CatalogManufacturerCreate, actor_user_id: int) -> CatalogManufacturer:
         slug = normalize_slug(payload.slug or payload.name)
@@ -296,6 +367,42 @@ class SocialCatalogRepository:
             entity_id = int(cursor.lastrowid)
             self._audit(connection, "variant", entity_id, "create", actor_user_id, payload.model_dump())
         return self._get_variant(entity_id)
+
+    def update_variant(self, variant_id: int, payload: CatalogVariantUpdate, actor_user_id: int) -> CatalogVariant:
+        updates: list[str] = []
+        parameters: list[object] = []
+        payload_dump = payload.model_dump(exclude_unset=True)
+        if "name" in payload_dump and payload.name is not None:
+            updates.append("name = ?")
+            parameters.append(payload.name.strip())
+        if "build_volume" in payload_dump and payload.build_volume is not None:
+            updates.append("build_volume_json = ?")
+            parameters.append(json.dumps(payload.build_volume, ensure_ascii=False, sort_keys=True))
+        if "components" in payload_dump and payload.components is not None:
+            updates.append("components_json = ?")
+            parameters.append(json.dumps(payload.components, ensure_ascii=False, sort_keys=True))
+        if "firmware_family" in payload_dump:
+            updates.append("firmware_family = ?")
+            parameters.append(clean_optional_text(payload.firmware_family))
+        if "trust_state" in payload_dump and payload.trust_state is not None:
+            updates.append("trust_state = ?")
+            parameters.append(payload.trust_state)
+        if "source" in payload_dump and payload.source is not None:
+            updates.append("source = ?")
+            parameters.append(payload.source.strip())
+        if not updates:
+            return self._get_variant(variant_id)
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        with connect_database(self.database_path) as connection:
+            existing = connection.execute("SELECT id FROM catalog_printer_variants WHERE id = ?", (variant_id,)).fetchone()
+            if existing is None:
+                raise ValueError("variante de catálogo não encontrada")
+            connection.execute(
+                f"UPDATE catalog_printer_variants SET {', '.join(updates)} WHERE id = ?",
+                (*parameters, variant_id),
+            )
+            self._audit(connection, "variant", variant_id, "update", actor_user_id, payload_dump)
+        return self._get_variant(variant_id)
 
     def get_or_create_profile(self, user_id: int) -> PublicProfile:
         with connect_database(self.database_path) as connection:
@@ -689,7 +796,7 @@ class SocialCatalogRepository:
         raise RuntimeError("modelo não persistido")
 
     def _get_variant(self, entity_id: int) -> CatalogVariant:
-        for manufacturer in self.list_catalog().manufacturers:
+        for manufacturer in self.list_catalog(include_blocked=True).manufacturers:
             for model in manufacturer.models:
                 for variant in model.variants:
                     if variant.id == entity_id:
@@ -802,6 +909,26 @@ def _variant_from_row(row) -> CatalogVariant:
         trust_state=row["trust_state"],
         source=str(row["source"]),
     )
+
+
+def _variant_detail_from_row(row) -> CatalogVariantDetail:
+    variant = _variant_from_row(row)
+    return CatalogVariantDetail(
+        **variant.model_dump(),
+        manufacturer_id=int(row["manufacturer_id"]),
+        manufacturer_slug=str(row["manufacturer_slug"]),
+        manufacturer_name=str(row["manufacturer_name"]),
+        model_id=int(row["model_id"]),
+        model_slug=str(row["model_slug"]),
+        model_name=str(row["model_name"]),
+        kinematics=str(row["kinematics"]),
+    )
+
+
+def _catalog_state_filter(column: str, include_blocked: bool, include_obsolete: bool) -> str:
+    blocked = "1 = 1" if include_blocked else f"{column} != 'blocked'"
+    obsolete = "1 = 1" if include_obsolete else f"{column} != 'obsolete'"
+    return f"{blocked} AND {obsolete}"
 
 
 def _profile_from_row(row) -> PublicProfile:

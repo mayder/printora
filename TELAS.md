@@ -33,7 +33,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Estado, efeitos e orquestracao de API ficam em hooks por dominio em `frontend/src/hooks/domains`; `frontend/src/hooks/usePrintoraApp.ts` apenas compoe shell, contexto e dominios.
 - Chamadas HTTP ficam isoladas por dominio em `frontend/src/services`.
 - Componentes reutilizados ficam em `frontend/src/components`.
-- O menu lateral principal mostra somente telas globais, que nao dependem de uma impressora selecionada: `overview`, `printers`, `agents`, `setup` e `settings`.
+- O menu lateral principal mostra somente telas globais, que nao dependem de uma impressora selecionada: `overview`, `printers`, `agents`, `social`, `catalog-admin`, `setup` e `settings`.
 - Telas operacionais de impressora nao aparecem no menu lateral; elas ficam como abas internas de `printer-detail`, aberto a partir da lista de impressoras.
 - O seletor de impressora da topbar e o rodape lateral sao apenas contexto rapido. Eles nao definem a arquitetura de navegacao nem tornam o menu dependente de impressora; abrir o detalhe de uma impressora nao deve trocar esse contexto rapido.
 - A topbar e fixa/sticky e deve conter apenas controles globais: titulo da area atual, alertas da frota, Sobre, tema claro/escuro e conta do usuario no extremo direito.
@@ -52,7 +52,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Detalhe da impressora | `printer-detail` | Estado interno da SPA | `frontend/src/screens/PrinterDetailScreen.tsx` | Registro operacional da impressora com abas de resumo, operacao, updates, calibracao, firmware, manutencao, diagnostico e agentes | Exige registro de impressora aberto | existente |
 | Agentes | `agents` | `/?section=agents`, `/#agents` | `frontend/src/screens/AgentsScreen.tsx` | Lista de todos os agentes da frota, sem operacoes de impressora no menu global | Nao exige impressora ativa | existente |
 | Detalhe do agente | `agent-detail` | Estado interno da SPA | `frontend/src/screens/AgentDetailScreen.tsx` | Registro de agente com impressora vinculada, dispositivo/host, versao, saude, fila, doctor remoto, suporte e credencial | Exige agente aberto | existente |
-| Social | `social` | `/?section=social`, `/#social` | `frontend/src/screens/SocialScreen.tsx` | Perfil público, catálogo mestre, impressoras públicas, comunidades automáticas e relações sociais | Nao exige impressora ativa | existente |
+| Social | `social` | `/?section=social`, `/#social` | `frontend/src/screens/SocialScreen.tsx` | Perfil público, impressoras públicas, comunidades automáticas e relações sociais | Nao exige impressora ativa | existente |
+| Catálogo | `catalog-admin` | `/?section=catalog-admin`, `/#catalog-admin` | `frontend/src/screens/CatalogAdminScreen.tsx` | Curadoria administrativa do catálogo mestre de fabricantes, modelos, variantes e componentes | Nao exige impressora ativa; edição exige administrador | existente |
 | Setup | `setup` | `/?section=setup`, `/#setup` | `frontend/src/screens/SetupScreen.tsx` | Receita guiada para preparar a Pi, habilitar SSH, validar ambiente, configurar CAN/U2C, gerar firmware, executar flash supervisionado, validar base Klipper e cadastrar a impressora | Nao exige impressora ativa | existente |
 | Operacao | aba `operation` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/MonitoringScreen.tsx` + `frontend/src/MonitoringDashboard.tsx` | Operacao ao vivo com temperaturas, toolhead, extrusor, progresso, sistema, fans, CAN e acoes protegidas, incluindo `Salvar config` supervisionado para aplicar valores Klipper pendentes | Exige impressora aberta; live exige agente/Moonraker | existente |
 | Atualizacoes | aba `updates` em `printer-detail` | Interna do detalhe da impressora | `frontend/src/screens/UpdatesScreen.tsx` | Update Manager da impressora, checklist pos-update, update com confirmacao, progresso e historico | Exige impressora aberta; live exige agente/Moonraker | existente |
@@ -104,7 +105,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Relatorios, snapshots, backups e CAN tecnico | `frontend/src/hooks/domains/useReports.ts`, `frontend/src/hooks/domains/useSettings.ts` | `frontend/src/services/reportsApi.ts`, `frontend/src/services/backupApi.ts`, `frontend/src/services/canApi.ts`, `frontend/src/services/printerApi.ts` |
 | Diagnosticos de impressora/agente | `frontend/src/hooks/domains/useSettings.ts`, `frontend/src/hooks/domains/usePrinters.ts` | `frontend/src/services/diagnosticsApi.ts`, `frontend/src/services/printerApi.ts`, `frontend/src/services/systemApi.ts` |
 | Updates do Printora | `frontend/src/hooks/domains/useSelfUpdate.ts` | `frontend/src/services/systemApi.ts` |
-| Social e catálogo | Tela autocontida `frontend/src/screens/SocialScreen.tsx` | `frontend/src/services/socialApi.ts` |
+| Social | Tela autocontida `frontend/src/screens/SocialScreen.tsx` | `frontend/src/services/socialApi.ts` |
+| Catálogo mestre | Tela autocontida `frontend/src/screens/CatalogAdminScreen.tsx` | `frontend/src/services/socialApi.ts` |
 
 ## Distribuicao de conteudo
 
@@ -145,6 +147,11 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Na tela Social, uma impressora só pode ser publicada quando estiver vinculada a uma variante do catálogo mestre; a publicação exibe apenas nome público, descrição, mods/imagens opcionais e fabricante/modelo/variante.
 - Comunidades sociais são derivadas automaticamente do catálogo por fabricante, modelo e variante. Elas não são organizações operacionais e não aparecem como controle de permissão.
 - Bloqueios sociais devem encerrar interações sociais existentes e não devem apagar histórico operacional, organização, inventário ou auditoria de impressora.
+- A tela Catálogo é a superfície administrativa de curadoria do catálogo canônico, separada da tela Social.
+- A tela Catálogo deve separar lista/filtros, detalhe, criação de variante e edição de curadoria. Filtros visíveis: fabricante, modelo, variante, componente e estado de confiança.
+- A tela Catálogo deve exibir fabricante, modelo, variante, volume útil, cinemática, firmware, componentes, origem e `trust_state`.
+- Usuário comum pode usar variantes para publicação/consulta, mas não acessa edição administrativa do catálogo canônico.
+- Estados administráveis do catálogo: `official`, `community`, `draft`, `obsolete` e `blocked`. Itens obsoletos/bloqueados não devem quebrar impressoras já vinculadas.
 - Na tela Impressoras, o cadastro/edição da impressora separa metadados cloud, conexão Moonraker e SSH. Metadados incluem modelo, localização, tags, observações e organização opcional.
 - Na tela Impressoras, a lista mostra dados de frota e acoes de linha para editar, abrir detalhe, ler status, gerar snapshot e trocar contexto rapido. Acoes de linha usam a impressora da propria linha; contexto rapido nao deve ser pre-requisito. Status, token, instalação, pareamento e saúde de agente ficam no detalhe da impressora ou no detalhe do agente.
 - Na tela Agentes, a lista global deve mostrar versão instalada e versão esperada, com ação contextual para atualizar o agente selecionado. Agente ativo sempre recebe job remoto `remote_agent_update_check`; a UI não deve pedir SSH nem comando manual para update.

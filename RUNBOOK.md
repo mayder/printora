@@ -225,9 +225,21 @@ Endpoints principais:
 
 ```bash
 curl -s http://127.0.0.1:8069/api/catalog
+curl -s "http://127.0.0.1:8069/api/catalog/admin?manufacturer=rat&trust_state=official" -H "Authorization: Bearer <admin-token>"
 curl -s http://127.0.0.1:8069/api/social/communities
 curl -s http://127.0.0.1:8069/api/social/me/profile -H "Authorization: Bearer <token>"
 ```
+
+Curadoria administrativa:
+
+- abrir `/?section=catalog-admin`;
+- filtrar por fabricante, modelo, variante, componente, cinemática, firmware ou `trust_state`;
+- revisar detalhe antes de editar volume útil, componentes, firmware, origem ou estado;
+- promover `community` para `official` somente depois de revisão de fonte/variante;
+- manter `draft` quando volume/componentes forem incertos;
+- usar `obsolete` para item substituído que ainda pode existir em impressoras vinculadas;
+- usar `blocked` para item incorreto/inseguro que não deve aparecer em consulta pública;
+- não apagar variantes com impressoras vinculadas; para merge/rename, criar/curar destino e manter origem como `obsolete` até migração revisada.
 
 Publicação de impressora:
 
@@ -246,7 +258,18 @@ ownership ou permissões operacionais.
 Rollback:
 
 - restaurar o backup SQLite criado automaticamente antes do script `035_social_catalog.sql`;
-- remover a tela `Social` e as rotas `/api/catalog`, `/api/social/*` se o pacote precisar ser revertido no código.
+- se o problema estiver só no catálogo ampliado, restaurar backup anterior ao script `036_expand_printer_catalog_seed.sql` ou reverter esse script e manter dados vinculados como legado até curadoria;
+- remover a tela `Catálogo`, a inclusão `catalog-admin` na navegação e as rotas administrativas novas se apenas a curadoria precisar ser revertida;
+- remover a tela `Social` e as rotas `/api/catalog`, `/api/social/*` se todo o domínio social/catálogo precisar ser revertido no código.
+
+Validação:
+
+```bash
+cd backend && uv run --extra dev pytest tests/test_social_catalog.py -q
+cd frontend && npm run test:releases
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
 
 Atualizar manifesto em dry-run:
 

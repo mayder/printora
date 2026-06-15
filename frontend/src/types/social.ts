@@ -15,6 +15,20 @@ export interface CatalogVariant {
   source: string;
 }
 
+export interface CatalogVariantDetail extends CatalogVariant {
+  manufacturer_id: number;
+  manufacturer_slug: string;
+  manufacturer_name: string;
+  model_id: number;
+  model_slug: string;
+  model_name: string;
+  kinematics: string;
+}
+
+export interface CatalogAdminSummary {
+  variants: CatalogVariantDetail[];
+}
+
 export interface CatalogModel {
   id: number;
   slug: string;

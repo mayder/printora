@@ -1,6 +1,8 @@
 import { apiRequest } from "./http";
 import type {
+  CatalogAdminSummary,
   CatalogSummary,
+  CatalogTrustState,
   Community,
   CommunityDetail,
   ProfileVisibility,
@@ -31,8 +33,58 @@ export interface PrinterPublicPayload {
   public_images?: string[];
 }
 
+export interface CatalogAdminFilters {
+  manufacturer?: string;
+  model?: string;
+  variant?: string;
+  component?: string;
+  kinematics?: string;
+  firmware_family?: string;
+  trust_state?: CatalogTrustState | "";
+}
+
+export interface CatalogVariantUpdatePayload {
+  name?: string;
+  build_volume?: Record<string, unknown>;
+  components?: Record<string, unknown>;
+  firmware_family?: string | null;
+  trust_state?: CatalogTrustState;
+  source?: string;
+}
+
+export interface CatalogVariantCreatePayload {
+  model_id: number;
+  name: string;
+  slug?: string | null;
+  build_volume?: Record<string, unknown>;
+  components?: Record<string, unknown>;
+  firmware_family?: string | null;
+  trust_state?: CatalogTrustState;
+  source?: string;
+}
+
 export const socialApi = {
   catalog: () => apiRequest<CatalogSummary>("/api/catalog"),
+  adminCatalog: (filters: CatalogAdminFilters = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.set(key, String(value));
+    });
+    const query = params.toString();
+    return apiRequest<CatalogAdminSummary>(`/api/catalog/admin${query ? `?${query}` : ""}`);
+  },
+  updateCatalogVariant: (variantId: number, payload: CatalogVariantUpdatePayload) =>
+    apiRequest(`/api/catalog/variants/${variantId}`, {
+      method: "PUT",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  createCatalogVariant: (payload: CatalogVariantCreatePayload) =>
+    apiRequest(`/api/catalog/variants`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
   myProfile: () => apiRequest<PublicProfile>("/api/social/me/profile"),
   updateProfile: (payload: ProfilePayload) =>
     apiRequest<PublicProfile>("/api/social/me/profile", {
