@@ -94,7 +94,7 @@ function App() {
         return <AgentDetailScreen {...screenProps} />;
       case "social":
         return <SocialScreen {...screenProps} />;
-      case "catalog-admin":
+      case "catalog":
         return <CatalogAdminScreen {...screenProps} />;
       case "setup":
         return <SetupScreen {...screenProps} />;

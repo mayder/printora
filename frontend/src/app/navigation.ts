@@ -8,7 +8,7 @@ export type AppSection =
   | "agents"
   | "agent-detail"
   | "social"
-  | "catalog-admin"
+  | "catalog"
   | "setup"
   | "monitoring"
   | "updates"
@@ -71,7 +71,7 @@ export const appSections: Array<{
     purpose: "Gerencie identidade social, impressoras públicas, comunidades automáticas e relações sem conceder acesso operacional.",
   },
   {
-    key: "catalog-admin",
+    key: "catalog",
     icon: Database,
     label: "Catálogo",
     detail: "Curadoria administrativa de impressoras e componentes.",
@@ -157,7 +157,7 @@ export const appSections: Array<{
 ];
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
-  { title: "Principal", sections: ["overview", "printers", "agents", "social", "catalog-admin", "setup"] },
+  { title: "Principal", sections: ["overview", "printers", "agents", "social", "catalog", "setup"] },
   { title: "Sistema", sections: ["settings"] },
 ];
 
