@@ -1,35 +1,49 @@
 import React from "react";
-import { Boxes, Database, ExternalLink, FileText, Filter, GitBranch, Plus, RefreshCw, Save, ShieldCheck } from "lucide-react";
+import { Boxes, Database, ExternalLink, FileText, Filter, GitBranch, RefreshCw, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi, type CatalogAdminFilters } from "../services/socialApi";
 import type { ScreenPropsFor } from "./ScreenProps";
 import type { CatalogAdminSummary, CatalogModelAdmin, CatalogTrustState, CatalogVariant } from "../types";
 
-type CatalogAdminScreenProps = ScreenPropsFor<"authUser" | "setError" | "showToast">;
-type CatalogMode = "detail" | "create-variation" | "edit-variation";
+type CatalogAdminScreenProps = ScreenPropsFor<"authUser" | "setError">;
 
 const emptyCatalog: CatalogAdminSummary = { models: [], manufacturer_count: 0, model_count: 0, variant_count: 0 };
 const trustStates: CatalogTrustState[] = ["official", "community", "draft", "obsolete", "blocked"];
 
-export function CatalogAdminScreen({ authUser, setError, showToast }: CatalogAdminScreenProps) {
+export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenProps) {
   const isAdmin = authUser?.email.toLowerCase() === "breno@mayder.com.br";
   const [catalog, setCatalog] = React.useState<CatalogAdminSummary>(emptyCatalog);
+  const [referenceCatalog, setReferenceCatalog] = React.useState<CatalogAdminSummary>(emptyCatalog);
   const [filters, setFilters] = React.useState<CatalogAdminFilters>({});
-  const [mode, setMode] = React.useState<CatalogMode>("detail");
   const [selectedModelId, setSelectedModelId] = React.useState<number | null>(null);
-  const [selectedVariationId, setSelectedVariationId] = React.useState<number | null>(null);
   const [busy, setBusy] = React.useState(false);
+
   const selectedModel = catalog.models.find((item) => item.id === selectedModelId) ?? catalog.models[0] ?? null;
-  const selectedVariation = selectedModel?.variants.find((item) => item.id === selectedVariationId) ?? selectedModel?.variants[0] ?? null;
-  const modelOptions = catalog.models.map((model) => ({ id: model.id, label: `${model.manufacturer_name} · ${model.name}` }));
+  const filterOptions = React.useMemo(() => buildFilterOptions(referenceCatalog.models), [referenceCatalog.models]);
+  const modelOptions = React.useMemo(
+    () => filterOptions.models.filter((option) => !filters.manufacturer || option.manufacturer_slug === filters.manufacturer),
+    [filterOptions.models, filters.manufacturer],
+  );
+  const variationOptions = React.useMemo(
+    () => filterOptions.variations.filter((option) => {
+      if (filters.manufacturer && option.manufacturer_slug !== filters.manufacturer) return false;
+      if (filters.model && option.model_slug !== filters.model) return false;
+      return true;
+    }),
+    [filterOptions.variations, filters.manufacturer, filters.model],
+  );
 
   async function loadCatalog(nextFilters = filters) {
     if (!isAdmin) return;
     setBusy(true);
     try {
-      const payload = await socialApi.adminCatalog(nextFilters);
-      setCatalog(payload);
-      setSelectedModelId((current) => current && payload.models.some((model) => model.id === current) ? current : payload.models[0]?.id ?? null);
+      const [referencePayload, filteredPayload] = await Promise.all([
+        referenceCatalog.models.length ? Promise.resolve(referenceCatalog) : socialApi.adminCatalog(),
+        socialApi.adminCatalog(nextFilters),
+      ]);
+      setReferenceCatalog(referencePayload);
+      setCatalog(filteredPayload);
+      setSelectedModelId((current) => current && filteredPayload.models.some((model) => model.id === current) ? current : filteredPayload.models[0]?.id ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao carregar catálogo administrativo");
     } finally {
@@ -42,45 +56,27 @@ export function CatalogAdminScreen({ authUser, setError, showToast }: CatalogAdm
   }, [isAdmin]);
 
   function updateFilter(key: keyof CatalogAdminFilters, value: string) {
-    setFilters((current) => ({ ...current, [key]: value }));
+    setFilters((current) => {
+      const next = { ...current, [key]: value || undefined };
+      if (key === "manufacturer") {
+        next.model = undefined;
+        next.variant = undefined;
+      }
+      if (key === "model") {
+        next.variant = undefined;
+      }
+      return next;
+    });
   }
 
   async function applyFilters(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await loadCatalog(filters);
-    setMode("detail");
   }
 
-  async function submitVariation(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setBusy(true);
-    try {
-      const payload = {
-        name: String(form.get("name") || ""),
-        build_volume: parseJsonObject(String(form.get("build_volume") || "{}"), "volume útil"),
-        components: parseJsonObject(String(form.get("components") || "{}"), "componentes"),
-        firmware_family: String(form.get("firmware_family") || "") || null,
-        trust_state: String(form.get("trust_state") || "draft") as CatalogTrustState,
-        source: "admin_review",
-      };
-      if (mode === "create-variation") {
-        await socialApi.createCatalogVariant({
-          ...payload,
-          model_id: Number(form.get("model_id")),
-          slug: String(form.get("slug") || "") || null,
-        });
-      } else if (selectedVariation) {
-        await socialApi.updateCatalogVariant(selectedVariation.id, payload);
-      }
-      await loadCatalog();
-      setMode("detail");
-      showToast({ tone: "success", title: "Catálogo atualizado" });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao salvar catálogo");
-    } finally {
-      setBusy(false);
-    }
+  async function clearFilters() {
+    setFilters({});
+    await loadCatalog({});
   }
 
   if (!isAdmin) {
@@ -108,66 +104,135 @@ export function CatalogAdminScreen({ authUser, setError, showToast }: CatalogAdm
             <RefreshCw size={16} />
             Atualizar
           </button>
-          <button type="button" className="primary-action" onClick={() => setMode("create-variation")} disabled={busy || modelOptions.length === 0}>
-            <Plus size={16} />
-            Nova variação
-          </button>
         </div>
       </section>
 
       <form className="catalog-filter-panel" onSubmit={applyFilters}>
-        <Filter size={17} />
-        <input placeholder="Fabricante" value={filters.manufacturer ?? ""} onChange={(event) => updateFilter("manufacturer", event.target.value)} />
-        <input placeholder="Modelo" value={filters.model ?? ""} onChange={(event) => updateFilter("model", event.target.value)} />
-        <input placeholder="Tamanho ou versão" value={filters.variant ?? ""} onChange={(event) => updateFilter("variant", event.target.value)} />
-        <input placeholder="Componente" value={filters.component ?? ""} onChange={(event) => updateFilter("component", event.target.value)} />
-        <select value={filters.trust_state ?? ""} onChange={(event) => updateFilter("trust_state", event.target.value)}>
+        <div className="catalog-filter-title">
+          <Filter size={17} />
+          <strong>Filtros</strong>
+        </div>
+        <SelectField label="Fabricante" value={filters.manufacturer ?? ""} onChange={(value) => updateFilter("manufacturer", value)}>
+          <option value="">Todos fabricantes</option>
+          {filterOptions.manufacturers.map((manufacturer) => (
+            <option key={manufacturer.slug} value={manufacturer.slug}>{manufacturer.name}</option>
+          ))}
+        </SelectField>
+        <SelectField label="Modelo" value={filters.model ?? ""} onChange={(value) => updateFilter("model", value)}>
+          <option value="">Todos modelos</option>
+          {modelOptions.map((model) => (
+            <option key={`${model.manufacturer_slug}:${model.slug}`} value={model.slug}>{model.name}</option>
+          ))}
+        </SelectField>
+        <SelectField label="Tamanho / versão" value={filters.variant ?? ""} onChange={(value) => updateFilter("variant", value)}>
+          <option value="">Todas variações</option>
+          {variationOptions.map((variation) => (
+            <option key={`${variation.model_slug}:${variation.slug}`} value={variation.slug}>{variation.name}</option>
+          ))}
+        </SelectField>
+        <SelectField label="Componente" value={filters.component ?? ""} onChange={(value) => updateFilter("component", value)}>
+          <option value="">Todos componentes</option>
+          {filterOptions.components.map((component) => (
+            <option key={component} value={component}>{componentLabel(component)}</option>
+          ))}
+        </SelectField>
+        <SelectField label="Cinemática" value={filters.kinematics ?? ""} onChange={(value) => updateFilter("kinematics", value)}>
+          <option value="">Todas cinemáticas</option>
+          {filterOptions.kinematics.map((kinematics) => (
+            <option key={kinematics} value={kinematics}>{kinematics}</option>
+          ))}
+        </SelectField>
+        <SelectField label="Firmware" value={filters.firmware_family ?? ""} onChange={(value) => updateFilter("firmware_family", value)}>
+          <option value="">Todos firmwares</option>
+          {filterOptions.firmwareFamilies.map((firmware) => (
+            <option key={firmware} value={firmware}>{firmware}</option>
+          ))}
+        </SelectField>
+        <SelectField label="Estado" value={filters.trust_state ?? ""} onChange={(value) => updateFilter("trust_state", value)}>
           <option value="">Todos estados</option>
           {trustStates.map((state) => <option key={state} value={state}>{state}</option>)}
-        </select>
-        <button type="submit" className="secondary-action" disabled={busy}>Filtrar</button>
+        </SelectField>
+        <div className="catalog-filter-actions">
+          <button type="button" className="secondary-action" onClick={() => void clearFilters()} disabled={busy}>
+            Limpar
+          </button>
+          <button type="submit" className="primary-action" disabled={busy}>
+            <SlidersHorizontal size={16} />
+            Aplicar
+          </button>
+        </div>
       </form>
 
-      <section className="catalog-admin-layout">
-        <ModelList models={catalog.models} selectedModelId={selectedModel?.id ?? null} onSelect={(model) => { setSelectedModelId(model.id); setSelectedVariationId(null); setMode("detail"); }} />
-        {mode === "create-variation" ? (
-          <VariationForm mode="create-variation" modelOptions={modelOptions} busy={busy} onSubmit={submitVariation} />
-        ) : mode === "edit-variation" && selectedVariation ? (
-          <VariationForm mode="edit-variation" variation={selectedVariation} modelOptions={modelOptions} busy={busy} onSubmit={submitVariation} />
-        ) : (
-          <ModelDetail model={selectedModel} onEditVariation={(variation) => { setSelectedVariationId(variation.id); setMode("edit-variation"); }} />
-        )}
+      <section className="catalog-results-panel">
+        <header className="catalog-section-heading">
+          <div>
+            <span className="eyebrow">Listagem</span>
+            <h3>Modelos cadastrados</h3>
+          </div>
+          <span>{catalog.models.length} itens</span>
+        </header>
+        <ModelTable models={catalog.models} selectedModelId={selectedModel?.id ?? null} onSelect={setSelectedModelId} />
       </section>
+
+      <ModelDetail model={selectedModel} />
     </div>
   );
 }
 
-function ModelList({ models, selectedModelId, onSelect }: { models: CatalogModelAdmin[]; selectedModelId: number | null; onSelect: (model: CatalogModelAdmin) => void }) {
+function SelectField({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: React.ReactNode }) {
   return (
-    <section className="catalog-list-panel">
-      <header className="catalog-list-heading">
-        <strong>Modelos</strong>
-        <span>{models.length} itens</span>
-      </header>
-      {models.map((model) => (
-        <button key={model.id} type="button" className={`catalog-list-row ${selectedModelId === model.id ? "active" : ""}`} onClick={() => onSelect(model)}>
-          <span className="catalog-row-maker">{model.manufacturer_name}</span>
-          <strong className="catalog-row-variant">{model.name}</strong>
-          <span className="catalog-row-meta">
-            <span>{model.kinematics}</span>
-            <span>{model.variants.length} variações</span>
-            <span className={`catalog-state state-${model.trust_state}`}>{model.trust_state}</span>
-          </span>
-        </button>
-      ))}
-      {models.length === 0 ? <p className="muted">Nenhum modelo encontrado.</p> : null}
-    </section>
+    <label className="catalog-select-field">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        {children}
+      </select>
+    </label>
   );
 }
 
-function ModelDetail({ model, onEditVariation }: { model: CatalogModelAdmin | null; onEditVariation: (variation: CatalogVariant) => void }) {
+function ModelTable({ models, selectedModelId, onSelect }: { models: CatalogModelAdmin[]; selectedModelId: number | null; onSelect: (modelId: number) => void }) {
+  if (models.length === 0) {
+    return <div className="catalog-empty-state">Nenhum modelo encontrado para os filtros selecionados.</div>;
+  }
+  return (
+    <div className="catalog-table" role="table" aria-label="Modelos do catálogo">
+      <div className="catalog-table-header" role="row">
+        <span>Fabricante</span>
+        <span>Modelo</span>
+        <span>Cinemática</span>
+        <span>Variações</span>
+        <span>Firmware</span>
+        <span>Estado</span>
+        <span>Ações</span>
+      </div>
+      {models.map((model) => (
+        <button
+          type="button"
+          key={model.id}
+          className={`catalog-table-row ${selectedModelId === model.id ? "active" : ""}`}
+          onClick={() => onSelect(model.id)}
+          role="row"
+        >
+          <span>{model.manufacturer_name}</span>
+          <strong>{model.name}</strong>
+          <span>{model.kinematics}</span>
+          <span>{model.variants.length}</span>
+          <span>{formatFirmwareSummary(model.variants)}</span>
+          <span><span className={`catalog-state state-${model.trust_state}`}>{model.trust_state}</span></span>
+          <span className="catalog-row-actions">Detalhar</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ModelDetail({ model }: { model: CatalogModelAdmin | null }) {
   if (!model) {
-    return <section className="catalog-detail-panel"><p className="muted">Selecione um modelo.</p></section>;
+    return (
+      <section className="catalog-detail-panel">
+        <p className="muted">Selecione um modelo na listagem para ver o detalhe.</p>
+      </section>
+    );
   }
   return (
     <section className="catalog-detail-panel">
@@ -208,7 +273,6 @@ function ModelDetail({ model, onEditVariation }: { model: CatalogModelAdmin | nu
             <span>Volume</span>
             <span>Firmware</span>
             <span>Estado</span>
-            <span>Ação</span>
           </div>
           {model.variants.map((variation) => (
             <div className="catalog-variation-row" key={variation.id}>
@@ -216,7 +280,6 @@ function ModelDetail({ model, onEditVariation }: { model: CatalogModelAdmin | nu
               <span>{formatVolume(variation.build_volume)}</span>
               <span>{variation.firmware_family ?? "-"}</span>
               <span className={`catalog-state state-${variation.trust_state}`}>{variation.trust_state}</span>
-              <button type="button" className="secondary-action compact" onClick={() => onEditVariation(variation)}>Curar</button>
             </div>
           ))}
         </div>
@@ -243,29 +306,6 @@ function CatalogLink({ icon: Icon, label, url }: { icon: LucideIcon; label: stri
   );
 }
 
-function VariationForm({ mode, variation, modelOptions, busy, onSubmit }: { mode: "create-variation" | "edit-variation"; variation?: CatalogVariant; modelOptions: Array<{ id: number; label: string }>; busy: boolean; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void }) {
-  return (
-    <form className="catalog-detail-panel catalog-form" onSubmit={onSubmit}>
-      <header>
-        <Save size={18} />
-        <h3>{mode === "create-variation" ? "Criar variação" : "Editar variação"}</h3>
-      </header>
-      {mode === "create-variation" ? (
-        <>
-          <label>Modelo<select name="model_id" required>{modelOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
-          <label>Slug técnico<input name="slug" maxLength={120} /></label>
-        </>
-      ) : null}
-      <label>Nome<input name="name" defaultValue={variation?.name ?? ""} required maxLength={160} /></label>
-      <label>Firmware<input name="firmware_family" defaultValue={variation?.firmware_family ?? "klipper"} maxLength={80} /></label>
-      <label>Estado<select name="trust_state" defaultValue={variation?.trust_state ?? "draft"}>{trustStates.map((state) => <option key={state} value={state}>{state}</option>)}</select></label>
-      <label>Volume útil JSON<textarea name="build_volume" defaultValue={JSON.stringify(variation?.build_volume ?? {}, null, 2)} /></label>
-      <label>Componentes JSON<textarea name="components" defaultValue={JSON.stringify(variation?.components ?? {}, null, 2)} /></label>
-      <button type="submit" className="primary-action" disabled={busy}>Salvar</button>
-    </form>
-  );
-}
-
 function JsonBlock({ title, value }: { title: string; value: Record<string, unknown> }) {
   return (
     <div className="catalog-json-block">
@@ -275,6 +315,35 @@ function JsonBlock({ title, value }: { title: string; value: Record<string, unkn
   );
 }
 
+function buildFilterOptions(models: CatalogModelAdmin[]) {
+  const manufacturers = new Map<string, string>();
+  const modelOptions: Array<{ slug: string; name: string; manufacturer_slug: string }> = [];
+  const variationOptions: Array<{ slug: string; name: string; model_slug: string; manufacturer_slug: string }> = [];
+  const components = new Set<string>();
+  const kinematics = new Set<string>();
+  const firmwareFamilies = new Set<string>();
+
+  models.forEach((model) => {
+    manufacturers.set(model.manufacturer_slug, model.manufacturer_name);
+    modelOptions.push({ slug: model.slug, name: model.name, manufacturer_slug: model.manufacturer_slug });
+    kinematics.add(model.kinematics);
+    model.variants.forEach((variation) => {
+      variationOptions.push({ slug: variation.slug, name: variation.name, model_slug: model.slug, manufacturer_slug: model.manufacturer_slug });
+      if (variation.firmware_family) firmwareFamilies.add(variation.firmware_family);
+      Object.keys(variation.components).forEach((component) => components.add(component));
+    });
+  });
+
+  return {
+    manufacturers: Array.from(manufacturers.entries()).map(([slug, name]) => ({ slug, name })).sort(byName),
+    models: modelOptions.sort(byName),
+    variations: variationOptions.sort(byName),
+    components: Array.from(components).sort(),
+    kinematics: Array.from(kinematics).sort(),
+    firmwareFamilies: Array.from(firmwareFamilies).sort(),
+  };
+}
+
 function formatVolume(value: Record<string, unknown>) {
   const x = value.x ?? "-";
   const y = value.y ?? "-";
@@ -282,10 +351,25 @@ function formatVolume(value: Record<string, unknown>) {
   return `${x} x ${y} x ${z} mm`;
 }
 
-function parseJsonObject(value: string, label: string): Record<string, unknown> {
-  const parsed = JSON.parse(value || "{}") as unknown;
-  if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
-    throw new Error(`${label} deve ser um objeto JSON`);
-  }
-  return parsed as Record<string, unknown>;
+function formatFirmwareSummary(variants: CatalogVariant[]) {
+  const firmware = Array.from(new Set(variants.map((variation) => variation.firmware_family).filter(Boolean)));
+  return firmware.length ? firmware.join(", ") : "-";
+}
+
+function componentLabel(value: string) {
+  const labels: Record<string, string> = {
+    bed: "Mesa",
+    extruder: "Extrusor",
+    hotend: "Hotend",
+    kinematics: "Cinemática",
+    mainboard: "Mainboard",
+    mcu: "MCU",
+    probe: "Probe",
+    toolhead: "Toolhead",
+  };
+  return labels[value] ?? value;
+}
+
+function byName<T extends { name: string }>(left: T, right: T) {
+  return left.name.localeCompare(right.name, "pt-BR");
 }
