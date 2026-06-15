@@ -173,9 +173,18 @@
   overflow-wrap: anywhere;
 }
 
-.catalog-row-actions {
+.catalog-row-action-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
   color: var(--accent);
+  display: inline-flex;
+  gap: 6px;
+  font: inherit;
   font-weight: 800;
+  min-height: 32px;
+  padding: 0;
+  text-decoration: none;
 }
 
 .catalog-empty-state {
@@ -219,6 +228,10 @@
   display: flex;
   gap: 16px;
   justify-content: space-between;
+}
+
+.catalog-back-button {
+  align-self: flex-start;
 }
 
 .catalog-detail-heading .catalog-state {

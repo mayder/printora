@@ -1,5 +1,5 @@
 import React from "react";
-import { Boxes, Database, ExternalLink, FileText, Filter, GitBranch, RefreshCw, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, Boxes, Database, ExternalLink, Eye, FileText, Filter, GitBranch, RefreshCw, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi, type CatalogAdminFilters } from "../services/socialApi";
 import type { ScreenPropsFor } from "./ScreenProps";
@@ -16,9 +16,11 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
   const [referenceCatalog, setReferenceCatalog] = React.useState<CatalogAdminSummary>(emptyCatalog);
   const [filters, setFilters] = React.useState<CatalogAdminFilters>({});
   const [selectedModelId, setSelectedModelId] = React.useState<number | null>(null);
+  const [detailModelSlug, setDetailModelSlug] = React.useState<string | null>(() => new URLSearchParams(window.location.search).get("model"));
   const [busy, setBusy] = React.useState(false);
 
   const selectedModel = catalog.models.find((item) => item.id === selectedModelId) ?? catalog.models[0] ?? null;
+  const detailModel = detailModelSlug ? referenceCatalog.models.find((item) => item.slug === detailModelSlug) ?? catalog.models.find((item) => item.slug === detailModelSlug) ?? null : null;
   const filterOptions = React.useMemo(() => buildFilterOptions(referenceCatalog.models), [referenceCatalog.models]);
   const modelOptions = React.useMemo(
     () => filterOptions.models.filter((option) => !filters.manufacturer || option.manufacturer_slug === filters.manufacturer),
@@ -79,6 +81,17 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
     await loadCatalog({});
   }
 
+  function openModelDetail(model: CatalogModelAdmin) {
+    setSelectedModelId(model.id);
+    setDetailModelSlug(model.slug);
+    window.history.pushState(null, "", `?section=catalog&model=${encodeURIComponent(model.slug)}`);
+  }
+
+  function closeModelDetail() {
+    setDetailModelSlug(null);
+    window.history.pushState(null, "", "?section=catalog");
+  }
+
   if (!isAdmin) {
     return (
       <div className="catalog-admin-screen">
@@ -107,74 +120,79 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
         </div>
       </section>
 
-      <form className="catalog-filter-panel" onSubmit={applyFilters}>
-        <div className="catalog-filter-title">
-          <Filter size={17} />
-          <strong>Filtros</strong>
-        </div>
-        <SelectField label="Fabricante" value={filters.manufacturer ?? ""} onChange={(value) => updateFilter("manufacturer", value)}>
-          <option value="">Todos fabricantes</option>
-          {filterOptions.manufacturers.map((manufacturer) => (
-            <option key={manufacturer.slug} value={manufacturer.slug}>{manufacturer.name}</option>
-          ))}
-        </SelectField>
-        <SelectField label="Modelo" value={filters.model ?? ""} onChange={(value) => updateFilter("model", value)}>
-          <option value="">Todos modelos</option>
-          {modelOptions.map((model) => (
-            <option key={`${model.manufacturer_slug}:${model.slug}`} value={model.slug}>{model.name}</option>
-          ))}
-        </SelectField>
-        <SelectField label="Tamanho / versão" value={filters.variant ?? ""} onChange={(value) => updateFilter("variant", value)}>
-          <option value="">Todas variações</option>
-          {variationOptions.map((variation) => (
-            <option key={`${variation.model_slug}:${variation.slug}`} value={variation.slug}>{variation.name}</option>
-          ))}
-        </SelectField>
-        <SelectField label="Componente" value={filters.component ?? ""} onChange={(value) => updateFilter("component", value)}>
-          <option value="">Todos componentes</option>
-          {filterOptions.components.map((component) => (
-            <option key={component} value={component}>{componentLabel(component)}</option>
-          ))}
-        </SelectField>
-        <SelectField label="Cinemática" value={filters.kinematics ?? ""} onChange={(value) => updateFilter("kinematics", value)}>
-          <option value="">Todas cinemáticas</option>
-          {filterOptions.kinematics.map((kinematics) => (
-            <option key={kinematics} value={kinematics}>{kinematics}</option>
-          ))}
-        </SelectField>
-        <SelectField label="Firmware" value={filters.firmware_family ?? ""} onChange={(value) => updateFilter("firmware_family", value)}>
-          <option value="">Todos firmwares</option>
-          {filterOptions.firmwareFamilies.map((firmware) => (
-            <option key={firmware} value={firmware}>{firmware}</option>
-          ))}
-        </SelectField>
-        <SelectField label="Estado" value={filters.trust_state ?? ""} onChange={(value) => updateFilter("trust_state", value)}>
-          <option value="">Todos estados</option>
-          {trustStates.map((state) => <option key={state} value={state}>{state}</option>)}
-        </SelectField>
-        <div className="catalog-filter-actions">
-          <button type="button" className="secondary-action" onClick={() => void clearFilters()} disabled={busy}>
-            Limpar
-          </button>
-          <button type="submit" className="primary-action" disabled={busy}>
-            <SlidersHorizontal size={16} />
-            Aplicar
-          </button>
-        </div>
-      </form>
+      {detailModel ? (
+        <CatalogDetailView model={detailModel} onBack={closeModelDetail} />
+      ) : (
+        <>
 
-      <section className="catalog-results-panel">
-        <header className="catalog-section-heading">
-          <div>
-            <span className="eyebrow">Listagem</span>
-            <h3>Modelos cadastrados</h3>
-          </div>
-          <span>{catalog.models.length} itens</span>
-        </header>
-        <ModelTable models={catalog.models} selectedModelId={selectedModel?.id ?? null} onSelect={setSelectedModelId} />
-      </section>
+          <form className="catalog-filter-panel" onSubmit={applyFilters}>
+            <div className="catalog-filter-title">
+              <Filter size={17} />
+              <strong>Filtros</strong>
+            </div>
+            <SelectField label="Fabricante" value={filters.manufacturer ?? ""} onChange={(value) => updateFilter("manufacturer", value)}>
+              <option value="">Todos fabricantes</option>
+              {filterOptions.manufacturers.map((manufacturer) => (
+                <option key={manufacturer.slug} value={manufacturer.slug}>{manufacturer.name}</option>
+              ))}
+            </SelectField>
+            <SelectField label="Modelo" value={filters.model ?? ""} onChange={(value) => updateFilter("model", value)}>
+              <option value="">Todos modelos</option>
+              {modelOptions.map((model) => (
+                <option key={`${model.manufacturer_slug}:${model.slug}`} value={model.slug}>{model.name}</option>
+              ))}
+            </SelectField>
+            <SelectField label="Tamanho / versão" value={filters.variant ?? ""} onChange={(value) => updateFilter("variant", value)}>
+              <option value="">Todas variações</option>
+              {variationOptions.map((variation) => (
+                <option key={`${variation.model_slug}:${variation.slug}`} value={variation.slug}>{variation.name}</option>
+              ))}
+            </SelectField>
+            <SelectField label="Componente" value={filters.component ?? ""} onChange={(value) => updateFilter("component", value)}>
+              <option value="">Todos componentes</option>
+              {filterOptions.components.map((component) => (
+                <option key={component} value={component}>{componentLabel(component)}</option>
+              ))}
+            </SelectField>
+            <SelectField label="Cinemática" value={filters.kinematics ?? ""} onChange={(value) => updateFilter("kinematics", value)}>
+              <option value="">Todas cinemáticas</option>
+              {filterOptions.kinematics.map((kinematics) => (
+                <option key={kinematics} value={kinematics}>{kinematics}</option>
+              ))}
+            </SelectField>
+            <SelectField label="Firmware" value={filters.firmware_family ?? ""} onChange={(value) => updateFilter("firmware_family", value)}>
+              <option value="">Todos firmwares</option>
+              {filterOptions.firmwareFamilies.map((firmware) => (
+                <option key={firmware} value={firmware}>{firmware}</option>
+              ))}
+            </SelectField>
+            <SelectField label="Estado" value={filters.trust_state ?? ""} onChange={(value) => updateFilter("trust_state", value)}>
+              <option value="">Todos estados</option>
+              {trustStates.map((state) => <option key={state} value={state}>{state}</option>)}
+            </SelectField>
+            <div className="catalog-filter-actions">
+              <button type="button" className="secondary-action" onClick={() => void clearFilters()} disabled={busy}>
+                Limpar
+              </button>
+              <button type="submit" className="primary-action" disabled={busy}>
+                <SlidersHorizontal size={16} />
+                Aplicar
+              </button>
+            </div>
+          </form>
 
-      <ModelDetail model={selectedModel} />
+          <section className="catalog-results-panel">
+            <header className="catalog-section-heading">
+              <div>
+                <span className="eyebrow">Listagem</span>
+                <h3>Modelos cadastrados</h3>
+              </div>
+              <span>{catalog.models.length} itens</span>
+            </header>
+            <ModelTable models={catalog.models} selectedModelId={selectedModel?.id ?? null} onSelect={openModelDetail} />
+          </section>
+        </>
+      )}
     </div>
   );
 }
@@ -190,7 +208,7 @@ function SelectField({ label, value, onChange, children }: { label: string; valu
   );
 }
 
-function ModelTable({ models, selectedModelId, onSelect }: { models: CatalogModelAdmin[]; selectedModelId: number | null; onSelect: (modelId: number) => void }) {
+function ModelTable({ models, selectedModelId, onSelect }: { models: CatalogModelAdmin[]; selectedModelId: number | null; onSelect: (model: CatalogModelAdmin) => void }) {
   if (models.length === 0) {
     return <div className="catalog-empty-state">Nenhum modelo encontrado para os filtros selecionados.</div>;
   }
@@ -206,12 +224,18 @@ function ModelTable({ models, selectedModelId, onSelect }: { models: CatalogMode
         <span>Ações</span>
       </div>
       {models.map((model) => (
-        <button
-          type="button"
+        <div
           key={model.id}
           className={`catalog-table-row ${selectedModelId === model.id ? "active" : ""}`}
-          onClick={() => onSelect(model.id)}
+          onClick={() => onSelect(model)}
           role="row"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onSelect(model);
+            }
+          }}
         >
           <span>{model.manufacturer_name}</span>
           <strong>{model.name}</strong>
@@ -219,23 +243,33 @@ function ModelTable({ models, selectedModelId, onSelect }: { models: CatalogMode
           <span>{model.variants.length}</span>
           <span>{formatFirmwareSummary(model.variants)}</span>
           <span><span className={`catalog-state state-${model.trust_state}`}>{model.trust_state}</span></span>
-          <span className="catalog-row-actions">Detalhar</span>
-        </button>
+          <span>
+            <a
+              className="catalog-row-action-button"
+              href={`?section=catalog&model=${encodeURIComponent(model.slug)}`}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onSelect(model);
+              }}
+            >
+              <Eye size={15} />
+              Abrir
+            </a>
+          </span>
+        </div>
       ))}
     </div>
   );
 }
 
-function ModelDetail({ model }: { model: CatalogModelAdmin | null }) {
-  if (!model) {
-    return (
-      <section className="catalog-detail-panel">
-        <p className="muted">Selecione um modelo na listagem para ver o detalhe.</p>
-      </section>
-    );
-  }
+function CatalogDetailView({ model, onBack }: { model: CatalogModelAdmin; onBack: () => void }) {
   return (
     <section className="catalog-detail-panel">
+      <button type="button" className="catalog-back-button secondary-action" onClick={onBack}>
+        <ArrowLeft size={16} />
+        Voltar para listagem
+      </button>
       <header className="catalog-detail-heading">
         <div>
           <span className="eyebrow">{model.manufacturer_name}</span>
