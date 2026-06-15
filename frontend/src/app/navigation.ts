@@ -68,7 +68,7 @@ export const appSections: Array<{
     icon: Users,
     label: "Social",
     detail: "Perfil público, comunidades e relações.",
-    purpose: "Gerencie identidade social, impressoras públicas, comunidades automáticas e relações sem conceder acesso operacional.",
+    purpose: "Acompanhe comunidades automáticas e relações sociais sem conceder acesso operacional.",
   },
   {
     key: "catalog",

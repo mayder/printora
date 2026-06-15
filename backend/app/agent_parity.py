@@ -55,8 +55,8 @@ DRY_RUN_FEATURES = {
 
 BLOCKED_FEATURES = {
     "backup_payload": ("Backup real remoto", None, "Bloqueado até política de payload grande e retenção."),
-    "firmware_build_apply": ("Build/flash remoto", None, "Bloqueado até gates remotos do PKG-47."),
-    "mutable_operation": ("Operação mutável remota", None, "Bloqueado até autorização/preflight do PKG-47."),
+    "firmware_build_apply": ("Build/flash remoto", None, "Bloqueado até gates remotos."),
+    "mutable_operation": ("Operação mutável remota", None, "Bloqueado até autorização/preflight."),
 }
 
 

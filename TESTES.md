@@ -74,7 +74,7 @@ Aceite:
 - Seed amplo do catálogo cobre fabricantes/modelos DIY relevantes, mantendo itens incertos como `community` ou `draft`.
 - Contrato administrativo retorna fabricante/modelo agrupado, links enriquecidos, logo confiável ou monograma, Discord, Reddit, documentação, BOM, ficha técnica/fonte de curadoria e notas quando disponíveis.
 - UI do Catálogo valida listagem paginada, filtros pesquisáveis em cascata, detalhe dedicado e retorno preservando filtros/página.
-- Usuário comum não edita catálogo canônico; estados `official`, `community`, `draft`, `obsolete` e `blocked` preservam vínculos existentes e bloqueiam nova publicação quando aplicável.
+- Usuário comum autenticado navega no catálogo detalhado em modo leitura, mas não cria/edita/curadoria catálogo canônico; estados `official`, `community`, `draft`, `obsolete` e `blocked` preservam vínculos existentes e bloqueiam nova publicação quando aplicável.
 
 - catálogo seedado contém fabricantes, modelos e variações técnicas canônicas além de Voron, com RatRig, VzBot, Annex, HevORT, Printers For Ants, ZeroG, RailCore, SecKit, BLV, HyperCube, D-Bot, V-King, CroXY, Rook, Positron, The 100, Doron, SnakeOilXY, MaybeCube, Rolohaun/Bastion, T250, SM-100, BabyCube e OLSK;
 - itens com dado técnico menos seguro ficam em `community` ou `draft`, sem inventar precisão frágil;
@@ -84,17 +84,105 @@ Aceite:
 - duplicidade de slug/modelo/variante é bloqueada por contrato de banco/API;
 - estados `official`, `community`, `draft`, `obsolete` e `blocked` são administráveis;
 - variante `obsolete` ou `blocked` não quebra impressora já vinculada, mas não é aceita em nova publicação pública;
-- usuário comum recebe 403 ao tentar curar catálogo canônico;
+- usuário comum consegue ler o catálogo detalhado e recebe 403 ao tentar curar catálogo canônico;
 - perfil social não expõe email, WhatsApp, organizações, permissões ou credenciais operacionais;
 - impressora pública exige vínculo com variante do catálogo e não retorna Moonraker, SSH, agente, token ou IP;
 - comunidades automáticas são derivadas de impressoras públicas e não concedem permissão operacional;
 - bloqueio social encerra follows/amizades e impede nova interação social sem apagar histórico operacional.
+
+### PKG-50 - Perfil social do usuário
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+cd backend && uv run --extra dev pytest tests/test_social_catalog.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- slug duplicado é rejeitado com mensagem clara;
+- slug antigo reservado por outro usuário é rejeitado;
+- perfil `private` não abre publicamente;
+- perfil `unlisted` abre por URL direta;
+- bloqueio social impede visualização autenticada do perfil e das impressoras públicas;
+- `avatar_url` e links sociais rejeitam HTTP, localhost, IP privado e host de rede social fora do permitido;
+- contrato público não expõe email, WhatsApp, organizações, permissões, agente, Moonraker, SSH, token ou host operacional;
+- `Conta > Perfil > Público` contém edição social, URL pública, estado de privacidade, prévia pública e impressoras públicas em contexto;
+- `/u/{slug}` mostra perfil público e impressoras públicas sem dados operacionais.
+
+Evidência visual local esperada:
+
+- `/tmp/printora-pkg50-account-public.png`: usuário autenticado abriu menu do topo > `Perfil` e acessou a aba `Público`;
+- `/tmp/printora-pkg50-public-profile.png`: página pública `/u/{slug}` validada sem ocorrências visíveis de dados sensíveis.
 
 Fechamento do pacote:
 
 ```bash
 RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
 ```
+
+### PKG-51 - Impressoras públicas do usuário
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- usuário tentando publicar impressora de outro usuário recebe bloqueio;
+- publicação exige variante canônica válida;
+- variante `blocked` ou `obsolete` não permite nova publicação;
+- despublicar remove/desativa comunidades derivadas;
+- impressora privada não aparece em perfil público, comunidade, busca pública nem página direta `/p/{printer_id}`;
+- imagens públicas inválidas, HTTP, localhost ou IP privado são rejeitadas;
+- contrato público de impressora não expõe Moonraker, IP, SSH, agente, token, credencial, organização ou permissão;
+- perfil `private` não lista impressoras e remove vínculo público de comunidade;
+- fluxo principal de publicação/despublicação mantém busca e comunidades consistentes.
+
+Evidência visual esperada:
+
+- detalhe da impressora com área `Publicação da impressora`;
+- prévia pública antes de publicar;
+- página pública real `/p/{printer_id}`;
+- página direta de impressora privada retornando indisponível;
+- payload público inspecionado sem dados sensíveis.
+
+### PKG-52 - Comunidades automáticas
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- publicar impressora associa usuário às comunidades de fabricante, modelo e variante;
+- despublicar remove/desativa vínculos de comunidade;
+- trocar variante remove vínculo da variante antiga e cria vínculo da nova;
+- impressora privada e perfil `private` não entram em comunidade, busca, perfil público nem página direta;
+- contagens de membros, impressoras e mods não incluem impressoras privadas;
+- comunidade não concede permissão operacional e payload não retorna Moonraker, IP, SSH, agente, token, credencial, organização ou permissão;
+- estados `active`, `uncurated`, `obsolete` e `merged` são tratados; `obsolete` e `merged` não recebem novos vínculos;
+- filtros por fabricante, modelo, variante e componente usam catálogo canônico;
+- contrato autenticado `/api/social/communities/{slug}` retorna comunidade, membros, impressoras públicas, filtros canônicos e contagens;
+- feed/arquivos/mods iniciais aparecem como estados operacionais seguros, sem tela quebrada.
+
+Evidência visual esperada:
+
+- `/?section=social` com lista de comunidades, filtros, escopo, status, contagens e ação de abrir;
+- `/c/{slug}` com cabeçalho, contexto técnico, abas, contagens e impressoras públicas;
+- aba `Mods` com mods públicos quando existirem e placeholder quando vazia;
+- comunidade obsoleta/mesclada sem membros/impressoras ativas e destino de merge quando configurado;
+- payload `/api/social/communities/{slug}` inspecionado sem dados sensíveis.
 
 ## Update do agente
 

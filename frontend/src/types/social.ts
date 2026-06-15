@@ -97,6 +97,8 @@ export interface PublicProfile {
   visibility: ProfileVisibility;
   created_at: string;
   updated_at: string;
+  viewer_blocked?: boolean;
+  reserved_slugs?: string[];
 }
 
 export interface PublicPrinter {
@@ -109,10 +111,14 @@ export interface PublicPrinter {
   public_mods: string[];
   public_images: string[];
   catalog_variant_id: number;
+  manufacturer_slug: string;
   manufacturer_name: string;
+  model_slug: string;
   model_name: string;
   variant_name: string;
   variant_slug: string;
+  build_volume: Record<string, unknown>;
+  kinematics: string;
   updated_at: string;
 }
 
@@ -123,15 +129,27 @@ export interface Community {
   scope: "manufacturer" | "model" | "variant";
   status: CommunityStatus;
   manufacturer_id: number | null;
+  manufacturer_slug?: string | null;
+  manufacturer_name?: string | null;
   model_id: number | null;
+  model_slug?: string | null;
+  model_name?: string | null;
   variant_id: number | null;
+  variant_slug?: string | null;
+  variant_name?: string | null;
+  merged_into_id?: number | null;
+  merged_into_slug?: string | null;
+  merged_into_name?: string | null;
   member_count: number;
   printer_count: number;
+  file_count: number;
+  mod_count: number;
 }
 
 export interface CommunityDetail extends Community {
   members: PublicProfile[];
   printers: PublicPrinter[];
+  filters: CatalogSummary | null;
 }
 
 export interface RelationshipRecord {

@@ -225,15 +225,36 @@ Endpoints principais:
 
 ```bash
 curl -s http://127.0.0.1:8069/api/catalog
-curl -s "http://127.0.0.1:8069/api/catalog/admin?manufacturer=rat&trust_state=official" -H "Authorization: Bearer <admin-token>"
+curl -s "http://127.0.0.1:8069/api/catalog/admin?manufacturer=rat&trust_state=official" -H "Authorization: Bearer <token>"
 curl -s http://127.0.0.1:8069/api/social/communities
+curl -s "http://127.0.0.1:8069/api/social/communities?manufacturer=voron-design&model=voron-2-4&variant=voron-2-4-r2-350&component=stealthburner" -H "Authorization: Bearer <token>"
+curl -s http://127.0.0.1:8069/api/social/communities/<community_slug> -H "Authorization: Bearer <token>"
 curl -s http://127.0.0.1:8069/api/social/me/profile -H "Authorization: Bearer <token>"
+curl -s http://127.0.0.1:8069/api/social/profiles/<slug>
+curl -s http://127.0.0.1:8069/api/social/profiles/<slug>/printers
+curl -s "http://127.0.0.1:8069/api/social/printers?manufacturer=voron&mod=tap"
+curl -s http://127.0.0.1:8069/api/public/printers/<printer_id>
 ```
+
+Perfil social do usuário:
+
+- abrir o menu do usuário logado no topo e entrar em `Perfil`;
+- na aba `Público`, conferir separação entre dados da conta operacional e perfil público/social;
+- validar nome público, slug, URL final `/u/<slug>`, bio, avatar HTTPS, localização opcional, links permitidos, privacidade e prévia pública;
+- trocar slug apenas com ciência de que a URL muda e o slug anterior fica reservado;
+- testar rejeição de slug duplicado, slug antigo de outro usuário, avatar/link `http://`, localhost, IP privado e host social não permitido;
+- publicar uma impressora no detalhe da impressora real, seção `Publicação da impressora`, com variante canônica, prévia, mods e imagens HTTPS públicas;
+- conferir que a impressora aparece em `Conta > Perfil > Público`, em `/u/<slug>`, na busca pública `/api/social/printers` e em `/p/<printer_id>`;
+- validar que imagem `http://`, localhost, IP privado ou host interno é rejeitada antes de publicar;
+- tornar a impressora privada e confirmar que `/p/<printer_id>` retorna indisponível/404, a busca pública não lista o item e comunidades derivadas ficam sem vínculo ativo;
+- abrir `/u/<slug>` sem sessão e confirmar que não aparecem email, WhatsApp, organização, permissão, agente, Moonraker, SSH, token, IP ou host operacional;
+- validar `private` como indisponível publicamente e `unlisted` como acessível por URL direta.
 
 Curadoria administrativa:
 
 - abrir `/?section=catalog`;
 - filtrar por fabricante, modelo, tamanho/versão, componente, cinemática, firmware ou `trust_state`;
+- usuários autenticados comuns podem navegar e consultar detalhes em modo leitura;
 - revisar detalhe do fabricante/modelo antes de editar volume útil, componentes, firmware ou estado da variação;
 - conferir logo, resumo, links de site, repositório, documentação, BOM, Discord e Reddit quando existirem; se a fonte não estiver segura, manter `community` ou `draft`;
 - revisar a ficha de curadoria e as fontes usadas antes de promover um item;
@@ -253,10 +274,42 @@ curl -s -X PUT http://127.0.0.1:8069/api/printers/1/public-profile \
   -d '{"public_profile_enabled":true,"catalog_variant_id":1,"public_name":"Voron ABS","public_description":"Perfil público","public_mods":["Tap"]}'
 ```
 
+Despublicação:
+
+```bash
+curl -s -X PUT http://127.0.0.1:8069/api/printers/1/public-profile \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"public_profile_enabled":false}'
+```
+
 O payload público de impressora não retorna Moonraker, SSH, agente, token, IP
 ou credencial. Comunidades são sincronizadas automaticamente quando a impressora
 é publicada/despublicada. Relações sociais e bloqueios não alteram organizações,
 ownership ou permissões operacionais.
+
+Comunidades automáticas:
+
+- abrir `/?section=social` autenticado e validar lista de comunidades com filtros por fabricante, modelo, variante e componente;
+- abrir `/c/<community_slug>` e conferir nome, escopo, status, fabricante/modelo/variante, contagens e abas `Feed`, `Arquivos`, `Mods`, `Perfis`, `Membros` e `Impressoras públicas`;
+- publicar impressora real com variante canônica e confirmar associação às comunidades de fabricante, modelo e variante;
+- trocar variante e confirmar que a variante antiga fica sem vínculo ativo e a nova recebe a impressora pública;
+- despublicar ou tornar o perfil `private` e confirmar contagens zeradas e ausência da impressora na comunidade;
+- validar que `obsolete` fica histórico sem vínculos novos e `merged` aponta destino quando `merged_into_id` existir;
+- inspecionar payload de `/api/social/communities/<slug>` e confirmar ausência de Moonraker, agente, SSH, token, IP operacional, organização e permissões.
+
+Rollback do PKG-51:
+
+- despublicar a impressora pelo endpoint acima ou pela área `Publicação da impressora`;
+- se necessário, restaurar backup do SQLite anterior ao `035_social_catalog.sql` conforme política de release;
+- não apagar impressoras, perfis, variantes ou comunidades manualmente sem confirmação explícita.
+
+Rollback do PKG-52:
+
+- despublicar impressoras afetadas pelo endpoint `/api/printers/<id>/public-profile` com `public_profile_enabled=false`;
+- para comunidade com curadoria incorreta, marcar item do catálogo como `obsolete`/`blocked` por curadoria administrativa em vez de apagar linhas;
+- para merge incorreto, limpar `merged_into_id` e voltar `status` para `active` ou `uncurated` conforme estado do catálogo, depois rodar sincronização via listagem/detalhe de comunidades;
+- se o problema for estrutural de banco, restaurar backup SQLite anterior ao `035_social_catalog.sql`; não executar `DELETE` em comunidades/membros sem confirmação explícita.
 
 Rollback:
 

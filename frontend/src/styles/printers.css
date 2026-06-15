@@ -647,3 +647,77 @@
     grid-template-columns: 1fr;
   }
 }
+.printer-public-panel {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+.printer-public-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.printer-public-grid label,
+.printer-public-preview > div:first-child {
+  display: grid;
+  gap: 6px;
+}
+
+.printer-public-grid input,
+.printer-public-grid select,
+.printer-public-grid textarea {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  padding: 10px 12px;
+}
+
+.printer-public-wide {
+  grid-column: 1 / -1;
+}
+
+.printer-public-preview {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.45fr);
+  padding: 14px;
+}
+
+.printer-public-preview span,
+.printer-public-preview small,
+.printer-public-preview p {
+  color: var(--text-muted);
+}
+
+.printer-public-images {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+}
+
+.printer-public-images img {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.form-error {
+  color: var(--danger);
+}
+
+@media (max-width: 900px) {
+  .printer-public-grid,
+  .printer-public-preview {
+    grid-template-columns: 1fr;
+  }
+}

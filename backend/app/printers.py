@@ -85,6 +85,12 @@ class PrinterRecord(BaseModel):
     notes: str | None
     owner_user_id: int | None = None
     organization_id: int | None = None
+    public_profile_enabled: bool = False
+    catalog_variant_id: int | None = None
+    public_name: str | None = None
+    public_description: str | None = None
+    public_mods: list[str] = Field(default_factory=list)
+    public_images: list[str] = Field(default_factory=list)
     is_active: bool
     created_at: str
     updated_at: str
@@ -111,6 +117,8 @@ class PrinterRepository:
                 f"""
                 SELECT p.id, p.name, p.moonraker_url, p.host_audit_mode, p.host_audit_ssh_target,
                        p.location, p.notes, p.cloud_model, p.cloud_tags_json,
+                       p.public_profile_enabled, p.catalog_variant_id, p.public_name,
+                       p.public_description, p.public_mods_json, p.public_images_json,
                        p.owner_user_id, p.organization_id, p.is_active, p.created_at, p.updated_at,
                        (
                          SELECT COUNT(*)
@@ -169,6 +177,8 @@ class PrinterRepository:
                 f"""
                 SELECT p.id, p.name, p.moonraker_url, p.host_audit_mode, p.host_audit_ssh_target,
                        p.location, p.notes, p.cloud_model, p.cloud_tags_json,
+                       p.public_profile_enabled, p.catalog_variant_id, p.public_name,
+                       p.public_description, p.public_mods_json, p.public_images_json,
                        p.owner_user_id, p.organization_id, p.is_active, p.created_at, p.updated_at,
                        (
                          SELECT COUNT(*)
@@ -463,6 +473,12 @@ def _record_from_row(row) -> PrinterRecord:
         notes=row["notes"],
         owner_user_id=row["owner_user_id"],
         organization_id=row["organization_id"],
+        public_profile_enabled=bool(row["public_profile_enabled"]),
+        catalog_variant_id=row["catalog_variant_id"],
+        public_name=row["public_name"],
+        public_description=row["public_description"],
+        public_mods=_parse_text_list(row["public_mods_json"], limit=20),
+        public_images=_parse_public_images(row["public_images_json"]),
         is_active=bool(row["is_active"]),
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
@@ -497,6 +513,30 @@ def _parse_tags(value: str | None) -> list[str]:
     if not isinstance(parsed, list):
         return []
     return _clean_tags([str(item) for item in parsed])
+
+
+def _parse_public_images(value: str | None) -> list[str]:
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [str(item) for item in parsed if str(item).strip()][:6]
+
+
+def _parse_text_list(value: str | None, *, limit: int) -> list[str]:
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [str(item) for item in parsed if str(item).strip()][:limit]
 
 
 def _cloud_status(

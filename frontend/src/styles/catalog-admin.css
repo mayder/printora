@@ -44,6 +44,19 @@
   gap: 10px;
 }
 
+.catalog-readonly-badge {
+  align-items: center;
+  background: var(--accent-soft);
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 7px;
+  color: var(--accent);
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 800;
+  gap: 7px;
+  padding: 8px 10px;
+}
+
 .catalog-admin-actions button,
 .catalog-filter-actions button {
   align-items: center;

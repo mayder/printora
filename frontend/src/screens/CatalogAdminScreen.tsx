@@ -13,7 +13,7 @@ const catalogPageSize = 10;
 const catalogFilterKeys: Array<keyof CatalogAdminFilters> = ["manufacturer", "model", "variant", "component", "kinematics", "firmware_family", "trust_state"];
 
 export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenProps) {
-  const isAdmin = authUser?.email.toLowerCase() === "breno@mayder.com.br";
+  const canCurate = authUser?.email.toLowerCase() === "breno@mayder.com.br";
   const [catalog, setCatalog] = React.useState<CatalogAdminSummary>(emptyCatalog);
   const [referenceCatalog, setReferenceCatalog] = React.useState<CatalogAdminSummary>(emptyCatalog);
   const [filters, setFilters] = React.useState<CatalogAdminFilters>(() => readCatalogFiltersFromUrl());
@@ -43,7 +43,7 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
   );
 
   async function loadCatalog(nextFilters = filters) {
-    if (!isAdmin) return;
+    if (!authUser) return;
     setBusy(true);
     try {
       const [referencePayload, filteredPayload] = await Promise.all([
@@ -54,7 +54,7 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
       setCatalog(filteredPayload);
       setSelectedModelId((current) => current && filteredPayload.models.some((model) => model.id === current) ? current : filteredPayload.models[0]?.id ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao carregar catálogo administrativo");
+      setError(err instanceof Error ? err.message : "Falha ao carregar catálogo");
     } finally {
       setBusy(false);
     }
@@ -62,7 +62,7 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
 
   React.useEffect(() => {
     void loadCatalog();
-  }, [isAdmin]);
+  }, [authUser?.email]);
 
   React.useEffect(() => {
     if (page > totalPages) {
@@ -115,18 +115,6 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
     updateCatalogUrl(filters, boundedPage, detailModelSlug, replace);
   }
 
-  if (!isAdmin) {
-    return (
-      <div className="catalog-admin-screen">
-        <section className="catalog-admin-empty">
-          <ShieldCheck size={22} />
-          <h2>Curadoria restrita</h2>
-          <p>Usuário comum pode consultar e vincular modelos, mas não edita o catálogo canônico.</p>
-        </section>
-      </div>
-    );
-  }
-
   return (
     <div className="catalog-admin-screen">
       <section className="catalog-admin-toolbar">
@@ -136,6 +124,7 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
           <p>{catalog.manufacturer_count} fabricantes · {catalog.model_count} modelos · {catalog.variant_count} variações técnicas</p>
         </div>
         <div className="catalog-admin-actions">
+          {!canCurate ? <span className="catalog-readonly-badge"><ShieldCheck size={15} /> Somente leitura</span> : null}
           <button type="button" className="secondary-action" onClick={() => void loadCatalog()} disabled={busy}>
             <RefreshCw size={16} />
             Atualizar

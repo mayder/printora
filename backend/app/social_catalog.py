@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import ipaddress
 import json
 import re
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -150,6 +152,16 @@ class PublicProfileUpdate(BaseModel):
     def clean_slug(cls, value: str | None) -> str | None:
         return normalize_slug(value) if value else None
 
+    @field_validator("avatar_url")
+    @classmethod
+    def clean_avatar_url(cls, value: str | None) -> str | None:
+        return validate_public_url(value, field_name="avatar_url", allowed_hosts=None)
+
+    @field_validator("social_links")
+    @classmethod
+    def clean_social_links(cls, value: dict[str, str | None]) -> dict[str, str | None]:
+        return _clean_social_links(value)
+
 
 class PublicProfile(BaseModel):
     user_id: int
@@ -163,6 +175,7 @@ class PublicProfile(BaseModel):
     created_at: str
     updated_at: str
     viewer_blocked: bool = False
+    reserved_slugs: list[str] = Field(default_factory=list)
 
 
 class PrinterPublicUpdate(BaseModel):
@@ -171,7 +184,12 @@ class PrinterPublicUpdate(BaseModel):
     public_name: str | None = Field(default=None, max_length=120)
     public_description: str | None = Field(default=None, max_length=500)
     public_mods: list[str] = Field(default_factory=list, max_length=20)
-    public_images: list[str] = Field(default_factory=list, max_length=12)
+    public_images: list[str] = Field(default_factory=list, max_length=6)
+
+    @field_validator("public_images")
+    @classmethod
+    def clean_public_images(cls, value: list[str]) -> list[str]:
+        return clean_public_image_urls(value)
 
 
 class PublicPrinter(BaseModel):
@@ -184,10 +202,14 @@ class PublicPrinter(BaseModel):
     public_mods: list[str]
     public_images: list[str]
     catalog_variant_id: int
+    manufacturer_slug: str
     manufacturer_name: str
+    model_slug: str
     model_name: str
     variant_name: str
     variant_slug: str
+    build_volume: dict[str, object]
+    kinematics: str
     updated_at: str
 
 
@@ -198,15 +220,27 @@ class Community(BaseModel):
     scope: Literal["manufacturer", "model", "variant"]
     status: CommunityStatus
     manufacturer_id: int | None
+    manufacturer_slug: str | None = None
+    manufacturer_name: str | None = None
     model_id: int | None
+    model_slug: str | None = None
+    model_name: str | None = None
     variant_id: int | None
+    variant_slug: str | None = None
+    variant_name: str | None = None
+    merged_into_id: int | None = None
+    merged_into_slug: str | None = None
+    merged_into_name: str | None = None
     member_count: int
     printer_count: int
+    file_count: int = 0
+    mod_count: int = 0
 
 
 class CommunityDetail(Community):
     members: list[PublicProfile] = Field(default_factory=list)
     printers: list[PublicPrinter] = Field(default_factory=list)
+    filters: CatalogSummary | None = None
 
 
 class RelationshipRecord(BaseModel):
@@ -525,7 +559,7 @@ class SocialCatalogRepository:
                     (user_id, slug, display_name),
                 )
                 row = connection.execute("SELECT * FROM social_profiles WHERE user_id = ?", (user_id,)).fetchone()
-        return _profile_from_row(row)
+            return self._profile_with_reserved_slugs(connection, row)
 
     def update_profile(self, user_id: int, payload: PublicProfileUpdate) -> PublicProfile:
         with connect_database(self.database_path) as connection:
@@ -535,6 +569,12 @@ class SocialCatalogRepository:
                 current = connection.execute("SELECT * FROM social_profiles WHERE user_id = ?", (user_id,)).fetchone()
             slug = payload.slug or str(current["slug"])
             if slug != current["slug"]:
+                duplicate = connection.execute(
+                    "SELECT 1 FROM social_profiles WHERE slug = ? AND user_id != ?",
+                    (slug, user_id),
+                ).fetchone()
+                if duplicate is not None:
+                    raise ValueError("slug já está em uso")
                 reserved = connection.execute(
                     """
                     SELECT 1 FROM social_profile_slug_history
@@ -561,13 +601,14 @@ class SocialCatalogRepository:
                     clean_optional_text(payload.bio),
                     clean_optional_text(payload.avatar_url),
                     clean_optional_text(payload.location),
-                    json.dumps(_clean_social_links(payload.social_links), ensure_ascii=False, sort_keys=True),
+                    json.dumps(payload.social_links, ensure_ascii=False, sort_keys=True),
                     payload.visibility,
                     user_id,
                 ),
             )
             row = connection.execute("SELECT * FROM social_profiles WHERE user_id = ?", (user_id,)).fetchone()
-        return _profile_from_row(row)
+            self.sync_communities_for_user(connection, user_id)
+            return self._profile_with_reserved_slugs(connection, row)
 
     def public_profile_by_slug(self, slug: str, viewer_user_id: int | None = None) -> PublicProfile | None:
         clean_slug = normalize_slug(slug)
@@ -589,6 +630,16 @@ class SocialCatalogRepository:
             ).fetchone()
             if printer is None:
                 return None
+            profile = connection.execute("SELECT 1 FROM social_profiles WHERE user_id = ?", (owner_user_id,)).fetchone()
+            if profile is None:
+                user = connection.execute("SELECT email, display_name FROM auth_users WHERE id = ?", (owner_user_id,)).fetchone()
+                if user is None:
+                    raise ValueError("usuário não encontrado")
+                display_name = clean_optional_text(user["display_name"]) or str(user["email"]).split("@")[0]
+                connection.execute(
+                    "INSERT INTO social_profiles (user_id, slug, display_name) VALUES (?, ?, ?)",
+                    (owner_user_id, self._unique_slug(connection, display_name, owner_user_id), display_name),
+                )
             if payload.public_profile_enabled and payload.catalog_variant_id is None:
                 raise ValueError("impressora pública exige variante do catálogo")
             if payload.catalog_variant_id is not None:
@@ -615,7 +666,7 @@ class SocialCatalogRepository:
                     clean_optional_text(payload.public_name) or str(printer["name"]),
                     clean_optional_text(payload.public_description),
                     json.dumps(clean_text_list(payload.public_mods, 80), ensure_ascii=False),
-                    json.dumps(clean_text_list(payload.public_images, 500), ensure_ascii=False),
+                    json.dumps(payload.public_images, ensure_ascii=False),
                     printer_id,
                 ),
             )
@@ -624,7 +675,10 @@ class SocialCatalogRepository:
 
     def public_printer(self, printer_id: int) -> PublicPrinter | None:
         with connect_database(self.database_path) as connection:
-            row = connection.execute(PUBLIC_PRINTER_SQL + " WHERE p.id = ? AND p.public_profile_enabled = 1", (printer_id,)).fetchone()
+            row = connection.execute(
+                PUBLIC_PRINTER_SQL + " WHERE p.id = ? AND p.public_profile_enabled = 1 AND sp.visibility != 'private'",
+                (printer_id,),
+            ).fetchone()
         return _public_printer_from_row(row) if row else None
 
     def list_public_printers_for_profile(self, slug: str) -> list[PublicPrinter]:
@@ -640,10 +694,57 @@ class SocialCatalogRepository:
             ).fetchall()
         return [_public_printer_from_row(row) for row in rows]
 
-    def list_communities(self) -> list[Community]:
+    def search_public_printers(
+        self,
+        *,
+        manufacturer: str | None = None,
+        model: str | None = None,
+        variant: str | None = None,
+        mod: str | None = None,
+    ) -> list[PublicPrinter]:
+        clauses = ["sp.visibility = 'public'", "p.public_profile_enabled = 1"]
+        parameters: list[object] = []
+        like_filters = [
+            ("mf.name || ' ' || mf.slug", manufacturer),
+            ("m.name || ' ' || m.slug", model),
+            ("v.name || ' ' || v.slug", variant),
+            ("p.public_mods_json", mod),
+        ]
+        for expression, value in like_filters:
+            cleaned = clean_optional_text(value)
+            if cleaned:
+                clauses.append(f"LOWER({expression}) LIKE ?")
+                parameters.append(f"%{cleaned.lower()}%")
+        with connect_database(self.database_path) as connection:
+            rows = connection.execute(
+                PUBLIC_PRINTER_SQL
+                + f"""
+                WHERE {' AND '.join(clauses)}
+                ORDER BY p.updated_at DESC, p.id DESC
+                LIMIT 100
+                """,
+                tuple(parameters),
+            ).fetchall()
+        return [_public_printer_from_row(row) for row in rows]
+
+    def list_communities(
+        self,
+        *,
+        manufacturer: str | None = None,
+        model: str | None = None,
+        variant: str | None = None,
+        component: str | None = None,
+    ) -> list[Community]:
+        clauses, parameters = self._community_filters(
+            manufacturer=manufacturer,
+            model=model,
+            variant=variant,
+            component=component,
+        )
+        where_sql = f" WHERE {' AND '.join(clauses)}" if clauses else ""
         with connect_database(self.database_path) as connection:
             self.sync_all_communities(connection)
-            rows = connection.execute(COMMUNITY_SQL + COMMUNITY_GROUP_SQL + " ORDER BY c.scope, c.name").fetchall()
+            rows = connection.execute(COMMUNITY_SQL + where_sql + COMMUNITY_GROUP_SQL + " ORDER BY c.scope, c.name", tuple(parameters)).fetchall()
         return [_community_from_row(row) for row in rows]
 
     def community_detail(self, slug: str) -> CommunityDetail | None:
@@ -653,6 +754,9 @@ class SocialCatalogRepository:
             row = connection.execute(COMMUNITY_SQL + " WHERE c.slug = ?" + COMMUNITY_GROUP_SQL, (clean_slug,)).fetchone()
             if row is None:
                 return None
+            community = _community_from_row(row)
+            if community.status == "merged" and community.merged_into_id is None:
+                return CommunityDetail(**community.model_dump(), filters=self.list_catalog())
             member_rows = connection.execute(
                 """
                 SELECT sp.*
@@ -668,16 +772,19 @@ class SocialCatalogRepository:
                 PUBLIC_PRINTER_SQL
                 + """
                 JOIN social_community_members cm ON cm.printer_id = p.id
-                WHERE cm.community_id = ? AND cm.active = 1 AND p.public_profile_enabled = 1
+                WHERE cm.community_id = ? AND cm.active = 1
+                  AND p.public_profile_enabled = 1
+                  AND sp.visibility = 'public'
+                  AND ? IN ('active', 'uncurated')
                 ORDER BY p.updated_at DESC
                 """,
-                (row["id"],),
+                (row["id"], community.status),
             ).fetchall()
-        community = _community_from_row(row)
         return CommunityDetail(
             **community.model_dump(),
-            members=[_profile_from_row(member_row) for member_row in member_rows],
-            printers=[_public_printer_from_row(printer_row) for printer_row in printer_rows],
+            members=[] if community.status not in {"active", "uncurated"} else [_profile_from_row(member_row) for member_row in member_rows],
+            printers=[] if community.status not in {"active", "uncurated"} else [_public_printer_from_row(printer_row) for printer_row in printer_rows],
+            filters=self.list_catalog(),
         )
 
     def set_relationship(self, actor_user_id: int, target_user_id: int, relation_type: RelationshipType, status: RelationshipStatus) -> RelationshipRecord:
@@ -758,31 +865,46 @@ class SocialCatalogRepository:
         )
 
     def sync_all_communities(self, connection) -> None:
-        manufacturer_rows = connection.execute("SELECT id, slug, name FROM catalog_manufacturers WHERE trust_state != 'blocked'").fetchall()
+        manufacturer_rows = connection.execute("SELECT id, slug, name, trust_state FROM catalog_manufacturers WHERE trust_state != 'blocked'").fetchall()
         model_rows = connection.execute(
             """
-            SELECT m.id, m.slug, m.name, mf.id AS manufacturer_id, mf.slug AS manufacturer_slug, mf.name AS manufacturer_name
+            SELECT m.id, m.slug, m.name, m.trust_state AS model_trust_state,
+                   mf.id AS manufacturer_id, mf.slug AS manufacturer_slug,
+                   mf.name AS manufacturer_name, mf.trust_state AS manufacturer_trust_state
             FROM catalog_printer_models m
             JOIN catalog_manufacturers mf ON mf.id = m.manufacturer_id
-            WHERE m.trust_state != 'blocked'
+            WHERE m.trust_state != 'blocked' AND mf.trust_state != 'blocked'
             """
         ).fetchall()
         variant_rows = connection.execute(
             """
-            SELECT v.id, v.slug, v.name, m.id AS model_id, mf.id AS manufacturer_id,
-                   m.slug AS model_slug, mf.slug AS manufacturer_slug
+            SELECT v.id, v.slug, v.name, v.trust_state AS variant_trust_state,
+                   m.id AS model_id, mf.id AS manufacturer_id,
+                   m.slug AS model_slug, mf.slug AS manufacturer_slug, m.trust_state AS model_trust_state,
+                   mf.trust_state AS manufacturer_trust_state
             FROM catalog_printer_variants v
             JOIN catalog_printer_models m ON m.id = v.model_id
             JOIN catalog_manufacturers mf ON mf.id = m.manufacturer_id
-            WHERE v.trust_state != 'blocked'
+            WHERE v.trust_state != 'blocked' AND m.trust_state != 'blocked' AND mf.trust_state != 'blocked'
             """
         ).fetchall()
         for row in manufacturer_rows:
-            self._upsert_community(connection, f"maker-{row['slug']}", str(row["name"]), "manufacturer", row["id"], None, None)
+            self._upsert_community(
+                connection,
+                f"maker-{row['slug']}",
+                str(row["name"]),
+                "manufacturer",
+                row["id"],
+                None,
+                None,
+                _community_status_from_trust(row["trust_state"]),
+            )
         for row in model_rows:
-            self._upsert_community(connection, f"model-{row['manufacturer_slug']}-{row['slug']}", f"{row['manufacturer_name']} {row['name']}", "model", row["manufacturer_id"], row["id"], None)
+            status = _community_status_from_trust(row["model_trust_state"], row["manufacturer_trust_state"])
+            self._upsert_community(connection, f"model-{row['manufacturer_slug']}-{row['slug']}", f"{row['manufacturer_name']} {row['name']}", "model", row["manufacturer_id"], row["id"], None, status)
         for row in variant_rows:
-            self._upsert_community(connection, f"variant-{row['manufacturer_slug']}-{row['model_slug']}-{row['slug']}", str(row["name"]), "variant", row["manufacturer_id"], row["model_id"], row["id"])
+            status = _community_status_from_trust(row["variant_trust_state"], row["model_trust_state"], row["manufacturer_trust_state"])
+            self._upsert_community(connection, f"variant-{row['manufacturer_slug']}-{row['model_slug']}-{row['slug']}", str(row["name"]), "variant", row["manufacturer_id"], row["model_id"], row["id"], status)
 
     def sync_communities_for_user(self, connection, user_id: int) -> None:
         self.sync_all_communities(connection)
@@ -798,10 +920,13 @@ class SocialCatalogRepository:
             """
             SELECT p.id AS printer_id, v.id AS variant_id, m.id AS model_id, mf.id AS manufacturer_id
             FROM printers p
+            JOIN social_profiles sp ON sp.user_id = p.owner_user_id
             JOIN catalog_printer_variants v ON v.id = p.catalog_variant_id
             JOIN catalog_printer_models m ON m.id = v.model_id
             JOIN catalog_manufacturers mf ON mf.id = m.manufacturer_id
-            WHERE p.owner_user_id = ? AND p.public_profile_enabled = 1
+            WHERE p.owner_user_id = ?
+              AND p.public_profile_enabled = 1
+              AND sp.visibility = 'public'
             """,
             (user_id,),
         ).fetchall()
@@ -812,6 +937,7 @@ class SocialCatalogRepository:
                 WHERE manufacturer_id = ?
                   AND (model_id IS NULL OR model_id = ?)
                   AND (variant_id IS NULL OR variant_id = ?)
+                  AND status IN ('active', 'uncurated')
                 """,
                 (row["manufacturer_id"], row["model_id"], row["variant_id"]),
             ).fetchall()
@@ -827,18 +953,44 @@ class SocialCatalogRepository:
                     (community["id"], user_id, row["printer_id"]),
                 )
 
-    def _upsert_community(self, connection, slug: str, name: str, scope: str, manufacturer_id: int | None, model_id: int | None, variant_id: int | None) -> None:
+    def _upsert_community(self, connection, slug: str, name: str, scope: str, manufacturer_id: int | None, model_id: int | None, variant_id: int | None, status: CommunityStatus) -> None:
         connection.execute(
             """
-            INSERT INTO social_communities (slug, name, scope, manufacturer_id, model_id, variant_id)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO social_communities (slug, name, scope, manufacturer_id, model_id, variant_id, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(slug) DO UPDATE SET
                 name = excluded.name,
-                status = CASE WHEN social_communities.status = 'merged' THEN social_communities.status ELSE 'active' END,
+                status = CASE
+                    WHEN social_communities.status = 'merged' THEN social_communities.status
+                    ELSE excluded.status
+                END,
                 updated_at = CURRENT_TIMESTAMP
             """,
-            (slug, name, scope, manufacturer_id, model_id, variant_id),
+            (slug, name, scope, manufacturer_id, model_id, variant_id, status),
         )
+
+    def _community_filters(
+        self,
+        *,
+        manufacturer: str | None,
+        model: str | None,
+        variant: str | None,
+        component: str | None,
+    ) -> tuple[list[str], list[object]]:
+        clauses: list[str] = []
+        parameters: list[object] = []
+        like_filters = [
+            ("mf.slug || ' ' || mf.name", manufacturer),
+            ("m.slug || ' ' || COALESCE(m.name, '')", model),
+            ("v.slug || ' ' || COALESCE(v.name, '')", variant),
+            ("COALESCE(v.components_json, '')", component),
+        ]
+        for expression, value in like_filters:
+            cleaned = clean_optional_text(value)
+            if cleaned:
+                clauses.append(f"LOWER({expression}) LIKE ?")
+                parameters.append(f"%{cleaned.lower()}%")
+        return clauses, parameters
 
     def _relationship(self, actor_user_id: int, target_user_id: int, relation_type: RelationshipType) -> RelationshipRecord:
         with connect_database(self.database_path) as connection:
@@ -854,10 +1006,24 @@ class SocialCatalogRepository:
         base = normalize_slug(value)
         slug = base
         suffix = 2
-        while connection.execute("SELECT 1 FROM social_profiles WHERE slug = ? AND user_id != ?", (slug, user_id)).fetchone():
+        while connection.execute("SELECT 1 FROM social_profiles WHERE slug = ? AND user_id != ?", (slug, user_id)).fetchone() or connection.execute(
+            "SELECT 1 FROM social_profile_slug_history WHERE slug = ? AND user_id != ?",
+            (slug, user_id),
+        ).fetchone():
             slug = f"{base}-{suffix}"
             suffix += 1
         return slug
+
+    def _profile_with_reserved_slugs(self, connection, row) -> PublicProfile:
+        reserved = connection.execute(
+            """
+            SELECT slug FROM social_profile_slug_history
+            WHERE user_id = ?
+            ORDER BY replaced_at DESC, id DESC
+            """,
+            (row["user_id"],),
+        ).fetchall()
+        return _profile_from_row(row).model_copy(update={"reserved_slugs": [str(item["slug"]) for item in reserved]})
 
     def _is_blocked(self, connection, left_user_id: int, right_user_id: int) -> bool:
         row = connection.execute(
@@ -906,8 +1072,10 @@ PUBLIC_PRINTER_SQL = """
 SELECT p.id, p.owner_user_id, sp.slug AS owner_slug, sp.display_name AS owner_display_name,
        COALESCE(p.public_name, p.name) AS public_name, p.public_description,
        p.public_mods_json, p.public_images_json, p.catalog_variant_id,
-       mf.name AS manufacturer_name, m.name AS model_name, v.name AS variant_name,
-       v.slug AS variant_slug, p.updated_at
+       mf.slug AS manufacturer_slug, mf.name AS manufacturer_name,
+       m.slug AS model_slug, m.name AS model_name, m.kinematics,
+       v.name AS variant_name, v.slug AS variant_slug, v.build_volume_json,
+       p.updated_at
 FROM printers p
 JOIN social_profiles sp ON sp.user_id = p.owner_user_id
 JOIN catalog_printer_variants v ON v.id = p.catalog_variant_id
@@ -916,15 +1084,38 @@ JOIN catalog_manufacturers mf ON mf.id = m.manufacturer_id
 """
 
 COMMUNITY_SQL = """
-SELECT c.id, c.slug, c.name, c.scope, c.status, c.manufacturer_id, c.model_id, c.variant_id,
-       COUNT(DISTINCT CASE WHEN cm.active = 1 THEN cm.user_id END) AS member_count,
-       COUNT(DISTINCT CASE WHEN cm.active = 1 THEN cm.printer_id END) AS printer_count
+SELECT c.id, c.slug, c.name, c.scope, c.status, c.manufacturer_id, mf.slug AS manufacturer_slug,
+       mf.name AS manufacturer_name, c.model_id, m.slug AS model_slug, m.name AS model_name,
+       c.variant_id, v.slug AS variant_slug, v.name AS variant_name,
+       c.merged_into_id, merged.slug AS merged_into_slug, merged.name AS merged_into_name,
+       COUNT(DISTINCT CASE
+           WHEN cm.active = 1 AND p.public_profile_enabled = 1 AND sp.visibility = 'public' AND c.status IN ('active', 'uncurated')
+           THEN cm.user_id
+       END) AS member_count,
+       COUNT(DISTINCT CASE
+           WHEN cm.active = 1 AND p.public_profile_enabled = 1 AND sp.visibility = 'public' AND c.status IN ('active', 'uncurated')
+           THEN cm.printer_id
+       END) AS printer_count,
+       0 AS file_count,
+       COUNT(DISTINCT CASE
+           WHEN cm.active = 1 AND p.public_profile_enabled = 1 AND sp.visibility = 'public'
+                AND c.status IN ('active', 'uncurated') AND COALESCE(p.public_mods_json, '[]') NOT IN ('[]', '')
+           THEN cm.printer_id
+       END) AS mod_count
 FROM social_communities c
 LEFT JOIN social_community_members cm ON cm.community_id = c.id
+LEFT JOIN printers p ON p.id = cm.printer_id
+LEFT JOIN social_profiles sp ON sp.user_id = cm.user_id
+LEFT JOIN catalog_manufacturers mf ON mf.id = c.manufacturer_id
+LEFT JOIN catalog_printer_models m ON m.id = c.model_id
+LEFT JOIN catalog_printer_variants v ON v.id = c.variant_id
+LEFT JOIN social_communities merged ON merged.id = c.merged_into_id
 """
 
 COMMUNITY_GROUP_SQL = """
-GROUP BY c.id, c.slug, c.name, c.scope, c.status, c.manufacturer_id, c.model_id, c.variant_id
+GROUP BY c.id, c.slug, c.name, c.scope, c.status, c.manufacturer_id, mf.slug, mf.name,
+         c.model_id, m.slug, m.name, c.variant_id, v.slug, v.name,
+         c.merged_into_id, merged.slug, merged.name
 """
 
 RELATIONSHIP_SQL = """
@@ -969,9 +1160,64 @@ def clean_text_list(values: list[str], max_length: int) -> list[str]:
     return cleaned
 
 
+def clean_public_image_urls(values: list[str]) -> list[str]:
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        image_url = validate_public_url(str(value)[:500], field_name="imagem pública", allowed_hosts=None)
+        if image_url is None or image_url in seen:
+            continue
+        cleaned.append(image_url)
+        seen.add(image_url)
+    return cleaned
+
+
+def validate_public_url(value: str | None, *, field_name: str, allowed_hosts: set[str] | None) -> str | None:
+    cleaned = clean_optional_text(value)
+    if cleaned is None:
+        return None
+    parsed = urlparse(cleaned)
+    if parsed.scheme != "https":
+        raise ValueError(f"{field_name} deve usar https")
+    if not parsed.hostname or parsed.username or parsed.password:
+        raise ValueError(f"{field_name} deve informar host público válido")
+    hostname = parsed.hostname.lower().strip(".")
+    if _is_private_or_local_host(hostname):
+        raise ValueError(f"{field_name} não pode apontar para host local ou privado")
+    if allowed_hosts is not None and not any(hostname == host or hostname.endswith(f".{host}") for host in allowed_hosts):
+        raise ValueError(f"{field_name} usa host não permitido")
+    return cleaned
+
+
+def _is_private_or_local_host(hostname: str) -> bool:
+    if hostname in {"localhost", "local", "internal"} or hostname.endswith((".localhost", ".local", ".internal", ".lan")):
+        return True
+    try:
+        ip = ipaddress.ip_address(hostname)
+    except ValueError:
+        return False
+    return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast
+
+
 def _clean_social_links(values: dict[str, str | None]) -> dict[str, str | None]:
-    allowed = {"website", "github", "instagram", "youtube", "x", "printables", "makerworld"}
-    return {key: clean_optional_text(value) for key, value in values.items() if key in allowed}
+    host_rules: dict[str, set[str] | None] = {
+        "website": None,
+        "github": {"github.com"},
+        "instagram": {"instagram.com"},
+        "youtube": {"youtube.com", "youtu.be"},
+        "x": {"x.com", "twitter.com"},
+        "printables": {"printables.com"},
+        "makerworld": {"makerworld.com"},
+    }
+    cleaned: dict[str, str | None] = {}
+    for key, raw_value in values.items():
+        if key not in host_rules:
+            continue
+        valid_url = validate_public_url(raw_value, field_name=f"social_links.{key}", allowed_hosts=host_rules[key])
+        if valid_url:
+            cleaned[key] = valid_url
+    return cleaned
+
 
 
 def _json_dict(value: str | None) -> dict[str, object]:
@@ -1029,6 +1275,14 @@ def _catalog_state_filter(column: str, include_blocked: bool, include_obsolete: 
     return f"{blocked} AND {obsolete}"
 
 
+def _community_status_from_trust(*states: str) -> CommunityStatus:
+    if "obsolete" in states:
+        return "obsolete"
+    if any(state in {"draft", "community"} for state in states):
+        return "uncurated"
+    return "active"
+
+
 def _profile_from_row(row) -> PublicProfile:
     return PublicProfile(
         user_id=int(row["user_id"]),
@@ -1055,10 +1309,14 @@ def _public_printer_from_row(row) -> PublicPrinter:
         public_mods=_json_list(row["public_mods_json"]),
         public_images=_json_list(row["public_images_json"]),
         catalog_variant_id=int(row["catalog_variant_id"]),
+        manufacturer_slug=str(row["manufacturer_slug"]),
         manufacturer_name=str(row["manufacturer_name"]),
+        model_slug=str(row["model_slug"]),
         model_name=str(row["model_name"]),
         variant_name=str(row["variant_name"]),
         variant_slug=str(row["variant_slug"]),
+        build_volume=_json_dict(row["build_volume_json"]),
+        kinematics=str(row["kinematics"]),
         updated_at=str(row["updated_at"]),
     )
 
@@ -1071,10 +1329,21 @@ def _community_from_row(row) -> Community:
         scope=row["scope"],
         status=row["status"],
         manufacturer_id=row["manufacturer_id"],
+        manufacturer_slug=row["manufacturer_slug"],
+        manufacturer_name=row["manufacturer_name"],
         model_id=row["model_id"],
+        model_slug=row["model_slug"],
+        model_name=row["model_name"],
         variant_id=row["variant_id"],
+        variant_slug=row["variant_slug"],
+        variant_name=row["variant_name"],
+        merged_into_id=row["merged_into_id"],
+        merged_into_slug=row["merged_into_slug"],
+        merged_into_name=row["merged_into_name"],
         member_count=int(row["member_count"] or 0),
         printer_count=int(row["printer_count"] or 0),
+        file_count=int(row["file_count"] or 0),
+        mod_count=int(row["mod_count"] or 0),
     )
 
 

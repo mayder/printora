@@ -8,6 +8,295 @@
     linear-gradient(135deg, #0b1117 0%, #101820 46%, #f4f7fb 46%, #f4f7fb 100%);
 }
 
+.social-profile-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.8fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.profile-section-title.compact {
+  margin-top: 18px;
+}
+
+.social-profile-url,
+.social-privacy-state,
+.social-safe-list {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.social-profile-url span,
+.social-profile-url small,
+.social-privacy-state span,
+.social-safe-list span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.social-profile-url strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.public-preview-card {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.public-preview-avatar,
+.public-avatar {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+}
+
+.public-preview-avatar {
+  width: 56px;
+  height: 56px;
+}
+
+.public-preview-avatar img,
+.public-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.public-preview-card strong,
+.public-preview-card span,
+.public-preview-card small {
+  display: block;
+}
+
+.public-preview-card small {
+  color: var(--text-muted);
+}
+
+.public-profile-shell {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.public-profile-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px clamp(18px, 4vw, 48px);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.public-profile-topbar img {
+  height: 34px;
+  width: auto;
+}
+
+.public-profile-page {
+  width: min(1120px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0 48px;
+}
+
+.public-profile-hero {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.public-avatar {
+  width: 96px;
+  height: 96px;
+}
+
+.public-profile-hero h1 {
+  margin: 4px 0;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+}
+
+.public-profile-hero p {
+  max-width: 720px;
+  color: var(--text-muted);
+}
+
+.public-profile-meta,
+.public-link-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.public-profile-meta span,
+.public-profile-meta a,
+.public-link-list a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+.public-profile-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
+  gap: 18px;
+}
+
+.community-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.community-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.community-tabs button {
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--text);
+  padding: 7px 10px;
+}
+
+.community-tabs button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.community-tab-grid {
+  align-items: start;
+}
+
+.community-placeholder {
+  display: grid;
+  gap: 8px;
+}
+
+.community-placeholder p {
+  color: var(--text-muted);
+}
+
+.community-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.community-chip-list span {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  padding: 6px 10px;
+}
+
+.public-profile-panel,
+.public-printer-list {
+  display: grid;
+  gap: 14px;
+}
+
+.public-printer-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.public-printer-card div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.public-printer-card span,
+.public-printer-card small,
+.public-printer-card p {
+  color: var(--text-muted);
+}
+
+.public-printer-hero .public-avatar img,
+.public-image-grid img {
+  border-radius: 8px;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.public-spec-list,
+.public-image-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.public-spec-list span {
+  align-items: center;
+  color: var(--text-muted);
+  display: inline-flex;
+  gap: 8px;
+}
+
+.public-image-grid {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.public-image-grid a {
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.public-profile-empty {
+  width: min(560px, calc(100vw - 32px));
+  min-height: 50vh;
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  .social-profile-workspace,
+  .public-profile-grid,
+  .community-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .public-profile-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
 .auth-entry {
   width: min(1120px, 100%);
   min-height: min(720px, calc(100vh - 96px));
@@ -349,7 +638,9 @@
 }
 
 .profile-workspace {
+  grid-column: 1 / -1;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   width: 100%;
   min-width: 0;
@@ -357,11 +648,13 @@
 }
 
 .segmented-control.profile-tabs {
+  grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   justify-self: stretch;
   align-self: stretch;
   width: 100%;
+  min-width: 100%;
   max-width: none;
   background: var(--surface-1);
 }
@@ -374,6 +667,15 @@
   font-weight: 800;
   justify-content: center;
   white-space: nowrap;
+}
+
+.profile-workspace > .profile-card,
+.profile-workspace > .social-profile-workspace {
+  grid-column: 1 / -1;
+}
+
+.social-profile-workspace > .social-printer-public-manager {
+  grid-column: 1 / -1;
 }
 
 .profile-card {

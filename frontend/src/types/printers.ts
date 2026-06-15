@@ -65,6 +65,12 @@ export type PrinterRecord = {
   notes?: string | null;
   owner_user_id?: number | null;
   organization_id?: number | null;
+  public_profile_enabled: boolean;
+  catalog_variant_id?: number | null;
+  public_name?: string | null;
+  public_description?: string | null;
+  public_mods: string[];
+  public_images: string[];
   is_active: boolean;
 };
 

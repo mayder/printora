@@ -23,6 +23,9 @@ import { SettingsScreen } from "./screens/SettingsScreen";
 import { AuthScreen } from "./screens/AuthScreen";
 import { AboutScreen } from "./screens/AboutScreen";
 import { LicenseScreen } from "./screens/LicenseScreen";
+import { PublicProfileScreen } from "./screens/PublicProfileScreen";
+import { PublicPrinterScreen } from "./screens/PublicPrinterScreen";
+import { PublicCommunityScreen } from "./screens/PublicCommunityScreen";
 import { usePrintoraApp } from "./hooks/usePrintoraApp";
 import "./styles.css";
 import "./styles/overview.css";
@@ -54,6 +57,19 @@ function openAccountTab(tab: AccountTab, setActiveSection: (section: AppSection)
 }
 
 function App() {
+  const publicProfileSlug = readPublicProfileSlug();
+  const publicPrinterId = readPublicPrinterId();
+  const publicCommunitySlug = readPublicCommunitySlug();
+  if (publicCommunitySlug) {
+    return <PublicCommunityScreen slug={publicCommunitySlug} />;
+  }
+  if (publicProfileSlug) {
+    return <PublicProfileScreen slug={publicProfileSlug} />;
+  }
+  if (publicPrinterId) {
+    return <PublicPrinterScreen printerId={publicPrinterId} />;
+  }
+
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const {
     ActiveIcon,
@@ -324,6 +340,33 @@ function App() {
       </div>
     </main>
   );
+}
+
+function readPublicProfileSlug() {
+  const pathMatch = window.location.pathname.match(/^\/u\/([a-z0-9-]+)\/?$/i);
+  if (pathMatch) {
+    return pathMatch[1];
+  }
+  const params = new URLSearchParams(window.location.search);
+  return params.get("profile") || params.get("u");
+}
+
+function readPublicPrinterId() {
+  const pathMatch = window.location.pathname.match(/^\/p\/([0-9]+)\/?$/i);
+  if (pathMatch) {
+    return pathMatch[1];
+  }
+  const params = new URLSearchParams(window.location.search);
+  return params.get("printer");
+}
+
+function readPublicCommunitySlug() {
+  const pathMatch = window.location.pathname.match(/^\/c\/([a-z0-9-]+)\/?$/i);
+  if (pathMatch) {
+    return pathMatch[1];
+  }
+  const params = new URLSearchParams(window.location.search);
+  return params.get("community") || params.get("c");
 }
 
 

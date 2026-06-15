@@ -35,7 +35,10 @@ def get_social_repository() -> SocialCatalogRepository:
     return SocialCatalogRepository(get_settings().database_path)
 
 
-def require_catalog_admin(current: CurrentUser = Depends(require_current_user)) -> CurrentUser:
+def require_catalog_admin(
+    authorization: str | None = Header(default=None),
+) -> CurrentUser:
+    current = require_current_user(authorization=authorization, repository=get_auth_repository())
     if current.user.email.lower() != "breno@mayder.com.br":
         raise HTTPException(status_code=403, detail="curadoria do catálogo restrita ao administrador")
     return current
@@ -66,7 +69,7 @@ async def search_catalog_admin(
     kinematics: str | None = None,
     firmware_family: str | None = None,
     trust_state: TrustState | None = None,
-    _current: CurrentUser = Depends(require_catalog_admin),
+    _current: CurrentUser = Depends(require_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> CatalogAdminSummary:
     return repository.search_catalog_admin(
@@ -166,9 +169,42 @@ async def get_public_profile(
 @router.get("/api/social/profiles/{slug}/printers", response_model=list[PublicPrinter])
 async def list_profile_public_printers(
     slug: str,
+    current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> list[PublicPrinter]:
+    profile = repository.public_profile_by_slug(slug, current.user.id if current else None)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="perfil público não encontrado")
+    if profile.viewer_blocked:
+        raise HTTPException(status_code=403, detail="perfil indisponível")
     return repository.list_public_printers_for_profile(slug)
+
+
+@router.get("/api/social/printers", response_model=list[PublicPrinter])
+async def search_public_printers(
+    manufacturer: str | None = None,
+    model: str | None = None,
+    variant: str | None = None,
+    mod: str | None = None,
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> list[PublicPrinter]:
+    return repository.search_public_printers(
+        manufacturer=manufacturer,
+        model=model,
+        variant=variant,
+        mod=mod,
+    )
+
+
+@router.get("/api/public/printers/{printer_id}", response_model=PublicPrinter)
+async def get_public_printer(
+    printer_id: int,
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> PublicPrinter:
+    printer = repository.public_printer(printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="impressora pública não encontrada")
+    return printer
 
 
 @router.put("/api/printers/{printer_id}/public-profile", response_model=PublicPrinter | None)
@@ -189,10 +225,19 @@ async def update_printer_public_profile(
 
 @router.get("/api/social/communities", response_model=list[Community])
 async def list_social_communities(
+    manufacturer: str | None = None,
+    model: str | None = None,
+    variant: str | None = None,
+    component: str | None = None,
     _current: CurrentUser | None = Depends(require_current_user_when_configured),
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> list[Community]:
-    return repository.list_communities()
+    return repository.list_communities(
+        manufacturer=manufacturer,
+        model=model,
+        variant=variant,
+        component=component,
+    )
 
 
 @router.get("/api/social/communities/{slug}", response_model=CommunityDetail)

@@ -3281,7 +3281,7 @@ Estado atual:
 
 - Implementado via SQL idempotente `backend/sql/035_social_catalog.sql`.
 - Expansões idempotentes em `backend/sql/036_expand_printer_catalog_seed.sql` a `backend/sql/043_catalog_deeper_model_detail.sql` incluem catálogo DIY inicial além de Voron: RatRig, VzBot, Annex, HevORT, Printers For Ants, ZeroG, RailCore, SecKit, BLV, HyperCube, D-Bot, V-King, CroXY, Rook, Positron, The 100, Doron, SnakeOilXY, Magpie, Dynasty, MaybeCube, Rolohaun/Bastion, T250, SM-100, BabyCube e OLSK Small/Large; itens com dado menos seguro ficam como `community` ou `draft`, e projetos toolchanger fora do recorte DIY principal ficam `blocked` por padrão.
-- Endpoints `/api/catalog`, `/api/catalog/admin` e rotas administrativas protegidas por usuário administrador foram criados.
+- Endpoints `/api/catalog`, leitura detalhada `/api/catalog/admin` para usuário autenticado e rotas mutáveis protegidas por usuário administrador foram criados.
 - Impressoras cloud podem ser vinculadas a variante canônica para publicação social.
 - UI administrativa real fica na seção `Catálogo`, separada da tela `Social`, com listagem/filtros por modelo, paginação, detalhe dedicado de fabricante/modelo, logo/monograma, resumo do fabricante, links oficiais/Git/docs/BOM/Discord/Reddit quando disponíveis, ficha de curadoria, fontes usadas, variações dentro do detalhe e edição de curadoria.
 - Estados `official`, `community`, `draft`, `obsolete` e `blocked` são visíveis e administráveis; `obsolete`/`blocked` não removem vínculo existente, mas impedem nova publicação pública.
@@ -3324,10 +3324,15 @@ Critério de aceite:
 
 Estado atual:
 
-- Implementado via tabela `social_profiles`, histórico de slug e endpoints `/api/social/me/profile`.
-- Perfil público separa display/bio/avatar/localização/links da conta operacional e não expõe email, WhatsApp, permissões ou organização.
-- UI de edição e visualização resumida fica na tela `Social`.
-- Testes cobrem sanitização de links, privacidade e slug público.
+- Fechado em implementação local: tabela `social_profiles`, histórico mínimo de slug, endpoints `/api/social/me/profile`, `/api/social/profiles/{slug}` e `/api/social/profiles/{slug}/printers`.
+- Gestão principal do perfil social fica em `Conta > Perfil > Público`, acessada pelo menu do usuário logado no topo; a tela `Social` apenas referencia o perfil e mantém comunidades/publicação social.
+- Página pública real por slug fica em `/u/{slug}` no frontend e consome o contrato público por API.
+- Perfil público separa nome, bio, avatar, localização, links e impressoras públicas da conta operacional, sem expor email, WhatsApp, organizações, permissões, agente, Moonraker, SSH, token ou host operacional.
+- Slug duplicado e slug antigo de outro usuário são bloqueados; slugs antigos do próprio usuário ficam reservados e visíveis na gestão do perfil.
+- Avatar e links sociais aceitam somente HTTPS público; hosts locais/privados e hosts de rede social fora do esperado são rejeitados com mensagem clara.
+- Testes cobrem slug duplicado, slug histórico reservado, perfil `private`, perfil `unlisted`, bloqueio social, sanitização de avatar/link e ausência de dados sensíveis no contrato público.
+- Validação visual local autenticada registrada em `/tmp/printora-pkg50-account-public.png`; página pública sanitizada registrada em `/tmp/printora-pkg50-public-profile.png`.
+- Publicação/deploy produtivo e validação autenticada em produção ainda dependem do fluxo de release permitido.
 
 ## PKG-51: Impressoras Públicas Do Usuário E Vínculo Com Inventário Real
 
@@ -3367,11 +3372,16 @@ Critério de aceite:
 
 Estado atual:
 
-- Implementado via colunas públicas em `printers` e endpoint `/api/printers/{printer_id}/public-profile`.
-- Publicação exige `catalog_variant_id` válido e pertence ao usuário autenticado dono da impressora.
-- Payload público não retorna `moonraker_url`, SSH, agente, token, IP ou credenciais.
-- UI permite publicar/despublicar impressora real a partir do inventário autenticado.
-- Testes cobrem bloqueio sem catálogo e ausência de endpoint operacional no payload público.
+- Implementação local completa em 2026-06-15 na branch `cloud`; publicação/homologação em produção ainda depende de bundle de deploy Printora.
+- Gestão principal de publicação fica no detalhe da impressora real, com estado `Privada`, `Pública`, `Pendente de variante` ou `Indisponível por variante`.
+- Página pública real da impressora fica em `/p/{printer_id}` e consome `GET /api/public/printers/{printer_id}`.
+- Busca/listagem pública fica em `GET /api/social/printers`, com filtros por fabricante, modelo, variante e mod.
+- Publicação exige `catalog_variant_id` canônico válido, não aceita variantes `blocked`/`obsolete` e pertence ao usuário autenticado dono da impressora.
+- Imagens públicas aceitam somente URLs HTTPS públicas, com limite de quantidade e tamanho textual.
+- Impressora privada ou perfil `private` não aparece em busca, perfil, comunidade nem página pública direta.
+- Despublicar desativa vínculos de comunidade derivados da impressora.
+- Payload público não retorna `moonraker_url`, SSH, agente, token, IP, credenciais, organização ou permissões.
+- Testes focados cobrem privacidade, ownership, variante obrigatória/bloqueada, despublicação, busca, comunidade, imagem inválida e sanitização do payload.
 
 ## PKG-52: Comunidades Automáticas Por Fabricante, Modelo E Variante
 
@@ -3413,9 +3423,14 @@ Estado atual:
 
 - Implementado via `social_communities` e `social_community_members`.
 - Comunidades são derivadas automaticamente por fabricante, modelo e variante do catálogo.
-- Associação do usuário é sincronizada a partir das impressoras públicas e removida quando a publicação é desligada.
-- Tela `Social` mostra comunidades, escopo, status, membros e impressoras.
-- Testes cobrem associação automática sem conceder permissão operacional.
+- Associação do usuário é sincronizada a partir das impressoras públicas de perfis públicos e removida quando a publicação é desligada, o perfil fica `private` ou a variante/modelo muda.
+- Tela `Social` lista comunidades com filtros canônicos por fabricante, modelo, variante e componente, escopo, status, contagens e ação de abrir.
+- Página real `/c/{slug}` mostra comunidade, contexto canônico, contagens, estado e abas de feed, arquivos, mods, perfis, membros e impressoras públicas.
+- `active` e `uncurated` aceitam vínculo automático; `obsolete` fica histórico sem novas associações; `merged` aponta destino quando `merged_into_id` existir e não recebe novos vínculos.
+- Contagens de membros, impressoras e mods consideram somente impressoras públicas de perfis públicos; `file_count` fica preparado como 0 até a estrutura de arquivos do pacote próprio.
+- Payloads públicos não expõem Moonraker, SSH, agente, token, IP operacional, organização nem permissões.
+- Testes focados cobrem publicação/despublicação, troca de variante, privado fora da comunidade, filtros, contagens, estados obsoleta/mesclada e contrato API por slug.
+- Fechado localmente com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q`, `npm run build` e `./check.sh`; validação completa/publicação ficam condicionadas ao fluxo de deploy.
 
 ## PKG-53: Grafo Social, Amizades E Bloqueios
 

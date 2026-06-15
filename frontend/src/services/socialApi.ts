@@ -86,6 +86,16 @@ export const socialApi = {
       body: JSON.stringify(payload),
     }),
   myProfile: () => apiRequest<PublicProfile>("/api/social/me/profile"),
+  publicProfile: (slug: string) => apiRequest<PublicProfile>(`/api/social/profiles/${encodeURIComponent(slug)}`),
+  publicPrinter: (printerId: number | string) => apiRequest<PublicPrinter>(`/api/public/printers/${encodeURIComponent(String(printerId))}`),
+  publicPrinters: (filters: { manufacturer?: string; model?: string; variant?: string; mod?: string } = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+    const query = params.toString();
+    return apiRequest<PublicPrinter[]>(`/api/social/printers${query ? `?${query}` : ""}`);
+  },
   updateProfile: (payload: ProfilePayload) =>
     apiRequest<PublicProfile>("/api/social/me/profile", {
       method: "PUT",
@@ -99,7 +109,14 @@ export const socialApi = {
       headers: jsonHeaders,
       body: JSON.stringify(payload),
     }),
-  communities: () => apiRequest<Community[]>("/api/social/communities"),
+  communities: (filters: { manufacturer?: string; model?: string; variant?: string; component?: string } = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+    const query = params.toString();
+    return apiRequest<Community[]>(`/api/social/communities${query ? `?${query}` : ""}`);
+  },
   community: (slug: string) => apiRequest<CommunityDetail>(`/api/social/communities/${encodeURIComponent(slug)}`),
   relationships: () => apiRequest<RelationshipSummary>("/api/social/me/relationships"),
   follow: (targetUserId: number) => apiRequest<RelationshipRecord>(`/api/social/relationships/${targetUserId}/follow`, { method: "POST" }),

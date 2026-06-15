@@ -1,10 +1,13 @@
 import React from "react";
+import { ExternalLink, Globe2, Lock, MapPin, RadioTower, Shield, Link as LinkIcon } from "lucide-react";
 import type { ScreenPropsFor } from "./ScreenProps";
+import { socialApi } from "../services/socialApi";
 import { formatDateTime } from "../utils/formatters";
+import type { CatalogSummary, CatalogVariant, ProfileVisibility, PublicPrinter, PublicProfile } from "../types";
 
 type AccountTab = "profile" | "organizations";
 const accountTabKeys: AccountTab[] = ["organizations", "profile"];
-type ProfileSection = "account" | "contacts" | "password" | "security";
+type ProfileSection = "account" | "social" | "contacts" | "password" | "security";
 const commonTimezones = [
   "America/Sao_Paulo",
   "America/Manaus",
@@ -40,6 +43,7 @@ type AuthScreenProps = ScreenPropsFor<
   | "authUser"
   | "createdOrganizationInvite"
   | "loading"
+  | "loadPrinters"
   | "memberEmail"
   | "memberRole"
   | "mfaSetup"
@@ -115,6 +119,7 @@ export function AuthScreen(props: AuthScreenProps) {
     authUser,
     createdOrganizationInvite,
     loading,
+    loadPrinters,
     memberEmail,
     memberRole,
     mfaSetup,
@@ -177,6 +182,27 @@ export function AuthScreen(props: AuthScreenProps) {
   const [profileWebsite, setProfileWebsite] = React.useState("");
   const [profileTimezone, setProfileTimezone] = React.useState(authTimezone);
   const [profileSection, setProfileSection] = React.useState<ProfileSection>("account");
+  const [socialProfile, setSocialProfile] = React.useState<PublicProfile | null>(null);
+  const [socialPrinters, setSocialPrinters] = React.useState<PublicPrinter[]>([]);
+  const [socialCatalog, setSocialCatalog] = React.useState<CatalogSummary | null>(null);
+  const [selectedPublicPrinterId, setSelectedPublicPrinterId] = React.useState<number | "">("");
+  const [selectedPublicVariantId, setSelectedPublicVariantId] = React.useState<number | "">("");
+  const [publicPrinterDescription, setPublicPrinterDescription] = React.useState("");
+  const [publicPrinterMods, setPublicPrinterMods] = React.useState("");
+  const [socialDisplayName, setSocialDisplayName] = React.useState("");
+  const [socialSlug, setSocialSlug] = React.useState("");
+  const [socialBio, setSocialBio] = React.useState("");
+  const [socialLocation, setSocialLocation] = React.useState("");
+  const [socialAvatarUrl, setSocialAvatarUrl] = React.useState("");
+  const [socialVisibility, setSocialVisibility] = React.useState<ProfileVisibility>("public");
+  const [socialGithub, setSocialGithub] = React.useState("");
+  const [socialInstagram, setSocialInstagram] = React.useState("");
+  const [socialYoutube, setSocialYoutube] = React.useState("");
+  const [socialX, setSocialX] = React.useState("");
+  const [socialPrintables, setSocialPrintables] = React.useState("");
+  const [socialMakerworld, setSocialMakerworld] = React.useState("");
+  const [socialWebsite, setSocialWebsite] = React.useState("");
+  const [socialLoading, setSocialLoading] = React.useState(false);
   const [currentPassword, setCurrentPassword] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmNewPassword, setConfirmNewPassword] = React.useState("");
@@ -215,11 +241,21 @@ export function AuthScreen(props: AuthScreenProps) {
     setProfileTimezone(authUser?.timezone ?? authTimezone);
     setAuthTimezone(authUser?.timezone ?? authTimezone);
   }, [authUser?.id]);
+  React.useEffect(() => {
+    if (!authUser) {
+      return;
+    }
+    void loadSocialProfile();
+  }, [authUser?.id]);
   const organizationByDetail = organizationDetail
     ? authUser?.organizations.find((organization) => organization.id === organizationDetail.id)
     : null;
   const canManageSelectedOrganization = organizationByDetail?.role === "owner" || organizationByDetail?.role === "admin";
   const canOwnSelectedOrganization = organizationByDetail?.role === "owner";
+  const publicProfileUrl = socialProfile ? `${window.location.origin}/u/${socialProfile.slug}` : "";
+  const socialVariants = React.useMemo(() => flattenVariants(socialCatalog), [socialCatalog]);
+  const selectedPublicPrinter = printers.find((printer) => printer.id === selectedPublicPrinterId);
+  const selectedPublicVariant = socialVariants.find((variant) => variant.id === selectedPublicVariantId);
 
   async function openOrganizationDetail(organizationId: number) {
     await loadOrganizationDetail(organizationId);
@@ -297,6 +333,93 @@ export function AuthScreen(props: AuthScreenProps) {
     setNewPassword("");
     setConfirmNewPassword("");
     showToast({ tone: "success", title: "Senha alterada" });
+  }
+
+  async function loadSocialProfile() {
+    setSocialLoading(true);
+    try {
+      const [profilePayload, catalogPayload] = await Promise.all([socialApi.myProfile(), socialApi.catalog()]);
+      const printerPayload = await socialApi.profilePrinters(profilePayload.slug);
+      setSocialProfile(profilePayload);
+      setSocialPrinters(printerPayload);
+      setSocialCatalog(catalogPayload);
+      setSocialDisplayName(profilePayload.display_name);
+      setSocialSlug(profilePayload.slug);
+      setSocialBio(profilePayload.bio ?? "");
+      setSocialLocation(profilePayload.location ?? "");
+      setSocialAvatarUrl(profilePayload.avatar_url ?? "");
+      setSocialVisibility(profilePayload.visibility);
+      setSocialGithub(profilePayload.social_links.github ?? "");
+      setSocialInstagram(profilePayload.social_links.instagram ?? "");
+      setSocialYoutube(profilePayload.social_links.youtube ?? "");
+      setSocialX(profilePayload.social_links.x ?? "");
+      setSocialPrintables(profilePayload.social_links.printables ?? "");
+      setSocialMakerworld(profilePayload.social_links.makerworld ?? "");
+      setSocialWebsite(profilePayload.social_links.website ?? "");
+    } catch (err) {
+      showToast({ tone: "danger", title: "Falha ao carregar perfil social", detail: err instanceof Error ? err.message : undefined });
+    } finally {
+      setSocialLoading(false);
+    }
+  }
+
+  async function saveSocialProfile() {
+    if (!authUser) {
+      return;
+    }
+    setSocialLoading(true);
+    try {
+      const updated = await socialApi.updateProfile({
+        slug: socialSlug,
+        display_name: socialDisplayName || profileDisplayName || authUser.email,
+        bio: socialBio || null,
+        location: socialLocation || null,
+        avatar_url: socialAvatarUrl || null,
+        visibility: socialVisibility,
+        social_links: {
+          website: socialWebsite || null,
+          github: socialGithub || null,
+          instagram: socialInstagram || null,
+          youtube: socialYoutube || null,
+          x: socialX || null,
+          printables: socialPrintables || null,
+          makerworld: socialMakerworld || null,
+        },
+      });
+      setSocialProfile(updated);
+      setSocialPrinters(await socialApi.profilePrinters(updated.slug));
+      showToast({ tone: "success", title: "Perfil público atualizado" });
+    } catch (err) {
+      showToast({ tone: "danger", title: "Falha ao salvar perfil público", detail: err instanceof Error ? err.message : undefined });
+    } finally {
+      setSocialLoading(false);
+    }
+  }
+
+  async function publishProfilePrinter(publicEnabled: boolean) {
+    if (!selectedPublicPrinterId || !selectedPublicPrinter || (!selectedPublicVariantId && publicEnabled)) {
+      showToast({ tone: "danger", title: "Seleção incompleta", detail: "Selecione uma impressora e uma variante do catálogo." });
+      return;
+    }
+    setSocialLoading(true);
+    try {
+      await socialApi.updatePrinterPublic(Number(selectedPublicPrinterId), {
+        public_profile_enabled: publicEnabled,
+        catalog_variant_id: publicEnabled ? Number(selectedPublicVariantId) : null,
+        public_name: selectedPublicPrinter.name,
+        public_description: publicPrinterDescription || null,
+        public_mods: publicPrinterMods.split(",").map((item) => item.trim()).filter(Boolean),
+      });
+      await loadPrinters();
+      if (socialProfile) {
+        setSocialPrinters(await socialApi.profilePrinters(socialProfile.slug));
+      }
+      showToast({ tone: "success", title: publicEnabled ? "Impressora publicada" : "Impressora privada" });
+    } catch (err) {
+      showToast({ tone: "danger", title: "Falha ao atualizar impressora pública", detail: err instanceof Error ? err.message : undefined });
+    } finally {
+      setSocialLoading(false);
+    }
   }
 
   if (!authUser) {
@@ -415,6 +538,10 @@ export function AuthScreen(props: AuthScreenProps) {
               <UserRound size={16} />
               Conta
             </button>
+            <button type="button" className={profileSection === "social" ? "active" : ""} onClick={() => setProfileSection("social")}>
+              <Globe2 size={16} />
+              Público
+            </button>
             <button type="button" className={profileSection === "contacts" ? "active" : ""} onClick={() => setProfileSection("contacts")}>
               <Users size={16} />
               Contatos
@@ -463,6 +590,179 @@ export function AuthScreen(props: AuthScreenProps) {
               </button>
             </div>
           </article>
+          ) : null}
+
+          {profileSection === "social" ? (
+          <div className="social-profile-workspace">
+            <article className="panel auth-panel profile-card social-profile-editor">
+              <div className="profile-section-title">
+                <span className="organization-card-icon"><Globe2 size={17} /></span>
+                <div>
+                  <span className="account-eyebrow">Perfil público/social</span>
+                  <h2>Identidade pública</h2>
+                  <p>Estes dados aparecem na página pública. Email, WhatsApp, organizações, permissões, agente, Moonraker, SSH e tokens ficam fora do perfil público.</p>
+                </div>
+              </div>
+              <div className="profile-form-grid">
+                <label>
+                  <span>Nome público</span>
+                  <input value={socialDisplayName} onChange={(event) => setSocialDisplayName(event.target.value)} maxLength={120} placeholder="Nome visível para outros makers" />
+                </label>
+                <label>
+                  <span>Slug público</span>
+                  <input value={socialSlug} onChange={(event) => setSocialSlug(event.target.value)} maxLength={80} placeholder="meu-perfil" />
+                  <small>Trocar o slug muda a URL pública. Slugs antigos ficam reservados para evitar abuso.</small>
+                </label>
+                <label>
+                  <span>Visibilidade</span>
+                  <select value={socialVisibility} onChange={(event) => setSocialVisibility(event.target.value as ProfileVisibility)}>
+                    <option value="public">Público</option>
+                    <option value="unlisted">Não listado, acessível por URL direta</option>
+                    <option value="private">Privado</option>
+                  </select>
+                  <small>{visibilityHelp(socialVisibility)}</small>
+                </label>
+                <label>
+                  <span>Avatar HTTPS</span>
+                  <input value={socialAvatarUrl} onChange={(event) => setSocialAvatarUrl(event.target.value)} placeholder="https://..." />
+                  <small>Apenas URL HTTPS pública; hosts locais ou privados são rejeitados.</small>
+                </label>
+                <label>
+                  <span>Localização opcional</span>
+                  <input value={socialLocation} onChange={(event) => setSocialLocation(event.target.value)} maxLength={120} placeholder="Cidade/UF" />
+                </label>
+                <label>
+                  <span>Bio curta</span>
+                  <textarea value={socialBio} onChange={(event) => setSocialBio(event.target.value)} maxLength={280} placeholder="Tipo de impressora, materiais e foco do perfil" />
+                </label>
+              </div>
+
+              <div className="profile-section-title compact">
+                <span className="organization-card-icon"><LinkIcon size={17} /></span>
+                <div>
+                  <span className="account-eyebrow">Links permitidos</span>
+                  <h2>Avatar e redes</h2>
+                  <p>Links sociais aceitam somente HTTPS e hosts públicos esperados para cada rede.</p>
+                </div>
+              </div>
+              <div className="profile-form-grid">
+                <label><span>Website</span><input value={socialWebsite} onChange={(event) => setSocialWebsite(event.target.value)} placeholder="https://..." /></label>
+                <label><span>GitHub</span><input value={socialGithub} onChange={(event) => setSocialGithub(event.target.value)} placeholder="https://github.com/usuario" /></label>
+                <label><span>Instagram</span><input value={socialInstagram} onChange={(event) => setSocialInstagram(event.target.value)} placeholder="https://instagram.com/usuario" /></label>
+                <label><span>YouTube</span><input value={socialYoutube} onChange={(event) => setSocialYoutube(event.target.value)} placeholder="https://youtube.com/@canal" /></label>
+                <label><span>X/Twitter</span><input value={socialX} onChange={(event) => setSocialX(event.target.value)} placeholder="https://x.com/usuario" /></label>
+                <label><span>Printables</span><input value={socialPrintables} onChange={(event) => setSocialPrintables(event.target.value)} placeholder="https://printables.com/@usuario" /></label>
+                <label><span>MakerWorld</span><input value={socialMakerworld} onChange={(event) => setSocialMakerworld(event.target.value)} placeholder="https://makerworld.com/..." /></label>
+              </div>
+
+              <div className="social-profile-url">
+                <div>
+                  <span>URL pública</span>
+                  <strong>{publicProfileUrl || "Salve o perfil para gerar a URL"}</strong>
+                  {socialProfile?.reserved_slugs?.length ? <small>Slugs reservados: {socialProfile.reserved_slugs.join(", ")}</small> : <small>Nenhum slug antigo reservado para sua conta.</small>}
+                </div>
+                {publicProfileUrl ? <a className="secondary-button" href={publicProfileUrl} target="_blank" rel="noreferrer"><ExternalLink size={16} />Abrir</a> : null}
+              </div>
+
+              <div className="profile-card-actions">
+                <button type="button" className="primary-button" onClick={() => void saveSocialProfile()} disabled={socialLoading || !socialDisplayName.trim()}>
+                  <ClipboardCheck size={16} />
+                  Salvar perfil público
+                </button>
+              </div>
+            </article>
+
+            <article className="panel auth-panel profile-card social-profile-preview">
+              <div className="profile-section-title">
+                <span className="organization-card-icon"><Shield size={17} /></span>
+                <div>
+                  <span className="account-eyebrow">Prévia pública</span>
+                  <h2>{socialDisplayName || "Nome público"}</h2>
+                  <p>{socialBio || "Bio curta opcional do perfil social."}</p>
+                </div>
+              </div>
+              <div className="public-preview-card">
+                <div className="public-preview-avatar">
+                  {socialAvatarUrl ? <img src={socialAvatarUrl} alt="" /> : <UserRound size={28} />}
+                </div>
+                <div>
+                  <strong>{socialDisplayName || "Nome público"}</strong>
+                  <span>@{socialSlug || "slug"}</span>
+                  {socialLocation ? <small><MapPin size={13} />{socialLocation}</small> : null}
+                </div>
+              </div>
+              <div className="social-privacy-state">
+                <strong>Privacidade: {visibilityLabel(socialVisibility)}</strong>
+                <span>{visibilityHelp(socialVisibility)}</span>
+              </div>
+              <div className="social-safe-list">
+                <strong>Não exposto publicamente</strong>
+                <span>Email, WhatsApp, organizações, papéis, permissões, URLs Moonraker, SSH, agente e tokens.</span>
+              </div>
+              <div className="public-printer-list compact">
+                <strong>Impressoras públicas em contexto</strong>
+                {socialPrinters.map((printer) => (
+                  <section key={printer.id} className="public-printer-card">
+                    <div>
+                      <Printer size={16} />
+                      <strong>{printer.public_name}</strong>
+                    </div>
+                    <span>{printer.manufacturer_name} / {printer.model_name} / {printer.variant_name}</span>
+                  </section>
+                ))}
+                {socialPrinters.length === 0 ? <p>Nenhuma impressora pública vinculada ao perfil.</p> : null}
+              </div>
+            </article>
+
+            <article className="panel auth-panel profile-card social-printer-public-manager">
+              <div className="profile-section-title">
+                <span className="organization-card-icon"><RadioTower size={17} /></span>
+                <div>
+                  <span className="account-eyebrow">Impressoras públicas</span>
+                  <h2>Publicação no perfil</h2>
+                  <p>Escolha quais impressoras aparecem na página pública. A publicação mostra apenas dados sociais e catálogo canônico.</p>
+                </div>
+              </div>
+              <div className="profile-form-grid">
+                <label>
+                  <span>Inventário real</span>
+                  <select value={selectedPublicPrinterId} onChange={(event) => setSelectedPublicPrinterId(event.target.value ? Number(event.target.value) : "")}>
+                    <option value="">Selecione</option>
+                    {printers.map((printer) => (
+                      <option key={printer.id} value={printer.id}>{printer.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Variante canônica</span>
+                  <select value={selectedPublicVariantId} onChange={(event) => setSelectedPublicVariantId(event.target.value ? Number(event.target.value) : "")}>
+                    <option value="">Selecione</option>
+                    {socialVariants.map((variant) => (
+                      <option key={variant.id} value={variant.id}>{variant.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Descrição pública</span>
+                  <textarea value={publicPrinterDescription} onChange={(event) => setPublicPrinterDescription(event.target.value)} maxLength={500} />
+                </label>
+                <label>
+                  <span>Mods públicos</span>
+                  <input value={publicPrinterMods} onChange={(event) => setPublicPrinterMods(event.target.value)} placeholder="Tap, Nevermore, ERCF" />
+                </label>
+              </div>
+              <div className="profile-card-actions">
+                <button type="button" className="primary-button" disabled={socialLoading || !selectedPublicVariant} onClick={() => void publishProfilePrinter(true)}>
+                  <Globe2 size={16} />
+                  Publicar
+                </button>
+                <button type="button" className="secondary-button" disabled={socialLoading || !selectedPublicPrinterId} onClick={() => void publishProfilePrinter(false)}>
+                  <Lock size={16} />
+                  Tornar privada
+                </button>
+              </div>
+            </article>
+          </div>
           ) : null}
 
           {profileSection === "contacts" ? (
@@ -971,6 +1271,32 @@ function readRequestedAccountTab(): AccountTab {
     return "profile";
   }
   return requested && accountTabKeys.includes(requested) ? requested : "organizations";
+}
+
+function visibilityLabel(value: ProfileVisibility) {
+  if (value === "private") return "privado";
+  if (value === "unlisted") return "não listado";
+  return "público";
+}
+
+function visibilityHelp(value: ProfileVisibility) {
+  if (value === "private") return "Perfil não abre publicamente e impressoras não aparecem por URL.";
+  if (value === "unlisted") return "Perfil abre por URL direta, mas não deve aparecer em listagens.";
+  return "Perfil pode aparecer publicamente e abre pela URL do slug.";
+}
+
+function flattenVariants(catalog: CatalogSummary | null): Array<CatalogVariant & { label: string }> {
+  if (!catalog) {
+    return [];
+  }
+  return catalog.manufacturers.flatMap((manufacturer) =>
+    manufacturer.models.flatMap((model) =>
+      model.variants.map((variant) => ({
+        ...variant,
+        label: `${manufacturer.name} · ${model.name} · ${variant.name}`,
+      })),
+    ),
+  );
 }
 
 async function copyInviteLink(inviteUrl: string, showToast: (options: { tone?: "success" | "danger"; title: string; detail?: string }) => void) {
