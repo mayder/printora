@@ -291,6 +291,27 @@
   padding: 20px;
 }
 
+.catalog-pagination {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 0.86rem;
+  justify-content: space-between;
+}
+
+.catalog-pagination-actions {
+  align-items: center;
+  display: inline-flex;
+  gap: 10px;
+}
+
+.catalog-page-button {
+  justify-content: center;
+  min-height: 34px;
+  padding: 0;
+  width: 36px;
+}
+
 .catalog-state {
   background: var(--surface-3);
   border: 1px solid var(--border);
@@ -499,6 +520,16 @@
   .catalog-filter-actions button {
     flex: 1;
     justify-content: center;
+  }
+
+  .catalog-pagination {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .catalog-pagination-actions {
+    justify-content: space-between;
   }
 
   .catalog-variation-head {

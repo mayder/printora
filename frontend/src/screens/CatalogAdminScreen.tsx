@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowLeft, Boxes, Check, ChevronDown, Database, ExternalLink, Eye, FileText, Filter, GitBranch, RefreshCw, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, Boxes, Check, ChevronDown, ChevronLeft, ChevronRight, Database, ExternalLink, Eye, FileText, Filter, GitBranch, RefreshCw, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi, type CatalogAdminFilters } from "../services/socialApi";
 import type { ScreenPropsFor } from "./ScreenProps";
@@ -9,18 +9,25 @@ type CatalogAdminScreenProps = ScreenPropsFor<"authUser" | "setError">;
 
 const emptyCatalog: CatalogAdminSummary = { models: [], manufacturer_count: 0, model_count: 0, variant_count: 0 };
 const trustStates: CatalogTrustState[] = ["official", "community", "draft", "obsolete", "blocked"];
+const catalogPageSize = 10;
+const catalogFilterKeys: Array<keyof CatalogAdminFilters> = ["manufacturer", "model", "variant", "component", "kinematics", "firmware_family", "trust_state"];
 
 export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenProps) {
   const isAdmin = authUser?.email.toLowerCase() === "breno@mayder.com.br";
   const [catalog, setCatalog] = React.useState<CatalogAdminSummary>(emptyCatalog);
   const [referenceCatalog, setReferenceCatalog] = React.useState<CatalogAdminSummary>(emptyCatalog);
-  const [filters, setFilters] = React.useState<CatalogAdminFilters>({});
+  const [filters, setFilters] = React.useState<CatalogAdminFilters>(() => readCatalogFiltersFromUrl());
+  const [page, setPage] = React.useState(() => readCatalogPageFromUrl());
   const [selectedModelId, setSelectedModelId] = React.useState<number | null>(null);
-  const [detailModelSlug, setDetailModelSlug] = React.useState<string | null>(() => new URLSearchParams(window.location.search).get("model"));
+  const [detailModelSlug, setDetailModelSlug] = React.useState<string | null>(() => readCatalogDetailSlugFromUrl());
   const [busy, setBusy] = React.useState(false);
 
   const selectedModel = catalog.models.find((item) => item.id === selectedModelId) ?? catalog.models[0] ?? null;
   const detailModel = detailModelSlug ? referenceCatalog.models.find((item) => item.slug === detailModelSlug) ?? catalog.models.find((item) => item.slug === detailModelSlug) ?? null : null;
+  const totalPages = Math.max(1, Math.ceil(catalog.models.length / catalogPageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * catalogPageSize;
+  const pageModels = catalog.models.slice(pageStart, pageStart + catalogPageSize);
   const filterOptions = React.useMemo(() => buildFilterOptions(referenceCatalog.models), [referenceCatalog.models]);
   const modelOptions = React.useMemo(
     () => filterOptions.models.filter((option) => !filters.manufacturer || option.manufacturer_slug === filters.manufacturer),
@@ -57,6 +64,12 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
     void loadCatalog();
   }, [isAdmin]);
 
+  React.useEffect(() => {
+    if (page > totalPages) {
+      changePage(totalPages, true);
+    }
+  }, [page, totalPages]);
+
   function updateFilter(key: keyof CatalogAdminFilters, value: string) {
     setFilters((current) => {
       const next = { ...current, [key]: value || undefined };
@@ -73,23 +86,33 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
 
   async function applyFilters(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setPage(1);
+    updateCatalogUrl(filters, 1, detailModelSlug, true);
     await loadCatalog(filters);
   }
 
   async function clearFilters() {
     setFilters({});
+    setPage(1);
+    updateCatalogUrl({}, 1, null, true);
     await loadCatalog({});
   }
 
   function openModelDetail(model: CatalogModelAdmin) {
     setSelectedModelId(model.id);
     setDetailModelSlug(model.slug);
-    window.history.pushState(null, "", `?section=catalog&model=${encodeURIComponent(model.slug)}`);
+    updateCatalogUrl(filters, safePage, model.slug);
   }
 
   function closeModelDetail() {
     setDetailModelSlug(null);
-    window.history.pushState(null, "", "?section=catalog");
+    updateCatalogUrl(filters, safePage);
+  }
+
+  function changePage(nextPage: number, replace = false) {
+    const boundedPage = Math.min(Math.max(nextPage, 1), totalPages);
+    setPage(boundedPage);
+    updateCatalogUrl(filters, boundedPage, detailModelSlug, replace);
   }
 
   if (!isAdmin) {
@@ -173,11 +196,35 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
               </div>
               <span>{catalog.models.length} itens</span>
             </header>
-            <ModelTable models={catalog.models} selectedModelId={selectedModel?.id ?? null} onSelect={openModelDetail} />
+            <ModelTable models={pageModels} selectedModelId={selectedModel?.id ?? null} onSelect={openModelDetail} />
+            <CatalogPagination page={safePage} pageSize={catalogPageSize} totalItems={catalog.models.length} onPageChange={changePage} />
           </section>
         </>
       )}
     </div>
+  );
+}
+
+function CatalogPagination({ page, pageSize, totalItems, onPageChange }: { page: number; pageSize: number; totalItems: number; onPageChange: (page: number) => void }) {
+  if (totalItems <= pageSize) {
+    return null;
+  }
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(totalItems, page * pageSize);
+  return (
+    <footer className="catalog-pagination">
+      <span>{start}-{end} de {totalItems}</span>
+      <div className="catalog-pagination-actions">
+        <button type="button" className="secondary-action catalog-page-button" onClick={() => onPageChange(page - 1)} disabled={page <= 1} aria-label="Página anterior">
+          <ChevronLeft size={16} />
+        </button>
+        <span>Página {page} de {totalPages}</span>
+        <button type="button" className="secondary-action catalog-page-button" onClick={() => onPageChange(page + 1)} disabled={page >= totalPages} aria-label="Próxima página">
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    </footer>
   );
 }
 
@@ -443,6 +490,62 @@ function componentLabel(value: string) {
 
 function normalizeSearch(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function readCatalogFiltersFromUrl(): CatalogAdminFilters {
+  const params = new URLSearchParams(window.location.search);
+  return catalogFilterKeys.reduce<CatalogAdminFilters>((next, key) => {
+    const value = params.get(catalogFilterUrlKey(key));
+    if (value) {
+      next[key] = value as never;
+    }
+    return next;
+  }, {});
+}
+
+function readCatalogPageFromUrl() {
+  const page = Number(new URLSearchParams(window.location.search).get("page"));
+  return Number.isInteger(page) && page > 0 ? page : 1;
+}
+
+function readCatalogDetailSlugFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("open_model") ?? params.get("model");
+}
+
+function updateCatalogUrl(filters: CatalogAdminFilters, page: number, detailModelSlug?: string | null, replace = false) {
+  const params = new URLSearchParams(window.location.search);
+  params.set("section", "catalog");
+  params.delete("model");
+  catalogFilterKeys.forEach((key) => {
+    const paramKey = catalogFilterUrlKey(key);
+    const value = filters[key];
+    if (value) {
+      params.set(paramKey, value);
+    } else {
+      params.delete(paramKey);
+    }
+  });
+  if (page > 1) {
+    params.set("page", String(page));
+  } else {
+    params.delete("page");
+  }
+  if (detailModelSlug) {
+    params.set("open_model", detailModelSlug);
+  } else {
+    params.delete("open_model");
+  }
+  const nextUrl = `?${params.toString()}`;
+  if (replace) {
+    window.history.replaceState(null, "", nextUrl);
+  } else {
+    window.history.pushState(null, "", nextUrl);
+  }
+}
+
+function catalogFilterUrlKey(key: keyof CatalogAdminFilters) {
+  return key === "model" ? "catalog_model" : key;
 }
 
 function byName<T extends { name: string }>(left: T, right: T) {
