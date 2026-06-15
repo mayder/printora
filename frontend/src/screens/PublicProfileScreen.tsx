@@ -1,7 +1,7 @@
 import React from "react";
-import { ExternalLink, Lock, MapPin, Printer, UserRound } from "lucide-react";
+import { Ban, ExternalLink, Lock, MapPin, Printer, UserPlus, UserRound, Users } from "lucide-react";
 import { socialApi } from "../services/socialApi";
-import type { PublicPrinter, PublicProfile } from "../types";
+import type { PublicPrinter, PublicProfile, RelationshipSummary } from "../types";
 
 interface PublicProfileScreenProps {
   slug: string;
@@ -10,8 +10,11 @@ interface PublicProfileScreenProps {
 export function PublicProfileScreen({ slug }: PublicProfileScreenProps) {
   const [profile, setProfile] = React.useState<PublicProfile | null>(null);
   const [printers, setPrinters] = React.useState<PublicPrinter[]>([]);
+  const [relationships, setRelationships] = React.useState<RelationshipSummary | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [actionError, setActionError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [busyAction, setBusyAction] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let active = true;
@@ -21,9 +24,16 @@ export function PublicProfileScreen({ slug }: PublicProfileScreenProps) {
       try {
         const profilePayload = await socialApi.publicProfile(slug);
         const printerPayload = await socialApi.profilePrinters(profilePayload.slug);
+        let relationshipPayload: RelationshipSummary | null = null;
+        try {
+          relationshipPayload = await socialApi.relationships();
+        } catch {
+          relationshipPayload = null;
+        }
         if (!active) return;
         setProfile(profilePayload);
         setPrinters(printerPayload);
+        setRelationships(relationshipPayload);
       } catch (err) {
         if (active) setError(err instanceof Error ? err.message : "Perfil público indisponível");
       } finally {
@@ -35,6 +45,29 @@ export function PublicProfileScreen({ slug }: PublicProfileScreenProps) {
       active = false;
     };
   }, [slug]);
+
+  async function refreshRelationships() {
+    try {
+      setRelationships(await socialApi.relationships());
+    } catch {
+      setRelationships(null);
+    }
+  }
+
+  async function runAction(action: string, callback: () => Promise<unknown>) {
+    setBusyAction(action);
+    setActionError(null);
+    try {
+      await callback();
+      await refreshRelationships();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Ação social não concluída");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  const relationState = profile && relationships ? summarizeRelationship(profile.user_id, relationships) : null;
 
   return (
     <main className="public-profile-shell">
@@ -66,6 +99,46 @@ export function PublicProfileScreen({ slug }: PublicProfileScreenProps) {
                   <span><MapPin size={15} />{profile.location}</span>
                 ) : null}
               </div>
+              <div className="public-profile-actions">
+                <button type="button" className="secondary-button" disabled={busyAction !== null || relationState?.blocked} onClick={() => void runAction("follow", () => socialApi.follow(profile.user_id))}>
+                  <UserPlus size={15} />
+                  {relationState?.following ? "Seguindo" : "Seguir"}
+                </button>
+                {relationState?.following ? (
+                  <button type="button" className="secondary-button" disabled={busyAction !== null} onClick={() => void runAction("unfollow", () => socialApi.unfollow(profile.user_id))}>
+                    Deixar de seguir
+                  </button>
+                ) : null}
+                <button type="button" className="secondary-button" disabled={busyAction !== null || relationState?.blocked || relationState?.friend || relationState?.sentFriendRequest} onClick={() => void runAction("friend", () => socialApi.requestFriend(profile.user_id))}>
+                  <Users size={15} />
+                  {relationState?.friend ? "Amigos" : relationState?.sentFriendRequest ? "Solicitada" : "Solicitar amizade"}
+                </button>
+                {relationState?.sentFriendRequest ? (
+                  <button type="button" className="secondary-button" disabled={busyAction !== null} onClick={() => void runAction("cancel", () => socialApi.cancelFriendRequest(profile.user_id))}>
+                    Cancelar solicitação
+                  </button>
+                ) : null}
+                {relationState?.pendingFriendRequest ? (
+                  <>
+                    <button type="button" className="primary-button" disabled={busyAction !== null} onClick={() => void runAction("accept", () => socialApi.acceptFriend(profile.user_id))}>
+                      Aceitar
+                    </button>
+                    <button type="button" className="secondary-button" disabled={busyAction !== null} onClick={() => void runAction("reject", () => socialApi.rejectFriend(profile.user_id))}>
+                      Recusar
+                    </button>
+                  </>
+                ) : null}
+                {relationState?.friend ? (
+                  <button type="button" className="secondary-button" disabled={busyAction !== null} onClick={() => void runAction("unfriend", () => socialApi.unfriend(profile.user_id))}>
+                    Desfazer amizade
+                  </button>
+                ) : null}
+                <button type="button" className="secondary-button danger" disabled={busyAction !== null} onClick={() => void runAction(relationState?.blocked ? "unblock" : "block", () => relationState?.blocked ? socialApi.unblock(profile.user_id) : socialApi.block(profile.user_id))}>
+                  <Ban size={15} />
+                  {relationState?.blocked ? "Desbloquear" : "Bloquear"}
+                </button>
+              </div>
+              {actionError ? <p className="public-action-error">{actionError}</p> : null}
             </div>
           </header>
 
@@ -105,6 +178,16 @@ export function PublicProfileScreen({ slug }: PublicProfileScreenProps) {
       ) : null}
     </main>
   );
+}
+
+function summarizeRelationship(targetUserId: number, relationships: RelationshipSummary) {
+  return {
+    following: relationships.following.some((item) => item.target_user_id === targetUserId),
+    friend: relationships.friends.some((item) => item.target_user_id === targetUserId),
+    blocked: relationships.blocked.some((item) => item.target_user_id === targetUserId),
+    sentFriendRequest: relationships.sent_friend_requests.some((item) => item.target_user_id === targetUserId),
+    pendingFriendRequest: relationships.pending_friend_requests.some((item) => item.target_user_id === targetUserId),
+  };
 }
 
 function linkLabel(key: string) {

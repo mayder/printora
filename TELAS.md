@@ -147,10 +147,13 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Datas visíveis no sistema devem ser exibidas em formato brasileiro usando a timezone do usuário logado. O banco mantém UTC/texto original; a conversão acontece somente na formatação da UI.
 - A tela Social deve separar identidade pública/social da conta operacional. Perfil público, seguidores, amizades, bloqueios, comunidades e impressoras públicas não concedem acesso a organizações, agentes, Moonraker, SSH, tokens ou permissões de impressora.
 - A tela Social pode referenciar o perfil social e abrir `Conta > Perfil`, mas não é a superfície principal de edição do perfil social do usuário.
+- A tela Social mostra resumo operacional de relações: seguidores, seguindo, amigos, solicitações pendentes, solicitações enviadas e bloqueados; também oferece busca mínima de perfis por slug/nome público sem expor email, WhatsApp, organização ou permissões.
 - No detalhe da impressora real, a área `Publicação da impressora` concentra publicar/despublicar, edição de nome público, descrição, mods, imagens HTTPS, variante canônica, prévia e URL `/p/{printer_id}`.
 - A tela Social pode mostrar e descobrir impressoras públicas, mas a ação principal de publicar/despublicar pertence ao inventário real da impressora.
 - Uma impressora só pode ser publicada quando estiver vinculada a uma variação técnica do catálogo mestre; a publicação exibe apenas nome público, descrição, mods/imagens opcionais, fabricante, modelo, variação, volume útil e cinemática.
 - A página pública do perfil fica em `/u/{slug}` e mostra somente nome público, avatar, bio, localização opcional, links permitidos e impressoras públicas. Perfil `private` retorna indisponível; perfil `unlisted` abre por URL direta, mas não deve ser listado.
+- A página pública `/u/{slug}`, quando aberta por usuário autenticado, é o contexto principal das relações sociais e exibe ações claras para seguir/deixar de seguir, solicitar amizade, aceitar, recusar, cancelar solicitação, desfazer amizade, bloquear e desbloquear.
+- Usuário bloqueado não deve ver conteúdo restrito do perfil nem impressoras públicas do bloqueador; desbloquear não restaura automaticamente follows ou amizades.
 - A página pública da impressora fica em `/p/{printer_id}` e mostra somente dados públicos autorizados. Impressora privada, inexistente ou de perfil `private` retorna indisponível.
 - A busca pública de impressoras usa o contrato `/api/social/printers` e só lista impressoras públicas de perfis públicos, com filtros por fabricante, modelo, variante e mods.
 - Comunidades sociais são derivadas automaticamente do catálogo por fabricante, modelo e variante. Elas não são organizações operacionais e não aparecem como controle de permissão.

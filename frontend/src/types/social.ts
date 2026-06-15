@@ -168,4 +168,5 @@ export interface RelationshipSummary {
   friends: RelationshipRecord[];
   blocked: RelationshipRecord[];
   pending_friend_requests: RelationshipRecord[];
+  sent_friend_requests: RelationshipRecord[];
 }

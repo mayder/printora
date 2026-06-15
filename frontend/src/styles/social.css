@@ -215,6 +215,23 @@
   padding-top: 12px;
 }
 
+.relationship-block a {
+  color: var(--text);
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.relationship-block a:hover {
+  color: var(--accent);
+}
+
+.social-profile-search {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .muted {
   color: var(--muted);
 }
@@ -227,7 +244,8 @@
 
   .social-status-grid,
   .social-form-grid,
-  .community-filter-grid {
+  .community-filter-grid,
+  .social-profile-search {
     grid-template-columns: 1fr;
   }
 

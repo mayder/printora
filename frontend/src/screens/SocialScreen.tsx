@@ -1,5 +1,5 @@
 import React from "react";
-import { ExternalLink, Filter, Globe2, RefreshCw, Shield, Users } from "lucide-react";
+import { ExternalLink, Filter, Globe2, RefreshCw, Search, Shield, Users } from "lucide-react";
 import { socialApi } from "../services/socialApi";
 import type { ScreenPropsFor } from "./ScreenProps";
 import type { CatalogSummary, Community, PublicPrinter, PublicProfile, RelationshipSummary } from "../types";
@@ -12,6 +12,8 @@ export function SocialScreen({ authUser, setError }: SocialScreenProps) {
   const [publicPrinters, setPublicPrinters] = React.useState<PublicPrinter[]>([]);
   const [communities, setCommunities] = React.useState<Community[]>([]);
   const [relationships, setRelationships] = React.useState<RelationshipSummary | null>(null);
+  const [profileSearch, setProfileSearch] = React.useState("");
+  const [profileResults, setProfileResults] = React.useState<PublicProfile[]>([]);
   const [filters, setFilters] = React.useState({ manufacturer: "", model: "", variant: "", component: "" });
   const [busy, setBusy] = React.useState(false);
 
@@ -46,6 +48,18 @@ export function SocialScreen({ authUser, setError }: SocialScreenProps) {
   React.useEffect(() => {
     void loadSocial();
   }, [filters.manufacturer, filters.model, filters.variant, filters.component]);
+
+  async function searchProfiles() {
+    if (!profileSearch.trim()) {
+      setProfileResults([]);
+      return;
+    }
+    try {
+      setProfileResults(await socialApi.searchProfiles(profileSearch));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao buscar perfis");
+    }
+  }
 
   return (
     <div className="social-screen">
@@ -145,9 +159,34 @@ export function SocialScreen({ authUser, setError }: SocialScreenProps) {
             <Shield size={18} />
             <h3>Relações</h3>
           </header>
+          <div className="social-profile-search">
+            <label>
+              Buscar perfil
+              <span className="input-with-icon">
+                <Search size={15} />
+                <input value={profileSearch} onChange={(event) => setProfileSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchProfiles(); }} placeholder="slug ou nome público" />
+              </span>
+            </label>
+            <button type="button" className="secondary-button" onClick={() => void searchProfiles()} disabled={busy || !profileSearch.trim()}>
+              <Search size={15} />
+              Buscar
+            </button>
+          </div>
+          {profileResults.length ? (
+            <div className="relationship-block">
+              <strong>Perfis encontrados</strong>
+              {profileResults.map((item) => (
+                <a key={item.user_id} href={`/u/${item.slug}`}>
+                  {item.display_name} · @{item.slug}
+                </a>
+              ))}
+            </div>
+          ) : null}
           <RelationshipBlock title="Seguindo" items={relationships?.following ?? []} />
           <RelationshipBlock title="Seguidores" items={relationships?.followers ?? []} />
           <RelationshipBlock title="Amigos" items={relationships?.friends ?? []} />
+          <RelationshipBlock title="Solicitações pendentes" items={relationships?.pending_friend_requests ?? []} />
+          <RelationshipBlock title="Solicitações enviadas" items={relationships?.sent_friend_requests ?? []} />
           <RelationshipBlock title="Bloqueados" items={relationships?.blocked ?? []} />
         </section>
       </section>
@@ -188,9 +227,9 @@ function RelationshipBlock({ title, items }: { title: string; items: Array<{ tar
       <strong>{title}</strong>
       {items.length === 0 ? <span className="muted">Sem registros.</span> : null}
       {items.map((item) => (
-        <span key={`${title}-${item.target_slug ?? item.target_display_name}-${item.status}`}>
+        <a key={`${title}-${item.target_slug ?? item.target_display_name}-${item.status}`} href={item.target_slug ? `/u/${item.target_slug}` : undefined}>
           {item.target_display_name ?? item.target_slug ?? "Usuário"} · {item.status}
-        </span>
+        </a>
       ))}
     </div>
   );

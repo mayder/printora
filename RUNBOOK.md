@@ -305,6 +305,40 @@ ou credencial. Comunidades são sincronizadas automaticamente quando a impressor
 é publicada/despublicada. Relações sociais e bloqueios não alteram organizações,
 ownership ou permissões operacionais.
 
+Grafo social e bloqueios:
+
+```bash
+curl -s -X POST http://127.0.0.1:8069/api/social/relationships/<target_user_id>/follow -H "Authorization: Bearer <token>"
+curl -s -X DELETE http://127.0.0.1:8069/api/social/relationships/<target_user_id>/follow -H "Authorization: Bearer <token>"
+curl -s -X POST http://127.0.0.1:8069/api/social/relationships/<target_user_id>/friend-request -H "Authorization: Bearer <token>"
+curl -s -X POST http://127.0.0.1:8069/api/social/relationships/<requester_user_id>/friend-accept -H "Authorization: Bearer <token>"
+curl -s -X POST http://127.0.0.1:8069/api/social/relationships/<requester_user_id>/friend-reject -H "Authorization: Bearer <token>"
+curl -s -X DELETE http://127.0.0.1:8069/api/social/relationships/<target_user_id>/friend-request -H "Authorization: Bearer <token>"
+curl -s -X DELETE http://127.0.0.1:8069/api/social/relationships/<target_user_id>/friend -H "Authorization: Bearer <token>"
+curl -s -X POST http://127.0.0.1:8069/api/social/relationships/<target_user_id>/block -H "Authorization: Bearer <token>"
+curl -s -X DELETE http://127.0.0.1:8069/api/social/relationships/<target_user_id>/block -H "Authorization: Bearer <token>"
+curl -s http://127.0.0.1:8069/api/social/me/relationships -H "Authorization: Bearer <token>"
+curl -s "http://127.0.0.1:8069/api/social/profiles?q=<slug>" -H "Authorization: Bearer <token>"
+```
+
+Validação manual/API:
+
+- abrir `/u/<slug>` autenticado e executar seguir/deixar de seguir;
+- solicitar amizade, aceitar, recusar, cancelar solicitação pendente e desfazer amizade usando dois usuários;
+- bloquear usuário com follow/amizade existente e confirmar que relações foram encerradas;
+- confirmar que usuário bloqueado recebe indisponível em `/api/social/profiles/<slug>` e não vê impressoras públicas via busca autenticada;
+- desbloquear e confirmar que amizade/follow não voltam automaticamente;
+- confirmar que `/api/social/profiles?q=<slug>` não lista perfil `private`, só retorna `unlisted` por slug direto e não mostra email, WhatsApp, organização nem permissão;
+- tentar acessar impressora operacional do outro usuário após seguir/amizade e confirmar bloqueio por ownership/permissão;
+- revisar `catalog_audit_events` com `entity_type='social_relationship'`: payload deve conter apenas IDs/ação/retenção e não conter email, senha, token, WhatsApp, Moonraker, SSH ou organização.
+
+Rollback do PKG-53:
+
+- desfazer relações por API (`unfollow`, `unfriend`, `unblock`) conforme necessário;
+- se um bloqueio indevido afetar visualização pública, desbloquear pelo endpoint de unblock e validar que relações não foram recriadas;
+- não apagar linhas de `social_relationships` ou `catalog_audit_events` sem confirmação explícita; histórico social segue retenção operacional de 180 dias;
+- se o problema for estrutural, restaurar backup SQLite anterior ao `035_social_catalog.sql`.
+
 Comunidades automáticas:
 
 - abrir `/?section=social` autenticado e validar lista de comunidades com filtros por fabricante, modelo, variante e componente;

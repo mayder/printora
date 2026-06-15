@@ -261,6 +261,7 @@ class RelationshipSummary(BaseModel):
     friends: list[RelationshipRecord]
     blocked: list[RelationshipRecord]
     pending_friend_requests: list[RelationshipRecord]
+    sent_friend_requests: list[RelationshipRecord] = Field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -622,6 +623,37 @@ class SocialCatalogRepository:
         profile = _profile_from_row(row)
         return profile.model_copy(update={"viewer_blocked": viewer_blocked})
 
+    def search_profiles(self, query: str, viewer_user_id: int | None = None) -> list[PublicProfile]:
+        cleaned = normalize_slug(query)
+        like = f"%{cleaned}%"
+        with connect_database(self.database_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT sp.*
+                FROM social_profiles sp
+                WHERE sp.visibility != 'private'
+                  AND (
+                    sp.slug = ?
+                    OR (sp.visibility = 'public' AND LOWER(sp.display_name || ' ' || sp.slug) LIKE ?)
+                  )
+                  AND (
+                    ? IS NULL OR NOT EXISTS (
+                      SELECT 1 FROM social_relationships br
+                      WHERE br.relation_type = 'block'
+                        AND br.status = 'active'
+                        AND (
+                          (br.actor_user_id = sp.user_id AND br.target_user_id = ?)
+                          OR (br.actor_user_id = ? AND br.target_user_id = sp.user_id)
+                        )
+                    )
+                  )
+                ORDER BY CASE WHEN sp.slug = ? THEN 0 ELSE 1 END, sp.display_name
+                LIMIT 20
+                """,
+                (cleaned, like, viewer_user_id, viewer_user_id, viewer_user_id, cleaned),
+            ).fetchall()
+        return [_profile_from_row(row) for row in rows]
+
     def update_printer_public(self, printer_id: int, owner_user_id: int, payload: PrinterPublicUpdate) -> PublicPrinter | None:
         with connect_database(self.database_path) as connection:
             printer = connection.execute(
@@ -673,24 +705,58 @@ class SocialCatalogRepository:
             self.sync_communities_for_user(connection, owner_user_id)
         return self.public_printer(printer_id)
 
-    def public_printer(self, printer_id: int) -> PublicPrinter | None:
+    def public_printer(self, printer_id: int, viewer_user_id: int | None = None) -> PublicPrinter | None:
+        clauses = ["p.id = ?", "p.public_profile_enabled = 1", "sp.visibility != 'private'"]
+        parameters: list[object] = [printer_id]
+        if viewer_user_id is not None:
+            clauses.append(
+                """
+                NOT EXISTS (
+                  SELECT 1 FROM social_relationships br
+                  WHERE br.relation_type = 'block'
+                    AND br.status = 'active'
+                    AND (
+                      (br.actor_user_id = p.owner_user_id AND br.target_user_id = ?)
+                      OR (br.actor_user_id = ? AND br.target_user_id = p.owner_user_id)
+                    )
+                )
+                """
+            )
+            parameters.extend([viewer_user_id, viewer_user_id])
         with connect_database(self.database_path) as connection:
             row = connection.execute(
-                PUBLIC_PRINTER_SQL + " WHERE p.id = ? AND p.public_profile_enabled = 1 AND sp.visibility != 'private'",
-                (printer_id,),
+                PUBLIC_PRINTER_SQL + f" WHERE {' AND '.join(clauses)}",
+                tuple(parameters),
             ).fetchone()
         return _public_printer_from_row(row) if row else None
 
-    def list_public_printers_for_profile(self, slug: str) -> list[PublicPrinter]:
+    def list_public_printers_for_profile(self, slug: str, viewer_user_id: int | None = None) -> list[PublicPrinter]:
         clean_slug = normalize_slug(slug)
+        clauses = ["sp.slug = ?", "sp.visibility != 'private'", "p.public_profile_enabled = 1"]
+        parameters: list[object] = [clean_slug]
+        if viewer_user_id is not None:
+            clauses.append(
+                """
+                NOT EXISTS (
+                  SELECT 1 FROM social_relationships br
+                  WHERE br.relation_type = 'block'
+                    AND br.status = 'active'
+                    AND (
+                      (br.actor_user_id = p.owner_user_id AND br.target_user_id = ?)
+                      OR (br.actor_user_id = ? AND br.target_user_id = p.owner_user_id)
+                    )
+                )
+                """
+            )
+            parameters.extend([viewer_user_id, viewer_user_id])
         with connect_database(self.database_path) as connection:
             rows = connection.execute(
                 PUBLIC_PRINTER_SQL
-                + """
-                WHERE sp.slug = ? AND sp.visibility != 'private' AND p.public_profile_enabled = 1
+                + f"""
+                WHERE {' AND '.join(clauses)}
                 ORDER BY p.updated_at DESC, p.id DESC
                 """,
-                (clean_slug,),
+                tuple(parameters),
             ).fetchall()
         return [_public_printer_from_row(row) for row in rows]
 
@@ -701,6 +767,7 @@ class SocialCatalogRepository:
         model: str | None = None,
         variant: str | None = None,
         mod: str | None = None,
+        viewer_user_id: int | None = None,
     ) -> list[PublicPrinter]:
         clauses = ["sp.visibility = 'public'", "p.public_profile_enabled = 1"]
         parameters: list[object] = []
@@ -715,6 +782,21 @@ class SocialCatalogRepository:
             if cleaned:
                 clauses.append(f"LOWER({expression}) LIKE ?")
                 parameters.append(f"%{cleaned.lower()}%")
+        if viewer_user_id is not None:
+            clauses.append(
+                """
+                NOT EXISTS (
+                  SELECT 1 FROM social_relationships br
+                  WHERE br.relation_type = 'block'
+                    AND br.status = 'active'
+                    AND (
+                      (br.actor_user_id = p.owner_user_id AND br.target_user_id = ?)
+                      OR (br.actor_user_id = ? AND br.target_user_id = p.owner_user_id)
+                    )
+                )
+                """
+            )
+            parameters.extend([viewer_user_id, viewer_user_id])
         with connect_database(self.database_path) as connection:
             rows = connection.execute(
                 PUBLIC_PRINTER_SQL
@@ -791,6 +873,7 @@ class SocialCatalogRepository:
         if actor_user_id == target_user_id:
             raise ValueError("relação consigo mesmo não é permitida")
         with connect_database(self.database_path) as connection:
+            self._ensure_user_exists(connection, target_user_id)
             if relation_type != "block" and self._is_blocked(connection, actor_user_id, target_user_id):
                 raise PermissionError("relação bloqueada por bloqueio social")
             if relation_type == "block":
@@ -804,6 +887,19 @@ class SocialCatalogRepository:
                     """,
                     (actor_user_id, target_user_id, target_user_id, actor_user_id),
                 )
+                self._audit_relationship(connection, actor_user_id, target_user_id, "block_ended_existing_relations")
+            if relation_type == "friend" and status == "pending":
+                accepted = connection.execute(
+                    """
+                    SELECT 1 FROM social_relationships
+                    WHERE relation_type = 'friend'
+                      AND status = 'accepted'
+                      AND ((actor_user_id = ? AND target_user_id = ?) OR (actor_user_id = ? AND target_user_id = ?))
+                    """,
+                    (actor_user_id, target_user_id, target_user_id, actor_user_id),
+                ).fetchone()
+                if accepted is not None:
+                    return self._relationship(actor_user_id, target_user_id, "friend")
             connection.execute(
                 """
                 INSERT INTO social_relationships (actor_user_id, target_user_id, relation_type, status)
@@ -815,10 +911,15 @@ class SocialCatalogRepository:
                 """,
                 (actor_user_id, target_user_id, relation_type, status),
             )
+            self._audit_relationship(connection, actor_user_id, target_user_id, f"{relation_type}_{status}")
         return self._relationship(actor_user_id, target_user_id, relation_type)
 
     def accept_friend(self, actor_user_id: int, requester_user_id: int) -> RelationshipRecord:
+        if actor_user_id == requester_user_id:
+            raise ValueError("relação consigo mesmo não é permitida")
         with connect_database(self.database_path) as connection:
+            if self._is_blocked(connection, actor_user_id, requester_user_id):
+                raise PermissionError("relação bloqueada por bloqueio social")
             pending = connection.execute(
                 """
                 SELECT 1 FROM social_relationships
@@ -845,7 +946,59 @@ class SocialCatalogRepository:
                 """,
                 (actor_user_id, requester_user_id),
             )
+            self._audit_relationship(connection, actor_user_id, requester_user_id, "friend_accepted")
         return self._relationship(actor_user_id, requester_user_id, "friend")
+
+    def reject_friend(self, actor_user_id: int, requester_user_id: int) -> None:
+        if actor_user_id == requester_user_id:
+            raise ValueError("relação consigo mesmo não é permitida")
+        with connect_database(self.database_path) as connection:
+            self._ensure_user_exists(connection, requester_user_id)
+            connection.execute(
+                """
+                UPDATE social_relationships
+                SET status = 'ended', ended_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE actor_user_id = ? AND target_user_id = ?
+                  AND relation_type = 'friend'
+                  AND status = 'pending'
+                """,
+                (requester_user_id, actor_user_id),
+            )
+            self._audit_relationship(connection, actor_user_id, requester_user_id, "friend_rejected")
+
+    def cancel_friend_request(self, actor_user_id: int, target_user_id: int) -> None:
+        if actor_user_id == target_user_id:
+            raise ValueError("relação consigo mesmo não é permitida")
+        with connect_database(self.database_path) as connection:
+            self._ensure_user_exists(connection, target_user_id)
+            connection.execute(
+                """
+                UPDATE social_relationships
+                SET status = 'ended', ended_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE actor_user_id = ? AND target_user_id = ?
+                  AND relation_type = 'friend'
+                  AND status = 'pending'
+                """,
+                (actor_user_id, target_user_id),
+            )
+            self._audit_relationship(connection, actor_user_id, target_user_id, "friend_request_cancelled")
+
+    def unfriend(self, actor_user_id: int, target_user_id: int) -> None:
+        if actor_user_id == target_user_id:
+            raise ValueError("relação consigo mesmo não é permitida")
+        with connect_database(self.database_path) as connection:
+            self._ensure_user_exists(connection, target_user_id)
+            connection.execute(
+                """
+                UPDATE social_relationships
+                SET status = 'ended', ended_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE relation_type = 'friend'
+                  AND status = 'accepted'
+                  AND ((actor_user_id = ? AND target_user_id = ?) OR (actor_user_id = ? AND target_user_id = ?))
+                """,
+                (actor_user_id, target_user_id, target_user_id, actor_user_id),
+            )
+            self._audit_relationship(connection, actor_user_id, target_user_id, "friend_ended")
 
     def relationship_summary(self, user_id: int) -> RelationshipSummary:
         with connect_database(self.database_path) as connection:
@@ -862,6 +1015,7 @@ class SocialCatalogRepository:
             friends=[item for item in outgoing_records if item.relation_type == "friend" and item.status == "accepted"],
             blocked=[item for item in outgoing_records if item.relation_type == "block" and item.status == "active"],
             pending_friend_requests=[item for item in incoming_records if item.relation_type == "friend" and item.status == "pending"],
+            sent_friend_requests=[item for item in outgoing_records if item.relation_type == "friend" and item.status == "pending"],
         )
 
     def sync_all_communities(self, connection) -> None:
@@ -1036,6 +1190,20 @@ class SocialCatalogRepository:
             (left_user_id, right_user_id, right_user_id, left_user_id),
         ).fetchone()
         return row is not None
+
+    def _ensure_user_exists(self, connection, user_id: int) -> None:
+        if connection.execute("SELECT 1 FROM auth_users WHERE id = ?", (user_id,)).fetchone() is None:
+            raise ValueError("usuário não encontrado")
+
+    def _audit_relationship(self, connection, actor_user_id: int, target_user_id: int, action: str) -> None:
+        self._audit(
+            connection,
+            "social_relationship",
+            target_user_id,
+            action,
+            actor_user_id,
+            {"target_user_id": target_user_id, "retention_days": 180},
+        )
 
     def _audit(self, connection, entity_type: str, entity_id: int, action: str, actor_user_id: int, payload: dict[str, object]) -> None:
         connection.execute(

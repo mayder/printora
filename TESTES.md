@@ -184,6 +184,38 @@ Evidência visual esperada:
 - comunidade obsoleta/mesclada sem membros/impressoras ativas e destino de merge quando configurado;
 - payload `/api/social/communities/{slug}` inspecionado sem dados sensíveis.
 
+### PKG-53 - Grafo social, amizades e bloqueios
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- seguir e deixar de seguir são idempotentes;
+- solicitar amizade, aceitar, recusar, cancelar solicitação pendente e desfazer amizade;
+- usuário não cria relação consigo mesmo;
+- bloquear encerra follow e amizade existentes;
+- bloqueio impede follow, solicitação de amizade e visualização autenticada de perfil/impressoras públicas;
+- desbloqueio não restaura follow nem amizade automaticamente;
+- perfil `private` não entra em descoberta; `unlisted` só aparece por slug direto;
+- busca/descoberta de perfis respeita bloqueio e não expõe email, WhatsApp, organização ou permissões;
+- payloads de relacionamento não retornam dados operacionais ou sensíveis;
+- relações entre usuários de organizações diferentes não concedem acesso a impressora, Moonraker, agente, SSH, token, organização, ownership ou permissão;
+- histórico mínimo de abuso/moderação é persistido em `catalog_audit_events` sem payload sensível.
+
+Evidência visual esperada:
+
+- `/u/{slug}` autenticado com ações `Seguir`, `Deixar de seguir`, `Solicitar amizade`, `Aceitar`, `Recusar`, `Cancelar solicitação`, `Desfazer amizade`, `Bloquear` e `Desbloquear`;
+- `/?section=social` autenticado com busca de perfis, seguidores, seguindo, amigos, solicitações pendentes/enviadas e bloqueados;
+- perfil bloqueado retorna indisponível para usuário autenticado bloqueado;
+- busca de perfis não lista `private`, não mostra usuário bloqueado e mantém payload público sanitizado;
+- tentativa de acessar impressora operacional por relação social continua bloqueada.
+
 ## Update do agente
 
 Validação focada:

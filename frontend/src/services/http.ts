@@ -117,7 +117,14 @@ export async function apiRequest<T>(input: RequestInfo | URL, init?: RequestInit
   if (!response.ok) {
     throw new Error(await readApiError(response));
   }
-  return (await response.json()) as T;
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  const text = await response.text();
+  if (!text) {
+    return undefined as T;
+  }
+  return JSON.parse(text) as T;
 }
 
 export async function apiOptional<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T | null> {

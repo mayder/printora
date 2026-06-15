@@ -769,6 +769,201 @@ def test_social_relationship_block_ends_follow_and_friendship(tmp_path: Path) ->
     assert peer_summary.friends == []
 
 
+def test_social_relationship_full_lifecycle_and_idempotency(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="owner@example.com", password="correct-horse"))
+    peer = auth.create_user(UserRegisterRequest(email="peer@example.com", password="correct-horse"))
+    third = auth.create_user(UserRegisterRequest(email="third@example.com", password="correct-horse"))
+    repository = SocialCatalogRepository(database_path)
+    repository.get_or_create_profile(owner.id)
+    repository.get_or_create_profile(peer.id)
+    repository.get_or_create_profile(third.id)
+
+    repository.set_relationship(owner.id, peer.id, "follow", "active")
+    repository.set_relationship(owner.id, peer.id, "follow", "active")
+    assert [item.target_user_id for item in repository.relationship_summary(owner.id).following] == [peer.id]
+
+    repository.set_relationship(owner.id, peer.id, "follow", "ended")
+    repository.set_relationship(owner.id, peer.id, "follow", "ended")
+    assert repository.relationship_summary(owner.id).following == []
+
+    repository.set_relationship(owner.id, peer.id, "friend", "pending")
+    assert repository.relationship_summary(peer.id).pending_friend_requests[0].target_user_id == owner.id
+    assert repository.relationship_summary(owner.id).sent_friend_requests[0].target_user_id == peer.id
+    repository.reject_friend(peer.id, owner.id)
+    assert repository.relationship_summary(peer.id).pending_friend_requests == []
+
+    repository.set_relationship(owner.id, peer.id, "friend", "pending")
+    repository.cancel_friend_request(owner.id, peer.id)
+    assert repository.relationship_summary(owner.id).sent_friend_requests == []
+
+    repository.set_relationship(owner.id, peer.id, "friend", "pending")
+    repository.accept_friend(peer.id, owner.id)
+    assert repository.relationship_summary(owner.id).friends[0].target_user_id == peer.id
+    assert repository.relationship_summary(peer.id).friends[0].target_user_id == owner.id
+    repository.unfriend(owner.id, peer.id)
+    assert repository.relationship_summary(owner.id).friends == []
+    assert repository.relationship_summary(peer.id).friends == []
+
+    try:
+        repository.set_relationship(owner.id, owner.id, "follow", "active")
+    except ValueError as exc:
+        assert "consigo" in str(exc)
+    else:
+        raise AssertionError("self relationship should fail")
+
+    repository.set_relationship(owner.id, third.id, "block", "active")
+    try:
+        repository.set_relationship(third.id, owner.id, "friend", "pending")
+    except PermissionError as exc:
+        assert "bloqueio social" in str(exc)
+    else:
+        raise AssertionError("blocked user should not create social relationship")
+    repository.set_relationship(owner.id, third.id, "block", "ended")
+    assert repository.relationship_summary(owner.id).blocked == []
+    assert repository.relationship_summary(owner.id).friends == []
+
+    with connect_database(database_path) as connection:
+        audit_rows = connection.execute(
+            "SELECT payload_json FROM catalog_audit_events WHERE entity_type = 'social_relationship'"
+        ).fetchall()
+    dumped = " ".join(str(row["payload_json"]).lower() for row in audit_rows)
+    assert audit_rows
+    assert "owner@example.com" not in dumped
+    assert "peer@example.com" not in dumped
+    assert "password" not in dumped
+
+
+def test_social_relationship_api_reject_cancel_unfriend_and_blocks_sensitive_payload(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner = client.post("/api/auth/register", json={"email": "owner@example.com", "password": "correct-horse"})
+            peer = client.post("/api/auth/register", json={"email": "peer@example.com", "password": "correct-horse"})
+            owner_token = owner.json()["access_token"]
+            peer_token = peer.json()["access_token"]
+            owner_id = owner.json()["user"]["id"]
+            peer_id = peer.json()["user"]["id"]
+
+            profile_owner = client.put(
+                "/api/social/me/profile",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"slug": "owner-public", "display_name": "Owner Public", "visibility": "public"},
+            )
+            profile_peer = client.put(
+                "/api/social/me/profile",
+                headers={"Authorization": f"Bearer {peer_token}"},
+                json={"slug": "peer-public", "display_name": "Peer Public", "visibility": "public"},
+            )
+            follow = client.post(f"/api/social/relationships/{peer_id}/follow", headers={"Authorization": f"Bearer {owner_token}"})
+            unfollow = client.delete(f"/api/social/relationships/{peer_id}/follow", headers={"Authorization": f"Bearer {owner_token}"})
+            request = client.post(f"/api/social/relationships/{peer_id}/friend-request", headers={"Authorization": f"Bearer {owner_token}"})
+            reject = client.post(f"/api/social/relationships/{owner_id}/friend-reject", headers={"Authorization": f"Bearer {peer_token}"})
+            request_again = client.post(f"/api/social/relationships/{peer_id}/friend-request", headers={"Authorization": f"Bearer {owner_token}"})
+            cancel = client.delete(f"/api/social/relationships/{peer_id}/friend-request", headers={"Authorization": f"Bearer {owner_token}"})
+            request_final = client.post(f"/api/social/relationships/{peer_id}/friend-request", headers={"Authorization": f"Bearer {owner_token}"})
+            accept = client.post(f"/api/social/relationships/{owner_id}/friend-accept", headers={"Authorization": f"Bearer {peer_token}"})
+            unfriend = client.delete(f"/api/social/relationships/{peer_id}/friend", headers={"Authorization": f"Bearer {owner_token}"})
+            self_follow = client.post(f"/api/social/relationships/{owner_id}/follow", headers={"Authorization": f"Bearer {owner_token}"})
+            block = client.post(f"/api/social/relationships/{peer_id}/block", headers={"Authorization": f"Bearer {owner_token}"})
+            blocked_request = client.post(f"/api/social/relationships/{owner_id}/friend-request", headers={"Authorization": f"Bearer {peer_token}"})
+            unblock = client.delete(f"/api/social/relationships/{peer_id}/block", headers={"Authorization": f"Bearer {owner_token}"})
+            summary = client.get("/api/social/me/relationships", headers={"Authorization": f"Bearer {owner_token}"}).json()
+
+            assert profile_owner.status_code == 200
+            assert profile_peer.status_code == 200
+            assert follow.status_code == 200
+            assert unfollow.status_code == 204
+            assert request.status_code == 200
+            assert reject.status_code == 204
+            assert request_again.status_code == 200
+            assert cancel.status_code == 204
+            assert request_final.status_code == 200
+            assert accept.status_code == 200
+            assert unfriend.status_code == 204
+            assert self_follow.status_code == 400
+            assert block.status_code == 200
+            assert blocked_request.status_code == 403
+            assert unblock.status_code == 204
+            assert summary["friends"] == []
+            assert summary["blocked"] == []
+            dumped = str(summary).lower()
+            assert "owner@example.com" not in dumped
+            assert "peer@example.com" not in dumped
+            assert "whatsapp" not in dumped
+            assert "permission" not in dumped
+    finally:
+        get_settings.cache_clear()
+
+
+def test_social_profile_discovery_visibility_blocking_and_operational_isolation(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner = client.post("/api/auth/register", json={"email": "owner@example.com", "password": "correct-horse"})
+            peer = client.post("/api/auth/register", json={"email": "peer@example.com", "password": "correct-horse"})
+            owner_token = owner.json()["access_token"]
+            peer_token = peer.json()["access_token"]
+            owner_id = owner.json()["user"]["id"]
+            peer_id = peer.json()["user"]["id"]
+            printer = client.post(
+                "/api/printers",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"name": "Secret Voron", "moonraker_url": "http://secret-voron.local:7125", "host_audit_mode": "disabled"},
+            ).json()
+            variant = _variant_id(tmp_path / "printora.db", "voron-2-4-r2-350")
+
+            client.put(
+                "/api/social/me/profile",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"slug": "owner-public", "display_name": "Owner Public", "visibility": "public"},
+            )
+            client.put(
+                "/api/social/me/profile",
+                headers={"Authorization": f"Bearer {peer_token}"},
+                json={"slug": "peer-unlisted", "display_name": "Peer Hidden", "visibility": "unlisted"},
+            )
+            client.put(
+                f"/api/printers/{printer['id']}/public-profile",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"public_profile_enabled": True, "catalog_variant_id": variant, "public_name": "Voron pública"},
+            )
+
+            public_search = client.get("/api/social/profiles?q=owner").json()
+            unlisted_exact = client.get("/api/social/profiles?q=peer-unlisted").json()
+            unlisted_name = client.get("/api/social/profiles?q=hidden").json()
+            operational_blocked = client.get(f"/api/printers/{printer['id']}", headers={"Authorization": f"Bearer {peer_token}"})
+            client.post(f"/api/social/relationships/{peer_id}/block", headers={"Authorization": f"Bearer {owner_token}"})
+            blocked_search = client.get("/api/social/profiles?q=owner", headers={"Authorization": f"Bearer {peer_token}"}).json()
+            blocked_profile = client.get("/api/social/profiles/owner-public", headers={"Authorization": f"Bearer {peer_token}"})
+            blocked_printers = client.get("/api/social/printers?manufacturer=Voron", headers={"Authorization": f"Bearer {peer_token}"}).json()
+            client.delete(f"/api/social/relationships/{peer_id}/block", headers={"Authorization": f"Bearer {owner_token}"})
+            after_unblock = client.get("/api/social/profiles/owner-public", headers={"Authorization": f"Bearer {peer_token}"})
+            summary = client.get("/api/social/me/relationships", headers={"Authorization": f"Bearer {owner_token}"}).json()
+
+            assert any(item["slug"] == "owner-public" for item in public_search)
+            assert [item["slug"] for item in unlisted_exact] == ["peer-unlisted"]
+            assert all(item["slug"] != "peer-unlisted" for item in unlisted_name)
+            assert operational_blocked.status_code == 404
+            assert blocked_search == []
+            assert blocked_profile.status_code == 403
+            assert blocked_printers == []
+            assert after_unblock.status_code == 200
+            assert summary["friends"] == []
+            assert summary["following"] == []
+            assert "moonraker" not in str(public_search).lower()
+            assert "owner@example.com" not in str(public_search)
+            assert owner_id != peer_id
+    finally:
+        get_settings.cache_clear()
+
+
 def _variant_id(database_path: Path, slug: str) -> int:
     with connect_database(database_path) as connection:
         row = connection.execute("SELECT id FROM catalog_printer_variants WHERE slug = ?", (slug,)).fetchone()

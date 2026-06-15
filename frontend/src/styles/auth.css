@@ -138,6 +138,7 @@
 }
 
 .public-profile-meta,
+.public-profile-actions,
 .public-link-list {
   display: flex;
   flex-wrap: wrap;
@@ -157,6 +158,21 @@
   display: grid;
   grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
   gap: 18px;
+}
+
+.public-profile-actions {
+  margin-top: 14px;
+}
+
+.public-profile-actions .danger {
+  border-color: #d16565;
+  color: #d16565;
+}
+
+.public-action-error {
+  color: #d16565;
+  font-size: 0.9rem;
+  margin-top: 10px;
 }
 
 .community-metrics {

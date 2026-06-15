@@ -92,6 +92,19 @@ Impacto em rollback: baixo a médio; rollback remove a aba `Público` da Conta, 
 Como reverter: restaurar os arquivos `frontend/src/screens/AuthScreen.tsx`, `frontend/src/screens/PublicProfileScreen.tsx`, `frontend/src/screens/SocialScreen.tsx`, `frontend/src/services/socialApi.ts`, `frontend/src/types/social.ts`, `backend/app/social_catalog.py` e `backend/app/routes/social_catalog.py` ao estado anterior e manter os dados de perfil como legado.
 Referencias: `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, `frontend/src/screens/AuthScreen.tsx`, `frontend/src/screens/PublicProfileScreen.tsx`, `frontend/src/screens/SocialScreen.tsx`, `backend/tests/test_social_catalog.py`.
 
+### DEC-20260615-03 - Relações sociais não concedem acesso operacional
+
+Status: aceita
+Data: 2026-06-15
+Contexto: o PKG-53 completa follow, amizade e bloqueio. Essas relações precisam melhorar descoberta social e moderação sem alterar organizações, ownership, permissões de impressora, Moonraker, agente, SSH ou tokens.
+Decisao: manter `social_relationships` como grafo social isolado. A API aceita follow/unfollow, solicitação/aceite/recusa/cancelamento de amizade, unfriend e block/unblock; bloqueio encerra follows/amizades existentes e impede novas interações sociais, mas desbloqueio não recria vínculos. Busca de perfis lista `public`, permite `unlisted` por slug direto, nunca lista `private` e filtra bloqueados para viewer autenticado. O histórico mínimo de abuso usa `catalog_audit_events` com `entity_type='social_relationship'`, ação, IDs e `retention_days=180`, sem email, telefone, token, credencial ou payload operacional.
+Alternativas consideradas: criar tabela dedicada de moderação; esconder relações na tela Social; fazer amizade conceder acesso a impressoras públicas restritas.
+Consequencias: relações ficam auditáveis e reversíveis sem misturar o domínio social com controle operacional. Conteúdo público/restrito respeita privacidade e bloqueio, mas acesso a impressora continua governado por owner/organização/permissões existentes.
+Impacto em testes: `backend/tests/test_social_catalog.py` cobre ciclo completo de follow/friend/block, idempotência, payload sanitizado, busca/visibilidade, bloqueio e isolamento operacional.
+Impacto em rollback: baixo a médio; relações podem ser encerradas por API sem apagar histórico. Se necessário, restaurar backup SQLite anterior ao script social, sem executar `DELETE` manual sem confirmação explícita.
+Como reverter: reverter endpoints e UI de relacionamento em `backend/app/routes/social_catalog.py`, regras em `backend/app/social_catalog.py`, contratos de `frontend/src/services/socialApi.ts`, `frontend/src/types/social.ts`, `frontend/src/screens/PublicProfileScreen.tsx` e `frontend/src/screens/SocialScreen.tsx`.
+Referencias: `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, `frontend/src/screens/PublicProfileScreen.tsx`, `frontend/src/screens/SocialScreen.tsx`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260530-01 - Setup do Zero começa após Linux e SSH ativo
 
 Status: aceita

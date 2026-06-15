@@ -3469,10 +3469,14 @@ Critério de aceite:
 Estado atual:
 
 - Implementado via `social_relationships`.
-- APIs permitem seguir, deixar de seguir, solicitar/aceitar amizade, bloquear e desbloquear.
-- Bloqueio encerra follows/amizades existentes e impede nova relação social não bloqueio.
+- APIs permitem seguir, deixar de seguir, solicitar/aceitar/recusar/cancelar amizade, desfazer amizade, bloquear, desbloquear, consultar resumo relacional e buscar perfis por slug/nome público.
+- Bloqueio encerra follows/amizades existentes, impede nova relação social e não é restaurado automaticamente no desbloqueio.
+- Perfil público `/u/{slug}` contém ações sociais no contexto correto; a tela Social mostra resumo, busca de perfis, seguidores, seguindo, amigos, solicitações e bloqueados.
+- Busca/descoberta não lista perfis `private`, só expõe `unlisted` por slug direto, respeita bloqueio autenticado e não retorna email, WhatsApp, organização nem permissões.
 - Relações sociais não alteram organizações, ownership ou permissões de impressora.
-- Testes cobrem bloqueio, privacidade e isolamento do grafo social.
+- Histórico mínimo de relacionamento é registrado em `catalog_audit_events` com `entity_type='social_relationship'`, IDs e ação, sem payload sensível; retenção operacional: 180 dias.
+- Testes cobrem ciclo completo de follow/friend/block, privacidade, idempotência, busca, payload sanitizado e isolamento operacional.
+- Fechado em 100% com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q`, `npm run build`, `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`, commit `6a66249`, deploy cloud workflow `27584317785` e validação visual/API autenticada em produção.
 
 ## PKG-54: Feed Técnico Por Comunidade De Impressora
 

@@ -166,6 +166,18 @@ async def get_public_profile(
     return profile
 
 
+@router.get("/api/social/profiles", response_model=list[PublicProfile])
+async def search_public_profiles(
+    q: str,
+    current: CurrentUser | None = Depends(optional_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> list[PublicProfile]:
+    try:
+        return repository.search_profiles(q, current.user.id if current else None)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.get("/api/social/profiles/{slug}/printers", response_model=list[PublicPrinter])
 async def list_profile_public_printers(
     slug: str,
@@ -177,7 +189,7 @@ async def list_profile_public_printers(
         raise HTTPException(status_code=404, detail="perfil público não encontrado")
     if profile.viewer_blocked:
         raise HTTPException(status_code=403, detail="perfil indisponível")
-    return repository.list_public_printers_for_profile(slug)
+    return repository.list_public_printers_for_profile(slug, current.user.id if current else None)
 
 
 @router.get("/api/social/printers", response_model=list[PublicPrinter])
@@ -186,6 +198,7 @@ async def search_public_printers(
     model: str | None = None,
     variant: str | None = None,
     mod: str | None = None,
+    current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> list[PublicPrinter]:
     return repository.search_public_printers(
@@ -193,15 +206,17 @@ async def search_public_printers(
         model=model,
         variant=variant,
         mod=mod,
+        viewer_user_id=current.user.id if current else None,
     )
 
 
 @router.get("/api/public/printers/{printer_id}", response_model=PublicPrinter)
 async def get_public_printer(
     printer_id: int,
+    current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> PublicPrinter:
-    printer = repository.public_printer(printer_id)
+    printer = repository.public_printer(printer_id, current.user.id if current else None)
     if printer is None:
         raise HTTPException(status_code=404, detail="impressora pública não encontrada")
     return printer
@@ -305,8 +320,46 @@ async def accept_friendship(
 ) -> RelationshipRecord:
     try:
         return repository.accept_friend(current.user.id, requester_user_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.delete("/api/social/relationships/{target_user_id}/friend-request", status_code=status.HTTP_204_NO_CONTENT)
+async def cancel_friendship_request(
+    target_user_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> None:
+    try:
+        repository.cancel_friend_request(current.user.id, target_user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/social/relationships/{requester_user_id}/friend-reject", status_code=status.HTTP_204_NO_CONTENT)
+async def reject_friendship(
+    requester_user_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> None:
+    try:
+        repository.reject_friend(current.user.id, requester_user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/api/social/relationships/{target_user_id}/friend", status_code=status.HTTP_204_NO_CONTENT)
+async def unfriend_user(
+    target_user_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> None:
+    try:
+        repository.unfriend(current.user.id, target_user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/api/social/relationships/{target_user_id}/block", response_model=RelationshipRecord)

@@ -87,6 +87,7 @@ export const socialApi = {
     }),
   myProfile: () => apiRequest<PublicProfile>("/api/social/me/profile"),
   publicProfile: (slug: string) => apiRequest<PublicProfile>(`/api/social/profiles/${encodeURIComponent(slug)}`),
+  searchProfiles: (query: string) => apiRequest<PublicProfile[]>(`/api/social/profiles?q=${encodeURIComponent(query)}`),
   publicPrinter: (printerId: number | string) => apiRequest<PublicPrinter>(`/api/public/printers/${encodeURIComponent(String(printerId))}`),
   publicPrinters: (filters: { manufacturer?: string; model?: string; variant?: string; mod?: string } = {}) => {
     const params = new URLSearchParams();
@@ -122,7 +123,10 @@ export const socialApi = {
   follow: (targetUserId: number) => apiRequest<RelationshipRecord>(`/api/social/relationships/${targetUserId}/follow`, { method: "POST" }),
   unfollow: (targetUserId: number) => apiRequest<void>(`/api/social/relationships/${targetUserId}/follow`, { method: "DELETE" }),
   requestFriend: (targetUserId: number) => apiRequest<RelationshipRecord>(`/api/social/relationships/${targetUserId}/friend-request`, { method: "POST" }),
+  cancelFriendRequest: (targetUserId: number) => apiRequest<void>(`/api/social/relationships/${targetUserId}/friend-request`, { method: "DELETE" }),
   acceptFriend: (targetUserId: number) => apiRequest<RelationshipRecord>(`/api/social/relationships/${targetUserId}/friend-accept`, { method: "POST" }),
+  rejectFriend: (targetUserId: number) => apiRequest<void>(`/api/social/relationships/${targetUserId}/friend-reject`, { method: "POST" }),
+  unfriend: (targetUserId: number) => apiRequest<void>(`/api/social/relationships/${targetUserId}/friend`, { method: "DELETE" }),
   block: (targetUserId: number) => apiRequest<RelationshipRecord>(`/api/social/relationships/${targetUserId}/block`, { method: "POST" }),
   unblock: (targetUserId: number) => apiRequest<void>(`/api/social/relationships/${targetUserId}/block`, { method: "DELETE" }),
 };
