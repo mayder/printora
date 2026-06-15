@@ -9,6 +9,23 @@ GoDaddy apenas como registrador, DNS/proxy pela Cloudflare e o backend em Docker
 atrás de Nginx no servidor. O guia operacional fica em
 `docs/DEPLOY_CLOUD.md`.
 
+O workflow `Deploy Printora Cloud` publica a branch `cloud`, roda `./check.sh`,
+envia o bundle por SSH, instala o backend no virtualenv compartilhado e troca o
+symlink `current`. O restart preferencial e `sudo -n systemctl restart
+printora-cloud.service`; quando o usuario `deploy` nao tem sudo sem senha, o
+workflow encerra o `uvicorn` anterior e sobe um processo `uvicorn` do release
+atual na porta `8069`, usando `shared/printora-cloud.env` e logando em
+`shared/logs/printora-cloud.log`. A hardening operacional recomendada continua
+sendo liberar apenas `restart/status printora-cloud.service` sem senha para o
+usuario de deploy.
+
+Validacao pos-deploy:
+
+```bash
+curl -fsS https://print3dmaker.xyz/health
+curl -fsS https://print3dmaker.xyz/api/catalog >/dev/null
+```
+
 ## Comandos principais
 
 ```bash

@@ -118,8 +118,18 @@ jobs:
           if sudo -n systemctl restart printora-cloud.service; then
             echo "printora-cloud.service restarted by systemctl"
           else
-            echo "sudo restart unavailable; terminating deploy-owned uvicorn process for systemd restart"
+            echo "sudo restart unavailable; restarting deploy-owned uvicorn process"
             pkill -TERM -f 'uvicorn app.main:app' || true
+            sleep 2
+            set -a
+            . "$DEPLOY_BASE_PATH/shared/printora-cloud.env"
+            set +a
+            cd "$DEPLOY_BASE_PATH/current"
+            nohup "$DEPLOY_BASE_PATH/shared/venv/bin/uvicorn" app.main:app \
+              --app-dir "$DEPLOY_BASE_PATH/current/backend" \
+              --host 127.0.0.1 \
+              --port 8069 \
+              >> "$DEPLOY_BASE_PATH/shared/logs/printora-cloud.log" 2>&1 &
           fi
 
           for attempt in $(seq 1 30); do
