@@ -258,7 +258,7 @@ ownership ou permissões operacionais.
 Rollback:
 
 - restaurar o backup SQLite criado automaticamente antes do script `035_social_catalog.sql`;
-- se o problema estiver só no catálogo ampliado, restaurar backup anterior ao script `036_expand_printer_catalog_seed.sql` ou reverter esse script e manter dados vinculados como legado até curadoria;
+- se o problema estiver só no catálogo ampliado, restaurar backup anterior aos scripts `036_expand_printer_catalog_seed.sql`/`037_expand_diy_catalog_breadth.sql` ou reverter esses scripts e manter dados vinculados como legado até curadoria;
 - remover a tela `Catálogo`, a inclusão `catalog-admin` na navegação e as rotas administrativas novas se apenas a curadoria precisar ser revertida;
 - remover a tela `Social` e as rotas `/api/catalog`, `/api/social/*` se todo o domínio social/catálogo precisar ser revertido no código.
 

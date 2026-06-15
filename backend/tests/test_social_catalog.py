@@ -32,10 +32,33 @@ def test_catalog_seed_has_broad_diy_klipper_catalog(tmp_path: Path) -> None:
     variant_names = {variant.name for manufacturer in catalog.manufacturers for model in manufacturer.models for variant in model.variants}
     variant_states = {variant.name: variant.trust_state for manufacturer in catalog.manufacturers for model in manufacturer.models for variant in model.variants}
 
-    assert {"voron-design", "rat-rig", "vzbot", "annex-engineering", "hevort", "jubilee", "printers-for-ants"}.issubset(manufacturer_slugs)
-    assert {"RatRig V-Core 3 400mm", "VzBot 330", "Annex K3 180mm", "Micron+ 180mm", "Salad Fork 160mm"}.issubset(variant_names)
+    assert {
+        "voron-design",
+        "rat-rig",
+        "vzbot",
+        "annex-engineering",
+        "hevort",
+        "jubilee",
+        "printers-for-ants",
+        "zero-g",
+        "railcore-labs",
+        "seckit",
+        "blv-projects",
+        "hypercube",
+        "d-bot",
+        "v-king",
+        "croxy",
+        "rook",
+        "positron",
+        "the-100",
+        "doron",
+        "snakeoilxy",
+    }.issubset(manufacturer_slugs)
+    assert {"RatRig V-Core 3 400mm", "RatRig V-Core 4 500mm", "VzBot 330", "Annex K3 180mm", "Micron+ 180mm", "Salad Fork 160mm", "ZeroG Mercury One.1 Ender 5 conversion", "RailCore II 300ZL", "The 100 100mm"}.issubset(variant_names)
+    assert len(variant_names) >= 45
     assert variant_states["HevORT 500 draft"] == "draft"
     assert variant_states["Jubilee Toolchanger draft"] == "draft"
+    assert variant_states["SnakeOilXY 250mm draft"] == "draft"
 
 
 def test_catalog_admin_search_filters_component_kinematics_firmware_and_state(tmp_path: Path) -> None:
@@ -81,7 +104,13 @@ def test_obsolete_and_blocked_variants_do_not_break_existing_printer_link(tmp_pa
         PrinterCreate(name="Voron real", moonraker_url="http://secret-voron.local:7125", host_audit_mode="disabled")
     )
     repository = SocialCatalogRepository(database_path)
-    variant = repository.list_catalog().manufacturers[0].models[0].variants[0]
+    variant = next(
+        variant
+        for manufacturer in repository.list_catalog().manufacturers
+        for model in manufacturer.models
+        for variant in model.variants
+        if variant.slug == "voron-2-4-r2-350"
+    )
 
     repository.update_printer_public(printer.id, user.id, PrinterPublicUpdate(public_profile_enabled=True, catalog_variant_id=variant.id))
     repository.update_variant(variant.id, CatalogVariantUpdate(trust_state="obsolete"), actor_user_id=user.id)

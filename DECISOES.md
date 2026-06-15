@@ -51,9 +51,9 @@ Decisao: manter o domínio `social_catalog`, mas separar a superfície de curado
 Alternativas consideradas: manter tudo na tela Social; aceitar edição por usuários comuns; apagar variantes bloqueadas; alterar `035_social_catalog.sql` já versionado.
 Consequencias: a curadoria fica auditável e reversível, usuário comum não edita catálogo canônico e dados incertos entram como `community`/`draft` sem promessa técnica falsa.
 Impacto em testes: testes cobrem seed amplo DIY, filtros administrativos, permissão 403 para usuário comum, duplicidade, obsolescência/bloqueio e vínculo de impressora com variante canônica.
-Impacto em rollback: médio; novo seed `036_expand_printer_catalog_seed.sql` e tela `CatalogAdminScreen` podem ser revertidos sem apagar dados de impressoras existentes.
-Como reverter: reverter `backend/sql/036_expand_printer_catalog_seed.sql`, endpoints administrativos novos, `frontend/src/screens/CatalogAdminScreen.tsx`, estilos/rota `catalog-admin` e restaurar docs; em banco já aplicado, manter linhas órfãs ou restaurar backup SQLite anterior ao script 036.
-Referencias: `backend/sql/036_expand_printer_catalog_seed.sql`, `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, `frontend/src/screens/CatalogAdminScreen.tsx`, `backend/tests/test_social_catalog.py`.
+Impacto em rollback: médio; seeds `036_expand_printer_catalog_seed.sql`/`037_expand_diy_catalog_breadth.sql` e tela `CatalogAdminScreen` podem ser revertidos sem apagar dados de impressoras existentes.
+Como reverter: reverter `backend/sql/036_expand_printer_catalog_seed.sql`, `backend/sql/037_expand_diy_catalog_breadth.sql`, endpoints administrativos novos, `frontend/src/screens/CatalogAdminScreen.tsx`, estilos/rota `catalog-admin` e restaurar docs; em banco já aplicado, manter linhas órfãs ou restaurar backup SQLite anterior ao script 036/037.
+Referencias: `backend/sql/036_expand_printer_catalog_seed.sql`, `backend/sql/037_expand_diy_catalog_breadth.sql`, `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, `frontend/src/screens/CatalogAdminScreen.tsx`, `backend/tests/test_social_catalog.py`.
 
 ### DEC-20260530-01 - Setup do Zero começa após Linux e SSH ativo
 

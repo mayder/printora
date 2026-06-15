@@ -3280,7 +3280,7 @@ Critério de aceite:
 Estado atual:
 
 - Implementado via SQL idempotente `backend/sql/035_social_catalog.sql`.
-- Expansão idempotente em `backend/sql/036_expand_printer_catalog_seed.sql` inclui catálogo DIY inicial além de Voron: RatRig V-Core/V-Minion, VzBot, Annex K3, HevORT, Jubilee, Micron+ e Salad Fork; itens com dado menos seguro ficam como `community` ou `draft`.
+- Expansões idempotentes em `backend/sql/036_expand_printer_catalog_seed.sql` e `backend/sql/037_expand_diy_catalog_breadth.sql` incluem catálogo DIY inicial além de Voron: RatRig, VzBot, Annex, HevORT, Jubilee/Machine Agency, Printers For Ants, ZeroG, RailCore, SecKit, BLV, HyperCube, D-Bot, V-King, CroXY, Rook, Positron, The 100, Doron e SnakeOilXY; itens com dado menos seguro ficam como `community` ou `draft`.
 - Endpoints `/api/catalog`, `/api/catalog/admin` e rotas administrativas protegidas por usuário administrador foram criados.
 - Impressoras cloud podem ser vinculadas a variante canônica para publicação social.
 - UI administrativa real fica na seção `Catálogo`, separada da tela `Social`, com listagem/filtros, detalhe, criação de variante e edição de curadoria.

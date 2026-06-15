@@ -98,9 +98,10 @@ export function CatalogAdminScreen({ authUser, setError, showToast }: CatalogAdm
   return (
     <div className="catalog-admin-screen">
       <section className="catalog-admin-toolbar">
-        <div>
+        <div className="catalog-admin-title">
           <span className="eyebrow">Catálogo mestre</span>
           <h2>Curadoria de impressoras e componentes</h2>
+          <p>{catalog.variants.length} variantes carregadas para revisão técnica.</p>
         </div>
         <div className="catalog-admin-actions">
           <button type="button" className="secondary-action" onClick={() => void loadCatalog()} disabled={busy}>
@@ -144,11 +145,19 @@ export function CatalogAdminScreen({ authUser, setError, showToast }: CatalogAdm
 function VariantList({ variants, selectedId, onSelect }: { variants: CatalogVariantDetail[]; selectedId: number | null; onSelect: (variant: CatalogVariantDetail) => void }) {
   return (
     <section className="catalog-list-panel">
+      <header className="catalog-list-heading">
+        <strong>Variantes</strong>
+        <span>{variants.length} itens</span>
+      </header>
       {variants.map((variant) => (
         <button key={variant.id} type="button" className={`catalog-list-row ${selectedId === variant.id ? "active" : ""}`} onClick={() => onSelect(variant)}>
-          <strong>{variant.manufacturer_name} · {variant.model_name}</strong>
-          <span>{variant.name}</span>
-          <small>{variant.kinematics} · {variant.firmware_family ?? "-"} · {variant.trust_state}</small>
+          <span className="catalog-row-maker">{variant.manufacturer_name} · {variant.model_name}</span>
+          <strong className="catalog-row-variant">{variant.name}</strong>
+          <span className="catalog-row-meta">
+            <span>{variant.kinematics}</span>
+            <span>{variant.firmware_family ?? "-"}</span>
+            <span className={`catalog-state state-${variant.trust_state}`}>{variant.trust_state}</span>
+          </span>
         </button>
       ))}
       {variants.length === 0 ? <p className="muted">Nenhuma variante encontrada.</p> : null}
