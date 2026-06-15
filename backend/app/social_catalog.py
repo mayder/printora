@@ -51,11 +51,20 @@ class CatalogModelAdmin(BaseModel):
     manufacturer_website_url: str | None = None
     manufacturer_repository_url: str | None = None
     manufacturer_documentation_url: str | None = None
+    manufacturer_logo_url: str | None = None
+    manufacturer_discord_url: str | None = None
+    manufacturer_reddit_url: str | None = None
+    manufacturer_summary: str | None = None
     website_url: str | None = None
     repository_url: str | None = None
     documentation_url: str | None = None
     bom_url: str | None = None
+    image_url: str | None = None
+    discord_url: str | None = None
+    reddit_url: str | None = None
+    forum_url: str | None = None
     description: str | None = None
+    curation_notes: str | None = None
     variants: list[CatalogVariant] = Field(default_factory=list)
 
 
@@ -321,11 +330,18 @@ class SocialCatalogRepository:
                        m.id AS model_id, m.slug AS model_slug, m.name AS model_name, m.kinematics,
                        m.trust_state AS model_trust_state, m.website_url AS model_website_url,
                        m.repository_url AS model_repository_url, m.documentation_url AS model_documentation_url,
-                       m.bom_url AS model_bom_url, m.description AS model_description,
+                       m.bom_url AS model_bom_url, m.image_url AS model_image_url,
+                       m.discord_url AS model_discord_url, m.reddit_url AS model_reddit_url,
+                       m.forum_url AS model_forum_url, m.description AS model_description,
+                       m.curation_notes AS model_curation_notes,
                        mf.id AS manufacturer_id, mf.slug AS manufacturer_slug, mf.name AS manufacturer_name,
                        mf.website_url AS manufacturer_website_url,
                        mf.repository_url AS manufacturer_repository_url,
-                       mf.documentation_url AS manufacturer_documentation_url
+                       mf.documentation_url AS manufacturer_documentation_url,
+                       mf.logo_url AS manufacturer_logo_url,
+                       mf.discord_url AS manufacturer_discord_url,
+                       mf.reddit_url AS manufacturer_reddit_url,
+                       mf.summary AS manufacturer_summary
                 FROM catalog_printer_variants v
                 JOIN catalog_printer_models m ON m.id = v.model_id
                 JOIN catalog_manufacturers mf ON mf.id = m.manufacturer_id
@@ -353,11 +369,20 @@ class SocialCatalogRepository:
                     manufacturer_website_url=clean_optional_text(row["manufacturer_website_url"]),
                     manufacturer_repository_url=clean_optional_text(row["manufacturer_repository_url"]),
                     manufacturer_documentation_url=clean_optional_text(row["manufacturer_documentation_url"]),
+                    manufacturer_logo_url=clean_optional_text(row["manufacturer_logo_url"]),
+                    manufacturer_discord_url=clean_optional_text(row["manufacturer_discord_url"]),
+                    manufacturer_reddit_url=clean_optional_text(row["manufacturer_reddit_url"]),
+                    manufacturer_summary=clean_optional_text(row["manufacturer_summary"]),
                     website_url=clean_optional_text(row["model_website_url"]),
                     repository_url=clean_optional_text(row["model_repository_url"]),
                     documentation_url=clean_optional_text(row["model_documentation_url"]),
                     bom_url=clean_optional_text(row["model_bom_url"]),
+                    image_url=clean_optional_text(row["model_image_url"]),
+                    discord_url=clean_optional_text(row["model_discord_url"]),
+                    reddit_url=clean_optional_text(row["model_reddit_url"]),
+                    forum_url=clean_optional_text(row["model_forum_url"]),
                     description=clean_optional_text(row["model_description"]),
+                    curation_notes=clean_optional_text(row["model_curation_notes"]),
                     variants=[],
                 )
             models_by_id[model_id].variants.append(_variant_from_row(row))

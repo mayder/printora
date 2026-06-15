@@ -356,15 +356,71 @@
   flex: 0 0 auto;
 }
 
-.catalog-link-strip {
+.catalog-profile-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.catalog-profile-card {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.catalog-profile-card > header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.catalog-profile-card h4 {
+  margin: 0;
+}
+
+.catalog-profile-card p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.catalog-logo,
+.catalog-logo-fallback {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  flex: 0 0 auto;
+  height: 52px;
+  width: 52px;
+}
+
+.catalog-logo {
+  object-fit: contain;
+  padding: 6px;
+}
+
+.catalog-logo-fallback {
+  align-items: center;
+  color: var(--accent);
+  display: inline-flex;
+  font-weight: 900;
+  justify-content: center;
+}
+
+.catalog-link-list {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .catalog-link {
   align-items: center;
-  background: var(--panel-soft);
+  background: var(--input-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
@@ -380,6 +436,17 @@
 .catalog-link.disabled {
   color: var(--muted);
   opacity: 0.55;
+}
+
+.catalog-note-panel {
+  align-items: center;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 8px;
+  color: var(--text);
+  display: flex;
+  gap: 10px;
+  padding: 12px;
 }
 
 .catalog-detail-grid {
@@ -479,7 +546,7 @@
 
 @media (max-width: 1280px) {
   .catalog-filter-panel,
-  .catalog-link-strip,
+  .catalog-profile-grid,
   .catalog-detail-grid,
   .catalog-components-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -507,7 +574,8 @@
   }
 
   .catalog-filter-panel,
-  .catalog-link-strip,
+  .catalog-profile-grid,
+  .catalog-link-list,
   .catalog-detail-grid,
   .catalog-components-grid {
     grid-template-columns: 1fr;

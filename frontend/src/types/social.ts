@@ -44,11 +44,20 @@ export interface CatalogModelAdmin {
   manufacturer_website_url: string | null;
   manufacturer_repository_url: string | null;
   manufacturer_documentation_url: string | null;
+  manufacturer_logo_url: string | null;
+  manufacturer_discord_url: string | null;
+  manufacturer_reddit_url: string | null;
+  manufacturer_summary: string | null;
   website_url: string | null;
   repository_url: string | null;
   documentation_url: string | null;
   bom_url: string | null;
+  image_url: string | null;
+  discord_url: string | null;
+  reddit_url: string | null;
+  forum_url: string | null;
   description: string | null;
+  curation_notes: string | null;
   variants: CatalogVariant[];
 }
 

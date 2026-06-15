@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowLeft, Boxes, Check, ChevronDown, ChevronLeft, ChevronRight, Database, ExternalLink, Eye, FileText, Filter, GitBranch, RefreshCw, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, Boxes, Check, ChevronDown, ChevronLeft, ChevronRight, Database, ExternalLink, Eye, FileText, Filter, GitBranch, Info, MessageCircle, RefreshCw, Search, ShieldCheck, SlidersHorizontal, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi, type CatalogAdminFilters } from "../services/socialApi";
 import type { ScreenPropsFor } from "./ScreenProps";
@@ -356,13 +356,43 @@ function CatalogDetailView({ model, onBack }: { model: CatalogModelAdmin; onBack
         <span className={`catalog-state state-${model.trust_state}`}>{model.trust_state}</span>
       </header>
 
-      <section className="catalog-link-strip">
-        <CatalogLink icon={ExternalLink} label="Site fabricante" url={model.manufacturer_website_url} />
-        <CatalogLink icon={GitBranch} label="Git fabricante" url={model.manufacturer_repository_url} />
-        <CatalogLink icon={ExternalLink} label="Site modelo" url={model.website_url} />
-        <CatalogLink icon={GitBranch} label="Git modelo" url={model.repository_url} />
-        <CatalogLink icon={FileText} label="Documentação" url={model.documentation_url ?? model.manufacturer_documentation_url} />
-        <CatalogLink icon={Boxes} label="BOM" url={model.bom_url} />
+      <section className="catalog-profile-grid">
+        <section className="catalog-profile-card">
+          <header>
+            <CatalogLogo name={model.manufacturer_name} logoUrl={model.manufacturer_logo_url} />
+            <div>
+              <span className="eyebrow">Fabricante</span>
+              <h4>{model.manufacturer_name}</h4>
+            </div>
+          </header>
+          <p>{model.manufacturer_summary ?? "Fabricante ou projeto comunitário do catálogo DIY. Complete a curadoria com site, repositório e canais oficiais quando confirmados."}</p>
+          <div className="catalog-link-list">
+            <CatalogLink icon={ExternalLink} label="Site oficial" url={model.manufacturer_website_url} />
+            <CatalogLink icon={GitBranch} label="GitHub" url={model.manufacturer_repository_url} />
+            <CatalogLink icon={FileText} label="Documentação" url={model.manufacturer_documentation_url} />
+            <CatalogLink icon={MessageCircle} label="Discord" url={model.manufacturer_discord_url} />
+            <CatalogLink icon={Users} label="Reddit" url={model.manufacturer_reddit_url} />
+          </div>
+        </section>
+
+        <section className="catalog-profile-card">
+          <header>
+            <CatalogLogo name={model.name} logoUrl={model.image_url ?? model.manufacturer_logo_url} />
+            <div>
+              <span className="eyebrow">Impressora</span>
+              <h4>{model.name}</h4>
+            </div>
+          </header>
+          <p>{model.description ?? "Modelo DIY com configuração dependente da curadoria e do build real."}</p>
+          <div className="catalog-link-list">
+            <CatalogLink icon={ExternalLink} label="Página do modelo" url={model.website_url} />
+            <CatalogLink icon={GitBranch} label="Git do projeto" url={model.repository_url} />
+            <CatalogLink icon={FileText} label="Documentação" url={model.documentation_url ?? model.manufacturer_documentation_url} />
+            <CatalogLink icon={Boxes} label="BOM" url={model.bom_url} />
+            <CatalogLink icon={MessageCircle} label="Discord" url={model.discord_url ?? model.manufacturer_discord_url} />
+            <CatalogLink icon={Users} label="Reddit" url={model.reddit_url ?? model.manufacturer_reddit_url} />
+          </div>
+        </section>
       </section>
 
       <dl className="catalog-detail-grid">
@@ -372,6 +402,13 @@ function CatalogDetailView({ model, onBack }: { model: CatalogModelAdmin; onBack
         <div><dt>Estado</dt><dd>{model.trust_state}</dd></div>
         <div><dt>Variações</dt><dd>{model.variants.length}</dd></div>
       </dl>
+
+      {model.curation_notes ? (
+        <section className="catalog-note-panel">
+          <Info size={17} />
+          <span>{model.curation_notes}</span>
+        </section>
+      ) : null}
 
       <section className="catalog-variations-panel">
         <header>
@@ -403,6 +440,14 @@ function CatalogDetailView({ model, onBack }: { model: CatalogModelAdmin; onBack
       </section>
     </section>
   );
+}
+
+function CatalogLogo({ name, logoUrl }: { name: string; logoUrl: string | null }) {
+  const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  if (!logoUrl) {
+    return <span className="catalog-logo-fallback">{initials}</span>;
+  }
+  return <img className="catalog-logo" src={logoUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />;
 }
 
 function CatalogLink({ icon: Icon, label, url }: { icon: LucideIcon; label: string; url: string | null }) {

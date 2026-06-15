@@ -71,6 +71,11 @@ cd frontend && npm run build
 
 Aceite:
 
+- Seed amplo do catálogo cobre fabricantes/modelos DIY relevantes, mantendo itens incertos como `community` ou `draft`.
+- Contrato administrativo retorna fabricante/modelo agrupado, links enriquecidos, logo, Discord, Reddit, documentação, BOM e notas de curadoria quando disponíveis.
+- UI do Catálogo valida listagem paginada, filtros pesquisáveis em cascata, detalhe dedicado e retorno preservando filtros/página.
+- Usuário comum não edita catálogo canônico; estados `official`, `community`, `draft`, `obsolete` e `blocked` preservam vínculos existentes e bloqueiam nova publicação quando aplicável.
+
 - catálogo seedado contém fabricantes, modelos e variações técnicas canônicas além de Voron, com RatRig, VzBot, Annex, HevORT, Printers For Ants, ZeroG, RailCore, SecKit, BLV, HyperCube, D-Bot, V-King, CroXY, Rook, Positron, The 100, Doron e SnakeOilXY;
 - itens com dado técnico menos seguro ficam em `community` ou `draft`, sem inventar precisão frágil;
 - endpoint administrativo filtra por fabricante, modelo, variação/tamanho, componente, cinemática, firmware e `trust_state`;

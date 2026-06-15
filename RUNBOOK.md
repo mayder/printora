@@ -235,7 +235,8 @@ Curadoria administrativa:
 - abrir `/?section=catalog`;
 - filtrar por fabricante, modelo, tamanho/versão, componente, cinemática, firmware ou `trust_state`;
 - revisar detalhe do fabricante/modelo antes de editar volume útil, componentes, firmware ou estado da variação;
-- conferir links de site, repositório, documentação e BOM quando existirem; se a fonte não estiver segura, manter `community` ou `draft`;
+- conferir logo, resumo, links de site, repositório, documentação, BOM, Discord e Reddit quando existirem; se a fonte não estiver segura, manter `community` ou `draft`;
+- usar monograma quando não houver logo oficial/GitHub confiável, em vez de inventar imagem;
 - promover `community` para `official` somente depois de revisão de fonte/variante;
 - manter `draft` quando volume/componentes forem incertos;
 - usar `obsolete` para item substituído que ainda pode existir em impressoras vinculadas;
@@ -259,7 +260,7 @@ ownership ou permissões operacionais.
 Rollback:
 
 - restaurar o backup SQLite criado automaticamente antes do script `035_social_catalog.sql`;
-- se o problema estiver só no catálogo ampliado, restaurar backup anterior aos scripts `036_expand_printer_catalog_seed.sql` a `041_catalog_sanitize_internal_sources.sql` ou reverter esses scripts e manter dados vinculados como legado até curadoria;
+- se o problema estiver só no catálogo ampliado, restaurar backup anterior aos scripts `036_expand_printer_catalog_seed.sql` a `042_catalog_enriched_metadata.sql` ou reverter esses scripts e manter dados vinculados como legado até curadoria;
 - remover a tela `Catálogo`, a inclusão `catalog` na navegação e as rotas administrativas novas se apenas a curadoria precisar ser revertida;
 - remover a tela `Social` e as rotas `/api/catalog`, `/api/social/*` se todo o domínio social/catálogo precisar ser revertido no código.
 

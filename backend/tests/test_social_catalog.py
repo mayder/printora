@@ -54,9 +54,24 @@ def test_catalog_seed_has_broad_diy_klipper_catalog(tmp_path: Path) -> None:
         "snakeoilxy",
     }.issubset(manufacturer_slugs)
     assert {"RatRig V-Core 3 400mm", "RatRig V-Core 4 500mm", "VzBot 330", "Annex K3 180mm", "Micron+ 180mm", "Salad Fork 160mm", "ZeroG Mercury One.1 Ender 5 conversion", "RailCore II 300ZL", "The 100 100mm", "Voron Phoenix 600mm draft"}.issubset(variant_names)
-    assert len(variant_names) >= 45
+    assert {"Salad Fork 120mm", "Salad Fork 180mm", "Tiny-T draft", "Stealth Fork beta", "Magpie draft", "Dynasty draft"}.issubset(variant_names)
+    assert len(variant_names) >= 58
     assert variant_states["HevORT 500 draft"] == "draft"
     assert variant_states["SnakeOilXY 250mm draft"] == "draft"
+
+
+def test_catalog_admin_exposes_enriched_manufacturer_and_model_metadata(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    catalog = SocialCatalogRepository(database_path).search_catalog_admin(manufacturer="vzbot")
+    model = next(item for item in catalog.models if item.slug == "vzbot")
+
+    assert model.manufacturer_website_url == "https://vzbot.org/"
+    assert model.manufacturer_logo_url == "https://github.com/VzBoT3D.png"
+    assert model.manufacturer_discord_url == "https://discord.gg/vzbot"
+    assert model.repository_url == "https://github.com/VzBoT3D/VzBoT-Vz330"
+    assert model.documentation_url == "https://docs.vzbot.org/"
+    assert "alta velocidade" in (model.description or "")
 
 
 def test_catalog_admin_search_filters_component_kinematics_firmware_and_state(tmp_path: Path) -> None:
