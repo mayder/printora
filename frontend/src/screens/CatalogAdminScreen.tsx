@@ -341,6 +341,12 @@ function ModelTable({ models, selectedModelId, onSelect }: { models: CatalogMode
 }
 
 function CatalogDetailView({ model, onBack }: { model: CatalogModelAdmin; onBack: () => void }) {
+  const [selectedVariantId, setSelectedVariantId] = React.useState(model.variants[0]?.id ?? null);
+  const selectedVariant = model.variants.find((variation) => variation.id === selectedVariantId) ?? model.variants[0] ?? null;
+  React.useEffect(() => {
+    setSelectedVariantId(model.variants[0]?.id ?? null);
+  }, [model.id, model.variants]);
+  const communitySignals = buildCommunitySignals(model);
   return (
     <section className="catalog-detail-panel">
       <button type="button" className="catalog-back-button secondary-action" onClick={onBack}>
@@ -410,34 +416,54 @@ function CatalogDetailView({ model, onBack }: { model: CatalogModelAdmin; onBack
         <CatalogSourcePanel values={model.source_links} />
       </section>
 
+      <section className="catalog-signal-grid">
+        {communitySignals.map((signal) => (
+          <div className="catalog-signal-card" key={signal.label}>
+            <span>{catalogLinkIcon(signal.icon, 17)}</span>
+            <div>
+              <strong>{signal.value}</strong>
+              <small>{signal.label}</small>
+            </div>
+          </div>
+        ))}
+      </section>
+
       <section className="catalog-variations-panel">
         <header>
           <Database size={17} />
-          <strong>Variações de tamanho e configuração</strong>
+          <div>
+            <strong>Variações de tamanho e configuração</strong>
+            <span>Selecione uma linha para ver os componentes desta configuração.</span>
+          </div>
         </header>
         <div className="catalog-variation-table">
           <div className="catalog-variation-head">
             <span>Nome</span>
             <span>Volume</span>
             <span>Firmware</span>
+            <span>Componentes</span>
+            <span>Pendências</span>
             <span>Estado</span>
           </div>
           {model.variants.map((variation) => (
-            <div className="catalog-variation-row" key={variation.id}>
+            <button
+              type="button"
+              className={`catalog-variation-row ${selectedVariant?.id === variation.id ? "active" : ""}`}
+              key={variation.id}
+              onClick={() => setSelectedVariantId(variation.id)}
+            >
               <strong>{variation.name}</strong>
               <span>{formatVolume(variation.build_volume)}</span>
               <span>{variation.firmware_family ?? "-"}</span>
+              <span>{componentStats(variation).known}</span>
+              <span>{componentStats(variation).pending}</span>
               <span className={`catalog-state state-${variation.trust_state}`}>{variation.trust_state}</span>
-            </div>
+            </button>
           ))}
         </div>
       </section>
 
-      <section className="catalog-components-grid">
-        {model.variants.slice(0, 4).map((variation) => (
-          <ComponentSummary key={variation.id} variation={variation} />
-        ))}
-      </section>
+      {selectedVariant ? <ComponentSummary variation={selectedVariant} /> : null}
     </section>
   );
 }
@@ -560,8 +586,8 @@ function catalogLinkIcon(Icon: LucideIcon, size: number) {
 }
 
 function ComponentSummary({ variation }: { variation: CatalogVariant }) {
-  const entries = objectEntries(variation.components).filter(([key, value]) => key !== "kinematics" && !isPendingComponentValue(value));
-  const pending = objectEntries(variation.components).filter(([key, value]) => key !== "kinematics" && isPendingComponentValue(value));
+  const entries = knownComponentEntries(variation);
+  const pending = pendingComponentEntries(variation);
   return (
     <section className="catalog-components-panel">
       <header>
@@ -593,6 +619,35 @@ function ComponentSummary({ variation }: { variation: CatalogVariant }) {
       ) : null}
     </section>
   );
+}
+
+function buildCommunitySignals(model: CatalogModelAdmin) {
+  const sourceCount = objectEntries(model.source_links).filter(([, value]) => typeof value === "string" && value.startsWith("http")).length;
+  const communityChannels = [model.discord_url ?? model.manufacturer_discord_url, model.reddit_url ?? model.manufacturer_reddit_url, model.repository_url ?? model.manufacturer_repository_url].filter(Boolean).length;
+  const componentKnown = model.variants.reduce((total, variation) => total + knownComponentEntries(variation).length, 0);
+  const componentPending = model.variants.reduce((total, variation) => total + pendingComponentEntries(variation).length, 0);
+  return [
+    { label: "variações catalogadas", value: String(model.variants.length), icon: Database },
+    { label: "fontes vinculadas", value: String(sourceCount), icon: ExternalLink },
+    { label: "canais ou repositórios", value: String(communityChannels), icon: Users },
+    { label: "componentes validados", value: String(componentKnown), icon: Boxes },
+    { label: "pendências de componentes", value: String(componentPending), icon: Info },
+  ];
+}
+
+function componentStats(variation: CatalogVariant) {
+  return {
+    known: knownComponentEntries(variation).length,
+    pending: pendingComponentEntries(variation).length,
+  };
+}
+
+function knownComponentEntries(variation: CatalogVariant) {
+  return objectEntries(variation.components).filter(([key, value]) => key !== "kinematics" && !isPendingComponentValue(value));
+}
+
+function pendingComponentEntries(variation: CatalogVariant) {
+  return objectEntries(variation.components).filter(([key, value]) => key !== "kinematics" && isPendingComponentValue(value));
 }
 
 function buildFilterOptions(models: CatalogModelAdmin[]) {
