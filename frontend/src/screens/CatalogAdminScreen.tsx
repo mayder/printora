@@ -487,7 +487,7 @@ function CatalogSourcePanel({ values }: { values: Record<string, unknown> }) {
       <div className="catalog-source-list">
         {links.map(([key, url]) => (
           <a className="catalog-source-link" href={url} target="_blank" rel="noreferrer" key={key}>
-            <span className="catalog-source-icon"><ExternalLink size={15} /></span>
+            <span className="catalog-source-icon">{catalogLinkIcon(sourceIconFor(key, url), 15)}</span>
             <span>
               <strong>{detailLabel(key)}</strong>
               <small>{formatSourceUrl(url)}</small>
@@ -509,14 +509,29 @@ function CatalogLogo({ name, logoUrl }: { name: string; logoUrl: string | null }
 
 function CatalogLink({ icon: Icon, label, url }: { icon: LucideIcon; label: string; url: string | null }) {
   if (!url) {
-    return <span className="catalog-link disabled"><Icon size={15} />{label}</span>;
+    return (
+      <span className="catalog-link disabled">
+        <span className="catalog-link-icon">{catalogLinkIcon(Icon, 16)}</span>
+        <span>
+          <strong>{label}</strong>
+          <small>não informado</small>
+        </span>
+      </span>
+    );
   }
   return (
     <a className="catalog-link" href={url} target="_blank" rel="noreferrer">
-      <Icon size={15} />
-      {label}
+      <span className="catalog-link-icon">{catalogLinkIcon(Icon, 16)}</span>
+      <span>
+        <strong>{label}</strong>
+        <small>{formatSourceUrl(url)}</small>
+      </span>
     </a>
   );
+}
+
+function catalogLinkIcon(Icon: LucideIcon, size: number) {
+  return <Icon size={size} />;
 }
 
 function JsonBlock({ title, value }: { title: string; value: Record<string, unknown> }) {
@@ -592,6 +607,16 @@ function formatSourceUrl(value: string) {
   } catch {
     return value;
   }
+}
+
+function sourceIconFor(key: string, url: string): LucideIcon {
+  const lower = `${key} ${url}`.toLowerCase();
+  if (lower.includes("github") || lower.includes("git")) return GitBranch;
+  if (lower.includes("bom") || lower.includes("hardware") || lower.includes("parts")) return Boxes;
+  if (lower.includes("doc") || lower.includes("manual") || lower.includes("wiki")) return FileText;
+  if (lower.includes("discord")) return MessageCircle;
+  if (lower.includes("reddit")) return Users;
+  return ExternalLink;
 }
 
 function detailLabel(value: string) {
