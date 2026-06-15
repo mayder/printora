@@ -440,7 +440,7 @@ function CatalogDetailView({ model, onBack }: { model: CatalogModelAdmin; onBack
 
       <section className="catalog-components-grid">
         {model.variants.slice(0, 4).map((variation) => (
-          <JsonBlock key={variation.id} title={`Componentes · ${variation.name}`} value={variation.components} />
+          <ComponentSummary key={variation.id} variation={variation} />
         ))}
       </section>
     </section>
@@ -534,12 +534,39 @@ function catalogLinkIcon(Icon: LucideIcon, size: number) {
   return <Icon size={size} />;
 }
 
-function JsonBlock({ title, value }: { title: string; value: Record<string, unknown> }) {
+function ComponentSummary({ variation }: { variation: CatalogVariant }) {
+  const entries = objectEntries(variation.components).filter(([key, value]) => key !== "kinematics" && !isPendingComponentValue(value));
+  const pending = objectEntries(variation.components).filter(([key, value]) => key !== "kinematics" && isPendingComponentValue(value));
   return (
-    <div className="catalog-json-block">
-      <strong>{title}</strong>
-      <pre>{JSON.stringify(value, null, 2)}</pre>
-    </div>
+    <section className="catalog-components-panel">
+      <header>
+        <Boxes size={17} />
+        <div>
+          <strong>Componentes conhecidos</strong>
+          <span>{variation.name}</span>
+        </div>
+      </header>
+      {entries.length ? (
+        <dl className="catalog-component-list">
+          {entries.map(([key, value]) => (
+            <div key={key}>
+              <dt>{componentLabel(key)}</dt>
+              <dd>{formatDetailValue(value)}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <div className="catalog-component-empty">
+          <Info size={16} />
+          <span>Componentes ainda não validados para esta variação.</span>
+        </div>
+      )}
+      {pending.length ? (
+        <p className="catalog-component-pending">
+          {pending.length} {pending.length === 1 ? "campo pendente" : "campos pendentes"} de curadoria.
+        </p>
+      ) : null}
+    </section>
   );
 }
 
@@ -598,6 +625,12 @@ function formatDetailValue(value: unknown) {
     return JSON.stringify(value);
   }
   return String(value);
+}
+
+function isPendingComponentValue(value: unknown) {
+  if (typeof value !== "string") return false;
+  const normalized = normalizeSearch(value);
+  return normalized.includes("definir na curadoria");
 }
 
 function formatSourceUrl(value: string) {
