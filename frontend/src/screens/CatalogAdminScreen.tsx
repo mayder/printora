@@ -476,16 +476,22 @@ function CatalogSourcePanel({ values }: { values: Record<string, unknown> }) {
     return null;
   }
   return (
-    <section className="catalog-spec-panel">
+    <section className="catalog-spec-panel catalog-source-panel">
       <header>
         <ExternalLink size={17} />
-        <strong>Fontes usadas na curadoria</strong>
+        <div>
+          <strong>Fontes de curadoria</strong>
+          <span>Referências usadas para validar os dados deste modelo.</span>
+        </div>
       </header>
       <div className="catalog-source-list">
         {links.map(([key, url]) => (
           <a className="catalog-source-link" href={url} target="_blank" rel="noreferrer" key={key}>
-            <ExternalLink size={15} />
-            <span>{detailLabel(key)}</span>
+            <span className="catalog-source-icon"><ExternalLink size={15} /></span>
+            <span>
+              <strong>{detailLabel(key)}</strong>
+              <small>{formatSourceUrl(url)}</small>
+            </span>
           </a>
         ))}
       </div>
@@ -577,6 +583,15 @@ function formatDetailValue(value: unknown) {
     return JSON.stringify(value);
   }
   return String(value);
+}
+
+function formatSourceUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.hostname.replace(/^www\./, "");
+  } catch {
+    return value;
+  }
 }
 
 function detailLabel(value: string) {
