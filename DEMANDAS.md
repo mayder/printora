@@ -4165,7 +4165,20 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado.
+
+Notas de conclusão:
+
+- SQL `059_social_safety_antiabuse.sql` cria preferências de segurança social, eventos de rate limit e sinais de abuso sem armazenar IP, email, token ou payload operacional.
+- APIs sociais sensíveis aplicam limite por ação em busca/perfil público, relações, denúncias, mutações de conteúdo e downloads sociais.
+- Descoberta de perfis respeita preferência de descoberta: o perfil pode sair de listagens/busca por nome sem quebrar URL direta autorizada.
+- Bloqueios existentes continuam impedindo busca, perfil, impressoras públicas e relação social.
+- Denúncia/uso repetido acima do limite gera sinal acionável para moderação em `/api/social/moderation/abuse-signals`.
+- `Conta > Perfil > Público` recebeu controles separados de privacidade/antiabuso para descoberta, seguidores, mensagens, menções e histórico de downloads sociais.
+- Payloads revisados não expõem email, IP bruto, token, Moonraker, SSH, agente, organização ou permissão operacional.
+- Documentação atualizada em `TELAS.md`, `TESTES.md`, `DECISOES.md` e `RUNBOOK.md`.
+- Testes focados adicionados para preferências, proteção contra enumeração, rate limit, sinais de abuso, endpoint administrativo e payload sanitizado.
+- Validação executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_social_catalog.py -k 'social_safety or social_profile_discovery_visibility_blocking or moderation_queue' -q`; `cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q`; `npm --prefix frontend run build`.
 
 ## PKG-69: Armazenamento, Cotas, Retenção E Custos De Arquivos
 

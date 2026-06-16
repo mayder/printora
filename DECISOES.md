@@ -300,6 +300,19 @@ Impacto em rollback: baixo a médio; relações podem ser encerradas por API sem
 Como reverter: reverter endpoints e UI de relacionamento em `backend/app/routes/social_catalog.py`, regras em `backend/app/social_catalog.py`, contratos de `frontend/src/services/socialApi.ts`, `frontend/src/types/social.ts`, `frontend/src/screens/PublicProfileScreen.tsx` e `frontend/src/screens/SocialScreen.tsx`.
 Referencias: `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, `frontend/src/screens/PublicProfileScreen.tsx`, `frontend/src/screens/SocialScreen.tsx`, `backend/tests/test_social_catalog.py`.
 
+### DEC-20260616-15 - Segurança social fica em camada dedicada
+
+Status: aceita
+Data: 2026-06-16
+Contexto: a camada social já possui perfil público, relações, biblioteca, moderação e notificações. O endurecimento contra spam, scraping, assédio, enumeração e vazamento não deve ser espalhado na UI nem misturado com permissões operacionais de impressora.
+Decisao: criar `social_safety` como camada dedicada com preferências de privacidade social, eventos de rate limit e sinais de abuso. A busca de perfis respeita `profile_discoverable` sem quebrar URL direta autorizada. Endpoints públicos sensíveis aplicam rate limit por ação e registram somente hashes/metadados seguros. Sinais de abuso ficam em endpoint administrativo separado de moderação, enquanto controles do usuário ficam em `Conta > Perfil > Público`.
+Alternativas consideradas: aplicar limites apenas em memória; reutilizar denúncias como rate limit; colocar controles na tela `Social`.
+Consequencias: regras antiabuso ficam auditáveis, testáveis e sem dependência de UI. Relações sociais continuam isoladas de organizações, agentes, Moonraker, SSH, tokens e permissões operacionais. Eventos persistidos exigem retenção/limpeza operacional.
+Impacto em testes: testes focados cobrem preferências, descoberta, rate limit, sinais de abuso, endpoint administrativo e payload sanitizado.
+Impacto em rollback: baixo a médio; rollback remove rotas e integração de rate limit, preservando tabelas como histórico inerte até limpeza supervisionada.
+Como reverter: reverter `backend/app/social_safety.py`, `backend/app/routes/social_safety.py`, integrações em rotas sociais, SQL `059_social_safety_antiabuse.sql`, UI de segurança social em `AuthScreen.tsx` e contratos em `socialApi.ts`/`types/social.ts`.
+Referencias: `backend/app/social_safety.py`, `backend/app/routes/social_safety.py`, `backend/app/routes/social_catalog.py`, `backend/app/routes/social_moderation.py`, `frontend/src/screens/AuthScreen.tsx`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260530-01 - Setup do Zero começa após Linux e SSH ativo
 
 Status: aceita

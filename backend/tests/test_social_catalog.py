@@ -17,6 +17,7 @@ from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, Commun
 from app.social_moderation import ModerationActionPayload, ModerationReportCreate, SocialModerationRepository
 from app.social_notifications import ContentFollowPayload, NotificationPreferenceUpdate, SocialNotificationsRepository
 from app.social_ranking import SocialRankingRepository
+from app.social_safety import SocialSafetyRepository, SocialSafetySettingsUpdate
 from app.technical_profiles import TechnicalPrinterConfigPayload, TechnicalProfilesRepository
 
 
@@ -2339,6 +2340,151 @@ def test_social_profile_discovery_visibility_blocking_and_operational_isolation(
             assert "moonraker" not in str(public_search).lower()
             assert "owner@example.com" not in str(public_search)
             assert owner_id != peer_id
+    finally:
+        get_settings.cache_clear()
+
+
+def test_social_safety_settings_hide_profile_from_discovery_but_keep_direct_url(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    user = auth.create_user(UserRegisterRequest(email="safe-maker@example.com", password="correct-horse", display_name="Safe Maker"))
+    social = SocialCatalogRepository(database_path)
+    safety = SocialSafetyRepository(database_path)
+
+    social.update_profile(user.id, PublicProfileUpdate(slug="safe-maker", display_name="Safe Maker", visibility="public"))
+    visible = social.search_profiles("safe")
+    updated = safety.update_settings(
+        user.id,
+        SocialSafetySettingsUpdate(
+            profile_discoverable=False,
+            followers_visibility="friends",
+            messages_from="none",
+            allow_content_mentions=False,
+            allow_download_tracking=False,
+        ),
+    )
+    hidden_by_name = social.search_profiles("safe")
+    direct_lookup = social.search_profiles("safe-maker")
+    public_profile = social.public_profile_by_slug("safe-maker")
+
+    assert [item.slug for item in visible] == ["safe-maker"]
+    assert hidden_by_name == []
+    assert [item.slug for item in direct_lookup] == ["safe-maker"]
+    assert public_profile is not None
+    assert public_profile.slug == "safe-maker"
+    assert updated.profile_discoverable is False
+    assert updated.followers_visibility == "friends"
+    assert updated.messages_from == "none"
+
+
+def test_social_safety_rate_limit_creates_actionable_abuse_signal(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    actor = auth.create_user(UserRegisterRequest(email="limit-actor@example.com", password="correct-horse"))
+    target = auth.create_user(UserRegisterRequest(email="limit-target@example.com", password="correct-horse"))
+    safety = SocialSafetyRepository(database_path)
+
+    allowed = [
+        safety.check_rate_limit(
+            actor_user_id=actor.id,
+            action="moderation_report",
+            subject=f"user:{actor.id}:report:{index}",
+            target_user_id=target.id,
+        )
+        for index in range(10)
+    ]
+    blocked = safety.check_rate_limit(
+        actor_user_id=actor.id,
+        action="moderation_report",
+        subject=f"user:{actor.id}:report:blocked",
+        target_user_id=target.id,
+    )
+    signals = safety.abuse_signals(status="active")
+
+    assert all(item.allowed for item in allowed)
+    assert blocked.allowed is False
+    assert blocked.retry_after_seconds == 3600
+    assert signals
+    assert signals[0].subject_user_id == actor.id
+    assert signals[0].target_user_id == target.id
+    assert signals[0].action == "moderation_report"
+    assert "limit-actor@example.com" not in signals[0].model_dump_json()
+    assert "limit-target@example.com" not in signals[0].model_dump_json()
+    with connect_database(database_path) as connection:
+        audit_payloads = connection.execute("SELECT payload_json FROM catalog_audit_events WHERE entity_type = 'social_safety'").fetchall()
+    assert audit_payloads
+    assert "limit-actor@example.com" not in str(audit_payloads)
+
+
+def test_social_safety_api_controls_and_admin_abuse_queue(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            admin = client.post("/api/auth/register", json={"email": "breno@mayder.com.br", "password": "correct-horse"})
+            user = client.post("/api/auth/register", json={"email": "safety-user@example.com", "password": "correct-horse"})
+            admin_token = admin.json()["access_token"]
+            user_token = user.json()["access_token"]
+            user_id = user.json()["user"]["id"]
+
+            initial = client.get("/api/social/me/safety", headers={"Authorization": f"Bearer {user_token}"})
+            update = client.put(
+                "/api/social/me/safety",
+                headers={"Authorization": f"Bearer {user_token}"},
+                json={
+                    "profile_discoverable": False,
+                    "followers_visibility": "private",
+                    "messages_from": "none",
+                    "allow_content_mentions": False,
+                    "allow_download_tracking": False,
+                },
+            )
+            safety = SocialSafetyRepository(tmp_path / "printora.db")
+            for index in range(11):
+                safety.check_rate_limit(
+                    actor_user_id=user_id,
+                    action="moderation_report",
+                    subject=f"user:{user_id}:api:{index}",
+                    target_user_id=None,
+                )
+            user_queue = client.get("/api/social/moderation/abuse-signals", headers={"Authorization": f"Bearer {user_token}"})
+            admin_queue = client.get("/api/social/moderation/abuse-signals", headers={"Authorization": f"Bearer {admin_token}"})
+
+            assert initial.status_code == 200
+            assert initial.json()["settings"]["profile_discoverable"] is True
+            assert update.status_code == 200
+            assert update.json()["messages_from"] == "none"
+            assert user_queue.status_code == 403
+            assert admin_queue.status_code == 200
+            dumped = str(admin_queue.json()).lower()
+            assert "safety-user@example.com" not in dumped
+            assert "password" not in dumped
+            assert "token" not in dumped
+    finally:
+        get_settings.cache_clear()
+
+
+def test_social_safety_limits_anonymous_profile_enumeration_across_queries(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            statuses = [client.get(f"/api/social/profiles?q=unknown-{index}").status_code for index in range(31)]
+            admin = client.post("/api/auth/register", json={"email": "breno@mayder.com.br", "password": "correct-horse"})
+            admin_token = admin.json()["access_token"]
+            signals = client.get("/api/social/moderation/abuse-signals", headers={"Authorization": f"Bearer {admin_token}"})
+
+            assert statuses[:30] == [200] * 30
+            assert statuses[30] == 429
+            assert signals.status_code == 200
+            assert signals.json()[0]["subject_user_id"] is None
+            dumped = str(signals.json()).lower()
+            assert "127.0.0.1" not in dumped
+            assert "unknown-30" not in dumped
     finally:
         get_settings.cache_clear()
 

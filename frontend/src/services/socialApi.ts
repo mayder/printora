@@ -35,6 +35,8 @@ import type {
   SearchEntityType,
   SearchOrder,
   SearchResponse,
+  SocialSafetySettings,
+  SocialSafetyStatus,
   SocialNotification,
   SocialNotificationStatus,
   SocialNotificationType,
@@ -65,6 +67,11 @@ export interface PrinterPublicPayload {
   public_mods?: string[];
   public_images?: string[];
 }
+
+export type SocialSafetyPayload = Pick<
+  SocialSafetySettings,
+  "profile_discoverable" | "followers_visibility" | "messages_from" | "allow_content_mentions" | "allow_download_tracking"
+>;
 
 export interface CatalogAdminFilters {
   manufacturer?: string;
@@ -311,6 +318,13 @@ export const socialApi = {
     }),
   markNotificationRead: (notificationId: number) => apiRequest<SocialNotification>(`/api/social/notifications/${notificationId}/read`, { method: "POST" }),
   markAllNotificationsRead: () => apiRequest<void>("/api/social/notifications/read-all", { method: "POST" }),
+  socialSafety: () => apiRequest<SocialSafetyStatus>("/api/social/me/safety"),
+  updateSocialSafety: (payload: SocialSafetyPayload) =>
+    apiRequest<SocialSafetySettings>("/api/social/me/safety", {
+      method: "PUT",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
   publicPrinter: (printerId: number | string) => apiRequest<PublicPrinter>(`/api/public/printers/${encodeURIComponent(String(printerId))}`),
   publicPrinters: (filters: { manufacturer?: string; model?: string; variant?: string; mod?: string } = {}) => {
     const params = new URLSearchParams();

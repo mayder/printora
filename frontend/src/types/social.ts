@@ -19,6 +19,9 @@ export type ModerationAction = "mark_reviewing" | "hide" | "remove" | "block" | 
 export type SocialNotificationType = "comment" | "reaction" | "solution" | "follow" | "friend_request" | "friend_accept" | "content_update" | "community_post" | "digest";
 export type SocialNotificationStatus = "unread" | "read" | "archived";
 export type ContentFollowEntityType = "post" | "library_item" | "catalog_variant" | "community" | "collection";
+export type FollowersVisibility = "public" | "followers" | "friends" | "private";
+export type SocialMessagesFrom = "public" | "followers" | "friends" | "none";
+export type AbuseSignalStatus = "active" | "reviewing" | "resolved" | "dismissed";
 
 export interface CatalogVariant {
   id: number;
@@ -137,6 +140,36 @@ export interface PublicPrinter {
   build_volume: Record<string, unknown>;
   kinematics: string;
   updated_at: string;
+}
+
+export interface SocialSafetySettings {
+  user_id: number;
+  profile_discoverable: boolean;
+  followers_visibility: FollowersVisibility;
+  messages_from: SocialMessagesFrom;
+  allow_content_mentions: boolean;
+  allow_download_tracking: boolean;
+  updated_at: string;
+}
+
+export interface AbuseSignalRecord {
+  id: number;
+  subject_user_id: number | null;
+  target_user_id: number | null;
+  action: string;
+  reason: string;
+  severity: number;
+  status: AbuseSignalStatus;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
+}
+
+export interface SocialSafetyStatus {
+  settings: SocialSafetySettings;
+  recent_denials: number;
+  active_signals: AbuseSignalRecord[];
 }
 
 export interface Community {

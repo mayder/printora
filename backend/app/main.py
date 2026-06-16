@@ -31,6 +31,7 @@ from app.routes import (
     social_moderation,
     social_notifications,
     social_ranking,
+    social_safety,
     system,
     technical_profiles,
     z_offset,
@@ -94,6 +95,7 @@ app.include_router(social_catalog.router)
 app.include_router(social_moderation.router)
 app.include_router(social_notifications.router)
 app.include_router(social_ranking.router)
+app.include_router(social_safety.router)
 app.include_router(system.router)
 app.include_router(technical_profiles.router)
 app.include_router(z_offset.router)

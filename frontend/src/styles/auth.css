@@ -45,6 +45,56 @@
   overflow-wrap: anywhere;
 }
 
+.social-safety-controls {
+  grid-column: 1 / -1;
+}
+
+.social-safety-status {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.social-safety-status section,
+.social-toggle-row {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  padding: 14px;
+}
+
+.social-safety-status strong,
+.social-safety-status span,
+.social-toggle-row strong,
+.social-toggle-row small {
+  display: block;
+}
+
+.social-safety-status strong {
+  overflow-wrap: anywhere;
+}
+
+.social-safety-status span,
+.social-toggle-row small {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.social-toggle-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.social-toggle-row input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
 .public-preview-card {
   display: grid;
   grid-template-columns: 56px minmax(0, 1fr);
@@ -1835,6 +1885,7 @@
   .account-form-grid,
   .profile-form-grid,
   .profile-security-grid,
+  .social-safety-status,
   .organization-workspace,
   .organization-summary-grid {
     grid-template-columns: 1fr;

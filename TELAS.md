@@ -130,6 +130,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - A área Conta deve separar responsabilidades em estados/telas internas: organizações e perfil.
 - O menu do usuário deve expor `Organizações` e `Perfil`; `Perfil` usa abas internas para `Conta`, `Contatos`, `Senha` e `Segurança`, evitando página longa.
 - Em `Conta > Perfil`, a aba `Público` concentra a gestão do perfil social do usuário: nome público, slug, URL pública, bio, avatar HTTPS, localização opcional, links permitidos, estado de privacidade, prévia pública e impressoras públicas em contexto.
+- Em `Conta > Perfil > Público`, o bloco `Segurança social` concentra privacidade e antiabuso: descoberta em busca/listagens, visibilidade de seguidores, origem permitida para mensagens sociais, menções em conteúdo e histórico de downloads sociais. Esses controles não alteram login, organizações, permissões, agentes ou acesso operacional.
 - `Conta > Perfil > Público` deve separar visualmente dados da conta operacional e perfil público/social. Email, WhatsApp, organizações, papéis, permissões, agente, Moonraker, SSH, tokens e hosts operacionais não aparecem na página pública.
 - Organizações na Conta devem listar todas as organizações do usuário em tela própria com ações de linha; uso individual continua disponível sem CRUD.
 - Organizações na Conta devem separar lista, detalhe, criação e edição; criação/edição abrem em modal, detalhe abre como estado dedicado em largura total e mostra membros, convites por link e impressoras vinculadas em blocos/tabelas separados.
@@ -172,6 +173,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Comunidade `obsolete` fica visível como histórico, sem membros/impressoras ativas. Comunidade `merged` aponta a comunidade destino quando existir e não recebe novas associações.
 - Comunidade nunca exibe Moonraker, agente, SSH, token, IP operacional, organização, permissões ou qualquer dado privado da impressora.
 - Bloqueios sociais devem encerrar interações sociais existentes e não devem apagar histórico operacional, organização, inventário ou auditoria de impressora.
+- Rate limits sociais devem aparecer para o usuário como bloqueio temporário acionável, sem expor score, IP, hashes internos ou regras de detecção. Sinais de abuso ficam restritos à moderação administrativa.
 - A tela Catálogo é a superfície administrativa de curadoria do catálogo canônico, separada da tela Social.
 - A tela Catálogo deve separar lista/filtros por modelo e detalhe de fabricante/modelo. A listagem principal deve ser uma tabela em largura total, com ação de linha por ícone para abrir detalhe; o detalhe deve substituir a listagem como tela/estado dedicado, com ação explícita de voltar.
 - A listagem do Catálogo deve ter limite de registros por página, paginação visível e preservação de filtros/página na URL; ao voltar do detalhe, o usuário retorna para a mesma página e filtros aplicados.

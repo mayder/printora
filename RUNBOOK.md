@@ -1221,6 +1221,51 @@ Segurança:
 - operações da tela Operação chamadas com sessão autenticada exigem step-up token para envio de G-code.
 - endpoints operacionais exigem sessão quando já existe ao menos um usuário ativo no banco; bancos locais sem usuários preservam o modo local de desenvolvimento.
 
+## Segurança social e antiabuso
+
+Escopo:
+
+- controles do usuário ficam em `Conta > Perfil > Público`, bloco `Segurança social`;
+- endpoints de runtime:
+  - `GET /api/social/me/safety`;
+  - `PUT /api/social/me/safety`;
+  - `GET /api/social/moderation/abuse-signals` restrito ao administrador;
+- endpoints públicos sensíveis aplicam rate limit por ação: busca/perfil, relações, denúncias, mutações sociais e downloads sociais.
+
+Banco:
+
+- ordem: `059_social_safety_antiabuse.sql` depois de `058_social_notifications.sql`;
+- tabelas: `social_user_safety_settings`, `social_rate_limit_events`, `social_abuse_signals`;
+- impacto: adiciona preferências e trilha antiabuso sem alterar organizações, permissões, agentes, Moonraker, SSH ou ownership de impressoras.
+
+Validação:
+
+```bash
+cd backend && uv run --extra dev pytest ../backend/tests/test_social_catalog.py -k 'social_safety or social_profile_discovery_visibility_blocking or moderation_queue' -q
+cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q
+npm --prefix frontend run build
+```
+
+Smokes úteis:
+
+```bash
+curl -s -H "Authorization: Bearer <token>" http://127.0.0.1:8069/api/social/me/safety
+curl -s -H "Authorization: Bearer <admin-token>" http://127.0.0.1:8069/api/social/moderation/abuse-signals
+```
+
+Privacidade e retenção:
+
+- `social_rate_limit_events.subject_hash` guarda hash do sujeito da ação; não guardar IP bruto, email, token, senha ou payload operacional;
+- `social_abuse_signals.metadata_json` deve conter apenas ação, severidade e contexto mínimo sanitizado;
+- retenção operacional recomendada: eventos de rate limit por 30 dias e sinais de abuso por 180 dias;
+- limpeza futura deve ser rotina supervisionada e nunca apagar dados sem confirmação explícita.
+
+Rollback:
+
+- reverter `backend/app/social_safety.py`, `backend/app/routes/social_safety.py`, integrações em rotas sociais, UI de `AuthScreen.tsx`, `socialApi.ts`, `types/social.ts` e documentação;
+- se `059_social_safety_antiabuse.sql` já tiver sido aplicado e for necessário remover schema, restaurar backup SQLite anterior criado pelo versionador;
+- não executar `DELETE` ou `DROP TABLE` manual sem confirmação explícita.
+
 Rollback:
 
 - para remover a camada de autenticação, reverter os arquivos do PKG-39;

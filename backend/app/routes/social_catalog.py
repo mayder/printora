@@ -47,6 +47,7 @@ from app.social_catalog import (
     TrustState,
 )
 from app.social_notifications import SocialNotificationsRepository
+from app.social_safety import SocialSafetyRepository
 
 
 router = APIRouter(tags=["social-catalog"])
@@ -58,6 +59,10 @@ def get_social_repository() -> SocialCatalogRepository:
 
 def get_notification_repository() -> SocialNotificationsRepository:
     return SocialNotificationsRepository(get_settings().database_path)
+
+
+def get_safety_repository() -> SocialSafetyRepository:
+    return SocialSafetyRepository(get_settings().database_path)
 
 
 def require_catalog_admin(
@@ -83,6 +88,36 @@ def optional_current_user(
 
 def is_social_admin(current: CurrentUser) -> bool:
     return current.user.email.lower() == "breno@mayder.com.br"
+
+
+def _request_subject(request: Request, current: CurrentUser | None) -> str:
+    if current is not None:
+        return f"user:{current.user.id}"
+    host = request.client.host if request.client else "unknown"
+    agent = request.headers.get("user-agent", "")[:120]
+    return f"anon:{host}:{agent}"
+
+
+def _enforce_social_limit(
+    repository: SocialSafetyRepository,
+    request: Request,
+    current: CurrentUser | None,
+    action: str,
+    *,
+    target_user_id: int | None = None,
+    subject_suffix: str = "",
+) -> None:
+    subject = _request_subject(request, current)
+    if current is not None and subject_suffix:
+        subject = f"{subject}:{subject_suffix}"
+    result = repository.check_rate_limit(
+        actor_user_id=current.user.id if current else None,
+        action=action,
+        subject=subject,
+        target_user_id=target_user_id,
+    )
+    if not result.allowed:
+        raise HTTPException(status_code=429, detail=result.reason, headers={"Retry-After": str(result.retry_after_seconds)})
 
 
 @router.get("/api/catalog", response_model=CatalogSummary)
@@ -185,9 +220,12 @@ async def update_my_social_profile(
 @router.get("/api/social/profiles/{slug}", response_model=PublicProfile)
 async def get_public_profile(
     slug: str,
+    request: Request,
     current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> PublicProfile:
+    _enforce_social_limit(safety, request, current, "profile_lookup", subject_suffix=slug)
     profile = repository.public_profile_by_slug(slug, current.user.id if current else None)
     if profile is None:
         raise HTTPException(status_code=404, detail="perfil público não encontrado")
@@ -198,11 +236,14 @@ async def get_public_profile(
 
 @router.get("/api/social/profiles", response_model=list[PublicProfile])
 async def search_public_profiles(
+    request: Request,
     q: str | None = None,
     current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> list[PublicProfile]:
     try:
+        _enforce_social_limit(safety, request, current, "profile_search", subject_suffix=q or "")
         return repository.search_profiles(q, current.user.id if current else None)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -211,9 +252,12 @@ async def search_public_profiles(
 @router.get("/api/social/profiles/{slug}/printers", response_model=list[PublicPrinter])
 async def list_profile_public_printers(
     slug: str,
+    request: Request,
     current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> list[PublicPrinter]:
+    _enforce_social_limit(safety, request, current, "profile_lookup", subject_suffix=f"{slug}:printers")
     profile = repository.public_profile_by_slug(slug, current.user.id if current else None)
     if profile is None:
         raise HTTPException(status_code=404, detail="perfil público não encontrado")
@@ -243,9 +287,12 @@ async def search_public_printers(
 @router.get("/api/public/printers/{printer_id}", response_model=PublicPrinter)
 async def get_public_printer(
     printer_id: int,
+    request: Request,
     current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> PublicPrinter:
+    _enforce_social_limit(safety, request, current, "profile_lookup", subject_suffix=f"printer:{printer_id}")
     printer = repository.public_printer(printer_id, current.user.id if current else None)
     if printer is None:
         raise HTTPException(status_code=404, detail="impressora pública não encontrada")
@@ -502,9 +549,12 @@ async def archive_library_item(
 @router.post("/api/social/library/{item_id}/downloads", response_model=LibraryItem)
 async def register_library_download(
     item_id: int,
+    request: Request,
     current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> LibraryItem:
+    _enforce_social_limit(safety, request, current, "library_download", subject_suffix=f"item:{item_id}")
     item = repository.register_library_download(item_id, current.user.id if current else None)
     if item is None:
         raise HTTPException(status_code=404, detail="arquivo não encontrado")
@@ -545,10 +595,13 @@ async def promote_library_version(
 async def register_library_version_download(
     item_id: int,
     version_id: int,
+    request: Request,
     current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> LibraryItem:
     try:
+        _enforce_social_limit(safety, request, current, "library_download", subject_suffix=f"item:{item_id}:version:{version_id}")
         item = repository.register_library_download(item_id, current.user.id if current else None, version_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -591,10 +644,13 @@ async def analyze_library_file(
 async def create_community_post(
     slug: str,
     payload: CommunityPostCreate,
+    request: Request,
     current: CurrentUser = Depends(require_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> CommunityFeedSummary:
     try:
+        _enforce_social_limit(safety, request, current, "content_mutation", subject_suffix=f"post:{slug}")
         post = repository.create_community_post(slug, current.user.id, payload)
         feed = repository.list_community_feed(slug, order="recommended", page=1, page_size=20)
         _notify_content_followers(
@@ -662,10 +718,13 @@ async def delete_post(
 async def create_post_comment(
     post_id: int,
     payload: DiscussionCommentCreate,
+    request: Request,
     current: CurrentUser = Depends(require_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> DiscussionComment:
     try:
+        _enforce_social_limit(safety, request, current, "content_mutation", subject_suffix=f"comment:{post_id}")
         comment = repository.create_comment(post_id, current.user.id, payload)
         discussion = repository.discussion_detail(post_id)
         if discussion is not None:
@@ -718,10 +777,13 @@ async def delete_comment(
 async def react_to_post(
     post_id: int,
     payload: DiscussionReactionPayload,
+    request: Request,
     current: CurrentUser = Depends(require_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> None:
     try:
+        _enforce_social_limit(safety, request, current, "content_mutation", subject_suffix=f"reaction:post:{post_id}")
         repository.set_reaction("post", post_id, current.user.id, payload.reaction_type, True)
         discussion = repository.discussion_detail(post_id)
         if discussion is not None and discussion.post.author_user_id:
@@ -767,11 +829,14 @@ async def react_to_comment(
 @router.post("/api/social/posts/{post_id}/solution", response_model=DiscussionDetail)
 async def mark_post_solution(
     post_id: int,
+    request: Request,
     comment_id: int | None = None,
     current: CurrentUser = Depends(require_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> DiscussionDetail:
     try:
+        _enforce_social_limit(safety, request, current, "content_mutation", subject_suffix=f"solution:{post_id}")
         repository.mark_solution(post_id, comment_id, current.user.id, is_social_admin(current))
         discussion = repository.discussion_detail(post_id)
         if discussion is not None and comment_id is not None:
@@ -806,10 +871,13 @@ async def my_relationships(
 @router.post("/api/social/relationships/{target_user_id}/follow", response_model=RelationshipRecord)
 async def follow_user(
     target_user_id: int,
+    request: Request,
     current: CurrentUser = Depends(require_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> RelationshipRecord:
     try:
+        _enforce_social_limit(safety, request, current, "relationship_action", target_user_id=target_user_id, subject_suffix=f"follow:{target_user_id}")
         relationship = repository.set_relationship(current.user.id, target_user_id, "follow", "active")
         _notify_user(target_user_id, current.user.id, "follow", "relationship", current.user.id, "Novo seguidor", "Alguém começou a seguir seu perfil.", "/?section=social")
         return relationship
@@ -822,19 +890,25 @@ async def follow_user(
 @router.delete("/api/social/relationships/{target_user_id}/follow", status_code=status.HTTP_204_NO_CONTENT)
 async def unfollow_user(
     target_user_id: int,
+    request: Request,
     current: CurrentUser = Depends(require_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> None:
+    _enforce_social_limit(safety, request, current, "relationship_action", target_user_id=target_user_id, subject_suffix=f"unfollow:{target_user_id}")
     repository.set_relationship(current.user.id, target_user_id, "follow", "ended")
 
 
 @router.post("/api/social/relationships/{target_user_id}/friend-request", response_model=RelationshipRecord)
 async def request_friendship(
     target_user_id: int,
+    request: Request,
     current: CurrentUser = Depends(require_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> RelationshipRecord:
     try:
+        _enforce_social_limit(safety, request, current, "relationship_action", target_user_id=target_user_id, subject_suffix=f"friend:{target_user_id}")
         relationship = repository.set_relationship(current.user.id, target_user_id, "friend", "pending")
         _notify_user(target_user_id, current.user.id, "friend_request", "relationship", current.user.id, "Nova solicitação de amizade", "Revise a solicitação em Relações.", "/?section=social")
         return relationship
@@ -847,10 +921,13 @@ async def request_friendship(
 @router.post("/api/social/relationships/{requester_user_id}/friend-accept", response_model=RelationshipRecord)
 async def accept_friendship(
     requester_user_id: int,
+    request: Request,
     current: CurrentUser = Depends(require_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> RelationshipRecord:
     try:
+        _enforce_social_limit(safety, request, current, "relationship_action", target_user_id=requester_user_id, subject_suffix=f"accept:{requester_user_id}")
         relationship = repository.accept_friend(current.user.id, requester_user_id)
         _notify_user(requester_user_id, current.user.id, "friend_accept", "relationship", current.user.id, "Solicitação aceita", "A conexão social foi aceita.", "/?section=social")
         return relationship
@@ -863,10 +940,13 @@ async def accept_friendship(
 @router.delete("/api/social/relationships/{target_user_id}/friend-request", status_code=status.HTTP_204_NO_CONTENT)
 async def cancel_friendship_request(
     target_user_id: int,
+    request: Request,
     current: CurrentUser = Depends(require_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> None:
     try:
+        _enforce_social_limit(safety, request, current, "relationship_action", target_user_id=target_user_id, subject_suffix=f"cancel:{target_user_id}")
         repository.cancel_friend_request(current.user.id, target_user_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -875,10 +955,13 @@ async def cancel_friendship_request(
 @router.post("/api/social/relationships/{requester_user_id}/friend-reject", status_code=status.HTTP_204_NO_CONTENT)
 async def reject_friendship(
     requester_user_id: int,
+    request: Request,
     current: CurrentUser = Depends(require_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> None:
     try:
+        _enforce_social_limit(safety, request, current, "relationship_action", target_user_id=requester_user_id, subject_suffix=f"reject:{requester_user_id}")
         repository.reject_friend(current.user.id, requester_user_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -887,10 +970,13 @@ async def reject_friendship(
 @router.delete("/api/social/relationships/{target_user_id}/friend", status_code=status.HTTP_204_NO_CONTENT)
 async def unfriend_user(
     target_user_id: int,
+    request: Request,
     current: CurrentUser = Depends(require_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> None:
     try:
+        _enforce_social_limit(safety, request, current, "relationship_action", target_user_id=target_user_id, subject_suffix=f"unfriend:{target_user_id}")
         repository.unfriend(current.user.id, target_user_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -899,10 +985,13 @@ async def unfriend_user(
 @router.post("/api/social/relationships/{target_user_id}/block", response_model=RelationshipRecord)
 async def block_user(
     target_user_id: int,
+    request: Request,
     current: CurrentUser = Depends(require_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> RelationshipRecord:
     try:
+        _enforce_social_limit(safety, request, current, "relationship_action", target_user_id=target_user_id, subject_suffix=f"block:{target_user_id}")
         return repository.set_relationship(current.user.id, target_user_id, "block", "active")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -911,9 +1000,12 @@ async def block_user(
 @router.delete("/api/social/relationships/{target_user_id}/block", status_code=status.HTTP_204_NO_CONTENT)
 async def unblock_user(
     target_user_id: int,
+    request: Request,
     current: CurrentUser = Depends(require_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
+    safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> None:
+    _enforce_social_limit(safety, request, current, "relationship_action", target_user_id=target_user_id, subject_suffix=f"unblock:{target_user_id}")
     repository.set_relationship(current.user.id, target_user_id, "block", "ended")
 
 

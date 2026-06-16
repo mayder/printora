@@ -3,7 +3,7 @@ import { ExternalLink, Globe2, Lock, MapPin, RadioTower, Shield, Link as LinkIco
 import type { ScreenPropsFor } from "./ScreenProps";
 import { socialApi } from "../services/socialApi";
 import { formatDateTime } from "../utils/formatters";
-import type { CatalogSummary, CatalogVariant, ProfileVisibility, PublicPrinter, PublicProfile } from "../types";
+import type { CatalogSummary, CatalogVariant, FollowersVisibility, ProfileVisibility, PublicPrinter, PublicProfile, SocialMessagesFrom, SocialSafetySettings } from "../types";
 
 type AccountTab = "profile" | "organizations";
 const accountTabKeys: AccountTab[] = ["organizations", "profile"];
@@ -202,6 +202,14 @@ export function AuthScreen(props: AuthScreenProps) {
   const [socialPrintables, setSocialPrintables] = React.useState("");
   const [socialMakerworld, setSocialMakerworld] = React.useState("");
   const [socialWebsite, setSocialWebsite] = React.useState("");
+  const [socialSafety, setSocialSafety] = React.useState<SocialSafetySettings | null>(null);
+  const [safetyProfileDiscoverable, setSafetyProfileDiscoverable] = React.useState(true);
+  const [safetyFollowersVisibility, setSafetyFollowersVisibility] = React.useState<FollowersVisibility>("public");
+  const [safetyMessagesFrom, setSafetyMessagesFrom] = React.useState<SocialMessagesFrom>("friends");
+  const [safetyAllowMentions, setSafetyAllowMentions] = React.useState(true);
+  const [safetyAllowDownloadTracking, setSafetyAllowDownloadTracking] = React.useState(true);
+  const [safetyRecentDenials, setSafetyRecentDenials] = React.useState(0);
+  const [safetyActiveSignals, setSafetyActiveSignals] = React.useState(0);
   const [socialLoading, setSocialLoading] = React.useState(false);
   const [currentPassword, setCurrentPassword] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
@@ -338,11 +346,19 @@ export function AuthScreen(props: AuthScreenProps) {
   async function loadSocialProfile() {
     setSocialLoading(true);
     try {
-      const [profilePayload, catalogPayload] = await Promise.all([socialApi.myProfile(), socialApi.catalog()]);
+      const [profilePayload, catalogPayload, safetyPayload] = await Promise.all([socialApi.myProfile(), socialApi.catalog(), socialApi.socialSafety()]);
       const printerPayload = await socialApi.profilePrinters(profilePayload.slug);
       setSocialProfile(profilePayload);
       setSocialPrinters(printerPayload);
       setSocialCatalog(catalogPayload);
+      setSocialSafety(safetyPayload.settings);
+      setSafetyProfileDiscoverable(safetyPayload.settings.profile_discoverable);
+      setSafetyFollowersVisibility(safetyPayload.settings.followers_visibility);
+      setSafetyMessagesFrom(safetyPayload.settings.messages_from);
+      setSafetyAllowMentions(safetyPayload.settings.allow_content_mentions);
+      setSafetyAllowDownloadTracking(safetyPayload.settings.allow_download_tracking);
+      setSafetyRecentDenials(safetyPayload.recent_denials);
+      setSafetyActiveSignals(safetyPayload.active_signals.length);
       setSocialDisplayName(profilePayload.display_name);
       setSocialSlug(profilePayload.slug);
       setSocialBio(profilePayload.bio ?? "");
@@ -391,6 +407,25 @@ export function AuthScreen(props: AuthScreenProps) {
       showToast({ tone: "success", title: "Perfil público atualizado" });
     } catch (err) {
       showToast({ tone: "danger", title: "Falha ao salvar perfil público", detail: err instanceof Error ? err.message : undefined });
+    } finally {
+      setSocialLoading(false);
+    }
+  }
+
+  async function saveSocialSafety() {
+    setSocialLoading(true);
+    try {
+      const updated = await socialApi.updateSocialSafety({
+        profile_discoverable: safetyProfileDiscoverable,
+        followers_visibility: safetyFollowersVisibility,
+        messages_from: safetyMessagesFrom,
+        allow_content_mentions: safetyAllowMentions,
+        allow_download_tracking: safetyAllowDownloadTracking,
+      });
+      setSocialSafety(updated);
+      showToast({ tone: "success", title: "Segurança social atualizada" });
+    } catch (err) {
+      showToast({ tone: "danger", title: "Falha ao salvar segurança social", detail: err instanceof Error ? err.message : undefined });
     } finally {
       setSocialLoading(false);
     }
@@ -711,6 +746,78 @@ export function AuthScreen(props: AuthScreenProps) {
                   </section>
                 ))}
                 {socialPrinters.length === 0 ? <p>Nenhuma impressora pública vinculada ao perfil.</p> : null}
+              </div>
+            </article>
+
+            <article className="panel auth-panel profile-card social-safety-controls">
+              <div className="profile-section-title">
+                <span className="organization-card-icon"><ShieldCheck size={17} /></span>
+                <div>
+                  <span className="account-eyebrow">Segurança social</span>
+                  <h2>Privacidade e antiabuso</h2>
+                  <p>Controle descoberta, seguidores e contato social sem alterar permissões operacionais da conta.</p>
+                </div>
+              </div>
+              <div className="social-safety-status">
+                <section>
+                  <strong>{safetyRecentDenials}</strong>
+                  <span>limites acionados em 24h</span>
+                </section>
+                <section>
+                  <strong>{safetyActiveSignals}</strong>
+                  <span>sinais ativos para revisão</span>
+                </section>
+                <section>
+                  <strong>{socialSafety ? formatDateTime(socialSafety.updated_at) : "-"}</strong>
+                  <span>última atualização</span>
+                </section>
+              </div>
+              <div className="profile-form-grid">
+                <label className="social-toggle-row">
+                  <input type="checkbox" checked={safetyProfileDiscoverable} onChange={(event) => setSafetyProfileDiscoverable(event.target.checked)} />
+                  <span>
+                    <strong>Aparecer na descoberta</strong>
+                    <small>Desligado remove o perfil de listagens e busca por nome; a URL direta continua respeitando a visibilidade pública.</small>
+                  </span>
+                </label>
+                <label>
+                  <span>Quem vê seguidores</span>
+                  <select value={safetyFollowersVisibility} onChange={(event) => setSafetyFollowersVisibility(event.target.value as FollowersVisibility)}>
+                    <option value="public">Qualquer pessoa</option>
+                    <option value="followers">Seguidores</option>
+                    <option value="friends">Amigos</option>
+                    <option value="private">Somente eu</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Mensagens sociais</span>
+                  <select value={safetyMessagesFrom} onChange={(event) => setSafetyMessagesFrom(event.target.value as SocialMessagesFrom)}>
+                    <option value="public">Qualquer perfil</option>
+                    <option value="followers">Seguidores</option>
+                    <option value="friends">Amigos</option>
+                    <option value="none">Ninguém</option>
+                  </select>
+                </label>
+                <label className="social-toggle-row">
+                  <input type="checkbox" checked={safetyAllowMentions} onChange={(event) => setSafetyAllowMentions(event.target.checked)} />
+                  <span>
+                    <strong>Permitir menções em conteúdo</strong>
+                    <small>Usado por discussões, comentários e futuras mensagens sociais.</small>
+                  </span>
+                </label>
+                <label className="social-toggle-row">
+                  <input type="checkbox" checked={safetyAllowDownloadTracking} onChange={(event) => setSafetyAllowDownloadTracking(event.target.checked)} />
+                  <span>
+                    <strong>Registrar histórico de downloads sociais</strong>
+                    <small>Afeta métricas sociais de arquivos sem expor dados operacionais de impressora.</small>
+                  </span>
+                </label>
+              </div>
+              <div className="profile-card-actions">
+                <button type="button" className="primary-button" onClick={() => void saveSocialSafety()} disabled={socialLoading}>
+                  <ShieldCheck size={16} />
+                  Salvar segurança
+                </button>
               </div>
             </article>
 

@@ -1135,14 +1135,19 @@ class SocialCatalogRepository:
                        COUNT(DISTINCT CASE WHEN p.public_profile_enabled = 1 THEN p.id END) AS public_printer_count
                 FROM social_profiles sp
                 LEFT JOIN printers p ON p.owner_user_id = sp.user_id
+                LEFT JOIN social_user_safety_settings safety ON safety.user_id = sp.user_id
                 WHERE sp.visibility != 'private'
                   AND (
-                    (? = '' AND sp.visibility = 'public')
+                    (? = '' AND sp.visibility = 'public' AND COALESCE(safety.profile_discoverable, 1) = 1)
                     OR (
                       ? != ''
                       AND (
                         sp.slug = ?
-                        OR (sp.visibility = 'public' AND LOWER(sp.display_name || ' ' || sp.slug) LIKE ?)
+                        OR (
+                          sp.visibility = 'public'
+                          AND COALESCE(safety.profile_discoverable, 1) = 1
+                          AND LOWER(sp.display_name || ' ' || sp.slug) LIKE ?
+                        )
                       )
                     )
                   )

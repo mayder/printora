@@ -382,6 +382,34 @@ Evidência visual esperada:
 - aba possui filtro por estado, lista, digest, acompanhamentos e preferências por tipo;
 - desktop e mobile sem sobreposição ou overflow horizontal.
 
+### PKG-68 - Privacidade, segurança social e antiabuso
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+cd backend && uv run --extra dev pytest ../backend/tests/test_social_catalog.py -k 'social_safety or social_profile_discovery_visibility_blocking or moderation_queue' -q
+cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q
+npm --prefix frontend run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- preferência de descoberta remove perfil de listagens e busca por nome, mantendo URL direta autorizada;
+- busca, perfil, impressoras públicas e relações continuam respeitando bloqueio social;
+- rate limit persistente bloqueia abuso repetido e retorna `429` com `Retry-After`;
+- abuso repetido gera sinal administrativo acionável sem email, IP bruto, token ou payload operacional;
+- endpoint `/api/social/me/safety` permite usuário ajustar controles sociais;
+- endpoint `/api/social/moderation/abuse-signals` é restrito ao administrador;
+- payloads públicos e administrativos não expõem Moonraker, SSH, agente, token, organização, permissão ou credenciais.
+
+Evidência visual esperada:
+
+- `Conta > Perfil > Público` com bloco separado de `Segurança social`;
+- controles de descoberta, seguidores, mensagens, menções e histórico de downloads sociais visíveis e responsivos;
+- indicadores de limites acionados e sinais ativos sem expor dados técnicos internos;
+- tela sem sobreposição em desktop e mobile.
+
 ### PKG-56 - Biblioteca base de arquivos STL/3MF
 
 Validação automatizada obrigatória para fechamento:
