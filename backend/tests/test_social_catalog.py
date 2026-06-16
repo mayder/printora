@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from app.print_profiles import MaterialProfilePayload, PrintProfilesRepository, SlicingProfilePayload
 from app.search_discovery import SearchDiscoveryRepository
 from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, LibraryCollectionCreate, LibraryCollectionItemCreate, LibraryFileMetadata, LibraryItemCreate, LibraryItemUpdate, LibraryVersionCreate, PrintListCreate, PrintListItemCreate, PrintListItemUpdate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
+from app.social_moderation import ModerationActionPayload, ModerationReportCreate, SocialModerationRepository
 from app.social_ranking import SocialRankingRepository
 from app.technical_profiles import TechnicalPrinterConfigPayload, TechnicalProfilesRepository
 
@@ -2337,6 +2338,97 @@ def test_social_profile_discovery_visibility_blocking_and_operational_isolation(
             assert "moonraker" not in str(public_search).lower()
             assert "owner@example.com" not in str(public_search)
             assert owner_id != peer_id
+    finally:
+        get_settings.cache_clear()
+
+
+def test_social_moderation_reports_hide_restore_and_audit_post(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    admin = auth.create_user(UserRegisterRequest(email="breno@mayder.com.br", password="correct-horse", display_name="Moderador"))
+    reporter = auth.create_user(UserRegisterRequest(email="reporter@example.com", password="correct-horse", display_name="Reporter"))
+    author = auth.create_user(UserRegisterRequest(email="author@example.com", password="correct-horse", display_name="Author"))
+    social = SocialCatalogRepository(database_path)
+    social.update_profile(author.id, PublicProfileUpdate(slug="author", display_name="Author", visibility="public"))
+    community = social.list_communities(variant="voron-2-4-r2-350")[0]
+    post = social.create_community_post(
+        community.slug,
+        author.id,
+        CommunityPostCreate(
+            content_type="question",
+            title="Orientação perigosa",
+            body="Conteúdo reportado para moderação técnica.",
+            component="hotend",
+        ),
+    )
+    moderation = SocialModerationRepository(database_path)
+
+    report = moderation.create_report(
+        reporter.id,
+        ModerationReportCreate(entity_type="post", entity_id=post.id, reason="unsafe", detail="Recomendação insegura para iniciantes."),
+    )
+    queued = moderation.queue()
+    hidden = moderation.apply_action(report.id, admin.id, ModerationActionPayload(action="hide", reason="Ocultação preventiva durante revisão técnica"))
+    feed_after_hide = social.list_community_feed(community.slug)
+    restored = moderation.apply_action(report.id, admin.id, ModerationActionPayload(action="restore", reason="Conteúdo ajustado e restaurado"))
+    feed_after_restore = social.list_community_feed(community.slug)
+
+    assert queued.reports[0].id == report.id
+    assert hidden.status == "resolved"
+    assert hidden.entity_status == "removed"
+    assert all(item.id != post.id for item in feed_after_hide.items)
+    assert restored.entity_status == "public"
+    assert any(item.id == post.id for item in feed_after_restore.items)
+    with connect_database(database_path) as connection:
+        actions = connection.execute("SELECT action, reason FROM social_moderation_actions WHERE report_id = ? ORDER BY id", (report.id,)).fetchall()
+        audits = connection.execute("SELECT action FROM catalog_audit_events WHERE entity_type = 'social_moderation_post' AND entity_id = ?", (post.id,)).fetchall()
+    assert [row["action"] for row in actions] == ["hide", "restore"]
+    assert [row["action"] for row in audits] == ["report", "hide", "restore"]
+
+
+def test_social_moderation_queue_is_admin_only_and_curates_tags(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            admin_response = client.post(
+                "/api/auth/register",
+                json={"email": "breno@mayder.com.br", "password": "correct-horse", "display_name": "Moderador"},
+            )
+            user_response = client.post(
+                "/api/auth/register",
+                json={"email": "maker@example.com", "password": "correct-horse", "display_name": "Maker"},
+            )
+            admin_token = admin_response.json()["access_token"]
+            user_token = user_response.json()["access_token"]
+            with connect_database(tmp_path / "printora.db") as connection:
+                cursor = connection.execute("INSERT INTO social_content_tags (slug, label, source) VALUES ('unsafe-tag', 'Unsafe Tag', 'user')")
+                tag_id = int(cursor.lastrowid)
+
+            report_response = client.post(
+                "/api/social/reports",
+                headers={"Authorization": f"Bearer {user_token}"},
+                json={"entity_type": "tag", "entity_id": tag_id, "reason": "wrong_metadata", "detail": "Tag incorreta para o catálogo."},
+            )
+            user_queue = client.get("/api/social/moderation/queue", headers={"Authorization": f"Bearer {user_token}"})
+            admin_queue = client.get("/api/social/moderation/queue", headers={"Authorization": f"Bearer {admin_token}"})
+            action_response = client.post(
+                f"/api/social/moderation/reports/{report_response.json()['id']}/actions",
+                headers={"Authorization": f"Bearer {admin_token}"},
+                json={"action": "block", "reason": "Tag bloqueada por curadoria de metadados"},
+            )
+
+            assert report_response.status_code == 200
+            assert user_queue.status_code == 403
+            assert admin_queue.status_code == 200
+            assert admin_queue.json()["reports"][0]["entity_type"] == "tag"
+            assert action_response.status_code == 200
+            assert action_response.json()["entity_status"] == "blocked"
+            with connect_database(tmp_path / "printora.db") as connection:
+                tag = connection.execute("SELECT status, source FROM social_content_tags WHERE id = ?", (tag_id,)).fetchone()
+            assert dict(tag) == {"status": "blocked", "source": "curation"}
     finally:
         get_settings.cache_clear()
 

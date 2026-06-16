@@ -4064,7 +4064,17 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado via `backend/sql/057_social_moderation.sql`.
+- Implementado domínio `backend/app/social_moderation.py` e rotas `backend/app/routes/social_moderation.py`.
+- Denúncias autenticadas cobrem discussão, comentário, perfil, arquivo 3D, variação de catálogo, comunidade e tag.
+- Fila administrativa expõe denúncias e ações recentes somente para suporte autorizado.
+- Ações de moderação registram motivo, estado anterior, novo estado e auditoria em `catalog_audit_events`.
+- Ocultação, bloqueio e remoção usam estado lógico reversível quando o domínio suporta restauração; não apagam dados.
+- Curadoria administrativa permite bloquear/restaurar tags, comunidades e variações do catálogo por fluxo moderado.
+- UI administrativa adicionada à tela `Catálogo`, separada da tela `Social`, com filtro de fila, detalhe da denúncia, justificativa e ações por ícone/botão.
+- Documentação atualizada em `TELAS.md`, `TESTES.md`, `DECISOES.md` e `RUNBOOK.md`.
+- Testes focados adicionados para denúncia, fila restrita, ação moderadora, auditoria, restauração e curadoria de tag.
+- Validação executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_social_catalog.py -k 'social_moderation' -q`; `cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py ../backend/tests/test_social_catalog.py -k 'social_moderation or schema or update' -q`; `npm --prefix frontend run build`.
 
 ## PKG-67: Notificações Sociais E Acompanhamento De Conteúdo
 

@@ -237,6 +237,50 @@ Se a tabela derivada `social_materialization_state` ficar com schema malformado
 durante uma publicação interrompida, a inicialização cria backup `.before-schema`
 e reconstrói apenas essa tabela de cache.
 
+O schema de moderação social é aplicado por
+`backend/sql/057_social_moderation.sql`. Usuários autenticados podem denunciar
+conteúdo social existente por `POST /api/social/reports`; a fila e as ações ficam
+restritas ao suporte autorizado em `GET /api/social/moderation/queue` e
+`POST /api/social/moderation/reports/{report_id}/actions`.
+
+Operação:
+
+- usar a tela `Catálogo > Moderação` para filtrar denúncias abertas, em revisão,
+  resolvidas ou descartadas;
+- toda ação exige motivo auditável e registra estado anterior/novo em
+  `social_moderation_actions`;
+- ocultar, remover e bloquear alteram estado lógico do conteúdo, sem apagar
+  linha de dados;
+- restaurar reverte o estado lógico quando a entidade suporta restauração;
+- curadoria de tags, comunidades e variações de catálogo deve usar estados
+  válidos do domínio, nunca `DELETE` manual.
+
+Validação pós-publicação:
+
+```bash
+curl -fsS "https://<host>/api/system/version"
+curl -fsS -H "Authorization: Bearer <admin-token>" \
+  "https://<host>/api/social/moderation/queue"
+```
+
+Rollback:
+
+- rollback funcional: remover UI/rotas de moderação e manter tabelas como
+  legado auditável;
+- rollback de ação: aplicar ação `restore` na fila administrativa quando a
+  entidade suportar restauração;
+- rollback estrutural: restaurar backup SQLite anterior ao script
+  `057_social_moderation.sql`;
+- não apagar `social_moderation_reports`, `social_moderation_actions` nem
+  entidades moderadas sem confirmação explícita.
+
+Retenção:
+
+- denúncias e ações são trilha de auditoria social e seguem a política de
+  retenção operacional de auditoria definida no projeto;
+- qualquer limpeza futura deve ser job/scritp supervisionado, idempotente e com
+  janela de retenção documentada antes da execução.
+
 Perfis de material e fatiamento:
 
 ```bash

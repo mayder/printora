@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260616-13 - Moderacao social usa fila auditavel e remocao logica
+
+Status: aceita
+Data: 2026-06-16
+Contexto: conteudo social, arquivos 3D, tags e catalogo precisam de denuncia, revisao e bloqueio rapido sem apagar historico, sem misturar curadoria publica com tela Social e sem criar operacao irreversivel em SQLite/cloud.
+Decisao: criar o dominio `social_moderation`, com SQL proprio em `057_social_moderation.sql`, tabelas de denuncias e acoes, rota autenticada para denuncia publica e rotas administrativas para fila/acao. Acoes de ocultar, remover, bloquear, restaurar, descartar e revisar registram motivo, estado anterior, estado novo e auditoria via `catalog_audit_events`. Conteudo moderado muda estado logico em tabelas existentes; exclusao fisica fica fora do fluxo. A UI administrativa fica na tela `Catalogo`, separada da tela `Social`.
+Alternativas consideradas: apagar linhas denunciadas; criar moderacao dentro da tela Social; reutilizar apenas `catalog_audit_events` sem fila dedicada; criar tabela de auditoria nova para cada entidade.
+Consequencias: moderacao fica reversivel, rastreavel e compativel com rollback por acao restauradora. A fila dedicada facilita triagem e preserva privacidade do usuario comum. Retencao de denuncias e acoes deve seguir politica operacional de auditoria social antes de qualquer limpeza.
+Impacto em testes: `backend/tests/test_social_catalog.py` cobre denuncia, permissao administrativa, acao, auditoria, restauracao e curadoria de tag; build frontend valida o painel administrativo.
+Impacto em rollback: medio; reverter o dominio remove a fila nova, mas estados logicos aplicados em conteudo permanecem e devem ser restaurados por acao administrativa ou SQL supervisionado antes de desativar o fluxo.
+Como reverter: reverter `backend/app/social_moderation.py`, `backend/app/routes/social_moderation.py`, inclusao no `main.py`, `backend/sql/057_social_moderation.sql`, painel de moderacao no Catalogo e documentacao relacionada.
+Referencias: `backend/app/social_moderation.py`, `backend/app/routes/social_moderation.py`, `backend/sql/057_social_moderation.sql`, `frontend/src/screens/CatalogAdminScreen.tsx`, `TELAS.md`, `RUNBOOK.md`.
+
 ### DEC-20260616-12 - Ranking social usa sinais publicos e explicaveis
 
 Status: aceita

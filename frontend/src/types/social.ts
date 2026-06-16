@@ -12,6 +12,10 @@ export type LibraryCollectionVisibility = "private" | "community" | "public";
 export type PrintListItemStatus = "want_to_print" | "printed" | "problem";
 export type SearchEntityType = "community" | "post" | "library_item" | "technical_config" | "material_profile" | "catalog_variant";
 export type SearchOrder = "relevance" | "recent" | "popular";
+export type ModerationEntityType = "post" | "comment" | "profile" | "library_item" | "catalog_variant" | "community" | "tag";
+export type ModerationReason = "spam" | "unsafe" | "illegal" | "harassment" | "privacy" | "wrong_metadata" | "other";
+export type ModerationReportStatus = "open" | "reviewing" | "resolved" | "dismissed";
+export type ModerationAction = "mark_reviewing" | "hide" | "remove" | "block" | "restore" | "dismiss" | "curate";
 
 export interface CatalogVariant {
   id: number;
@@ -505,6 +509,42 @@ export interface SearchResponse {
   results: SearchResult[];
   facets: SearchFacets;
   indexed_count: number;
+}
+
+export interface ModerationReport {
+  id: number;
+  entity_type: ModerationEntityType;
+  entity_id: number;
+  reporter_user_id: number | null;
+  reporter_display_name: string | null;
+  reason: ModerationReason;
+  detail: string;
+  status: ModerationReportStatus;
+  assigned_moderator_user_id: number | null;
+  resolution_note: string | null;
+  created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
+  entity_title: string | null;
+  entity_status: string | null;
+}
+
+export interface ModerationActionRecord {
+  id: number;
+  report_id: number | null;
+  entity_type: ModerationEntityType;
+  entity_id: number;
+  action: ModerationAction;
+  previous_state: Record<string, unknown>;
+  new_state: Record<string, unknown>;
+  moderator_user_id: number | null;
+  reason: string;
+  created_at: string;
+}
+
+export interface ModerationQueue {
+  reports: ModerationReport[];
+  actions: ModerationActionRecord[];
 }
 
 export interface TagRecord {

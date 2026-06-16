@@ -1,9 +1,9 @@
 import React from "react";
-import { ArrowLeft, Boxes, Check, ChevronDown, ChevronLeft, ChevronRight, Database, ExternalLink, Eye, FileText, Filter, GitBranch, Info, MessageCircle, RefreshCw, Search, ShieldCheck, SlidersHorizontal, Users } from "lucide-react";
+import { ArrowLeft, Boxes, Check, ChevronDown, ChevronLeft, ChevronRight, Database, ExternalLink, Eye, EyeOff, FileText, Filter, GitBranch, Info, MessageCircle, RefreshCw, RotateCcw, Search, ShieldAlert, ShieldCheck, SlidersHorizontal, Users, XCircle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi, type CatalogAdminFilters } from "../services/socialApi";
 import type { ScreenPropsFor } from "./ScreenProps";
-import type { CatalogAdminSummary, CatalogModelAdmin, CatalogSummary, CatalogTrustState, CatalogVariant } from "../types";
+import type { CatalogAdminSummary, CatalogModelAdmin, CatalogSummary, CatalogTrustState, CatalogVariant, ModerationAction, ModerationQueue, ModerationReport, ModerationReportStatus } from "../types";
 
 type CatalogAdminScreenProps = ScreenPropsFor<"authUser" | "setError">;
 
@@ -188,9 +188,135 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
             <ModelTable models={pageModels} selectedModelId={selectedModel?.id ?? null} onSelect={openModelDetail} />
             <CatalogPagination page={safePage} pageSize={catalogPageSize} totalItems={catalog.models.length} onPageChange={changePage} />
           </section>
+
+          {canCurate ? <ModerationQueuePanel setError={setError} /> : null}
         </>
       )}
     </div>
+  );
+}
+
+function ModerationQueuePanel({ setError }: { setError: (message: string | null) => void }) {
+  const [queue, setQueue] = React.useState<ModerationQueue>({ reports: [], actions: [] });
+  const [status, setStatus] = React.useState<ModerationReportStatus | "">("");
+  const [busyReportId, setBusyReportId] = React.useState<number | null>(null);
+  const [reasonByReport, setReasonByReport] = React.useState<Record<number, string>>({});
+
+  async function loadQueue(nextStatus = status) {
+    try {
+      const payload = await socialApi.moderationQueue(nextStatus);
+      setQueue(payload);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao carregar moderação");
+    }
+  }
+
+  React.useEffect(() => {
+    void loadQueue();
+  }, []);
+
+  async function applyAction(report: ModerationReport, action: ModerationAction) {
+    const reason = reasonByReport[report.id]?.trim() || defaultModerationReason(action);
+    setBusyReportId(report.id);
+    try {
+      await socialApi.applyModerationAction(report.id, { action, reason });
+      setReasonByReport((current) => ({ ...current, [report.id]: "" }));
+      await loadQueue(status);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao aplicar moderação");
+    } finally {
+      setBusyReportId(null);
+    }
+  }
+
+  async function changeStatus(nextStatus: ModerationReportStatus | "") {
+    setStatus(nextStatus);
+    await loadQueue(nextStatus);
+  }
+
+  return (
+    <section className="catalog-moderation-panel">
+      <header className="catalog-section-heading">
+        <div>
+          <span className="eyebrow">Moderação</span>
+          <h3>Denúncias e curadoria</h3>
+        </div>
+        <div className="catalog-moderation-tools">
+          <select value={status} onChange={(event) => void changeStatus(event.target.value as ModerationReportStatus | "")} aria-label="Filtrar denúncias">
+            <option value="">Todos estados</option>
+            <option value="open">Abertas</option>
+            <option value="reviewing">Em revisão</option>
+            <option value="resolved">Resolvidas</option>
+            <option value="dismissed">Descartadas</option>
+          </select>
+          <button type="button" className="secondary-action" onClick={() => void loadQueue()} disabled={busyReportId !== null}>
+            <RefreshCw size={16} />
+            Atualizar
+          </button>
+        </div>
+      </header>
+      <div className="catalog-moderation-grid">
+        <div className="catalog-moderation-list">
+          {queue.reports.length === 0 ? <div className="catalog-empty-state">Nenhuma denúncia para os filtros selecionados.</div> : null}
+          {queue.reports.map((report) => (
+            <article className="catalog-moderation-card" key={report.id}>
+              <header>
+                <div>
+                  <strong>{report.entity_title || entityTypeLabel(report.entity_type)}</strong>
+                  <span>{entityTypeLabel(report.entity_type)} #{report.entity_id} · {reasonLabel(report.reason)}</span>
+                </div>
+                <span className={`catalog-state moderation-${report.status}`}>{statusLabel(report.status)}</span>
+              </header>
+              <p>{report.detail || "Sem detalhe adicional."}</p>
+              <dl>
+                <div><dt>Estado atual</dt><dd>{report.entity_status || "-"}</dd></div>
+                <div><dt>Denunciante</dt><dd>{report.reporter_display_name || "Usuário autenticado"}</dd></div>
+              </dl>
+              <label className="catalog-moderation-reason">
+                <span>Justificativa da ação</span>
+                <input
+                  value={reasonByReport[report.id] ?? ""}
+                  onChange={(event) => setReasonByReport((current) => ({ ...current, [report.id]: event.target.value }))}
+                  placeholder="Motivo auditável"
+                />
+              </label>
+              <div className="catalog-moderation-actions">
+                <button type="button" className="secondary-action" onClick={() => void applyAction(report, "mark_reviewing")} disabled={busyReportId === report.id}>
+                  <ShieldAlert size={15} />
+                  Revisar
+                </button>
+                <button type="button" className="secondary-action" onClick={() => void applyAction(report, "hide")} disabled={busyReportId === report.id}>
+                  <EyeOff size={15} />
+                  Ocultar
+                </button>
+                <button type="button" className="secondary-action" onClick={() => void applyAction(report, "restore")} disabled={busyReportId === report.id}>
+                  <RotateCcw size={15} />
+                  Restaurar
+                </button>
+                <button type="button" className="secondary-action danger-action" onClick={() => void applyAction(report, "block")} disabled={busyReportId === report.id}>
+                  <XCircle size={15} />
+                  Bloquear
+                </button>
+                <button type="button" className="secondary-action" onClick={() => void applyAction(report, "dismiss")} disabled={busyReportId === report.id}>
+                  <Check size={15} />
+                  Descartar
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+        <aside className="catalog-moderation-history">
+          <strong>Ações recentes</strong>
+          {queue.actions.length === 0 ? <span>Nenhuma ação registrada.</span> : null}
+          {queue.actions.slice(0, 8).map((action) => (
+            <div key={action.id}>
+              <span>{actionLabel(action.action)} · {entityTypeLabel(action.entity_type)} #{action.entity_id}</span>
+              <small>{action.reason}</small>
+            </div>
+          ))}
+        </aside>
+      </div>
+    </section>
   );
 }
 
@@ -272,6 +398,59 @@ function variantMatchesFilters(model: CatalogModelAdmin, variant: CatalogVariant
   if (filters.firmware_family && variant.firmware_family !== filters.firmware_family) return false;
   if (filters.trust_state && model.trust_state !== filters.trust_state && variant.trust_state !== filters.trust_state) return false;
   return true;
+}
+
+function entityTypeLabel(value: string): string {
+  const labels: Record<string, string> = {
+    post: "Discussão",
+    comment: "Comentário",
+    profile: "Perfil",
+    library_item: "Arquivo 3D",
+    catalog_variant: "Variação",
+    community: "Comunidade",
+    tag: "Tag",
+  };
+  return labels[value] ?? value;
+}
+
+function reasonLabel(value: string): string {
+  const labels: Record<string, string> = {
+    spam: "Spam",
+    unsafe: "Risco técnico",
+    illegal: "Conteúdo ilegal",
+    harassment: "Assédio",
+    privacy: "Privacidade",
+    wrong_metadata: "Metadados incorretos",
+    other: "Outro",
+  };
+  return labels[value] ?? value;
+}
+
+function statusLabel(value: string): string {
+  const labels: Record<string, string> = {
+    open: "Aberta",
+    reviewing: "Em revisão",
+    resolved: "Resolvida",
+    dismissed: "Descartada",
+  };
+  return labels[value] ?? value;
+}
+
+function actionLabel(value: string): string {
+  const labels: Record<string, string> = {
+    mark_reviewing: "Revisão",
+    hide: "Ocultação",
+    remove: "Remoção",
+    block: "Bloqueio",
+    restore: "Restauração",
+    dismiss: "Descarte",
+    curate: "Curadoria",
+  };
+  return labels[value] ?? value;
+}
+
+function defaultModerationReason(action: ModerationAction): string {
+  return action === "dismiss" ? "Denúncia revisada sem ação necessária" : "Ação aplicada após revisão de moderação";
 }
 
 function CatalogPagination({ page, pageSize, totalItems, onPageChange }: { page: number; pageSize: number; totalItems: number; onPageChange: (page: number) => void }) {

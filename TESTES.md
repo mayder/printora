@@ -328,6 +328,34 @@ Evidência visual esperada:
 - desktop e mobile sem sobreposição;
 - payload público inspecionado sem Moonraker, agente, SSH, token, IP operacional, organização, permissão ou identificadores internos.
 
+### PKG-66 - Moderação, denúncias e curadoria
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+cd backend && uv run --extra dev pytest ../backend/tests/test_social_catalog.py -k 'social_moderation' -q
+cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- usuário autenticado cria denúncia para entidade social existente;
+- usuário comum não acessa fila administrativa de moderação;
+- administrador lista denúncias, aplica ação com motivo e registra histórico;
+- ocultação/bloqueio/remove usa estado lógico e não apaga conteúdo;
+- restauração recoloca conteúdo elegível na leitura pública;
+- tags, comunidades e variações de catálogo podem ser bloqueadas ou restauradas por curadoria;
+- `catalog_audit_events` guarda trilha auditável sem payload sensível.
+
+Evidência visual esperada:
+
+- tela `Catálogo` mostra painel de `Moderação` apenas para administrador;
+- painel tem filtro de estado, lista de denúncias, detalhe, motivo obrigatório, ações com ícones e histórico recente;
+- usuário comum permanece em leitura de catálogo sem ver fila administrativa;
+- desktop e mobile sem sobreposição de texto ou controles.
+
 ### PKG-56 - Biblioteca base de arquivos STL/3MF
 
 Validação automatizada obrigatória para fechamento:

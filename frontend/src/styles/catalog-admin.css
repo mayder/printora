@@ -11,6 +11,7 @@
 .catalog-filter-panel,
 .catalog-results-panel,
 .catalog-detail-panel,
+.catalog-moderation-panel,
 .catalog-admin-empty {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -58,10 +59,160 @@
 }
 
 .catalog-admin-actions button,
-.catalog-filter-actions button {
+.catalog-filter-actions button,
+.catalog-moderation-tools button,
+.catalog-moderation-actions button {
   align-items: center;
   display: inline-flex;
   gap: 8px;
+}
+
+.catalog-moderation-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+
+.catalog-moderation-tools {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.catalog-moderation-tools select {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.catalog-moderation-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 0.8fr);
+}
+
+.catalog-moderation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.catalog-moderation-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+
+.catalog-moderation-card header,
+.catalog-moderation-card dl {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.catalog-moderation-card header div,
+.catalog-moderation-card dl div {
+  min-width: 0;
+}
+
+.catalog-moderation-card header span,
+.catalog-moderation-card p,
+.catalog-moderation-card dd,
+.catalog-moderation-history small,
+.catalog-moderation-history > span {
+  color: var(--muted);
+}
+
+.catalog-moderation-card p,
+.catalog-moderation-card dl {
+  margin: 0;
+}
+
+.catalog-moderation-card dt {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.catalog-moderation-card dd {
+  margin: 2px 0 0;
+}
+
+.catalog-moderation-reason {
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  font-size: 0.82rem;
+  font-weight: 800;
+  gap: 6px;
+}
+
+.catalog-moderation-reason input {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  min-height: 38px;
+  padding: 9px 10px;
+}
+
+.catalog-moderation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.catalog-moderation-actions .danger-action {
+  border-color: rgba(248, 113, 113, 0.42);
+  color: #fca5a5;
+}
+
+.catalog-moderation-history {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.catalog-moderation-history div {
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 10px;
+}
+
+.catalog-state.moderation-open {
+  background: rgba(250, 204, 21, 0.14);
+  color: #facc15;
+}
+
+.catalog-state.moderation-reviewing {
+  background: rgba(34, 211, 238, 0.14);
+  color: var(--accent);
+}
+
+.catalog-state.moderation-resolved {
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+}
+
+.catalog-state.moderation-dismissed {
+  background: rgba(148, 163, 184, 0.14);
+  color: var(--muted);
 }
 
 .catalog-filter-panel {
@@ -920,7 +1071,8 @@
   .catalog-profile-grid,
   .catalog-detail-grid,
   .catalog-curation-grid,
-  .catalog-components-grid {
+  .catalog-components-grid,
+  .catalog-moderation-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -954,8 +1106,16 @@
   .catalog-source-list,
   .catalog-component-list,
   .catalog-curation-status-body dl,
-  .catalog-components-grid {
+  .catalog-components-grid,
+  .catalog-moderation-grid {
     grid-template-columns: 1fr;
+  }
+
+  .catalog-moderation-tools,
+  .catalog-moderation-card header,
+  .catalog-moderation-card dl {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .catalog-filter-actions {

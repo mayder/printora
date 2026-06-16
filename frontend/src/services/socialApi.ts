@@ -16,6 +16,12 @@ import type {
   LibraryOrganizerSummary,
   LibraryLicense,
   LibraryVisibility,
+  ModerationAction,
+  ModerationEntityType,
+  ModerationQueue,
+  ModerationReason,
+  ModerationReport,
+  ModerationReportStatus,
   PrintListItemStatus,
   ProfileVisibility,
   PublicPrinter,
@@ -215,6 +221,19 @@ export interface SearchDiscoveryFilters {
   page_size?: number;
 }
 
+export interface ModerationReportPayload {
+  entity_type: ModerationEntityType;
+  entity_id: number;
+  reason: ModerationReason;
+  detail?: string;
+}
+
+export interface ModerationActionPayload {
+  action: ModerationAction;
+  reason: string;
+  status?: string | null;
+}
+
 export const socialApi = {
   catalog: () => apiRequest<CatalogSummary>("/api/catalog"),
   adminCatalog: (filters: CatalogAdminFilters = {}) => {
@@ -258,6 +277,19 @@ export const socialApi = {
     return apiRequest<RecommendationResponse>(`/api/social/recommendations${query ? `?${query}` : ""}`);
   },
   reputation: (limit = 20) => apiRequest<ReputationResponse>(`/api/social/reputation?limit=${encodeURIComponent(String(limit))}`),
+  reportContent: (payload: ModerationReportPayload) =>
+    apiRequest<ModerationReport>("/api/social/reports", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  moderationQueue: (status?: ModerationReportStatus | "") => apiRequest<ModerationQueue>(`/api/social/moderation/queue${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+  applyModerationAction: (reportId: number, payload: ModerationActionPayload) =>
+    apiRequest<ModerationReport>(`/api/social/moderation/reports/${reportId}/actions`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
   publicPrinter: (printerId: number | string) => apiRequest<PublicPrinter>(`/api/public/printers/${encodeURIComponent(String(printerId))}`),
   publicPrinters: (filters: { manufacturer?: string; model?: string; variant?: string; mod?: string } = {}) => {
     const params = new URLSearchParams();
