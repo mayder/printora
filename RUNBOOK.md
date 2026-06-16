@@ -281,6 +281,44 @@ Retenção:
 - qualquer limpeza futura deve ser job/scritp supervisionado, idempotente e com
   janela de retenção documentada antes da execução.
 
+O schema de notificações sociais é aplicado por
+`backend/sql/058_social_notifications.sql`. A central in-app usa
+`GET /api/social/notifications`; preferências usam
+`PUT /api/social/notifications/preferences`; acompanhamentos usam
+`POST /api/social/content-follows` e
+`DELETE /api/social/content-follows/{entity_type}/{entity_id}`.
+
+Operação:
+
+- notificações sociais ficam na tela `Social > Notificações`;
+- alertas de impressora, agente, Moonraker, firmware, manutenção ou suporte não
+  entram na central social;
+- usuário pode desligar notificação in-app por tipo;
+- usuário pode acompanhar ou silenciar conteúdo específico;
+- digest é agrupamento in-app pendente, sem envio externo nesta etapa;
+- bloqueio social impede notificação entre usuários bloqueados.
+
+Validação pós-publicação:
+
+```bash
+curl -fsS -H "Authorization: Bearer <token>" \
+  "https://<host>/api/social/notifications"
+```
+
+Rollback:
+
+- rollback funcional: remover a aba, rotas e integrações de emissão, mantendo
+  tabelas como legado;
+- rollback estrutural: restaurar backup SQLite anterior ao script
+  `058_social_notifications.sql`;
+- não apagar notificações, preferências ou follows sem confirmação explícita.
+
+Retenção:
+
+- notificações e follows são dados sociais do usuário, não log operacional;
+- qualquer limpeza futura deve respeitar preferências/privacidade e ter janela
+  de retenção documentada antes da execução.
+
 Perfis de material e fatiamento:
 
 ```bash

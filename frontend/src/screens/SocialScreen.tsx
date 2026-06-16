@@ -1,11 +1,11 @@
 import React from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, FileText, Filter, Globe2, RefreshCw, Search, Shield, Tags, UserRound, Users, Wrench } from "lucide-react";
+import { Bell, Check, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, FileText, Filter, Globe2, RefreshCw, Search, Shield, Tags, UserRound, Users, Wrench } from "lucide-react";
 import { socialApi } from "../services/socialApi";
 import type { ScreenPropsFor } from "./ScreenProps";
-import type { CatalogSummary, Community, PublicPrinter, PublicProfile, RecommendationResponse, RelationshipRecord, RelationshipSummary, SearchEntityType, SearchOrder, SearchResponse } from "../types";
+import type { CatalogSummary, Community, NotificationCenter, NotificationPreference, PublicPrinter, PublicProfile, RecommendationResponse, RelationshipRecord, RelationshipSummary, SearchEntityType, SearchOrder, SearchResponse, SocialNotificationStatus } from "../types";
 
 type SocialScreenProps = ScreenPropsFor<"setError">;
-type SocialTab = "discovery" | "communities" | "printers" | "makers" | "relationships";
+type SocialTab = "discovery" | "communities" | "printers" | "makers" | "relationships" | "notifications";
 type SocialFilters = { manufacturer: string; model: string; variant: string; component: string; mod: string };
 type DiscoveryFilters = { entity_type: SearchEntityType | ""; tag: string; material: string; component: string; license: string; file_kind: string; order: SearchOrder };
 type FilterOption = { value: string; label: string };
@@ -17,6 +17,7 @@ const socialTabs: Array<{ key: SocialTab; label: string; icon: typeof Users }> =
   { key: "printers", label: "Impressoras", icon: Globe2 },
   { key: "makers", label: "Makers", icon: UserRound },
   { key: "relationships", label: "Relações", icon: Shield },
+  { key: "notifications", label: "Notificações", icon: Bell },
 ];
 
 export function SocialScreen({ setError }: SocialScreenProps) {
@@ -31,8 +32,10 @@ export function SocialScreen({ setError }: SocialScreenProps) {
   const [discoveryFilters, setDiscoveryFilters] = React.useState<DiscoveryFilters>({ entity_type: "", tag: "", material: "", component: "", license: "", file_kind: "", order: "relevance" });
   const [discovery, setDiscovery] = React.useState<SearchResponse | null>(null);
   const [recommendations, setRecommendations] = React.useState<RecommendationResponse | null>(null);
+  const [notificationCenter, setNotificationCenter] = React.useState<NotificationCenter | null>(null);
+  const [notificationStatus, setNotificationStatus] = React.useState<SocialNotificationStatus | "">("");
   const [filters, setFilters] = React.useState<SocialFilters>({ manufacturer: "", model: "", variant: "", component: "", mod: "" });
-  const [pages, setPages] = React.useState<Record<SocialTab, number>>({ discovery: 1, communities: 1, printers: 1, makers: 1, relationships: 1 });
+  const [pages, setPages] = React.useState<Record<SocialTab, number>>({ discovery: 1, communities: 1, printers: 1, makers: 1, relationships: 1, notifications: 1 });
   const [busy, setBusy] = React.useState(false);
   const [discoveryBusy, setDiscoveryBusy] = React.useState(false);
 
@@ -82,6 +85,12 @@ export function SocialScreen({ setError }: SocialScreenProps) {
     void loadSearchContent(pages.discovery);
   }, [discoveryFilters.entity_type, discoveryFilters.tag, discoveryFilters.material, discoveryFilters.component, discoveryFilters.license, discoveryFilters.file_kind, discoveryFilters.order, pages.discovery]);
 
+  React.useEffect(() => {
+    if (activeTab === "notifications") {
+      void loadNotifications();
+    }
+  }, [activeTab, notificationStatus]);
+
   async function loadSearchContent(page = 1) {
     setDiscoveryBusy(true);
     try {
@@ -113,6 +122,32 @@ export function SocialScreen({ setError }: SocialScreenProps) {
     }
   }
 
+  async function loadNotifications() {
+    try {
+      setNotificationCenter(await socialApi.notificationCenter(notificationStatus));
+    } catch {
+      setNotificationCenter(null);
+    }
+  }
+
+  async function markAllNotificationsRead() {
+    try {
+      await socialApi.markAllNotificationsRead();
+      await loadNotifications();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao marcar notificações");
+    }
+  }
+
+  async function updateNotificationPreference(preference: NotificationPreference, patch: Partial<NotificationPreference>) {
+    try {
+      await socialApi.updateNotificationPreference({ ...preference, ...patch });
+      await loadNotifications();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao atualizar preferência");
+    }
+  }
+
   const relationshipCount =
     relationItems(relationships?.following).length +
     relationItems(relationships?.followers).length +
@@ -132,6 +167,7 @@ export function SocialScreen({ setError }: SocialScreenProps) {
           <Metric icon={Users} label="Comunidades" value={String(communities.length)} />
           <Metric icon={Globe2} label="Impressoras públicas" value={String(publicPrinters.length)} />
           <Metric icon={Shield} label="Relações" value={String(relationshipCount)} />
+          <Metric icon={Bell} label="Não lidas" value={String(notificationCenter?.unread_count ?? 0)} />
         </div>
       </section>
 
@@ -189,8 +225,100 @@ export function SocialScreen({ setError }: SocialScreenProps) {
           <MakersTab makers={makers} makerSearch={makerSearch} setMakerSearch={setMakerSearch} searchMakers={searchMakers} busy={busy} page={pages.makers} setPage={(page) => setPages((current) => ({ ...current, makers: page }))} />
         ) : null}
         {activeTab === "relationships" ? <RelationshipsTab relationships={relationships} /> : null}
+        {activeTab === "notifications" ? (
+          <NotificationsTab
+            center={notificationCenter}
+            status={notificationStatus}
+            setStatus={setNotificationStatus}
+            reload={loadNotifications}
+            markAllRead={markAllNotificationsRead}
+            updatePreference={updateNotificationPreference}
+          />
+        ) : null}
       </section>
     </div>
+  );
+}
+
+function NotificationsTab({
+  center,
+  status,
+  setStatus,
+  reload,
+  markAllRead,
+  updatePreference,
+}: {
+  center: NotificationCenter | null;
+  status: SocialNotificationStatus | "";
+  setStatus: (status: SocialNotificationStatus | "") => void;
+  reload: () => void;
+  markAllRead: () => void;
+  updatePreference: (preference: NotificationPreference, patch: Partial<NotificationPreference>) => void;
+}) {
+  return (
+    <section className="social-notifications-panel">
+      <header className="social-section-heading">
+        <div>
+          <span className="eyebrow">Central social</span>
+          <h4>Notificações de comunidade e conteúdo</h4>
+        </div>
+        <div className="social-notification-tools">
+          <select value={status} onChange={(event) => setStatus(event.target.value as SocialNotificationStatus | "")} aria-label="Filtrar notificações sociais">
+            <option value="">Todas</option>
+            <option value="unread">Não lidas</option>
+            <option value="read">Lidas</option>
+            <option value="archived">Arquivadas</option>
+          </select>
+          <button type="button" className="secondary-button" onClick={reload}>
+            <RefreshCw size={15} />
+            Atualizar
+          </button>
+          <button type="button" className="primary-button" onClick={markAllRead} disabled={!center?.unread_count}>
+            <Check size={15} />
+            Marcar lidas
+          </button>
+        </div>
+      </header>
+
+      <div className="social-notification-grid">
+        <div className="social-notification-list">
+          {center?.notifications.length ? null : <EmptyState title="Sem notificações sociais" text="Interações de comunidade, respostas, relações e conteúdo acompanhado aparecerão aqui." />}
+          {center?.notifications.map((notification) => (
+            <article className={`social-notification-card ${notification.status === "unread" ? "unread" : ""}`} key={notification.id}>
+              <header>
+                <Bell size={16} />
+                <div>
+                  <strong>{notification.title}</strong>
+                  <span>{notificationLabel(notification.notification_type)} · {notification.actor_display_name ?? "Sistema social"}</span>
+                </div>
+              </header>
+              <p>{notification.body}</p>
+              {notification.action_url ? <a href={notification.action_url}>Abrir contexto</a> : null}
+            </article>
+          ))}
+        </div>
+
+        <aside className="social-notification-side">
+          <section>
+            <strong>Digest</strong>
+            {center?.digest.length ? center.digest.slice(0, 5).map((item) => <span key={item.id}>{item.title}</span>) : <span>Nenhum item pendente para digest.</span>}
+          </section>
+          <section>
+            <strong>Acompanhando</strong>
+            {center?.follows.length ? center.follows.slice(0, 6).map((follow) => <span key={follow.id}>{follow.title}{follow.muted ? " · silenciado" : ""}</span>) : <span>Nenhum conteúdo acompanhado.</span>}
+          </section>
+          <section>
+            <strong>Preferências</strong>
+            {center?.preferences.map((preference) => (
+              <label className="social-preference-row" key={preference.notification_type}>
+                <span>{notificationLabel(preference.notification_type)}</span>
+                <input type="checkbox" checked={preference.in_app_enabled} onChange={(event) => updatePreference(preference, { in_app_enabled: event.target.checked })} />
+              </label>
+            ))}
+          </section>
+        </aside>
+      </div>
+    </section>
   );
 }
 
@@ -809,6 +937,21 @@ function RelationshipBlock({ title, items }: { title: string; items: Relationshi
 
 function relationStatusLabel(status: string) {
   return { active: "ativo", pending: "pendente", accepted: "aceito", ended: "encerrado" }[status] ?? status;
+}
+
+function notificationLabel(type: string) {
+  const labels: Record<string, string> = {
+    comment: "Resposta",
+    reaction: "Reação",
+    solution: "Solução",
+    follow: "Seguidor",
+    friend_request: "Amizade",
+    friend_accept: "Amizade aceita",
+    content_update: "Atualização",
+    community_post: "Comunidade",
+    digest: "Digest",
+  };
+  return labels[type] ?? type;
 }
 
 function EmptyState({ title, text }: { title: string; text: string }) {

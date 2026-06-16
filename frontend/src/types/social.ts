@@ -16,6 +16,9 @@ export type ModerationEntityType = "post" | "comment" | "profile" | "library_ite
 export type ModerationReason = "spam" | "unsafe" | "illegal" | "harassment" | "privacy" | "wrong_metadata" | "other";
 export type ModerationReportStatus = "open" | "reviewing" | "resolved" | "dismissed";
 export type ModerationAction = "mark_reviewing" | "hide" | "remove" | "block" | "restore" | "dismiss" | "curate";
+export type SocialNotificationType = "comment" | "reaction" | "solution" | "follow" | "friend_request" | "friend_accept" | "content_update" | "community_post" | "digest";
+export type SocialNotificationStatus = "unread" | "read" | "archived";
+export type ContentFollowEntityType = "post" | "library_item" | "catalog_variant" | "community" | "collection";
 
 export interface CatalogVariant {
   id: number;
@@ -545,6 +548,49 @@ export interface ModerationActionRecord {
 export interface ModerationQueue {
   reports: ModerationReport[];
   actions: ModerationActionRecord[];
+}
+
+export interface SocialNotification {
+  id: number;
+  recipient_user_id: number;
+  actor_user_id: number | null;
+  actor_display_name: string | null;
+  notification_type: SocialNotificationType;
+  entity_type: string;
+  entity_id: number;
+  title: string;
+  body: string;
+  action_url: string | null;
+  status: SocialNotificationStatus;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  read_at: string | null;
+}
+
+export interface NotificationPreference {
+  notification_type: SocialNotificationType;
+  in_app_enabled: boolean;
+  digest_enabled: boolean;
+}
+
+export interface ContentFollow {
+  id: number;
+  user_id: number;
+  entity_type: ContentFollowEntityType;
+  entity_id: number;
+  muted: boolean;
+  digest_enabled: boolean;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationCenter {
+  notifications: SocialNotification[];
+  unread_count: number;
+  preferences: NotificationPreference[];
+  follows: ContentFollow[];
+  digest: SocialNotification[];
 }
 
 export interface TagRecord {

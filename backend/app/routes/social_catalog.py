@@ -46,6 +46,7 @@ from app.social_catalog import (
     SocialCatalogRepository,
     TrustState,
 )
+from app.social_notifications import SocialNotificationsRepository
 
 
 router = APIRouter(tags=["social-catalog"])
@@ -53,6 +54,10 @@ router = APIRouter(tags=["social-catalog"])
 
 def get_social_repository() -> SocialCatalogRepository:
     return SocialCatalogRepository(get_settings().database_path)
+
+
+def get_notification_repository() -> SocialNotificationsRepository:
+    return SocialNotificationsRepository(get_settings().database_path)
 
 
 def require_catalog_admin(
@@ -590,8 +595,17 @@ async def create_community_post(
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> CommunityFeedSummary:
     try:
-        repository.create_community_post(slug, current.user.id, payload)
+        post = repository.create_community_post(slug, current.user.id, payload)
         feed = repository.list_community_feed(slug, order="recommended", page=1, page_size=20)
+        _notify_content_followers(
+            current.user.id,
+            "community",
+            post.community_id,
+            "community_post",
+            "Nova discussão na comunidade",
+            post.title,
+            f"/c/{slug}",
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if feed is None:
@@ -652,7 +666,21 @@ async def create_post_comment(
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> DiscussionComment:
     try:
-        return repository.create_comment(post_id, current.user.id, payload)
+        comment = repository.create_comment(post_id, current.user.id, payload)
+        discussion = repository.discussion_detail(post_id)
+        if discussion is not None:
+            recipients = {discussion.post.author_user_id} if discussion.post.author_user_id else set()
+            _notify_content_followers(
+                current.user.id,
+                "post",
+                post_id,
+                "comment",
+                "Nova resposta em discussão",
+                discussion.post.title,
+                "/?section=social",
+                recipients,
+            )
+        return comment
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -695,6 +723,18 @@ async def react_to_post(
 ) -> None:
     try:
         repository.set_reaction("post", post_id, current.user.id, payload.reaction_type, True)
+        discussion = repository.discussion_detail(post_id)
+        if discussion is not None and discussion.post.author_user_id:
+            _notify_user(
+                discussion.post.author_user_id,
+                current.user.id,
+                "reaction",
+                "post",
+                post_id,
+                "Nova reação na sua discussão",
+                discussion.post.title,
+                "/?section=social",
+            )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -734,6 +774,18 @@ async def mark_post_solution(
     try:
         repository.mark_solution(post_id, comment_id, current.user.id, is_social_admin(current))
         discussion = repository.discussion_detail(post_id)
+        if discussion is not None and comment_id is not None:
+            recipients = {discussion.post.author_user_id} if discussion.post.author_user_id else set()
+            _notify_content_followers(
+                current.user.id,
+                "post",
+                post_id,
+                "solution",
+                "Solução marcada em discussão",
+                discussion.post.title,
+                "/?section=social",
+                recipients,
+            )
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
@@ -758,7 +810,9 @@ async def follow_user(
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> RelationshipRecord:
     try:
-        return repository.set_relationship(current.user.id, target_user_id, "follow", "active")
+        relationship = repository.set_relationship(current.user.id, target_user_id, "follow", "active")
+        _notify_user(target_user_id, current.user.id, "follow", "relationship", current.user.id, "Novo seguidor", "Alguém começou a seguir seu perfil.", "/?section=social")
+        return relationship
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
@@ -781,7 +835,9 @@ async def request_friendship(
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> RelationshipRecord:
     try:
-        return repository.set_relationship(current.user.id, target_user_id, "friend", "pending")
+        relationship = repository.set_relationship(current.user.id, target_user_id, "friend", "pending")
+        _notify_user(target_user_id, current.user.id, "friend_request", "relationship", current.user.id, "Nova solicitação de amizade", "Revise a solicitação em Relações.", "/?section=social")
+        return relationship
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
@@ -795,7 +851,9 @@ async def accept_friendship(
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> RelationshipRecord:
     try:
-        return repository.accept_friend(current.user.id, requester_user_id)
+        relationship = repository.accept_friend(current.user.id, requester_user_id)
+        _notify_user(requester_user_id, current.user.id, "friend_accept", "relationship", current.user.id, "Solicitação aceita", "A conexão social foi aceita.", "/?section=social")
+        return relationship
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
@@ -857,3 +915,53 @@ async def unblock_user(
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> None:
     repository.set_relationship(current.user.id, target_user_id, "block", "ended")
+
+
+def _notify_user(
+    recipient_user_id: int,
+    actor_user_id: int,
+    notification_type: str,
+    entity_type: str,
+    entity_id: int,
+    title: str,
+    body: str,
+    action_url: str | None,
+) -> None:
+    try:
+        get_notification_repository().create_notification(
+            recipient_user_id,
+            actor_user_id=actor_user_id,
+            notification_type=notification_type,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            title=title,
+            body=body,
+            action_url=action_url,
+        )
+    except Exception:
+        return
+
+
+def _notify_content_followers(
+    actor_user_id: int,
+    entity_type: str,
+    entity_id: int,
+    notification_type: str,
+    title: str,
+    body: str,
+    action_url: str | None,
+    extra_recipient_user_ids: set[int] | None = None,
+) -> None:
+    try:
+        get_notification_repository().notify_content_followers(
+            actor_user_id=actor_user_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            notification_type=notification_type,
+            title=title,
+            body=body,
+            action_url=action_url,
+            extra_recipient_user_ids=extra_recipient_user_ids,
+        )
+    except Exception:
+        return

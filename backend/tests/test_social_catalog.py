@@ -15,6 +15,7 @@ from app.print_profiles import MaterialProfilePayload, PrintProfilesRepository, 
 from app.search_discovery import SearchDiscoveryRepository
 from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, LibraryCollectionCreate, LibraryCollectionItemCreate, LibraryFileMetadata, LibraryItemCreate, LibraryItemUpdate, LibraryVersionCreate, PrintListCreate, PrintListItemCreate, PrintListItemUpdate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
 from app.social_moderation import ModerationActionPayload, ModerationReportCreate, SocialModerationRepository
+from app.social_notifications import ContentFollowPayload, NotificationPreferenceUpdate, SocialNotificationsRepository
 from app.social_ranking import SocialRankingRepository
 from app.technical_profiles import TechnicalPrinterConfigPayload, TechnicalProfilesRepository
 
@@ -2429,6 +2430,116 @@ def test_social_moderation_queue_is_admin_only_and_curates_tags(tmp_path, monkey
             with connect_database(tmp_path / "printora.db") as connection:
                 tag = connection.execute("SELECT status, source FROM social_content_tags WHERE id = ?", (tag_id,)).fetchone()
             assert dict(tag) == {"status": "blocked", "source": "curation"}
+    finally:
+        get_settings.cache_clear()
+
+
+def test_social_notifications_follow_preferences_and_blocking(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="owner-notify@example.com", password="correct-horse", display_name="Owner"))
+    watcher = auth.create_user(UserRegisterRequest(email="watcher@example.com", password="correct-horse", display_name="Watcher"))
+    blocked = auth.create_user(UserRegisterRequest(email="blocked-notify@example.com", password="correct-horse", display_name="Blocked"))
+    social = SocialCatalogRepository(database_path)
+    social.update_profile(owner.id, PublicProfileUpdate(slug="owner-notify", display_name="Owner", visibility="public"))
+    social.update_profile(watcher.id, PublicProfileUpdate(slug="watcher", display_name="Watcher", visibility="public"))
+    community = social.list_communities(variant="voron-2-4-r2-350")[0]
+    post = social.create_community_post(
+        community.slug,
+        owner.id,
+        CommunityPostCreate(content_type="question", title="Ajuste de ABS", body="Qual perfil técnico usar?", material="ABS"),
+    )
+    notifications = SocialNotificationsRepository(database_path)
+
+    follow = notifications.follow_content(watcher.id, ContentFollowPayload(entity_type="post", entity_id=post.id))
+    notifications.notify_content_followers(
+        actor_user_id=owner.id,
+        entity_type="post",
+        entity_id=post.id,
+        notification_type="comment",
+        title="Nova resposta",
+        body="Há uma nova resposta técnica.",
+        action_url="/?section=social",
+    )
+    center = notifications.notification_center(watcher.id)
+    read = notifications.mark_read(watcher.id, center.notifications[0].id)
+    notifications.update_preference(watcher.id, NotificationPreferenceUpdate(notification_type="comment", in_app_enabled=False, digest_enabled=True))
+    notifications.notify_content_followers(
+        actor_user_id=owner.id,
+        entity_type="post",
+        entity_id=post.id,
+        notification_type="comment",
+        title="Resposta silenciada",
+        body="Esta notificação não deve entrar.",
+        action_url="/?section=social",
+    )
+    muted_center = notifications.notification_center(watcher.id)
+    social.set_relationship(watcher.id, blocked.id, "block", "active")
+    notifications.create_notification(
+        watcher.id,
+        actor_user_id=blocked.id,
+        notification_type="follow",
+        entity_type="relationship",
+        entity_id=blocked.id,
+        title="Bloqueado",
+        body="Não deve notificar.",
+        action_url="/?section=social",
+    )
+    after_block = notifications.notification_center(watcher.id)
+
+    assert follow.title == "Ajuste de ABS"
+    assert center.unread_count == 1
+    assert center.notifications[0].notification_type == "comment"
+    assert read.status == "read"
+    assert muted_center.unread_count == 0
+    assert len(muted_center.notifications) == 1
+    assert after_block.notifications == muted_center.notifications
+
+
+def test_social_notification_routes_emit_relationship_and_comment_events(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner = client.post("/api/auth/register", json={"email": "notify-owner@example.com", "password": "correct-horse", "display_name": "Owner"}).json()
+            peer = client.post("/api/auth/register", json={"email": "notify-peer@example.com", "password": "correct-horse", "display_name": "Peer"}).json()
+            owner_token = owner["access_token"]
+            peer_token = peer["access_token"]
+            owner_id = owner["user"]["id"]
+            peer_id = peer["user"]["id"]
+            slug = SocialCatalogRepository(tmp_path / "printora.db").list_communities(variant="voron-2-4-r2-350")[0].slug
+            post_feed = client.post(
+                f"/api/social/communities/{slug}/posts",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"content_type": "question", "title": "Resposta notificada", "body": "Como ajustar fluxo?"},
+            ).json()
+            post_id = next(item["id"] for item in post_feed["items"] if item["title"] == "Resposta notificada")
+            client.post(
+                "/api/social/content-follows",
+                headers={"Authorization": f"Bearer {peer_token}"},
+                json={"entity_type": "post", "entity_id": post_id},
+            )
+            comment = client.post(
+                f"/api/social/posts/{post_id}/comments",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"body": "Resposta técnica com contexto."},
+            )
+            follow = client.post(f"/api/social/relationships/{peer_id}/follow", headers={"Authorization": f"Bearer {owner_token}"})
+            peer_center = client.get("/api/social/notifications", headers={"Authorization": f"Bearer {peer_token}"}).json()
+            owner_center = client.get("/api/social/notifications", headers={"Authorization": f"Bearer {owner_token}"}).json()
+            mark_all = client.post("/api/social/notifications/read-all", headers={"Authorization": f"Bearer {peer_token}"})
+            after_read = client.get("/api/social/notifications", headers={"Authorization": f"Bearer {peer_token}"}).json()
+
+            assert comment.status_code == 200
+            assert follow.status_code == 200
+            assert any(item["notification_type"] == "comment" for item in peer_center["notifications"])
+            assert any(item["notification_type"] == "follow" for item in peer_center["notifications"])
+            assert mark_all.status_code == 204
+            assert after_read["unread_count"] == 0
+            assert "moonraker" not in str(peer_center).lower()
+            assert "notify-peer@example.com" not in str(owner_center)
     finally:
         get_settings.cache_clear()
 

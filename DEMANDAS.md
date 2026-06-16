@@ -4114,7 +4114,17 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado via `backend/sql/058_social_notifications.sql`.
+- Implementado domínio `backend/app/social_notifications.py` e rotas `backend/app/routes/social_notifications.py`.
+- Notificações in-app sociais cobrem respostas, reações, solução marcada, follow, solicitação/aceite de amizade, post de comunidade e atualizações de conteúdo acompanhado.
+- Preferências por usuário permitem ligar/desligar notificação in-app por tipo e preparar digest por tipo.
+- Acompanhamento de conteúdo cobre post, arquivo 3D, variação de catálogo, comunidade e coleção, com opção de silenciar e incluir em digest.
+- Eventos sociais principais emitem notificação sem misturar alertas operacionais da impressora.
+- Notificações respeitam bloqueio social e não são emitidas para o próprio ator.
+- UI adicionada como aba `Notificações` na tela `Social`, com filtro de estado, lista, digest, acompanhamentos e preferências.
+- Documentação atualizada em `TELAS.md`, `TESTES.md`, `DECISOES.md` e `RUNBOOK.md`.
+- Testes focados adicionados para preferências, follow de conteúdo, bloqueio, rotas, leitura e payload sanitizado.
+- Validação executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_social_catalog.py -k 'social_notifications or notification_routes' -q`; `cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q`; `npm --prefix frontend run build`.
 
 ## PKG-68: Privacidade, Segurança Social E Antiabuso
 

@@ -22,6 +22,8 @@ import type {
   ModerationReason,
   ModerationReport,
   ModerationReportStatus,
+  NotificationCenter,
+  NotificationPreference,
   PrintListItemStatus,
   ProfileVisibility,
   PublicPrinter,
@@ -33,6 +35,9 @@ import type {
   SearchEntityType,
   SearchOrder,
   SearchResponse,
+  SocialNotification,
+  SocialNotificationStatus,
+  SocialNotificationType,
   TagRecord,
   MaterialProfile,
   MaterialProfileExport,
@@ -234,6 +239,12 @@ export interface ModerationActionPayload {
   status?: string | null;
 }
 
+export interface NotificationPreferencePayload {
+  notification_type: SocialNotificationType;
+  in_app_enabled: boolean;
+  digest_enabled: boolean;
+}
+
 export const socialApi = {
   catalog: () => apiRequest<CatalogSummary>("/api/catalog"),
   adminCatalog: (filters: CatalogAdminFilters = {}) => {
@@ -290,6 +301,16 @@ export const socialApi = {
       headers: jsonHeaders,
       body: JSON.stringify(payload),
     }),
+  notificationCenter: (status?: SocialNotificationStatus | "") =>
+    apiRequest<NotificationCenter>(`/api/social/notifications${status ? `?status_filter=${encodeURIComponent(status)}` : ""}`),
+  updateNotificationPreference: (payload: NotificationPreferencePayload) =>
+    apiRequest<NotificationPreference[]>("/api/social/notifications/preferences", {
+      method: "PUT",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  markNotificationRead: (notificationId: number) => apiRequest<SocialNotification>(`/api/social/notifications/${notificationId}/read`, { method: "POST" }),
+  markAllNotificationsRead: () => apiRequest<void>("/api/social/notifications/read-all", { method: "POST" }),
   publicPrinter: (printerId: number | string) => apiRequest<PublicPrinter>(`/api/public/printers/${encodeURIComponent(String(printerId))}`),
   publicPrinters: (filters: { manufacturer?: string; model?: string; variant?: string; mod?: string } = {}) => {
     const params = new URLSearchParams();

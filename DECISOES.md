@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260616-14 - Notificacoes sociais ficam separadas de alertas operacionais
+
+Status: aceita
+Data: 2026-06-16
+Contexto: interacoes sociais, comunidades e conteudo acompanhado precisam notificar o usuario sem competir com alertas de impressora, agente, firmware, Moonraker ou manutencao. Misturar esses fluxos criaria ruido operacional e risco de tratar like/resposta como incidente tecnico.
+Decisao: criar o dominio `social_notifications`, com SQL proprio em `058_social_notifications.sql`, central in-app, preferencias por tipo, acompanhamento de conteudo e digest opcional. Eventos sociais principais emitem notificacoes por rota/dominio, respeitando bloqueio social, preferencias e auto-notificacao. A UI fica como aba `Notificacoes` dentro de `Social`, enquanto alertas operacionais continuam nas telas de frota, impressora, agente e administracao.
+Alternativas consideradas: reutilizar alertas operacionais existentes; enviar apenas email; criar notificacoes no frontend; misturar notificacoes na topbar global.
+Consequencias: o produto preserva a separacao entre operacao tecnica e vida social do conteudo. A primeira versao entrega digest como agrupamento in-app pendente, sem agendamento externo ou envio por email.
+Impacto em testes: `backend/tests/test_social_catalog.py` cobre preferencias, follows, bloqueio, emissao por comentarios/relacoes e leitura; build frontend valida a central social.
+Impacto em rollback: medio; remover rotas/UI desativa emissao nova, mas notificacoes/follows ja persistidos podem permanecer como legado sem afetar operacao.
+Como reverter: reverter `backend/app/social_notifications.py`, `backend/app/routes/social_notifications.py`, integracoes em `backend/app/routes/social_catalog.py`, `backend/sql/058_social_notifications.sql`, aba de notificacoes em `SocialScreen.tsx` e documentacao relacionada.
+Referencias: `backend/app/social_notifications.py`, `backend/app/routes/social_notifications.py`, `backend/sql/058_social_notifications.sql`, `frontend/src/screens/SocialScreen.tsx`, `TELAS.md`, `RUNBOOK.md`.
+
 ### DEC-20260616-13 - Moderacao social usa fila auditavel e remocao logica
 
 Status: aceita

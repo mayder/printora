@@ -32,7 +32,7 @@
 .social-status-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .social-metric {
@@ -131,7 +131,7 @@
   border-radius: 8px;
   display: grid;
   gap: 6px;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   padding: 6px;
 }
 
@@ -156,6 +156,98 @@
   background: var(--panel);
   border-color: var(--border);
   color: var(--text);
+}
+
+.social-notifications-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.social-section-heading,
+.social-notification-tools,
+.social-notification-card header {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.social-section-heading h4 {
+  margin: 0;
+}
+
+.social-notification-tools {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.social-notification-tools select {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.social-notification-tools button {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+}
+
+.social-notification-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 0.8fr);
+}
+
+.social-notification-list,
+.social-notification-side,
+.social-notification-side section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.social-notification-card,
+.social-notification-side section {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.social-notification-card.unread {
+  border-color: rgba(34, 211, 238, 0.38);
+}
+
+.social-notification-card header {
+  justify-content: flex-start;
+}
+
+.social-notification-card p {
+  color: var(--muted);
+  margin: 8px 0;
+}
+
+.social-notification-card span,
+.social-notification-side span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.social-preference-row {
+  align-items: center;
+  flex-direction: row !important;
+  justify-content: space-between;
+}
+
+.social-preference-row input {
+  min-height: 18px;
+  width: auto;
 }
 
 .community-filter-grid {
@@ -917,7 +1009,8 @@
   .social-profile-search,
   .social-tabs,
   .relationships-grid,
-  .technical-comparison-grid {
+  .technical-comparison-grid,
+  .social-notification-grid {
     grid-template-columns: 1fr;
   }
 
@@ -931,6 +1024,12 @@
 
   .social-result-toolbar {
     align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .social-section-heading,
+  .social-notification-tools {
+    align-items: stretch;
     flex-direction: column;
   }
 }

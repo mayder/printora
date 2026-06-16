@@ -356,6 +356,32 @@ Evidência visual esperada:
 - usuário comum permanece em leitura de catálogo sem ver fila administrativa;
 - desktop e mobile sem sobreposição de texto ou controles.
 
+### PKG-67 - Notificações sociais e acompanhamento de conteúdo
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+cd backend && uv run --extra dev pytest ../backend/tests/test_social_catalog.py -k 'social_notifications or notification_routes' -q
+cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- usuário pode acompanhar post e receber notificação social de interação;
+- preferências por tipo desligam notificação in-app e preservam digest configurável;
+- bloqueio social impede emissão de notificação entre os usuários envolvidos;
+- rotas autenticadas retornam central, preferências, follows e digest;
+- marcar tudo como lido zera contagem de não lidas;
+- follow/relação e comentário geram notificações sem expor email, Moonraker, token ou dado operacional.
+
+Evidência visual esperada:
+
+- tela `Social` mostra aba `Notificações` separada de alertas operacionais;
+- aba possui filtro por estado, lista, digest, acompanhamentos e preferências por tipo;
+- desktop e mobile sem sobreposição ou overflow horizontal.
+
 ### PKG-56 - Biblioteca base de arquivos STL/3MF
 
 Validação automatizada obrigatória para fechamento:

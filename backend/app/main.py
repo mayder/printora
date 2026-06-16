@@ -29,6 +29,7 @@ from app.routes import (
     snapshots,
     social_catalog,
     social_moderation,
+    social_notifications,
     social_ranking,
     system,
     technical_profiles,
@@ -91,6 +92,7 @@ app.include_router(setup.router)
 app.include_router(snapshots.router)
 app.include_router(social_catalog.router)
 app.include_router(social_moderation.router)
+app.include_router(social_notifications.router)
 app.include_router(social_ranking.router)
 app.include_router(system.router)
 app.include_router(technical_profiles.router)
