@@ -39,6 +39,18 @@ pendentes em banco existente. Rollback estrutural exige restaurar o backup do
 SQLite anterior ao script `044_social_community_feed.sql`; não execute `DELETE`
 manual em itens de feed sem confirmação explícita.
 
+Discussões técnicas:
+
+```bash
+curl -fsS "http://127.0.0.1:8069/api/social/posts/<post_id>/discussion"
+```
+
+O schema de posts/comentários/reações é aplicado por
+`backend/sql/045_social_discussions.sql`. Remoção de post ou comentário é lógica
+por `deleted_at`; não execute `DELETE` manual em discussões, comentários,
+reações ou histórico sem confirmação explícita. Rollback estrutural exige
+restaurar backup SQLite anterior ao script `045_social_discussions.sql`.
+
 ## Comandos principais
 
 ```bash

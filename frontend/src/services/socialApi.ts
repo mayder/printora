@@ -6,6 +6,8 @@ import type {
   Community,
   CommunityDetail,
   CommunityFeedSummary,
+  DiscussionComment,
+  DiscussionDetail,
   FeedContentType,
   FeedOrder,
   ProfileVisibility,
@@ -64,6 +66,23 @@ export interface CatalogVariantCreatePayload {
   firmware_family?: string | null;
   trust_state?: CatalogTrustState;
   source?: string;
+}
+
+export interface CommunityPostPayload {
+  content_type: FeedContentType;
+  title: string;
+  body: string;
+  component?: string | null;
+  material?: string | null;
+  firmware_family?: string | null;
+  problem_tag?: string | null;
+  attachments?: Array<{ kind: "image" | "link"; url: string; label: string }>;
+}
+
+export interface CommunityPostUpdatePayload {
+  title?: string;
+  body?: string;
+  attachments?: Array<{ kind: "image" | "link"; url: string; label: string }>;
 }
 
 export const socialApi = {
@@ -141,6 +160,43 @@ export const socialApi = {
     });
     const query = params.toString();
     return apiRequest<CommunityFeedSummary>(`/api/social/communities/${encodeURIComponent(slug)}/feed${query ? `?${query}` : ""}`);
+  },
+  createCommunityPost: (slug: string, payload: CommunityPostPayload) =>
+    apiRequest<CommunityFeedSummary>(`/api/social/communities/${encodeURIComponent(slug)}/posts`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  discussion: (postId: number) => apiRequest<DiscussionDetail>(`/api/social/posts/${postId}/discussion`),
+  updatePost: (postId: number, payload: CommunityPostUpdatePayload) =>
+    apiRequest<DiscussionDetail>(`/api/social/posts/${postId}`, {
+      method: "PUT",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  deletePost: (postId: number) => apiRequest<void>(`/api/social/posts/${postId}`, { method: "DELETE" }),
+  createComment: (postId: number, payload: { body: string; parent_comment_id?: number | null }) =>
+    apiRequest<DiscussionComment>(`/api/social/posts/${postId}/comments`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  updateComment: (commentId: number, payload: { body: string }) =>
+    apiRequest<DiscussionComment>(`/api/social/comments/${commentId}`, {
+      method: "PUT",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  deleteComment: (commentId: number) => apiRequest<void>(`/api/social/comments/${commentId}`, { method: "DELETE" }),
+  reactToPost: (postId: number, reactionType: "like" | "useful" | "thanks") =>
+    apiRequest<void>(`/api/social/posts/${postId}/reactions`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ reaction_type: reactionType }),
+    }),
+  markSolution: (postId: number, commentId: number | null) => {
+    const query = commentId ? `?comment_id=${commentId}` : "";
+    return apiRequest<DiscussionDetail>(`/api/social/posts/${postId}/solution${query}`, { method: "POST" });
   },
   relationships: () => apiRequest<RelationshipSummary>("/api/social/me/relationships"),
   follow: (targetUserId: number) => apiRequest<RelationshipRecord>(`/api/social/relationships/${targetUserId}/follow`, { method: "POST" }),

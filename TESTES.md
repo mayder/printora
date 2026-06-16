@@ -245,6 +245,36 @@ Evidência visual esperada:
 - filtros de tipo, componente, material, firmware e problema visíveis;
 - paginação funcional quando houver mais itens;
 - payload inspecionado sem dados operacionais sensíveis.
+
+### PKG-55 - Posts, comentários, reações e discussões técnicas
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- criação, edição e remoção lógica de post;
+- comentário e resposta em árvore curta de um nível;
+- reação simples em post;
+- marcação de comentário como solução quando o post é dúvida;
+- histórico mínimo de edição, remoção e solução;
+- usuário sem permissão não edita conteúdo de outro usuário;
+- moderador de comunidade consegue moderar discussão da comunidade;
+- HTML/script malicioso é rejeitado;
+- remoção lógica preserva encadeamento;
+- payload não expõe Moonraker, SSH, token, credencial, organização, permissão ou host operacional.
+
+Evidência visual esperada:
+
+- `/c/{slug}` na aba `Feed` com formulário de nova discussão;
+- card de feed com contagem de comentários/reações e botão `Discussão`;
+- painel de discussão com editar/remover post, comentar, responder, editar/remover comentário e marcar solução;
+- erro legível quando usuário sem sessão/permissão tenta ação mutável.
 - tentativa de acessar impressora operacional por relação social continua bloqueada.
 
 ## Update do agente

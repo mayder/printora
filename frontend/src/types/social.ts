@@ -168,7 +168,13 @@ export interface CommunityFeedItem {
   material: string | null;
   firmware_family: string | null;
   problem_tag: string | null;
+  attachments: Array<{ kind: "image" | "link"; url: string; label: string }>;
   pinned: boolean;
+  comment_count: number;
+  reaction_count: number;
+  solution_comment_id: number | null;
+  edit_count: number;
+  deleted_at: string | null;
   source_type: string;
   source_id: string | null;
   created_at: string;
@@ -188,6 +194,33 @@ export interface CommunityFeedSummary {
     firmware: string[];
     problems: string[];
   };
+}
+
+export interface DiscussionComment {
+  id: number;
+  feed_item_id: number;
+  author_user_id: number;
+  author_slug: string | null;
+  author_display_name: string | null;
+  parent_comment_id: number | null;
+  body: string;
+  attachments: Array<{ kind: "image" | "link"; url: string; label: string }>;
+  edit_count: number;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+  replies: DiscussionComment[];
+}
+
+export interface DiscussionReactionCount {
+  reaction_type: "like" | "useful" | "thanks";
+  count: number;
+}
+
+export interface DiscussionDetail {
+  post: CommunityFeedItem;
+  comments: DiscussionComment[];
+  reactions: DiscussionReactionCount[];
 }
 
 export interface RelationshipRecord {

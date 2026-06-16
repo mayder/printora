@@ -7,7 +7,7 @@ from app.config import get_settings
 from app.main import app
 from fastapi.testclient import TestClient
 
-from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
+from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
 
 
 def test_catalog_seed_has_voron_models_and_variants(tmp_path: Path) -> None:
@@ -856,6 +856,152 @@ def test_community_feed_api_contract_is_paginated_and_sanitized(tmp_path, monkey
             assert "ssh" not in dumped
             assert "token" not in dumped
             assert "organization" not in dumped
+    finally:
+        get_settings.cache_clear()
+
+
+def test_discussion_posts_comments_reactions_solution_and_logical_removal(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    author = auth.create_user(UserRegisterRequest(email="author@example.com", password="correct-horse"))
+    moderator = auth.create_user(UserRegisterRequest(email="moderator@example.com", password="correct-horse"))
+    stranger = auth.create_user(UserRegisterRequest(email="stranger@example.com", password="correct-horse"))
+    repository = SocialCatalogRepository(database_path)
+    variant = _variant_id(database_path, "voron-2-4-r2-350")
+    moderator_printer = PrinterRepository(database_path, user_id=moderator.id).create_printer(
+        PrinterCreate(name="Moderador Voron", moonraker_url="http://moderator-voron.local:7125", host_audit_mode="disabled")
+    )
+    repository.update_profile(author.id, PublicProfileUpdate(slug="author-public", display_name="Author", visibility="public"))
+    repository.update_profile(moderator.id, PublicProfileUpdate(slug="moderator-public", display_name="Moderator", visibility="public"))
+    repository.get_or_create_profile(stranger.id)
+    repository.update_printer_public(moderator_printer.id, moderator.id, PrinterPublicUpdate(public_profile_enabled=True, catalog_variant_id=variant))
+
+    post = repository.create_community_post(
+        "variant-voron-design-voron-2-4-voron-2-4-r2-350",
+        author.id,
+        CommunityPostCreate(
+            content_type="question",
+            title="Camada ruim em ABS",
+            body="Qual ajuste inicial para primeira camada em ABS?",
+            component="bed",
+            material="ABS",
+            firmware_family="klipper",
+            problem_tag="first-layer",
+            attachments=[{"kind": "link", "url": "https://example.com/ajuste", "label": "referencia"}],
+        ),
+    )
+    comment = repository.create_comment(post.id, moderator.id, DiscussionCommentCreate(body="Revise Z offset e temperatura da mesa."))
+    reply = repository.create_comment(post.id, author.id, DiscussionCommentCreate(body="Funcionou depois do ajuste.", parent_comment_id=comment.id))
+    repository.set_reaction("post", post.id, moderator.id, "useful", True)
+    solved = repository.mark_solution(post.id, comment.id, author.id, False)
+    updated = repository.update_post(post.id, author.id, False, CommunityPostUpdate(title="Camada ruim em ABS resolvida"))
+    edited_comment = repository.update_comment(comment.id, moderator.id, False, DiscussionCommentUpdate(body="Revise Z offset, mesa e fluxo inicial."))
+    detail = repository.discussion_detail(post.id)
+
+    assert solved.solution_comment_id == comment.id
+    assert updated.edit_count == 1
+    assert edited_comment.edit_count == 1
+    assert detail is not None
+    assert detail.post.comment_count == 2
+    assert detail.post.reaction_count == 1
+    assert detail.comments[0].replies[0].id == reply.id
+    assert detail.comments[0].body == "Revise Z offset, mesa e fluxo inicial."
+    assert "moderator-voron" not in detail.model_dump_json()
+
+    try:
+        repository.update_post(post.id, stranger.id, False, CommunityPostUpdate(title="Invasao"))
+    except PermissionError as exc:
+        assert "autor" in str(exc)
+    else:
+        raise AssertionError("stranger should not edit post")
+
+    repository.delete_post(post.id, moderator.id, False)
+    removed = repository.discussion_detail(post.id)
+    visible_feed = repository.list_community_feed("variant-voron-design-voron-2-4-voron-2-4-r2-350")
+
+    assert removed is not None
+    assert removed.post.deleted_at is not None
+    assert removed.post.title == "Conteúdo removido"
+    assert removed.comments
+    assert all(item.id != post.id for item in visible_feed.items)
+
+    with connect_database(database_path) as connection:
+        history = connection.execute("SELECT action FROM social_discussion_edit_history ORDER BY id").fetchall()
+    assert {row["action"] for row in history} >= {"created", "updated", "deleted", "solution_marked"}
+
+
+def test_discussion_rejects_html_and_api_enforces_permissions(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner = client.post("/api/auth/register", json={"email": "owner@example.com", "password": "correct-horse"})
+            peer = client.post("/api/auth/register", json={"email": "peer@example.com", "password": "correct-horse"})
+            owner_token = owner.json()["access_token"]
+            peer_token = peer.json()["access_token"]
+            printer = client.post(
+                "/api/printers",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"name": "Secret Voron", "moonraker_url": "http://secret-voron.local:7125", "host_audit_mode": "disabled"},
+            ).json()
+            variant = _variant_id(tmp_path / "printora.db", "voron-2-4-r2-350")
+            client.put(
+                "/api/social/me/profile",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"slug": "owner-public", "display_name": "Owner Public", "visibility": "public"},
+            )
+            client.put(
+                f"/api/printers/{printer['id']}/public-profile",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"public_profile_enabled": True, "catalog_variant_id": variant, "public_name": "Voron pública"},
+            )
+            blocked_html = client.post(
+                "/api/social/communities/variant-voron-design-voron-2-4-voron-2-4-r2-350/posts",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"content_type": "question", "title": "<script>alert(1)</script>", "body": "duvida"},
+            )
+            created = client.post(
+                "/api/social/communities/variant-voron-design-voron-2-4-voron-2-4-r2-350/posts",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"content_type": "question", "title": "Fluxo de ABS", "body": "Como melhorar fluxo?", "material": "ABS"},
+            )
+            post = next(item for item in created.json()["items"] if item["title"] == "Fluxo de ABS")
+            comment = client.post(
+                f"/api/social/posts/{post['id']}/comments",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"body": "Aumente temperatura em teste controlado."},
+            )
+            react = client.post(
+                f"/api/social/posts/{post['id']}/reactions",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"reaction_type": "useful"},
+            )
+            solution = client.post(
+                f"/api/social/posts/{post['id']}/solution?comment_id={comment.json()['id']}",
+                headers={"Authorization": f"Bearer {owner_token}"},
+            )
+            forbidden = client.put(
+                f"/api/social/posts/{post['id']}",
+                headers={"Authorization": f"Bearer {peer_token}"},
+                json={"title": "Nao autorizado"},
+            )
+            detail = client.get(f"/api/social/posts/{post['id']}/discussion", headers={"Authorization": f"Bearer {owner_token}"}).json()
+            dumped = str(detail).lower()
+
+            assert blocked_html.status_code == 422
+            assert created.status_code == 200
+            assert comment.status_code == 200
+            assert react.status_code == 204
+            assert solution.status_code == 200
+            assert forbidden.status_code == 403
+            assert detail["post"]["solution_comment_id"] == comment.json()["id"]
+            assert detail["post"]["reaction_count"] == 1
+            assert "secret-voron" not in dumped
+            assert "moonraker" not in dumped
+            assert "ssh" not in dumped
+            assert "token" not in dumped
     finally:
         get_settings.cache_clear()
 

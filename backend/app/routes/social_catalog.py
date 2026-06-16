@@ -18,6 +18,13 @@ from app.social_catalog import (
     Community,
     CommunityDetail,
     CommunityFeedSummary,
+    CommunityPostCreate,
+    CommunityPostUpdate,
+    DiscussionComment,
+    DiscussionCommentCreate,
+    DiscussionCommentUpdate,
+    DiscussionDetail,
+    DiscussionReactionPayload,
     FeedContentType,
     FeedOrder,
     PrinterPublicUpdate,
@@ -49,13 +56,18 @@ def require_catalog_admin(
 
 def optional_current_user(
     authorization: str | None = Header(default=None),
+    repository=Depends(get_auth_repository),
 ) -> CurrentUser | None:
     if not authorization:
         return None
     try:
-        return require_current_user(authorization=authorization, repository=get_auth_repository())
+        return require_current_user(authorization=authorization, repository=repository)
     except HTTPException:
         return None
+
+
+def is_social_admin(current: CurrentUser) -> bool:
+    return current.user.email.lower() == "breno@mayder.com.br"
 
 
 @router.get("/api/catalog", response_model=CatalogSummary)
@@ -298,6 +310,167 @@ async def get_social_community_feed(
     if feed is None:
         raise HTTPException(status_code=404, detail="comunidade não encontrada")
     return feed
+
+
+@router.post("/api/social/communities/{slug}/posts", response_model=CommunityFeedSummary)
+async def create_community_post(
+    slug: str,
+    payload: CommunityPostCreate,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> CommunityFeedSummary:
+    try:
+        repository.create_community_post(slug, current.user.id, payload)
+        feed = repository.list_community_feed(slug, order="recommended", page=1, page_size=20)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if feed is None:
+        raise HTTPException(status_code=404, detail="comunidade não encontrada")
+    return feed
+
+
+@router.get("/api/social/posts/{post_id}/discussion", response_model=DiscussionDetail)
+async def get_discussion_detail(
+    post_id: int,
+    _current: CurrentUser | None = Depends(require_current_user_when_configured),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> DiscussionDetail:
+    discussion = repository.discussion_detail(post_id)
+    if discussion is None:
+        raise HTTPException(status_code=404, detail="discussão não encontrada")
+    return discussion
+
+
+@router.put("/api/social/posts/{post_id}", response_model=DiscussionDetail)
+async def update_post(
+    post_id: int,
+    payload: CommunityPostUpdate,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> DiscussionDetail:
+    try:
+        repository.update_post(post_id, current.user.id, is_social_admin(current), payload)
+        discussion = repository.discussion_detail(post_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if discussion is None:
+        raise HTTPException(status_code=404, detail="discussão não encontrada")
+    return discussion
+
+
+@router.delete("/api/social/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_post(
+    post_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> None:
+    try:
+        repository.delete_post(post_id, current.user.id, is_social_admin(current))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/social/posts/{post_id}/comments", response_model=DiscussionComment)
+async def create_post_comment(
+    post_id: int,
+    payload: DiscussionCommentCreate,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> DiscussionComment:
+    try:
+        return repository.create_comment(post_id, current.user.id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.put("/api/social/comments/{comment_id}", response_model=DiscussionComment)
+async def update_comment(
+    comment_id: int,
+    payload: DiscussionCommentUpdate,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> DiscussionComment:
+    try:
+        return repository.update_comment(comment_id, current.user.id, is_social_admin(current), payload)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/api/social/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_comment(
+    comment_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> None:
+    try:
+        repository.delete_comment(comment_id, current.user.id, is_social_admin(current))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/social/posts/{post_id}/reactions", status_code=status.HTTP_204_NO_CONTENT)
+async def react_to_post(
+    post_id: int,
+    payload: DiscussionReactionPayload,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> None:
+    try:
+        repository.set_reaction("post", post_id, current.user.id, payload.reaction_type, True)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/api/social/posts/{post_id}/reactions/{reaction_type}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_post_reaction(
+    post_id: int,
+    reaction_type: str,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> None:
+    if reaction_type not in {"like", "useful", "thanks"}:
+        raise HTTPException(status_code=400, detail="reação inválida")
+    repository.set_reaction("post", post_id, current.user.id, reaction_type, False)
+
+
+@router.post("/api/social/comments/{comment_id}/reactions", status_code=status.HTTP_204_NO_CONTENT)
+async def react_to_comment(
+    comment_id: int,
+    payload: DiscussionReactionPayload,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> None:
+    try:
+        repository.set_reaction("comment", comment_id, current.user.id, payload.reaction_type, True)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/social/posts/{post_id}/solution", response_model=DiscussionDetail)
+async def mark_post_solution(
+    post_id: int,
+    comment_id: int | None = None,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> DiscussionDetail:
+    try:
+        repository.mark_solution(post_id, comment_id, current.user.id, is_social_admin(current))
+        discussion = repository.discussion_detail(post_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if discussion is None:
+        raise HTTPException(status_code=404, detail="discussão não encontrada")
+    return discussion
 
 
 @router.get("/api/social/me/relationships", response_model=RelationshipSummary)

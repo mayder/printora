@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260616-02 - Discussões técnicas evoluem o feed sem virar permissão operacional
+
+Status: aceita
+Data: 2026-06-16
+Contexto: o PKG-55 precisa permitir posts, comentários, reações e soluções técnicas em comunidades públicas, sem transformar comunidade em organização operacional nem apagar histórico quando houver moderação.
+Decisao: usar `social_feed_items` como post raiz e adicionar `social_discussion_comments`, `social_discussion_reactions` e `social_discussion_edit_history`. Posts e comentários usam remoção lógica por `deleted_at`; comentários aceitam árvore curta de um nível; solução é marcada no post de tipo dúvida por `solution_comment_id`; permissões distinguem autor, moderador de comunidade e administrador. HTML/script é rejeitado e anexos leves aceitam somente URL HTTPS pública.
+Alternativas consideradas: criar um domínio paralelo de fórum; permitir árvore ilimitada; apagar linhas removidas; aceitar HTML sanitizado; usar organização como permissão de moderação.
+Consequencias: discussão pública fica auditável, reversível e independente de acesso operacional. Pacotes futuros podem adicionar antiabuso completo, biblioteca e moderação avançada sem quebrar o contrato atual.
+Impacto em testes: testes cobrem criação/edição/remoção lógica, comentários/respostas, reação, solução, permissões, sanitização e payload sem dados operacionais.
+Impacto em rollback: médio; há novo script SQLite `045_social_discussions.sql`. Rollback funcional remove endpoints/UI de discussão e mantém dados como legado; rollback estrutural exige backup SQLite anterior ao script.
+Como reverter: remover endpoints `/api/social/posts/*` e `/api/social/comments/*`, métodos de discussão em `social_catalog`, UI de discussão em `PublicCommunityScreen`, tipos/serviço frontend e restaurar backup SQLite anterior ao script `045_social_discussions.sql` se as tabelas não puderem permanecer.
+Referencias: `backend/sql/045_social_discussions.sql`, `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, `frontend/src/screens/PublicCommunityScreen.tsx`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260616-01 - Feed técnico é público por comunidade e separado das discussões
 
 Status: aceita

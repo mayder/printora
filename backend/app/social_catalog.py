@@ -20,6 +20,7 @@ RelationshipType = Literal["follow", "friend", "block"]
 RelationshipStatus = Literal["active", "pending", "accepted", "ended"]
 FeedContentType = Literal["technical_post", "question", "mod", "print_result", "file_announcement", "curation_notice"]
 FeedOrder = Literal["recent", "recommended", "pinned"]
+DiscussionReactionType = Literal["like", "useful", "thanks"]
 
 
 class CatalogVariant(BaseModel):
@@ -259,7 +260,13 @@ class CommunityFeedItem(BaseModel):
     material: str | None = None
     firmware_family: str | None = None
     problem_tag: str | None = None
+    attachments: list[dict[str, str]] = Field(default_factory=list)
     pinned: bool = False
+    comment_count: int = 0
+    reaction_count: int = 0
+    solution_comment_id: int | None = None
+    edit_count: int = 0
+    deleted_at: str | None = None
     source_type: str
     source_id: str | None = None
     created_at: str
@@ -286,10 +293,127 @@ class CommunityFeedCreate(BaseModel):
     material: str | None = Field(default=None, max_length=80)
     firmware_family: str | None = Field(default=None, max_length=80)
     problem_tag: str | None = Field(default=None, max_length=80)
+    attachments: list[dict[str, str]] = Field(default_factory=list, max_length=6)
     pinned: bool = False
     visibility: Literal["public", "private"] = "public"
     source_type: str = Field(default="community", max_length=60)
     source_id: str | None = Field(default=None, max_length=120)
+
+    @field_validator("title", "body")
+    @classmethod
+    def reject_markup(cls, value: str) -> str:
+        return clean_discussion_text(value)
+
+    @field_validator("attachments")
+    @classmethod
+    def clean_attachments(cls, value: list[dict[str, str]]) -> list[dict[str, str]]:
+        return clean_discussion_attachments(value)
+
+
+class CommunityPostCreate(BaseModel):
+    content_type: FeedContentType
+    title: str = Field(min_length=1, max_length=160)
+    body: str = Field(min_length=1, max_length=1200)
+    component: str | None = Field(default=None, max_length=80)
+    material: str | None = Field(default=None, max_length=80)
+    firmware_family: str | None = Field(default=None, max_length=80)
+    problem_tag: str | None = Field(default=None, max_length=80)
+    attachments: list[dict[str, str]] = Field(default_factory=list, max_length=6)
+
+    @field_validator("content_type")
+    @classmethod
+    def reject_system_type(cls, value: FeedContentType) -> FeedContentType:
+        if value == "curation_notice":
+            raise ValueError("aviso de curadoria não é post de usuário")
+        return value
+
+    @field_validator("title", "body")
+    @classmethod
+    def reject_markup(cls, value: str) -> str:
+        return clean_discussion_text(value)
+
+    @field_validator("attachments")
+    @classmethod
+    def clean_attachments(cls, value: list[dict[str, str]]) -> list[dict[str, str]]:
+        return clean_discussion_attachments(value)
+
+
+class CommunityPostUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=160)
+    body: str | None = Field(default=None, min_length=1, max_length=1200)
+    attachments: list[dict[str, str]] | None = Field(default=None, max_length=6)
+
+    @field_validator("title", "body")
+    @classmethod
+    def reject_markup(cls, value: str | None) -> str | None:
+        return clean_discussion_text(value) if value is not None else None
+
+    @field_validator("attachments")
+    @classmethod
+    def clean_attachments(cls, value: list[dict[str, str]] | None) -> list[dict[str, str]] | None:
+        return clean_discussion_attachments(value or []) if value is not None else None
+
+
+class DiscussionComment(BaseModel):
+    id: int
+    feed_item_id: int
+    author_user_id: int
+    author_slug: str | None = None
+    author_display_name: str | None = None
+    parent_comment_id: int | None = None
+    body: str
+    attachments: list[dict[str, str]] = Field(default_factory=list)
+    edit_count: int = 0
+    deleted_at: str | None = None
+    created_at: str
+    updated_at: str
+    replies: list["DiscussionComment"] = Field(default_factory=list)
+
+
+class DiscussionCommentCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=1200)
+    parent_comment_id: int | None = Field(default=None, ge=1)
+    attachments: list[dict[str, str]] = Field(default_factory=list, max_length=6)
+
+    @field_validator("body")
+    @classmethod
+    def reject_markup(cls, value: str) -> str:
+        return clean_discussion_text(value)
+
+    @field_validator("attachments")
+    @classmethod
+    def clean_attachments(cls, value: list[dict[str, str]]) -> list[dict[str, str]]:
+        return clean_discussion_attachments(value)
+
+
+class DiscussionCommentUpdate(BaseModel):
+    body: str = Field(min_length=1, max_length=1200)
+    attachments: list[dict[str, str]] = Field(default_factory=list, max_length=6)
+
+    @field_validator("body")
+    @classmethod
+    def reject_markup(cls, value: str) -> str:
+        return clean_discussion_text(value)
+
+    @field_validator("attachments")
+    @classmethod
+    def clean_attachments(cls, value: list[dict[str, str]]) -> list[dict[str, str]]:
+        return clean_discussion_attachments(value)
+
+
+class DiscussionReactionCount(BaseModel):
+    reaction_type: DiscussionReactionType
+    count: int
+
+
+class DiscussionReactionPayload(BaseModel):
+    reaction_type: DiscussionReactionType
+
+
+class DiscussionDetail(BaseModel):
+    post: CommunityFeedItem
+    comments: list[DiscussionComment]
+    reactions: list[DiscussionReactionCount] = Field(default_factory=list)
 
 
 class RelationshipRecord(BaseModel):
@@ -951,7 +1075,7 @@ class SocialCatalogRepository:
             if row is None:
                 return None
             community = _community_from_row(row)
-            clauses = ["f.community_id = ?", "f.visibility = 'public'", "? IN ('active', 'uncurated')"]
+            clauses = ["f.community_id = ?", "f.visibility = 'public'", "f.deleted_at IS NULL", "? IN ('active', 'uncurated')"]
             parameters: list[object] = [community.id, community.status]
             for column, value in [
                 ("f.content_type", content_type),
@@ -982,7 +1106,7 @@ class SocialCatalogRepository:
                 """
                 SELECT component, material, firmware_family, problem_tag
                 FROM social_feed_items
-                WHERE community_id = ? AND visibility = 'public'
+                WHERE community_id = ? AND visibility = 'public' AND deleted_at IS NULL
                 """,
                 (community.id,),
             ).fetchall()
@@ -1009,9 +1133,9 @@ class SocialCatalogRepository:
                 """
                 INSERT INTO social_feed_items (
                     community_id, author_user_id, content_type, title, body, component, material,
-                    firmware_family, problem_tag, pinned, visibility, source_type, source_id
+                    firmware_family, problem_tag, attachments_json, pinned, visibility, source_type, source_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     payload.community_id,
@@ -1023,6 +1147,7 @@ class SocialCatalogRepository:
                     clean_optional_text(payload.material),
                     clean_optional_text(payload.firmware_family),
                     clean_optional_text(payload.problem_tag),
+                    json.dumps(payload.attachments, ensure_ascii=False, sort_keys=True),
                     1 if payload.pinned else 0,
                     payload.visibility,
                     payload.source_type.strip()[:60],
@@ -1031,6 +1156,226 @@ class SocialCatalogRepository:
             )
             row = connection.execute(FEED_ITEM_SQL + "WHERE f.id = ?", (cursor.lastrowid,)).fetchone()
         return _feed_item_from_row(row)
+
+    def create_community_post(self, slug: str, actor_user_id: int, payload: CommunityPostCreate) -> CommunityFeedItem:
+        clean_slug = normalize_slug(slug)
+        with connect_database(self.database_path) as connection:
+            self.sync_all_communities(connection)
+            community = connection.execute("SELECT id, status FROM social_communities WHERE slug = ?", (clean_slug,)).fetchone()
+            if community is None:
+                raise ValueError("comunidade não encontrada")
+            if community["status"] not in {"active", "uncurated"}:
+                raise ValueError("comunidade não aceita novas discussões")
+            self._ensure_user_exists(connection, actor_user_id)
+            cursor = connection.execute(
+                """
+                INSERT INTO social_feed_items (
+                    community_id, author_user_id, content_type, title, body, component, material,
+                    firmware_family, problem_tag, attachments_json, visibility, source_type
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'public', 'user_post')
+                """,
+                (
+                    community["id"],
+                    actor_user_id,
+                    payload.content_type,
+                    payload.title.strip(),
+                    payload.body.strip(),
+                    clean_optional_text(payload.component),
+                    clean_optional_text(payload.material),
+                    clean_optional_text(payload.firmware_family),
+                    clean_optional_text(payload.problem_tag),
+                    json.dumps(payload.attachments, ensure_ascii=False, sort_keys=True),
+                ),
+            )
+            post_id = int(cursor.lastrowid)
+            self._audit_discussion(connection, "post", post_id, actor_user_id, "created", {})
+            row = connection.execute(FEED_ITEM_SQL + "WHERE f.id = ?", (post_id,)).fetchone()
+        return _feed_item_from_row(row)
+
+    def update_post(self, post_id: int, actor_user_id: int, actor_is_admin: bool, payload: CommunityPostUpdate) -> CommunityFeedItem:
+        with connect_database(self.database_path) as connection:
+            row = self._feed_row_for_update(connection, post_id)
+            self._ensure_discussion_permission(connection, row, actor_user_id, actor_is_admin)
+            previous = {"title": row["title"], "body": row["body"], "attachments": _json_list_of_dicts(row["attachments_json"])}
+            title = payload.title.strip() if payload.title is not None else row["title"]
+            body = payload.body.strip() if payload.body is not None else row["body"]
+            attachments = payload.attachments if payload.attachments is not None else previous["attachments"]
+            connection.execute(
+                """
+                UPDATE social_feed_items
+                SET title = ?, body = ?, attachments_json = ?, edit_count = edit_count + 1, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (title, body, json.dumps(attachments, ensure_ascii=False, sort_keys=True), post_id),
+            )
+            self._audit_discussion(connection, "post", post_id, actor_user_id, "updated", previous)
+            updated = connection.execute(FEED_ITEM_SQL + "WHERE f.id = ?", (post_id,)).fetchone()
+        return _feed_item_from_row(updated)
+
+    def delete_post(self, post_id: int, actor_user_id: int, actor_is_admin: bool) -> None:
+        with connect_database(self.database_path) as connection:
+            row = self._feed_row_for_update(connection, post_id)
+            self._ensure_discussion_permission(connection, row, actor_user_id, actor_is_admin)
+            previous = {"title": row["title"], "body": row["body"]}
+            connection.execute(
+                """
+                UPDATE social_feed_items
+                SET deleted_at = CURRENT_TIMESTAMP, edit_count = edit_count + 1, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (post_id,),
+            )
+            self._audit_discussion(connection, "post", post_id, actor_user_id, "deleted", previous)
+
+    def discussion_detail(self, post_id: int) -> DiscussionDetail | None:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(FEED_ITEM_SQL + "WHERE f.id = ? AND f.visibility = 'public'", (post_id,)).fetchone()
+            if row is None:
+                return None
+            comment_rows = connection.execute(DISCUSSION_COMMENT_SQL + "WHERE c.feed_item_id = ? ORDER BY c.created_at, c.id", (post_id,)).fetchall()
+            reaction_rows = connection.execute(
+                """
+                SELECT reaction_type, COUNT(*) AS count
+                FROM social_discussion_reactions
+                WHERE target_type = 'post' AND target_id = ?
+                GROUP BY reaction_type
+                ORDER BY reaction_type
+                """,
+                (post_id,),
+            ).fetchall()
+        return DiscussionDetail(
+            post=_feed_item_from_row(row),
+            comments=_comment_tree(comment_rows),
+            reactions=[DiscussionReactionCount(reaction_type=item["reaction_type"], count=int(item["count"])) for item in reaction_rows],
+        )
+
+    def create_comment(self, post_id: int, actor_user_id: int, payload: DiscussionCommentCreate) -> DiscussionComment:
+        with connect_database(self.database_path) as connection:
+            post = self._feed_row_for_update(connection, post_id)
+            if post["deleted_at"] is not None:
+                raise ValueError("discussão removida não aceita comentário")
+            self._ensure_user_exists(connection, actor_user_id)
+            if payload.parent_comment_id is not None:
+                parent = connection.execute(
+                    "SELECT parent_comment_id, feed_item_id, deleted_at FROM social_discussion_comments WHERE id = ?",
+                    (payload.parent_comment_id,),
+                ).fetchone()
+                if parent is None or parent["feed_item_id"] != post_id or parent["deleted_at"] is not None:
+                    raise ValueError("comentário pai inválido")
+                if parent["parent_comment_id"] is not None:
+                    raise ValueError("respostas aceitam apenas um nível")
+            cursor = connection.execute(
+                """
+                INSERT INTO social_discussion_comments (feed_item_id, author_user_id, parent_comment_id, body, attachments_json)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    post_id,
+                    actor_user_id,
+                    payload.parent_comment_id,
+                    payload.body.strip(),
+                    json.dumps(payload.attachments, ensure_ascii=False, sort_keys=True),
+                ),
+            )
+            comment_id = int(cursor.lastrowid)
+            self._audit_discussion(connection, "comment", comment_id, actor_user_id, "created", {})
+            row = connection.execute(DISCUSSION_COMMENT_SQL + "WHERE c.id = ?", (comment_id,)).fetchone()
+        return _comment_from_row(row)
+
+    def update_comment(self, comment_id: int, actor_user_id: int, actor_is_admin: bool, payload: DiscussionCommentUpdate) -> DiscussionComment:
+        with connect_database(self.database_path) as connection:
+            row = self._comment_row_for_update(connection, comment_id)
+            post = self._feed_row_for_update(connection, int(row["feed_item_id"]))
+            self._ensure_comment_permission(connection, row, post, actor_user_id, actor_is_admin)
+            previous = {"body": row["body"], "attachments": _json_list_of_dicts(row["attachments_json"])}
+            connection.execute(
+                """
+                UPDATE social_discussion_comments
+                SET body = ?, attachments_json = ?, edit_count = edit_count + 1, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (payload.body.strip(), json.dumps(payload.attachments, ensure_ascii=False, sort_keys=True), comment_id),
+            )
+            self._audit_discussion(connection, "comment", comment_id, actor_user_id, "updated", previous)
+            updated = connection.execute(DISCUSSION_COMMENT_SQL + "WHERE c.id = ?", (comment_id,)).fetchone()
+        return _comment_from_row(updated)
+
+    def delete_comment(self, comment_id: int, actor_user_id: int, actor_is_admin: bool) -> None:
+        with connect_database(self.database_path) as connection:
+            row = self._comment_row_for_update(connection, comment_id)
+            post = self._feed_row_for_update(connection, int(row["feed_item_id"]))
+            self._ensure_comment_permission(connection, row, post, actor_user_id, actor_is_admin)
+            connection.execute(
+                """
+                UPDATE social_discussion_comments
+                SET deleted_at = CURRENT_TIMESTAMP, edit_count = edit_count + 1, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (comment_id,),
+            )
+            self._audit_discussion(connection, "comment", comment_id, actor_user_id, "deleted", {"body": row["body"]})
+
+    def set_reaction(self, target_type: Literal["post", "comment"], target_id: int, actor_user_id: int, reaction_type: DiscussionReactionType, active: bool) -> None:
+        with connect_database(self.database_path) as connection:
+            self._ensure_user_exists(connection, actor_user_id)
+            if target_type == "post":
+                row = self._feed_row_for_update(connection, target_id)
+                if row["deleted_at"] is not None:
+                    raise ValueError("discussão removida não aceita reação")
+            else:
+                row = self._comment_row_for_update(connection, target_id)
+                if row["deleted_at"] is not None:
+                    raise ValueError("comentário removido não aceita reação")
+            if active:
+                connection.execute(
+                    """
+                    INSERT INTO social_discussion_reactions (target_type, target_id, user_id, reaction_type)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(target_type, target_id, user_id, reaction_type) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (target_type, target_id, actor_user_id, reaction_type),
+                )
+            else:
+                connection.execute(
+                    """
+                    DELETE FROM social_discussion_reactions
+                    WHERE target_type = ? AND target_id = ? AND user_id = ? AND reaction_type = ?
+                    """,
+                    (target_type, target_id, actor_user_id, reaction_type),
+                )
+
+    def mark_solution(self, post_id: int, comment_id: int | None, actor_user_id: int, actor_is_admin: bool) -> CommunityFeedItem:
+        with connect_database(self.database_path) as connection:
+            post = self._feed_row_for_update(connection, post_id)
+            self._ensure_discussion_permission(connection, post, actor_user_id, actor_is_admin)
+            if post["content_type"] != "question":
+                raise ValueError("solução só pode ser marcada em dúvida")
+            if comment_id is not None:
+                comment = connection.execute(
+                    "SELECT id, feed_item_id, deleted_at FROM social_discussion_comments WHERE id = ?",
+                    (comment_id,),
+                ).fetchone()
+                if comment is None or comment["feed_item_id"] != post_id or comment["deleted_at"] is not None:
+                    raise ValueError("comentário de solução inválido")
+            connection.execute(
+                """
+                UPDATE social_feed_items
+                SET solution_comment_id = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (comment_id, post_id),
+            )
+            self._audit_discussion(
+                connection,
+                "post",
+                post_id,
+                actor_user_id,
+                "solution_marked" if comment_id is not None else "solution_cleared",
+                {"previous_solution_comment_id": post["solution_comment_id"]},
+            )
+            updated = connection.execute(FEED_ITEM_SQL + "WHERE f.id = ?", (post_id,)).fetchone()
+        return _feed_item_from_row(updated)
 
     def set_relationship(self, actor_user_id: int, target_user_id: int, relation_type: RelationshipType, status: RelationshipStatus) -> RelationshipRecord:
         if actor_user_id == target_user_id:
@@ -1392,6 +1737,43 @@ class SocialCatalogRepository:
         if connection.execute("SELECT 1 FROM auth_users WHERE id = ?", (user_id,)).fetchone() is None:
             raise ValueError("usuário não encontrado")
 
+    def _feed_row_for_update(self, connection, post_id: int):
+        row = connection.execute(FEED_ITEM_SQL + "WHERE f.id = ?", (post_id,)).fetchone()
+        if row is None:
+            raise ValueError("discussão não encontrada")
+        return row
+
+    def _comment_row_for_update(self, connection, comment_id: int):
+        row = connection.execute(DISCUSSION_COMMENT_SQL + "WHERE c.id = ?", (comment_id,)).fetchone()
+        if row is None:
+            raise ValueError("comentário não encontrado")
+        return row
+
+    def _ensure_discussion_permission(self, connection, post_row, actor_user_id: int, actor_is_admin: bool) -> None:
+        if actor_is_admin or post_row["author_user_id"] == actor_user_id:
+            return
+        if self._is_community_moderator(connection, int(post_row["community_id"]), actor_user_id):
+            return
+        raise PermissionError("ação permitida apenas para autor, moderador ou administrador")
+
+    def _ensure_comment_permission(self, connection, comment_row, post_row, actor_user_id: int, actor_is_admin: bool) -> None:
+        if actor_is_admin or comment_row["author_user_id"] == actor_user_id:
+            return
+        if self._is_community_moderator(connection, int(post_row["community_id"]), actor_user_id):
+            return
+        raise PermissionError("ação permitida apenas para autor, moderador ou administrador")
+
+    def _is_community_moderator(self, connection, community_id: int, user_id: int) -> bool:
+        row = connection.execute(
+            """
+            SELECT 1 FROM social_community_members
+            WHERE community_id = ? AND user_id = ? AND active = 1
+            LIMIT 1
+            """,
+            (community_id, user_id),
+        ).fetchone()
+        return row is not None
+
     def _audit_relationship(self, connection, actor_user_id: int, target_user_id: int, action: str) -> None:
         self._audit(
             connection,
@@ -1401,6 +1783,16 @@ class SocialCatalogRepository:
             actor_user_id,
             {"target_user_id": target_user_id, "retention_days": 180},
         )
+
+    def _audit_discussion(self, connection, target_type: Literal["post", "comment"], target_id: int, actor_user_id: int, action: str, previous: dict[str, object]) -> None:
+        connection.execute(
+            """
+            INSERT INTO social_discussion_edit_history (target_type, target_id, actor_user_id, action, previous_json)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (target_type, target_id, actor_user_id, action, json.dumps(previous, ensure_ascii=False, sort_keys=True, default=str)),
+        )
+        self._audit(connection, f"social_discussion_{target_type}", target_id, action, actor_user_id, {"retention_days": 180})
 
     def _audit(self, connection, entity_type: str, entity_id: int, action: str, actor_user_id: int, payload: dict[str, object]) -> None:
         connection.execute(
@@ -1500,9 +1892,19 @@ LEFT JOIN social_profiles sp ON sp.user_id = r.actor_user_id
 FEED_ITEM_SQL = """
 SELECT f.id, f.community_id, f.author_user_id, sp.slug AS author_slug, sp.display_name AS author_display_name,
        f.content_type, f.title, f.body, f.component, f.material, f.firmware_family, f.problem_tag,
-       f.pinned, f.source_type, f.source_id, f.created_at, f.updated_at
+       f.attachments_json, f.pinned, f.solution_comment_id, f.edit_count, f.deleted_at,
+       f.source_type, f.source_id, f.created_at, f.updated_at,
+       (SELECT COUNT(*) FROM social_discussion_comments c WHERE c.feed_item_id = f.id AND c.deleted_at IS NULL) AS comment_count,
+       (SELECT COUNT(*) FROM social_discussion_reactions r WHERE r.target_type = 'post' AND r.target_id = f.id) AS reaction_count
 FROM social_feed_items f
 LEFT JOIN social_profiles sp ON sp.user_id = f.author_user_id AND sp.visibility = 'public'
+"""
+
+DISCUSSION_COMMENT_SQL = """
+SELECT c.id, c.feed_item_id, c.author_user_id, sp.slug AS author_slug, sp.display_name AS author_display_name,
+       c.parent_comment_id, c.body, c.attachments_json, c.edit_count, c.deleted_at, c.created_at, c.updated_at
+FROM social_discussion_comments c
+LEFT JOIN social_profiles sp ON sp.user_id = c.author_user_id AND sp.visibility = 'public'
 """
 
 
@@ -1542,6 +1944,29 @@ def clean_public_image_urls(values: list[str]) -> list[str]:
             continue
         cleaned.append(image_url)
         seen.add(image_url)
+    return cleaned
+
+
+def clean_discussion_text(value: str) -> str:
+    cleaned = value.replace("\x00", "").strip()
+    if re.search(r"<\s*/?\s*[a-zA-Z][^>]*>", cleaned) or re.search(r"javascript\s*:", cleaned, flags=re.IGNORECASE):
+        raise ValueError("HTML ou script não é permitido")
+    return cleaned
+
+
+def clean_discussion_attachments(values: list[dict[str, str]]) -> list[dict[str, str]]:
+    cleaned: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for raw in values:
+        kind = str(raw.get("kind", "link")).strip().lower()
+        if kind not in {"image", "link"}:
+            raise ValueError("tipo de anexo inválido")
+        url = validate_public_url(raw.get("url"), field_name="anexo", allowed_hosts=None)
+        if not url or url in seen:
+            continue
+        label = clean_discussion_text(str(raw.get("label") or ""))[:80]
+        cleaned.append({"kind": kind, "url": url, "label": label or ("Imagem" if kind == "image" else "Link")})
+        seen.add(url)
     return cleaned
 
 
@@ -1613,6 +2038,22 @@ def _json_list(value: str | None) -> list[str]:
     if not isinstance(parsed, list):
         return []
     return [str(item) for item in parsed]
+
+
+def _json_list_of_dicts(value: str | None) -> list[dict[str, str]]:
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    cleaned: list[dict[str, str]] = []
+    for item in parsed:
+        if isinstance(item, dict):
+            cleaned.append({str(key): str(val) for key, val in item.items() if val is not None})
+    return cleaned
 
 
 def _variant_from_row(row) -> CatalogVariant:
@@ -1723,6 +2164,7 @@ def _community_from_row(row) -> Community:
 
 
 def _feed_item_from_row(row) -> CommunityFeedItem:
+    deleted_at = row["deleted_at"]
     return CommunityFeedItem(
         id=int(row["id"]),
         community_id=int(row["community_id"]),
@@ -1730,18 +2172,55 @@ def _feed_item_from_row(row) -> CommunityFeedItem:
         author_slug=row["author_slug"],
         author_display_name=row["author_display_name"],
         content_type=row["content_type"],
-        title=str(row["title"]),
-        body=str(row["body"] or ""),
+        title="Conteúdo removido" if deleted_at else str(row["title"]),
+        body="" if deleted_at else str(row["body"] or ""),
         component=row["component"],
         material=row["material"],
         firmware_family=row["firmware_family"],
         problem_tag=row["problem_tag"],
+        attachments=[] if deleted_at else _json_list_of_dicts(row["attachments_json"]),
         pinned=bool(row["pinned"]),
+        comment_count=int(row["comment_count"] or 0),
+        reaction_count=int(row["reaction_count"] or 0),
+        solution_comment_id=row["solution_comment_id"],
+        edit_count=int(row["edit_count"] or 0),
+        deleted_at=deleted_at,
         source_type=str(row["source_type"]),
         source_id=row["source_id"],
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
     )
+
+
+def _comment_from_row(row) -> DiscussionComment:
+    deleted_at = row["deleted_at"]
+    return DiscussionComment(
+        id=int(row["id"]),
+        feed_item_id=int(row["feed_item_id"]),
+        author_user_id=int(row["author_user_id"]),
+        author_slug=row["author_slug"],
+        author_display_name=row["author_display_name"],
+        parent_comment_id=row["parent_comment_id"],
+        body="" if deleted_at else str(row["body"]),
+        attachments=[] if deleted_at else _json_list_of_dicts(row["attachments_json"]),
+        edit_count=int(row["edit_count"] or 0),
+        deleted_at=deleted_at,
+        created_at=str(row["created_at"]),
+        updated_at=str(row["updated_at"]),
+    )
+
+
+def _comment_tree(rows) -> list[DiscussionComment]:
+    comments = [_comment_from_row(row) for row in rows]
+    by_id = {comment.id: comment for comment in comments}
+    roots: list[DiscussionComment] = []
+    for comment in comments:
+        if comment.parent_comment_id and comment.parent_comment_id in by_id:
+            parent = by_id[comment.parent_comment_id]
+            parent.replies.append(comment)
+        else:
+            roots.append(comment)
+    return roots
 
 
 def _feed_filter_options(rows) -> dict[str, list[str]]:

@@ -1,8 +1,8 @@
 import React from "react";
-import { Archive, ArrowLeft, Box, ChevronLeft, ChevronRight, ExternalLink, FileText, Filter, FolderOpen, Lock, MessageSquare, Pin, Printer, SlidersHorizontal, UserRound, Users, Wrench } from "lucide-react";
+import { Archive, ArrowLeft, Box, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, FileText, Filter, FolderOpen, Lock, MessageSquare, Pencil, Pin, Printer, Reply, Send, SlidersHorizontal, ThumbsUp, Trash2, UserRound, Users, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi } from "../services/socialApi";
-import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, FeedContentType, FeedOrder } from "../types";
+import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, FeedContentType, FeedOrder } from "../types";
 
 interface PublicCommunityScreenProps {
   slug: string;
@@ -207,6 +207,9 @@ function CommunityTabContent({ community, tab }: { community: CommunityDetail; t
 
 function CommunityFeed({ community }: { community: CommunityDetail }) {
   const [feed, setFeed] = React.useState<CommunityFeedSummary | null>(null);
+  const [selectedPostId, setSelectedPostId] = React.useState<number | null>(null);
+  const [newPost, setNewPost] = React.useState({ content_type: "question" as FeedContentType, title: "", body: "", component: "", material: "", firmware_family: "", problem_tag: "" });
+  const [posting, setPosting] = React.useState(false);
   const [contentType, setContentType] = React.useState<FeedContentType | "">("");
   const [component, setComponent] = React.useState("");
   const [material, setMaterial] = React.useState("");
@@ -217,39 +220,66 @@ function CommunityFeed({ community }: { community: CommunityDetail }) {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
+  const loadFeed = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const payload = await socialApi.communityFeed(community.slug, {
+        content_type: contentType,
+        component,
+        material,
+        firmware_family: firmware,
+        problem,
+        order,
+        page,
+        page_size: 10,
+      });
+      setFeed(payload);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Feed indisponível");
+    } finally {
+      setLoading(false);
+    }
+  }, [community.slug, contentType, component, material, firmware, problem, order, page]);
+
   React.useEffect(() => {
     let active = true;
-    async function loadFeed() {
-      setLoading(true);
-      setError(null);
-      try {
-        const payload = await socialApi.communityFeed(community.slug, {
-          content_type: contentType,
-          component,
-          material,
-          firmware_family: firmware,
-          problem,
-          order,
-          page,
-          page_size: 10,
-        });
-        if (active) setFeed(payload);
-      } catch (err) {
-        if (active) setError(err instanceof Error ? err.message : "Feed indisponível");
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-    void loadFeed();
+    void loadFeed().then(() => {
+      if (!active) return;
+    });
     return () => {
       active = false;
     };
-  }, [community.slug, contentType, component, material, firmware, problem, order, page]);
+  }, [loadFeed]);
 
   const resetPage = (action: () => void) => {
     setPage(1);
     action();
   };
+
+  async function submitPost(event: React.FormEvent) {
+    event.preventDefault();
+    setPosting(true);
+    setError(null);
+    try {
+      const payload = await socialApi.createCommunityPost(community.slug, {
+        content_type: newPost.content_type,
+        title: newPost.title,
+        body: newPost.body,
+        component: newPost.component || null,
+        material: newPost.material || null,
+        firmware_family: newPost.firmware_family || null,
+        problem_tag: newPost.problem_tag || null,
+      });
+      setFeed(payload);
+      setSelectedPostId(payload.items.find((item) => item.title === newPost.title)?.id ?? null);
+      setNewPost({ content_type: "question", title: "", body: "", component: "", material: "", firmware_family: "", problem_tag: "" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível publicar");
+    } finally {
+      setPosting(false);
+    }
+  }
 
   return (
     <div className="community-feed">
@@ -276,11 +306,40 @@ function CommunityFeed({ community }: { community: CommunityDetail }) {
         <FilterSelect label="Problema" value={problem} options={feed?.filters.problems ?? []} onChange={(value) => resetPage(() => setProblem(value))} />
       </div>
 
+      <form className="community-discussion-form" onSubmit={submitPost}>
+        <div className="community-discussion-form-row">
+          <select value={newPost.content_type} onChange={(event) => setNewPost((current) => ({ ...current, content_type: event.target.value as FeedContentType }))}>
+            {feedTypeOptions.filter((option) => option.value && option.value !== "curation_notice").map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+          <input value={newPost.title} maxLength={160} placeholder="Título da discussão" onChange={(event) => setNewPost((current) => ({ ...current, title: event.target.value }))} required />
+        </div>
+        <textarea value={newPost.body} maxLength={1200} placeholder="Descreva dúvida, ajuste, mod ou resultado técnico" onChange={(event) => setNewPost((current) => ({ ...current, body: event.target.value }))} required />
+        <div className="community-discussion-form-row">
+          <input value={newPost.component} placeholder="Componente" onChange={(event) => setNewPost((current) => ({ ...current, component: event.target.value }))} />
+          <input value={newPost.material} placeholder="Material" onChange={(event) => setNewPost((current) => ({ ...current, material: event.target.value }))} />
+          <input value={newPost.firmware_family} placeholder="Firmware" onChange={(event) => setNewPost((current) => ({ ...current, firmware_family: event.target.value }))} />
+          <input value={newPost.problem_tag} placeholder="Problema" onChange={(event) => setNewPost((current) => ({ ...current, problem_tag: event.target.value }))} />
+          <button type="submit" className="primary-button" disabled={posting}><Send size={15} />Publicar</button>
+        </div>
+      </form>
+
       {loading ? <p>Carregando feed...</p> : error ? <p>{error}</p> : feed && feed.items.length ? (
         <>
           <div className="community-feed-list">
-            {feed.items.map((item) => <FeedItemCard key={item.id} item={item} />)}
+            {feed.items.map((item) => (
+              <FeedItemCard
+                key={item.id}
+                item={item}
+                selected={selectedPostId === item.id}
+                onOpen={() => setSelectedPostId((current) => current === item.id ? null : item.id)}
+                onReact={async () => {
+                  await socialApi.reactToPost(item.id, "useful");
+                  await loadFeed();
+                }}
+              />
+            ))}
           </div>
+          {selectedPostId ? <DiscussionPanel postId={selectedPostId} onChanged={loadFeed} /> : null}
           <div className="community-feed-pagination">
             <button type="button" className="secondary-button" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}><ChevronLeft size={15} />Anterior</button>
             <span>Página {feed.page}</span>
@@ -301,7 +360,7 @@ function FilterSelect({ label, value, options, onChange }: { label: string; valu
   );
 }
 
-function FeedItemCard({ item }: { item: CommunityFeedItem }) {
+function FeedItemCard({ item, selected, onOpen, onReact }: { item: CommunityFeedItem; selected: boolean; onOpen: () => void; onReact: () => void }) {
   return (
     <article className="community-feed-card">
       <header>
@@ -316,7 +375,147 @@ function FeedItemCard({ item }: { item: CommunityFeedItem }) {
         {item.firmware_family ? <span>{item.firmware_family}</span> : null}
         {item.problem_tag ? <span>{item.problem_tag}</span> : null}
       </div>
-      <footer>{item.author_display_name ? `Por ${item.author_display_name}` : "Curadoria da comunidade"}</footer>
+      <footer>
+        <span>{item.author_display_name ? `Por ${item.author_display_name}` : "Curadoria da comunidade"}</span>
+        <span>{item.comment_count} comentários</span>
+        <span>{item.reaction_count} reações</span>
+        {item.solution_comment_id ? <span><CheckCircle2 size={14} />Solução marcada</span> : null}
+      </footer>
+      <div className="community-feed-actions">
+        <button type="button" className="secondary-button" onClick={onOpen}><MessageSquare size={15} />{selected ? "Fechar" : "Discussão"}</button>
+        <button type="button" className="secondary-button" onClick={onReact}><ThumbsUp size={15} />Útil</button>
+      </div>
+    </article>
+  );
+}
+
+function DiscussionPanel({ postId, onChanged }: { postId: number; onChanged: () => void }) {
+  const [detail, setDetail] = React.useState<DiscussionDetail | null>(null);
+  const [commentBody, setCommentBody] = React.useState("");
+  const [replyTo, setReplyTo] = React.useState<number | null>(null);
+  const [editPost, setEditPost] = React.useState(false);
+  const [postDraft, setPostDraft] = React.useState({ title: "", body: "" });
+  const [error, setError] = React.useState<string | null>(null);
+
+  const loadDiscussion = React.useCallback(async () => {
+    try {
+      const payload = await socialApi.discussion(postId);
+      setDetail(payload);
+      setPostDraft({ title: payload.post.title, body: payload.post.body });
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Discussão indisponível");
+    }
+  }, [postId]);
+
+  React.useEffect(() => {
+    void loadDiscussion();
+  }, [loadDiscussion]);
+
+  async function submitComment(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      await socialApi.createComment(postId, { body: commentBody, parent_comment_id: replyTo });
+      setCommentBody("");
+      setReplyTo(null);
+      await loadDiscussion();
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível comentar");
+    }
+  }
+
+  async function savePost(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      const payload = await socialApi.updatePost(postId, postDraft);
+      setDetail(payload);
+      setEditPost(false);
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível editar");
+    }
+  }
+
+  async function deletePost() {
+    try {
+      await socialApi.deletePost(postId);
+      await loadDiscussion();
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível remover");
+    }
+  }
+
+  if (!detail) return <div className="community-discussion-panel">{error || "Carregando discussão..."}</div>;
+
+  return (
+    <section className="community-discussion-panel">
+      <header>
+        <div>
+          <h3>Discussão técnica</h3>
+          <p>{detail.post.deleted_at ? "Conteúdo removido logicamente; comentários permanecem para contexto." : detail.post.title}</p>
+        </div>
+        <div className="community-feed-actions">
+          <button type="button" className="secondary-button" onClick={() => setEditPost((current) => !current)}><Pencil size={15} />Editar</button>
+          <button type="button" className="secondary-button danger" onClick={deletePost}><Trash2 size={15} />Remover</button>
+        </div>
+      </header>
+      {error ? <p className="public-action-error">{error}</p> : null}
+      {editPost ? (
+        <form className="community-discussion-form" onSubmit={savePost}>
+          <input value={postDraft.title} onChange={(event) => setPostDraft((current) => ({ ...current, title: event.target.value }))} required />
+          <textarea value={postDraft.body} onChange={(event) => setPostDraft((current) => ({ ...current, body: event.target.value }))} required />
+          <button type="submit" className="primary-button"><Pencil size={15} />Salvar edição</button>
+        </form>
+      ) : null}
+      <div className="community-comment-list">
+        {detail.comments.map((comment) => (
+          <CommentCard key={comment.id} postId={postId} comment={comment} solved={detail.post.solution_comment_id === comment.id} onReply={setReplyTo} onChanged={async () => { await loadDiscussion(); await onChanged(); }} />
+        ))}
+        {detail.comments.length === 0 ? <p>Nenhum comentário ainda.</p> : null}
+      </div>
+      <form className="community-discussion-form" onSubmit={submitComment}>
+        <textarea value={commentBody} maxLength={1200} placeholder={replyTo ? "Responder comentário" : "Adicionar comentário técnico"} onChange={(event) => setCommentBody(event.target.value)} required />
+        <div className="community-feed-actions">
+          {replyTo ? <button type="button" className="secondary-button" onClick={() => setReplyTo(null)}>Cancelar resposta</button> : null}
+          <button type="submit" className="primary-button"><Send size={15} />Comentar</button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function CommentCard({ postId, comment, solved, onReply, onChanged }: { postId: number; comment: DiscussionComment; solved: boolean; onReply: (id: number) => void; onChanged: () => Promise<void> }) {
+  const [editing, setEditing] = React.useState(false);
+  const [body, setBody] = React.useState(comment.body);
+
+  async function saveComment(event: React.FormEvent) {
+    event.preventDefault();
+    await socialApi.updateComment(comment.id, { body });
+    setEditing(false);
+    await onChanged();
+  }
+
+  return (
+    <article className={`community-comment-card${solved ? " solved" : ""}`}>
+      <header>
+        <strong>{comment.author_display_name || "Maker"}</strong>
+        {solved ? <span><CheckCircle2 size={14} />Solução</span> : null}
+      </header>
+      {editing ? (
+        <form className="community-discussion-form" onSubmit={saveComment}>
+          <textarea value={body} onChange={(event) => setBody(event.target.value)} required />
+          <button type="submit" className="primary-button"><Pencil size={15} />Salvar</button>
+        </form>
+      ) : <p>{comment.deleted_at ? "Comentário removido" : comment.body}</p>}
+      <div className="community-feed-actions">
+        <button type="button" className="secondary-button" onClick={() => onReply(comment.id)}><Reply size={15} />Responder</button>
+        <button type="button" className="secondary-button" onClick={() => setEditing((current) => !current)}><Pencil size={15} />Editar</button>
+        <button type="button" className="secondary-button" onClick={async () => { await socialApi.markSolution(postId, comment.id); await onChanged(); }}><CheckCircle2 size={15} />Solução</button>
+        <button type="button" className="secondary-button danger" onClick={async () => { await socialApi.deleteComment(comment.id); await onChanged(); }}><Trash2 size={15} />Remover</button>
+      </div>
+      {comment.replies.length ? <div className="community-reply-list">{comment.replies.map((reply) => <CommentCard key={reply.id} postId={postId} comment={reply} solved={false} onReply={onReply} onChanged={onChanged} />)}</div> : null}
     </article>
   );
 }

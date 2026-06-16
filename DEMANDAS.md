@@ -3523,7 +3523,7 @@ Estado atual:
 - Conteúdo privado (`visibility='private'`) não aparece em feed público; comunidades `obsolete`/`merged` não retornam itens ativos.
 - UI da página `/c/{slug}` substitui o placeholder por feed real com filtros, ordenação, paginação, estado vazio, erro e carregamento.
 - Payload público não expõe Moonraker, SSH, token, credencial, organização ou permissão.
-- Validação focada concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q` e `cd frontend && npm run build`.
+- Validação concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q`, `cd frontend && npm run build`, `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh` e fluxo local em `/c/{slug}` com login, publicação de discussão e painel de comentários.
 - Fechado em 100% com `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`, commit do pacote, push da branch `cloud`, publicação pelo workflow `Deploy Printora Cloud` e validação local visual/API da aba `Feed`.
 
 ## PKG-55: Posts, Comentários, Reações E Discussões Técnicas
@@ -3564,7 +3564,14 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado com `social_feed_items` como post raiz e tabelas `social_discussion_comments`, `social_discussion_reactions` e `social_discussion_edit_history` em `backend/sql/045_social_discussions.sql`.
+- APIs permitem criar, editar e remover logicamente posts; criar, editar e remover logicamente comentários; responder em árvore curta de um nível; reagir a posts/comentários; e marcar/limpar solução em dúvidas.
+- Permissões distinguem autor, moderador de comunidade e administrador; usuário sem vínculo não edita/remove conteúdo de outro usuário.
+- Sanitização rejeita HTML/script e anexos aceitam somente URL HTTPS pública, sem host local/privado.
+- Remoção lógica preserva encadeamento da discussão e mascara conteúdo removido.
+- UI da aba `Feed` em `/c/{slug}` permite publicar discussão, abrir detalhe, comentar, responder, reagir, editar, remover e marcar solução, com estados de erro/carregamento.
+- Histórico mínimo de edição/remoção/solução fica em `social_discussion_edit_history` e auditoria resumida em `catalog_audit_events` sem payload sensível.
+- Validação focada concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q` e `cd frontend && npm run build`.
 
 ## PKG-56: Biblioteca Base De Arquivos STL/3MF
 
