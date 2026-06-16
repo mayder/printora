@@ -1137,13 +1137,26 @@ class SocialCatalogRepository:
     def search_profiles(self, query: str | None = None, viewer_user_id: int | None = None) -> list[PublicProfile]:
         cleaned = normalize_slug(query) if clean_optional_text(query) else ""
         like = f"%{cleaned}%"
+        block_clause = ""
+        block_parameters: tuple[object, ...] = ()
+        if viewer_user_id is not None:
+            block_clause = """
+              AND NOT EXISTS (
+                SELECT 1 FROM social_relationships br
+                WHERE br.relation_type = 'block'
+                  AND br.status = 'active'
+                  AND (
+                    (br.actor_user_id = sp.user_id AND br.target_user_id = ?)
+                    OR (br.actor_user_id = ? AND br.target_user_id = sp.user_id)
+                  )
+              )
+            """
+            block_parameters = (viewer_user_id, viewer_user_id)
         with connect_database(self.database_path) as connection:
             rows = connection.execute(
-                """
-                SELECT sp.*,
-                       COUNT(DISTINCT CASE WHEN p.public_profile_enabled = 1 THEN p.id END) AS public_printer_count
+                f"""
+                SELECT sp.*
                 FROM social_profiles sp
-                LEFT JOIN printers p ON p.owner_user_id = sp.user_id
                 LEFT JOIN social_user_safety_settings safety ON safety.user_id = sp.user_id
                 WHERE sp.visibility != 'private'
                   AND (
@@ -1160,24 +1173,31 @@ class SocialCatalogRepository:
                       )
                     )
                   )
-                  AND (
-                    ? IS NULL OR NOT EXISTS (
-                      SELECT 1 FROM social_relationships br
-                      WHERE br.relation_type = 'block'
-                        AND br.status = 'active'
-                        AND (
-                          (br.actor_user_id = sp.user_id AND br.target_user_id = ?)
-                          OR (br.actor_user_id = ? AND br.target_user_id = sp.user_id)
-                        )
-                    )
-                  )
-                GROUP BY sp.user_id
+                  {block_clause}
                 ORDER BY CASE WHEN sp.slug = ? THEN 0 ELSE 1 END, sp.updated_at DESC, sp.display_name
                 LIMIT 20
                 """,
-                (cleaned, cleaned, cleaned, like, viewer_user_id, viewer_user_id, viewer_user_id, cleaned),
+                (cleaned, cleaned, cleaned, like, *block_parameters, cleaned),
             ).fetchall()
-        return [_profile_from_row(row) for row in rows]
+            user_ids = [int(row["user_id"]) for row in rows]
+            printer_counts: dict[int, int] = {}
+            if user_ids:
+                placeholders = ", ".join("?" for _ in user_ids)
+                count_rows = connection.execute(
+                    f"""
+                    SELECT owner_user_id, COUNT(*) AS total
+                    FROM printers
+                    WHERE public_profile_enabled = 1
+                      AND owner_user_id IN ({placeholders})
+                    GROUP BY owner_user_id
+                    """,
+                    tuple(user_ids),
+                ).fetchall()
+                printer_counts = {int(row["owner_user_id"]): int(row["total"]) for row in count_rows}
+        return [
+            _profile_from_row(row).model_copy(update={"public_printer_count": printer_counts.get(int(row["user_id"]), 0)})
+            for row in rows
+        ]
 
     def update_printer_public(self, printer_id: int, owner_user_id: int, payload: PrinterPublicUpdate) -> PublicPrinter | None:
         with connect_database(self.database_path) as connection:
