@@ -208,6 +208,7 @@ jobs:
                   "8069",
               ],
               cwd=str(base_path / "current"),
+              stdin=subprocess.DEVNULL,
               stdout=log,
               stderr=log,
               start_new_session=True,
