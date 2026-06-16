@@ -431,15 +431,119 @@
 
 .community-library-modal {
   max-height: min(820px, calc(100vh - 48px));
-  max-width: min(980px, calc(100vw - 48px));
+  max-width: min(1040px, calc(100vw - 48px));
   overflow: auto;
-  width: 980px;
+  width: 1040px;
 }
 
 .community-library-modal .community-library-form {
   background: transparent;
   border: 0;
   padding: 0;
+}
+
+.community-library-form-redesign {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.community-library-form-section {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.community-library-form-section > header {
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 3px;
+  padding-bottom: 10px;
+}
+
+.community-library-form-section > header strong {
+  color: var(--text);
+  font-size: 0.98rem;
+}
+
+.community-library-form-section > header span {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.community-library-form-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.community-library-field {
+  color: var(--text-muted);
+  display: grid;
+  font-size: 0.82rem;
+  font-weight: 800;
+  gap: 6px;
+  min-width: 0;
+}
+
+.community-library-field.span-2 {
+  grid-column: 1 / -1;
+}
+
+.community-library-field.span-full,
+.community-checkbox-card.span-full {
+  grid-column: 1 / -1;
+}
+
+.community-library-form-redesign .modal-footer {
+  grid-column: 1 / -1;
+}
+
+.community-library-field input,
+.community-library-field select,
+.community-library-field textarea {
+  width: 100%;
+}
+
+.community-library-field textarea {
+  min-height: 82px;
+}
+
+.community-file-input {
+  align-items: center;
+  display: flex;
+}
+
+.community-checkbox-card {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 58px;
+  padding: 10px 12px;
+}
+
+.community-checkbox-card input {
+  height: 18px;
+  width: 18px;
+}
+
+.community-checkbox-card span {
+  display: grid;
+  gap: 2px;
+}
+
+.community-checkbox-card small {
+  color: var(--text-muted);
+  font-size: 0.82rem;
 }
 
 .community-discussion-form-row {
@@ -1721,6 +1825,15 @@
   .community-discussion-form-row,
   .community-discussion-form-row:first-child {
     grid-template-columns: 1fr;
+  }
+
+  .community-library-form-redesign,
+  .community-library-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .community-library-field.span-2 {
+    grid-column: 1 / -1;
   }
 
   .community-discussion-panel > header {

@@ -484,44 +484,128 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
               </div>
               <button type="button" className="icon-button" onClick={() => setCreateOpen(false)} aria-label="Fechar cadastro"><X size={17} /></button>
             </header>
-            <form className="community-library-form" onSubmit={submitItem}>
-              <div className="community-discussion-form-row">
-                <input value={draft.title} maxLength={160} placeholder="Nome do modelo" onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} required />
-                <select value={draft.visibility} onChange={(event) => setDraft((current) => ({ ...current, visibility: event.target.value as LibraryVisibility }))}>
-                  {visibilityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-                <select value={draft.license} onChange={(event) => setDraft((current) => ({ ...current, license: event.target.value as LibraryLicense }))}>
-                  {licenseOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </div>
-              <textarea value={draft.description} maxLength={1200} placeholder="Descrição técnica, compatibilidade e contexto de uso" onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} />
-              <div className="community-discussion-form-row">
-                <input value={draft.original_author_name} placeholder="Autor original" onChange={(event) => setDraft((current) => ({ ...current, original_author_name: event.target.value }))} />
-                <input value={draft.source_url} placeholder="Fonte pública" onChange={(event) => setDraft((current) => ({ ...current, source_url: event.target.value }))} />
-                <input value={draft.attribution_text} placeholder="Crédito e atribuição" onChange={(event) => setDraft((current) => ({ ...current, attribution_text: event.target.value }))} />
-                <label className="community-toggle"><input type="checkbox" checked={draft.publication_terms_accepted} onChange={(event) => setDraft((current) => ({ ...current, publication_terms_accepted: event.target.checked }))} />Termos</label>
-              </div>
-              <div className="community-discussion-form-row">
-                <select value={draft.file_kind} onChange={(event) => setDraft((current) => ({ ...current, file_kind: event.target.value as LibraryFileKind }))}>
-                  <option value="stl">STL</option>
-                  <option value="3mf">3MF</option>
-                  <option value="bundle">Pacote</option>
-                </select>
-                <input value={draft.file_name} placeholder="arquivo.stl" onChange={(event) => setDraft((current) => ({ ...current, file_name: event.target.value }))} required />
-                <input value={draft.original_url} placeholder="URL pública opcional" onChange={(event) => setDraft((current) => ({ ...current, original_url: event.target.value }))} />
-                <input type="file" accept=".stl,.3mf,.zip" onChange={(event) => {
-                  const file = event.target.files?.[0] ?? null;
-                  setUploadFile(file);
-                  if (file) setDraft((current) => ({ ...current, file_name: file.name }));
-                }} />
-              </div>
-              <div className="community-discussion-form-row">
-                <input value={draft.component} placeholder="Componente" onChange={(event) => setDraft((current) => ({ ...current, component: event.target.value }))} />
-                <input value={draft.version_label} placeholder="Versão" onChange={(event) => setDraft((current) => ({ ...current, version_label: event.target.value }))} required />
-                <input value={draft.material_suggestion} placeholder="Material sugerido" onChange={(event) => setDraft((current) => ({ ...current, material_suggestion: event.target.value }))} />
-                <label className="community-toggle"><input type="checkbox" checked={draft.supports_required} onChange={(event) => setDraft((current) => ({ ...current, supports_required: event.target.checked }))} />Suporte</label>
-              </div>
-              <textarea value={draft.orientation_notes} maxLength={500} placeholder="Orientação de impressão" onChange={(event) => setDraft((current) => ({ ...current, orientation_notes: event.target.value }))} />
+            <form className="community-library-form community-library-form-redesign" onSubmit={submitItem}>
+              <section className="community-library-form-section">
+                <header>
+                  <strong>Modelo</strong>
+                  <span>Identificação pública e visibilidade do item.</span>
+                </header>
+                <div className="community-library-form-grid">
+                  <label className="community-library-field span-2">
+                    <span>Nome do modelo</span>
+                    <input value={draft.title} maxLength={160} placeholder="Ex.: Suporte de sensor TAP" onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} required />
+                  </label>
+                  <label className="community-library-field">
+                    <span>Visibilidade</span>
+                    <select value={draft.visibility} onChange={(event) => setDraft((current) => ({ ...current, visibility: event.target.value as LibraryVisibility }))}>
+                      {visibilityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                  </label>
+                  <label className="community-library-field span-full">
+                    <span>Descrição técnica</span>
+                    <textarea value={draft.description} maxLength={1200} placeholder="Compatibilidade, contexto de uso e observações relevantes para impressão." onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} />
+                  </label>
+                </div>
+              </section>
+
+              <section className="community-library-form-section">
+                <header>
+                  <strong>Arquivo</strong>
+                  <span>STL, 3MF ou pacote enviado para validação/quarentena.</span>
+                </header>
+                <div className="community-library-form-grid">
+                  <label className="community-library-field">
+                    <span>Tipo</span>
+                    <select value={draft.file_kind} onChange={(event) => setDraft((current) => ({ ...current, file_kind: event.target.value as LibraryFileKind }))}>
+                      <option value="stl">STL</option>
+                      <option value="3mf">3MF</option>
+                      <option value="bundle">Pacote</option>
+                    </select>
+                  </label>
+                  <label className="community-library-field">
+                    <span>Nome do arquivo</span>
+                    <input value={draft.file_name} placeholder="arquivo.stl" onChange={(event) => setDraft((current) => ({ ...current, file_name: event.target.value }))} required />
+                  </label>
+                  <label className="community-library-field span-2">
+                    <span>URL pública opcional</span>
+                    <input value={draft.original_url} placeholder="https://..." onChange={(event) => setDraft((current) => ({ ...current, original_url: event.target.value }))} />
+                  </label>
+                  <label className="community-library-field span-full">
+                    <span>Upload local</span>
+                    <input className="community-file-input" type="file" accept=".stl,.3mf,.zip" onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      setUploadFile(file);
+                      if (file) setDraft((current) => ({ ...current, file_name: file.name }));
+                    }} />
+                  </label>
+                </div>
+              </section>
+
+              <section className="community-library-form-section">
+                <header>
+                  <strong>Autoria e licença</strong>
+                  <span>Dados necessários para atribuição e uso público do modelo.</span>
+                </header>
+                <div className="community-library-form-grid">
+                  <label className="community-library-field">
+                    <span>Licença</span>
+                    <select value={draft.license} onChange={(event) => setDraft((current) => ({ ...current, license: event.target.value as LibraryLicense }))}>
+                      {licenseOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                  </label>
+                  <label className="community-library-field">
+                    <span>Autor original</span>
+                    <input value={draft.original_author_name} placeholder="Nome ou usuário" onChange={(event) => setDraft((current) => ({ ...current, original_author_name: event.target.value }))} />
+                  </label>
+                  <label className="community-library-field span-2">
+                    <span>Fonte pública</span>
+                    <input value={draft.source_url} placeholder="https://..." onChange={(event) => setDraft((current) => ({ ...current, source_url: event.target.value }))} />
+                  </label>
+                  <label className="community-library-field span-full">
+                    <span>Crédito e atribuição</span>
+                    <input value={draft.attribution_text} placeholder="Texto de atribuição exibido junto do item." onChange={(event) => setDraft((current) => ({ ...current, attribution_text: event.target.value }))} />
+                  </label>
+                  <label className="community-checkbox-card span-full">
+                    <input type="checkbox" checked={draft.publication_terms_accepted} onChange={(event) => setDraft((current) => ({ ...current, publication_terms_accepted: event.target.checked }))} />
+                    <span>
+                      <strong>Termos de publicação aceitos</strong>
+                      <small>Confirmo que tenho autorização para publicar este arquivo e sua licença.</small>
+                    </span>
+                  </label>
+                </div>
+              </section>
+
+              <section className="community-library-form-section">
+                <header>
+                  <strong>Impressão</strong>
+                  <span>Metadados técnicos usados em busca, análise e listas de impressão.</span>
+                </header>
+                <div className="community-library-form-grid">
+                  <label className="community-library-field">
+                    <span>Componente</span>
+                    <input value={draft.component} placeholder="Ex.: hotend, TAP, painel" onChange={(event) => setDraft((current) => ({ ...current, component: event.target.value }))} />
+                  </label>
+                  <label className="community-library-field">
+                    <span>Versão inicial</span>
+                    <input value={draft.version_label} placeholder="v1" onChange={(event) => setDraft((current) => ({ ...current, version_label: event.target.value }))} required />
+                  </label>
+                  <label className="community-library-field span-2">
+                    <span>Material sugerido</span>
+                    <input value={draft.material_suggestion} placeholder="Ex.: ABS, ASA, PETG" onChange={(event) => setDraft((current) => ({ ...current, material_suggestion: event.target.value }))} />
+                  </label>
+                  <label className="community-checkbox-card span-full">
+                    <input type="checkbox" checked={draft.supports_required} onChange={(event) => setDraft((current) => ({ ...current, supports_required: event.target.checked }))} />
+                    <span>
+                      <strong>Exige suporte</strong>
+                      <small>Marque quando a orientação recomendada precisar de suporte.</small>
+                    </span>
+                  </label>
+                  <label className="community-library-field span-full">
+                    <span>Orientação de impressão</span>
+                    <textarea value={draft.orientation_notes} maxLength={500} placeholder="Posição na mesa, orientação, brim, suportes e observações de fatiamento." onChange={(event) => setDraft((current) => ({ ...current, orientation_notes: event.target.value }))} />
+                  </label>
+                </div>
+              </section>
               <div className="modal-footer">
                 <button type="button" className="secondary-button" onClick={() => setCreateOpen(false)}>Cancelar</button>
                 <button type="submit" className="primary-button"><FileText size={15} />Cadastrar arquivo</button>
