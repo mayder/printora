@@ -231,7 +231,6 @@ function CommunitiesTab({ communities, page, setPage }: { communities: Community
             <BrandMark name={community.manufacturer_name ?? community.name} logoUrl={community.manufacturer_logo_url} />
             <div className="social-card-copy">
               <strong>{community.name}</strong>
-              <span>{scopeLabel(community.scope)} · {statusLabel(community.status)}</span>
               <small>{communityContext(community)}</small>
             </div>
           </div>
