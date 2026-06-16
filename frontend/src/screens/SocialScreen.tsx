@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronLeft, ChevronRight, ExternalLink, Filter, Globe2, RefreshCw, Search, Shield, UserRound, Users } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Filter, Globe2, RefreshCw, Search, Shield, UserRound, Users } from "lucide-react";
 import { socialApi } from "../services/socialApi";
 import type { ScreenPropsFor } from "./ScreenProps";
 import type { CatalogSummary, Community, PublicPrinter, PublicProfile, RelationshipRecord, RelationshipSummary } from "../types";
@@ -7,6 +7,7 @@ import type { CatalogSummary, Community, PublicPrinter, PublicProfile, Relations
 type SocialScreenProps = ScreenPropsFor<"setError">;
 type SocialTab = "communities" | "printers" | "makers" | "relationships";
 type SocialFilters = { manufacturer: string; model: string; variant: string; component: string; mod: string };
+type FilterOption = { value: string; label: string };
 const pageSize = 12;
 
 const socialTabs: Array<{ key: SocialTab; label: string; icon: typeof Users }> = [
@@ -161,36 +162,33 @@ function CatalogFilters({
   const visibleVariants = visibleModels
     .filter((model) => !filters.model || model.slug === filters.model)
     .flatMap((model) => model.variants);
+  const manufacturerOptions = catalog?.manufacturers.map((manufacturer) => ({ value: manufacturer.slug, label: manufacturer.name })) ?? [];
+  const modelOptions = visibleModels.map((model) => ({ value: model.slug, label: model.name }));
+  const variantOptions = visibleVariants.map((variant) => ({ value: variant.slug, label: variant.name }));
 
   return (
     <div className="community-filter-grid">
-      <label>
-        Fabricante
-        <select value={filters.manufacturer} onChange={(event) => setFilters((current) => ({ ...current, manufacturer: event.target.value, model: "", variant: "" }))}>
-          <option value="">Todos</option>
-          {catalog?.manufacturers.map((manufacturer) => (
-            <option key={manufacturer.slug} value={manufacturer.slug}>{manufacturer.name}</option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Modelo
-        <select value={filters.model} onChange={(event) => setFilters((current) => ({ ...current, model: event.target.value, variant: "" }))}>
-          <option value="">Todos</option>
-          {visibleModels.map((model) => (
-            <option key={model.slug} value={model.slug}>{model.name}</option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Variante
-        <select value={filters.variant} onChange={(event) => setFilters((current) => ({ ...current, variant: event.target.value }))}>
-          <option value="">Todas</option>
-          {visibleVariants.map((variant) => (
-            <option key={variant.slug} value={variant.slug}>{variant.name}</option>
-          ))}
-        </select>
-      </label>
+      <SearchableFilter
+        label="Fabricante"
+        value={filters.manufacturer}
+        emptyLabel="Todos"
+        options={manufacturerOptions}
+        onChange={(value) => setFilters((current) => ({ ...current, manufacturer: value, model: "", variant: "" }))}
+      />
+      <SearchableFilter
+        label="Modelo"
+        value={filters.model}
+        emptyLabel="Todos"
+        options={modelOptions}
+        onChange={(value) => setFilters((current) => ({ ...current, model: value, variant: "" }))}
+      />
+      <SearchableFilter
+        label="Variante"
+        value={filters.variant}
+        emptyLabel="Todas"
+        options={variantOptions}
+        onChange={(value) => setFilters((current) => ({ ...current, variant: value }))}
+      />
       {showComponent ? (
         <label>
           Componente
@@ -208,6 +206,77 @@ function CatalogFilters({
             <input value={filters.mod} onChange={(event) => setFilters((current) => ({ ...current, mod: event.target.value }))} placeholder="Tap, ERCF, enclosure..." />
           </span>
         </label>
+      ) : null}
+    </div>
+  );
+}
+
+function SearchableFilter({
+  label,
+  value,
+  emptyLabel,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  emptyLabel: string;
+  options: FilterOption[];
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const ref = React.useRef<HTMLDivElement | null>(null);
+  const selected = options.find((option) => option.value === value);
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredOptions = normalizedQuery
+    ? options.filter((option) => option.label.toLowerCase().includes(normalizedQuery))
+    : options;
+
+  React.useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(event: PointerEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [open]);
+
+  function selectValue(nextValue: string) {
+    onChange(nextValue);
+    setOpen(false);
+    setQuery("");
+  }
+
+  return (
+    <div className="social-combobox-field" ref={ref}>
+      <span className="social-filter-label">{label}</span>
+      <button type="button" className="social-combobox-trigger" aria-expanded={open} aria-haspopup="listbox" onClick={() => setOpen((current) => !current)}>
+        <span>{selected?.label ?? emptyLabel}</span>
+        <ChevronDown size={15} />
+      </button>
+      {open ? (
+        <div className="social-combobox-popover">
+          <span className="social-combobox-search">
+            <Search size={14} />
+            <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Buscar ${label.toLowerCase()}`} />
+          </span>
+          <div className="social-combobox-options" role="listbox" aria-label={label}>
+            <button type="button" className={!value ? "active" : ""} role="option" aria-selected={!value} onClick={() => selectValue("")}>
+              <Check size={14} />
+              {emptyLabel}
+            </button>
+            {filteredOptions.map((option) => (
+              <button key={option.value} type="button" className={value === option.value ? "active" : ""} role="option" aria-selected={value === option.value} onClick={() => selectValue(option.value)}>
+                <Check size={14} />
+                {option.label}
+              </button>
+            ))}
+            {filteredOptions.length === 0 ? <span className="social-combobox-empty">Nenhum resultado.</span> : null}
+          </div>
+        </div>
       ) : null}
     </div>
   );
