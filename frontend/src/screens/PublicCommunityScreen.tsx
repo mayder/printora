@@ -77,6 +77,7 @@ export function PublicCommunityScreen({ slug, embedded = false }: PublicCommunit
           <header className="public-profile-hero public-community-hero">
             <CommunityBrandMark community={community} />
             <div>
+              <a href="/?section=social" className="ghost-button compact public-community-back"><ArrowLeft size={15} />Social</a>
               <span className="account-eyebrow">{communityEyebrow(community)}</span>
               <h1>{community.name}</h1>
               <p>{statusDescription(community)}</p>
@@ -85,7 +86,6 @@ export function PublicCommunityScreen({ slug, embedded = false }: PublicCommunit
                 {community.merged_into_slug ? <a href={`/c/${community.merged_into_slug}`}><ExternalLink size={15} />Abrir destino</a> : null}
               </div>
             </div>
-            <a href="/?section=social" className="secondary-button public-community-back"><ArrowLeft size={16} />Voltar ao Social</a>
           </header>
 
           <section className="community-metrics">
@@ -136,7 +136,7 @@ export function PublicCommunityScreen({ slug, embedded = false }: PublicCommunit
     <main className="public-profile-shell public-community-shell">
       <section className="public-profile-topbar">
         <img src="/brand/printora-logo-horizontal-color.png" alt="Printora" />
-        <a href="/?section=social" className="secondary-button"><ArrowLeft size={16} />Voltar ao Social</a>
+        <a href="/?section=social" className="ghost-button compact public-community-back"><ArrowLeft size={15} />Social</a>
       </section>
       {content}
     </main>
