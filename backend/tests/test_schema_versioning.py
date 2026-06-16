@@ -248,6 +248,33 @@ def test_initialize_database_blocks_completion_when_integrity_check_fails(
         assert record == (_sql_script_count(), "failed", '["simulated corruption"]')
 
 
+def test_initialize_database_repairs_corrupt_materialization_cache(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("PRAGMA writable_schema = ON")
+        connection.execute(
+            "UPDATE sqlite_schema SET rootpage = 999999 WHERE name = 'social_materialization_state'"
+        )
+        connection.execute("PRAGMA writable_schema = OFF")
+        connection.commit()
+
+    initialize_database(database_path)
+
+    backups = _schema_backups(tmp_path)
+    with sqlite3.connect(database_path) as connection:
+        table = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'social_materialization_state'"
+        ).fetchone()
+        latest = connection.execute(
+            "SELECT script_name FROM schema_versions ORDER BY execution_order DESC LIMIT 1"
+        ).fetchone()
+    assert backups
+    assert table == ("social_materialization_state",)
+    assert latest == ("056_social_materialization_state.sql",)
+
+
 def _create_legacy_database(database_path: Path) -> None:
     database_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(database_path) as connection:

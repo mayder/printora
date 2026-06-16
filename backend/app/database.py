@@ -23,6 +23,7 @@ class DatabaseSchemaError(RuntimeError):
 def initialize_database(database_path: Path) -> None:
     database_path.parent.mkdir(parents=True, exist_ok=True)
     sql_files = sorted(SQL_DIR.glob("[0-9]*.sql"))
+    _repair_optional_materialization_state(database_path)
     pending_files = _pending_sql_files(database_path, sql_files)
     backup_path: Path | None = None
     if database_path.exists() and pending_files:
@@ -207,6 +208,41 @@ def _backup_database(database_path: Path) -> Path:
     backup_path = database_path.parent / f"{database_path.stem}.{timestamp}.before-schema{database_path.suffix}"
     shutil.copy2(database_path, backup_path)
     return backup_path
+
+
+def _repair_optional_materialization_state(database_path: Path) -> None:
+    if not database_path.exists():
+        return
+    connection: sqlite3.Connection | None = None
+    try:
+        connection = _connect_sqlite(database_path)
+        connection.execute("SELECT COUNT(*) FROM social_materialization_state").fetchone()
+    except sqlite3.DatabaseError as exc:
+        message = str(exc)
+        if "social_materialization_state" not in message or "malformed database schema" not in message:
+            return
+        if connection is not None:
+            connection.close()
+            connection = None
+        _backup_database(database_path)
+        connection = _connect_sqlite(database_path)
+        connection.execute("PRAGMA writable_schema = ON")
+        connection.execute(
+            """
+            DELETE FROM sqlite_schema
+            WHERE name = 'social_materialization_state'
+               OR tbl_name = 'social_materialization_state'
+            """
+        )
+        connection.execute("PRAGMA writable_schema = OFF")
+        connection.execute(
+            "DELETE FROM schema_versions WHERE script_name = '056_social_materialization_state.sql'"
+        )
+        connection.commit()
+        connection.execute("VACUUM")
+    finally:
+        if connection is not None:
+            connection.close()
 
 
 def _connect_sqlite(database_path: Path | str, *, uri: bool = False) -> sqlite3.Connection:

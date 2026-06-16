@@ -233,6 +233,9 @@ ignorando auto-voto. Sinais de denúncia/moderação reduzem exposição quando
 existirem. Rollback funcional remove endpoints/UI de recomendações e mantém os
 dados como legado; rollback estrutural exige backup SQLite anterior ao script
 `055_social_ranking_reputation.sql` e `056_social_materialization_state.sql`.
+Se a tabela derivada `social_materialization_state` ficar com schema malformado
+durante uma publicação interrompida, a inicialização cria backup `.before-schema`
+e reconstrói apenas essa tabela de cache.
 
 Perfis de material e fatiamento:
 
