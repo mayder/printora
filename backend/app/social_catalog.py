@@ -4,7 +4,10 @@ from dataclasses import dataclass
 import hashlib
 import ipaddress
 import json
+import math
 import re
+import struct
+import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 from typing import Literal
@@ -434,6 +437,9 @@ class LibraryFileMetadata(BaseModel):
     uploaded_size_bytes: int | None = None
     rejection_reason: str | None = None
     deduplicated_from_file_id: int | None = None
+    analysis: dict[str, object] = Field(default_factory=dict)
+    thumbnail_svg: str | None = None
+    analyzed_at: str | None = None
 
     @field_validator("file_name")
     @classmethod
@@ -1518,6 +1524,60 @@ class SocialCatalogRepository:
             row = self._library_item_row(connection, item_id)
             return self._library_item_from_row(connection, row)
 
+    def analyze_library_file(self, file_id: int, actor_user_id: int, is_admin: bool) -> LibraryItem:
+        with connect_database(self.database_path) as connection:
+            file_row = connection.execute(
+                """
+                SELECT lf.*, li.owner_user_id
+                FROM social_library_files lf
+                JOIN social_library_items li ON li.id = lf.item_id
+                WHERE lf.id = ?
+                """,
+                (file_id,),
+            ).fetchone()
+            if file_row is None:
+                raise ValueError("arquivo não encontrado")
+            self._ensure_library_owner(file_row, actor_user_id, is_admin)
+            if file_row["validation_status"] not in {"quarantined", "analyzed", "analysis_failed"}:
+                raise ValueError("arquivo precisa estar em quarentena para análise")
+            quarantine_key = clean_optional_text(file_row["quarantine_key"])
+            if not quarantine_key:
+                raise ValueError("arquivo sem objeto de quarentena")
+            path = self.database_path.parent / "library_uploads" / "quarantine" / Path(quarantine_key).name
+            if not path.is_file():
+                raise ValueError("arquivo de quarentena não encontrado")
+            body = path.read_bytes()
+            try:
+                analysis = analyze_3d_model_bytes(str(file_row["file_name"]), file_row["file_kind"], body)
+                status = "analyzed"
+                thumbnail = build_analysis_thumbnail_svg(analysis)
+            except ValueError as exc:
+                analysis = {
+                    "status": "failed",
+                    "problems": [{"code": "analysis_failed", "severity": "error", "message": str(exc)}],
+                }
+                status = "analysis_failed"
+                thumbnail = None
+            connection.execute(
+                """
+                UPDATE social_library_files
+                SET analysis_json = ?, thumbnail_svg = ?, analyzed_at = CURRENT_TIMESTAMP,
+                    validation_status = ?, rejection_reason = CASE WHEN ? = 'analysis_failed' THEN ? ELSE rejection_reason END
+                WHERE id = ?
+                """,
+                (json.dumps(analysis, ensure_ascii=False, sort_keys=True), thumbnail, status, status, analysis["problems"][0]["message"] if status == "analysis_failed" else None, file_id),
+            )
+            self._audit(
+                connection,
+                "social_library_file",
+                file_id,
+                "analysis_completed" if status == "analyzed" else "analysis_failed",
+                actor_user_id,
+                {"retention_days": 180, "status": status},
+            )
+            row = self._library_item_row(connection, int(file_row["item_id"]))
+            return self._library_item_from_row(connection, row)
+
     def create_community_post(self, slug: str, actor_user_id: int, payload: CommunityPostCreate) -> CommunityFeedItem:
         clean_slug = normalize_slug(slug)
         with connect_database(self.database_path) as connection:
@@ -2210,7 +2270,8 @@ class SocialCatalogRepository:
         file_rows = connection.execute(
             """
             SELECT id, file_kind, file_name, original_url, size_bytes, sha256, validation_status,
-                   storage_key, quarantine_key, uploaded_size_bytes, rejection_reason, deduplicated_from_file_id
+                   storage_key, quarantine_key, uploaded_size_bytes, rejection_reason, deduplicated_from_file_id,
+                   analysis_json, thumbnail_svg, analyzed_at
             FROM social_library_files
             WHERE item_id = ?
             ORDER BY id
@@ -2482,6 +2543,165 @@ def _validate_library_upload(file_name: str, file_kind: LibraryFileKind, body: b
                 raise ValueError("pacote sem modelo STL/3MF")
     except zipfile.BadZipFile as exc:
         raise ValueError("pacote ZIP/3MF inválido") from exc
+
+
+def analyze_3d_model_bytes(file_name: str, file_kind: LibraryFileKind, body: bytes) -> dict[str, object]:
+    if not body:
+        raise ValueError("arquivo vazio")
+    if file_kind == "stl":
+        return _analyze_stl(body)
+    if file_kind == "3mf":
+        return _analyze_3mf(body)
+    return _analyze_bundle(body)
+
+
+def _analyze_stl(body: bytes) -> dict[str, object]:
+    vertices: list[tuple[float, float, float]] = []
+    triangle_count = 0
+    if len(body) >= 84:
+        declared = struct.unpack("<I", body[80:84])[0]
+        expected = 84 + declared * 50
+        if declared > 0 and expected <= len(body):
+            triangle_count = int(declared)
+            offset = 84
+            for _ in range(min(declared, 200_000)):
+                chunk = body[offset + 12 : offset + 48]
+                if len(chunk) < 36:
+                    break
+                vertices.extend(struct.unpack("<fffffffff", chunk)[i : i + 3] for i in range(0, 9, 3))
+                offset += 50
+    if not vertices:
+        text = body[:2_000_000].decode("utf-8", errors="ignore")
+        vertex_matches = re.findall(r"vertex\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)", text, flags=re.IGNORECASE)
+        vertices = [(float(x), float(y), float(z)) for x, y, z in vertex_matches[:600_000]]
+        triangle_count = max(1, len(vertices) // 3) if vertices else 0
+    if not vertices:
+        raise ValueError("STL sem vértices reconhecíveis")
+    return _analysis_from_vertices(vertices, triangle_count, mesh_count=1, source_format="stl")
+
+
+def _analyze_3mf(body: bytes) -> dict[str, object]:
+    from io import BytesIO
+
+    vertices: list[tuple[float, float, float]] = []
+    mesh_count = 0
+    triangle_count = 0
+    with zipfile.ZipFile(BytesIO(body)) as archive:
+        model_names = [name for name in archive.namelist() if name.lower().endswith(".model")]
+        if not model_names:
+            raise ValueError("3MF sem modelo 3D")
+        for name in model_names[:12]:
+            root = ET.fromstring(archive.read(name))
+            local_vertices: list[tuple[float, float, float]] = []
+            for vertex in root.iter():
+                if _xml_local_name(vertex.tag) != "vertex":
+                    continue
+                try:
+                    local_vertices.append((float(vertex.attrib["x"]), float(vertex.attrib["y"]), float(vertex.attrib["z"])))
+                except (KeyError, ValueError):
+                    continue
+            local_triangles = sum(1 for item in root.iter() if _xml_local_name(item.tag) == "triangle")
+            if local_vertices:
+                mesh_count += 1
+                vertices.extend(local_vertices[:200_000])
+                triangle_count += local_triangles
+    if not vertices:
+        raise ValueError("3MF sem vértices reconhecíveis")
+    return _analysis_from_vertices(vertices, triangle_count, mesh_count=max(mesh_count, 1), source_format="3mf")
+
+
+def _analyze_bundle(body: bytes) -> dict[str, object]:
+    from io import BytesIO
+
+    summaries: list[dict[str, object]] = []
+    with zipfile.ZipFile(BytesIO(body)) as archive:
+        for name in archive.namelist()[:120]:
+            lower = name.lower()
+            if lower.endswith(".stl"):
+                try:
+                    summaries.append(_analyze_stl(archive.read(name)))
+                except ValueError:
+                    continue
+            elif lower.endswith(".3mf"):
+                try:
+                    summaries.append(_analyze_3mf(archive.read(name)))
+                except ValueError:
+                    continue
+    if not summaries:
+        raise ValueError("pacote sem modelo analisável")
+    first = summaries[0]
+    total_triangles = sum(int(item.get("triangle_count") or 0) for item in summaries)
+    problems = [problem for item in summaries for problem in item.get("problems", []) if isinstance(problem, dict)]
+    return {
+        **first,
+        "source_format": "bundle",
+        "mesh_count": len(summaries),
+        "triangle_count": total_triangles,
+        "problems": problems,
+    }
+
+
+def _analysis_from_vertices(vertices: list[tuple[float, float, float]], triangle_count: int, *, mesh_count: int, source_format: str) -> dict[str, object]:
+    xs = [point[0] for point in vertices]
+    ys = [point[1] for point in vertices]
+    zs = [point[2] for point in vertices]
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+    min_z, max_z = min(zs), max(zs)
+    dimensions = {"x": round(max_x - min_x, 3), "y": round(max_y - min_y, 3), "z": round(max_z - min_z, 3)}
+    volume = round(dimensions["x"] * dimensions["y"] * dimensions["z"], 3)
+    problems: list[dict[str, str]] = []
+    if triangle_count <= 0:
+        problems.append({"code": "invalid_mesh", "severity": "error", "message": "Malha sem triângulos reconhecidos."})
+    if any(value <= 0 for value in dimensions.values()):
+        problems.append({"code": "flat_model", "severity": "warning", "message": "Uma dimensão ficou zerada ou negativa."})
+    if max(dimensions.values()) > 600 or min(value for value in dimensions.values() if value > 0) < 0.2:
+        problems.append({"code": "suspicious_scale", "severity": "warning", "message": "Escala parece suspeita para impressão FDM comum."})
+    if dimensions["x"] > 350 or dimensions["y"] > 350 or dimensions["z"] > 350:
+        problems.append({"code": "oversized_model", "severity": "warning", "message": "Dimensões podem não caber em impressoras comuns."})
+    support_likely = dimensions["z"] > 0 and (dimensions["z"] / max(dimensions["x"], dimensions["y"], 1)) > 1.8
+    if support_likely:
+        problems.append({"code": "support_likely", "severity": "info", "message": "Orientação alta sugere avaliar suportes."})
+    return {
+        "status": "ok",
+        "source_format": source_format,
+        "dimensions_mm": dimensions,
+        "bounding_box": {
+            "min": {"x": round(min_x, 3), "y": round(min_y, 3), "z": round(min_z, 3)},
+            "max": {"x": round(max_x, 3), "y": round(max_y, 3), "z": round(max_z, 3)},
+        },
+        "approx_volume_mm3": volume,
+        "mesh_count": mesh_count,
+        "triangle_count": triangle_count,
+        "support_likely": support_likely,
+        "problems": problems,
+    }
+
+
+def build_analysis_thumbnail_svg(analysis: dict[str, object]) -> str:
+    dimensions = analysis.get("dimensions_mm") if isinstance(analysis.get("dimensions_mm"), dict) else {}
+    width = max(float(dimensions.get("x") or 1), 1.0)
+    depth = max(float(dimensions.get("y") or 1), 1.0)
+    height = max(float(dimensions.get("z") or 1), 1.0)
+    scale = 120 / max(width, depth, height)
+    rect_w = max(16, min(120, width * scale))
+    rect_h = max(16, min(90, depth * scale))
+    z_h = max(8, min(44, height * scale * 0.55))
+    x = 70 - rect_w / 2
+    y = 116 - rect_h / 2
+    return (
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 140 140\" role=\"img\" aria-label=\"Preview técnico do modelo\">"
+        "<rect width=\"140\" height=\"140\" rx=\"8\" fill=\"#f3f7f8\"/>"
+        f"<path d=\"M{x:.1f} {y:.1f}h{rect_w:.1f}l-18 -{z_h:.1f}h-{rect_w:.1f}z\" fill=\"#d8e8ed\" stroke=\"#6d8b96\"/>"
+        f"<path d=\"M{x:.1f} {y:.1f}v{rect_h:.1f}h{rect_w:.1f}v-{rect_h:.1f}z\" fill=\"#ffffff\" stroke=\"#6d8b96\"/>"
+        f"<path d=\"M{x + rect_w:.1f} {y:.1f}l-18 -{z_h:.1f}v{rect_h:.1f}l18 {z_h:.1f}z\" fill=\"#c7dbe2\" stroke=\"#6d8b96\"/>"
+        f"<text x=\"70\" y=\"132\" text-anchor=\"middle\" font-size=\"10\" fill=\"#28424d\">{width:.0f} x {depth:.0f} x {height:.0f} mm</text>"
+        "</svg>"
+    )
+
+
+def _xml_local_name(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1] if "}" in tag else tag
 
 
 def clean_text_list(values: list[str], max_length: int) -> list[str]:
@@ -2790,6 +3010,9 @@ def _library_item_from_row(row, file_rows) -> LibraryItem:
                 uploaded_size_bytes=file_row["uploaded_size_bytes"],
                 rejection_reason=file_row["rejection_reason"],
                 deduplicated_from_file_id=file_row["deduplicated_from_file_id"],
+                analysis=_json_dict(file_row["analysis_json"]),
+                thumbnail_svg=file_row["thumbnail_svg"],
+                analyzed_at=file_row["analyzed_at"],
             )
             for file_row in file_rows
         ],

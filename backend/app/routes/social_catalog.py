@@ -414,6 +414,20 @@ async def upload_library_file(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.post("/api/social/library/files/{file_id}/analysis", response_model=LibraryItem)
+async def analyze_library_file(
+    file_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryItem:
+    try:
+        return repository.analyze_library_file(file_id, current.user.id, is_social_admin(current))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.post("/api/social/communities/{slug}/posts", response_model=CommunityFeedSummary)
 async def create_community_post(
     slug: str,

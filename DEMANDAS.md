@@ -3664,7 +3664,7 @@ Estado atual:
 - Arquivo válido entra como `quarantined`; rejeitado entra como `rejected` com motivo acionável; arquivos em quarentena ainda não viram download/fatiamento validado.
 - Checksum SHA-256 é registrado e deduplicação básica aponta para arquivo já quarentenado/validado com o mesmo hash.
 - UI da aba `Arquivos` aceita seleção de arquivo local STL/3MF/ZIP e mostra status de metadados, quarentena ou rejeição no card.
-- Validação focada concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q` e `cd frontend && npm run build`.
+- Validação concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q`, `cd frontend && npm run build`, `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh` e fluxo local via API com upload STL, análise, dimensões, triângulos e thumbnail gerado.
 
 ## PKG-58: Visualização 3D, Thumbnails E Análise Técnica De Modelos
 
@@ -3702,7 +3702,13 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado com `backend/sql/048_social_library_analysis.sql`, armazenando `analysis_json`, `thumbnail_svg` e `analyzed_at` por arquivo de biblioteca.
+- Análise segura roda por parser controlado em Python/stdlib, sem executar conteúdo do arquivo; cobre STL binário/ASCII, 3MF e pacotes ZIP com modelos internos.
+- Metadados derivados incluem dimensões, bounding box, volume aproximado por caixa, quantidade de malhas, triângulos e indicação de suporte provável.
+- Alertas básicos cobrem arquivo vazio/sem vértices, malha inválida, escala suspeita, dimensões incompatíveis e orientação alta.
+- Thumbnail SVG é gerado a partir do bounding box e renderizado no card; falha de análise fica como `analysis_failed` no arquivo, sem bloquear o item/biblioteca.
+- UI da aba `Arquivos` exibe ação `Analisar`, preview, dimensões, volume, triângulos e mensagens de alerta em estado controlado.
+- Validação focada concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q` e `cd frontend && npm run build`.
 
 ## PKG-59: Licenças, Autoria E Atribuição De Modelos
 

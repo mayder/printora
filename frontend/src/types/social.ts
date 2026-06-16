@@ -239,6 +239,9 @@ export interface LibraryFileMetadata {
   uploaded_size_bytes: number | null;
   rejection_reason: string | null;
   deduplicated_from_file_id: number | null;
+  analysis: Record<string, unknown>;
+  thumbnail_svg: string | null;
+  analyzed_at: string | null;
 }
 
 export interface LibraryItem {

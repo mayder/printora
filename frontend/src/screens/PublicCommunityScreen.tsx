@@ -308,6 +308,15 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
     }
   }
 
+  async function analyzeFile(fileId: number) {
+    try {
+      const updated = await socialApi.analyzeLibraryFile(fileId);
+      setItems((current) => current.map((item) => item.id === updated.id ? updated : item));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Análise não concluída");
+    }
+  }
+
   return (
     <div className="community-library">
       <div className="community-feed-header">
@@ -354,7 +363,7 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
       {loading ? <p>Carregando biblioteca...</p> : items.length ? (
         <div className="community-library-list">
           {items.map((item) => (
-            <LibraryItemCard key={item.id} item={item} onDownload={() => registerDownload(item.id)} onArchive={() => archiveItem(item.id)} />
+            <LibraryItemCard key={item.id} item={item} onDownload={() => registerDownload(item.id)} onArchive={() => archiveItem(item.id)} onAnalyze={analyzeFile} />
           ))}
         </div>
       ) : <Placeholder title="Biblioteca vazia" text="Nenhum arquivo visível para esta comunidade." />}
@@ -362,7 +371,8 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
   );
 }
 
-function LibraryItemCard({ item, onDownload, onArchive }: { item: LibraryItem; onDownload: () => void; onArchive: () => void }) {
+function LibraryItemCard({ item, onDownload, onArchive, onAnalyze }: { item: LibraryItem; onDownload: () => void; onArchive: () => void; onAnalyze: (fileId: number) => void }) {
+  const analyzedFile = item.files.find((file) => file.thumbnail_svg || file.analysis?.dimensions_mm);
   return (
     <article className="community-library-card">
       <header>
@@ -373,6 +383,8 @@ function LibraryItemCard({ item, onDownload, onArchive }: { item: LibraryItem; o
         <strong>{item.version_label}</strong>
       </header>
       {item.description ? <p>{item.description}</p> : null}
+      {analyzedFile?.thumbnail_svg ? <div className="community-model-preview" dangerouslySetInnerHTML={{ __html: analyzedFile.thumbnail_svg }} /> : null}
+      {analyzedFile ? <ModelAnalysisSummary file={analyzedFile} /> : null}
       <div className="community-feed-tags">
         {item.component ? <span>{item.component}</span> : null}
         {item.material_suggestion ? <span>{item.material_suggestion}</span> : null}
@@ -392,10 +404,26 @@ function LibraryItemCard({ item, onDownload, onArchive }: { item: LibraryItem; o
         <span>{item.download_count} downloads</span>
       </footer>
       <div className="community-feed-actions">
+        {item.files.filter((file) => file.id && ["quarantined", "analysis_failed", "analyzed"].includes(file.validation_status)).map((file) => (
+          <button key={file.id} type="button" className="secondary-button" onClick={() => onAnalyze(file.id ?? 0)}><Box size={15} />Analisar</button>
+        ))}
         <button type="button" className="secondary-button" onClick={onDownload}><Download size={15} />Download</button>
         <button type="button" className="secondary-button danger" onClick={onArchive}><Trash2 size={15} />Arquivar</button>
       </div>
     </article>
+  );
+}
+
+function ModelAnalysisSummary({ file }: { file: LibraryItem["files"][number] }) {
+  const dimensions = file.analysis?.dimensions_mm as { x?: number; y?: number; z?: number } | undefined;
+  const problems = Array.isArray(file.analysis?.problems) ? file.analysis.problems as Array<{ code?: string; message?: string; severity?: string }> : [];
+  return (
+    <div className="community-model-analysis">
+      {dimensions ? <span>{Number(dimensions.x ?? 0).toFixed(1)} x {Number(dimensions.y ?? 0).toFixed(1)} x {Number(dimensions.z ?? 0).toFixed(1)} mm</span> : null}
+      {typeof file.analysis?.approx_volume_mm3 === "number" ? <span>{Number(file.analysis.approx_volume_mm3).toFixed(0)} mm3</span> : null}
+      {typeof file.analysis?.triangle_count === "number" ? <span>{Number(file.analysis.triangle_count)} triângulos</span> : null}
+      {problems.map((problem) => <small key={`${problem.code}-${problem.message}`}>{problem.message}</small>)}
+    </div>
   );
 }
 

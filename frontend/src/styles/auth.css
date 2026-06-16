@@ -434,6 +434,43 @@
   flex-wrap: wrap;
 }
 
+.community-model-preview {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  min-height: 150px;
+  overflow: hidden;
+}
+
+.community-model-preview svg {
+  height: 150px;
+  width: 150px;
+}
+
+.community-model-analysis {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.community-model-analysis span,
+.community-model-analysis small {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.82rem;
+  padding: 4px 8px;
+}
+
+.community-model-analysis small {
+  color: var(--text-muted);
+}
+
 .community-toggle {
   border: 1px solid var(--border);
   border-radius: 8px;

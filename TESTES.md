@@ -334,6 +334,32 @@ Evidência visual esperada:
 - erro legível quando upload ou validação falha;
 - ausência de path local/sessão/segredo no render.
 
+### PKG-58 - Visualização 3D, thumbnails e análise técnica de modelos
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- análise STL binária determinística sem executar código externo;
+- extração de dimensões, bounding box, volume aproximado, malhas e triângulos;
+- geração de thumbnail SVG controlado por metadados;
+- alerta de suporte provável e escala/dimensão suspeita;
+- falha de análise fica restrita ao arquivo e não quebra o item/biblioteca;
+- endpoint exige arquivo em quarentena e permissão de dono/administrador;
+- build frontend valida render de preview e estados técnicos no card.
+
+Evidência visual esperada:
+
+- `/c/{slug}` na aba `Arquivos` com botão `Analisar` em arquivos quarentenados;
+- card exibindo preview SVG, dimensões, volume, triângulos e alertas;
+- estado `analysis_failed` exibido de forma controlada quando o arquivo não é analisável.
+
 ## Update do agente
 
 Validação focada:

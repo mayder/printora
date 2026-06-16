@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260616-05 - Análise 3D usa parser controlado e preview derivado
+
+Status: aceita
+Data: 2026-06-16
+Contexto: o PKG-58 precisa entregar dimensões, alertas e preview de modelos sem executar código nem depender de ferramenta externa pesada.
+Decisao: analisar STL/3MF/ZIP com parsers controlados em Python/stdlib, lendo vértices e triângulos para derivar bounding box, dimensões, volume aproximado, contagens e alertas. O preview é SVG gerado a partir do bounding box, salvo em `thumbnail_svg`; falha fica restrita ao arquivo como `analysis_failed`.
+Alternativas consideradas: usar biblioteca nativa de malha; renderizar WebGL real no servidor; bloquear item inteiro em falha de análise.
+Consequencias: análise fica determinística, auditável e segura para arquivos pequenos/médios, com preview útil sem custo de renderização 3D pesada.
+Impacto em testes: testes cobrem STL binário determinístico, dimensões, thumbnail, suporte provável e falha isolada por arquivo.
+Impacto em rollback: médio; há novo script SQLite `048_social_library_analysis.sql`.
+Como reverter: remover endpoint `/api/social/library/files/{file_id}/analysis`, métodos de análise, UI de preview/análise e restaurar backup SQLite anterior ao script `048_social_library_analysis.sql` se necessário.
+Referencias: `backend/sql/048_social_library_analysis.sql`, `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, `frontend/src/screens/PublicCommunityScreen.tsx`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260616-04 - Upload 3D usa corpo bruto e quarentena local controlada
 
 Status: aceita

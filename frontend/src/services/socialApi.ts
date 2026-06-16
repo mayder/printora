@@ -190,6 +190,7 @@ export const socialApi = {
       headers: { "Content-Type": "application/octet-stream" },
       body: file,
     }),
+  analyzeLibraryFile: (fileId: number) => apiRequest<LibraryItem>(`/api/social/library/files/${fileId}/analysis`, { method: "POST" }),
   communityFeed: (
     slug: string,
     filters: {

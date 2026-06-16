@@ -1,5 +1,6 @@
 from pathlib import Path
 from io import BytesIO
+import struct
 import zipfile
 
 from app.auth import AuthRepository, UserRegisterRequest
@@ -1233,6 +1234,67 @@ def test_library_upload_api_uses_raw_body_without_multipart(tmp_path, monkeypatc
         get_settings.cache_clear()
 
 
+def test_library_analysis_extracts_dimensions_thumbnail_and_warnings(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="owner@example.com", password="correct-horse"))
+    repository = SocialCatalogRepository(database_path)
+    repository.get_or_create_profile(owner.id)
+    item = repository.create_library_item(
+        owner.id,
+        LibraryItemCreate(
+            title="Analise STL",
+            visibility="private",
+            license="custom",
+            files=[LibraryFileMetadata(file_kind="stl", file_name="placeholder.stl")],
+        ),
+    )
+
+    uploaded = repository.upload_library_file(item.id, owner.id, False, "box.stl", _binary_stl([(0, 0, 0), (20, 0, 0), (0, 30, 0), (0, 0, 80)]))
+    file_id = next(file.id for file in uploaded.files if file.file_name == "box.stl")
+    analyzed = repository.analyze_library_file(file_id or 0, owner.id, False)
+    analyzed_file = next(file for file in analyzed.files if file.id == file_id)
+
+    assert analyzed_file.validation_status == "analyzed"
+    assert analyzed_file.analyzed_at is not None
+    assert analyzed_file.analysis["dimensions_mm"] == {"x": 20.0, "y": 30.0, "z": 80.0}
+    assert analyzed_file.analysis["triangle_count"] == 4
+    assert analyzed_file.analysis["support_likely"] is True
+    assert analyzed_file.thumbnail_svg and "<svg" in analyzed_file.thumbnail_svg
+    assert any(problem["code"] == "support_likely" for problem in analyzed_file.analysis["problems"])
+
+
+def test_library_analysis_failure_is_scoped_to_file(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="owner@example.com", password="correct-horse"))
+    repository = SocialCatalogRepository(database_path)
+    repository.get_or_create_profile(owner.id)
+    item = repository.create_library_item(
+        owner.id,
+        LibraryItemCreate(
+            title="Analise falha",
+            visibility="private",
+            license="custom",
+            files=[LibraryFileMetadata(file_kind="stl", file_name="placeholder.stl")],
+        ),
+    )
+
+    uploaded = repository.upload_library_file(item.id, owner.id, False, "flat.stl", b"solid empty\nendsolid empty\n" + b"x" * 100)
+    with connect_database(database_path) as connection:
+        file_id = connection.execute("SELECT id FROM social_library_files WHERE file_name = 'flat.stl'").fetchone()["id"]
+        connection.execute("UPDATE social_library_files SET validation_status = 'quarantined' WHERE id = ?", (file_id,))
+    analyzed = repository.analyze_library_file(file_id, owner.id, False)
+    failed_file = next(file for file in analyzed.files if file.id == file_id)
+
+    assert failed_file.validation_status == "analysis_failed"
+    assert failed_file.analysis["status"] == "failed"
+    assert analyzed.id == item.id
+    assert len(analyzed.files) >= 2
+
+
 def test_social_relationship_block_ends_follow_and_friendship(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)
@@ -1460,3 +1522,20 @@ def _variant_id(database_path: Path, slug: str) -> int:
         row = connection.execute("SELECT id FROM catalog_printer_variants WHERE slug = ?", (slug,)).fetchone()
     assert row is not None
     return int(row["id"])
+
+
+def _binary_stl(points: list[tuple[float, float, float]]) -> bytes:
+    triangles = [
+        (points[0], points[1], points[2]),
+        (points[0], points[1], points[3]),
+        (points[0], points[2], points[3]),
+        (points[1], points[2], points[3]),
+    ]
+    payload = bytearray(b"Printora test STL".ljust(80, b"\0"))
+    payload.extend(struct.pack("<I", len(triangles)))
+    for triangle in triangles:
+        payload.extend(struct.pack("<fff", 0.0, 0.0, 1.0))
+        for vertex in triangle:
+            payload.extend(struct.pack("<fff", *vertex))
+        payload.extend(struct.pack("<H", 0))
+    return bytes(payload)

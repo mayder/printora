@@ -84,6 +84,22 @@ funcional remove endpoint/UI de upload e mantém metadados; rollback estrutural
 exige backup SQLite anterior ao script `047_social_library_uploads.sql` e
 limpeza manual do diretório de quarentena somente após confirmação explícita.
 
+Análise técnica e preview:
+
+```bash
+curl -fsS -X POST \
+  -H "Authorization: Bearer <token>" \
+  "http://127.0.0.1:8069/api/social/library/files/<file_id>/analysis"
+```
+
+O schema de análise é aplicado por `backend/sql/048_social_library_analysis.sql`.
+A análise usa apenas parsers controlados de STL/3MF/ZIP e grava metadados em
+`analysis_json`, preview SVG em `thumbnail_svg` e timestamp em `analyzed_at`.
+Falha de análise deve ficar em `analysis_failed` no arquivo; não bloqueie a
+biblioteca inteira. Rollback funcional remove endpoint/UI de análise e mantém
+metadados; rollback estrutural exige backup SQLite anterior ao script
+`048_social_library_analysis.sql`.
+
 ## Comandos principais
 
 ```bash
