@@ -218,7 +218,7 @@ jobs:
           fi
 
           for attempt in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8069/health >/dev/null; then
+            if curl --max-time 2 -fsS http://127.0.0.1:8069/health >/dev/null; then
               break
             fi
             if [ "$attempt" -eq 30 ]; then
@@ -229,7 +229,7 @@ jobs:
             fi
             sleep 1
           done
-          curl -fsS http://127.0.0.1:8069/api/catalog >/dev/null
+          curl --max-time 5 -fsS http://127.0.0.1:8069/api/catalog >/dev/null
           rm -f "$BUNDLE"
           REMOTE
 
@@ -237,11 +237,11 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in $(seq 1 30); do
-            if curl -fsS https://print3dmaker.xyz/health >/dev/null \
-              && curl -fsS https://print3dmaker.xyz/api/catalog >/dev/null; then
+            if curl --max-time 5 -fsS https://print3dmaker.xyz/health >/dev/null \
+              && curl --max-time 5 -fsS https://print3dmaker.xyz/api/catalog >/dev/null; then
               exit 0
             fi
             sleep 2
           done
-          curl -fsS https://print3dmaker.xyz/health
-          curl -fsS https://print3dmaker.xyz/api/catalog >/dev/null
+          curl --max-time 5 -fsS https://print3dmaker.xyz/health
+          curl --max-time 5 -fsS https://print3dmaker.xyz/api/catalog >/dev/null
