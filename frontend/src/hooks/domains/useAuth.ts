@@ -20,6 +20,7 @@ interface UseAuthOptions {
 
 export function useAuth({ setError, setLoading }: UseAuthOptions) {
   const [authUser, setAuthUser] = React.useState<AuthUser | null>(null);
+  const [authReady, setAuthReady] = React.useState(false);
   const [authMode, setAuthMode] = React.useState<"login" | "register">("login");
   const [authEmail, setAuthEmail] = React.useState("");
   const [authPassword, setAuthPassword] = React.useState("");
@@ -47,18 +48,23 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
 
   async function loadAuth() {
     if (!getStoredAuthToken()) {
+      setAuthReady(true);
       return null;
     }
-    let user = await authApi.loadAuthUser();
-    if (user) {
-      user = await acceptPendingInvite(user);
+    try {
+      let user = await authApi.loadAuthUser();
+      if (user) {
+        user = await acceptPendingInvite(user);
+      }
+      setAuthUser(user);
+      setPrintoraUserTimezone(user?.timezone);
+      if (!user) {
+        storeAuthToken(null);
+      }
+      return user;
+    } finally {
+      setAuthReady(true);
     }
-    setAuthUser(user);
-    setPrintoraUserTimezone(user?.timezone);
-    if (!user) {
-      storeAuthToken(null);
-    }
-    return user;
   }
 
   async function submitAuth() {
@@ -81,6 +87,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
         });
         const user = await acceptPendingInvite(response.user);
         setAuthUser(user);
+        setAuthReady(true);
         setPrintoraUserTimezone(user.timezone);
         setAuthMfaChallengeToken(null);
       } else {
@@ -90,6 +97,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
         } else if (response.user) {
           const user = await acceptPendingInvite(response.user);
           setAuthUser(user);
+          setAuthReady(true);
           setPrintoraUserTimezone(user.timezone);
           setAuthMfaChallengeToken(null);
         }
@@ -112,6 +120,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
       const response = await authApi.completeMfaLogin(authMfaChallengeToken, authMfaCode);
       const user = await acceptPendingInvite(response.user);
       setAuthUser(user);
+      setAuthReady(true);
       setPrintoraUserTimezone(user.timezone);
       setAuthMfaChallengeToken(null);
       setAuthMfaCode("");
@@ -147,6 +156,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     try {
       await authApi.logoutUser();
       setAuthUser(null);
+      setAuthReady(true);
       setPrintoraUserTimezone(null);
       setMfaSetup(null);
       setAgentCredentials([]);
@@ -154,6 +164,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     } catch {
       storeAuthToken(null);
       setAuthUser(null);
+      setAuthReady(true);
     } finally {
       setLoading(false);
     }
@@ -464,6 +475,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     authMfaCode,
     authMode,
     authPassword,
+    authReady,
     authTelegram,
     authTimezone,
     authUser,

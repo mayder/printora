@@ -951,6 +951,8 @@ class SocialCatalogRepository:
             )
             entity_id = int(cursor.lastrowid)
             self._audit(connection, "manufacturer", entity_id, "create", actor_user_id, payload.model_dump())
+            self.sync_all_communities(connection)
+            self.sync_default_feed_items(connection)
         return self._get_manufacturer(entity_id)
 
     def create_model(self, payload: CatalogModelCreate, actor_user_id: int) -> CatalogModel:
@@ -975,6 +977,8 @@ class SocialCatalogRepository:
             )
             entity_id = int(cursor.lastrowid)
             self._audit(connection, "model", entity_id, "create", actor_user_id, payload.model_dump())
+            self.sync_all_communities(connection)
+            self.sync_default_feed_items(connection)
         return self._get_model(entity_id)
 
     def create_variant(self, payload: CatalogVariantCreate, actor_user_id: int) -> CatalogVariant:
@@ -1002,6 +1006,8 @@ class SocialCatalogRepository:
             )
             entity_id = int(cursor.lastrowid)
             self._audit(connection, "variant", entity_id, "create", actor_user_id, payload.model_dump())
+            self.sync_all_communities(connection)
+            self.sync_default_feed_items(connection)
         return self._get_variant(entity_id)
 
     def update_variant(self, variant_id: int, payload: CatalogVariantUpdate, actor_user_id: int) -> CatalogVariant:
@@ -1038,6 +1044,8 @@ class SocialCatalogRepository:
                 (*parameters, variant_id),
             )
             self._audit(connection, "variant", variant_id, "update", actor_user_id, payload_dump)
+            self.sync_all_communities(connection)
+            self.sync_default_feed_items(connection)
         return self._get_variant(variant_id)
 
     def get_or_create_profile(self, user_id: int) -> PublicProfile:
@@ -1220,6 +1228,7 @@ class SocialCatalogRepository:
                 ),
             )
             self.sync_communities_for_user(connection, owner_user_id)
+            self.sync_default_feed_items(connection)
         return self.public_printer(printer_id)
 
     def public_printer(self, printer_id: int, viewer_user_id: int | None = None) -> PublicPrinter | None:
@@ -1342,15 +1351,12 @@ class SocialCatalogRepository:
         )
         where_sql = f" WHERE {' AND '.join(clauses)}" if clauses else ""
         with connect_database(self.database_path) as connection:
-            self.sync_all_communities(connection)
             rows = connection.execute(COMMUNITY_SQL + where_sql + COMMUNITY_GROUP_SQL + " ORDER BY c.scope, c.name", tuple(parameters)).fetchall()
         return [_community_from_row(row) for row in rows]
 
     def community_detail(self, slug: str) -> CommunityDetail | None:
         clean_slug = normalize_slug(slug)
         with connect_database(self.database_path) as connection:
-            self.sync_all_communities(connection)
-            self.sync_default_feed_items(connection)
             row = connection.execute(COMMUNITY_SQL + " WHERE c.slug = ?" + COMMUNITY_GROUP_SQL, (clean_slug,)).fetchone()
             if row is None:
                 return None
@@ -1404,8 +1410,6 @@ class SocialCatalogRepository:
         safe_page = max(page, 1)
         safe_page_size = min(max(page_size, 1), 50)
         with connect_database(self.database_path) as connection:
-            self.sync_all_communities(connection)
-            self.sync_default_feed_items(connection)
             row = connection.execute(COMMUNITY_SQL + " WHERE c.slug = ?" + COMMUNITY_GROUP_SQL, (clean_slug,)).fetchone()
             if row is None:
                 return None
@@ -1642,7 +1646,6 @@ class SocialCatalogRepository:
     def list_library_for_community(self, slug: str, viewer_user_id: int | None = None) -> list[LibraryItem]:
         clean_slug = normalize_slug(slug)
         with connect_database(self.database_path) as connection:
-            self.sync_all_communities(connection)
             rows = connection.execute(
                 LIBRARY_ITEM_SQL
                 + """

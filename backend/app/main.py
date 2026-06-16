@@ -6,7 +6,8 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.auth import AuthRepository, set_current_auth_context
-from app.database import initialize_database
+from app.database import connect_database, initialize_database
+from app.social_catalog import SocialCatalogRepository
 from app.routes import (
     audit,
     agents,
@@ -41,6 +42,10 @@ from app.routes import (
 async def lifespan(app: FastAPI):
     settings = get_settings()
     initialize_database(settings.database_path)
+    with connect_database(settings.database_path) as connection:
+        repository = SocialCatalogRepository(settings.database_path)
+        repository.sync_all_communities(connection)
+        repository.sync_default_feed_items(connection)
     yield
 
 

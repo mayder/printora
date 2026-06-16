@@ -6,6 +6,34 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Social Travava E Sessao Piscava Login
+
+Sintoma:
+
+- a tela Social demorava para carregar e podia derrubar a navegacao;
+- apos F5, a aplicacao podia mostrar login antes de restaurar a sessao e voltar sozinha para Social;
+- catalogo, comunidades e makers pareciam sumir quando o backend ficava sem responder.
+
+Causa:
+
+- endpoints publicos de leitura social sincronizavam comunidades e feed padrao no SQLite a cada consulta;
+- com concorrencia, essas escritas podiam disputar lock e bloquear o worker unico do backend;
+- o frontend renderizava a tela de login enquanto ainda validava token salvo.
+
+Correção:
+
+- sincronizacao de comunidades/feed movida para startup e mutacoes de catalogo/publicacao de impressora;
+- leituras sociais passam a consultar dados ja materializados sem escrita por refresh;
+- restauracao de sessao ganhou estado explicito antes de exibir login;
+- bootstrap da sessao evita carregamento duplicado para o mesmo usuario.
+
+Validação:
+
+- `cd backend && uv run --extra dev pytest ../backend/tests/test_social_catalog.py -q`;
+- `cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q`;
+- `npm --prefix frontend run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### Modal Do Updater Ficava Preso Apos Restart
 
 Sintoma:

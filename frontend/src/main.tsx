@@ -151,6 +151,19 @@ function App() {
     }
   })();
 
+  if (!screenProps.authUser && !screenProps.authReady) {
+    return (
+      <main className="auth-only-shell">
+        <section className="auth-card" aria-label="Validando sessão">
+          <span className="auth-eyebrow">Sessão</span>
+          <h2>Validando acesso</h2>
+          <p>Carregando sua sessão do Printora.</p>
+        </section>
+        <ToastViewport toasts={toasts} dismissToast={dismissToast} />
+      </main>
+    );
+  }
+
   if (!screenProps.authUser) {
     if (publicCommunitySlug) {
       return <PublicCommunityScreen slug={publicCommunitySlug} />;

@@ -144,6 +144,7 @@ const icons = {
 export function usePrintoraApp() {
   const [loading, setLoading] = React.useState(false);
   const [error, setErrorState] = React.useState<string | null>(null);
+  const loadedStatusUserId = React.useRef<number | null>(null);
   const [confirmDialog, setConfirmDialog] = React.useState<ConfirmDialogState>({
     open: false,
     tone: "info",
@@ -393,6 +394,7 @@ export function usePrintoraApp() {
       if (!user) {
         return;
       }
+      loadedStatusUserId.current = user.id;
       const catalogSummaryLoad = firmware.loadFirmwareCatalogSummary();
       await Promise.allSettled([firmware.loadBoardPresets(), printers.loadPrinters()]);
       await catalogSummaryLoad;
@@ -501,6 +503,9 @@ export function usePrintoraApp() {
 
   React.useEffect(() => {
     if (!auth.authUser) {
+      return;
+    }
+    if (loadedStatusUserId.current === auth.authUser.id) {
       return;
     }
     void loadStatus();
