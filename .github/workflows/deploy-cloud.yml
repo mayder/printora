@@ -120,14 +120,21 @@ jobs:
           else
             echo "sudo restart unavailable; restarting deploy-owned uvicorn process"
             pkill -TERM -f "uvicorn app.main:app" || true
+            pkill -TERM -f "uvicorn.*8069" || true
+            pkill -TERM -f "8069.*uvicorn" || true
             pkill -TERM -f "$DEPLOY_BASE_PATH/current/backend.*uvicorn" || true
+            if command -v fuser >/dev/null 2>&1; then
+              fuser -k 8069/tcp || true
+            fi
             for attempt in $(seq 1 20); do
-              if ! pgrep -af "uvicorn app.main:app" >/dev/null; then
+              if ! pgrep -af "uvicorn app.main:app|uvicorn.*8069|8069.*uvicorn" >/dev/null; then
                 break
               fi
               sleep 1
             done
             pkill -KILL -f "uvicorn app.main:app" || true
+            pkill -KILL -f "uvicorn.*8069" || true
+            pkill -KILL -f "8069.*uvicorn" || true
             set -a
             . "$DEPLOY_BASE_PATH/shared/printora-cloud.env"
             set +a

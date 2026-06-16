@@ -2,6 +2,7 @@ import sqlite3
 import shutil
 import hashlib
 import json
+import time
 import tomllib
 from contextlib import contextmanager
 from collections.abc import Iterator
@@ -12,7 +13,7 @@ from importlib import metadata
 SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
 APP_NAME = "Printora"
 VERSIONING_SCRIPT = "000_schema_versioning.sql"
-SQLITE_TIMEOUT_SECONDS = 30.0
+SQLITE_TIMEOUT_SECONDS = 60.0
 SQLITE_BUSY_TIMEOUT_MS = int(SQLITE_TIMEOUT_SECONDS * 1000)
 
 
@@ -225,24 +226,43 @@ def _repair_optional_materialization_state(database_path: Path) -> None:
             connection.close()
             connection = None
         _backup_database(database_path)
-        connection = _connect_sqlite(database_path)
-        connection.execute("PRAGMA writable_schema = ON")
-        connection.execute(
-            """
-            DELETE FROM sqlite_schema
-            WHERE name = 'social_materialization_state'
-               OR tbl_name = 'social_materialization_state'
-            """
-        )
-        connection.execute("PRAGMA writable_schema = OFF")
-        connection.execute(
-            "DELETE FROM schema_versions WHERE script_name = '056_social_materialization_state.sql'"
-        )
-        connection.commit()
-        connection.execute("VACUUM")
+        _remove_corrupt_materialization_state(database_path)
     finally:
         if connection is not None:
             connection.close()
+
+
+def _remove_corrupt_materialization_state(database_path: Path) -> None:
+    last_error: sqlite3.OperationalError | None = None
+    for attempt in range(1, 5):
+        connection: sqlite3.Connection | None = None
+        try:
+            connection = _connect_sqlite(database_path)
+            connection.execute("PRAGMA writable_schema = ON")
+            connection.execute(
+                """
+                DELETE FROM sqlite_schema
+                WHERE name = 'social_materialization_state'
+                   OR tbl_name = 'social_materialization_state'
+                """
+            )
+            connection.execute("PRAGMA writable_schema = OFF")
+            connection.execute(
+                "DELETE FROM schema_versions WHERE script_name = '056_social_materialization_state.sql'"
+            )
+            connection.commit()
+            connection.execute("VACUUM")
+            return
+        except sqlite3.OperationalError as exc:
+            last_error = exc
+            if "locked" not in str(exc).lower() or attempt == 4:
+                raise
+            time.sleep(5)
+        finally:
+            if connection is not None:
+                connection.close()
+    if last_error is not None:
+        raise last_error
 
 
 def _connect_sqlite(database_path: Path | str, *, uri: bool = False) -> sqlite3.Connection:
