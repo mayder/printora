@@ -883,7 +883,7 @@ function CommunityFeed({ community }: { community: CommunityDetail }) {
           <select aria-label="Ordenar feed" value={order} onChange={(event) => resetPage(() => setOrder(event.target.value as FeedOrder))}>
             {feedOrderOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
-          <button type="button" className="primary-button" onClick={() => setPostFormOpen((current) => !current)}><MessageSquare size={15} />Nova discussão</button>
+          <button type="button" className="primary-button" onClick={() => setPostFormOpen(true)}><MessageSquare size={15} />Nova discussão</button>
         </div>
       </div>
 
@@ -897,22 +897,72 @@ function CommunityFeed({ community }: { community: CommunityDetail }) {
         <FilterSelect label="Problema" value={problem} options={feed?.filters.problems ?? []} onChange={(value) => resetPage(() => setProblem(value))} />
       </div> : null}
 
-      {postFormOpen ? <form className="community-discussion-form" onSubmit={submitPost}>
-        <div className="community-discussion-form-row">
-          <select value={newPost.content_type} onChange={(event) => setNewPost((current) => ({ ...current, content_type: event.target.value as FeedContentType }))}>
-            {feedTypeOptions.filter((option) => option.value && option.value !== "curation_notice").map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-          <input value={newPost.title} maxLength={160} placeholder="Título da discussão" onChange={(event) => setNewPost((current) => ({ ...current, title: event.target.value }))} required />
+      {postFormOpen ? (
+        <div className="modal-backdrop">
+          <section className="modal-card community-discussion-modal" role="dialog" aria-modal="true" aria-label="Nova discussão">
+            <header className="modal-header">
+              <div>
+                <h2>Nova discussão</h2>
+                <p>Publique uma dúvida, ajuste, mod ou resultado técnico para a comunidade.</p>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setPostFormOpen(false)} aria-label="Fechar discussão"><X size={17} /></button>
+            </header>
+            <form className="community-discussion-form community-discussion-form-modal" onSubmit={submitPost}>
+              <div className="community-library-form-section">
+                <header>
+                  <strong>Conteúdo</strong>
+                  <span>Descreva o assunto principal com contexto suficiente para outros makers.</span>
+                </header>
+                <div className="community-library-form-grid">
+                  <label className="community-library-field">
+                    Tipo
+                    <select value={newPost.content_type} onChange={(event) => setNewPost((current) => ({ ...current, content_type: event.target.value as FeedContentType }))}>
+                      {feedTypeOptions.filter((option) => option.value && option.value !== "curation_notice").map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                  </label>
+                  <label className="community-library-field">
+                    Título
+                    <input value={newPost.title} maxLength={160} placeholder="Ex.: Dúvida sobre suporte do TAP" onChange={(event) => setNewPost((current) => ({ ...current, title: event.target.value }))} required />
+                  </label>
+                  <label className="community-library-field span-full">
+                    Descrição técnica
+                    <textarea value={newPost.body} maxLength={1200} placeholder="Explique o cenário, peça afetada, configuração usada, tentativa feita e resultado esperado." onChange={(event) => setNewPost((current) => ({ ...current, body: event.target.value }))} required />
+                  </label>
+                </div>
+              </div>
+              <div className="community-library-form-section">
+                <header>
+                  <strong>Contexto técnico</strong>
+                  <span>Campos opcionais para organizar a busca e futuras respostas.</span>
+                </header>
+                <div className="community-library-form-grid">
+                  <label className="community-library-field">
+                    Componente
+                    <input value={newPost.component} placeholder="Ex.: Extrusor, TAP, CAN" onChange={(event) => setNewPost((current) => ({ ...current, component: event.target.value }))} />
+                  </label>
+                  <label className="community-library-field">
+                    Material
+                    <input value={newPost.material} placeholder="Ex.: ABS, ASA, PETG" onChange={(event) => setNewPost((current) => ({ ...current, material: event.target.value }))} />
+                  </label>
+                  <label className="community-library-field">
+                    Firmware
+                    <input value={newPost.firmware_family} placeholder="Ex.: Klipper" onChange={(event) => setNewPost((current) => ({ ...current, firmware_family: event.target.value }))} />
+                  </label>
+                  <label className="community-library-field">
+                    Problema
+                    <input value={newPost.problem_tag} placeholder="Ex.: vibração, warping" onChange={(event) => setNewPost((current) => ({ ...current, problem_tag: event.target.value }))} />
+                  </label>
+                </div>
+              </div>
+              {error ? <p className="public-action-error">{error}</p> : null}
+              <div className="modal-footer">
+                <button type="button" className="secondary-button" onClick={() => setPostFormOpen(false)}>Cancelar</button>
+                <button type="submit" className="primary-button" disabled={posting}><Send size={15} />Publicar</button>
+              </div>
+            </form>
+          </section>
         </div>
-        <textarea value={newPost.body} maxLength={1200} placeholder="Descreva dúvida, ajuste, mod ou resultado técnico" onChange={(event) => setNewPost((current) => ({ ...current, body: event.target.value }))} required />
-        <div className="community-discussion-form-row">
-          <input value={newPost.component} placeholder="Componente" onChange={(event) => setNewPost((current) => ({ ...current, component: event.target.value }))} />
-          <input value={newPost.material} placeholder="Material" onChange={(event) => setNewPost((current) => ({ ...current, material: event.target.value }))} />
-          <input value={newPost.firmware_family} placeholder="Firmware" onChange={(event) => setNewPost((current) => ({ ...current, firmware_family: event.target.value }))} />
-          <input value={newPost.problem_tag} placeholder="Problema" onChange={(event) => setNewPost((current) => ({ ...current, problem_tag: event.target.value }))} />
-          <button type="submit" className="primary-button" disabled={posting}><Send size={15} />Publicar</button>
-        </div>
-      </form> : null}
+      ) : null}
 
       {loading ? <p>Carregando feed...</p> : error ? <p>{error}</p> : feed && feed.items.length ? (
         <>

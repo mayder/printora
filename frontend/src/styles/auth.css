@@ -436,10 +436,28 @@
   width: 1040px;
 }
 
+.community-discussion-modal {
+  max-height: min(760px, calc(100vh - 48px));
+  max-width: min(880px, calc(100vw - 48px));
+  overflow: auto;
+  width: 880px;
+}
+
 .community-library-modal .community-library-form {
   background: transparent;
   border: 0;
   padding: 0;
+}
+
+.community-discussion-modal .community-discussion-form {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.community-discussion-form-modal {
+  display: grid;
+  gap: 14px;
 }
 
 .community-library-form-redesign {
