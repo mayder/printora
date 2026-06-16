@@ -435,6 +435,38 @@
   width: 42px;
 }
 
+.maker-card-grid {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.maker-discovery-card {
+  align-content: start;
+  min-height: 228px;
+}
+
+.maker-card-heading {
+  align-items: center;
+  grid-template-columns: 54px minmax(0, 1fr);
+}
+
+.maker-card-heading .maker-avatar {
+  border-radius: 10px;
+  height: 54px;
+  width: 54px;
+}
+
+.maker-card-heading .social-card-copy strong {
+  font-size: 1.04rem;
+}
+
+.maker-card-bio {
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0;
+  min-height: 40px;
+  overflow-wrap: anywhere;
+}
+
 .maker-avatar img {
   height: 100%;
   object-fit: cover;

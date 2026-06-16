@@ -403,26 +403,30 @@ function MakersTab({
         </div>
         <Pagination total={makers.length} page={page} setPage={setPage} />
       </div>
-      <div className="maker-list social-card-grid">
+      <div className="maker-list social-card-grid maker-card-grid">
         {visible.map((maker) => (
-          <article key={maker.user_id} className="social-discovery-card">
-            <div className="social-card-heading">
+          <article key={maker.user_id} className="social-discovery-card maker-discovery-card">
+            <div className="social-card-heading maker-card-heading">
               <div className="maker-avatar">
                 {maker.avatar_url ? <img src={maker.avatar_url} alt="" /> : <UserRound size={20} />}
               </div>
               <div className="social-card-copy">
                 <strong>{maker.display_name}</strong>
                 <span>@{maker.slug}</span>
-                <small>{maker.bio || "Perfil público sem bio."}</small>
               </div>
             </div>
+            <p className="maker-card-bio">{maker.bio || "Perfil público sem bio."}</p>
             <div className="social-card-stats">
               <span className="social-card-stat">
                 <b>{maker.public_printer_count ?? 0}</b>
                 <small>Impressoras</small>
               </span>
+              <span className="social-card-stat">
+                <b>{maker.location || "Não informada"}</b>
+                <small>Localização</small>
+              </span>
             </div>
-            <a className="social-card-action" href={`/u/${maker.slug}`} aria-label={`Abrir perfil público de ${maker.display_name}`}>
+            <a className="social-card-action" href={`/?section=social&profile=${maker.slug}`} aria-label={`Abrir perfil público de ${maker.display_name}`}>
               Abrir perfil <ExternalLink size={15} />
             </a>
           </article>

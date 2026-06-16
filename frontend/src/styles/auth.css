@@ -106,13 +106,28 @@
   width: 100%;
 }
 
+.public-profile-embedded {
+  background: transparent;
+  grid-column: 1 / -1;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+}
+
 .public-community-embedded .public-profile-page {
   margin: 0;
   padding: 0;
   width: 100%;
 }
 
-.public-community-embedded .public-profile-hero h1 {
+.public-profile-embedded .public-profile-page {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.public-community-embedded .public-profile-hero h1,
+.public-profile-embedded .public-profile-hero h1 {
   font-size: 2rem;
 }
 

@@ -1,13 +1,14 @@
 import React from "react";
-import { Ban, Download, ExternalLink, FileText, Lock, MapPin, Printer, UserPlus, UserRound, Users } from "lucide-react";
+import { ArrowLeft, Ban, Download, ExternalLink, FileText, Lock, MapPin, Printer, UserPlus, UserRound, Users } from "lucide-react";
 import { socialApi } from "../services/socialApi";
 import type { LibraryItem, PublicPrinter, PublicProfile, RelationshipSummary } from "../types";
 
 interface PublicProfileScreenProps {
   slug: string;
+  embedded?: boolean;
 }
 
-export function PublicProfileScreen({ slug }: PublicProfileScreenProps) {
+export function PublicProfileScreen({ slug, embedded = false }: PublicProfileScreenProps) {
   const [profile, setProfile] = React.useState<PublicProfile | null>(null);
   const [printers, setPrinters] = React.useState<PublicPrinter[]>([]);
   const [library, setLibrary] = React.useState<LibraryItem[]>([]);
@@ -72,13 +73,8 @@ export function PublicProfileScreen({ slug }: PublicProfileScreenProps) {
 
   const relationState = profile && relationships ? summarizeRelationship(profile.user_id, relationships) : null;
 
-  return (
-    <main className="public-profile-shell">
-      <section className="public-profile-topbar">
-        <img src="/brand/printora-logo-horizontal-color.png" alt="Printora" />
-        <a href="/" className="secondary-button">Entrar</a>
-      </section>
-
+  const content = (
+    <>
       {loading ? (
         <section className="public-profile-empty">Carregando perfil público...</section>
       ) : error ? (
@@ -94,6 +90,7 @@ export function PublicProfileScreen({ slug }: PublicProfileScreenProps) {
               {profile.avatar_url ? <img src={profile.avatar_url} alt="" /> : <UserRound size={34} />}
             </div>
             <div>
+              {embedded ? <a href="/?section=social" className="ghost-button compact public-community-back"><ArrowLeft size={15} />Social</a> : null}
               <span className="account-eyebrow">Perfil público Printora</span>
               <h1>{profile.display_name}</h1>
               {profile.bio ? <p>{profile.bio}</p> : null}
@@ -201,6 +198,24 @@ export function PublicProfileScreen({ slug }: PublicProfileScreenProps) {
           </section>
         </section>
       ) : null}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <section className="public-profile-shell public-profile-embedded">
+        {content}
+      </section>
+    );
+  }
+
+  return (
+    <main className="public-profile-shell">
+      <section className="public-profile-topbar">
+        <img src="/brand/printora-logo-horizontal-color.png" alt="Printora" />
+        <a href="/" className="secondary-button">Entrar</a>
+      </section>
+      {content}
     </main>
   );
 }

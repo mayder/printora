@@ -57,7 +57,8 @@ function openAccountTab(tab: AccountTab, setActiveSection: (section: AppSection)
 }
 
 function App() {
-  const publicProfileSlug = readPublicProfileSlug();
+  const publicProfileSlug = readPublicProfilePathSlug();
+  const embeddedProfileSlug = readEmbeddedProfileSlug();
   const publicPrinterId = readPublicPrinterId();
   const publicCommunitySlug = readPublicCommunitySlug();
   if (publicProfileSlug) {
@@ -88,22 +89,25 @@ function App() {
     visibleNavGroups,
   } = usePrintoraApp();
   useEffect(() => {
-    if (publicCommunitySlug) {
+    if (publicCommunitySlug || embeddedProfileSlug) {
       setActiveSection("social");
     }
-  }, [publicCommunitySlug, setActiveSection]);
+  }, [publicCommunitySlug, embeddedProfileSlug, setActiveSection]);
   const userLabel = screenProps.authUser?.display_name || screenProps.authUser?.email || "Conta";
   const accountMenuItems = [
     { label: "Organizações", icon: Users, tab: "organizations" as const },
     { label: "Perfil", icon: UserRound, tab: "profile" as const },
   ];
-  const shellSection = publicCommunitySlug ? "social" : activeSection;
+  const shellSection = publicCommunitySlug || embeddedProfileSlug ? "social" : activeSection;
   const shellSectionMeta = appSections.find((section) => section.key === shellSection) ?? activeSectionMeta;
-  const ShellIcon = publicCommunitySlug ? Users : ActiveIcon;
+  const ShellIcon = publicCommunitySlug || embeddedProfileSlug ? Users : ActiveIcon;
 
   const activeScreen = (() => {
     if (publicCommunitySlug) {
       return <PublicCommunityScreen slug={publicCommunitySlug} embedded />;
+    }
+    if (embeddedProfileSlug) {
+      return <PublicProfileScreen slug={embeddedProfileSlug} embedded />;
     }
     switch (activeSection) {
       case "overview":
@@ -191,7 +195,7 @@ function App() {
                     className={`nav-button ${shellSection === section.key ? "active" : ""}`}
                     onClick={() => {
                       setActiveSection(section.key);
-                      if (publicCommunitySlug) {
+                      if (publicCommunitySlug || embeddedProfileSlug) {
                         window.history.pushState(null, "", `/?section=${section.key}`);
                       }
                       setMobileNavOpen(false);
@@ -316,6 +320,8 @@ function App() {
           <span>
             {publicCommunitySlug
               ? "Comunidade pública com conteúdo técnico e dados autorizados"
+              : embeddedProfileSlug
+                ? "Perfil público com ações sociais e dados autorizados"
               : shellSection === "settings"
               ? "Configuração global do Printora"
               : shellSection === "printer-detail"
@@ -358,11 +364,15 @@ function App() {
   );
 }
 
-function readPublicProfileSlug() {
+function readPublicProfilePathSlug() {
   const pathMatch = window.location.pathname.match(/^\/u\/([a-z0-9-]+)\/?$/i);
   if (pathMatch) {
     return pathMatch[1];
   }
+  return null;
+}
+
+function readEmbeddedProfileSlug() {
   const params = new URLSearchParams(window.location.search);
   return params.get("profile") || params.get("u");
 }
