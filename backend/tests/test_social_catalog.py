@@ -327,6 +327,7 @@ def test_social_ranking_recommendations_ignore_self_vote_and_explain_score(tmp_p
     recommended = next(entry for entry in recommendations.items if entry.result.title == "Duto recomendado ABS")
     assert recommended.score >= 6
     assert any("favorito" in reason or "download" in reason for reason in recommended.reasons)
+    assert all("None" not in reason for reason in recommended.reasons)
     assert reputation.reputation_score == 6
     assert reputation.breakdown == {"download": 2, "favorite": 4}
     assert leaderboard.records[0].slug == "ranking-owner"

@@ -12,6 +12,8 @@ from importlib import metadata
 SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
 APP_NAME = "Printora"
 VERSIONING_SCRIPT = "000_schema_versioning.sql"
+SQLITE_TIMEOUT_SECONDS = 30.0
+SQLITE_BUSY_TIMEOUT_MS = int(SQLITE_TIMEOUT_SECONDS * 1000)
 
 
 class DatabaseSchemaError(RuntimeError):
@@ -26,7 +28,7 @@ def initialize_database(database_path: Path) -> None:
     if database_path.exists() and pending_files:
         backup_path = _backup_database(database_path)
 
-    connection = sqlite3.connect(database_path)
+    connection = _connect_sqlite(database_path)
     try:
         connection.execute("PRAGMA foreign_keys = ON")
         _ensure_versioning_tables(connection)
@@ -66,7 +68,7 @@ def initialize_database(database_path: Path) -> None:
 
 @contextmanager
 def connect_database(database_path: Path) -> Iterator[sqlite3.Connection]:
-    connection = sqlite3.connect(database_path)
+    connection = _connect_sqlite(database_path)
     try:
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
@@ -171,7 +173,7 @@ def _pending_sql_files(database_path: Path, sql_files: list[Path]) -> list[Path]
         return sql_files
     connection: sqlite3.Connection | None = None
     try:
-        connection = sqlite3.connect(f"file:{database_path}?mode=ro", uri=True)
+        connection = _connect_sqlite(f"file:{database_path}?mode=ro", uri=True)
         if not _table_exists(connection, "schema_versions"):
             return sql_files
         applied = _applied_scripts(connection)
@@ -205,6 +207,12 @@ def _backup_database(database_path: Path) -> Path:
     backup_path = database_path.parent / f"{database_path.stem}.{timestamp}.before-schema{database_path.suffix}"
     shutil.copy2(database_path, backup_path)
     return backup_path
+
+
+def _connect_sqlite(database_path: Path | str, *, uri: bool = False) -> sqlite3.Connection:
+    connection = sqlite3.connect(database_path, timeout=SQLITE_TIMEOUT_SECONDS, uri=uri)
+    connection.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
+    return connection
 
 
 def _upsert_app_version(connection: sqlite3.Connection, schema_revision: int) -> None:

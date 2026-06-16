@@ -521,7 +521,10 @@ def _options(counts: dict[str, int], limit: int = 20) -> list[SearchFacetOption]
 def _first_tag_value(tags: list[str], prefix: str) -> str | None:
     for tag in tags:
         if tag.startswith(prefix):
-            return _label(tag.removeprefix(prefix))
+            value = tag.removeprefix(prefix)
+            if value.lower() in {"none", "null", "na", "n-a"}:
+                continue
+            return _label(value)
     return None
 
 
