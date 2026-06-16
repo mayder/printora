@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import ipaddress
 import json
 import re
+import zipfile
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
@@ -427,6 +429,11 @@ class LibraryFileMetadata(BaseModel):
     size_bytes: int | None = Field(default=None, ge=1, le=500_000_000)
     sha256: str | None = Field(default=None, min_length=64, max_length=64)
     validation_status: str = "metadata_only"
+    storage_key: str | None = None
+    quarantine_key: str | None = None
+    uploaded_size_bytes: int | None = None
+    rejection_reason: str | None = None
+    deduplicated_from_file_id: int | None = None
 
     @field_validator("file_name")
     @classmethod
@@ -1442,6 +1449,75 @@ class SocialCatalogRepository:
             updated = self._library_item_row(connection, item_id)
             return self._library_item_from_row(connection, updated)
 
+    def upload_library_file(self, item_id: int, actor_user_id: int, is_admin: bool, file_name: str, body: bytes) -> LibraryItem:
+        clean_name = clean_library_file_name(file_name)
+        if not body:
+            raise ValueError("arquivo vazio")
+        if len(body) > 25 * 1024 * 1024:
+            raise ValueError("arquivo excede limite de 25 MB")
+        file_kind = _library_file_kind_from_name(clean_name)
+        checksum = hashlib.sha256(body).hexdigest()
+        validation_status = "quarantined"
+        rejection_reason = None
+        try:
+            _validate_library_upload(clean_name, file_kind, body)
+        except ValueError as exc:
+            validation_status = "rejected"
+            rejection_reason = str(exc)
+        storage_root = self.database_path.parent / "library_uploads"
+        quarantine_dir = storage_root / "quarantine"
+        quarantine_dir.mkdir(parents=True, exist_ok=True)
+        extension = Path(clean_name).suffix.lower()
+        quarantine_key = f"{checksum}{extension}"
+        quarantine_path = quarantine_dir / quarantine_key
+        quarantine_path.write_bytes(body)
+        with connect_database(self.database_path) as connection:
+            existing = self._library_item_row(connection, item_id, include_archived=True)
+            if existing is None:
+                raise ValueError("item de biblioteca não encontrado")
+            self._ensure_library_owner(existing, actor_user_id, is_admin)
+            duplicate = connection.execute(
+                """
+                SELECT id, quarantine_key FROM social_library_files
+                WHERE sha256 = ? AND validation_status IN ('quarantined', 'validated')
+                ORDER BY id
+                LIMIT 1
+                """,
+                (checksum,),
+            ).fetchone()
+            cursor = connection.execute(
+                """
+                INSERT INTO social_library_files (
+                    item_id, file_kind, file_name, size_bytes, sha256, validation_status,
+                    quarantine_key, uploaded_size_bytes, uploaded_at, rejection_reason, deduplicated_from_file_id
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
+                """,
+                (
+                    item_id,
+                    file_kind,
+                    clean_name,
+                    len(body),
+                    checksum,
+                    validation_status,
+                    quarantine_key,
+                    len(body),
+                    rejection_reason,
+                    duplicate["id"] if duplicate is not None else None,
+                ),
+            )
+            action = "upload_rejected" if validation_status == "rejected" else "upload_quarantined"
+            self._audit(
+                connection,
+                "social_library_file",
+                int(cursor.lastrowid),
+                action,
+                actor_user_id,
+                {"item_id": item_id, "size_bytes": len(body), "sha256": checksum, "retention_days": 180},
+            )
+            row = self._library_item_row(connection, item_id)
+            return self._library_item_from_row(connection, row)
+
     def create_community_post(self, slug: str, actor_user_id: int, payload: CommunityPostCreate) -> CommunityFeedItem:
         clean_slug = normalize_slug(slug)
         with connect_database(self.database_path) as connection:
@@ -2133,7 +2209,8 @@ class SocialCatalogRepository:
     def _library_item_from_row(self, connection, row) -> LibraryItem:
         file_rows = connection.execute(
             """
-            SELECT id, file_kind, file_name, original_url, size_bytes, sha256, validation_status
+            SELECT id, file_kind, file_name, original_url, size_bytes, sha256, validation_status,
+                   storage_key, quarantine_key, uploaded_size_bytes, rejection_reason, deduplicated_from_file_id
             FROM social_library_files
             WHERE item_id = ?
             ORDER BY id
@@ -2355,6 +2432,56 @@ def clean_library_file_name(value: str) -> str:
     if suffix not in allowed_suffixes:
         raise ValueError("biblioteca aceita STL, 3MF ou pacote ZIP")
     return cleaned
+
+
+def _library_file_kind_from_name(file_name: str) -> LibraryFileKind:
+    suffix = Path(file_name).suffix.lower()
+    if suffix == ".stl":
+        return "stl"
+    if suffix == ".3mf":
+        return "3mf"
+    return "bundle"
+
+
+def _validate_library_upload(file_name: str, file_kind: LibraryFileKind, body: bytes) -> None:
+    if file_kind == "stl":
+        if len(body) < 84:
+            raise ValueError("STL pequeno demais")
+        if not (body[:5].lower() == b"solid" or b"facet normal" in body[:4096] or len(body) >= 84):
+            raise ValueError("assinatura STL inválida")
+        return
+    if not body.startswith(b"PK\x03\x04"):
+        raise ValueError("assinatura ZIP/3MF inválida")
+    from io import BytesIO
+
+    try:
+        with zipfile.ZipFile(BytesIO(body)) as archive:
+            entries = archive.infolist()
+            if not entries:
+                raise ValueError("pacote vazio")
+            if len(entries) > 120:
+                raise ValueError("pacote com arquivos demais")
+            total_uncompressed = 0
+            has_model_file = False
+            has_3mf_content_types = False
+            for entry in entries:
+                name = entry.filename
+                if name.startswith("/") or "\\" in name or ".." in Path(name).parts:
+                    raise ValueError("pacote contém path perigoso")
+                total_uncompressed += int(entry.file_size)
+                if total_uncompressed > 100 * 1024 * 1024:
+                    raise ValueError("pacote excede limite descompactado")
+                if entry.compress_size and entry.file_size / max(entry.compress_size, 1) > 100:
+                    raise ValueError("pacote tem razão de compressão suspeita")
+                lower = name.lower()
+                has_model_file = has_model_file or lower.endswith((".stl", ".3mf", ".model"))
+                has_3mf_content_types = has_3mf_content_types or lower == "[content_types].xml"
+            if file_kind == "3mf" and not has_3mf_content_types:
+                raise ValueError("3MF sem manifesto obrigatório")
+            if file_kind == "bundle" and not has_model_file:
+                raise ValueError("pacote sem modelo STL/3MF")
+    except zipfile.BadZipFile as exc:
+        raise ValueError("pacote ZIP/3MF inválido") from exc
 
 
 def clean_text_list(values: list[str], max_length: int) -> list[str]:
@@ -2658,6 +2785,11 @@ def _library_item_from_row(row, file_rows) -> LibraryItem:
                 size_bytes=file_row["size_bytes"],
                 sha256=file_row["sha256"],
                 validation_status=str(file_row["validation_status"]),
+                storage_key=file_row["storage_key"],
+                quarantine_key=file_row["quarantine_key"],
+                uploaded_size_bytes=file_row["uploaded_size_bytes"],
+                rejection_reason=file_row["rejection_reason"],
+                deduplicated_from_file_id=file_row["deduplicated_from_file_id"],
             )
             for file_row in file_rows
         ],

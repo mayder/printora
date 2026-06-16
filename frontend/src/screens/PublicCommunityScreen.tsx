@@ -237,6 +237,7 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
     file_name: "",
     original_url: "",
   });
+  const [uploadFile, setUploadFile] = React.useState<File | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -260,7 +261,7 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
     event.preventDefault();
     setError(null);
     try {
-      const created = await socialApi.createLibraryItem({
+      let created = await socialApi.createLibraryItem({
         title: draft.title,
         description: draft.description,
         visibility: draft.visibility,
@@ -278,8 +279,12 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
           original_url: draft.original_url || null,
         }],
       });
+      if (uploadFile) {
+        created = await socialApi.uploadLibraryFile(created.id, uploadFile);
+      }
       setItems((current) => [created, ...current.filter((item) => item.id !== created.id)]);
       setDraft((current) => ({ ...current, title: "", description: "", file_name: "", original_url: "", component: "", material_suggestion: "", orientation_notes: "" }));
+      setUploadFile(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível cadastrar arquivo");
     }
@@ -330,6 +335,11 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
           </select>
           <input value={draft.file_name} placeholder="arquivo.stl" onChange={(event) => setDraft((current) => ({ ...current, file_name: event.target.value }))} required />
           <input value={draft.original_url} placeholder="URL pública opcional" onChange={(event) => setDraft((current) => ({ ...current, original_url: event.target.value }))} />
+          <input type="file" accept=".stl,.3mf,.zip" onChange={(event) => {
+            const file = event.target.files?.[0] ?? null;
+            setUploadFile(file);
+            if (file) setDraft((current) => ({ ...current, file_name: file.name }));
+          }} />
         </div>
         <div className="community-discussion-form-row">
           <input value={draft.component} placeholder="Componente" onChange={(event) => setDraft((current) => ({ ...current, component: event.target.value }))} />
@@ -371,9 +381,10 @@ function LibraryItemCard({ item, onDownload, onArchive }: { item: LibraryItem; o
       </div>
       <div className="community-file-list">
         {item.files.map((file) => (
-          <span key={file.id ?? file.file_name}><FileText size={14} />{file.file_name} / {file.file_kind.toUpperCase()} / {file.validation_status}</span>
+          <span key={file.id ?? file.file_name}><FileText size={14} />{file.file_name} / {file.file_kind.toUpperCase()} / {uploadStatusLabel(file.validation_status)}</span>
         ))}
       </div>
+      {item.files.some((file) => file.rejection_reason) ? <small>{item.files.find((file) => file.rejection_reason)?.rejection_reason}</small> : null}
       {item.orientation_notes ? <small>{item.orientation_notes}</small> : null}
       <footer>
         <span>{item.owner_display_name ? `Por ${item.owner_display_name}` : "Autor"}</span>
@@ -732,6 +743,15 @@ function licenseLabel(license: LibraryLicense) {
     custom: "Licença personalizada",
     "all-rights-reserved": "Todos os direitos",
   }[license];
+}
+
+function uploadStatusLabel(status: string) {
+  return {
+    metadata_only: "Metadados",
+    quarantined: "Quarentena",
+    validated: "Validado",
+    rejected: "Rejeitado",
+  }[status] ?? status;
 }
 
 function Placeholder({ title, text }: { title: string; text: string }) {

@@ -184,6 +184,12 @@ export const socialApi = {
     }),
   archiveLibraryItem: (itemId: number) => apiRequest<void>(`/api/social/library/${itemId}`, { method: "DELETE" }),
   registerLibraryDownload: (itemId: number) => apiRequest<LibraryItem>(`/api/social/library/${itemId}/downloads`, { method: "POST" }),
+  uploadLibraryFile: (itemId: number, file: File) =>
+    apiRequest<LibraryItem>(`/api/social/library/${itemId}/files/upload?file_name=${encodeURIComponent(file.name)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: file,
+    }),
   communityFeed: (
     slug: string,
     filters: {

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.auth import CurrentUser
 from app.config import get_settings
@@ -396,6 +396,22 @@ async def register_library_download(
     if item is None:
         raise HTTPException(status_code=404, detail="arquivo não encontrado")
     return item
+
+
+@router.post("/api/social/library/{item_id}/files/upload", response_model=LibraryItem)
+async def upload_library_file(
+    item_id: int,
+    request: Request,
+    file_name: str,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryItem:
+    try:
+        return repository.upload_library_file(item_id, current.user.id, is_social_admin(current), file_name, await request.body())
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/api/social/communities/{slug}/posts", response_model=CommunityFeedSummary)

@@ -234,6 +234,11 @@ export interface LibraryFileMetadata {
   size_bytes: number | null;
   sha256: string | null;
   validation_status: string;
+  storage_key: string | null;
+  quarantine_key: string | null;
+  uploaded_size_bytes: number | null;
+  rejection_reason: string | null;
+  deduplicated_from_file_id: number | null;
 }
 
 export interface LibraryItem {

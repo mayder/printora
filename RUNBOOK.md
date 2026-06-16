@@ -66,6 +66,24 @@ execute `DELETE` manual em itens, arquivos ou downloads sem confirmação
 explícita. Rollback estrutural exige restaurar backup SQLite anterior ao script
 `046_social_library_items.sql`.
 
+Upload e quarentena de arquivos 3D:
+
+```bash
+curl -fsS -X POST \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/octet-stream" \
+  --data-binary @modelo.stl \
+  "http://127.0.0.1:8069/api/social/library/<item_id>/files/upload?file_name=modelo.stl"
+```
+
+O schema de upload é aplicado por `backend/sql/047_social_library_uploads.sql`.
+Arquivos válidos ficam em `<data_dir>/library_uploads/quarantine` com nome
+derivado de SHA-256; arquivos rejeitados também registram motivo para auditoria.
+Não mova arquivo de quarentena para download/fatiamento manualmente. Rollback
+funcional remove endpoint/UI de upload e mantém metadados; rollback estrutural
+exige backup SQLite anterior ao script `047_social_library_uploads.sql` e
+limpeza manual do diretório de quarentena somente após confirmação explícita.
+
 ## Comandos principais
 
 ```bash

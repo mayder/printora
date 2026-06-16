@@ -1,4 +1,6 @@
 from pathlib import Path
+from io import BytesIO
+import zipfile
 
 from app.auth import AuthRepository, UserRegisterRequest
 from app.database import connect_database, initialize_database
@@ -1152,6 +1154,81 @@ def test_library_api_contract_filters_private_items(tmp_path, monkeypatch) -> No
             assert "private fixture" not in dumped
             assert "token" not in dumped
             assert "moonraker" not in dumped
+    finally:
+        get_settings.cache_clear()
+
+
+def test_library_upload_quarantine_rejects_unsafe_zip_and_deduplicates(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="owner@example.com", password="correct-horse"))
+    repository = SocialCatalogRepository(database_path)
+    repository.update_profile(owner.id, PublicProfileUpdate(slug="owner-public", display_name="Owner", visibility="public"))
+    item = repository.create_library_item(
+        owner.id,
+        LibraryItemCreate(
+            title="Upload real",
+            visibility="private",
+            license="custom",
+            files=[LibraryFileMetadata(file_kind="stl", file_name="placeholder.stl")],
+        ),
+    )
+
+    valid_stl = b"solid test\n" + b"facet normal 0 0 1\n" + b"x" * 128
+    uploaded = repository.upload_library_file(item.id, owner.id, False, "valid.stl", valid_stl)
+    repeated = repository.upload_library_file(item.id, owner.id, False, "valid-copy.stl", valid_stl)
+    unsafe_zip = BytesIO()
+    with zipfile.ZipFile(unsafe_zip, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("../evil.stl", "solid bad")
+    rejected = repository.upload_library_file(item.id, owner.id, False, "unsafe.zip", unsafe_zip.getvalue())
+
+    upload_file = next(file for file in uploaded.files if file.file_name == "valid.stl")
+    repeated_file = next(file for file in repeated.files if file.file_name == "valid-copy.stl")
+    rejected_file = next(file for file in rejected.files if file.file_name == "unsafe.zip")
+
+    assert upload_file.validation_status == "quarantined"
+    assert upload_file.quarantine_key is not None
+    assert upload_file.uploaded_size_bytes == len(valid_stl)
+    assert repeated_file.deduplicated_from_file_id is not None
+    assert rejected_file.validation_status == "rejected"
+    assert "path perigoso" in (rejected_file.rejection_reason or "")
+    assert (database_path.parent / "library_uploads" / "quarantine" / upload_file.quarantine_key).is_file()
+
+
+def test_library_upload_api_uses_raw_body_without_multipart(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner = client.post("/api/auth/register", json={"email": "owner@example.com", "password": "correct-horse"})
+            token = owner.json()["access_token"]
+            created = client.post(
+                "/api/social/library",
+                headers={"Authorization": f"Bearer {token}"},
+                json={
+                    "title": "Raw upload",
+                    "visibility": "private",
+                    "license": "custom",
+                    "files": [{"file_kind": "stl", "file_name": "placeholder.stl"}],
+                },
+            ).json()
+            response = client.post(
+                f"/api/social/library/{created['id']}/files/upload?file_name=part.stl",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/octet-stream"},
+                content=b"solid part\nfacet normal 0 0 1\n" + b"x" * 128,
+            )
+            oversized = client.post(
+                f"/api/social/library/{created['id']}/files/upload?file_name=huge.stl",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/octet-stream"},
+                content=b"x" * (25 * 1024 * 1024 + 1),
+            )
+
+            assert response.status_code == 200
+            assert any(file["file_name"] == "part.stl" and file["validation_status"] == "quarantined" for file in response.json()["files"])
+            assert oversized.status_code == 400
+            assert "25 MB" in oversized.json()["detail"]
     finally:
         get_settings.cache_clear()
 

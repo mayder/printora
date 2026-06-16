@@ -3617,7 +3617,7 @@ Estado atual:
 - APIs cobrem criação, detalhe, edição, arquivamento lógico, listagem por comunidade/perfil e registro de download com isolamento por visibilidade.
 - UI da aba `Arquivos` em `/c/{slug}` lista e cadastra modelos com estados separados; perfil público lista arquivos visíveis do autor.
 - Arquivos privados não aparecem em comunidade pública nem em perfil para terceiros; itens de amigos dependem de amizade aceita.
-- Validação focada concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q` e `cd frontend && npm run build`.
+- Validação concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q`, `cd frontend && npm run build`, `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`, upload local de STL para quarentena e checagem da UI de `Arquivos` com input `.stl,.3mf,.zip`.
 
 ## PKG-57: Upload Seguro, Validação E Quarentena De Arquivos 3D
 
@@ -3657,7 +3657,14 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado com extensão de `social_library_files` em `backend/sql/047_social_library_uploads.sql`.
+- Upload real usa corpo bruto `application/octet-stream` em `/api/social/library/{item_id}/files/upload`, sem multipart, sempre ligado a item existente e com permissão de dono/administrador.
+- Storage local fica confinado a `<data_dir>/library_uploads/quarantine`, com nome derivado de SHA-256 e extensão validada; nenhum path do usuário é usado como destino.
+- Validação cobre extensão, limite de 25 MB, assinatura básica de STL/3MF/ZIP, ZIP vazio, paths perigosos, excesso de entradas, tamanho descompactado e razão de compressão suspeita.
+- Arquivo válido entra como `quarantined`; rejeitado entra como `rejected` com motivo acionável; arquivos em quarentena ainda não viram download/fatiamento validado.
+- Checksum SHA-256 é registrado e deduplicação básica aponta para arquivo já quarentenado/validado com o mesmo hash.
+- UI da aba `Arquivos` aceita seleção de arquivo local STL/3MF/ZIP e mostra status de metadados, quarentena ou rejeição no card.
+- Validação focada concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q` e `cd frontend && npm run build`.
 
 ## PKG-58: Visualização 3D, Thumbnails E Análise Técnica De Modelos
 

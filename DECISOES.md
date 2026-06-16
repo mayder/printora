@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260616-04 - Upload 3D usa corpo bruto e quarentena local controlada
+
+Status: aceita
+Data: 2026-06-16
+Contexto: o PKG-57 precisa aceitar arquivo 3D real com segurança, mas o ambiente não possui `python-multipart` e o upload deve ficar separado da validação técnica profunda do pacote seguinte.
+Decisao: expor upload por corpo `application/octet-stream` em item existente da biblioteca, usando `file_name` na query apenas como metadado validado. O arquivo é salvo em `<data_dir>/library_uploads/quarantine` com nome derivado de SHA-256, nunca por path do usuário. O backend valida extensão, tamanho, assinatura básica, ZIP seguro, checksum e deduplicação; resultado fica como `quarantined` ou `rejected`.
+Alternativas consideradas: adicionar dependência multipart; aceitar upload direto para storage público; validar e liberar download imediatamente.
+Consequencias: reduz dependência nova, evita path traversal no destino e garante que arquivo real não saia da quarentena antes da análise técnica posterior.
+Impacto em testes: testes cobrem upload bruto, limite, ZIP inseguro, rejeição, quarentena, checksum e deduplicação.
+Impacto em rollback: médio; há novo script SQLite `047_social_library_uploads.sql` e diretório local de quarentena.
+Como reverter: remover endpoint `/api/social/library/{item_id}/files/upload`, método de upload, UI de seleção de arquivo e restaurar backup SQLite anterior ao script `047_social_library_uploads.sql`; limpar diretório de quarentena somente após confirmação explícita.
+Referencias: `backend/sql/047_social_library_uploads.sql`, `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, `frontend/src/screens/PublicCommunityScreen.tsx`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260616-03 - Biblioteca base separa metadados de upload e quarentena
 
 Status: aceita

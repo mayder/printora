@@ -305,6 +305,35 @@ Evidência visual esperada:
 - `/u/{slug}` com seção `Biblioteca` separada de `Impressoras públicas`;
 - ausência de nomes internos e de dados operacionais sensíveis no payload/render.
 
+### PKG-57 - Upload seguro, validação e quarentena de arquivos 3D
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- upload bruto sem multipart em item existente da biblioteca;
+- limite de 25 MB;
+- extensão permitida somente STL, 3MF ou ZIP;
+- assinatura básica de STL, ZIP e 3MF;
+- bloqueio de ZIP vazio, path perigoso, excesso de entradas, tamanho descompactado excessivo e razão de compressão suspeita;
+- checksum SHA-256 e deduplicação básica;
+- arquivo válido entra em quarentena e não é marcado como validado;
+- arquivo inválido fica rejeitado com motivo acionável;
+- upload por usuário sem permissão é bloqueado.
+
+Evidência visual esperada:
+
+- `/c/{slug}` na aba `Arquivos` com input de arquivo local aceitando `.stl,.3mf,.zip`;
+- card exibindo `Metadados`, `Quarentena`, `Validado` ou `Rejeitado`;
+- erro legível quando upload ou validação falha;
+- ausência de path local/sessão/segredo no render.
+
 ## Update do agente
 
 Validação focada:
