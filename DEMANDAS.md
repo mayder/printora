@@ -4016,14 +4016,14 @@ Critério de aceite:
 
 Estado atual:
 
-- Concluído localmente; publicação final pós-correção de materialização em andamento.
+- Concluído, publicado, commitado e enviado para `origin/cloud`.
 - Lote 1 concluído com `social_quality_signals` para downloads, favoritos, soluções, reações, denúncias futuras e prints bem-sucedidos futuros.
 - Lote 2 concluído com score determinístico por conteúdo público usando sinais normalizados, popularidade do índice e reputação limitada do autor.
 - Lote 3 concluído com snapshots de reputação técnica por usuário e leaderboard público.
 - Lote 4 concluído com `/api/social/recommendations`, filtros por comunidade/material/componente/tipo e bloco `Recomendações técnicas` na aba `Descoberta`.
 - Lote 5 concluído ignorando auto-voto no score e reservando sinal negativo `report` para reduzir exposição quando denúncias/moderação forem registradas.
 - Lote 6 concluído com teste de score, explicação, reputação, ignorar favorito/download próprio e reutilizar índice/sinais materializados quando a fonte não mudou.
-- Validação: `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py::test_social_ranking_recommendations_ignore_self_vote_and_explain_score -q`; `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q`; `cd frontend && npm run build`; `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`; validação visual local da aba `Descoberta` com recomendações em desktop e mobile.
+- Validação: `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py::test_social_ranking_recommendations_ignore_self_vote_and_explain_score -q`; `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q`; `cd frontend && npm run build`; `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`; validação visual local da aba `Descoberta` com recomendações em desktop e mobile; deploy cloud `27648421434`; smoke público de `/health`, `/api/system/version`, `/api/social/recommendations`, `/api/social/search` e `/api/social/reputation`.
 
 ## PKG-66: Moderação, Denúncias E Curadoria
 
