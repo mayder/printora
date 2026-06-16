@@ -1,5 +1,5 @@
 import React from "react";
-import { Archive, ArrowLeft, Box, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Filter, FolderOpen, GitBranch, Heart, ListChecks, Lock, MessageSquare, Pencil, Pin, Printer, Reply, RotateCcw, Send, SlidersHorizontal, ThumbsUp, Trash2, UserRound, Users, Wrench } from "lucide-react";
+import { Archive, ArrowLeft, Box, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Filter, FolderOpen, GitBranch, Heart, ListChecks, Lock, MessageSquare, Pencil, Pin, Printer, Reply, RotateCcw, Send, SlidersHorizontal, ThumbsUp, Trash2, UserRound, Users, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi } from "../services/socialApi";
 import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, FeedContentType, FeedOrder, LibraryCollectionVisibility, LibraryFileKind, LibraryItem, LibraryLicense, LibraryOrganizerSummary, LibraryVisibility } from "../types";
@@ -85,6 +85,7 @@ export function PublicCommunityScreen({ slug, embedded = false }: PublicCommunit
                 {community.merged_into_slug ? <a href={`/c/${community.merged_into_slug}`}><ExternalLink size={15} />Abrir destino</a> : null}
               </div>
             </div>
+            <a href="/?section=social" className="secondary-button public-community-back"><ArrowLeft size={16} />Voltar ao Social</a>
           </header>
 
           <section className="community-metrics">
@@ -93,6 +94,15 @@ export function PublicCommunityScreen({ slug, embedded = false }: PublicCommunit
             <CommunityMetric icon={FileText} label="Arquivos" value={community.file_count} />
             <CommunityMetric icon={Wrench} label="Mods" value={community.mod_count} />
           </section>
+
+          <article className="panel public-profile-panel community-technical-context">
+            <h2>Contexto técnico</h2>
+            <div className="public-spec-list">
+              <span><Archive size={15} />Catálogo mestre</span>
+              <span><SlidersHorizontal size={15} />{communityContext(community)}</span>
+              <span><Lock size={15} />Sem acesso operacional, agente, Moonraker, SSH, token ou organização</span>
+            </div>
+          </article>
 
           <nav className="community-tabs" aria-label="Abas da comunidade">
             {tabs.map((tab) => {
@@ -106,19 +116,9 @@ export function PublicCommunityScreen({ slug, embedded = false }: PublicCommunit
             })}
           </nav>
 
-          <section className="public-profile-grid community-tab-grid">
-            <article className="panel public-profile-panel">
-              <h2>Contexto técnico</h2>
-              <div className="public-spec-list">
-                <span><Archive size={15} />Catálogo mestre</span>
-                <span><SlidersHorizontal size={15} />{communityContext(community)}</span>
-                <span><Lock size={15} />Sem acesso operacional, agente, Moonraker, SSH, token ou organização</span>
-              </div>
-            </article>
-            <article className="panel public-profile-panel">
-              <CommunityTabContent community={community} tab={activeTab} />
-            </article>
-          </section>
+          <article className="panel public-profile-panel community-tab-panel">
+            <CommunityTabContent community={community} tab={activeTab} />
+          </article>
         </section>
       ) : null}
     </>
@@ -267,6 +267,7 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
   const [uploadFile, setUploadFile] = React.useState<File | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [createOpen, setCreateOpen] = React.useState(false);
 
   const loadLibrary = React.useCallback(async () => {
     setLoading(true);
@@ -321,6 +322,7 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
       setItems((current) => [created, ...current.filter((item) => item.id !== created.id)]);
       setDraft((current) => ({ ...current, title: "", description: "", file_name: "", original_url: "", component: "", material_suggestion: "", orientation_notes: "", original_author_name: "", source_url: "", attribution_text: "", publication_terms_accepted: false }));
       setUploadFile(null);
+      setCreateOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível cadastrar arquivo");
     }
@@ -470,47 +472,64 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
           <h2>Biblioteca de arquivos</h2>
           <p>Modelos STL/3MF e pacotes declarados por metadados, com dono, licença e visibilidade explícitos.</p>
         </div>
+        <button type="button" className="primary-button" onClick={() => setCreateOpen(true)}><FileText size={15} />Cadastrar arquivo</button>
       </div>
-      <form className="community-library-form" onSubmit={submitItem}>
-        <div className="community-discussion-form-row">
-          <input value={draft.title} maxLength={160} placeholder="Nome do modelo" onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} required />
-          <select value={draft.visibility} onChange={(event) => setDraft((current) => ({ ...current, visibility: event.target.value as LibraryVisibility }))}>
-            {visibilityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-          <select value={draft.license} onChange={(event) => setDraft((current) => ({ ...current, license: event.target.value as LibraryLicense }))}>
-            {licenseOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
+      {createOpen ? (
+        <div className="modal-backdrop" role="presentation">
+          <section className="modal-card community-library-modal" role="dialog" aria-modal="true" aria-label="Cadastrar arquivo">
+            <header className="modal-header">
+              <div>
+                <h2>Cadastrar arquivo</h2>
+                <p>Informe autoria, licença e arquivo antes de publicar na biblioteca da comunidade.</p>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setCreateOpen(false)} aria-label="Fechar cadastro"><X size={17} /></button>
+            </header>
+            <form className="community-library-form" onSubmit={submitItem}>
+              <div className="community-discussion-form-row">
+                <input value={draft.title} maxLength={160} placeholder="Nome do modelo" onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} required />
+                <select value={draft.visibility} onChange={(event) => setDraft((current) => ({ ...current, visibility: event.target.value as LibraryVisibility }))}>
+                  {visibilityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+                <select value={draft.license} onChange={(event) => setDraft((current) => ({ ...current, license: event.target.value as LibraryLicense }))}>
+                  {licenseOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </div>
+              <textarea value={draft.description} maxLength={1200} placeholder="Descrição técnica, compatibilidade e contexto de uso" onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} />
+              <div className="community-discussion-form-row">
+                <input value={draft.original_author_name} placeholder="Autor original" onChange={(event) => setDraft((current) => ({ ...current, original_author_name: event.target.value }))} />
+                <input value={draft.source_url} placeholder="Fonte pública" onChange={(event) => setDraft((current) => ({ ...current, source_url: event.target.value }))} />
+                <input value={draft.attribution_text} placeholder="Crédito e atribuição" onChange={(event) => setDraft((current) => ({ ...current, attribution_text: event.target.value }))} />
+                <label className="community-toggle"><input type="checkbox" checked={draft.publication_terms_accepted} onChange={(event) => setDraft((current) => ({ ...current, publication_terms_accepted: event.target.checked }))} />Termos</label>
+              </div>
+              <div className="community-discussion-form-row">
+                <select value={draft.file_kind} onChange={(event) => setDraft((current) => ({ ...current, file_kind: event.target.value as LibraryFileKind }))}>
+                  <option value="stl">STL</option>
+                  <option value="3mf">3MF</option>
+                  <option value="bundle">Pacote</option>
+                </select>
+                <input value={draft.file_name} placeholder="arquivo.stl" onChange={(event) => setDraft((current) => ({ ...current, file_name: event.target.value }))} required />
+                <input value={draft.original_url} placeholder="URL pública opcional" onChange={(event) => setDraft((current) => ({ ...current, original_url: event.target.value }))} />
+                <input type="file" accept=".stl,.3mf,.zip" onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  setUploadFile(file);
+                  if (file) setDraft((current) => ({ ...current, file_name: file.name }));
+                }} />
+              </div>
+              <div className="community-discussion-form-row">
+                <input value={draft.component} placeholder="Componente" onChange={(event) => setDraft((current) => ({ ...current, component: event.target.value }))} />
+                <input value={draft.version_label} placeholder="Versão" onChange={(event) => setDraft((current) => ({ ...current, version_label: event.target.value }))} required />
+                <input value={draft.material_suggestion} placeholder="Material sugerido" onChange={(event) => setDraft((current) => ({ ...current, material_suggestion: event.target.value }))} />
+                <label className="community-toggle"><input type="checkbox" checked={draft.supports_required} onChange={(event) => setDraft((current) => ({ ...current, supports_required: event.target.checked }))} />Suporte</label>
+              </div>
+              <textarea value={draft.orientation_notes} maxLength={500} placeholder="Orientação de impressão" onChange={(event) => setDraft((current) => ({ ...current, orientation_notes: event.target.value }))} />
+              <div className="modal-footer">
+                <button type="button" className="secondary-button" onClick={() => setCreateOpen(false)}>Cancelar</button>
+                <button type="submit" className="primary-button"><FileText size={15} />Cadastrar arquivo</button>
+              </div>
+            </form>
+          </section>
         </div>
-        <textarea value={draft.description} maxLength={1200} placeholder="Descrição técnica, compatibilidade e contexto de uso" onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} />
-        <div className="community-discussion-form-row">
-          <input value={draft.original_author_name} placeholder="Autor original" onChange={(event) => setDraft((current) => ({ ...current, original_author_name: event.target.value }))} />
-          <input value={draft.source_url} placeholder="Fonte pública" onChange={(event) => setDraft((current) => ({ ...current, source_url: event.target.value }))} />
-          <input value={draft.attribution_text} placeholder="Crédito e atribuição" onChange={(event) => setDraft((current) => ({ ...current, attribution_text: event.target.value }))} />
-          <label className="community-toggle"><input type="checkbox" checked={draft.publication_terms_accepted} onChange={(event) => setDraft((current) => ({ ...current, publication_terms_accepted: event.target.checked }))} />Termos</label>
-        </div>
-        <div className="community-discussion-form-row">
-          <select value={draft.file_kind} onChange={(event) => setDraft((current) => ({ ...current, file_kind: event.target.value as LibraryFileKind }))}>
-            <option value="stl">STL</option>
-            <option value="3mf">3MF</option>
-            <option value="bundle">Pacote</option>
-          </select>
-          <input value={draft.file_name} placeholder="arquivo.stl" onChange={(event) => setDraft((current) => ({ ...current, file_name: event.target.value }))} required />
-          <input value={draft.original_url} placeholder="URL pública opcional" onChange={(event) => setDraft((current) => ({ ...current, original_url: event.target.value }))} />
-          <input type="file" accept=".stl,.3mf,.zip" onChange={(event) => {
-            const file = event.target.files?.[0] ?? null;
-            setUploadFile(file);
-            if (file) setDraft((current) => ({ ...current, file_name: file.name }));
-          }} />
-        </div>
-        <div className="community-discussion-form-row">
-          <input value={draft.component} placeholder="Componente" onChange={(event) => setDraft((current) => ({ ...current, component: event.target.value }))} />
-          <input value={draft.version_label} placeholder="Versão" onChange={(event) => setDraft((current) => ({ ...current, version_label: event.target.value }))} required />
-          <input value={draft.material_suggestion} placeholder="Material sugerido" onChange={(event) => setDraft((current) => ({ ...current, material_suggestion: event.target.value }))} />
-          <label className="community-toggle"><input type="checkbox" checked={draft.supports_required} onChange={(event) => setDraft((current) => ({ ...current, supports_required: event.target.checked }))} />Suporte</label>
-        </div>
-        <textarea value={draft.orientation_notes} maxLength={500} placeholder="Orientação de impressão" onChange={(event) => setDraft((current) => ({ ...current, orientation_notes: event.target.value }))} />
-        <button type="submit" className="primary-button"><FileText size={15} />Cadastrar arquivo</button>
-      </form>
+      ) : null}
       {organizer ? (
         <section className="community-organizer-panel">
           <header>
@@ -694,6 +713,8 @@ function CommunityFeed({ community }: { community: CommunityDetail }) {
   const [selectedPostId, setSelectedPostId] = React.useState<number | null>(null);
   const [newPost, setNewPost] = React.useState({ content_type: "question" as FeedContentType, title: "", body: "", component: "", material: "", firmware_family: "", problem_tag: "" });
   const [posting, setPosting] = React.useState(false);
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
+  const [postFormOpen, setPostFormOpen] = React.useState(false);
   const [contentType, setContentType] = React.useState<FeedContentType | "">("");
   const [component, setComponent] = React.useState("");
   const [material, setMaterial] = React.useState("");
@@ -758,6 +779,7 @@ function CommunityFeed({ community }: { community: CommunityDetail }) {
       setFeed(payload);
       setSelectedPostId(payload.items.find((item) => item.title === newPost.title)?.id ?? null);
       setNewPost({ content_type: "question", title: "", body: "", component: "", material: "", firmware_family: "", problem_tag: "" });
+      setPostFormOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível publicar");
     } finally {
@@ -772,15 +794,16 @@ function CommunityFeed({ community }: { community: CommunityDetail }) {
           <h2>Feed técnico</h2>
           <p>Conteúdo público da comunidade, organizado por contexto técnico.</p>
         </div>
-        <div className="community-feed-order">
-          <Filter size={15} />
-          <select value={order} onChange={(event) => resetPage(() => setOrder(event.target.value as FeedOrder))}>
+        <div className="community-feed-controls">
+          <button type="button" className={`secondary-button ${filtersOpen ? "active" : ""}`} onClick={() => setFiltersOpen((current) => !current)}><Filter size={15} />Filtros</button>
+          <select aria-label="Ordenar feed" value={order} onChange={(event) => resetPage(() => setOrder(event.target.value as FeedOrder))}>
             {feedOrderOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
+          <button type="button" className="primary-button" onClick={() => setPostFormOpen((current) => !current)}><MessageSquare size={15} />Nova discussão</button>
         </div>
       </div>
 
-      <div className="community-feed-filters">
+      {filtersOpen ? <div className="community-feed-filters">
         <select value={contentType} onChange={(event) => resetPage(() => setContentType(event.target.value as FeedContentType | ""))}>
           {feedTypeOptions.map((option) => <option key={option.value || "all"} value={option.value}>{option.label}</option>)}
         </select>
@@ -788,9 +811,9 @@ function CommunityFeed({ community }: { community: CommunityDetail }) {
         <FilterSelect label="Material" value={material} options={feed?.filters.materials ?? []} onChange={(value) => resetPage(() => setMaterial(value))} />
         <FilterSelect label="Firmware" value={firmware} options={feed?.filters.firmware ?? []} onChange={(value) => resetPage(() => setFirmware(value))} />
         <FilterSelect label="Problema" value={problem} options={feed?.filters.problems ?? []} onChange={(value) => resetPage(() => setProblem(value))} />
-      </div>
+      </div> : null}
 
-      <form className="community-discussion-form" onSubmit={submitPost}>
+      {postFormOpen ? <form className="community-discussion-form" onSubmit={submitPost}>
         <div className="community-discussion-form-row">
           <select value={newPost.content_type} onChange={(event) => setNewPost((current) => ({ ...current, content_type: event.target.value as FeedContentType }))}>
             {feedTypeOptions.filter((option) => option.value && option.value !== "curation_notice").map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -805,7 +828,7 @@ function CommunityFeed({ community }: { community: CommunityDetail }) {
           <input value={newPost.problem_tag} placeholder="Problema" onChange={(event) => setNewPost((current) => ({ ...current, problem_tag: event.target.value }))} />
           <button type="submit" className="primary-button" disabled={posting}><Send size={15} />Publicar</button>
         </div>
-      </form>
+      </form> : null}
 
       {loading ? <p>Carregando feed...</p> : error ? <p>{error}</p> : feed && feed.items.length ? (
         <>
