@@ -77,7 +77,7 @@ export function PublicCommunityScreen({ slug, embedded = false }: PublicCommunit
           <header className="public-profile-hero public-community-hero">
             <CommunityBrandMark community={community} />
             <div>
-              <span className="account-eyebrow">{scopeLabel(community.scope)} / {statusLabel(community.status)}</span>
+              <span className="account-eyebrow">{communityEyebrow(community)}</span>
               <h1>{community.name}</h1>
               <p>{statusDescription(community)}</p>
               <div className="public-profile-meta">
@@ -1059,6 +1059,13 @@ function scopeLabel(scope: Community["scope"]) {
 
 function statusLabel(status: Community["status"]) {
   return { active: "ativa", uncurated: "sem curadoria", obsolete: "obsoleta", merged: "mesclada" }[status];
+}
+
+function communityEyebrow(community: Community) {
+  if (community.status === "obsolete" || community.status === "merged") {
+    return `${scopeLabel(community.scope)} / ${statusLabel(community.status)}`;
+  }
+  return "Comunidade técnica";
 }
 
 function statusDescription(community: CommunityDetail) {
