@@ -915,6 +915,72 @@
   padding: 4px 8px;
 }
 
+.community-storage-panel {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.community-storage-panel header,
+.community-storage-panel header strong,
+.community-storage-grid,
+.community-storage-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.community-storage-panel header,
+.community-storage-actions {
+  justify-content: space-between;
+}
+
+.community-storage-panel header span,
+.community-storage-actions span {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.community-storage-meter {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.community-storage-meter span {
+  background: var(--accent);
+  display: block;
+  height: 100%;
+  min-width: 2px;
+}
+
+.community-storage-grid {
+  flex-wrap: wrap;
+}
+
+.community-storage-grid span {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  flex: 1 1 130px;
+  gap: 2px;
+  padding: 8px;
+}
+
+.community-storage-grid strong {
+  color: var(--text);
+}
+
+.community-storage-grid small {
+  color: var(--text-muted);
+}
+
 .community-toggle {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1922,6 +1988,41 @@
   .community-discussion-form-row,
   .community-discussion-form-row:first-child {
     grid-template-columns: 1fr;
+  }
+
+  .community-library,
+  .community-feed-header,
+  .community-organizer-panel,
+  .community-storage-panel {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .community-feed-header,
+  .community-organizer-panel header,
+  .community-storage-panel header,
+  .community-storage-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .community-organizer-grid form,
+  .community-organizer-grid input,
+  .community-organizer-grid select {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .community-organizer-grid form {
+    flex-basis: 100%;
+  }
+
+  .community-feed-header .primary-button,
+  .community-storage-actions button {
+    justify-content: center;
+    width: 100%;
   }
 
   .community-library-form-redesign,

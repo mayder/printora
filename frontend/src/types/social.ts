@@ -480,6 +480,53 @@ export interface LibraryOrganizerSummary {
   downloads: LibraryDownloadHistoryItem[];
 }
 
+export interface StoragePolicy {
+  scope_type: string;
+  scope_id: number | null;
+  quota_bytes: number;
+  retention_days: number;
+  cost_per_gb_month_cents: number;
+}
+
+export interface StorageUsageSummary {
+  quota_bytes: number;
+  used_bytes: number;
+  remaining_bytes: number;
+  projected_monthly_cost_cents: number;
+  file_count: number;
+  deduplicated_file_count: number;
+  active_item_count: number;
+  archived_item_count: number;
+}
+
+export interface StorageRetentionCandidate {
+  file_id: number;
+  item_id: number;
+  file_name: string;
+  size_bytes: number;
+  status: string;
+  referenced_by_current_version: boolean;
+  eligible: boolean;
+  reason: string;
+}
+
+export interface StorageRetentionPlan {
+  mode: "dry_run";
+  retention_days: number;
+  candidate_count: number;
+  blocked_count: number;
+  reclaimable_bytes: number;
+  candidates: StorageRetentionCandidate[];
+  review_id: number | null;
+}
+
+export interface StorageReport {
+  policy: StoragePolicy;
+  usage: StorageUsageSummary;
+  retention: StorageRetentionPlan;
+  object_storage_plan: string[];
+}
+
 export interface RelationshipRecord {
   target_user_id: number;
   target_slug: string | null;

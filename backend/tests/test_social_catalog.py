@@ -1,5 +1,6 @@
 from pathlib import Path
 from io import BytesIO
+import hashlib
 import struct
 import zipfile
 
@@ -18,6 +19,7 @@ from app.social_moderation import ModerationActionPayload, ModerationReportCreat
 from app.social_notifications import ContentFollowPayload, NotificationPreferenceUpdate, SocialNotificationsRepository
 from app.social_ranking import SocialRankingRepository
 from app.social_safety import SocialSafetyRepository, SocialSafetySettingsUpdate
+from app.social_storage import SocialStorageRepository
 from app.technical_profiles import TechnicalPrinterConfigPayload, TechnicalProfilesRepository
 
 
@@ -1725,6 +1727,79 @@ def test_library_upload_quarantine_rejects_unsafe_zip_and_deduplicates(tmp_path:
     assert rejected_file.validation_status == "rejected"
     assert "path perigoso" in (rejected_file.rejection_reason or "")
     assert (database_path.parent / "library_uploads" / "quarantine" / upload_file.quarantine_key).is_file()
+
+
+def test_library_storage_quota_blocks_upload_before_writing_file(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="quota-owner@example.com", password="correct-horse"))
+    repository = SocialCatalogRepository(database_path)
+    repository.update_profile(owner.id, PublicProfileUpdate(slug="quota-owner", display_name="Quota owner", visibility="public"))
+    item = repository.create_library_item(
+        owner.id,
+        LibraryItemCreate(
+            title="Modelo com cota",
+            visibility="private",
+            license="custom",
+            files=[LibraryFileMetadata(file_kind="stl", file_name="placeholder.stl")],
+        ),
+    )
+    with connect_database(database_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO social_file_storage_policies (
+                scope_type, scope_id, quota_bytes, retention_days, cost_per_gb_month_cents
+            )
+            VALUES ('user', ?, 64, 180, 8)
+            """,
+            (owner.id,),
+        )
+
+    body = b"solid too-large\n" + b"x" * 128
+    checksum = hashlib.sha256(body).hexdigest()
+    with pytest.raises(ValueError, match="cota de armazenamento"):
+        repository.upload_library_file(item.id, owner.id, False, "blocked.stl", body)
+
+    assert not (database_path.parent / "library_uploads" / "quarantine" / f"{checksum}.stl").exists()
+
+
+def test_library_storage_report_and_retention_review_are_supervised(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="storage-owner@example.com", password="correct-horse"))
+    repository = SocialCatalogRepository(database_path)
+    repository.update_profile(owner.id, PublicProfileUpdate(slug="storage-owner", display_name="Storage owner", visibility="public"))
+    item = repository.create_library_item(
+        owner.id,
+        LibraryItemCreate(
+            title="Modelo com retenção",
+            visibility="private",
+            license="custom",
+            files=[LibraryFileMetadata(file_kind="stl", file_name="placeholder.stl")],
+        ),
+    )
+    uploaded = repository.upload_library_file(item.id, owner.id, False, "broken.stl", b"solid bad\n" + b"x" * 128)
+    file_id = next(file.id for file in uploaded.files if file.file_name == "broken.stl")
+    with connect_database(database_path) as connection:
+        connection.execute("UPDATE social_library_files SET validation_status = 'analysis_failed' WHERE id = ?", (file_id,))
+
+    storage = SocialStorageRepository(database_path)
+    report = storage.report_for_user(owner.id)
+    review = storage.create_retention_review(owner.id, owner.id)
+
+    assert report.usage.used_bytes > 0
+    assert report.usage.remaining_bytes < report.usage.quota_bytes
+    assert report.retention.candidate_count == 1
+    assert review.review_id is not None
+    assert review.reclaimable_bytes > 0
+    with connect_database(database_path) as connection:
+        retained = connection.execute("SELECT validation_status FROM social_library_files WHERE id = ?", (file_id,)).fetchone()
+        audit = connection.execute("SELECT candidate_count, reclaimable_bytes FROM social_file_retention_reviews WHERE id = ?", (review.review_id,)).fetchone()
+    assert retained["validation_status"] == "analysis_failed"
+    assert audit["candidate_count"] == 1
+    assert audit["reclaimable_bytes"] == review.reclaimable_bytes
 
 
 def test_library_upload_api_uses_raw_body_without_multipart(tmp_path, monkeypatch) -> None:

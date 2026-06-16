@@ -746,3 +746,15 @@ Consequencias: cada usuário vê horários no próprio fuso sem regravar histór
 Impacto em testes: schema SQL, testes de auth, build frontend e `./check.sh`.
 Impacto em rollback: baixo; remover a coluna volta ao fuso padrão do navegador/servidor, mas históricos permanecem intactos.
 Como reverter: reverter `backend/sql/034_auth_user_timezone.sql`, campos de auth e formatter de datas do frontend.
+
+### DEC-20260616-16 - Storage social usa cota antes da escrita e retenção supervisionada
+
+Status: aceita
+Data: 2026-06-16
+Contexto: a biblioteca social passou a aceitar arquivos reais em quarentena. Sem cota e retenção, o crescimento de arquivos ficaria sem controle e uma migração futura para object storage exigiria desfazer acoplamento ao filesystem local.
+Decisao: criar uma camada dedicada de storage social com política de cota/custo/retenção, adapter local de caminho seguro e relatório autenticado de uso. O upload verifica cota antes de gravar o objeto local. Retenção gera revisão `dry_run` auditável e não apaga arquivo, linha ou versão automaticamente.
+Alternativas consideradas: manter limite fixo de 25 MB por upload; apagar arquivos rejeitados imediatamente; implementar bucket externo já neste pacote.
+Consequencias: o custo passa a ser mensurável, o usuário recebe feedback de cota e a operação de limpeza fica reversível/supervisionada. Object storage futuro troca adapter e backfill sem alterar contrato social principal.
+Impacto em testes: testes de upload/cota, relatório de storage, revisão de retenção, schema versionado, build frontend e `./check.sh`.
+Impacto em rollback: médio; reverter remove relatório e bloqueio de cota, mas arquivos já gravados permanecem no diretório local.
+Como reverter: reverter `backend/app/social_storage.py`, `backend/app/routes/social_storage.py`, integração de upload em `social_catalog.py`, painel de biblioteca no frontend e documentação. Se `060_social_file_storage.sql` já tiver sido aplicado, restaurar backup SQLite anterior criado pelo versionador; não executar `DELETE` ou `DROP TABLE` sem confirmação explícita.

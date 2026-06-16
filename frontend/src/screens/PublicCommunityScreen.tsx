@@ -1,8 +1,8 @@
 import React from "react";
-import { Archive, ArrowLeft, Box, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Filter, FolderOpen, GitBranch, Heart, ListChecks, Lock, MessageSquare, Pencil, Pin, Printer, Reply, RotateCcw, Send, SlidersHorizontal, ThumbsUp, Trash2, UserRound, Users, Wrench, X } from "lucide-react";
+import { Archive, ArrowLeft, Box, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Filter, FolderOpen, GitBranch, HardDrive, Heart, ListChecks, Lock, MessageSquare, Pencil, Pin, Printer, Reply, RotateCcw, Send, SlidersHorizontal, ThumbsUp, Trash2, UserRound, Users, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi } from "../services/socialApi";
-import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, FeedContentType, FeedOrder, LibraryCollectionVisibility, LibraryFileKind, LibraryItem, LibraryLicense, LibraryOrganizerSummary, LibraryVisibility, MaterialProfile, TechnicalConfigComparison, TechnicalPrinterConfig } from "../types";
+import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, FeedContentType, FeedOrder, LibraryCollectionVisibility, LibraryFileKind, LibraryItem, LibraryLicense, LibraryOrganizerSummary, LibraryVisibility, MaterialProfile, StorageReport, TechnicalConfigComparison, TechnicalPrinterConfig } from "../types";
 
 interface PublicCommunityScreenProps {
   slug: string;
@@ -390,6 +390,7 @@ const licenseOptions: Array<{ value: LibraryLicense; label: string }> = [
 function CommunityLibrary({ community }: { community: CommunityDetail }) {
   const [items, setItems] = React.useState<LibraryItem[]>([]);
   const [organizer, setOrganizer] = React.useState<LibraryOrganizerSummary | null>(null);
+  const [storageReport, setStorageReport] = React.useState<StorageReport | null>(null);
   const [draft, setDraft] = React.useState({
     title: "",
     description: "",
@@ -424,6 +425,11 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
         setOrganizer(await socialApi.libraryOrganizer());
       } catch {
         setOrganizer(null);
+      }
+      try {
+        setStorageReport(await socialApi.libraryStorageReport());
+      } catch {
+        setStorageReport(null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Biblioteca indisponível");
@@ -469,6 +475,11 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
       setDraft((current) => ({ ...current, title: "", description: "", file_name: "", original_url: "", component: "", material_suggestion: "", orientation_notes: "", original_author_name: "", source_url: "", attribution_text: "", publication_terms_accepted: false }));
       setUploadFile(null);
       setCreateOpen(false);
+      try {
+        setStorageReport(await socialApi.libraryStorageReport());
+      } catch {
+        setStorageReport(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível cadastrar arquivo");
     }
@@ -608,6 +619,15 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
       setItems((current) => current.map((item) => item.id === updated.id ? updated : item));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Análise não concluída");
+    }
+  }
+
+  async function createRetentionReview() {
+    try {
+      const review = await socialApi.createLibraryRetentionReview();
+      setStorageReport((current) => current ? { ...current, retention: review } : current);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Revisão de retenção indisponível");
     }
   }
 
@@ -786,6 +806,27 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
             {organizer.collections.slice(0, 4).map((collection) => <span key={collection.id}>{collection.name} / {collection.item_count} itens</span>)}
             {organizer.print_lists.slice(0, 4).map((list) => <span key={list.id}>{list.name} / {list.items.length} itens</span>)}
             {organizer.downloads.slice(0, 3).map((download) => <span key={download.id}>{download.title} / {download.version_label || "atual"}</span>)}
+          </div>
+        </section>
+      ) : null}
+      {storageReport ? (
+        <section className="community-storage-panel">
+          <header>
+            <strong><HardDrive size={15} />Armazenamento</strong>
+            <span>{formatBytes(storageReport.usage.used_bytes)} de {formatBytes(storageReport.usage.quota_bytes)}</span>
+          </header>
+          <div className="community-storage-meter" aria-label="Uso de armazenamento">
+            <span style={{ width: `${Math.min(100, Math.round((storageReport.usage.used_bytes / Math.max(storageReport.usage.quota_bytes, 1)) * 100))}%` }} />
+          </div>
+          <div className="community-storage-grid">
+            <span><strong>{formatBytes(storageReport.usage.remaining_bytes)}</strong><small>Disponível</small></span>
+            <span><strong>{storageReport.usage.file_count}</strong><small>Arquivos</small></span>
+            <span><strong>{storageReport.retention.candidate_count}</strong><small>Em revisão</small></span>
+            <span><strong>{formatCurrency(storageReport.usage.projected_monthly_cost_cents)}</strong><small>Custo estimado</small></span>
+          </div>
+          <div className="community-storage-actions">
+            <span>{storageReport.retention.blocked_count} bloqueados / {formatBytes(storageReport.retention.reclaimable_bytes)} recuperáveis</span>
+            <button type="button" className="secondary-button" onClick={createRetentionReview}><ListChecks size={15} />Revisar retenção</button>
           </div>
         </section>
       ) : null}
@@ -1345,6 +1386,22 @@ function uploadStatusLabel(status: string) {
     validated: "Validado",
     rejected: "Rejeitado",
   }[status] ?? status;
+}
+
+function formatBytes(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let amount = value;
+  let unitIndex = 0;
+  while (amount >= 1024 && unitIndex < units.length - 1) {
+    amount /= 1024;
+    unitIndex += 1;
+  }
+  return `${amount >= 10 || unitIndex === 0 ? amount.toFixed(0) : amount.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function formatCurrency(cents: number) {
+  return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 function Placeholder({ title, text }: { title: string; text: string }) {

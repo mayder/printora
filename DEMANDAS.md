@@ -4217,7 +4217,20 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado.
+
+Notas de conclusão:
+
+- SQL `060_social_file_storage.sql` cria políticas de cota, retenção e custo por escopo, além de revisão auditável de retenção sem remoção automática.
+- Upload da biblioteca consulta a cota antes de gravar o arquivo em quarentena; quando a cota é insuficiente, nenhum objeto local é criado.
+- Adapter local `LocalLibraryStorage` centraliza o caminho seguro de quarentena e prepara troca futura por object storage sem acoplar regra de negócio ao filesystem.
+- Relatório autenticado em `/api/social/me/library/storage` expõe política, uso, custo estimado, cota restante, candidatos de retenção e plano futuro de object storage.
+- Revisão supervisionada em `/api/social/me/library/storage/retention-reviews` registra plano `dry_run` em `social_file_retention_reviews` e não apaga arquivo, linha ou versão.
+- Candidatos referenciados por versão ativa ficam bloqueados no plano de retenção; arquivos com falha de validação/análise podem aparecer como recuperáveis.
+- `Comunidade > Arquivos` recebeu painel organizado de armazenamento no bloco da biblioteca, separado de cadastro/lista/detalhe dos arquivos.
+- Documentação atualizada em `TELAS.md`, `TESTES.md`, `DECISOES.md` e `RUNBOOK.md`.
+- Testes focados adicionados para limite de cota antes da escrita, relatório de uso e retenção supervisionada.
+- Validação executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_social_catalog.py -k 'library_storage or library_upload_quarantine' -q`; `cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q`; `npm --prefix frontend run build`.
 
 ## PKG-70: Ponte Controlada Com Engine De Fatiamento
 

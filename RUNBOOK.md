@@ -1266,6 +1266,49 @@ Rollback:
 - se `059_social_safety_antiabuse.sql` já tiver sido aplicado e for necessário remover schema, restaurar backup SQLite anterior criado pelo versionador;
 - não executar `DELETE` ou `DROP TABLE` manual sem confirmação explícita.
 
+## Armazenamento social, cotas e retenção
+
+Escopo:
+
+- arquivos da biblioteca social usam storage local em `PRINTORA_DATA_DIR/library_uploads`;
+- upload consulta cota antes de gravar o objeto em quarentena;
+- relatório autenticado: `GET /api/social/me/library/storage`;
+- revisão supervisionada: `POST /api/social/me/library/storage/retention-reviews`.
+
+Banco:
+
+- ordem: `060_social_file_storage.sql` depois de `059_social_safety_antiabuse.sql`;
+- tabelas: `social_file_storage_policies`, `social_file_retention_reviews`;
+- impacto: adiciona política de cota/retenção/custo e trilha de revisão sem alterar permissões, agentes, Moonraker, SSH ou vínculos de impressoras.
+
+Validação:
+
+```bash
+cd backend && uv run --extra dev pytest ../backend/tests/test_social_catalog.py -k 'library_storage or library_upload_quarantine' -q
+cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q
+npm --prefix frontend run build
+```
+
+Smokes úteis:
+
+```bash
+curl -s -H "Authorization: Bearer <token>" http://127.0.0.1:8069/api/social/me/library/storage
+curl -s -X POST -H "Authorization: Bearer <token>" http://127.0.0.1:8069/api/social/me/library/storage/retention-reviews
+```
+
+Retenção e custo:
+
+- política global padrão: 1 GB por usuário, 180 dias de retenção e custo estimado por GB/mês;
+- revisão de retenção é `dry_run` auditável e não apaga arquivo físico, linha de banco ou versão;
+- arquivo referenciado por versão ativa deve permanecer bloqueado no plano de retenção;
+- object storage futuro deve preservar checksum, tamanho, dono e chave lógica antes de trocar adapter.
+
+Rollback:
+
+- reverter `backend/app/social_storage.py`, `backend/app/routes/social_storage.py`, integração em `social_catalog.py`, UI de biblioteca e documentação;
+- se `060_social_file_storage.sql` já tiver sido aplicado e for necessário remover schema, restaurar backup SQLite anterior criado pelo versionador;
+- não executar `DELETE`, `DROP TABLE` ou remoção manual de arquivos sem confirmação explícita e backup.
+
 Rollback:
 
 - para remover a camada de autenticação, reverter os arquivos do PKG-39;

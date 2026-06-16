@@ -1437,6 +1437,17 @@ Critérios:
 - Testes automatizados focados: `cd backend && uv run pytest tests/test_agent_support.py tests/test_agent_pairing.py tests/test_agent_channel.py -q` e `cd agent && go test ./...`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-69 - Armazenamento, Cotas, Retenção E Custos De Arquivos
+
+- Validar que upload da biblioteca consulta cota antes de gravar arquivo definitivo ou quarentena.
+- Validar que falha de cota não deixa objeto local órfão em `library_uploads/quarantine`.
+- Validar relatório `GET /api/social/me/library/storage` com política, uso, cota restante, custo estimado, plano de retenção e plano futuro de object storage.
+- Validar revisão `POST /api/social/me/library/storage/retention-reviews` como `dry_run`, auditável e sem exclusão automática.
+- Validar que arquivo referenciado por versão atual fica bloqueado no plano de retenção.
+- Validar que UI de Comunidades > Arquivos mostra painel de armazenamento organizado, responsivo e separado de cadastro/lista/detalhe.
+- Testes automatizados focados: `cd backend && uv run --extra dev pytest ../backend/tests/test_social_catalog.py -k 'library_storage or library_upload_quarantine' -q` e `cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

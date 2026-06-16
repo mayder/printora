@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.database import connect_database
+from app.social_storage import SocialStorageRepository
 
 
 TrustState = Literal["official", "community", "draft", "obsolete", "blocked"]
@@ -1875,18 +1876,15 @@ class SocialCatalogRepository:
         except ValueError as exc:
             validation_status = "rejected"
             rejection_reason = str(exc)
-        storage_root = self.database_path.parent / "library_uploads"
-        quarantine_dir = storage_root / "quarantine"
-        quarantine_dir.mkdir(parents=True, exist_ok=True)
         extension = Path(clean_name).suffix.lower()
-        quarantine_key = f"{checksum}{extension}"
-        quarantine_path = quarantine_dir / quarantine_key
-        quarantine_path.write_bytes(body)
+        storage = SocialStorageRepository(self.database_path)
         with connect_database(self.database_path) as connection:
             existing = self._library_item_row(connection, item_id, include_archived=True)
             if existing is None:
                 raise ValueError("item de biblioteca não encontrado")
             self._ensure_library_owner(existing, actor_user_id, is_admin)
+            storage.ensure_upload_allowed(connection, int(existing["owner_user_id"]), len(body))
+            stored = storage.storage.write_quarantine(checksum, extension, body)
             duplicate = connection.execute(
                 """
                 SELECT id, quarantine_key FROM social_library_files
@@ -1911,7 +1909,7 @@ class SocialCatalogRepository:
                     len(body),
                     checksum,
                     validation_status,
-                    quarantine_key,
+                    stored.key,
                     len(body),
                     rejection_reason,
                     duplicate["id"] if duplicate is not None else None,
@@ -1948,7 +1946,7 @@ class SocialCatalogRepository:
             quarantine_key = clean_optional_text(file_row["quarantine_key"])
             if not quarantine_key:
                 raise ValueError("arquivo sem objeto de quarentena")
-            path = self.database_path.parent / "library_uploads" / "quarantine" / Path(quarantine_key).name
+            path = SocialStorageRepository(self.database_path).storage.quarantine_path(quarantine_key)
             if not path.is_file():
                 raise ValueError("arquivo de quarentena não encontrado")
             body = path.read_bytes()

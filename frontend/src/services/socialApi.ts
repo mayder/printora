@@ -37,6 +37,8 @@ import type {
   SearchResponse,
   SocialSafetySettings,
   SocialSafetyStatus,
+  StorageReport,
+  StorageRetentionPlan,
   SocialNotification,
   SocialNotificationStatus,
   SocialNotificationType,
@@ -400,6 +402,8 @@ export const socialApi = {
   communityLibrary: (slug: string) => apiRequest<LibraryItem[]>(`/api/social/communities/${encodeURIComponent(slug)}/library`),
   profileLibrary: (slug: string) => apiRequest<LibraryItem[]>(`/api/social/profiles/${encodeURIComponent(slug)}/library`),
   libraryOrganizer: () => apiRequest<LibraryOrganizerSummary>("/api/social/me/library/organizer"),
+  libraryStorageReport: () => apiRequest<StorageReport>("/api/social/me/library/storage"),
+  createLibraryRetentionReview: () => apiRequest<StorageRetentionPlan>("/api/social/me/library/storage/retention-reviews", { method: "POST" }),
   createLibraryCollection: (payload: LibraryCollectionPayload) =>
     apiRequest<LibraryOrganizerSummary>("/api/social/library/collections", {
       method: "POST",

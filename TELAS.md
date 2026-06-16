@@ -258,6 +258,9 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - A tela Firmware do PKG-33 nao deve renderizar botoes de flash, SSH, restart ou update; referências de catálogo permanecem apenas como orientação técnica.
 - Na tela Firmware, estados de carregamento, erro e vazio devem deixar claro se a tela esta lendo Moonraker, se falhou a leitura ou se ainda nao ha MCU lida para a impressora selecionada.
 - Checklist manual do PKG-33 na tela Firmware: abrir com impressora offline e confirmar erro de Moonraker sem esconder o resumo local do catalogo; abrir com impressora online e confirmar MCUs/placas detectadas e cadastradas primeiro; associar modelo fisico sugerido quando existir; confirmar badges de preset completo, faltando dados ou preset ausente; gerar preview de `.config`; preparar dry-run; confirmar artefato/log quando existir build local controlado; confirmar ausencia de botoes/acoes de flash, SSH, restart e update.
+- Em Comunidades > Arquivos, o fluxo de biblioteca deve manter cadastro em modal separado, lista de itens em cards e organizador em painel próprio; cota/uso/retenção aparecem em painel compacto de armazenamento, sem misturar regra de upload ou limpeza na UI.
+- O painel de armazenamento da biblioteca deve mostrar uso, cota, espaço disponível, quantidade de arquivos, candidatos de retenção, custo estimado e ação de revisão supervisionada. A revisão não deve prometer exclusão automática nem usar rótulos internos de pacote/lote.
+- Em telas responsivas de biblioteca, formulários, painel de armazenamento e cards de arquivo devem quebrar linha sem sobrepor texto, botões ou métricas.
 
 ## Pendencias de mapeamento
 
