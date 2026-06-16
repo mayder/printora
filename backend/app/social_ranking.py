@@ -129,7 +129,10 @@ class SocialRankingRepository:
             signal_count = self._signal_count(connection)
             if self._signals_are_current(connection, source_signature):
                 return
-            if signal_count > 0 and not self._has_materialization_state(connection, "social_quality_signals"):
+            has_state = self._has_materialization_state(connection, "social_quality_signals")
+            if has_state:
+                return
+            if signal_count > 0:
                 self._record_materialization(connection, source_signature)
                 return
             if signal_count == 0:

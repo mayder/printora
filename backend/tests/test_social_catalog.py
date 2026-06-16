@@ -350,6 +350,23 @@ def test_social_ranking_recommendations_ignore_self_vote_and_explain_score(tmp_p
     assert cached.items[0].result.title == "Duto recomendado ABS"
 
 
+def test_social_reputation_empty_snapshot_with_state_does_not_rebuild(tmp_path: Path, monkeypatch) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    ranking = SocialRankingRepository(database_path)
+    with connect_database(database_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO social_materialization_state (name, source_signature)
+            VALUES ('social_quality_signals', 'legacy-empty')
+            """
+        )
+
+    monkeypatch.setattr(ranking, "_rebuild_signals", lambda connection, source_signature=None: pytest.fail("snapshot vazio com estado não deve reconstruir"))
+
+    assert ranking.leaderboard().records == []
+
+
 def test_catalog_seed_has_broad_diy_klipper_catalog(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)
