@@ -6,6 +6,7 @@ import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummar
 
 interface PublicCommunityScreenProps {
   slug: string;
+  embedded?: boolean;
 }
 
 type CommunityTab = "feed" | "files" | "mods" | "profiles" | "members" | "printers";
@@ -35,7 +36,7 @@ const tabs: Array<{ key: CommunityTab; label: string; icon: LucideIcon }> = [
   { key: "printers", label: "Impressoras públicas", icon: Printer },
 ];
 
-export function PublicCommunityScreen({ slug }: PublicCommunityScreenProps) {
+export function PublicCommunityScreen({ slug, embedded = false }: PublicCommunityScreenProps) {
   const [community, setCommunity] = React.useState<CommunityDetail | null>(null);
   const [activeTab, setActiveTab] = React.useState<CommunityTab>("feed");
   const [error, setError] = React.useState<string | null>(null);
@@ -61,13 +62,8 @@ export function PublicCommunityScreen({ slug }: PublicCommunityScreenProps) {
     };
   }, [slug]);
 
-  return (
-    <main className="public-profile-shell public-community-shell">
-      <section className="public-profile-topbar">
-        <img src="/brand/printora-logo-horizontal-color.png" alt="Printora" />
-        <a href="/?section=social" className="secondary-button"><ArrowLeft size={16} />Voltar ao Social</a>
-      </section>
-
+  const content = (
+    <>
       {loading ? (
         <section className="public-profile-empty">Carregando comunidade...</section>
       ) : error ? (
@@ -125,6 +121,24 @@ export function PublicCommunityScreen({ slug }: PublicCommunityScreenProps) {
           </section>
         </section>
       ) : null}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <section className="public-profile-shell public-community-shell public-community-embedded">
+        {content}
+      </section>
+    );
+  }
+
+  return (
+    <main className="public-profile-shell public-community-shell">
+      <section className="public-profile-topbar">
+        <img src="/brand/printora-logo-horizontal-color.png" alt="Printora" />
+        <a href="/?section=social" className="secondary-button"><ArrowLeft size={16} />Voltar ao Social</a>
+      </section>
+      {content}
     </main>
   );
 }

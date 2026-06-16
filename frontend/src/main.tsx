@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell, ChevronDown, Info, LogOut, Menu, UserRound, Users, X } from "lucide-react";
 import { appSections } from "./app/navigation";
 import type { AppSection } from "./app/navigation";
@@ -60,9 +60,6 @@ function App() {
   const publicProfileSlug = readPublicProfileSlug();
   const publicPrinterId = readPublicPrinterId();
   const publicCommunitySlug = readPublicCommunitySlug();
-  if (publicCommunitySlug) {
-    return <PublicCommunityScreen slug={publicCommunitySlug} />;
-  }
   if (publicProfileSlug) {
     return <PublicProfileScreen slug={publicProfileSlug} />;
   }
@@ -90,13 +87,24 @@ function App() {
     dismissToast,
     visibleNavGroups,
   } = usePrintoraApp();
+  useEffect(() => {
+    if (publicCommunitySlug) {
+      setActiveSection("social");
+    }
+  }, [publicCommunitySlug, setActiveSection]);
   const userLabel = screenProps.authUser?.display_name || screenProps.authUser?.email || "Conta";
   const accountMenuItems = [
     { label: "Organizações", icon: Users, tab: "organizations" as const },
     { label: "Perfil", icon: UserRound, tab: "profile" as const },
   ];
+  const shellSection = publicCommunitySlug ? "social" : activeSection;
+  const shellSectionMeta = appSections.find((section) => section.key === shellSection) ?? activeSectionMeta;
+  const ShellIcon = publicCommunitySlug ? Users : ActiveIcon;
 
   const activeScreen = (() => {
+    if (publicCommunitySlug) {
+      return <PublicCommunityScreen slug={publicCommunitySlug} embedded />;
+    }
     switch (activeSection) {
       case "overview":
         return <OverviewScreen {...screenProps} />;
@@ -140,6 +148,9 @@ function App() {
   })();
 
   if (!screenProps.authUser) {
+    if (publicCommunitySlug) {
+      return <PublicCommunityScreen slug={publicCommunitySlug} />;
+    }
     return (
       <main className="auth-only-shell">
         <AuthScreen {...screenProps} />
@@ -177,9 +188,12 @@ function App() {
                   <button
                     key={section.key}
                     type="button"
-                    className={`nav-button ${activeSection === section.key ? "active" : ""}`}
+                    className={`nav-button ${shellSection === section.key ? "active" : ""}`}
                     onClick={() => {
                       setActiveSection(section.key);
+                      if (publicCommunitySlug) {
+                        window.history.pushState(null, "", `/?section=${section.key}`);
+                      }
                       setMobileNavOpen(false);
                     }}
                   >
@@ -201,17 +215,17 @@ function App() {
       </aside>
       {mobileNavOpen ? <button type="button" className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} aria-label="Fechar menu" /> : null}
 
-      <div className={`workspace section-${activeSection}`}>
+      <div className={`workspace section-${shellSection}`}>
         <header className="topbar">
           <div className="topbar-title">
             <button type="button" className="icon-button mobile-menu-button" onClick={() => setMobileNavOpen(true)} aria-label="Abrir menu">
               <Menu size={18} />
             </button>
             <span className="section-icon">
-              <ActiveIcon size={18} strokeWidth={2.2} />
+              <ShellIcon size={18} strokeWidth={2.2} />
             </span>
             <div>
-              <h1>{activeSectionMeta.label}</h1>
+              <h1>{shellSectionMeta.label}</h1>
             </div>
           </div>
           <div className="topbar-actions">
@@ -227,7 +241,7 @@ function App() {
             </button>
             <button
               type="button"
-              className={`icon-button topbar-info ${activeSection === "about" || activeSection === "license" ? "active" : ""}`}
+              className={`icon-button topbar-info ${shellSection === "about" || shellSection === "license" ? "active" : ""}`}
               title="Sobre o Printora"
               aria-label="Sobre o Printora"
               onClick={() => setActiveSection("about")}
@@ -298,33 +312,35 @@ function App() {
         </header>
 
         <section className="page-helper">
-          <strong>{activeSectionMeta.purpose}</strong>
+          <strong>{shellSectionMeta.purpose}</strong>
           <span>
-            {activeSection === "settings"
+            {publicCommunitySlug
+              ? "Comunidade pública com conteúdo técnico e dados autorizados"
+              : shellSection === "settings"
               ? "Configuração global do Printora"
-              : activeSection === "printer-detail"
+              : shellSection === "printer-detail"
                 ? selectedPrinter
                   ? `Registro aberto: ${selectedPrinter.name}`
                   : "Abra uma impressora pela lista"
-              : activeSection === "agent-detail"
+              : shellSection === "agent-detail"
                 ? "Registro do agente selecionado"
-              : activeSection === "account"
+              : shellSection === "account"
                 ? "Identidade, segurança e organizações"
-              : activeSection === "setup"
+              : shellSection === "setup"
                 ? "Provisionamento começa somente depois que Linux e SSH estão ativos"
-              : activeSection === "overview"
+              : shellSection === "overview"
                 ? "Resumo global da frota"
-              : activeSection === "printers"
+              : shellSection === "printers"
                 ? "Lista de impressoras e acesso ao detalhe"
-              : activeSection === "agents"
+              : shellSection === "agents"
                 ? "Lista global de agentes da frota"
-              : activeSection === "social"
+              : shellSection === "social"
                 ? "Descoberta pública e comunidade"
-              : activeSection === "reports"
+              : shellSection === "reports"
                 ? "Relatórios globais; diagnóstico de impressora fica no detalhe"
-              : activeSection === "about"
+              : shellSection === "about"
                 ? "Autoria, roadmap público e identidade do projeto"
-                : activeSection === "license"
+                : shellSection === "license"
                   ? "Uso open source com limites de responsabilidade"
               : selectedPrinter
                 ? `Contexto atual: ${selectedPrinter.name}`

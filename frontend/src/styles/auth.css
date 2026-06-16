@@ -95,9 +95,23 @@
 }
 
 .public-community-shell {
-  background:
-    radial-gradient(circle at top left, rgba(88, 214, 224, 0.08), transparent 28rem),
-    var(--bg);
+  background: var(--bg);
+}
+
+.public-community-embedded {
+  background: transparent;
+  min-height: 0;
+  width: 100%;
+}
+
+.public-community-embedded .public-profile-page {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.public-community-embedded .public-profile-hero h1 {
+  font-size: 2rem;
 }
 
 .public-profile-topbar {

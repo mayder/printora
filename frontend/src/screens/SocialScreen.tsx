@@ -218,7 +218,7 @@ function CommunitiesTab({ communities, page, setPage }: { communities: Community
   return (
     <>
     <div className="social-result-toolbar">
-      <div>
+      <div className="social-result-summary">
         <strong>Comunidades técnicas</strong>
         <span>{communities.length} comunidades encontradas, {visible.length} nesta página</span>
       </div>
@@ -226,23 +226,27 @@ function CommunitiesTab({ communities, page, setPage }: { communities: Community
     </div>
     <div className="community-list social-card-grid">
       {visible.map((community) => (
-        <article key={community.id} className={`community-row ${community.member_count > 0 ? "active" : ""}`}>
-          <BrandMark name={community.manufacturer_name ?? community.name} logoUrl={community.manufacturer_logo_url} />
-          <div>
-            <strong>{community.name}</strong>
-            <span>{scopeLabel(community.scope)} · {statusLabel(community.status)}</span>
-            <small>{communityContext(community)}</small>
+        <article key={community.id} className={`social-discovery-card ${community.member_count > 0 ? "active" : ""}`}>
+          <div className="social-card-heading">
+            <BrandMark name={community.manufacturer_name ?? community.name} logoUrl={community.manufacturer_logo_url} />
+            <div className="social-card-copy">
+              <strong>{community.name}</strong>
+              <span>{scopeLabel(community.scope)} · {statusLabel(community.status)}</span>
+              <small>{communityContext(community)}</small>
+            </div>
           </div>
-          <div className="social-count">
-            <b>{community.member_count}</b>
-            <small>membros</small>
+          <div className="social-card-stats">
+            <span className="social-card-stat">
+              <b>{community.member_count}</b>
+              <small>Membros</small>
+            </span>
+            <span className="social-card-stat">
+              <b>{community.printer_count}</b>
+              <small>Impressoras</small>
+            </span>
           </div>
-          <div className="social-count">
-            <b>{community.printer_count}</b>
-            <small>impressoras</small>
-          </div>
-          <a className="secondary-button social-open-button" href={`/c/${community.slug}`} aria-label={`Abrir comunidade ${community.name}`}>
-            <ExternalLink size={15} />Abrir
+          <a className="social-card-action" href={`/?section=social&community=${community.slug}`} aria-label={`Abrir comunidade ${community.name}`}>
+            Abrir comunidade <ExternalLink size={15} />
           </a>
         </article>
       ))}
@@ -257,7 +261,7 @@ function PrintersTab({ printers, page, setPage }: { printers: PublicPrinter[]; p
   return (
     <>
     <div className="social-result-toolbar">
-      <div>
+      <div className="social-result-summary">
         <strong>Impressoras públicas</strong>
         <span>{printers.length} impressoras encontradas, {visible.length} nesta página</span>
       </div>
@@ -265,16 +269,23 @@ function PrintersTab({ printers, page, setPage }: { printers: PublicPrinter[]; p
     </div>
     <div className="public-printer-list social-card-grid">
       {visible.map((printer) => (
-        <article key={printer.id} className="public-printer-card">
-          <BrandMark name={printer.manufacturer_name} />
-          <div>
-            <strong>{printer.public_name}</strong>
-            <span>{printer.manufacturer_name} / {printer.model_name} / {printer.variant_name}</span>
-            <small>{publicMods(printer).length ? publicMods(printer).join(", ") : "Sem mods públicos"}</small>
+        <article key={printer.id} className="social-discovery-card">
+          <div className="social-card-heading">
+            <BrandMark name={printer.manufacturer_name} />
+            <div className="social-card-copy">
+              <strong>{printer.public_name}</strong>
+              <span>{printer.manufacturer_name} / {printer.model_name} / {printer.variant_name}</span>
+              <small>{publicMods(printer).length ? publicMods(printer).join(", ") : "Sem mods públicos"}</small>
+            </div>
           </div>
-          <a href={printer.owner_slug ? `/u/${printer.owner_slug}` : undefined}>{printer.owner_display_name ?? "Maker"}</a>
-          <a className="secondary-button social-open-button" href={`/p/${printer.id}`} aria-label={`Abrir impressora pública ${printer.public_name}`}>
-            <ExternalLink size={15} />Abrir
+          <div className="social-card-stats">
+            <span className="social-card-stat">
+              <b>{printer.owner_display_name ?? "Maker"}</b>
+              <small>Autor</small>
+            </span>
+          </div>
+          <a className="social-card-action" href={`/p/${printer.id}`} aria-label={`Abrir impressora pública ${printer.public_name}`}>
+            Abrir impressora <ExternalLink size={15} />
           </a>
         </article>
       ))}
@@ -318,7 +329,7 @@ function MakersTab({
         </button>
       </div>
       <div className="social-result-toolbar">
-        <div>
+        <div className="social-result-summary">
           <strong>Makers públicos</strong>
           <span>{makers.length} makers encontrados, {visible.length} nesta página</span>
         </div>
@@ -326,21 +337,25 @@ function MakersTab({
       </div>
       <div className="maker-list social-card-grid">
         {visible.map((maker) => (
-          <article key={maker.user_id} className="maker-card">
-            <div className="maker-avatar">
-              {maker.avatar_url ? <img src={maker.avatar_url} alt="" /> : <UserRound size={20} />}
+          <article key={maker.user_id} className="social-discovery-card">
+            <div className="social-card-heading">
+              <div className="maker-avatar">
+                {maker.avatar_url ? <img src={maker.avatar_url} alt="" /> : <UserRound size={20} />}
+              </div>
+              <div className="social-card-copy">
+                <strong>{maker.display_name}</strong>
+                <span>@{maker.slug}</span>
+                <small>{maker.bio || "Perfil público sem bio."}</small>
+              </div>
             </div>
-            <div>
-              <strong>{maker.display_name}</strong>
-              <span>@{maker.slug}</span>
-              <small>{maker.bio || "Perfil público sem bio."}</small>
+            <div className="social-card-stats">
+              <span className="social-card-stat">
+                <b>{maker.public_printer_count ?? 0}</b>
+                <small>Impressoras</small>
+              </span>
             </div>
-            <div>
-              <b>{maker.public_printer_count ?? 0}</b>
-              <small>impressoras</small>
-            </div>
-            <a className="secondary-button social-open-button" href={`/u/${maker.slug}`} aria-label={`Abrir perfil público de ${maker.display_name}`}>
-              <ExternalLink size={15} />Abrir
+            <a className="social-card-action" href={`/u/${maker.slug}`} aria-label={`Abrir perfil público de ${maker.display_name}`}>
+              Abrir perfil <ExternalLink size={15} />
             </a>
           </article>
         ))}
