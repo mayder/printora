@@ -119,41 +119,101 @@ jobs:
             echo "printora-cloud.service restarted by systemctl"
           else
             echo "sudo restart unavailable; restarting deploy-owned uvicorn process"
-            uvicorn_pids() {
-              pgrep -af "uvicorn" | awk '/app.main:app|8069/ { print $1 }' || true
-            }
-            PIDS="$(uvicorn_pids)"
-            if [ -n "$PIDS" ]; then
-              kill -TERM $PIDS || true
-            fi
-            if command -v fuser >/dev/null 2>&1; then
-              fuser -k 8069/tcp || true
-            fi
-            for attempt in $(seq 1 20); do
-              if [ -z "$(uvicorn_pids)" ]; then
-                break
-              fi
-              sleep 1
-            done
-            PIDS="$(uvicorn_pids)"
-            if [ -n "$PIDS" ]; then
-              kill -KILL $PIDS || true
-            fi
             set -a
             . "$DEPLOY_BASE_PATH/shared/printora-cloud.env"
             set +a
             cd "$DEPLOY_BASE_PATH/current"
             "$DEPLOY_BASE_PATH/shared/venv/bin/python" - <<'PY'
+          import os
+          import signal
+          import socket
+          import subprocess
+          import time
+          from pathlib import Path
+
           from app.config import get_settings
           from app.database import initialize_database
 
-          initialize_database(get_settings().database_path)
+          def tcp_listeners_on(port: int) -> set[str]:
+              inodes: set[str] = set()
+              port_hex = f"{port:04X}"
+              for table in ("/proc/net/tcp", "/proc/net/tcp6"):
+                  try:
+                      lines = Path(table).read_text().splitlines()[1:]
+                  except OSError:
+                      continue
+                  for line in lines:
+                      parts = line.split()
+                      local_address = parts[1]
+                      state = parts[3]
+                      inode = parts[9]
+                      if state == "0A" and local_address.rsplit(":", 1)[1].upper() == port_hex:
+                          inodes.add(inode)
+              return inodes
+
+          def pids_for_inodes(inodes: set[str]) -> set[int]:
+              pids: set[int] = set()
+              if not inodes:
+                  return pids
+              current_pid = os.getpid()
+              for proc in Path("/proc").iterdir():
+                  if not proc.name.isdigit():
+                      continue
+                  pid = int(proc.name)
+                  if pid == current_pid or pid == os.getppid():
+                      continue
+                  fd_dir = proc / "fd"
+                  try:
+                      for fd in fd_dir.iterdir():
+                          try:
+                              target = os.readlink(fd)
+                          except OSError:
+                              continue
+                          if target.startswith("socket:[") and target[8:-1] in inodes:
+                              pids.add(pid)
+                              break
+                  except OSError:
+                      continue
+              return pids
+
+          for sig in (signal.SIGTERM, signal.SIGKILL):
+              pids = pids_for_inodes(tcp_listeners_on(8069))
+              if not pids:
+                  break
+              for pid in pids:
+                  try:
+                      os.kill(pid, sig)
+                  except ProcessLookupError:
+                      pass
+              time.sleep(2 if sig == signal.SIGTERM else 1)
+
+          settings = get_settings()
+          initialize_database(settings.database_path)
+
+          base_path = Path(os.environ["DEPLOY_BASE_PATH"])
+          log_path = base_path / "shared" / "logs" / "printora-cloud.log"
+          log_path.parent.mkdir(parents=True, exist_ok=True)
+          log = open(log_path, "ab", buffering=0)
+          subprocess.Popen(
+              [
+                  str(base_path / "shared" / "venv" / "bin" / "python"),
+                  "-m",
+                  "uvicorn",
+                  "app.main:app",
+                  "--app-dir",
+                  str(base_path / "current" / "backend"),
+                  "--host",
+                  "127.0.0.1",
+                  "--port",
+                  "8069",
+              ],
+              cwd=str(base_path / "current"),
+              stdout=log,
+              stderr=log,
+              start_new_session=True,
+              close_fds=True,
+          )
           PY
-            nohup "$DEPLOY_BASE_PATH/shared/venv/bin/python" -m uvicorn app.main:app \
-              --app-dir "$DEPLOY_BASE_PATH/current/backend" \
-              --host 127.0.0.1 \
-              --port 8069 \
-              >> "$DEPLOY_BASE_PATH/shared/logs/printora-cloud.log" 2>&1 &
           fi
 
           for attempt in $(seq 1 30); do
