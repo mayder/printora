@@ -318,6 +318,7 @@ Cenários cobertos:
 - `/api/social/reputation` retorna reputação técnica derivada de sinais públicos;
 - downloads, favoritos, soluções e reações contribuem para score;
 - favorito/download próprio não aumenta score nem reputação;
+- índice e sinais materializados são reutilizados quando a fonte pública não mudou;
 - sinal negativo de denúncia/moderação é modelado para reduzir exposição quando existir;
 - conteúdo privado e dados operacionais não entram em score, recomendação ou reputação.
 

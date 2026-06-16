@@ -34,13 +34,13 @@ Referencias:
 Status: aceita
 Data: 2026-06-16
 Contexto: a descoberta social precisa priorizar conteúdo técnico útil sem usar dados privados, sem depender de algoritmo opaco e sem premiar auto-voto.
-Decisao: criar o domínio `social_ranking`, com SQL próprio em `055_social_ranking_reputation.sql`. O score é determinístico e deriva sinais públicos: downloads, favoritos de outros usuários, soluções marcadas e reações úteis. Auto-voto é ignorado no score; sinais negativos de denúncia/moderação ficam modelados como `report` para reduzir exposição quando o domínio de moderação registrar eventos. A reputação técnica é snapshot derivado desses sinais e a UI mostra motivos curtos por recomendação.
+Decisao: criar o domínio `social_ranking`, com SQL próprio em `055_social_ranking_reputation.sql` e estado de materialização em `056_social_materialization_state.sql`. O score é determinístico e deriva sinais públicos: downloads, favoritos de outros usuários, soluções marcadas e reações úteis. Auto-voto é ignorado no score; sinais negativos de denúncia/moderação ficam modelados como `report` para reduzir exposição quando o domínio de moderação registrar eventos. A reputação técnica é snapshot derivado desses sinais e a UI mostra motivos curtos por recomendação. Índice social e sinais usam assinatura persistida da fonte para evitar rebuild síncrono em toda consulta pública.
 Alternativas consideradas: usar somente ordenação recente; usar ranking por dados privados de impressão; bloquear favoritos próprios no produto; criar serviço externo de recomendação.
 Consequencias: recomendações são auditáveis, reversíveis e coerentes com SQLite/cloud atual. O score inicial ainda é simples e deve evoluir quando existirem sinais reais de impressão e moderação completa.
 Impacto em testes: `backend/tests/test_social_catalog.py` cobre score, explicação, reputação e ignorar auto-voto.
-Impacto em rollback: médio; há novo script SQLite `055_social_ranking_reputation.sql`.
-Como reverter: remover rotas/UI de recomendações/reputação e restaurar backup SQLite anterior ao script `055_social_ranking_reputation.sql` se as tabelas não puderem permanecer como legado.
-Referencias: `backend/sql/055_social_ranking_reputation.sql`, `backend/app/social_ranking.py`, `backend/app/routes/social_ranking.py`, `frontend/src/screens/SocialScreen.tsx`, `backend/tests/test_social_catalog.py`.
+Impacto em rollback: médio; há novos scripts SQLite `055_social_ranking_reputation.sql` e `056_social_materialization_state.sql`.
+Como reverter: remover rotas/UI de recomendações/reputação e restaurar backup SQLite anterior aos scripts `055_social_ranking_reputation.sql` e `056_social_materialization_state.sql` se as tabelas não puderem permanecer como legado.
+Referencias: `backend/sql/055_social_ranking_reputation.sql`, `backend/sql/056_social_materialization_state.sql`, `backend/app/social_ranking.py`, `backend/app/routes/social_ranking.py`, `frontend/src/screens/SocialScreen.tsx`, `backend/tests/test_social_catalog.py`.
 
 ### DEC-20260616-11 - Busca social usa indice publico derivado
 

@@ -84,8 +84,9 @@ class SearchDiscoveryRepository:
     def ensure_index_current(self) -> int:
         self.ensure_schema()
         with connect_database(self.database_path) as connection:
-            if not self._index_is_current(connection):
-                return self._rebuild_index(connection)
+            source_signature = self._source_signature(connection)
+            if not self._index_is_current(connection, source_signature):
+                return self._rebuild_index(connection, source_signature)
             row = connection.execute("SELECT COUNT(*) AS total FROM social_search_index").fetchone()
             return int(row["total"] or 0)
 
@@ -205,8 +206,9 @@ class SearchDiscoveryRepository:
         rows.extend(_catalog_rows(connection))
         return rows
 
-    def _rebuild_index(self, connection) -> int:
+    def _rebuild_index(self, connection, source_signature: str | None = None) -> int:
         connection.execute("DELETE FROM social_search_index")
+        connection.execute("DELETE FROM social_content_tag_links")
         rows = self._collect_rows(connection)
         connection.executemany(
             """
@@ -219,30 +221,70 @@ class SearchDiscoveryRepository:
             rows,
         )
         self._sync_tags(connection)
+        self._record_materialization(connection, source_signature or self._source_signature(connection))
         return len(rows)
 
-    def _index_is_current(self, connection) -> bool:
-        index_row = connection.execute(
-            "SELECT COUNT(*) AS total, MAX(source_updated_at) AS newest FROM social_search_index"
-        ).fetchone()
-        if int(index_row["total"] or 0) == 0:
-            return False
-        source_row = connection.execute(
+    def _index_is_current(self, connection, source_signature: str) -> bool:
+        row = connection.execute(
             """
-            SELECT MAX(updated_at) AS newest
+            SELECT source_signature
+            FROM social_materialization_state
+            WHERE name = 'social_search_index'
+            """
+        ).fetchone()
+        return row is not None and row["source_signature"] == source_signature
+
+    def _record_materialization(self, connection, source_signature: str) -> None:
+        connection.execute(
+            """
+            INSERT INTO social_materialization_state (name, source_signature, refreshed_at)
+            VALUES ('social_search_index', ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(name) DO UPDATE SET
+                source_signature = excluded.source_signature,
+                refreshed_at = CURRENT_TIMESTAMP
+            """,
+            (source_signature,),
+        )
+
+    def _source_signature(self, connection) -> str:
+        rows = connection.execute(
+            """
+            SELECT source_name, COUNT(*) AS total, MAX(updated_at) AS newest
             FROM (
-                SELECT updated_at FROM social_communities
-                UNION ALL SELECT updated_at FROM social_feed_items
-                UNION ALL SELECT updated_at FROM social_library_items
-                UNION ALL SELECT updated_at FROM social_technical_printer_configs
-                UNION ALL SELECT updated_at FROM social_material_profiles
-                UNION ALL SELECT updated_at FROM catalog_printer_variants
+                SELECT 'community' AS source_name, updated_at
+                FROM social_communities
+                WHERE status IN ('active', 'uncurated')
+                UNION ALL
+                SELECT 'post' AS source_name, updated_at
+                FROM social_feed_items
+                WHERE visibility = 'public' AND deleted_at IS NULL
+                UNION ALL
+                SELECT 'library_item' AS source_name, updated_at
+                FROM social_library_items
+                WHERE status = 'active' AND visibility IN ('community', 'public')
+                UNION ALL
+                SELECT 'technical_config' AS source_name, updated_at
+                FROM social_technical_printer_configs
+                WHERE status = 'active' AND visibility IN ('community', 'public')
+                UNION ALL
+                SELECT 'material_profile' AS source_name, mp.updated_at
+                FROM social_material_profiles mp
+                JOIN social_slicing_profiles sl ON sl.material_profile_id = mp.id
+                WHERE mp.status = 'active' AND mp.visibility IN ('community', 'public')
+                UNION ALL
+                SELECT 'catalog_variant' AS source_name, updated_at
+                FROM catalog_printer_variants
+                WHERE trust_state NOT IN ('blocked')
             )
+            GROUP BY source_name
+            ORDER BY source_name
             """
-        ).fetchone()
-        source_newest = source_row["newest"]
-        index_newest = index_row["newest"]
-        return source_newest is not None and index_newest is not None and str(source_newest) <= str(index_newest)
+        ).fetchall()
+        return json.dumps(
+            [(row["source_name"], int(row["total"] or 0), row["newest"] or "") for row in rows],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
 
     def _sync_tags(self, connection) -> None:
         index_rows = connection.execute("SELECT entity_type, entity_id, tags_json FROM social_search_index").fetchall()

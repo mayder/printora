@@ -226,12 +226,13 @@ como legado; rollback estrutural exige backup SQLite anterior ao script
 `054_social_search_discovery.sql`.
 
 O schema de ranking/reputação social é aplicado por
-`backend/sql/055_social_ranking_reputation.sql`. O score é determinístico e usa
+`backend/sql/055_social_ranking_reputation.sql` e estado materializado em
+`backend/sql/056_social_materialization_state.sql`. O score é determinístico e usa
 sinais públicos derivados de downloads, favoritos, soluções e reações,
 ignorando auto-voto. Sinais de denúncia/moderação reduzem exposição quando
 existirem. Rollback funcional remove endpoints/UI de recomendações e mantém os
 dados como legado; rollback estrutural exige backup SQLite anterior ao script
-`055_social_ranking_reputation.sql`.
+`055_social_ranking_reputation.sql` e `056_social_materialization_state.sql`.
 
 Perfis de material e fatiamento:
 

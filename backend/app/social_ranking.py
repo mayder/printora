@@ -125,60 +125,83 @@ class SocialRankingRepository:
     def ensure_signals_current(self) -> None:
         self.ensure_schema()
         with connect_database(self.database_path) as connection:
-            if not self._signals_are_current(connection):
-                self._rebuild_signals(connection)
+            source_signature = self._source_signature(connection)
+            if not self._signals_are_current(connection, source_signature):
+                self._rebuild_signals(connection, source_signature)
 
-    def _rebuild_signals(self, connection) -> None:
+    def _rebuild_signals(self, connection, source_signature: str | None = None) -> None:
         connection.execute("DELETE FROM social_quality_signals")
         self._library_download_signals(connection)
         self._library_favorite_signals(connection)
         self._solution_signals(connection)
         self._reaction_signals(connection)
         self._refresh_reputation(connection)
+        self._record_materialization(connection, source_signature or self._source_signature(connection))
 
-    def _signals_are_current(self, connection) -> bool:
-        signal_row = connection.execute(
-            "SELECT COUNT(*) AS total, MAX(created_at) AS newest FROM social_quality_signals"
-        ).fetchone()
-        if int(signal_row["total"] or 0) == 0:
-            return False
-        source_row = connection.execute(
+    def _signals_are_current(self, connection, source_signature: str) -> bool:
+        row = connection.execute(
             """
-            SELECT MAX(updated_at) AS newest
+            SELECT source_signature
+            FROM social_materialization_state
+            WHERE name = 'social_quality_signals'
+            """
+        ).fetchone()
+        return row is not None and row["source_signature"] == source_signature
+
+    def _record_materialization(self, connection, source_signature: str) -> None:
+        connection.execute(
+            """
+            INSERT INTO social_materialization_state (name, source_signature, refreshed_at)
+            VALUES ('social_quality_signals', ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(name) DO UPDATE SET
+                source_signature = excluded.source_signature,
+                refreshed_at = CURRENT_TIMESTAMP
+            """,
+            (source_signature,),
+        )
+
+    def _source_signature(self, connection) -> str:
+        rows = connection.execute(
+            """
+            SELECT source_name, COUNT(*) AS total, MAX(updated_at) AS newest
             FROM (
-                SELECT d.created_at AS updated_at
+                SELECT 'download' AS source_name, d.created_at AS updated_at
                 FROM social_library_downloads d
                 JOIN social_library_items li ON li.id = d.item_id
                 WHERE li.visibility IN ('community', 'public')
                   AND li.status = 'active'
                   AND (d.user_id IS NULL OR d.user_id != li.owner_user_id)
                 UNION ALL
-                SELECT fav.created_at AS updated_at
+                SELECT 'favorite' AS source_name, fav.created_at AS updated_at
                 FROM social_library_favorites fav
                 JOIN social_library_items li ON li.id = fav.item_id
                 WHERE li.visibility IN ('community', 'public')
                   AND li.status = 'active'
                   AND fav.user_id != li.owner_user_id
                 UNION ALL
-                SELECT fi.updated_at
+                SELECT 'solution' AS source_name, fi.updated_at
                 FROM social_feed_items fi
                 JOIN social_discussion_comments c ON c.id = fi.solution_comment_id
                 WHERE fi.visibility = 'public'
                   AND fi.deleted_at IS NULL
                   AND c.deleted_at IS NULL
                 UNION ALL
-                SELECT r.created_at AS updated_at
+                SELECT 'reaction' AS source_name, r.created_at AS updated_at
                 FROM social_discussion_reactions r
                 JOIN social_feed_items fi ON fi.id = r.target_id AND r.target_type = 'post'
                 WHERE fi.visibility = 'public'
                   AND fi.deleted_at IS NULL
                   AND r.user_id != fi.author_user_id
             )
+            GROUP BY source_name
+            ORDER BY source_name
             """
-        ).fetchone()
-        source_newest = source_row["newest"]
-        signal_newest = signal_row["newest"]
-        return source_newest is not None and signal_newest is not None and str(source_newest) <= str(signal_newest)
+        ).fetchall()
+        return json.dumps(
+            [(row["source_name"], int(row["total"] or 0), row["newest"] or "") for row in rows],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
 
     def _content_score(self, connection, item: SearchResult) -> int:
         signal_score = connection.execute(
