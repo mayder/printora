@@ -119,13 +119,19 @@ jobs:
             echo "printora-cloud.service restarted by systemctl"
           else
             echo "sudo restart unavailable; restarting deploy-owned uvicorn process"
-            pkill -TERM -f 'uvicorn app.main:app' || true
+            pkill -TERM -f "$DEPLOY_BASE_PATH/shared/venv/bin/python -m uvicorn app.main:app" || true
             sleep 2
             set -a
             . "$DEPLOY_BASE_PATH/shared/printora-cloud.env"
             set +a
             cd "$DEPLOY_BASE_PATH/current"
-            nohup "$DEPLOY_BASE_PATH/shared/venv/bin/uvicorn" app.main:app \
+            "$DEPLOY_BASE_PATH/shared/venv/bin/python" - <<'PY'
+          from app.config import get_settings
+          from app.database import initialize_database
+
+          initialize_database(get_settings().database_path)
+          PY
+            nohup "$DEPLOY_BASE_PATH/shared/venv/bin/python" -m uvicorn app.main:app \
               --app-dir "$DEPLOY_BASE_PATH/current/backend" \
               --host 127.0.0.1 \
               --port 8069 \
@@ -138,6 +144,8 @@ jobs:
             fi
             if [ "$attempt" -eq 30 ]; then
               sudo -n systemctl status printora-cloud.service --no-pager || true
+              ps -ef | grep -E 'uvicorn|printora-cloud' | grep -v grep || true
+              tail -120 "$DEPLOY_BASE_PATH/shared/logs/printora-cloud.log" || true
               exit 1
             fi
             sleep 1
