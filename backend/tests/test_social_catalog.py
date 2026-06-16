@@ -10,7 +10,7 @@ from app.config import get_settings
 from app.main import app
 from fastapi.testclient import TestClient
 
-from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, LibraryFileMetadata, LibraryItemCreate, LibraryItemUpdate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
+from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, LibraryFileMetadata, LibraryItemCreate, LibraryItemUpdate, LibraryVersionCreate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
 
 
 def test_catalog_seed_has_voron_models_and_variants(tmp_path: Path) -> None:
@@ -1381,6 +1381,97 @@ def test_library_remix_references_origin_when_public(tmp_path: Path) -> None:
 
     assert remix.remix_source_item_id == original.id
     assert remix.remix_source_title == "Origem"
+
+
+def test_library_versions_are_immutable_and_can_be_promoted(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="owner@example.com", password="correct-horse"))
+    repository = SocialCatalogRepository(database_path)
+    repository.get_or_create_profile(owner.id)
+    item = repository.create_library_item(
+        owner.id,
+        LibraryItemCreate(
+            title="Modelo versionado",
+            visibility="private",
+            version_label="v1",
+            license="custom",
+            files=[LibraryFileMetadata(file_kind="stl", file_name="model-v1.stl", sha256="a" * 64)],
+        ),
+    )
+
+    versioned = repository.create_library_version(
+        item.id,
+        owner.id,
+        False,
+        LibraryVersionCreate(
+            version_label="v2",
+            changelog="Ajusta encaixe do duto.",
+            files=[LibraryFileMetadata(file_kind="stl", file_name="model-v2.stl", sha256="b" * 64)],
+        ),
+    )
+    promoted = repository.promote_library_version(item.id, item.current_version_id or 0, owner.id, False)
+
+    assert [version.version_label for version in versioned.versions] == ["v2", "v1"]
+    assert versioned.version_label == "v2"
+    assert versioned.versions[1].files[0].file_name == "model-v1.stl"
+    assert promoted.version_label == "v1"
+    assert promoted.files[0].file_name == "model-v1.stl"
+    assert next(version for version in promoted.versions if version.version_label == "v1").is_current is True
+
+
+def test_library_version_download_and_permissions(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner = client.post("/api/auth/register", json={"email": "owner@example.com", "password": "correct-horse"})
+            stranger = client.post("/api/auth/register", json={"email": "stranger@example.com", "password": "correct-horse"})
+            owner_token = owner.json()["access_token"]
+            stranger_token = stranger.json()["access_token"]
+            created = client.post(
+                "/api/social/library",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={
+                    "title": "Public versioned",
+                    "visibility": "public",
+                    "version_label": "v1",
+                    "license": "cc-by",
+                    "original_author_name": "Owner",
+                    "publication_terms_accepted": True,
+                    "files": [{"file_kind": "stl", "file_name": "model-v1.stl", "sha256": "a" * 64}],
+                },
+            ).json()
+            version = client.post(
+                f"/api/social/library/{created['id']}/versions",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={
+                    "version_label": "v2",
+                    "changelog": "Refina tolerância.",
+                    "files": [{"file_kind": "stl", "file_name": "model-v2.stl", "sha256": "b" * 64}],
+                },
+            )
+            forbidden = client.post(
+                f"/api/social/library/{created['id']}/versions",
+                headers={"Authorization": f"Bearer {stranger_token}"},
+                json={
+                    "version_label": "v3",
+                    "changelog": "Invasão.",
+                    "files": [{"file_kind": "stl", "file_name": "model-v3.stl"}],
+                },
+            )
+            version_id = next(item["id"] for item in version.json()["versions"] if item["version_label"] == "v1")
+            download = client.post(f"/api/social/library/{created['id']}/versions/{version_id}/downloads")
+
+            assert version.status_code == 200
+            assert forbidden.status_code == 403
+            assert download.status_code == 200
+            assert next(item for item in download.json()["versions"] if item["id"] == version_id)["download_count"] == 1
+            assert next(item for item in download.json()["versions"] if item["version_label"] == "v1")["files"][0]["file_name"] == "model-v1.stl"
+    finally:
+        get_settings.cache_clear()
 
 
 def test_social_relationship_block_ends_follow_and_friendship(tmp_path: Path) -> None:

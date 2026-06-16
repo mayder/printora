@@ -556,6 +556,38 @@ class LibraryItemUpdate(BaseModel):
         return normalize_slug(value) if value else None
 
 
+class LibraryVersionCreate(BaseModel):
+    version_label: str = Field(min_length=1, max_length=40)
+    changelog: str = Field(default="", max_length=1000)
+    files: list[LibraryFileMetadata] = Field(min_length=1, max_length=12)
+
+    @field_validator("version_label")
+    @classmethod
+    def clean_version_label(cls, value: str) -> str:
+        cleaned = clean_optional_text(value)
+        if not cleaned:
+            raise ValueError("versão inválida")
+        return cleaned
+
+    @field_validator("changelog")
+    @classmethod
+    def clean_changelog(cls, value: str) -> str:
+        return clean_discussion_text(value)
+
+
+class LibraryVersion(BaseModel):
+    id: int
+    item_id: int
+    version_label: str
+    changelog: str
+    files: list[LibraryFileMetadata] = Field(default_factory=list)
+    metadata_snapshot: dict[str, object] = Field(default_factory=dict)
+    is_current: bool
+    created_by_user_id: int
+    created_at: str
+    download_count: int = 0
+
+
 class LibraryItem(BaseModel):
     id: int
     owner_user_id: int
@@ -585,6 +617,8 @@ class LibraryItem(BaseModel):
     publication_terms_accepted_at: str | None = None
     status: Literal["active", "archived"]
     files: list[LibraryFileMetadata] = Field(default_factory=list)
+    versions: list[LibraryVersion] = Field(default_factory=list)
+    current_version_id: int | None = None
     download_count: int = 0
     created_at: str
     updated_at: str
@@ -1370,6 +1404,14 @@ class SocialCatalogRepository:
             )
             item_id = int(cursor.lastrowid)
             self._replace_library_files(connection, item_id, payload.files)
+            self._create_library_version_snapshot(
+                connection,
+                item_id,
+                actor_user_id,
+                payload.version_label or "v1",
+                "Versão inicial",
+                make_current=True,
+            )
             self._audit(connection, "social_library_item", item_id, "create", actor_user_id, {"retention_days": 180})
             row = self._library_item_row(connection, item_id)
             return self._library_item_from_row(connection, row)
@@ -1442,6 +1484,14 @@ class SocialCatalogRepository:
                 connection.execute(f"UPDATE social_library_items SET {', '.join(updates)} WHERE id = ?", (*parameters, item_id))
             if payload.files is not None:
                 self._replace_library_files(connection, item_id, payload.files)
+                self._create_library_version_snapshot(
+                    connection,
+                    item_id,
+                    actor_user_id,
+                    payload.version_label or str(existing["version_label"]),
+                    "Atualização dos arquivos do modelo",
+                    make_current=True,
+                )
             self._audit(connection, "social_library_item", item_id, "update", actor_user_id, {"retention_days": 180})
             row = self._library_item_row(connection, item_id)
             return self._library_item_from_row(connection, row)
@@ -1504,18 +1554,69 @@ class SocialCatalogRepository:
                 if self._can_view_library_item(connection, row, viewer_user_id)
             ]
 
-    def register_library_download(self, item_id: int, viewer_user_id: int | None = None) -> LibraryItem | None:
+    def register_library_download(self, item_id: int, viewer_user_id: int | None = None, version_id: int | None = None) -> LibraryItem | None:
         with connect_database(self.database_path) as connection:
             row = self._library_item_row(connection, item_id)
             if row is None or not self._can_view_library_item(connection, row, viewer_user_id):
                 return None
+            if version_id is not None:
+                version = connection.execute(
+                    "SELECT id FROM social_library_versions WHERE id = ? AND item_id = ?",
+                    (version_id, item_id),
+                ).fetchone()
+                if version is None:
+                    raise ValueError("versão não encontrada")
             connection.execute(
                 """
-                INSERT INTO social_library_downloads (item_id, user_id, anonymous_label)
-                VALUES (?, ?, ?)
+                INSERT INTO social_library_downloads (item_id, version_id, user_id, anonymous_label)
+                VALUES (?, ?, ?, ?)
                 """,
-                (item_id, viewer_user_id, None if viewer_user_id else "public"),
+                (item_id, version_id, viewer_user_id, None if viewer_user_id else "public"),
             )
+            updated = self._library_item_row(connection, item_id)
+            return self._library_item_from_row(connection, updated)
+
+    def create_library_version(self, item_id: int, actor_user_id: int, is_admin: bool, payload: LibraryVersionCreate) -> LibraryItem:
+        with connect_database(self.database_path) as connection:
+            row = self._library_item_row(connection, item_id, include_archived=True)
+            if row is None:
+                raise ValueError("item de biblioteca não encontrado")
+            self._ensure_library_owner(row, actor_user_id, is_admin)
+            if row["status"] != "active":
+                raise ValueError("item arquivado não aceita nova versão")
+            self._replace_library_files(connection, item_id, payload.files)
+            self._create_library_version_snapshot(
+                connection,
+                item_id,
+                actor_user_id,
+                payload.version_label,
+                payload.changelog,
+                make_current=True,
+            )
+            self._audit(connection, "social_library_item", item_id, "version_create", actor_user_id, {"retention_days": 180, "version_label": payload.version_label})
+            updated = self._library_item_row(connection, item_id)
+            return self._library_item_from_row(connection, updated)
+
+    def promote_library_version(self, item_id: int, version_id: int, actor_user_id: int, is_admin: bool) -> LibraryItem:
+        with connect_database(self.database_path) as connection:
+            row = self._library_item_row(connection, item_id, include_archived=True)
+            if row is None:
+                raise ValueError("item de biblioteca não encontrado")
+            self._ensure_library_owner(row, actor_user_id, is_admin)
+            version = connection.execute(
+                "SELECT id, version_label, files_snapshot_json FROM social_library_versions WHERE id = ? AND item_id = ?",
+                (version_id, item_id),
+            ).fetchone()
+            if version is None:
+                raise ValueError("versão não encontrada")
+            self._restore_library_files_from_snapshot(connection, item_id, str(version["files_snapshot_json"]))
+            connection.execute("UPDATE social_library_versions SET is_current = 0 WHERE item_id = ?", (item_id,))
+            connection.execute("UPDATE social_library_versions SET is_current = 1 WHERE id = ?", (version_id,))
+            connection.execute(
+                "UPDATE social_library_items SET version_label = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (version["version_label"], item_id),
+            )
+            self._audit(connection, "social_library_item", item_id, "version_promote", actor_user_id, {"retention_days": 180, "version_id": version_id})
             updated = self._library_item_row(connection, item_id)
             return self._library_item_from_row(connection, updated)
 
@@ -2352,6 +2453,124 @@ class SocialCatalogRepository:
                 ),
             )
 
+    def _create_library_version_snapshot(
+        self,
+        connection,
+        item_id: int,
+        actor_user_id: int,
+        version_label: str,
+        changelog: str,
+        *,
+        make_current: bool,
+    ) -> None:
+        files = self._library_file_snapshot_rows(connection, item_id)
+        if not files:
+            raise ValueError("versão exige pelo menos um arquivo")
+        metadata = connection.execute(
+            """
+            SELECT title, description, visibility, component, material_suggestion,
+                   supports_required, orientation_notes, license, original_author_name,
+                   source_url, attribution_text, remix_source_item_id
+            FROM social_library_items
+            WHERE id = ?
+            """,
+            (item_id,),
+        ).fetchone()
+        if metadata is None:
+            raise ValueError("item de biblioteca não encontrado")
+        if make_current:
+            connection.execute("UPDATE social_library_versions SET is_current = 0 WHERE item_id = ?", (item_id,))
+        connection.execute(
+            """
+            INSERT INTO social_library_versions (
+                item_id, version_label, changelog, files_snapshot_json, metadata_snapshot_json,
+                created_by_user_id, is_current
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                item_id,
+                clean_optional_text(version_label) or "v1",
+                clean_discussion_text(changelog),
+                json.dumps(files, ensure_ascii=False, sort_keys=True),
+                json.dumps({key: metadata[key] for key in metadata.keys()}, ensure_ascii=False, sort_keys=True),
+                actor_user_id,
+                1 if make_current else 0,
+            ),
+        )
+        if make_current:
+            connection.execute(
+                "UPDATE social_library_items SET version_label = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (clean_optional_text(version_label) or "v1", item_id),
+            )
+
+    def _library_file_snapshot_rows(self, connection, item_id: int) -> list[dict[str, object]]:
+        rows = connection.execute(
+            """
+            SELECT file_kind, file_name, original_url, size_bytes, sha256, validation_status,
+                   storage_key, quarantine_key, uploaded_size_bytes, rejection_reason,
+                   deduplicated_from_file_id, analysis_json, thumbnail_svg, analyzed_at
+            FROM social_library_files
+            WHERE item_id = ?
+            ORDER BY id
+            """,
+            (item_id,),
+        ).fetchall()
+        return [
+            {
+                "file_kind": row["file_kind"],
+                "file_name": row["file_name"],
+                "original_url": row["original_url"],
+                "size_bytes": row["size_bytes"],
+                "sha256": row["sha256"],
+                "validation_status": row["validation_status"],
+                "storage_key": row["storage_key"],
+                "quarantine_key": row["quarantine_key"],
+                "uploaded_size_bytes": row["uploaded_size_bytes"],
+                "rejection_reason": row["rejection_reason"],
+                "deduplicated_from_file_id": row["deduplicated_from_file_id"],
+                "analysis_json": row["analysis_json"],
+                "thumbnail_svg": row["thumbnail_svg"],
+                "analyzed_at": row["analyzed_at"],
+            }
+            for row in rows
+        ]
+
+    def _restore_library_files_from_snapshot(self, connection, item_id: int, files_snapshot_json: str) -> None:
+        parsed_files = json.loads(files_snapshot_json or "[]")
+        files = [file for file in parsed_files if isinstance(file, dict)] if isinstance(parsed_files, list) else []
+        if not files:
+            raise ValueError("versão sem arquivos")
+        connection.execute("DELETE FROM social_library_files WHERE item_id = ?", (item_id,))
+        for file in files:
+            connection.execute(
+                """
+                INSERT INTO social_library_files (
+                    item_id, file_kind, file_name, original_url, size_bytes, sha256, validation_status,
+                    storage_key, quarantine_key, uploaded_size_bytes, rejection_reason,
+                    deduplicated_from_file_id, analysis_json, thumbnail_svg, analyzed_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    item_id,
+                    file.get("file_kind"),
+                    file.get("file_name"),
+                    clean_optional_text(file.get("original_url")),
+                    file.get("size_bytes"),
+                    file.get("sha256"),
+                    file.get("validation_status") or "metadata_only",
+                    clean_optional_text(file.get("storage_key")),
+                    clean_optional_text(file.get("quarantine_key")),
+                    file.get("uploaded_size_bytes"),
+                    clean_optional_text(file.get("rejection_reason")),
+                    file.get("deduplicated_from_file_id"),
+                    clean_optional_text(file.get("analysis_json")) or "{}",
+                    clean_optional_text(file.get("thumbnail_svg")),
+                    clean_optional_text(file.get("analyzed_at")),
+                ),
+            )
+
     def _library_item_row(self, connection, item_id: int, *, include_archived: bool = False):
         status_clause = "" if include_archived else " AND li.status = 'active'"
         return connection.execute(
@@ -2375,7 +2594,20 @@ class SocialCatalogRepository:
             """,
             (row["id"],),
         ).fetchall()
-        return _library_item_from_row(row, file_rows)
+        version_rows = connection.execute(
+            """
+            SELECT v.id, v.item_id, v.version_label, v.changelog, v.files_snapshot_json,
+                   v.metadata_snapshot_json, v.created_by_user_id, v.is_current, v.created_at,
+                   COUNT(DISTINCT d.id) AS download_count
+            FROM social_library_versions v
+            LEFT JOIN social_library_downloads d ON d.version_id = v.id
+            WHERE v.item_id = ?
+            GROUP BY v.id
+            ORDER BY v.is_current DESC, v.created_at DESC, v.id DESC
+            """,
+            (row["id"],),
+        ).fetchall()
+        return _library_item_from_row(row, file_rows, version_rows)
 
     def _can_view_library_item(self, connection, row, viewer_user_id: int | None) -> bool:
         if row["status"] != "active":
@@ -3073,7 +3305,8 @@ def _feed_item_from_row(row) -> CommunityFeedItem:
     )
 
 
-def _library_item_from_row(row, file_rows) -> LibraryItem:
+def _library_item_from_row(row, file_rows, version_rows=None) -> LibraryItem:
+    versions = [_library_version_from_row(version_row) for version_row in (version_rows or [])]
     return LibraryItem(
         id=int(row["id"]),
         owner_user_id=int(row["owner_user_id"]),
@@ -3122,9 +3355,50 @@ def _library_item_from_row(row, file_rows) -> LibraryItem:
             )
             for file_row in file_rows
         ],
+        versions=versions,
+        current_version_id=next((version.id for version in versions if version.is_current), None),
         download_count=int(row["download_count"] or 0),
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
+    )
+
+
+def _library_version_from_row(row) -> LibraryVersion:
+    files = []
+    raw_files = json.loads(row["files_snapshot_json"] or "[]")
+    if isinstance(raw_files, list):
+        for file in raw_files:
+            if not isinstance(file, dict):
+                continue
+            files.append(
+                LibraryFileMetadata(
+                    file_kind=file.get("file_kind"),
+                    file_name=str(file.get("file_name") or "arquivo.stl"),
+                    original_url=file.get("original_url"),
+                    size_bytes=file.get("size_bytes"),
+                    sha256=file.get("sha256"),
+                    validation_status=str(file.get("validation_status") or "metadata_only"),
+                    storage_key=file.get("storage_key"),
+                    quarantine_key=file.get("quarantine_key"),
+                    uploaded_size_bytes=file.get("uploaded_size_bytes"),
+                    rejection_reason=file.get("rejection_reason"),
+                    deduplicated_from_file_id=file.get("deduplicated_from_file_id"),
+                    analysis=_json_dict(file.get("analysis_json")),
+                    thumbnail_svg=file.get("thumbnail_svg"),
+                    analyzed_at=file.get("analyzed_at"),
+                )
+            )
+    return LibraryVersion(
+        id=int(row["id"]),
+        item_id=int(row["item_id"]),
+        version_label=str(row["version_label"]),
+        changelog=str(row["changelog"] or ""),
+        files=files,
+        metadata_snapshot=_json_dict(row["metadata_snapshot_json"]),
+        is_current=bool(row["is_current"]),
+        created_by_user_id=int(row["created_by_user_id"]),
+        created_at=str(row["created_at"]),
+        download_count=int(row["download_count"] or 0),
     )
 
 

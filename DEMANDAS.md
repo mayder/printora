@@ -3791,7 +3791,10 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado com `backend/sql/050_social_library_versions.sql`, persistindo snapshots imutáveis de versões, changelog, versão atual, download por versão e rollback lógico.
+- Backend expõe criação de versão, promoção de versão anterior como atual e registro de download por versão, preservando autorização de dono/admin.
+- UI da aba `Arquivos` exibe histórico por card, cria nova versão com changelog, registra download de versão específica e permite usar versão anterior como atual.
+- Validação focada: `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py::test_library_versions_are_immutable_and_can_be_promoted backend/tests/test_social_catalog.py::test_library_version_download_and_permissions -q` e testes de schema direcionados passaram.
 
 ## PKG-61: Coleções, Favoritos, Downloads E Listas De Impressão
 

@@ -30,6 +30,7 @@ from app.social_catalog import (
     LibraryItem,
     LibraryItemCreate,
     LibraryItemUpdate,
+    LibraryVersionCreate,
     PrinterPublicUpdate,
     PublicPrinter,
     PublicProfile,
@@ -393,6 +394,52 @@ async def register_library_download(
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> LibraryItem:
     item = repository.register_library_download(item_id, current.user.id if current else None)
+    if item is None:
+        raise HTTPException(status_code=404, detail="arquivo não encontrado")
+    return item
+
+
+@router.post("/api/social/library/{item_id}/versions", response_model=LibraryItem)
+async def create_library_version(
+    item_id: int,
+    payload: LibraryVersionCreate,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryItem:
+    try:
+        return repository.create_library_version(item_id, current.user.id, is_social_admin(current), payload)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/social/library/{item_id}/versions/{version_id}/current", response_model=LibraryItem)
+async def promote_library_version(
+    item_id: int,
+    version_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryItem:
+    try:
+        return repository.promote_library_version(item_id, version_id, current.user.id, is_social_admin(current))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/social/library/{item_id}/versions/{version_id}/downloads", response_model=LibraryItem)
+async def register_library_version_download(
+    item_id: int,
+    version_id: int,
+    current: CurrentUser | None = Depends(optional_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryItem:
+    try:
+        item = repository.register_library_download(item_id, current.user.id if current else None, version_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if item is None:
         raise HTTPException(status_code=404, detail="arquivo não encontrado")
     return item

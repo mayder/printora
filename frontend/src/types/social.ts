@@ -273,9 +273,24 @@ export interface LibraryItem {
   publication_terms_accepted_at: string | null;
   status: "active" | "archived";
   files: LibraryFileMetadata[];
+  versions: LibraryVersion[];
+  current_version_id: number | null;
   download_count: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface LibraryVersion {
+  id: number;
+  item_id: number;
+  version_label: string;
+  changelog: string;
+  files: LibraryFileMetadata[];
+  metadata_snapshot: Record<string, unknown>;
+  is_current: boolean;
+  created_by_user_id: number;
+  created_at: string;
+  download_count: number;
 }
 
 export interface RelationshipRecord {

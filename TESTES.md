@@ -385,6 +385,33 @@ Evidência visual esperada:
 - card da biblioteca com licença, autor, fonte e origem de remix quando houver;
 - download sempre acompanhado de licença visível.
 
+### PKG-60 - Versionamento, remix e derivados de modelos
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q
+backend/.venv/bin/python -m pytest backend/tests/test_schema_versioning.py backend/tests/test_update_self.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- cadastro do item cria versão inicial imutável;
+- nova versão preserva snapshot de arquivos e changelog sem sobrescrever versão anterior;
+- versão anterior pode ser promovida como atual por rollback lógico;
+- download de versão específica incrementa contador da versão sem perder contador geral;
+- criação e promoção de versão exigem dono do item ou administrador;
+- schema mais recente registra `050_social_library_versions.sql`.
+
+Evidência visual esperada:
+
+- card da aba `Arquivos` com bloco `Histórico de versões`;
+- versão atual destacada;
+- formulário compacto para nova versão com changelog;
+- ações de download de versão específica e uso de versão anterior.
+
 ## Update do agente
 
 Validação focada:

@@ -117,6 +117,12 @@ export interface LibraryItemPayload {
   files: LibraryFilePayload[];
 }
 
+export interface LibraryVersionPayload {
+  version_label: string;
+  changelog?: string;
+  files: LibraryFilePayload[];
+}
+
 export const socialApi = {
   catalog: () => apiRequest<CatalogSummary>("/api/catalog"),
   adminCatalog: (filters: CatalogAdminFilters = {}) => {
@@ -189,6 +195,16 @@ export const socialApi = {
     }),
   archiveLibraryItem: (itemId: number) => apiRequest<void>(`/api/social/library/${itemId}`, { method: "DELETE" }),
   registerLibraryDownload: (itemId: number) => apiRequest<LibraryItem>(`/api/social/library/${itemId}/downloads`, { method: "POST" }),
+  registerLibraryVersionDownload: (itemId: number, versionId: number) =>
+    apiRequest<LibraryItem>(`/api/social/library/${itemId}/versions/${versionId}/downloads`, { method: "POST" }),
+  createLibraryVersion: (itemId: number, payload: LibraryVersionPayload) =>
+    apiRequest<LibraryItem>(`/api/social/library/${itemId}/versions`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  promoteLibraryVersion: (itemId: number, versionId: number) =>
+    apiRequest<LibraryItem>(`/api/social/library/${itemId}/versions/${versionId}/current`, { method: "POST" }),
   uploadLibraryFile: (itemId: number, file: File) =>
     apiRequest<LibraryItem>(`/api/social/library/${itemId}/files/upload?file_name=${encodeURIComponent(file.name)}`, {
       method: "POST",

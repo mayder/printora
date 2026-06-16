@@ -110,6 +110,30 @@ funcional remove validações/UI de licença avançada e mantém dados; rollback
 estrutural exige backup SQLite anterior ao script
 `049_social_library_license_attribution.sql`.
 
+Versionamento de modelos:
+
+```bash
+curl -fsS -X POST \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"version_label":"v2","changelog":"Ajuste de encaixe","files":[{"file_kind":"stl","file_name":"modelo-v2.stl"}]}' \
+  "http://127.0.0.1:8069/api/social/library/<item_id>/versions"
+
+curl -fsS -X POST \
+  -H "Authorization: Bearer <token>" \
+  "http://127.0.0.1:8069/api/social/library/<item_id>/versions/<version_id>/current"
+
+curl -fsS -X POST \
+  "http://127.0.0.1:8069/api/social/library/<item_id>/versions/<version_id>/downloads"
+```
+
+O schema de versionamento é aplicado por
+`backend/sql/050_social_library_versions.sql`. Versões guardam snapshot imutável
+de arquivos e metadados em JSON, changelog e marcador de versão atual. Rollback
+funcional promove uma versão anterior como atual; não execute `DELETE` manual em
+versões ou downloads sem confirmação explícita. Rollback estrutural exige backup
+SQLite anterior ao script `050_social_library_versions.sql`.
+
 ## Comandos principais
 
 ```bash

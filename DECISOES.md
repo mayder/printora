@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260616-07 - Versionamento de biblioteca por snapshot imutável
+
+Status: aceita
+Data: 2026-06-16
+Contexto: o PKG-60 precisa permitir evolução de modelos sem sobrescrever artefatos já baixados, citados ou usados como origem de remix.
+Decisao: persistir versões em `social_library_versions` com snapshot JSON dos arquivos, metadados do item, changelog, autor da versão e marcador `is_current`. O item mantém os arquivos correntes para listagem simples, mas cada versão preserva seu snapshot; downloads podem apontar para versão específica.
+Alternativas consideradas: duplicar item por versão; criar tabela normalizada para cada arquivo de versão; manter apenas `version_label` no item.
+Consequencias: rollback lógico fica barato e auditável, downloads por versão ficam mensuráveis e a UI pode mostrar histórico sem misturar rascunho, arquivo corrente e snapshot histórico.
+Impacto em testes: testes cobrem imutabilidade do snapshot, download de versão, permissão de criação e promoção de versão anterior.
+Impacto em rollback: médio; há novo script SQLite `050_social_library_versions.sql`.
+Como reverter: remover endpoints/UI de versão, voltar downloads ao item corrente e restaurar backup SQLite anterior ao script `050_social_library_versions.sql` se necessário.
+Referencias: `backend/sql/050_social_library_versions.sql`, `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, `frontend/src/screens/PublicCommunityScreen.tsx`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260616-06 - Publicação pública exige autoria, licença e termos
 
 Status: aceita

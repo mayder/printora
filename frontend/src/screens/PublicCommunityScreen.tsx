@@ -1,5 +1,5 @@
 import React from "react";
-import { Archive, ArrowLeft, Box, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Filter, FolderOpen, Lock, MessageSquare, Pencil, Pin, Printer, Reply, Send, SlidersHorizontal, ThumbsUp, Trash2, UserRound, Users, Wrench } from "lucide-react";
+import { Archive, ArrowLeft, Box, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Filter, FolderOpen, GitBranch, Lock, MessageSquare, Pencil, Pin, Printer, Reply, RotateCcw, Send, SlidersHorizontal, ThumbsUp, Trash2, UserRound, Users, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi } from "../services/socialApi";
 import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, FeedContentType, FeedOrder, LibraryFileKind, LibraryItem, LibraryLicense, LibraryVisibility } from "../types";
@@ -307,6 +307,43 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
     }
   }
 
+  async function registerVersionDownload(itemId: number, versionId: number) {
+    try {
+      const updated = await socialApi.registerLibraryVersionDownload(itemId, versionId);
+      setItems((current) => current.map((item) => item.id === updated.id ? updated : item));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Download da versão não registrado");
+    }
+  }
+
+  async function createVersion(item: LibraryItem, versionLabel: string, changelog: string) {
+    try {
+      const updated = await socialApi.createLibraryVersion(item.id, {
+        version_label: versionLabel,
+        changelog,
+        files: item.files.map((file) => ({
+          file_kind: file.file_kind,
+          file_name: file.file_name,
+          original_url: file.original_url,
+          size_bytes: file.size_bytes,
+          sha256: file.sha256,
+        })),
+      });
+      setItems((current) => current.map((currentItem) => currentItem.id === updated.id ? updated : currentItem));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Versão não criada");
+    }
+  }
+
+  async function promoteVersion(itemId: number, versionId: number) {
+    try {
+      const updated = await socialApi.promoteLibraryVersion(itemId, versionId);
+      setItems((current) => current.map((item) => item.id === updated.id ? updated : item));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Versão não promovida");
+    }
+  }
+
   async function archiveItem(itemId: number) {
     try {
       await socialApi.archiveLibraryItem(itemId);
@@ -377,7 +414,16 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
       {loading ? <p>Carregando biblioteca...</p> : items.length ? (
         <div className="community-library-list">
           {items.map((item) => (
-            <LibraryItemCard key={item.id} item={item} onDownload={() => registerDownload(item.id)} onArchive={() => archiveItem(item.id)} onAnalyze={analyzeFile} />
+            <LibraryItemCard
+              key={item.id}
+              item={item}
+              onDownload={() => registerDownload(item.id)}
+              onVersionDownload={(versionId) => registerVersionDownload(item.id, versionId)}
+              onCreateVersion={(versionLabel, changelog) => createVersion(item, versionLabel, changelog)}
+              onPromoteVersion={(versionId) => promoteVersion(item.id, versionId)}
+              onArchive={() => archiveItem(item.id)}
+              onAnalyze={analyzeFile}
+            />
           ))}
         </div>
       ) : <Placeholder title="Biblioteca vazia" text="Nenhum arquivo visível para esta comunidade." />}
@@ -385,8 +431,25 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
   );
 }
 
-function LibraryItemCard({ item, onDownload, onArchive, onAnalyze }: { item: LibraryItem; onDownload: () => void; onArchive: () => void; onAnalyze: (fileId: number) => void }) {
+function LibraryItemCard({
+  item,
+  onDownload,
+  onVersionDownload,
+  onCreateVersion,
+  onPromoteVersion,
+  onArchive,
+  onAnalyze,
+}: {
+  item: LibraryItem;
+  onDownload: () => void;
+  onVersionDownload: (versionId: number) => void;
+  onCreateVersion: (versionLabel: string, changelog: string) => void;
+  onPromoteVersion: (versionId: number) => void;
+  onArchive: () => void;
+  onAnalyze: (fileId: number) => void;
+}) {
   const analyzedFile = item.files.find((file) => file.thumbnail_svg || file.analysis?.dimensions_mm);
+  const [versionDraft, setVersionDraft] = React.useState({ label: nextVersionLabel(item.version_label), changelog: "" });
   return (
     <article className="community-library-card">
       <header>
@@ -419,6 +482,33 @@ function LibraryItemCard({ item, onDownload, onArchive, onAnalyze }: { item: Lib
       </div>
       {item.files.some((file) => file.rejection_reason) ? <small>{item.files.find((file) => file.rejection_reason)?.rejection_reason}</small> : null}
       {item.orientation_notes ? <small>{item.orientation_notes}</small> : null}
+      <section className="community-version-panel">
+        <header>
+          <strong><GitBranch size={15} />Histórico de versões</strong>
+          <span>{item.current_version_id ? `Atual: ${item.version_label}` : item.version_label}</span>
+        </header>
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          onCreateVersion(versionDraft.label, versionDraft.changelog);
+          setVersionDraft((current) => ({ label: nextVersionLabel(current.label), changelog: "" }));
+        }}>
+          <input value={versionDraft.label} maxLength={40} placeholder="Nova versão" onChange={(event) => setVersionDraft((current) => ({ ...current, label: event.target.value }))} required />
+          <input value={versionDraft.changelog} maxLength={1000} placeholder="Changelog da versão" onChange={(event) => setVersionDraft((current) => ({ ...current, changelog: event.target.value }))} />
+          <button type="submit" className="secondary-button"><GitBranch size={15} />Criar versão</button>
+        </form>
+        <div className="community-version-list">
+          {item.versions.map((version) => (
+            <div key={version.id} className={version.is_current ? "active" : ""}>
+              <div>
+                <strong>{version.version_label}</strong>
+                <small>{version.changelog || "Sem changelog"} / {version.files.length} arquivo(s) / {version.download_count} downloads</small>
+              </div>
+              <button type="button" className="secondary-button" onClick={() => onVersionDownload(version.id)}><Download size={15} />Versão</button>
+              {!version.is_current ? <button type="button" className="secondary-button" onClick={() => onPromoteVersion(version.id)}><RotateCcw size={15} />Usar</button> : null}
+            </div>
+          ))}
+        </div>
+      </section>
       <footer>
         <span>{item.owner_display_name ? `Por ${item.owner_display_name}` : "Autor"}</span>
         <span>{item.manufacturer_name && item.model_name ? `${item.manufacturer_name} / ${item.model_name}` : "Sem vínculo de catálogo"}</span>
@@ -446,6 +536,12 @@ function ModelAnalysisSummary({ file }: { file: LibraryItem["files"][number] }) 
       {problems.map((problem) => <small key={`${problem.code}-${problem.message}`}>{problem.message}</small>)}
     </div>
   );
+}
+
+function nextVersionLabel(current: string) {
+  const match = current.match(/^v(\d+)$/i);
+  if (!match) return "";
+  return `v${Number(match[1]) + 1}`;
 }
 
 function CommunityFeed({ community }: { community: CommunityDetail }) {
