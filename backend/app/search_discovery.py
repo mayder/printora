@@ -79,20 +79,15 @@ class SearchDiscoveryRepository:
     def rebuild_index(self) -> int:
         self.ensure_schema()
         with connect_database(self.database_path) as connection:
-            connection.execute("DELETE FROM social_search_index")
-            rows = self._collect_rows(connection)
-            connection.executemany(
-                """
-                INSERT INTO social_search_index (
-                    entity_type, entity_id, title, body, tags_json, community_id,
-                    catalog_variant_id, owner_user_id, visibility, popularity_score, source_updated_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                rows,
-            )
-            self._sync_tags(connection)
-            return len(rows)
+            return self._rebuild_index(connection)
+
+    def ensure_index_current(self) -> int:
+        self.ensure_schema()
+        with connect_database(self.database_path) as connection:
+            if not self._index_is_current(connection):
+                return self._rebuild_index(connection)
+            row = connection.execute("SELECT COUNT(*) AS total FROM social_search_index").fetchone()
+            return int(row["total"] or 0)
 
     def search(
         self,
@@ -110,7 +105,7 @@ class SearchDiscoveryRepository:
         page: int = 1,
         page_size: int = 20,
     ) -> SearchResponse:
-        indexed_count = self.rebuild_index()
+        indexed_count = self.ensure_index_current()
         page = max(page, 1)
         page_size = min(max(page_size, 1), 50)
         offset = (page - 1) * page_size
@@ -162,7 +157,7 @@ class SearchDiscoveryRepository:
         )
 
     def list_tags(self) -> list[TagRecord]:
-        self.rebuild_index()
+        self.ensure_index_current()
         with connect_database(self.database_path) as connection:
             rows = connection.execute(
                 "SELECT slug, label, status, source FROM social_content_tags WHERE status != 'blocked' ORDER BY label"
@@ -209,6 +204,45 @@ class SearchDiscoveryRepository:
         rows.extend(_material_rows(connection))
         rows.extend(_catalog_rows(connection))
         return rows
+
+    def _rebuild_index(self, connection) -> int:
+        connection.execute("DELETE FROM social_search_index")
+        rows = self._collect_rows(connection)
+        connection.executemany(
+            """
+            INSERT INTO social_search_index (
+                entity_type, entity_id, title, body, tags_json, community_id,
+                catalog_variant_id, owner_user_id, visibility, popularity_score, source_updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+        self._sync_tags(connection)
+        return len(rows)
+
+    def _index_is_current(self, connection) -> bool:
+        index_row = connection.execute(
+            "SELECT COUNT(*) AS total, MAX(source_updated_at) AS newest FROM social_search_index"
+        ).fetchone()
+        if int(index_row["total"] or 0) == 0:
+            return False
+        source_row = connection.execute(
+            """
+            SELECT MAX(updated_at) AS newest
+            FROM (
+                SELECT updated_at FROM social_communities
+                UNION ALL SELECT updated_at FROM social_feed_items
+                UNION ALL SELECT updated_at FROM social_library_items
+                UNION ALL SELECT updated_at FROM social_technical_printer_configs
+                UNION ALL SELECT updated_at FROM social_material_profiles
+                UNION ALL SELECT updated_at FROM catalog_printer_variants
+            )
+            """
+        ).fetchone()
+        source_newest = source_row["newest"]
+        index_newest = index_row["newest"]
+        return source_newest is not None and index_newest is not None and str(source_newest) <= str(index_newest)
 
     def _sync_tags(self, connection) -> None:
         index_rows = connection.execute("SELECT entity_type, entity_id, tags_json FROM social_search_index").fetchall()

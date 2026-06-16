@@ -3,6 +3,7 @@ from io import BytesIO
 import struct
 import zipfile
 
+import pytest
 from app.auth import AuthRepository, UserRegisterRequest
 from app.database import connect_database, initialize_database
 from app.printers import PrinterCreate, PrinterRepository
@@ -288,7 +289,7 @@ def test_search_discovery_indexes_public_content_and_filters_private(tmp_path: P
     assert "moonraker" not in dumped
 
 
-def test_social_ranking_recommendations_ignore_self_vote_and_explain_score(tmp_path: Path) -> None:
+def test_social_ranking_recommendations_ignore_self_vote_and_explain_score(tmp_path: Path, monkeypatch) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     auth = AuthRepository(database_path)
@@ -335,6 +336,15 @@ def test_social_ranking_recommendations_ignore_self_vote_and_explain_score(tmp_p
     with connect_database(database_path) as connection:
         signal_count = connection.execute("SELECT COUNT(*) FROM social_quality_signals WHERE entity_type = 'library_item' AND entity_id = ?", (item.id,)).fetchone()[0]
     assert signal_count == 2
+
+    monkeypatch.setattr(ranking, "_rebuild_signals", lambda connection: pytest.fail("sinais atuais não devem reconstruir"))
+    monkeypatch.setattr(
+        ranking.search_repository,
+        "_rebuild_index",
+        lambda connection: pytest.fail("índice atual não deve reconstruir"),
+    )
+    cached = ranking.recommendations(query="Duto", material="ABS", page_size=5)
+    assert cached.items[0].result.title == "Duto recomendado ABS"
 
 
 def test_catalog_seed_has_broad_diy_klipper_catalog(tmp_path: Path) -> None:

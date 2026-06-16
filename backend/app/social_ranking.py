@@ -53,7 +53,7 @@ class SocialRankingRepository:
         entity_type: SearchEntityType | None = None,
         page_size: int = 12,
     ) -> RecommendationResponse:
-        self.rebuild_signals()
+        self.ensure_signals_current()
         search = self.search_repository.search(
             query=query,
             community=community,
@@ -82,7 +82,7 @@ class SocialRankingRepository:
         )
 
     def leaderboard(self, *, limit: int = 20) -> ReputationResponse:
-        self.rebuild_signals()
+        self.ensure_signals_current()
         with connect_database(self.database_path) as connection:
             rows = connection.execute(
                 """
@@ -99,7 +99,7 @@ class SocialRankingRepository:
         return ReputationResponse(records=[_reputation_from_row(row) for row in rows])
 
     def profile_reputation(self, slug: str) -> ReputationRecord:
-        self.rebuild_signals()
+        self.ensure_signals_current()
         with connect_database(self.database_path) as connection:
             row = connection.execute(
                 """
@@ -120,12 +120,65 @@ class SocialRankingRepository:
     def rebuild_signals(self) -> None:
         self.ensure_schema()
         with connect_database(self.database_path) as connection:
-            connection.execute("DELETE FROM social_quality_signals")
-            self._library_download_signals(connection)
-            self._library_favorite_signals(connection)
-            self._solution_signals(connection)
-            self._reaction_signals(connection)
-            self._refresh_reputation(connection)
+            self._rebuild_signals(connection)
+
+    def ensure_signals_current(self) -> None:
+        self.ensure_schema()
+        with connect_database(self.database_path) as connection:
+            if not self._signals_are_current(connection):
+                self._rebuild_signals(connection)
+
+    def _rebuild_signals(self, connection) -> None:
+        connection.execute("DELETE FROM social_quality_signals")
+        self._library_download_signals(connection)
+        self._library_favorite_signals(connection)
+        self._solution_signals(connection)
+        self._reaction_signals(connection)
+        self._refresh_reputation(connection)
+
+    def _signals_are_current(self, connection) -> bool:
+        signal_row = connection.execute(
+            "SELECT COUNT(*) AS total, MAX(created_at) AS newest FROM social_quality_signals"
+        ).fetchone()
+        if int(signal_row["total"] or 0) == 0:
+            return False
+        source_row = connection.execute(
+            """
+            SELECT MAX(updated_at) AS newest
+            FROM (
+                SELECT d.created_at AS updated_at
+                FROM social_library_downloads d
+                JOIN social_library_items li ON li.id = d.item_id
+                WHERE li.visibility IN ('community', 'public')
+                  AND li.status = 'active'
+                  AND (d.user_id IS NULL OR d.user_id != li.owner_user_id)
+                UNION ALL
+                SELECT fav.created_at AS updated_at
+                FROM social_library_favorites fav
+                JOIN social_library_items li ON li.id = fav.item_id
+                WHERE li.visibility IN ('community', 'public')
+                  AND li.status = 'active'
+                  AND fav.user_id != li.owner_user_id
+                UNION ALL
+                SELECT fi.updated_at
+                FROM social_feed_items fi
+                JOIN social_discussion_comments c ON c.id = fi.solution_comment_id
+                WHERE fi.visibility = 'public'
+                  AND fi.deleted_at IS NULL
+                  AND c.deleted_at IS NULL
+                UNION ALL
+                SELECT r.created_at AS updated_at
+                FROM social_discussion_reactions r
+                JOIN social_feed_items fi ON fi.id = r.target_id AND r.target_type = 'post'
+                WHERE fi.visibility = 'public'
+                  AND fi.deleted_at IS NULL
+                  AND r.user_id != fi.author_user_id
+            )
+            """
+        ).fetchone()
+        source_newest = source_row["newest"]
+        signal_newest = signal_row["newest"]
+        return source_newest is not None and signal_newest is not None and str(source_newest) <= str(signal_newest)
 
     def _content_score(self, connection, item: SearchResult) -> int:
         signal_score = connection.execute(
