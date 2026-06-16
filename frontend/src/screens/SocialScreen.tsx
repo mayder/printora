@@ -1,16 +1,18 @@
 import React from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Filter, Globe2, RefreshCw, Search, Shield, UserRound, Users } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, FileText, Filter, Globe2, RefreshCw, Search, Shield, Tags, UserRound, Users, Wrench } from "lucide-react";
 import { socialApi } from "../services/socialApi";
 import type { ScreenPropsFor } from "./ScreenProps";
-import type { CatalogSummary, Community, PublicPrinter, PublicProfile, RelationshipRecord, RelationshipSummary } from "../types";
+import type { CatalogSummary, Community, PublicPrinter, PublicProfile, RelationshipRecord, RelationshipSummary, SearchEntityType, SearchOrder, SearchResponse } from "../types";
 
 type SocialScreenProps = ScreenPropsFor<"setError">;
-type SocialTab = "communities" | "printers" | "makers" | "relationships";
+type SocialTab = "discovery" | "communities" | "printers" | "makers" | "relationships";
 type SocialFilters = { manufacturer: string; model: string; variant: string; component: string; mod: string };
+type DiscoveryFilters = { entity_type: SearchEntityType | ""; tag: string; material: string; component: string; license: string; file_kind: string; order: SearchOrder };
 type FilterOption = { value: string; label: string };
 const pageSize = 12;
 
 const socialTabs: Array<{ key: SocialTab; label: string; icon: typeof Users }> = [
+  { key: "discovery", label: "Descoberta", icon: Search },
   { key: "communities", label: "Comunidades", icon: Users },
   { key: "printers", label: "Impressoras", icon: Globe2 },
   { key: "makers", label: "Makers", icon: UserRound },
@@ -25,9 +27,13 @@ export function SocialScreen({ setError }: SocialScreenProps) {
   const [makers, setMakers] = React.useState<PublicProfile[]>([]);
   const [relationships, setRelationships] = React.useState<RelationshipSummary | null>(null);
   const [makerSearch, setMakerSearch] = React.useState("");
+  const [discoveryQuery, setDiscoveryQuery] = React.useState("");
+  const [discoveryFilters, setDiscoveryFilters] = React.useState<DiscoveryFilters>({ entity_type: "", tag: "", material: "", component: "", license: "", file_kind: "", order: "relevance" });
+  const [discovery, setDiscovery] = React.useState<SearchResponse | null>(null);
   const [filters, setFilters] = React.useState<SocialFilters>({ manufacturer: "", model: "", variant: "", component: "", mod: "" });
-  const [pages, setPages] = React.useState<Record<SocialTab, number>>({ communities: 1, printers: 1, makers: 1, relationships: 1 });
+  const [pages, setPages] = React.useState<Record<SocialTab, number>>({ discovery: 1, communities: 1, printers: 1, makers: 1, relationships: 1 });
   const [busy, setBusy] = React.useState(false);
+  const [discoveryBusy, setDiscoveryBusy] = React.useState(false);
 
   async function loadDiscovery() {
     setBusy(true);
@@ -70,6 +76,21 @@ export function SocialScreen({ setError }: SocialScreenProps) {
   React.useEffect(() => {
     void loadDiscovery();
   }, [filters.manufacturer, filters.model, filters.variant, filters.component, filters.mod]);
+
+  React.useEffect(() => {
+    void loadSearchContent(pages.discovery);
+  }, [discoveryFilters.entity_type, discoveryFilters.tag, discoveryFilters.material, discoveryFilters.component, discoveryFilters.license, discoveryFilters.file_kind, discoveryFilters.order, pages.discovery]);
+
+  async function loadSearchContent(page = 1) {
+    setDiscoveryBusy(true);
+    try {
+      setDiscovery(await socialApi.searchContent({ ...discoveryFilters, q: discoveryQuery.trim(), page, page_size: pageSize }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao buscar conteúdo social");
+    } finally {
+      setDiscoveryBusy(false);
+    }
+  }
 
   async function searchMakers() {
     try {
@@ -132,6 +153,22 @@ export function SocialScreen({ setError }: SocialScreenProps) {
           />
         ) : null}
 
+        {activeTab === "discovery" ? (
+          <DiscoveryTab
+            discovery={discovery}
+            query={discoveryQuery}
+            setQuery={setDiscoveryQuery}
+            filters={discoveryFilters}
+            setFilters={setDiscoveryFilters}
+            busy={discoveryBusy}
+            page={pages.discovery}
+            setPage={(page) => setPages((current) => ({ ...current, discovery: page }))}
+            search={() => {
+              setPages((current) => ({ ...current, discovery: 1 }));
+              void loadSearchContent(1);
+            }}
+          />
+        ) : null}
         {activeTab === "communities" ? <CommunitiesTab communities={communities} page={pages.communities} setPage={(page) => setPages((current) => ({ ...current, communities: page }))} /> : null}
         {activeTab === "printers" ? <PrintersTab printers={publicPrinters} page={pages.printers} setPage={(page) => setPages((current) => ({ ...current, printers: page }))} /> : null}
         {activeTab === "makers" ? (
@@ -207,6 +244,152 @@ function CatalogFilters({
           </span>
         </label>
       ) : null}
+    </div>
+  );
+}
+
+function DiscoveryTab({
+  discovery,
+  query,
+  setQuery,
+  filters,
+  setFilters,
+  busy,
+  page,
+  setPage,
+  search,
+}: {
+  discovery: SearchResponse | null;
+  query: string;
+  setQuery: React.Dispatch<React.SetStateAction<string>>;
+  filters: DiscoveryFilters;
+  setFilters: React.Dispatch<React.SetStateAction<DiscoveryFilters>>;
+  busy: boolean;
+  page: number;
+  setPage: (page: number) => void;
+  search: () => void;
+}) {
+  const results = discovery?.results ?? [];
+  const total = discovery ? results.length + (discovery.has_more ? 1 : 0) + (page - 1) * pageSize : 0;
+  return (
+    <div className="discovery-workspace">
+      <div className="discovery-searchbar">
+        <label>
+          Buscar conteúdo
+          <span className="input-with-icon">
+            <Search size={15} />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") search(); }} placeholder="material, peça, perfil, comunidade..." />
+          </span>
+        </label>
+        <button type="button" className="secondary-button" onClick={search} disabled={busy}>
+          <Search size={15} />
+          Buscar
+        </button>
+      </div>
+      <div className="discovery-filter-grid">
+        <label>
+          Tipo
+          <select value={filters.entity_type} onChange={(event) => setFilters((current) => ({ ...current, entity_type: event.target.value as SearchEntityType | "" }))}>
+            <option value="">Todos</option>
+            <option value="community">Comunidades</option>
+            <option value="post">Discussões</option>
+            <option value="library_item">Arquivos</option>
+            <option value="technical_config">Configurações</option>
+            <option value="material_profile">Materiais</option>
+            <option value="catalog_variant">Catálogo</option>
+          </select>
+        </label>
+        <label>
+          Ordenação
+          <select value={filters.order} onChange={(event) => setFilters((current) => ({ ...current, order: event.target.value as SearchOrder }))}>
+            <option value="relevance">Relevância</option>
+            <option value="recent">Mais recentes</option>
+            <option value="popular">Populares</option>
+          </select>
+        </label>
+        <DiscoveryInput label="Tag" icon={Tags} value={filters.tag} onChange={(value) => setFilters((current) => ({ ...current, tag: value }))} placeholder="material-abs" />
+        <DiscoveryInput label="Material" icon={Filter} value={filters.material} onChange={(value) => setFilters((current) => ({ ...current, material: value }))} placeholder="ABS, PETG..." />
+        <DiscoveryInput label="Componente" icon={Wrench} value={filters.component} onChange={(value) => setFilters((current) => ({ ...current, component: value }))} placeholder="hotend, extrusor..." />
+        <DiscoveryInput label="Licença" icon={Shield} value={filters.license} onChange={(value) => setFilters((current) => ({ ...current, license: value }))} placeholder="cc-by, mit..." />
+        <DiscoveryInput label="Arquivo" icon={FileText} value={filters.file_kind} onChange={(value) => setFilters((current) => ({ ...current, file_kind: value }))} placeholder="stl, 3mf..." />
+      </div>
+      <FacetRail discovery={discovery} filters={filters} setFilters={setFilters} />
+      <div className="social-result-toolbar">
+        <div className="social-result-summary">
+          <strong>Resultados públicos</strong>
+          <span>{results.length} resultados nesta página, {discovery?.indexed_count ?? 0} itens indexados</span>
+        </div>
+        <Pagination total={total} page={page} setPage={setPage} />
+      </div>
+      <div className="discovery-result-list">
+        {results.map((result) => (
+          <article key={`${result.entity_type}-${result.entity_id}`} className="social-discovery-card discovery-result-card">
+            <div className="discovery-result-topline">
+              <span className="discovery-type-pill">{entityTypeLabel(result.entity_type)}</span>
+              <span>{formatDate(result.updated_at)}</span>
+            </div>
+            <div className="social-card-copy">
+              <strong>{result.title}</strong>
+              <span>{result.summary || "Sem resumo público."}</span>
+              <small>{resultContext(result)}</small>
+            </div>
+            <TagList tags={result.tags} />
+            <div className="social-card-stats">
+              <span className="social-card-stat">
+                <b>{result.popularity_score}</b>
+                <small>Popularidade</small>
+              </span>
+              <span className="social-card-stat">
+                <b>{result.owner_display_name ?? result.community_name ?? "Público"}</b>
+                <small>Origem</small>
+              </span>
+            </div>
+            <a className="social-card-action" href={result.url} aria-label={`Abrir ${result.title}`}>
+              Abrir resultado <ExternalLink size={15} />
+            </a>
+          </article>
+        ))}
+        {results.length === 0 ? <EmptyState title="Nenhum conteúdo encontrado" text="Ajuste os filtros ou busque por comunidade, material, componente, arquivo ou perfil técnico publicado." /> : null}
+      </div>
+    </div>
+  );
+}
+
+function DiscoveryInput({ label, icon: Icon, value, onChange, placeholder }: { label: string; icon: typeof Search; value: string; onChange: (value: string) => void; placeholder: string }) {
+  return (
+    <label>
+      {label}
+      <span className="input-with-icon">
+        <Icon size={15} />
+        <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+      </span>
+    </label>
+  );
+}
+
+function FacetRail({ discovery, filters, setFilters }: { discovery: SearchResponse | null; filters: DiscoveryFilters; setFilters: React.Dispatch<React.SetStateAction<DiscoveryFilters>> }) {
+  if (!discovery) return null;
+  const facets = [
+    { title: "Tags", items: discovery.facets.tags.slice(0, 8), field: "tag" as const },
+    { title: "Materiais", items: discovery.facets.materials.slice(0, 6), field: "material" as const },
+    { title: "Componentes", items: discovery.facets.components.slice(0, 6), field: "component" as const },
+    { title: "Arquivos", items: discovery.facets.file_kinds.slice(0, 6), field: "file_kind" as const },
+  ];
+  return (
+    <div className="discovery-facet-rail">
+      {facets.map((facet) => (
+        <div key={facet.title} className="discovery-facet-group">
+          <strong>{facet.title}</strong>
+          <div>
+            {facet.items.map((item) => (
+              <button key={item.value} type="button" className={filters[facet.field] === item.value ? "active" : ""} onClick={() => setFilters((current) => ({ ...current, [facet.field]: current[facet.field] === item.value ? "" : item.value }))}>
+                {item.label} <span>{item.count}</span>
+              </button>
+            ))}
+            {facet.items.length === 0 ? <span className="muted">Sem opções.</span> : null}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -490,6 +673,48 @@ function relationItems(items: RelationshipRecord[] | undefined) {
 
 function publicMods(printer: PublicPrinter) {
   return Array.isArray(printer.public_mods) ? printer.public_mods : [];
+}
+
+function entityTypeLabel(type: SearchEntityType) {
+  const labels: Record<SearchEntityType, string> = {
+    community: "Comunidade",
+    post: "Discussão",
+    library_item: "Arquivo",
+    technical_config: "Configuração",
+    material_profile: "Material",
+    catalog_variant: "Catálogo",
+  };
+  return labels[type] ?? type;
+}
+
+function resultContext(result: { community_name: string | null; manufacturer_name: string | null; model_name: string | null; variant_name: string | null; material_type: string | null; component: string | null; file_kind: string | null; license: string | null }) {
+  return [
+    result.community_name,
+    [result.manufacturer_name, result.model_name, result.variant_name].filter(Boolean).join(" / "),
+    result.material_type ? `material: ${result.material_type}` : "",
+    result.component ? `componente: ${result.component}` : "",
+    result.file_kind ? `arquivo: ${result.file_kind}` : "",
+    result.license ? `licença: ${result.license}` : "",
+  ].filter(Boolean).join(" · ") || "Conteúdo público";
+}
+
+function TagList({ tags }: { tags: string[] }) {
+  const visibleTags = tags.slice(0, 8);
+  return (
+    <div className="discovery-tag-list">
+      {visibleTags.map((tag) => <span key={tag}>{tagLabel(tag)}</span>)}
+    </div>
+  );
+}
+
+function tagLabel(tag: string) {
+  return tag.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("pt-BR");
 }
 
 function scopeLabel(scope: Community["scope"]) {

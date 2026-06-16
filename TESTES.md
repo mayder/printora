@@ -277,6 +277,31 @@ Evidência visual esperada:
 - erro legível quando usuário sem sessão/permissão tenta ação mutável.
 - tentativa de acessar impressora operacional por relação social continua bloqueada.
 
+### PKG-64 - Busca, tags e descoberta de conteúdo
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- `/api/social/search` indexa comunidades, discussões, biblioteca, configurações técnicas, perfis de material e catálogo;
+- conteúdo privado não aparece em resultados, tags ou facetas;
+- filtros por tipo, tag, material, componente, licença e arquivo retornam somente conteúdo público elegível;
+- resultado informa tipo, comunidade/contexto técnico, tags, popularidade e URL pública;
+- `/api/social/tags` lista tags públicas normalizadas;
+- UI `/?section=social`, aba `Descoberta`, possui busca, filtros, facetas, ordenação, paginação, loading, estado vazio e abertura de resultado.
+
+Evidência visual esperada:
+
+- aba `Descoberta` em desktop e mobile sem sobreposição;
+- filtros/facetas aplicados alteram a lista;
+- payload público inspecionado sem Moonraker, agente, SSH, token, IP operacional, organização, permissão ou identificadores internos de pacote/lote/backlog.
+
 ### PKG-56 - Biblioteca base de arquivos STL/3MF
 
 Validação automatizada obrigatória para fechamento:

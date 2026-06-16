@@ -3969,7 +3969,14 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Concluído localmente; publicação, commit e push em andamento.
+- Lote 1 concluído com contrato unificado em `/api/social/search` e `/api/social/tags`.
+- Lote 2 concluído com indexação de comunidades e discussões públicas.
+- Lote 3 concluído com indexação de arquivos, configurações técnicas, perfis de material e variantes do catálogo.
+- Lote 4 concluído com tags normalizadas, facetas e filtros por tipo, comunidade, impressora, componente, material, licença, arquivo, popularidade e atualização.
+- Lote 5 concluído com aba `Descoberta` na tela Social, busca, filtros, facetas, paginação, estados vazios e links para o conteúdo público.
+- Lote 6 concluído com teste focado garantindo que conteúdo privado não entra na busca nem em tags/facetas.
+- Validação: `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py::test_search_discovery_indexes_public_content_and_filters_private -q`; `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q`; `cd frontend && npm run build`; `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`; validação visual local da aba `Descoberta` em desktop e mobile.
 
 ## PKG-65: Ranking, Recomendações E Reputação Técnica
 

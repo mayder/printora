@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260616-11 - Busca social usa indice publico derivado
+
+Status: aceita
+Data: 2026-06-16
+Contexto: a descoberta social precisa pesquisar comunidades, discussões, arquivos, configurações técnicas, perfis de material e catálogo sem vazar conteúdo privado nem transformar a UI em regra de negócio.
+Decisao: criar o domínio `search_discovery`, com SQL próprio em `054_social_search_discovery.sql`, índice derivado reconstruído pela API de busca e tags normalizadas em tabelas dedicadas. A rota `/api/social/search` retorna somente conteúdo público ou comunitário elegível, com facetas e filtros técnicos; `/api/social/tags` expõe tags públicas e a curadoria administrativa usa `catalog_audit_events` existente. A UI fica como aba `Descoberta` da tela Social, consumindo contrato público sem acesso direto a persistência.
+Alternativas consideradas: buscar diretamente em cada tabela no frontend; criar engine externa de busca; indexar conteúdo privado e filtrar depois.
+Consequencias: a entrega fica simples para SQLite/cloud atual, com rollback claro e privacidade aplicada antes da resposta. O índice pode evoluir para atualização incremental real quando volume exigir.
+Impacto em testes: `backend/tests/test_social_catalog.py` cobre privacidade, filtros técnicos e tags; build frontend valida a aba de descoberta.
+Impacto em rollback: médio; há novo script SQLite `054_social_search_discovery.sql`.
+Como reverter: remover rotas/UI de busca social e restaurar backup SQLite anterior ao script `054_social_search_discovery.sql` se as tabelas não puderem permanecer como legado.
+Referencias: `backend/sql/054_social_search_discovery.sql`, `backend/app/search_discovery.py`, `backend/app/routes/search_discovery.py`, `frontend/src/screens/SocialScreen.tsx`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260616-10 - Perfis de material e fatiamento são compartilháveis, não executáveis
 
 Status: aceita

@@ -22,6 +22,10 @@ import type {
   PublicProfile,
   RelationshipRecord,
   RelationshipSummary,
+  SearchEntityType,
+  SearchOrder,
+  SearchResponse,
+  TagRecord,
   MaterialProfile,
   MaterialProfileExport,
   TechnicalConfigComparison,
@@ -194,6 +198,21 @@ export interface MaterialProfilePayload {
   };
 }
 
+export interface SearchDiscoveryFilters {
+  q?: string;
+  entity_type?: SearchEntityType | "";
+  tag?: string;
+  community?: string;
+  printer?: string;
+  component?: string;
+  material?: string;
+  license?: string;
+  file_kind?: string;
+  order?: SearchOrder;
+  page?: number;
+  page_size?: number;
+}
+
 export const socialApi = {
   catalog: () => apiRequest<CatalogSummary>("/api/catalog"),
   adminCatalog: (filters: CatalogAdminFilters = {}) => {
@@ -219,6 +238,15 @@ export const socialApi = {
   myProfile: () => apiRequest<PublicProfile>("/api/social/me/profile"),
   publicProfile: (slug: string) => apiRequest<PublicProfile>(`/api/social/profiles/${encodeURIComponent(slug)}`),
   searchProfiles: (query: string) => apiRequest<PublicProfile[]>(`/api/social/profiles?q=${encodeURIComponent(query)}`),
+  searchContent: (filters: SearchDiscoveryFilters = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.set(key, String(value));
+    });
+    const query = params.toString();
+    return apiRequest<SearchResponse>(`/api/social/search${query ? `?${query}` : ""}`);
+  },
+  tags: () => apiRequest<TagRecord[]>("/api/social/tags"),
   publicPrinter: (printerId: number | string) => apiRequest<PublicPrinter>(`/api/public/printers/${encodeURIComponent(String(printerId))}`),
   publicPrinters: (filters: { manufacturer?: string; model?: string; variant?: string; mod?: string } = {}) => {
     const params = new URLSearchParams();

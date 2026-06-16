@@ -197,6 +197,28 @@ Rollback funcional remove endpoints/UI de perfis técnicos e mantém os dados co
 legado; rollback estrutural exige backup SQLite anterior ao script
 `052_social_technical_printer_configs.sql`.
 
+Busca social e descoberta:
+
+```bash
+curl -fsS \
+  "http://127.0.0.1:8069/api/social/search?q=Voron&page_size=5"
+
+curl -fsS \
+  "http://127.0.0.1:8069/api/social/search?material=ABS&file_kind=stl&page_size=5"
+
+curl -fsS \
+  "http://127.0.0.1:8069/api/social/tags"
+```
+
+O schema de busca social é aplicado por
+`backend/sql/054_social_search_discovery.sql`. O índice agrega somente conteúdo
+público ou comunitário de comunidades, discussões, biblioteca, configurações
+técnicas, perfis de material e catálogo. Conteúdo privado não entra no índice.
+A curadoria de tags usa `catalog_audit_events` existente, sem nova tabela de
+auditoria. Rollback funcional remove endpoints/UI de busca e mantém os dados
+como legado; rollback estrutural exige backup SQLite anterior ao script
+`054_social_search_discovery.sql`.
+
 Perfis de material e fatiamento:
 
 ```bash
@@ -444,13 +466,16 @@ curl -s http://127.0.0.1:8069/api/social/profiles
 curl -s http://127.0.0.1:8069/api/social/profiles/<slug>/printers
 curl -s "http://127.0.0.1:8069/api/social/printers?manufacturer=voron&mod=tap"
 curl -s http://127.0.0.1:8069/api/public/printers/<printer_id>
+curl -s "http://127.0.0.1:8069/api/social/search?q=Voron&page_size=5"
+curl -s http://127.0.0.1:8069/api/social/tags
 ```
 
 Tela Social:
 
 - abrir `/?section=social` autenticado;
-- validar abas `Comunidades`, `Impressoras`, `Makers` e `Relações`;
+- validar abas `Descoberta`, `Comunidades`, `Impressoras`, `Makers` e `Relações`;
 - confirmar que a primeira tela não mostra formulário principal de edição de perfil, publicação/despublicação de impressora ou curadoria administrativa de catálogo;
+- na aba `Descoberta`, validar busca textual, filtros por tipo/tag/material/componente/licença/arquivo, facetas, ordenação, paginação, estados vazios e abertura do resultado;
 - na aba `Comunidades`, validar filtros por fabricante, modelo, variante e componente, contagens e abertura de `/c/<community_slug>`;
 - na aba `Impressoras`, validar filtros por fabricante, modelo, variante e mod, cards com nome público, variante, mods e dono, e abertura de `/p/<printer_id>`;
 - na aba `Makers`, validar diretório/busca de perfis públicos, bio curta, contagem de impressoras públicas e abertura de `/u/<slug>`;

@@ -131,7 +131,7 @@
   border-radius: 8px;
   display: grid;
   gap: 6px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   padding: 6px;
 }
 
@@ -162,6 +162,81 @@
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.discovery-workspace {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.discovery-searchbar {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.discovery-filter-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.discovery-facet-rail {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.discovery-facet-group {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.discovery-facet-group strong {
+  font-size: 0.86rem;
+}
+
+.discovery-facet-group div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.discovery-facet-group button,
+.discovery-tag-list span,
+.discovery-type-pill {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  min-width: 0;
+}
+
+.discovery-facet-group button {
+  align-items: center;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.8rem;
+  gap: 6px;
+  max-width: 100%;
+  padding: 6px 9px;
+}
+
+.discovery-facet-group button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.discovery-facet-group button span {
+  color: var(--muted);
 }
 
 .social-combobox-field {
@@ -415,6 +490,49 @@
   font-size: 0.76rem;
   line-height: 1.25;
   white-space: nowrap;
+}
+
+.discovery-result-list {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+}
+
+.discovery-result-card {
+  align-content: start;
+}
+
+.discovery-result-topline {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 0.8rem;
+  gap: 8px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.discovery-type-pill {
+  background: var(--panel);
+  color: var(--accent);
+  font-weight: 800;
+  padding: 5px 9px;
+}
+
+.discovery-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.discovery-tag-list span {
+  background: var(--panel);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.78rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 5px 8px;
 }
 
 .makers-tab {
@@ -724,6 +842,9 @@
   .social-status-grid,
   .social-form-grid,
   .community-filter-grid,
+  .discovery-filter-grid,
+  .discovery-facet-rail,
+  .discovery-searchbar,
   .social-profile-search,
   .social-tabs,
   .relationships-grid,
@@ -732,6 +853,10 @@
   }
 
   .social-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .discovery-result-list {
     grid-template-columns: 1fr;
   }
 

@@ -11,6 +11,7 @@ from app.main import app
 from fastapi.testclient import TestClient
 
 from app.print_profiles import MaterialProfilePayload, PrintProfilesRepository, SlicingProfilePayload
+from app.search_discovery import SearchDiscoveryRepository
 from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, LibraryCollectionCreate, LibraryCollectionItemCreate, LibraryFileMetadata, LibraryItemCreate, LibraryItemUpdate, LibraryVersionCreate, PrintListCreate, PrintListItemCreate, PrintListItemUpdate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
 from app.technical_profiles import TechnicalPrinterConfigPayload, TechnicalProfilesRepository
 
@@ -201,6 +202,89 @@ def test_material_and_slicing_profile_tracks_compatibility_and_export(tmp_path: 
         assert "sensível" in str(exc)
     else:
         raise AssertionError("perfil com dado sensível deveria falhar")
+
+
+def test_search_discovery_indexes_public_content_and_filters_private(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    user = auth.create_user(UserRegisterRequest(email="search@example.com", password="correct-horse"))
+    social = SocialCatalogRepository(database_path)
+    variant = next(
+        variant
+        for manufacturer in social.list_catalog().manufacturers
+        for model in manufacturer.models
+        for variant in model.variants
+        if variant.slug == "voron-2-4-r2-350"
+    )
+    printer = PrinterRepository(database_path, user_id=user.id).create_printer(
+        PrinterCreate(name="Search Voron", moonraker_url="http://secret-voron.local:7125", host_audit_mode="disabled")
+    )
+    social.update_profile(user.id, PublicProfileUpdate(slug="search-maker", display_name="Search Maker", visibility="public"))
+    social.update_printer_public(printer.id, user.id, PrinterPublicUpdate(public_profile_enabled=True, catalog_variant_id=variant.id))
+    community = social.list_communities(variant="voron-2-4-r2-350")[0]
+    social.create_community_post(community.slug, user.id, CommunityPostCreate(content_type="question", title="Stringing com ABS", body="Ajuste de temperatura e PA", material="ABS", component="hotend", problem_tag="stringing"))
+    social.create_library_item(
+        user.id,
+        LibraryItemCreate(
+            title="Duto ABS público",
+            description="Duto para Voron",
+            visibility="community",
+            community_slug=community.slug,
+            catalog_variant_id=variant.id,
+            component="toolhead",
+            material_suggestion="ABS",
+            license="cc-by",
+            original_author_name="Search Maker",
+            publication_terms_accepted=True,
+            files=[LibraryFileMetadata(file_kind="stl", file_name="duto.stl")],
+        ),
+    )
+    social.create_library_item(
+        user.id,
+        LibraryItemCreate(
+            title="Arquivo privado oculto",
+            description="Não deve aparecer",
+            visibility="private",
+            catalog_variant_id=variant.id,
+            license="cc-by",
+            files=[LibraryFileMetadata(file_kind="stl", file_name="privado.stl")],
+        ),
+    )
+    TechnicalProfilesRepository(database_path).create_config(
+        user.id,
+        TechnicalPrinterConfigPayload(printer_id=printer.id, community_slug=community.slug, title="Config ABS Tap", visibility="community", mods=["Tap"], components={"hotend": "Revo"}, calibrations={"flow": "0.98"}),
+    )
+    PrintProfilesRepository(database_path).create_profile(
+        user.id,
+        MaterialProfilePayload(
+            printer_id=printer.id,
+            community_slug=community.slug,
+            title="Perfil ABS busca",
+            visibility="community",
+            material_type="ABS",
+            nozzle_diameter_mm=0.4,
+            compatibility={"material": "ABS"},
+            slicing=SlicingProfilePayload(layer_height_mm=0.2, goal="quality"),
+        ),
+    )
+
+    repository = SearchDiscoveryRepository(database_path)
+    results = repository.search(query="ABS", page_size=40)
+    material_results = repository.search(query="ABS", material="ABS", page_size=20)
+    library = repository.search(entity_type="library_item", file_kind="stl")
+    tags = {tag.slug for tag in repository.list_tags()}
+    dumped = results.model_dump_json().lower()
+
+    result_titles = {item.title for item in results.results}
+    assert {"Stringing com ABS", "Duto ABS público", "Config ABS Tap", "Perfil ABS busca"}.issubset(result_titles)
+    assert all("material-abs" in item.tags or "abs" in item.title.lower() for item in material_results.results)
+    assert "Arquivo privado oculto" not in result_titles
+    assert any(item.entity_type == "catalog_variant" for item in results.results)
+    assert library.results and all(item.file_kind == "Stl" for item in library.results)
+    assert {"material-abs", "component-hotend", "license-cc-by", "file-stl"}.issubset(tags)
+    assert "secret-voron" not in dumped
+    assert "moonraker" not in dumped
 
 
 def test_catalog_seed_has_broad_diy_klipper_catalog(tmp_path: Path) -> None:

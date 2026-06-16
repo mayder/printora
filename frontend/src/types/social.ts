@@ -10,6 +10,8 @@ export type LibraryFileKind = "stl" | "3mf" | "bundle";
 export type LibraryLicense = "cc-by" | "cc-by-sa" | "cc0" | "mit" | "custom" | "all-rights-reserved";
 export type LibraryCollectionVisibility = "private" | "community" | "public";
 export type PrintListItemStatus = "want_to_print" | "printed" | "problem";
+export type SearchEntityType = "community" | "post" | "library_item" | "technical_config" | "material_profile" | "catalog_variant";
+export type SearchOrder = "relevance" | "recent" | "popular";
 
 export interface CatalogVariant {
   id: number;
@@ -455,4 +457,59 @@ export interface RelationshipSummary {
   blocked: RelationshipRecord[];
   pending_friend_requests: RelationshipRecord[];
   sent_friend_requests: RelationshipRecord[];
+}
+
+export interface SearchResult {
+  entity_type: SearchEntityType;
+  entity_id: number;
+  title: string;
+  summary: string;
+  tags: string[];
+  community_slug: string | null;
+  community_name: string | null;
+  manufacturer_name: string | null;
+  model_name: string | null;
+  variant_name: string | null;
+  owner_slug: string | null;
+  owner_display_name: string | null;
+  material_type: string | null;
+  component: string | null;
+  license: string | null;
+  file_kind: string | null;
+  popularity_score: number;
+  updated_at: string;
+  url: string;
+}
+
+export interface SearchFacetOption {
+  value: string;
+  label: string;
+  count: number;
+}
+
+export interface SearchFacets {
+  entity_types: SearchFacetOption[];
+  tags: SearchFacetOption[];
+  communities: SearchFacetOption[];
+  materials: SearchFacetOption[];
+  components: SearchFacetOption[];
+  licenses: SearchFacetOption[];
+  file_kinds: SearchFacetOption[];
+}
+
+export interface SearchResponse {
+  query: string;
+  page: number;
+  page_size: number;
+  has_more: boolean;
+  results: SearchResult[];
+  facets: SearchFacets;
+  indexed_count: number;
+}
+
+export interface TagRecord {
+  slug: string;
+  label: string;
+  status: string;
+  source: string;
 }

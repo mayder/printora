@@ -24,6 +24,7 @@ from app.routes import (
     printer_updates,
     printers,
     reports,
+    search_discovery,
     setup,
     snapshots,
     social_catalog,
@@ -83,6 +84,7 @@ app.include_router(print_profiles.router)
 app.include_router(printer_updates.router)
 app.include_router(printers.router)
 app.include_router(reports.router)
+app.include_router(search_discovery.router)
 app.include_router(setup.router)
 app.include_router(snapshots.router)
 app.include_router(social_catalog.router)
