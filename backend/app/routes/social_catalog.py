@@ -17,6 +17,9 @@ from app.social_catalog import (
     CatalogVariantUpdate,
     Community,
     CommunityDetail,
+    CommunityFeedSummary,
+    FeedContentType,
+    FeedOrder,
     PrinterPublicUpdate,
     PublicPrinter,
     PublicProfile,
@@ -265,6 +268,36 @@ async def get_social_community(
     if community is None:
         raise HTTPException(status_code=404, detail="comunidade não encontrada")
     return community
+
+
+@router.get("/api/social/communities/{slug}/feed", response_model=CommunityFeedSummary)
+async def get_social_community_feed(
+    slug: str,
+    content_type: FeedContentType | None = None,
+    component: str | None = None,
+    material: str | None = None,
+    firmware_family: str | None = None,
+    problem: str | None = None,
+    order: FeedOrder = "recent",
+    page: int = 1,
+    page_size: int = 20,
+    _current: CurrentUser | None = Depends(require_current_user_when_configured),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> CommunityFeedSummary:
+    feed = repository.list_community_feed(
+        slug,
+        content_type=content_type,
+        component=component,
+        material=material,
+        firmware_family=firmware_family,
+        problem=problem,
+        order=order,
+        page=page,
+        page_size=page_size,
+    )
+    if feed is None:
+        raise HTTPException(status_code=404, detail="comunidade não encontrada")
+    return feed
 
 
 @router.get("/api/social/me/relationships", response_model=RelationshipSummary)

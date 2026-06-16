@@ -3516,7 +3516,15 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado via tabela `social_feed_items` em `backend/sql/044_social_community_feed.sql`.
+- API `GET /api/social/communities/{slug}/feed` retorna feed público paginado por comunidade com ordenação `recent`, `recommended` e `pinned`.
+- Contrato cobre tipos `technical_post`, `question`, `mod`, `print_result`, `file_announcement` e `curation_notice`.
+- Filtros por componente, material, firmware, problema e tipo de conteúdo usam dados técnicos do feed e curadoria derivada do catálogo.
+- Conteúdo privado (`visibility='private'`) não aparece em feed público; comunidades `obsolete`/`merged` não retornam itens ativos.
+- UI da página `/c/{slug}` substitui o placeholder por feed real com filtros, ordenação, paginação, estado vazio, erro e carregamento.
+- Payload público não expõe Moonraker, SSH, token, credencial, organização ou permissão.
+- Validação focada concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q` e `cd frontend && npm run build`.
+- Fechado em 100% com `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`, commit do pacote, push da branch `cloud`, publicação pelo workflow `Deploy Printora Cloud` e validação local visual/API da aba `Feed`.
 
 ## PKG-55: Posts, Comentários, Reações E Discussões Técnicas
 

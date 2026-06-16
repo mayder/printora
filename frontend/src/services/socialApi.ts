@@ -5,6 +5,9 @@ import type {
   CatalogTrustState,
   Community,
   CommunityDetail,
+  CommunityFeedSummary,
+  FeedContentType,
+  FeedOrder,
   ProfileVisibility,
   PublicPrinter,
   PublicProfile,
@@ -119,6 +122,26 @@ export const socialApi = {
     return apiRequest<Community[]>(`/api/social/communities${query ? `?${query}` : ""}`);
   },
   community: (slug: string) => apiRequest<CommunityDetail>(`/api/social/communities/${encodeURIComponent(slug)}`),
+  communityFeed: (
+    slug: string,
+    filters: {
+      content_type?: FeedContentType | "";
+      component?: string;
+      material?: string;
+      firmware_family?: string;
+      problem?: string;
+      order?: FeedOrder;
+      page?: number;
+      page_size?: number;
+    } = {},
+  ) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.set(key, String(value));
+    });
+    const query = params.toString();
+    return apiRequest<CommunityFeedSummary>(`/api/social/communities/${encodeURIComponent(slug)}/feed${query ? `?${query}` : ""}`);
+  },
   relationships: () => apiRequest<RelationshipSummary>("/api/social/me/relationships"),
   follow: (targetUserId: number) => apiRequest<RelationshipRecord>(`/api/social/relationships/${targetUserId}/follow`, { method: "POST" }),
   unfollow: (targetUserId: number) => apiRequest<void>(`/api/social/relationships/${targetUserId}/follow`, { method: "DELETE" }),

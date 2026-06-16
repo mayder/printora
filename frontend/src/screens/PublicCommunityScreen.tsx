@@ -1,14 +1,30 @@
 import React from "react";
-import { Archive, ArrowLeft, Box, ExternalLink, FileText, FolderOpen, Lock, MessageSquare, Printer, SlidersHorizontal, UserRound, Users, Wrench } from "lucide-react";
+import { Archive, ArrowLeft, Box, ChevronLeft, ChevronRight, ExternalLink, FileText, Filter, FolderOpen, Lock, MessageSquare, Pin, Printer, SlidersHorizontal, UserRound, Users, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi } from "../services/socialApi";
-import type { Community, CommunityDetail } from "../types";
+import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, FeedContentType, FeedOrder } from "../types";
 
 interface PublicCommunityScreenProps {
   slug: string;
 }
 
 type CommunityTab = "feed" | "files" | "mods" | "profiles" | "members" | "printers";
+
+const feedTypeOptions: Array<{ value: FeedContentType | ""; label: string }> = [
+  { value: "", label: "Todos" },
+  { value: "technical_post", label: "Técnico" },
+  { value: "question", label: "Dúvidas" },
+  { value: "mod", label: "Mods" },
+  { value: "print_result", label: "Resultados" },
+  { value: "file_announcement", label: "Arquivos" },
+  { value: "curation_notice", label: "Curadoria" },
+];
+
+const feedOrderOptions: Array<{ value: FeedOrder; label: string }> = [
+  { value: "recommended", label: "Recomendado" },
+  { value: "recent", label: "Recentes" },
+  { value: "pinned", label: "Fixados" },
+];
 
 const tabs: Array<{ key: CommunityTab; label: string; icon: LucideIcon }> = [
   { key: "feed", label: "Feed", icon: MessageSquare },
@@ -186,7 +202,134 @@ function CommunityTabContent({ community, tab }: { community: CommunityDetail; t
   if (tab === "files") {
     return <Placeholder title="Arquivos" text="A aba está reservada para arquivos públicos vinculados à comunidade; contagem preparada e sem expor arquivos privados." />;
   }
-  return <Placeholder title="Feed" text="Feed técnico reservado para conteúdo público da comunidade, sem misturar organização operacional ou dados privados." />;
+  return <CommunityFeed community={community} />;
+}
+
+function CommunityFeed({ community }: { community: CommunityDetail }) {
+  const [feed, setFeed] = React.useState<CommunityFeedSummary | null>(null);
+  const [contentType, setContentType] = React.useState<FeedContentType | "">("");
+  const [component, setComponent] = React.useState("");
+  const [material, setMaterial] = React.useState("");
+  const [firmware, setFirmware] = React.useState("");
+  const [problem, setProblem] = React.useState("");
+  const [order, setOrder] = React.useState<FeedOrder>("recommended");
+  const [page, setPage] = React.useState(1);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    async function loadFeed() {
+      setLoading(true);
+      setError(null);
+      try {
+        const payload = await socialApi.communityFeed(community.slug, {
+          content_type: contentType,
+          component,
+          material,
+          firmware_family: firmware,
+          problem,
+          order,
+          page,
+          page_size: 10,
+        });
+        if (active) setFeed(payload);
+      } catch (err) {
+        if (active) setError(err instanceof Error ? err.message : "Feed indisponível");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void loadFeed();
+    return () => {
+      active = false;
+    };
+  }, [community.slug, contentType, component, material, firmware, problem, order, page]);
+
+  const resetPage = (action: () => void) => {
+    setPage(1);
+    action();
+  };
+
+  return (
+    <div className="community-feed">
+      <div className="community-feed-header">
+        <div>
+          <h2>Feed técnico</h2>
+          <p>Conteúdo público da comunidade, organizado por contexto técnico.</p>
+        </div>
+        <div className="community-feed-order">
+          <Filter size={15} />
+          <select value={order} onChange={(event) => resetPage(() => setOrder(event.target.value as FeedOrder))}>
+            {feedOrderOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="community-feed-filters">
+        <select value={contentType} onChange={(event) => resetPage(() => setContentType(event.target.value as FeedContentType | ""))}>
+          {feedTypeOptions.map((option) => <option key={option.value || "all"} value={option.value}>{option.label}</option>)}
+        </select>
+        <FilterSelect label="Componente" value={component} options={feed?.filters.components ?? []} onChange={(value) => resetPage(() => setComponent(value))} />
+        <FilterSelect label="Material" value={material} options={feed?.filters.materials ?? []} onChange={(value) => resetPage(() => setMaterial(value))} />
+        <FilterSelect label="Firmware" value={firmware} options={feed?.filters.firmware ?? []} onChange={(value) => resetPage(() => setFirmware(value))} />
+        <FilterSelect label="Problema" value={problem} options={feed?.filters.problems ?? []} onChange={(value) => resetPage(() => setProblem(value))} />
+      </div>
+
+      {loading ? <p>Carregando feed...</p> : error ? <p>{error}</p> : feed && feed.items.length ? (
+        <>
+          <div className="community-feed-list">
+            {feed.items.map((item) => <FeedItemCard key={item.id} item={item} />)}
+          </div>
+          <div className="community-feed-pagination">
+            <button type="button" className="secondary-button" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}><ChevronLeft size={15} />Anterior</button>
+            <span>Página {feed.page}</span>
+            <button type="button" className="secondary-button" disabled={!feed.has_more} onClick={() => setPage((current) => current + 1)}>Próxima<ChevronRight size={15} /></button>
+          </div>
+        </>
+      ) : <Placeholder title="Sem itens no feed" text="Nenhum conteúdo público corresponde aos filtros selecionados." />}
+    </div>
+  );
+}
+
+function FilterSelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return (
+    <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
+      <option value="">{label}</option>
+      {options.map((option) => <option key={option} value={option}>{option}</option>)}
+    </select>
+  );
+}
+
+function FeedItemCard({ item }: { item: CommunityFeedItem }) {
+  return (
+    <article className="community-feed-card">
+      <header>
+        <span>{feedTypeLabel(item.content_type)}</span>
+        {item.pinned ? <strong><Pin size={14} />Fixado</strong> : null}
+      </header>
+      <h3>{item.title}</h3>
+      <p>{item.body}</p>
+      <div className="community-feed-tags">
+        {item.component ? <span>{item.component}</span> : null}
+        {item.material ? <span>{item.material}</span> : null}
+        {item.firmware_family ? <span>{item.firmware_family}</span> : null}
+        {item.problem_tag ? <span>{item.problem_tag}</span> : null}
+      </div>
+      <footer>{item.author_display_name ? `Por ${item.author_display_name}` : "Curadoria da comunidade"}</footer>
+    </article>
+  );
+}
+
+function feedTypeLabel(type: FeedContentType) {
+  return {
+    technical_post: "Post técnico",
+    question: "Dúvida",
+    mod: "Mod",
+    print_result: "Resultado",
+    file_announcement: "Arquivo",
+    curation_notice: "Curadoria",
+  }[type];
 }
 
 function Placeholder({ title, text }: { title: string; text: string }) {

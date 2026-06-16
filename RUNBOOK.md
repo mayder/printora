@@ -24,7 +24,20 @@ Validacao pos-deploy:
 ```bash
 curl -fsS https://print3dmaker.xyz/health
 curl -fsS https://print3dmaker.xyz/api/catalog >/dev/null
+curl -fsS "https://print3dmaker.xyz/api/social/communities/variant-voron-design-voron-2-4-voron-2-4-r2-350/feed?page_size=1" >/dev/null
 ```
+
+Feed técnico por comunidade:
+
+```bash
+curl -fsS "http://127.0.0.1:8069/api/social/communities/<slug>/feed?order=recommended&page_size=10"
+```
+
+O schema do feed é aplicado por `backend/sql/044_social_community_feed.sql`.
+O inicializador cria backup automático do SQLite antes de aplicar scripts
+pendentes em banco existente. Rollback estrutural exige restaurar o backup do
+SQLite anterior ao script `044_social_community_feed.sql`; não execute `DELETE`
+manual em itens de feed sem confirmação explícita.
 
 ## Comandos principais
 

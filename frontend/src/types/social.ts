@@ -3,6 +3,8 @@ export type ProfileVisibility = "public" | "unlisted" | "private";
 export type CommunityStatus = "active" | "uncurated" | "obsolete" | "merged";
 export type RelationshipType = "follow" | "friend" | "block";
 export type RelationshipStatus = "active" | "pending" | "accepted" | "ended";
+export type FeedContentType = "technical_post" | "question" | "mod" | "print_result" | "file_announcement" | "curation_notice";
+export type FeedOrder = "recent" | "recommended" | "pinned";
 
 export interface CatalogVariant {
   id: number;
@@ -151,6 +153,41 @@ export interface CommunityDetail extends Community {
   members: PublicProfile[];
   printers: PublicPrinter[];
   filters: CatalogSummary | null;
+}
+
+export interface CommunityFeedItem {
+  id: number;
+  community_id: number;
+  author_user_id: number | null;
+  author_slug: string | null;
+  author_display_name: string | null;
+  content_type: FeedContentType;
+  title: string;
+  body: string;
+  component: string | null;
+  material: string | null;
+  firmware_family: string | null;
+  problem_tag: string | null;
+  pinned: boolean;
+  source_type: string;
+  source_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommunityFeedSummary {
+  community: Community;
+  items: CommunityFeedItem[];
+  page: number;
+  page_size: number;
+  has_more: boolean;
+  order: FeedOrder;
+  filters: {
+    components: string[];
+    materials: string[];
+    firmware: string[];
+    problems: string[];
+  };
 }
 
 export interface RelationshipRecord {

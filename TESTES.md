@@ -218,6 +218,33 @@ Evidência visual esperada:
 - aba `Relações` com resumo de seguindo, seguidores, amigos e solicitações, sem substituir as ações do perfil público;
 - perfil bloqueado retorna indisponível para usuário autenticado bloqueado;
 - busca de perfis não lista `private`, não mostra usuário bloqueado e mantém payload público sanitizado;
+
+### PKG-54 - Feed técnico por comunidade
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- feed é sempre consultado por comunidade real;
+- endpoint `/api/social/communities/{slug}/feed` retorna paginação, filtros técnicos e ordenação;
+- tipos iniciais incluem post técnico, dúvida, mod, resultado de impressão, anúncio de arquivo e aviso de curadoria;
+- item privado não aparece no feed público;
+- comunidades obsoletas ou mescladas não retornam feed ativo;
+- payload público não expõe Moonraker, SSH, token, credencial, organização, permissão ou host operacional;
+- UI `/c/{slug}` possui aba `Feed` com filtros, ordenação, paginação e estados de carregamento, vazio e erro.
+
+Evidência visual esperada:
+
+- `/c/{slug}` na aba `Feed` com aviso de curadoria fixado;
+- filtros de tipo, componente, material, firmware e problema visíveis;
+- paginação funcional quando houver mais itens;
+- payload inspecionado sem dados operacionais sensíveis.
 - tentativa de acessar impressora operacional por relação social continua bloqueada.
 
 ## Update do agente

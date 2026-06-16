@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260616-01 - Feed técnico é público por comunidade e separado das discussões
+
+Status: aceita
+Data: 2026-06-16
+Contexto: o PKG-54 precisa transformar a aba `Feed` das comunidades em conteúdo real sem antecipar toda a escrita social do PKG-55 e sem misturar organizações operacionais com comunidades públicas.
+Decisao: persistir itens de feed em `social_feed_items`, sempre vinculados a `social_communities`, com tipos técnicos, visibilidade explícita, filtros por componente/material/firmware/problema e ordenações `recent`, `recommended` e `pinned`. O PKG-54 expõe leitura pública paginada e avisos de curadoria derivados do catálogo; criação/edição interativa de posts, comentários e reações fica para o PKG-55.
+Alternativas consideradas: manter placeholder até posts completos; criar timeline global; usar organizações como comunidade; guardar feed apenas no frontend.
+Consequencias: comunidades ganham leitura útil e segura agora, sem conceder permissão operacional e sem expor conteúdo privado. A tabela permite evoluir para posts/discussões sem quebrar o contrato público.
+Impacto em testes: testes cobrem paginação, filtros, ordenação, exclusão de item privado, payload sanitizado e contrato HTTP do feed.
+Impacto em rollback: médio; há novo script SQLite idempotente `044_social_community_feed.sql`. Rollback funcional remove endpoint/UI e mantém dados como legado; rollback estrutural restaura backup SQLite anterior ao script.
+Como reverter: remover `/api/social/communities/{slug}/feed`, métodos de feed em `social_catalog`, integração da aba `Feed`, tipos/serviço frontend e restaurar backup SQLite anterior ao script `044_social_community_feed.sql` se a tabela não puder permanecer.
+Referencias: `backend/sql/044_social_community_feed.sql`, `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, `frontend/src/screens/PublicCommunityScreen.tsx`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260615-05 - Social e descoberta publica, nao gestao proprietaria
 
 Status: aceita

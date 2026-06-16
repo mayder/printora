@@ -7,7 +7,7 @@ from app.config import get_settings
 from app.main import app
 from fastapi.testclient import TestClient
 
-from app.social_catalog import CatalogVariantUpdate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
+from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
 
 
 def test_catalog_seed_has_voron_models_and_variants(tmp_path: Path) -> None:
@@ -741,6 +741,121 @@ def test_community_api_by_slug_contract_is_authenticated_and_sanitized(tmp_path,
             assert "credential" not in dumped
             assert "organization" not in dumped
             assert "permission" not in dumped
+    finally:
+        get_settings.cache_clear()
+
+
+def test_community_feed_filters_pagination_and_private_isolation(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="owner@example.com", password="correct-horse"))
+    repository = SocialCatalogRepository(database_path)
+    printer = PrinterRepository(database_path, user_id=owner.id).create_printer(
+        PrinterCreate(name="Voron real", moonraker_url="http://secret-voron.local:7125", host_audit_mode="disabled")
+    )
+    variant = _variant_id(database_path, "voron-2-4-r2-350")
+    repository.update_profile(owner.id, PublicProfileUpdate(slug="owner-public", display_name="Owner Public", visibility="public"))
+    repository.update_printer_public(printer.id, owner.id, PrinterPublicUpdate(public_profile_enabled=True, catalog_variant_id=variant))
+    community = repository.community_detail("variant-voron-design-voron-2-4-voron-2-4-r2-350")
+    assert community is not None
+
+    repository.create_feed_item(
+        CommunityFeedCreate(
+            community_id=community.id,
+            author_user_id=owner.id,
+            content_type="question",
+            title="Stringing em ABS",
+            body="Retracao e temperatura para ABS em camara quente.",
+            component="extrusor",
+            material="ABS",
+            firmware_family="klipper",
+            problem_tag="stringing",
+        )
+    )
+    repository.create_feed_item(
+        CommunityFeedCreate(
+            community_id=community.id,
+            author_user_id=owner.id,
+            content_type="mod",
+            title="Duto auxiliar",
+            body="Mod de ventilacao para ponte curta.",
+            component="toolhead",
+            material="ASA",
+            firmware_family="klipper",
+            pinned=True,
+        )
+    )
+    repository.create_feed_item(
+        CommunityFeedCreate(
+            community_id=community.id,
+            author_user_id=owner.id,
+            content_type="technical_post",
+            title="Privado",
+            body="Nao deve aparecer",
+            visibility="private",
+        )
+    )
+
+    feed = repository.list_community_feed(community.slug, order="recommended", page_size=2)
+    filtered = repository.list_community_feed(community.slug, content_type="question", material="ABS", problem="stringing")
+
+    assert feed is not None
+    assert filtered is not None
+    assert feed.items
+    assert all(item.title != "Privado" for item in feed.items)
+    assert feed.items[0].pinned is True
+    assert feed.has_more is True
+    assert filtered.items[0].title == "Stringing em ABS"
+    assert "ABS" in filtered.filters["materials"]
+    assert "stringing" in filtered.filters["problems"]
+    assert "secret-voron" not in feed.model_dump_json()
+    assert "moonraker" not in feed.model_dump_json().lower()
+
+
+def test_community_feed_api_contract_is_paginated_and_sanitized(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner = client.post("/api/auth/register", json={"email": "owner@example.com", "password": "correct-horse"})
+            token = owner.json()["access_token"]
+            printer = client.post(
+                "/api/printers",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"name": "Secret Voron", "moonraker_url": "http://secret-voron.local:7125", "host_audit_mode": "disabled"},
+            ).json()
+            variant = _variant_id(tmp_path / "printora.db", "voron-2-4-r2-350")
+            client.put(
+                "/api/social/me/profile",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"slug": "owner-public", "display_name": "Owner Public", "visibility": "public"},
+            )
+            client.put(
+                f"/api/printers/{printer['id']}/public-profile",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"public_profile_enabled": True, "catalog_variant_id": variant, "public_name": "Voron pública"},
+            )
+
+            response = client.get(
+                "/api/social/communities/variant-voron-design-voron-2-4-voron-2-4-r2-350/feed?order=recommended&page_size=5",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            payload = response.json()
+            dumped = str(payload).lower()
+
+            assert response.status_code == 200
+            assert payload["community"]["slug"] == "variant-voron-design-voron-2-4-voron-2-4-r2-350"
+            assert payload["items"]
+            assert payload["items"][0]["content_type"] == "curation_notice"
+            assert payload["page"] == 1
+            assert "components" in payload["filters"]
+            assert "moonraker" not in dumped
+            assert "secret-voron" not in dumped
+            assert "ssh" not in dumped
+            assert "token" not in dumped
+            assert "organization" not in dumped
     finally:
         get_settings.cache_clear()
 

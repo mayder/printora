@@ -18,6 +18,8 @@ ProfileVisibility = Literal["public", "unlisted", "private"]
 CommunityStatus = Literal["active", "uncurated", "obsolete", "merged"]
 RelationshipType = Literal["follow", "friend", "block"]
 RelationshipStatus = Literal["active", "pending", "accepted", "ended"]
+FeedContentType = Literal["technical_post", "question", "mod", "print_result", "file_announcement", "curation_notice"]
+FeedOrder = Literal["recent", "recommended", "pinned"]
 
 
 class CatalogVariant(BaseModel):
@@ -242,6 +244,52 @@ class CommunityDetail(Community):
     members: list[PublicProfile] = Field(default_factory=list)
     printers: list[PublicPrinter] = Field(default_factory=list)
     filters: CatalogSummary | None = None
+
+
+class CommunityFeedItem(BaseModel):
+    id: int
+    community_id: int
+    author_user_id: int | None
+    author_slug: str | None = None
+    author_display_name: str | None = None
+    content_type: FeedContentType
+    title: str
+    body: str
+    component: str | None = None
+    material: str | None = None
+    firmware_family: str | None = None
+    problem_tag: str | None = None
+    pinned: bool = False
+    source_type: str
+    source_id: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class CommunityFeedSummary(BaseModel):
+    community: Community
+    items: list[CommunityFeedItem]
+    page: int
+    page_size: int
+    has_more: bool
+    order: FeedOrder
+    filters: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class CommunityFeedCreate(BaseModel):
+    community_id: int = Field(ge=1)
+    author_user_id: int | None = Field(default=None, ge=1)
+    content_type: FeedContentType
+    title: str = Field(min_length=1, max_length=160)
+    body: str = Field(default="", max_length=1200)
+    component: str | None = Field(default=None, max_length=80)
+    material: str | None = Field(default=None, max_length=80)
+    firmware_family: str | None = Field(default=None, max_length=80)
+    problem_tag: str | None = Field(default=None, max_length=80)
+    pinned: bool = False
+    visibility: Literal["public", "private"] = "public"
+    source_type: str = Field(default="community", max_length=60)
+    source_id: str | None = Field(default=None, max_length=120)
 
 
 class RelationshipRecord(BaseModel):
@@ -843,6 +891,7 @@ class SocialCatalogRepository:
         clean_slug = normalize_slug(slug)
         with connect_database(self.database_path) as connection:
             self.sync_all_communities(connection)
+            self.sync_default_feed_items(connection)
             row = connection.execute(COMMUNITY_SQL + " WHERE c.slug = ?" + COMMUNITY_GROUP_SQL, (clean_slug,)).fetchone()
             if row is None:
                 return None
@@ -878,6 +927,110 @@ class SocialCatalogRepository:
             printers=[] if community.status not in {"active", "uncurated"} else [_public_printer_from_row(printer_row) for printer_row in printer_rows],
             filters=self.list_catalog(),
         )
+
+    def list_community_feed(
+        self,
+        slug: str,
+        *,
+        content_type: FeedContentType | None = None,
+        component: str | None = None,
+        material: str | None = None,
+        firmware_family: str | None = None,
+        problem: str | None = None,
+        order: FeedOrder = "recent",
+        page: int = 1,
+        page_size: int = 20,
+    ) -> CommunityFeedSummary | None:
+        clean_slug = normalize_slug(slug)
+        safe_page = max(page, 1)
+        safe_page_size = min(max(page_size, 1), 50)
+        with connect_database(self.database_path) as connection:
+            self.sync_all_communities(connection)
+            self.sync_default_feed_items(connection)
+            row = connection.execute(COMMUNITY_SQL + " WHERE c.slug = ?" + COMMUNITY_GROUP_SQL, (clean_slug,)).fetchone()
+            if row is None:
+                return None
+            community = _community_from_row(row)
+            clauses = ["f.community_id = ?", "f.visibility = 'public'", "? IN ('active', 'uncurated')"]
+            parameters: list[object] = [community.id, community.status]
+            for column, value in [
+                ("f.content_type", content_type),
+                ("f.component", component),
+                ("f.material", material),
+                ("f.firmware_family", firmware_family),
+                ("f.problem_tag", problem),
+            ]:
+                cleaned = clean_optional_text(value)
+                if cleaned:
+                    clauses.append(f"LOWER({column}) = LOWER(?)")
+                    parameters.append(cleaned)
+            order_sql = {
+                "recent": "f.created_at DESC, f.id DESC",
+                "recommended": "f.pinned DESC, CASE f.content_type WHEN 'curation_notice' THEN 0 WHEN 'question' THEN 1 WHEN 'technical_post' THEN 2 WHEN 'mod' THEN 3 ELSE 4 END, f.created_at DESC, f.id DESC",
+                "pinned": "f.pinned DESC, f.created_at DESC, f.id DESC",
+            }[order]
+            rows = connection.execute(
+                FEED_ITEM_SQL
+                + f"""
+                WHERE {' AND '.join(clauses)}
+                ORDER BY {order_sql}
+                LIMIT ? OFFSET ?
+                """,
+                tuple([*parameters, safe_page_size + 1, (safe_page - 1) * safe_page_size]),
+            ).fetchall()
+            filter_rows = connection.execute(
+                """
+                SELECT component, material, firmware_family, problem_tag
+                FROM social_feed_items
+                WHERE community_id = ? AND visibility = 'public'
+                """,
+                (community.id,),
+            ).fetchall()
+        return CommunityFeedSummary(
+            community=community,
+            items=[_feed_item_from_row(item) for item in rows[:safe_page_size]],
+            page=safe_page,
+            page_size=safe_page_size,
+            has_more=len(rows) > safe_page_size,
+            order=order,
+            filters=_feed_filter_options(filter_rows),
+        )
+
+    def create_feed_item(self, payload: CommunityFeedCreate) -> CommunityFeedItem:
+        with connect_database(self.database_path) as connection:
+            community = connection.execute("SELECT status FROM social_communities WHERE id = ?", (payload.community_id,)).fetchone()
+            if community is None:
+                raise ValueError("comunidade não encontrada")
+            if community["status"] not in {"active", "uncurated"}:
+                raise ValueError("comunidade não aceita novos itens de feed")
+            if payload.author_user_id is not None:
+                self._ensure_user_exists(connection, payload.author_user_id)
+            cursor = connection.execute(
+                """
+                INSERT INTO social_feed_items (
+                    community_id, author_user_id, content_type, title, body, component, material,
+                    firmware_family, problem_tag, pinned, visibility, source_type, source_id
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    payload.community_id,
+                    payload.author_user_id,
+                    payload.content_type,
+                    payload.title.strip(),
+                    payload.body.strip(),
+                    clean_optional_text(payload.component),
+                    clean_optional_text(payload.material),
+                    clean_optional_text(payload.firmware_family),
+                    clean_optional_text(payload.problem_tag),
+                    1 if payload.pinned else 0,
+                    payload.visibility,
+                    payload.source_type.strip()[:60],
+                    clean_optional_text(payload.source_id),
+                ),
+            )
+            row = connection.execute(FEED_ITEM_SQL + "WHERE f.id = ?", (cursor.lastrowid,)).fetchone()
+        return _feed_item_from_row(row)
 
     def set_relationship(self, actor_user_id: int, target_user_id: int, relation_type: RelationshipType, status: RelationshipStatus) -> RelationshipRecord:
         if actor_user_id == target_user_id:
@@ -1069,6 +1222,40 @@ class SocialCatalogRepository:
         for row in variant_rows:
             status = _community_status_from_trust(row["variant_trust_state"], row["model_trust_state"], row["manufacturer_trust_state"])
             self._upsert_community(connection, f"variant-{row['manufacturer_slug']}-{row['model_slug']}-{row['slug']}", str(row["name"]), "variant", row["manufacturer_id"], row["model_id"], row["id"], status)
+
+    def sync_default_feed_items(self, connection) -> None:
+        rows = connection.execute(
+            """
+            SELECT c.id, c.name, c.status, mf.name AS manufacturer_name, m.name AS model_name,
+                   v.name AS variant_name, v.components_json, v.firmware_family
+            FROM social_communities c
+            LEFT JOIN catalog_manufacturers mf ON mf.id = c.manufacturer_id
+            LEFT JOIN catalog_printer_models m ON m.id = c.model_id
+            LEFT JOIN catalog_printer_variants v ON v.id = c.variant_id
+            WHERE c.status IN ('active', 'uncurated')
+            """
+        ).fetchall()
+        for row in rows:
+            source_id = f"community:{row['id']}:curation"
+            context = " / ".join(str(row[key]) for key in ("manufacturer_name", "model_name", "variant_name") if row[key])
+            body = f"Feed técnico para {context or row['name']}. Use filtros por componente, material, firmware, problema e tipo de conteúdo."
+            connection.execute(
+                """
+                INSERT INTO social_feed_items (
+                    community_id, content_type, title, body, component, firmware_family,
+                    pinned, visibility, source_type, source_id
+                )
+                VALUES (?, 'curation_notice', 'Contexto técnico da comunidade', ?, ?, ?, 1, 'public', 'catalog_curation', ?)
+                ON CONFLICT(source_type, source_id) DO UPDATE SET
+                    body = excluded.body,
+                    component = excluded.component,
+                    firmware_family = excluded.firmware_family,
+                    pinned = excluded.pinned,
+                    visibility = excluded.visibility,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (row["id"], body, _primary_component(row["components_json"]), row["firmware_family"], source_id),
+            )
 
     def sync_communities_for_user(self, connection, user_id: int) -> None:
         self.sync_all_communities(connection)
@@ -1310,6 +1497,14 @@ FROM social_relationships r
 LEFT JOIN social_profiles sp ON sp.user_id = r.actor_user_id
 """
 
+FEED_ITEM_SQL = """
+SELECT f.id, f.community_id, f.author_user_id, sp.slug AS author_slug, sp.display_name AS author_display_name,
+       f.content_type, f.title, f.body, f.component, f.material, f.firmware_family, f.problem_tag,
+       f.pinned, f.source_type, f.source_id, f.created_at, f.updated_at
+FROM social_feed_items f
+LEFT JOIN social_profiles sp ON sp.user_id = f.author_user_id AND sp.visibility = 'public'
+"""
+
 
 def normalize_slug(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.strip().lower())
@@ -1525,6 +1720,50 @@ def _community_from_row(row) -> Community:
         file_count=int(row["file_count"] or 0),
         mod_count=int(row["mod_count"] or 0),
     )
+
+
+def _feed_item_from_row(row) -> CommunityFeedItem:
+    return CommunityFeedItem(
+        id=int(row["id"]),
+        community_id=int(row["community_id"]),
+        author_user_id=row["author_user_id"],
+        author_slug=row["author_slug"],
+        author_display_name=row["author_display_name"],
+        content_type=row["content_type"],
+        title=str(row["title"]),
+        body=str(row["body"] or ""),
+        component=row["component"],
+        material=row["material"],
+        firmware_family=row["firmware_family"],
+        problem_tag=row["problem_tag"],
+        pinned=bool(row["pinned"]),
+        source_type=str(row["source_type"]),
+        source_id=row["source_id"],
+        created_at=str(row["created_at"]),
+        updated_at=str(row["updated_at"]),
+    )
+
+
+def _feed_filter_options(rows) -> dict[str, list[str]]:
+    values: dict[str, set[str]] = {"components": set(), "materials": set(), "firmware": set(), "problems": set()}
+    for row in rows:
+        if row["component"]:
+            values["components"].add(str(row["component"]))
+        if row["material"]:
+            values["materials"].add(str(row["material"]))
+        if row["firmware_family"]:
+            values["firmware"].add(str(row["firmware_family"]))
+        if row["problem_tag"]:
+            values["problems"].add(str(row["problem_tag"]))
+    return {key: sorted(item for item in option_values if item) for key, option_values in values.items()}
+
+
+def _primary_component(value: str | None) -> str | None:
+    components = _json_dict(value)
+    for key in ("toolhead", "extruder", "probe", "mainboard", "hotend", "bed"):
+        if components.get(key):
+            return str(components[key])[:80]
+    return None
 
 
 def _relationship_from_row(row) -> RelationshipRecord:
