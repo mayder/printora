@@ -11,6 +11,7 @@ from app.database import connect_database, initialize_database
 FollowersVisibility = Literal["public", "followers", "friends", "private"]
 MessagesFrom = Literal["public", "followers", "friends", "none"]
 AbuseSignalStatus = Literal["active", "reviewing", "resolved", "dismissed"]
+_INITIALIZED_SCHEMA_PATHS: set[str] = set()
 
 
 class SocialSafetySettings(BaseModel):
@@ -64,7 +65,11 @@ class SocialSafetyRepository:
         self.database_path = database_path
 
     def ensure_schema(self) -> None:
+        schema_key = str(self.database_path)
+        if schema_key in _INITIALIZED_SCHEMA_PATHS:
+            return
         initialize_database(self.database_path)
+        _INITIALIZED_SCHEMA_PATHS.add(schema_key)
 
     def settings(self, user_id: int) -> SocialSafetySettings:
         self.ensure_schema()
