@@ -265,6 +265,12 @@ export interface LibraryItem {
   supports_required: boolean;
   orientation_notes: string | null;
   license: LibraryLicense;
+  original_author_name: string | null;
+  source_url: string | null;
+  attribution_text: string | null;
+  remix_source_item_id: number | null;
+  remix_source_title: string | null;
+  publication_terms_accepted_at: string | null;
   status: "active" | "archived";
   files: LibraryFileMetadata[];
   download_count: number;

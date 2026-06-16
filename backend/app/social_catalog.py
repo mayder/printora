@@ -474,6 +474,11 @@ class LibraryItemBase(BaseModel):
     supports_required: bool = False
     orientation_notes: str | None = Field(default=None, max_length=500)
     license: LibraryLicense = "all-rights-reserved"
+    original_author_name: str | None = Field(default=None, max_length=160)
+    source_url: str | None = Field(default=None, max_length=500)
+    attribution_text: str | None = Field(default=None, max_length=500)
+    remix_source_item_id: int | None = Field(default=None, ge=1)
+    publication_terms_accepted: bool = False
     files: list[LibraryFileMetadata] = Field(min_length=1, max_length=12)
 
     @field_validator("title", "description", "orientation_notes")
@@ -485,6 +490,16 @@ class LibraryItemBase(BaseModel):
     @classmethod
     def clean_short_text(cls, value: str | None) -> str | None:
         return clean_optional_text(value)
+
+    @field_validator("original_author_name", "attribution_text")
+    @classmethod
+    def clean_credit_text(cls, value: str | None) -> str | None:
+        return clean_discussion_text(value) if value is not None else None
+
+    @field_validator("source_url")
+    @classmethod
+    def clean_source_url(cls, value: str | None) -> str | None:
+        return validate_public_url(value, field_name="source_url", allowed_hosts=None)
 
     @field_validator("community_slug")
     @classmethod
@@ -508,6 +523,11 @@ class LibraryItemUpdate(BaseModel):
     supports_required: bool | None = None
     orientation_notes: str | None = Field(default=None, max_length=500)
     license: LibraryLicense | None = None
+    original_author_name: str | None = Field(default=None, max_length=160)
+    source_url: str | None = Field(default=None, max_length=500)
+    attribution_text: str | None = Field(default=None, max_length=500)
+    remix_source_item_id: int | None = Field(default=None, ge=1)
+    publication_terms_accepted: bool | None = None
     files: list[LibraryFileMetadata] | None = Field(default=None, min_length=1, max_length=12)
 
     @field_validator("title", "description", "orientation_notes")
@@ -519,6 +539,16 @@ class LibraryItemUpdate(BaseModel):
     @classmethod
     def clean_short_text(cls, value: str | None) -> str | None:
         return clean_optional_text(value)
+
+    @field_validator("original_author_name", "attribution_text")
+    @classmethod
+    def clean_credit_text(cls, value: str | None) -> str | None:
+        return clean_discussion_text(value) if value is not None else None
+
+    @field_validator("source_url")
+    @classmethod
+    def clean_source_url(cls, value: str | None) -> str | None:
+        return validate_public_url(value, field_name="source_url", allowed_hosts=None)
 
     @field_validator("community_slug")
     @classmethod
@@ -547,6 +577,12 @@ class LibraryItem(BaseModel):
     supports_required: bool
     orientation_notes: str | None = None
     license: LibraryLicense
+    original_author_name: str | None = None
+    source_url: str | None = None
+    attribution_text: str | None = None
+    remix_source_item_id: int | None = None
+    remix_source_title: str | None = None
+    publication_terms_accepted_at: str | None = None
     status: Literal["active", "archived"]
     files: list[LibraryFileMetadata] = Field(default_factory=list)
     download_count: int = 0
@@ -1301,13 +1337,16 @@ class SocialCatalogRepository:
             self._ensure_profile_for_user(connection, actor_user_id)
             community_id = self._library_community_id(connection, payload.community_slug, payload.visibility)
             self._ensure_library_variant(connection, payload.catalog_variant_id)
+            self._ensure_library_item_publishable(connection, payload.visibility, payload.license, payload.original_author_name, payload.publication_terms_accepted, payload.remix_source_item_id)
             cursor = connection.execute(
                 """
                 INSERT INTO social_library_items (
                     owner_user_id, community_id, catalog_variant_id, title, description, visibility,
-                    component, version_label, material_suggestion, supports_required, orientation_notes, license
+                    component, version_label, material_suggestion, supports_required, orientation_notes, license,
+                    original_author_name, source_url, attribution_text, remix_source_item_id,
+                    publication_terms_accepted_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END)
                 """,
                 (
                     actor_user_id,
@@ -1322,6 +1361,11 @@ class SocialCatalogRepository:
                     1 if payload.supports_required else 0,
                     clean_optional_text(payload.orientation_notes),
                     payload.license,
+                    clean_optional_text(payload.original_author_name),
+                    clean_optional_text(payload.source_url),
+                    clean_optional_text(payload.attribution_text),
+                    payload.remix_source_item_id,
+                    1 if payload.publication_terms_accepted else 0,
                 ),
             )
             item_id = int(cursor.lastrowid)
@@ -1373,6 +1417,26 @@ class SocialCatalogRepository:
             if "license" in data and payload.license is not None:
                 updates.append("license = ?")
                 parameters.append(payload.license)
+            for column, value in [
+                ("original_author_name", payload.original_author_name),
+                ("source_url", payload.source_url),
+                ("attribution_text", payload.attribution_text),
+            ]:
+                if column in data:
+                    updates.append(f"{column} = ?")
+                    parameters.append(clean_optional_text(value))
+            if "remix_source_item_id" in data:
+                self._ensure_library_remix_source(connection, payload.remix_source_item_id, item_id)
+                updates.append("remix_source_item_id = ?")
+                parameters.append(payload.remix_source_item_id)
+            if payload.publication_terms_accepted is True:
+                updates.append("publication_terms_accepted_at = COALESCE(publication_terms_accepted_at, CURRENT_TIMESTAMP)")
+            resulting_visibility = payload.visibility or existing["visibility"]
+            resulting_license = payload.license or existing["license"]
+            resulting_author = payload.original_author_name if "original_author_name" in data else existing["original_author_name"]
+            resulting_terms = bool(payload.publication_terms_accepted) or existing["publication_terms_accepted_at"] is not None
+            resulting_remix = payload.remix_source_item_id if "remix_source_item_id" in data else existing["remix_source_item_id"]
+            self._ensure_library_item_publishable(connection, resulting_visibility, resulting_license, resulting_author, resulting_terms, resulting_remix, current_item_id=item_id)
             if updates:
                 updates.append("updated_at = CURRENT_TIMESTAMP")
                 connection.execute(f"UPDATE social_library_items SET {', '.join(updates)} WHERE id = ?", (*parameters, item_id))
@@ -2232,6 +2296,39 @@ class SocialCatalogRepository:
         if row is None:
             raise ValueError("variante de catálogo inválida")
 
+    def _ensure_library_remix_source(self, connection, remix_source_item_id: int | None, current_item_id: int | None = None) -> None:
+        if remix_source_item_id is None:
+            return
+        if current_item_id is not None and remix_source_item_id == current_item_id:
+            raise ValueError("remix não pode referenciar o próprio item")
+        row = connection.execute(
+            "SELECT id FROM social_library_items WHERE id = ? AND status = 'active'",
+            (remix_source_item_id,),
+        ).fetchone()
+        if row is None:
+            raise ValueError("item de origem do remix não encontrado")
+
+    def _ensure_library_item_publishable(
+        self,
+        connection,
+        visibility: LibraryVisibility,
+        license_value: LibraryLicense,
+        original_author_name: str | None,
+        publication_terms_accepted: bool,
+        remix_source_item_id: int | None,
+        *,
+        current_item_id: int | None = None,
+    ) -> None:
+        self._ensure_library_remix_source(connection, remix_source_item_id, current_item_id)
+        if visibility not in {"public", "community"}:
+            return
+        if not clean_optional_text(original_author_name):
+            raise ValueError("publicação pública exige autoria declarada")
+        if not license_value:
+            raise ValueError("publicação pública exige licença")
+        if not publication_terms_accepted:
+            raise ValueError("publicação pública exige aceite dos termos")
+
     def _replace_library_files(self, connection, item_id: int, files: list[LibraryFileMetadata]) -> None:
         if not files:
             raise ValueError("item de biblioteca exige pelo menos um arquivo")
@@ -2439,6 +2536,8 @@ SELECT li.id, li.owner_user_id, sp.slug AS owner_slug, sp.display_name AS owner_
        li.catalog_variant_id, mf.name AS manufacturer_name, m.name AS model_name, v.name AS variant_name,
        li.title, li.description, li.visibility, li.component, li.version_label,
        li.material_suggestion, li.supports_required, li.orientation_notes, li.license,
+       li.original_author_name, li.source_url, li.attribution_text, li.remix_source_item_id,
+       remix.title AS remix_source_title, li.publication_terms_accepted_at,
        li.status, li.created_at, li.updated_at,
        COUNT(DISTINCT d.id) AS download_count
 FROM social_library_items li
@@ -2448,6 +2547,7 @@ LEFT JOIN catalog_printer_variants v ON v.id = li.catalog_variant_id
 LEFT JOIN catalog_printer_models m ON m.id = v.model_id
 LEFT JOIN catalog_manufacturers mf ON mf.id = m.manufacturer_id
 LEFT JOIN social_library_downloads d ON d.item_id = li.id
+LEFT JOIN social_library_items remix ON remix.id = li.remix_source_item_id
 """
 
 FEED_ITEM_SQL = """
@@ -2995,6 +3095,12 @@ def _library_item_from_row(row, file_rows) -> LibraryItem:
         supports_required=bool(row["supports_required"]),
         orientation_notes=row["orientation_notes"],
         license=row["license"],
+        original_author_name=row["original_author_name"],
+        source_url=row["source_url"],
+        attribution_text=row["attribution_text"],
+        remix_source_item_id=row["remix_source_item_id"],
+        remix_source_title=row["remix_source_title"],
+        publication_terms_accepted_at=row["publication_terms_accepted_at"],
         status=row["status"],
         files=[
             LibraryFileMetadata(

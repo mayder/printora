@@ -1037,6 +1037,10 @@ def test_library_items_visibility_catalog_links_and_downloads(tmp_path: Path) ->
             supports_required=True,
             orientation_notes="Imprimir apoiado na face plana.",
             license="cc-by-sa",
+            original_author_name="Owner",
+            source_url="https://example.com/duct",
+            attribution_text="Crédito ao Owner.",
+            publication_terms_accepted=True,
             files=[LibraryFileMetadata(file_kind="stl", file_name="duct.stl", original_url="https://example.com/duct.stl", sha256="a" * 64)],
         ),
     )
@@ -1114,6 +1118,10 @@ def test_library_api_contract_filters_private_items(tmp_path, monkeypatch) -> No
                     "community_slug": "variant-voron-design-voron-2-4-voron-2-4-r2-350",
                     "catalog_variant_id": variant,
                     "license": "cc-by",
+                    "original_author_name": "Owner Public",
+                    "source_url": "https://example.com/fan-shroud",
+                    "attribution_text": "Crédito ao Owner Public.",
+                    "publication_terms_accepted": True,
                     "files": [{"file_kind": "stl", "file_name": "fan-shroud.stl", "original_url": "https://example.com/fan-shroud.stl"}],
                 },
             )
@@ -1139,6 +1147,8 @@ def test_library_api_contract_filters_private_items(tmp_path, monkeypatch) -> No
                     "title": "Unsafe",
                     "visibility": "public",
                     "license": "cc0",
+                    "original_author_name": "Owner Public",
+                    "publication_terms_accepted": True,
                     "files": [{"file_kind": "stl", "file_name": "../unsafe.stl"}],
                 },
             )
@@ -1293,6 +1303,84 @@ def test_library_analysis_failure_is_scoped_to_file(tmp_path: Path) -> None:
     assert failed_file.analysis["status"] == "failed"
     assert analyzed.id == item.id
     assert len(analyzed.files) >= 2
+
+
+def test_library_publication_requires_author_terms_and_keeps_attribution(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="owner@example.com", password="correct-horse"))
+    repository = SocialCatalogRepository(database_path)
+    repository.get_or_create_profile(owner.id)
+
+    try:
+        repository.create_library_item(
+            owner.id,
+            LibraryItemCreate(
+                title="Sem autoria",
+                visibility="public",
+                license="cc-by",
+                files=[LibraryFileMetadata(file_kind="stl", file_name="model.stl")],
+            ),
+        )
+    except ValueError as exc:
+        assert "autoria" in str(exc)
+    else:
+        raise AssertionError("public item without author should fail")
+
+    created = repository.create_library_item(
+        owner.id,
+        LibraryItemCreate(
+            title="Com crédito",
+            visibility="public",
+            license="cc-by",
+            original_author_name="Owner Maker",
+            source_url="https://example.com/original",
+            attribution_text="Modelo publicado por Owner Maker.",
+            publication_terms_accepted=True,
+            files=[LibraryFileMetadata(file_kind="stl", file_name="model.stl")],
+        ),
+    )
+
+    assert created.original_author_name == "Owner Maker"
+    assert created.source_url == "https://example.com/original"
+    assert created.publication_terms_accepted_at is not None
+
+
+def test_library_remix_references_origin_when_public(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="owner@example.com", password="correct-horse"))
+    repository = SocialCatalogRepository(database_path)
+    repository.get_or_create_profile(owner.id)
+    original = repository.create_library_item(
+        owner.id,
+        LibraryItemCreate(
+            title="Origem",
+            visibility="public",
+            license="cc-by-sa",
+            original_author_name="Autor Original",
+            publication_terms_accepted=True,
+            files=[LibraryFileMetadata(file_kind="stl", file_name="origin.stl")],
+        ),
+    )
+    remix = repository.create_library_item(
+        owner.id,
+        LibraryItemCreate(
+            title="Remix",
+            visibility="public",
+            license="cc-by-sa",
+            original_author_name="Autor Remix",
+            attribution_text="Derivado com crédito ao modelo original.",
+            remix_source_item_id=original.id,
+            publication_terms_accepted=True,
+            files=[LibraryFileMetadata(file_kind="stl", file_name="remix.stl")],
+        ),
+    )
+
+    assert remix.remix_source_item_id == original.id
+    assert remix.remix_source_title == "Origem"
 
 
 def test_social_relationship_block_ends_follow_and_friendship(tmp_path: Path) -> None:

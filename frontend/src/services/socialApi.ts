@@ -109,6 +109,11 @@ export interface LibraryItemPayload {
   supports_required?: boolean;
   orientation_notes?: string | null;
   license: LibraryLicense;
+  original_author_name?: string | null;
+  source_url?: string | null;
+  attribution_text?: string | null;
+  remix_source_item_id?: number | null;
+  publication_terms_accepted?: boolean;
   files: LibraryFilePayload[];
 }
 

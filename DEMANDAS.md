@@ -3708,7 +3708,7 @@ Estado atual:
 - Alertas básicos cobrem arquivo vazio/sem vértices, malha inválida, escala suspeita, dimensões incompatíveis e orientação alta.
 - Thumbnail SVG é gerado a partir do bounding box e renderizado no card; falha de análise fica como `analysis_failed` no arquivo, sem bloquear o item/biblioteca.
 - UI da aba `Arquivos` exibe ação `Analisar`, preview, dimensões, volume, triângulos e mensagens de alerta em estado controlado.
-- Validação focada concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q` e `cd frontend && npm run build`.
+- Validação concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q`, `cd frontend && npm run build`, `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh` e fluxo local via API bloqueando publicação pública sem autoria/termos e aceitando item com créditos.
 
 ## PKG-59: Licenças, Autoria E Atribuição De Modelos
 
@@ -3746,7 +3746,12 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado com `backend/sql/049_social_library_license_attribution.sql`, adicionando autoria original, fonte pública, texto de atribuição, origem de remix e aceite de termos por item.
+- Publicação `public` ou `community` exige autoria declarada, licença e aceite dos termos; itens privados continuam podendo ser rascunhos sem publicação pública.
+- Remix/derivado pode referenciar item de origem ativo e não pode apontar para si mesmo.
+- Download/listagem mostram licença e autoria de forma clara em cards de comunidade e perfil público.
+- UI de cadastro inclui autor original, fonte, crédito/atribuição e aceite de termos separado do upload/análise.
+- Validação focada concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q` e `cd frontend && npm run build`.
 
 ## PKG-60: Versionamento, Remix E Derivados De Modelos
 

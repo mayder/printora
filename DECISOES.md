@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260616-06 - Publicação pública exige autoria, licença e termos
+
+Status: aceita
+Data: 2026-06-16
+Contexto: o PKG-59 precisa reduzir risco legal da biblioteca e deixar direitos de uso claros antes de downloads e remixes.
+Decisao: itens `public` e `community` exigem `original_author_name`, `license` e aceite de termos antes da publicação. Fonte pública, atribuição e origem de remix ficam no item; itens privados podem existir como rascunho sem exposição pública. Remix referencia item ativo e não pode apontar para si mesmo.
+Alternativas consideradas: permitir publicação pública com licença padrão implícita; deixar autoria apenas como dono do perfil; postergar remix para versionamento.
+Consequencias: downloads e listagens passam a exibir crédito/licença claramente, e pacotes posteriores podem versionar/remixar sem perder cadeia de atribuição.
+Impacto em testes: testes cobrem bloqueio sem autoria/termos, persistência de créditos e referência de remix.
+Impacto em rollback: médio; há novo script SQLite `049_social_library_license_attribution.sql`.
+Como reverter: remover validação de publicação, campos de UI/contrato de autoria/licença avançada e restaurar backup SQLite anterior ao script `049_social_library_license_attribution.sql` se necessário.
+Referencias: `backend/sql/049_social_library_license_attribution.sql`, `backend/app/social_catalog.py`, `frontend/src/screens/PublicCommunityScreen.tsx`, `frontend/src/screens/PublicProfileScreen.tsx`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260616-05 - Análise 3D usa parser controlado e preview derivado
 
 Status: aceita

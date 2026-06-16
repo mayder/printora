@@ -233,6 +233,10 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
     supports_required: false,
     orientation_notes: "",
     license: "cc-by" as LibraryLicense,
+    original_author_name: "",
+    source_url: "",
+    attribution_text: "",
+    publication_terms_accepted: false,
     file_kind: "stl" as LibraryFileKind,
     file_name: "",
     original_url: "",
@@ -273,6 +277,10 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
         supports_required: draft.supports_required,
         orientation_notes: draft.orientation_notes || null,
         license: draft.license,
+        original_author_name: draft.original_author_name || null,
+        source_url: draft.source_url || null,
+        attribution_text: draft.attribution_text || null,
+        publication_terms_accepted: draft.publication_terms_accepted,
         files: [{
           file_kind: draft.file_kind,
           file_name: draft.file_name,
@@ -283,7 +291,7 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
         created = await socialApi.uploadLibraryFile(created.id, uploadFile);
       }
       setItems((current) => [created, ...current.filter((item) => item.id !== created.id)]);
-      setDraft((current) => ({ ...current, title: "", description: "", file_name: "", original_url: "", component: "", material_suggestion: "", orientation_notes: "" }));
+      setDraft((current) => ({ ...current, title: "", description: "", file_name: "", original_url: "", component: "", material_suggestion: "", orientation_notes: "", original_author_name: "", source_url: "", attribution_text: "", publication_terms_accepted: false }));
       setUploadFile(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível cadastrar arquivo");
@@ -337,6 +345,12 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
         </div>
         <textarea value={draft.description} maxLength={1200} placeholder="Descrição técnica, compatibilidade e contexto de uso" onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} />
         <div className="community-discussion-form-row">
+          <input value={draft.original_author_name} placeholder="Autor original" onChange={(event) => setDraft((current) => ({ ...current, original_author_name: event.target.value }))} />
+          <input value={draft.source_url} placeholder="Fonte pública" onChange={(event) => setDraft((current) => ({ ...current, source_url: event.target.value }))} />
+          <input value={draft.attribution_text} placeholder="Crédito e atribuição" onChange={(event) => setDraft((current) => ({ ...current, attribution_text: event.target.value }))} />
+          <label className="community-toggle"><input type="checkbox" checked={draft.publication_terms_accepted} onChange={(event) => setDraft((current) => ({ ...current, publication_terms_accepted: event.target.checked }))} />Termos</label>
+        </div>
+        <div className="community-discussion-form-row">
           <select value={draft.file_kind} onChange={(event) => setDraft((current) => ({ ...current, file_kind: event.target.value as LibraryFileKind }))}>
             <option value="stl">STL</option>
             <option value="3mf">3MF</option>
@@ -383,6 +397,13 @@ function LibraryItemCard({ item, onDownload, onArchive, onAnalyze }: { item: Lib
         <strong>{item.version_label}</strong>
       </header>
       {item.description ? <p>{item.description}</p> : null}
+      <div className="community-license-strip">
+        <span>{licenseLabel(item.license)}</span>
+        <span>{item.original_author_name ? `Autor: ${item.original_author_name}` : "Autoria não declarada"}</span>
+        {item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer"><ExternalLink size={14} />Fonte</a> : null}
+        {item.remix_source_title ? <span>Derivado de {item.remix_source_title}</span> : null}
+      </div>
+      {item.attribution_text ? <small>{item.attribution_text}</small> : null}
       {analyzedFile?.thumbnail_svg ? <div className="community-model-preview" dangerouslySetInnerHTML={{ __html: analyzedFile.thumbnail_svg }} /> : null}
       {analyzedFile ? <ModelAnalysisSummary file={analyzedFile} /> : null}
       <div className="community-feed-tags">

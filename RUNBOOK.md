@@ -100,6 +100,16 @@ biblioteca inteira. Rollback funcional remove endpoint/UI de análise e mantém
 metadados; rollback estrutural exige backup SQLite anterior ao script
 `048_social_library_analysis.sql`.
 
+Licenças, autoria e atribuição:
+
+O schema de direitos de uso é aplicado por
+`backend/sql/049_social_library_license_attribution.sql`. Itens `public` ou
+`community` exigem autoria original, licença e aceite de termos. Fonte pública e
+atribuição são metadados do item e devem acompanhar download/listagem. Rollback
+funcional remove validações/UI de licença avançada e mantém dados; rollback
+estrutural exige backup SQLite anterior ao script
+`049_social_library_license_attribution.sql`.
+
 ## Comandos principais
 
 ```bash

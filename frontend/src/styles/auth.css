@@ -471,6 +471,27 @@
   color: var(--text-muted);
 }
 
+.community-license-strip {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.community-license-strip span,
+.community-license-strip a {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  display: inline-flex;
+  font-size: 0.82rem;
+  gap: 4px;
+  padding: 4px 8px;
+  text-decoration: none;
+}
+
 .community-toggle {
   border: 1px solid var(--border);
   border-radius: 8px;

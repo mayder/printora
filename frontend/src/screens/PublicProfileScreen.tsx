@@ -188,7 +188,7 @@ export function PublicProfileScreen({ slug }: PublicProfileScreenProps) {
                     </div>
                     <span>{item.files.map((file) => file.file_name).join(", ")}</span>
                     {item.description ? <p>{item.description}</p> : null}
-                    <small>{item.version_label} / {item.license} / {item.download_count} downloads</small>
+                    <small>{item.version_label} / {item.license} / {item.original_author_name || "autoria não declarada"} / {item.download_count} downloads</small>
                     <button type="button" className="secondary-button" onClick={() => void socialApi.registerLibraryDownload(item.id)}>
                       <Download size={15} />
                       Download

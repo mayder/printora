@@ -360,6 +360,31 @@ Evidência visual esperada:
 - card exibindo preview SVG, dimensões, volume, triângulos e alertas;
 - estado `analysis_failed` exibido de forma controlada quando o arquivo não é analisável.
 
+### PKG-59 - Licenças, autoria e atribuição de modelos
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- item público/comunitário exige autoria declarada, licença e aceite de termos;
+- item privado pode permanecer como rascunho sem publicação pública;
+- fonte pública é validada como URL externa segura;
+- texto de atribuição rejeita markup/script;
+- remix referencia item de origem ativo e não pode referenciar o próprio item;
+- cards de comunidade e perfil exibem licença/autoria junto ao download.
+
+Evidência visual esperada:
+
+- formulário de `Arquivos` com `Autor original`, `Fonte pública`, `Crédito e atribuição` e aceite de `Termos`;
+- card da biblioteca com licença, autor, fonte e origem de remix quando houver;
+- download sempre acompanhado de licença visível.
+
 ## Update do agente
 
 Validação focada:
