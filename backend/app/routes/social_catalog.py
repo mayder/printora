@@ -269,7 +269,7 @@ async def list_social_communities(
     model: str | None = None,
     variant: str | None = None,
     component: str | None = None,
-    _current: CurrentUser | None = Depends(require_current_user_when_configured),
+    _current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> list[Community]:
     return repository.list_communities(
@@ -283,7 +283,7 @@ async def list_social_communities(
 @router.get("/api/social/communities/{slug}", response_model=CommunityDetail)
 async def get_social_community(
     slug: str,
-    _current: CurrentUser | None = Depends(require_current_user_when_configured),
+    _current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> CommunityDetail:
     community = repository.community_detail(slug)
@@ -303,7 +303,7 @@ async def get_social_community_feed(
     order: FeedOrder = "recent",
     page: int = 1,
     page_size: int = 20,
-    _current: CurrentUser | None = Depends(require_current_user_when_configured),
+    _current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> CommunityFeedSummary:
     feed = repository.list_community_feed(

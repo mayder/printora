@@ -1052,7 +1052,6 @@ def test_community_feed_api_contract_is_paginated_and_sanitized(tmp_path, monkey
 
             response = client.get(
                 "/api/social/communities/variant-voron-design-voron-2-4-voron-2-4-r2-350/feed?order=recommended&page_size=5",
-                headers={"Authorization": f"Bearer {token}"},
             )
             payload = response.json()
             dumped = str(payload).lower()
