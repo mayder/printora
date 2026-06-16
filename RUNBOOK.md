@@ -248,10 +248,22 @@ curl -s "http://127.0.0.1:8069/api/social/communities?manufacturer=voron-design&
 curl -s http://127.0.0.1:8069/api/social/communities/<community_slug> -H "Authorization: Bearer <token>"
 curl -s http://127.0.0.1:8069/api/social/me/profile -H "Authorization: Bearer <token>"
 curl -s http://127.0.0.1:8069/api/social/profiles/<slug>
+curl -s http://127.0.0.1:8069/api/social/profiles
 curl -s http://127.0.0.1:8069/api/social/profiles/<slug>/printers
 curl -s "http://127.0.0.1:8069/api/social/printers?manufacturer=voron&mod=tap"
 curl -s http://127.0.0.1:8069/api/public/printers/<printer_id>
 ```
+
+Tela Social:
+
+- abrir `/?section=social` autenticado;
+- validar abas `Comunidades`, `Impressoras`, `Makers` e `Relações`;
+- confirmar que a primeira tela não mostra formulário principal de edição de perfil, publicação/despublicação de impressora ou curadoria administrativa de catálogo;
+- na aba `Comunidades`, validar filtros por fabricante, modelo, variante e componente, contagens e abertura de `/c/<community_slug>`;
+- na aba `Impressoras`, validar filtros por fabricante, modelo, variante e mod, cards com nome público, variante, mods e dono, e abertura de `/p/<printer_id>`;
+- na aba `Makers`, validar diretório/busca de perfis públicos, bio curta, contagem de impressoras públicas e abertura de `/u/<slug>`;
+- na aba `Relações`, validar resumo de seguindo, seguidores, amigos e solicitações; ações completas devem permanecer nos perfis públicos ou em `Conta > Perfil`;
+- inspecionar payloads públicos e confirmar ausência de Moonraker, SSH, agente, token, IP operacional, organização e permissões.
 
 Perfil social do usuário:
 

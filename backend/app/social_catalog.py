@@ -176,6 +176,7 @@ class PublicProfile(BaseModel):
     updated_at: str
     viewer_blocked: bool = False
     reserved_slugs: list[str] = Field(default_factory=list)
+    public_printer_count: int = 0
 
 
 class PrinterPublicUpdate(BaseModel):
@@ -623,18 +624,26 @@ class SocialCatalogRepository:
         profile = _profile_from_row(row)
         return profile.model_copy(update={"viewer_blocked": viewer_blocked})
 
-    def search_profiles(self, query: str, viewer_user_id: int | None = None) -> list[PublicProfile]:
-        cleaned = normalize_slug(query)
+    def search_profiles(self, query: str | None = None, viewer_user_id: int | None = None) -> list[PublicProfile]:
+        cleaned = normalize_slug(query) if clean_optional_text(query) else ""
         like = f"%{cleaned}%"
         with connect_database(self.database_path) as connection:
             rows = connection.execute(
                 """
-                SELECT sp.*
+                SELECT sp.*,
+                       COUNT(DISTINCT CASE WHEN p.public_profile_enabled = 1 THEN p.id END) AS public_printer_count
                 FROM social_profiles sp
+                LEFT JOIN printers p ON p.owner_user_id = sp.user_id
                 WHERE sp.visibility != 'private'
                   AND (
-                    sp.slug = ?
-                    OR (sp.visibility = 'public' AND LOWER(sp.display_name || ' ' || sp.slug) LIKE ?)
+                    (? = '' AND sp.visibility = 'public')
+                    OR (
+                      ? != ''
+                      AND (
+                        sp.slug = ?
+                        OR (sp.visibility = 'public' AND LOWER(sp.display_name || ' ' || sp.slug) LIKE ?)
+                      )
+                    )
                   )
                   AND (
                     ? IS NULL OR NOT EXISTS (
@@ -647,10 +656,11 @@ class SocialCatalogRepository:
                         )
                     )
                   )
-                ORDER BY CASE WHEN sp.slug = ? THEN 0 ELSE 1 END, sp.display_name
+                GROUP BY sp.user_id
+                ORDER BY CASE WHEN sp.slug = ? THEN 0 ELSE 1 END, sp.updated_at DESC, sp.display_name
                 LIMIT 20
                 """,
-                (cleaned, like, viewer_user_id, viewer_user_id, viewer_user_id, cleaned),
+                (cleaned, cleaned, cleaned, like, viewer_user_id, viewer_user_id, viewer_user_id, cleaned),
             ).fetchall()
         return [_profile_from_row(row) for row in rows]
 
@@ -1452,6 +1462,7 @@ def _community_status_from_trust(*states: str) -> CommunityStatus:
 
 
 def _profile_from_row(row) -> PublicProfile:
+    keys = set(row.keys())
     return PublicProfile(
         user_id=int(row["user_id"]),
         slug=str(row["slug"]),
@@ -1463,6 +1474,7 @@ def _profile_from_row(row) -> PublicProfile:
         visibility=row["visibility"],
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
+        public_printer_count=int(row["public_printer_count"]) if "public_printer_count" in keys and row["public_printer_count"] is not None else 0,
     )
 
 

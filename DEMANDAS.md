@@ -3325,7 +3325,7 @@ Critério de aceite:
 Estado atual:
 
 - Fechado em implementação local: tabela `social_profiles`, histórico mínimo de slug, endpoints `/api/social/me/profile`, `/api/social/profiles/{slug}` e `/api/social/profiles/{slug}/printers`.
-- Gestão principal do perfil social fica em `Conta > Perfil > Público`, acessada pelo menu do usuário logado no topo; a tela `Social` apenas referencia o perfil e mantém comunidades/publicação social.
+- Gestão principal do perfil social fica em `Conta > Perfil > Público`, acessada pelo menu do usuário logado no topo; a tela `Social` apenas descobre/lista makers públicos e abre `/u/{slug}`.
 - Página pública real por slug fica em `/u/{slug}` no frontend e consome o contrato público por API.
 - Perfil público separa nome, bio, avatar, localização, links e impressoras públicas da conta operacional, sem expor email, WhatsApp, organizações, permissões, agente, Moonraker, SSH, token ou host operacional.
 - Slug duplicado e slug antigo de outro usuário são bloqueados; slugs antigos do próprio usuário ficam reservados e visíveis na gestão do perfil.
@@ -3376,6 +3376,7 @@ Estado atual:
 - Gestão principal de publicação fica no detalhe da impressora real, com estado `Privada`, `Pública`, `Pendente de variante` ou `Indisponível por variante`.
 - Página pública real da impressora fica em `/p/{printer_id}` e consome `GET /api/public/printers/{printer_id}`.
 - Busca/listagem pública fica em `GET /api/social/printers`, com filtros por fabricante, modelo, variante e mod.
+- A aba `Impressoras` da tela `Social` lista impressoras públicas e abre `/p/{printer_id}`; publicar/despublicar continua somente no detalhe da impressora real.
 - Publicação exige `catalog_variant_id` canônico válido, não aceita variantes `blocked`/`obsolete` e pertence ao usuário autenticado dono da impressora.
 - Imagens públicas aceitam somente URLs HTTPS públicas, com limite de quantidade e tamanho textual.
 - Impressora privada ou perfil `private` não aparece em busca, perfil, comunidade nem página pública direta.
@@ -3424,7 +3425,7 @@ Estado atual:
 - Implementado via `social_communities` e `social_community_members`.
 - Comunidades são derivadas automaticamente por fabricante, modelo e variante do catálogo.
 - Associação do usuário é sincronizada a partir das impressoras públicas de perfis públicos e removida quando a publicação é desligada, o perfil fica `private` ou a variante/modelo muda.
-- Tela `Social` lista comunidades com filtros canônicos por fabricante, modelo, variante e componente, escopo, status, contagens e ação de abrir.
+- A aba `Comunidades` da tela `Social` lista comunidades com filtros canônicos por fabricante, modelo, variante e componente, escopo, status, contagens e ação de abrir.
 - Página real `/c/{slug}` mostra comunidade, contexto canônico, contagens, estado e abas de feed, arquivos, mods, perfis, membros e impressoras públicas.
 - `active` e `uncurated` aceitam vínculo automático; `obsolete` fica histórico sem novas associações; `merged` aponta destino quando `merged_into_id` existir e não recebe novos vínculos.
 - Contagens de membros, impressoras e mods consideram somente impressoras públicas de perfis públicos; `file_count` fica preparado como 0 até a estrutura de arquivos do pacote próprio.
@@ -3471,8 +3472,8 @@ Estado atual:
 - Implementado via `social_relationships`.
 - APIs permitem seguir, deixar de seguir, solicitar/aceitar/recusar/cancelar amizade, desfazer amizade, bloquear, desbloquear, consultar resumo relacional e buscar perfis por slug/nome público.
 - Bloqueio encerra follows/amizades existentes, impede nova relação social e não é restaurado automaticamente no desbloqueio.
-- Perfil público `/u/{slug}` contém ações sociais no contexto correto; a tela Social mostra resumo, busca de perfis, seguidores, seguindo, amigos, solicitações e bloqueados.
-- Busca/descoberta não lista perfis `private`, só expõe `unlisted` por slug direto, respeita bloqueio autenticado e não retorna email, WhatsApp, organização nem permissões.
+- Perfil público `/u/{slug}` contém ações sociais no contexto correto; a tela Social mostra apenas resumo de seguidores, seguindo, amigos e solicitações, deixando ações completas no perfil público ou em `Conta > Perfil`.
+- Busca/descoberta de makers não lista perfis `private`; diretório sem termo lista apenas perfis `public`; `unlisted` só aparece por slug direto; bloqueio autenticado é respeitado e não retorna email, WhatsApp, organização nem permissões.
 - Relações sociais não alteram organizações, ownership ou permissões de impressora.
 - Histórico mínimo de relacionamento é registrado em `catalog_audit_events` com `entity_type='social_relationship'`, IDs e ação, sem payload sensível; retenção operacional: 180 dias.
 - Testes cobrem ciclo completo de follow/friend/block, privacidade, idempotência, busca, payload sanitizado e isolamento operacional.

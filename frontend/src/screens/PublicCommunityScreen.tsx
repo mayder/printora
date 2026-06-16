@@ -1,5 +1,6 @@
 import React from "react";
-import { Archive, Box, FileText, Lock, Printer, SlidersHorizontal, UserRound, Users, Wrench } from "lucide-react";
+import { Archive, ArrowLeft, Box, ExternalLink, FileText, FolderOpen, Lock, MessageSquare, Printer, SlidersHorizontal, UserRound, Users, Wrench } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { socialApi } from "../services/socialApi";
 import type { Community, CommunityDetail } from "../types";
 
@@ -9,13 +10,13 @@ interface PublicCommunityScreenProps {
 
 type CommunityTab = "feed" | "files" | "mods" | "profiles" | "members" | "printers";
 
-const tabs: Array<{ key: CommunityTab; label: string }> = [
-  { key: "feed", label: "Feed" },
-  { key: "files", label: "Arquivos" },
-  { key: "mods", label: "Mods" },
-  { key: "profiles", label: "Perfis" },
-  { key: "members", label: "Membros" },
-  { key: "printers", label: "Impressoras públicas" },
+const tabs: Array<{ key: CommunityTab; label: string; icon: LucideIcon }> = [
+  { key: "feed", label: "Feed", icon: MessageSquare },
+  { key: "files", label: "Arquivos", icon: FolderOpen },
+  { key: "mods", label: "Mods", icon: Wrench },
+  { key: "profiles", label: "Perfis", icon: UserRound },
+  { key: "members", label: "Membros", icon: Users },
+  { key: "printers", label: "Impressoras públicas", icon: Printer },
 ];
 
 export function PublicCommunityScreen({ slug }: PublicCommunityScreenProps) {
@@ -48,7 +49,7 @@ export function PublicCommunityScreen({ slug }: PublicCommunityScreenProps) {
     <main className="public-profile-shell">
       <section className="public-profile-topbar">
         <img src="/brand/printora-logo-horizontal-color.png" alt="Printora" />
-        <a href="/?section=social" className="secondary-button">Social</a>
+        <a href="/?section=social" className="secondary-button"><ArrowLeft size={16} />Social</a>
       </section>
 
       {loading ? (
@@ -71,7 +72,7 @@ export function PublicCommunityScreen({ slug }: PublicCommunityScreenProps) {
               <p>{statusDescription(community)}</p>
               <div className="public-profile-meta">
                 <span><Box size={15} />{communityContext(community)}</span>
-                {community.merged_into_slug ? <a href={`/c/${community.merged_into_slug}`}>Abrir destino</a> : null}
+                {community.merged_into_slug ? <a href={`/c/${community.merged_into_slug}`}><ExternalLink size={15} />Abrir destino</a> : null}
               </div>
             </div>
           </header>
@@ -84,11 +85,15 @@ export function PublicCommunityScreen({ slug }: PublicCommunityScreenProps) {
           </section>
 
           <nav className="community-tabs" aria-label="Abas da comunidade">
-            {tabs.map((tab) => (
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
               <button key={tab.key} type="button" className={activeTab === tab.key ? "active" : ""} onClick={() => setActiveTab(tab.key)}>
+                <Icon size={16} />
                 {tab.label}
               </button>
-            ))}
+              );
+            })}
           </nav>
 
           <section className="public-profile-grid community-tab-grid">
@@ -110,7 +115,7 @@ export function PublicCommunityScreen({ slug }: PublicCommunityScreenProps) {
   );
 }
 
-function CommunityMetric({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: number }) {
+function CommunityMetric({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: number }) {
   return (
     <div className="social-metric">
       <Icon size={17} />
@@ -140,7 +145,7 @@ function CommunityTabContent({ community, tab }: { community: CommunityDetail; t
               </div>
               <span>{printer.manufacturer_name} / {printer.model_name} / {printer.variant_name}</span>
               {printer.public_description ? <p>{printer.public_description}</p> : null}
-              <a href={`/p/${printer.id}`}>Abrir impressora pública</a>
+              <a href={`/p/${printer.id}`}><ExternalLink size={15} />Abrir impressora pública</a>
             </section>
           ))}
           {community.printers.length === 0 ? <p>Nenhuma impressora pública nesta comunidade.</p> : null}
@@ -161,7 +166,7 @@ function CommunityTabContent({ community, tab }: { community: CommunityDetail; t
               </div>
               <span>@{member.slug}</span>
               {member.bio ? <p>{member.bio}</p> : null}
-              <a href={`/u/${member.slug}`}>Abrir perfil público</a>
+              <a href={`/u/${member.slug}`}><ExternalLink size={15} />Abrir perfil público</a>
             </section>
           ))}
           {community.members.length === 0 ? <p>Nenhum perfil público nesta comunidade.</p> : null}

@@ -319,7 +319,7 @@ function App() {
               : activeSection === "agents"
                 ? "Lista global de agentes da frota"
               : activeSection === "social"
-                ? "Perfil público, catálogo e comunidades"
+                ? "Descoberta pública e comunidade"
               : activeSection === "reports"
                 ? "Relatórios globais; diagnóstico de impressora fica no detalhe"
               : activeSection === "about"

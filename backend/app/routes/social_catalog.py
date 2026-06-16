@@ -168,7 +168,7 @@ async def get_public_profile(
 
 @router.get("/api/social/profiles", response_model=list[PublicProfile])
 async def search_public_profiles(
-    q: str,
+    q: str | None = None,
     current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> list[PublicProfile]:

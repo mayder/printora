@@ -144,6 +144,7 @@ Cenários cobertos:
 - contrato público de impressora não expõe Moonraker, IP, SSH, agente, token, credencial, organização ou permissão;
 - perfil `private` não lista impressoras e remove vínculo público de comunidade;
 - fluxo principal de publicação/despublicação mantém busca e comunidades consistentes.
+- `/?section=social` lista impressoras públicas reais com filtros canônicos e não contém ação principal de publicar/despublicar.
 
 Evidência visual esperada:
 
@@ -178,7 +179,7 @@ Cenários cobertos:
 
 Evidência visual esperada:
 
-- `/?section=social` com lista de comunidades, filtros, escopo, status, contagens e ação de abrir;
+- `/?section=social` na aba `Comunidades` com lista de comunidades, filtros, escopo, status, contagens e ação de abrir;
 - `/c/{slug}` com cabeçalho, contexto técnico, abas, contagens e impressoras públicas;
 - aba `Mods` com mods públicos quando existirem e placeholder quando vazia;
 - comunidade obsoleta/mesclada sem membros/impressoras ativas e destino de merge quando configurado;
@@ -203,6 +204,7 @@ Cenários cobertos:
 - bloqueio impede follow, solicitação de amizade e visualização autenticada de perfil/impressoras públicas;
 - desbloqueio não restaura follow nem amizade automaticamente;
 - perfil `private` não entra em descoberta; `unlisted` só aparece por slug direto;
+- diretório de makers sem termo lista somente perfis `public` e mostra contagem de impressoras públicas;
 - busca/descoberta de perfis respeita bloqueio e não expõe email, WhatsApp, organização ou permissões;
 - payloads de relacionamento não retornam dados operacionais ou sensíveis;
 - relações entre usuários de organizações diferentes não concedem acesso a impressora, Moonraker, agente, SSH, token, organização, ownership ou permissão;
@@ -211,7 +213,9 @@ Cenários cobertos:
 Evidência visual esperada:
 
 - `/u/{slug}` autenticado com ações `Seguir`, `Deixar de seguir`, `Solicitar amizade`, `Aceitar`, `Recusar`, `Cancelar solicitação`, `Desfazer amizade`, `Bloquear` e `Desbloquear`;
-- `/?section=social` autenticado com busca de perfis, seguidores, seguindo, amigos, solicitações pendentes/enviadas e bloqueados;
+- `/?section=social` autenticado com abas `Comunidades`, `Impressoras`, `Makers` e `Relações`;
+- aba `Makers` com busca/lista de perfis públicos, bio curta e contagem de impressoras públicas, sem formulário de edição de perfil;
+- aba `Relações` com resumo de seguindo, seguidores, amigos e solicitações, sem substituir as ações do perfil público;
 - perfil bloqueado retorna indisponível para usuário autenticado bloqueado;
 - busca de perfis não lista `private`, não mostra usuário bloqueado e mantém payload público sanitizado;
 - tentativa de acessar impressora operacional por relação social continua bloqueada.

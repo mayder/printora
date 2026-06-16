@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260615-05 - Social e descoberta publica, nao gestao proprietaria
+
+Status: aceita
+Data: 2026-06-15
+Contexto: os pacotes PKG-49 a PKG-53 foram implementados com contratos separados, mas a tela Social acumulava edição de perfil, publicação de impressora, catálogo, comunidades e relações, criando uma experiência confusa e com risco de misturar descoberta pública com gestão operacional.
+Decisao: a seção `Social` passa a ser somente descoberta pública e comunidade. Ela possui abas para `Comunidades`, `Impressoras`, `Makers` e `Relações`, consumindo catálogo canônico, perfis públicos, impressoras publicadas e resumo relacional. Gestão de perfil fica em `Conta > Perfil > Público`; publicar/despublicar impressora fica no detalhe da impressora; curadoria do catálogo fica na seção `Catálogo`/admin; ações sociais completas ficam em `/u/{slug}` ou `Conta > Perfil`.
+Alternativas consideradas: manter formulários de gestão dentro de Social; criar uma tela social fake para recursos futuros; transformar Social em administração de catálogo; deixar publicação de impressora fora do inventário real.
+Consequencias: a primeira tela Social fica navegável, sem formulário bruto, e reforça que relações sociais não concedem acesso operacional. Recursos futuros devem entrar como conteúdo real ou permanecer ocultos até terem entrega útil.
+Impacto em testes: validação cobre ausência de formulário principal de perfil e de ação principal de publicar impressora em Social, filtros canônicos, comunidades reais, impressoras públicas, makers públicos, resumo de relações e ausência de dados sensíveis.
+Impacto em rollback: baixo; rollback funcional reverte `frontend/src/screens/SocialScreen.tsx`, estilos sociais e a listagem sem termo de `/api/social/profiles`. Nenhum schema novo foi criado.
+Como reverter: restaurar a tela Social anterior e voltar `GET /api/social/profiles` a exigir `q`, mantendo perfil, publicação, catálogo e comunidades nos contextos proprietários já existentes.
+Referencias: `frontend/src/screens/SocialScreen.tsx`, `frontend/src/styles/social.css`, `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260614-01 - Social usa catálogo canônico e não permissões operacionais
 
 Status: aceita

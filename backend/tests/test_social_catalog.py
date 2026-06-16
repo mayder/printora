@@ -936,6 +936,7 @@ def test_social_profile_discovery_visibility_blocking_and_operational_isolation(
             )
 
             public_search = client.get("/api/social/profiles?q=owner").json()
+            public_directory = client.get("/api/social/profiles").json()
             unlisted_exact = client.get("/api/social/profiles?q=peer-unlisted").json()
             unlisted_name = client.get("/api/social/profiles?q=hidden").json()
             operational_blocked = client.get(f"/api/printers/{printer['id']}", headers={"Authorization": f"Bearer {peer_token}"})
@@ -948,6 +949,8 @@ def test_social_profile_discovery_visibility_blocking_and_operational_isolation(
             summary = client.get("/api/social/me/relationships", headers={"Authorization": f"Bearer {owner_token}"}).json()
 
             assert any(item["slug"] == "owner-public" for item in public_search)
+            assert any(item["slug"] == "owner-public" and item["public_printer_count"] == 1 for item in public_directory)
+            assert all(item["slug"] != "peer-unlisted" for item in public_directory)
             assert [item["slug"] for item in unlisted_exact] == ["peer-unlisted"]
             assert all(item["slug"] != "peer-unlisted" for item in unlisted_name)
             assert operational_blocked.status_code == 404

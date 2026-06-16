@@ -99,6 +99,7 @@ export interface PublicProfile {
   updated_at: string;
   viewer_blocked?: boolean;
   reserved_slugs?: string[];
+  public_printer_count?: number;
 }
 
 export interface PublicPrinter {

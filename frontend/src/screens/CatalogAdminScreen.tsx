@@ -3,7 +3,7 @@ import { ArrowLeft, Boxes, Check, ChevronDown, ChevronLeft, ChevronRight, Databa
 import type { LucideIcon } from "lucide-react";
 import { socialApi, type CatalogAdminFilters } from "../services/socialApi";
 import type { ScreenPropsFor } from "./ScreenProps";
-import type { CatalogAdminSummary, CatalogModelAdmin, CatalogTrustState, CatalogVariant } from "../types";
+import type { CatalogAdminSummary, CatalogModelAdmin, CatalogSummary, CatalogTrustState, CatalogVariant } from "../types";
 
 type CatalogAdminScreenProps = ScreenPropsFor<"authUser" | "setError">;
 
@@ -47,8 +47,8 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
     setBusy(true);
     try {
       const [referencePayload, filteredPayload] = await Promise.all([
-        referenceCatalog.models.length ? Promise.resolve(referenceCatalog) : socialApi.adminCatalog(),
-        socialApi.adminCatalog(nextFilters),
+        referenceCatalog.models.length ? Promise.resolve(referenceCatalog) : loadReadableCatalog(),
+        loadReadableCatalog(nextFilters),
       ]);
       setReferenceCatalog(referencePayload);
       setCatalog(filteredPayload);
@@ -192,6 +192,86 @@ export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenPro
       )}
     </div>
   );
+}
+
+async function loadReadableCatalog(filters: CatalogAdminFilters = {}): Promise<CatalogAdminSummary> {
+  try {
+    return await socialApi.adminCatalog(filters);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (!message.toLowerCase().includes("curadoria do catálogo restrita")) {
+      throw err;
+    }
+    const catalog = await socialApi.catalog();
+    return filterPublicCatalog(toAdminCatalog(catalog), filters);
+  }
+}
+
+function toAdminCatalog(catalog: CatalogSummary): CatalogAdminSummary {
+  const models = catalog.manufacturers.flatMap((manufacturer) =>
+    manufacturer.models.map((model): CatalogModelAdmin => ({
+      ...model,
+      manufacturer_id: manufacturer.id,
+      manufacturer_slug: manufacturer.slug,
+      manufacturer_name: manufacturer.name,
+      manufacturer_website_url: null,
+      manufacturer_repository_url: null,
+      manufacturer_documentation_url: null,
+      manufacturer_logo_url: null,
+      manufacturer_discord_url: null,
+      manufacturer_reddit_url: null,
+      manufacturer_summary: null,
+      website_url: null,
+      repository_url: null,
+      documentation_url: null,
+      bom_url: null,
+      image_url: null,
+      discord_url: null,
+      reddit_url: null,
+      forum_url: null,
+      description: null,
+      curation_notes: null,
+      detail: {},
+      source_links: {},
+    })),
+  );
+  return {
+    models,
+    manufacturer_count: catalog.manufacturers.length,
+    model_count: models.length,
+    variant_count: models.reduce((total, model) => total + model.variants.length, 0),
+  };
+}
+
+function filterPublicCatalog(catalog: CatalogAdminSummary, filters: CatalogAdminFilters): CatalogAdminSummary {
+  const filteredModels = catalog.models
+    .map((model) => ({
+      ...model,
+      variants: model.variants.filter((variant) => variantMatchesFilters(model, variant, filters)),
+    }))
+    .filter((model) => modelMatchesFilters(model, filters) && model.variants.length > 0);
+  return {
+    models: filteredModels,
+    manufacturer_count: new Set(filteredModels.map((model) => model.manufacturer_slug)).size,
+    model_count: filteredModels.length,
+    variant_count: filteredModels.reduce((total, model) => total + model.variants.length, 0),
+  };
+}
+
+function modelMatchesFilters(model: CatalogModelAdmin, filters: CatalogAdminFilters): boolean {
+  if (filters.manufacturer && model.manufacturer_slug !== filters.manufacturer) return false;
+  if (filters.model && model.slug !== filters.model) return false;
+  if (filters.kinematics && model.kinematics !== filters.kinematics) return false;
+  if (filters.trust_state && model.trust_state !== filters.trust_state && !model.variants.some((variant) => variant.trust_state === filters.trust_state)) return false;
+  return true;
+}
+
+function variantMatchesFilters(model: CatalogModelAdmin, variant: CatalogVariant, filters: CatalogAdminFilters): boolean {
+  if (filters.variant && variant.slug !== filters.variant) return false;
+  if (filters.component && !Object.keys(variant.components).includes(filters.component)) return false;
+  if (filters.firmware_family && variant.firmware_family !== filters.firmware_family) return false;
+  if (filters.trust_state && model.trust_state !== filters.trust_state && variant.trust_state !== filters.trust_state) return false;
+  return true;
 }
 
 function CatalogPagination({ page, pageSize, totalItems, onPageChange }: { page: number; pageSize: number; totalItems: number; onPageChange: (page: number) => void }) {
