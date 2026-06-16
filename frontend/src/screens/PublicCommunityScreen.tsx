@@ -62,10 +62,10 @@ export function PublicCommunityScreen({ slug }: PublicCommunityScreenProps) {
   }, [slug]);
 
   return (
-    <main className="public-profile-shell">
+    <main className="public-profile-shell public-community-shell">
       <section className="public-profile-topbar">
         <img src="/brand/printora-logo-horizontal-color.png" alt="Printora" />
-        <a href="/?section=social" className="secondary-button"><ArrowLeft size={16} />Social</a>
+        <a href="/?section=social" className="secondary-button"><ArrowLeft size={16} />Voltar ao Social</a>
       </section>
 
       {loading ? (
@@ -79,9 +79,7 @@ export function PublicCommunityScreen({ slug }: PublicCommunityScreenProps) {
       ) : community ? (
         <section className="public-profile-page">
           <header className="public-profile-hero public-community-hero">
-            <div className="public-avatar">
-              <Users size={36} />
-            </div>
+            <CommunityBrandMark community={community} />
             <div>
               <span className="account-eyebrow">{scopeLabel(community.scope)} / {statusLabel(community.status)}</span>
               <h1>{community.name}</h1>
@@ -137,6 +135,14 @@ function CommunityMetric({ icon: Icon, label, value }: { icon: LucideIcon; label
       <Icon size={17} />
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function CommunityBrandMark({ community }: { community: CommunityDetail }) {
+  return (
+    <div className="public-avatar community-brand-avatar">
+      {community.manufacturer_logo_url ? <img src={community.manufacturer_logo_url} alt="" /> : <span>{brandInitials(community.manufacturer_name ?? community.name)}</span>}
     </div>
   );
 }
@@ -1050,4 +1056,8 @@ function statusDescription(community: CommunityDetail) {
 
 function communityContext(community: Community) {
   return [community.manufacturer_name, community.model_name, community.variant_name].filter(Boolean).join(" / ") || "Catálogo mestre";
+}
+
+function brandInitials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "P";
 }

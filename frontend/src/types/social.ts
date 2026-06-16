@@ -139,6 +139,7 @@ export interface Community {
   manufacturer_id: number | null;
   manufacturer_slug?: string | null;
   manufacturer_name?: string | null;
+  manufacturer_logo_url?: string | null;
   model_id: number | null;
   model_slug?: string | null;
   model_name?: string | null;

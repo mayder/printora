@@ -236,6 +236,7 @@ class Community(BaseModel):
     manufacturer_id: int | None
     manufacturer_slug: str | None = None
     manufacturer_name: str | None = None
+    manufacturer_logo_url: str | None = None
     model_id: int | None
     model_slug: str | None = None
     model_name: str | None = None
@@ -3137,7 +3138,8 @@ JOIN catalog_manufacturers mf ON mf.id = m.manufacturer_id
 
 COMMUNITY_SQL = """
 SELECT c.id, c.slug, c.name, c.scope, c.status, c.manufacturer_id, mf.slug AS manufacturer_slug,
-       mf.name AS manufacturer_name, c.model_id, m.slug AS model_slug, m.name AS model_name,
+       mf.name AS manufacturer_name, mf.logo_url AS manufacturer_logo_url,
+       c.model_id, m.slug AS model_slug, m.name AS model_name,
        c.variant_id, v.slug AS variant_slug, v.name AS variant_name,
        c.merged_into_id, merged.slug AS merged_into_slug, merged.name AS merged_into_name,
        COUNT(DISTINCT CASE
@@ -3169,7 +3171,7 @@ LEFT JOIN social_library_items li ON li.community_id = c.id
 """
 
 COMMUNITY_GROUP_SQL = """
-GROUP BY c.id, c.slug, c.name, c.scope, c.status, c.manufacturer_id, mf.slug, mf.name,
+GROUP BY c.id, c.slug, c.name, c.scope, c.status, c.manufacturer_id, mf.slug, mf.name, mf.logo_url,
          c.model_id, m.slug, m.name, c.variant_id, v.slug, v.name,
          c.merged_into_id, merged.slug, merged.name
 """
@@ -3692,6 +3694,7 @@ def _community_from_row(row) -> Community:
         manufacturer_id=row["manufacturer_id"],
         manufacturer_slug=row["manufacturer_slug"],
         manufacturer_name=row["manufacturer_name"],
+        manufacturer_logo_url=clean_optional_text(row["manufacturer_logo_url"]),
         model_id=row["model_id"],
         model_slug=row["model_slug"],
         model_name=row["model_name"],

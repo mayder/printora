@@ -214,16 +214,21 @@
   gap: 10px;
 }
 
+.social-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+}
+
 .community-row,
 .public-printer-list article,
 .maker-card {
-  align-items: center;
+  align-items: start;
   background: var(--panel-soft);
   border: 1px solid var(--border);
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-columns: 44px minmax(0, 1fr);
   padding: 12px;
 }
 
@@ -249,11 +254,11 @@
 
 .community-row b {
   display: block;
-  text-align: right;
+  text-align: left;
 }
 
 .public-printer-card {
-  grid-template-columns: minmax(0, 1fr) minmax(120px, auto) auto;
+  grid-template-columns: 44px minmax(0, 1fr);
 }
 
 .public-printer-card a,
@@ -275,7 +280,7 @@
 }
 
 .maker-card {
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .maker-avatar {
@@ -304,7 +309,70 @@
 
 .maker-card b {
   display: block;
-  text-align: right;
+  text-align: left;
+}
+
+.social-count {
+  align-items: baseline;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.social-open-button {
+  grid-column: 2;
+  justify-self: start;
+  min-height: 34px;
+  padding-inline: 10px;
+}
+
+.social-brand-mark {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--accent);
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 900;
+  height: 44px;
+  justify-content: center;
+  overflow: hidden;
+  width: 44px;
+}
+
+.social-brand-mark img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.social-result-toolbar,
+.social-pagination {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.social-result-toolbar {
+  justify-content: space-between;
+}
+
+.social-result-toolbar > div {
+  display: grid;
+  gap: 3px;
+}
+
+.social-result-toolbar span,
+.social-pagination span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.social-pagination {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
 }
 
 .relationship-block {
@@ -378,7 +446,7 @@
   .community-row,
   .public-printer-card,
   .maker-card {
-    grid-template-columns: 1fr 1fr auto;
+    grid-template-columns: 42px minmax(0, 1fr);
   }
 
   .maker-avatar {

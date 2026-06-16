@@ -1,5 +1,5 @@
 import React from "react";
-import { ExternalLink, Filter, Globe2, RefreshCw, Search, Shield, UserRound, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, Filter, Globe2, RefreshCw, Search, Shield, UserRound, Users } from "lucide-react";
 import { socialApi } from "../services/socialApi";
 import type { ScreenPropsFor } from "./ScreenProps";
 import type { CatalogSummary, Community, PublicPrinter, PublicProfile, RelationshipRecord, RelationshipSummary } from "../types";
@@ -7,6 +7,7 @@ import type { CatalogSummary, Community, PublicPrinter, PublicProfile, Relations
 type SocialScreenProps = ScreenPropsFor<"setError">;
 type SocialTab = "communities" | "printers" | "makers" | "relationships";
 type SocialFilters = { manufacturer: string; model: string; variant: string; component: string; mod: string };
+const pageSize = 12;
 
 const socialTabs: Array<{ key: SocialTab; label: string; icon: typeof Users }> = [
   { key: "communities", label: "Comunidades", icon: Users },
@@ -24,6 +25,7 @@ export function SocialScreen({ setError }: SocialScreenProps) {
   const [relationships, setRelationships] = React.useState<RelationshipSummary | null>(null);
   const [makerSearch, setMakerSearch] = React.useState("");
   const [filters, setFilters] = React.useState<SocialFilters>({ manufacturer: "", model: "", variant: "", component: "", mod: "" });
+  const [pages, setPages] = React.useState<Record<SocialTab, number>>({ communities: 1, printers: 1, makers: 1, relationships: 1 });
   const [busy, setBusy] = React.useState(false);
 
   async function loadDiscovery() {
@@ -51,6 +53,7 @@ export function SocialScreen({ setError }: SocialScreenProps) {
       setCommunities(communitiesPayload);
       setPublicPrinters(printersPayload);
       setMakers(makersPayload);
+      setPages((current) => ({ ...current, communities: 1, printers: 1, makers: 1 }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao carregar descoberta social");
     }
@@ -128,10 +131,10 @@ export function SocialScreen({ setError }: SocialScreenProps) {
           />
         ) : null}
 
-        {activeTab === "communities" ? <CommunitiesTab communities={communities} /> : null}
-        {activeTab === "printers" ? <PrintersTab printers={publicPrinters} /> : null}
+        {activeTab === "communities" ? <CommunitiesTab communities={communities} page={pages.communities} setPage={(page) => setPages((current) => ({ ...current, communities: page }))} /> : null}
+        {activeTab === "printers" ? <PrintersTab printers={publicPrinters} page={pages.printers} setPage={(page) => setPages((current) => ({ ...current, printers: page }))} /> : null}
         {activeTab === "makers" ? (
-          <MakersTab makers={makers} makerSearch={makerSearch} setMakerSearch={setMakerSearch} searchMakers={searchMakers} busy={busy} />
+          <MakersTab makers={makers} makerSearch={makerSearch} setMakerSearch={setMakerSearch} searchMakers={searchMakers} busy={busy} page={pages.makers} setPage={(page) => setPages((current) => ({ ...current, makers: page }))} />
         ) : null}
         {activeTab === "relationships" ? <RelationshipsTab relationships={relationships} /> : null}
       </section>
@@ -210,52 +213,74 @@ function CatalogFilters({
   );
 }
 
-function CommunitiesTab({ communities }: { communities: Community[] }) {
+function CommunitiesTab({ communities, page, setPage }: { communities: Community[]; page: number; setPage: (page: number) => void }) {
+  const visible = pageItems(communities, page);
   return (
-    <div className="community-list">
-      {communities.map((community) => (
+    <>
+    <div className="social-result-toolbar">
+      <div>
+        <strong>Comunidades técnicas</strong>
+        <span>{communities.length} comunidades encontradas, {visible.length} nesta página</span>
+      </div>
+      <Pagination total={communities.length} page={page} setPage={setPage} />
+    </div>
+    <div className="community-list social-card-grid">
+      {visible.map((community) => (
         <article key={community.id} className={`community-row ${community.member_count > 0 ? "active" : ""}`}>
+          <BrandMark name={community.manufacturer_name ?? community.name} logoUrl={community.manufacturer_logo_url} />
           <div>
             <strong>{community.name}</strong>
             <span>{scopeLabel(community.scope)} · {statusLabel(community.status)}</span>
             <small>{communityContext(community)}</small>
           </div>
-          <div>
+          <div className="social-count">
             <b>{community.member_count}</b>
             <small>membros</small>
           </div>
-          <div>
+          <div className="social-count">
             <b>{community.printer_count}</b>
             <small>impressoras</small>
           </div>
-          <a className="icon-button" href={`/c/${community.slug}`} aria-label={`Abrir comunidade ${community.name}`}>
-            <ExternalLink size={15} />
+          <a className="secondary-button social-open-button" href={`/c/${community.slug}`} aria-label={`Abrir comunidade ${community.name}`}>
+            <ExternalLink size={15} />Abrir
           </a>
         </article>
       ))}
       {communities.length === 0 ? <EmptyState title="Nenhuma comunidade encontrada" text="Ajuste os filtros do catálogo ou publique uma impressora com variante canônica para criar vínculos públicos." /> : null}
     </div>
+    </>
   );
 }
 
-function PrintersTab({ printers }: { printers: PublicPrinter[] }) {
+function PrintersTab({ printers, page, setPage }: { printers: PublicPrinter[]; page: number; setPage: (page: number) => void }) {
+  const visible = pageItems(printers, page);
   return (
-    <div className="public-printer-list">
-      {printers.map((printer) => (
+    <>
+    <div className="social-result-toolbar">
+      <div>
+        <strong>Impressoras públicas</strong>
+        <span>{printers.length} impressoras encontradas, {visible.length} nesta página</span>
+      </div>
+      <Pagination total={printers.length} page={page} setPage={setPage} />
+    </div>
+    <div className="public-printer-list social-card-grid">
+      {visible.map((printer) => (
         <article key={printer.id} className="public-printer-card">
+          <BrandMark name={printer.manufacturer_name} />
           <div>
             <strong>{printer.public_name}</strong>
             <span>{printer.manufacturer_name} / {printer.model_name} / {printer.variant_name}</span>
             <small>{publicMods(printer).length ? publicMods(printer).join(", ") : "Sem mods públicos"}</small>
           </div>
           <a href={printer.owner_slug ? `/u/${printer.owner_slug}` : undefined}>{printer.owner_display_name ?? "Maker"}</a>
-          <a className="icon-button" href={`/p/${printer.id}`} aria-label={`Abrir impressora pública ${printer.public_name}`}>
-            <ExternalLink size={15} />
+          <a className="secondary-button social-open-button" href={`/p/${printer.id}`} aria-label={`Abrir impressora pública ${printer.public_name}`}>
+            <ExternalLink size={15} />Abrir
           </a>
         </article>
       ))}
       {printers.length === 0 ? <EmptyState title="Nenhuma impressora pública encontrada" text="Social lista somente impressoras publicadas por perfis públicos. Publicação é feita no detalhe da impressora." /> : null}
     </div>
+    </>
   );
 }
 
@@ -265,13 +290,18 @@ function MakersTab({
   setMakerSearch,
   searchMakers,
   busy,
+  page,
+  setPage,
 }: {
   makers: PublicProfile[];
   makerSearch: string;
   setMakerSearch: React.Dispatch<React.SetStateAction<string>>;
   searchMakers: () => Promise<void>;
   busy: boolean;
+  page: number;
+  setPage: (page: number) => void;
 }) {
+  const visible = pageItems(makers, page);
   return (
     <div className="makers-tab">
       <div className="social-profile-search">
@@ -287,8 +317,15 @@ function MakersTab({
           Buscar
         </button>
       </div>
-      <div className="maker-list">
-        {makers.map((maker) => (
+      <div className="social-result-toolbar">
+        <div>
+          <strong>Makers públicos</strong>
+          <span>{makers.length} makers encontrados, {visible.length} nesta página</span>
+        </div>
+        <Pagination total={makers.length} page={page} setPage={setPage} />
+      </div>
+      <div className="maker-list social-card-grid">
+        {visible.map((maker) => (
           <article key={maker.user_id} className="maker-card">
             <div className="maker-avatar">
               {maker.avatar_url ? <img src={maker.avatar_url} alt="" /> : <UserRound size={20} />}
@@ -302,8 +339,8 @@ function MakersTab({
               <b>{maker.public_printer_count ?? 0}</b>
               <small>impressoras</small>
             </div>
-            <a className="icon-button" href={`/u/${maker.slug}`} aria-label={`Abrir perfil público de ${maker.display_name}`}>
-              <ExternalLink size={15} />
+            <a className="secondary-button social-open-button" href={`/u/${maker.slug}`} aria-label={`Abrir perfil público de ${maker.display_name}`}>
+              <ExternalLink size={15} />Abrir
             </a>
           </article>
         ))}
@@ -311,6 +348,37 @@ function MakersTab({
       </div>
     </div>
   );
+}
+
+function Pagination({ total, page, setPage }: { total: number; page: number; setPage: (page: number) => void }) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  return (
+    <div className="social-pagination">
+      <button type="button" className="icon-button" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1} aria-label="Página anterior">
+        <ChevronLeft size={15} />
+      </button>
+      <span>{page} / {totalPages}</span>
+      <button type="button" className="icon-button" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page >= totalPages} aria-label="Próxima página">
+        <ChevronRight size={15} />
+      </button>
+    </div>
+  );
+}
+
+function BrandMark({ name, logoUrl }: { name: string; logoUrl?: string | null }) {
+  return (
+    <div className="social-brand-mark" aria-hidden="true">
+      {logoUrl ? <img src={logoUrl} alt="" loading="lazy" /> : <span>{brandInitials(name)}</span>}
+    </div>
+  );
+}
+
+function pageItems<T>(items: T[], page: number) {
+  return items.slice((page - 1) * pageSize, page * pageSize);
+}
+
+function brandInitials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "P";
 }
 
 function RelationshipsTab({ relationships }: { relationships: RelationshipSummary | null }) {

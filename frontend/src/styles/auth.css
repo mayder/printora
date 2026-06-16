@@ -94,6 +94,12 @@
   color: var(--text);
 }
 
+.public-community-shell {
+  background:
+    radial-gradient(circle at top left, rgba(88, 214, 224, 0.08), transparent 28rem),
+    var(--bg);
+}
+
 .public-profile-topbar {
   display: flex;
   justify-content: space-between;
@@ -109,9 +115,9 @@
 }
 
 .public-profile-page {
-  width: min(1120px, calc(100vw - 32px));
+  width: min(1280px, calc(100vw - 32px));
   margin: 0 auto;
-  padding: 32px 0 48px;
+  padding: 24px 0 48px;
 }
 
 .public-profile-hero {
@@ -119,7 +125,11 @@
   grid-template-columns: 96px minmax(0, 1fr);
   gap: 18px;
   align-items: center;
-  margin-bottom: 22px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 18px;
 }
 
 .public-avatar {
@@ -129,12 +139,20 @@
 
 .public-profile-hero h1 {
   margin: 4px 0;
-  font-size: clamp(2rem, 4vw, 3.5rem);
+  font-size: clamp(1.8rem, 3vw, 2.7rem);
+  letter-spacing: 0;
 }
 
 .public-profile-hero p {
   max-width: 720px;
   color: var(--text-muted);
+}
+
+.community-brand-avatar {
+  border-radius: 12px;
+  color: var(--accent);
+  font-size: 1.35rem;
+  font-weight: 900;
 }
 
 .public-profile-meta,
@@ -179,16 +197,18 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  margin: 0 0 18px;
+  margin: 0 0 12px;
 }
 
 .community-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 0 0 18px;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 10px;
+  margin: 0 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 8px;
 }
 
 .community-tabs button {
@@ -210,6 +230,12 @@
 
 .community-tab-grid {
   align-items: start;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+}
+
+.community-tab-grid > .panel {
+  grid-column: auto;
+  width: auto;
 }
 
 .community-placeholder {
