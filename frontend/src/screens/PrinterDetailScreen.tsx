@@ -10,7 +10,7 @@ import { TestsScreen } from "./TestsScreen";
 import { UpdatesScreen } from "./UpdatesScreen";
 import { socialApi } from "../services/socialApi";
 import type { PrinterDetailTab, PrintoraScreenProps } from "../hooks/usePrintoraApp";
-import type { CatalogSummary, Community, PrinterRecord, TechnicalPrinterConfig } from "../types";
+import type { CatalogSummary, Community, MaterialProfile, PrinterRecord, TechnicalPrinterConfig } from "../types";
 
 type PrinterDetailScreenProps = PrintoraScreenProps;
 
@@ -177,6 +177,7 @@ export function PrinterDetailScreen(props: PrinterDetailScreenProps) {
             </div>
             <PrinterPublicPanel printer={selectedPrinter} loading={loading} loadPrinters={loadPrinters} showToast={props.showToast} />
             <PrinterTechnicalConfigPanel printer={selectedPrinter} loading={loading} showToast={props.showToast} />
+            <PrinterMaterialProfilePanel printer={selectedPrinter} loading={loading} showToast={props.showToast} />
           </article>
         );
     }
@@ -495,6 +496,269 @@ function parseKeyValueLines(value: string): Record<string, string> {
 
 function formatKeyValueLines(value: Record<string, string>): string {
   return Object.entries(value).map(([key, item]) => `${key}=${item}`).join("\n");
+}
+
+interface MaterialDraft {
+  title: string;
+  visibility: "private" | "community" | "public";
+  community_slug: string;
+  material_brand: string;
+  material_type: string;
+  nozzle_diameter_mm: string;
+  bed_temperature_c: string;
+  nozzle_temperature_c: string;
+  flow_percent: string;
+  version_label: string;
+  compatibility: string;
+  layer_height_mm: string;
+  speed_mm_s: string;
+  infill_percent: string;
+  supports_enabled: boolean;
+  goal: "quality" | "strength" | "speed" | "prototype";
+  settings: string;
+  notes: string;
+}
+
+function PrinterMaterialProfilePanel({ printer, loading, showToast }: { printer: PrinterRecord; loading: boolean; showToast: PrintoraScreenProps["showToast"] }) {
+  const emptyDraft: MaterialDraft = {
+    title: `${printer.name} - perfil ABS`,
+    visibility: "private",
+    community_slug: "",
+    material_brand: "",
+    material_type: "ABS",
+    nozzle_diameter_mm: "0.4",
+    bed_temperature_c: "110",
+    nozzle_temperature_c: "245",
+    flow_percent: "98",
+    version_label: "v1",
+    compatibility: "material=ABS\nnozzle=0.4mm",
+    layer_height_mm: "0.2",
+    speed_mm_s: "180",
+    infill_percent: "25",
+    supports_enabled: false,
+    goal: "quality",
+    settings: "",
+    notes: "",
+  };
+  const [profiles, setProfiles] = React.useState<MaterialProfile[]>([]);
+  const [communities, setCommunities] = React.useState<Community[]>([]);
+  const [draft, setDraft] = React.useState<MaterialDraft>(emptyDraft);
+  const [editingId, setEditingId] = React.useState<number | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const loadProfiles = React.useCallback(async () => {
+    try {
+      const allProfiles = await socialApi.myMaterialProfiles();
+      setProfiles(allProfiles.filter((profile) => profile.printer_id === printer.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Perfis de material indisponíveis");
+    }
+  }, [printer.id]);
+
+  React.useEffect(() => {
+    setDraft(emptyDraft);
+    setEditingId(null);
+    setError(null);
+    void loadProfiles();
+  }, [loadProfiles, printer.id]);
+
+  React.useEffect(() => {
+    let active = true;
+    async function loadCommunities() {
+      if (!printer.catalog_variant_id) {
+        setCommunities([]);
+        return;
+      }
+      try {
+        const catalog = await socialApi.catalog();
+        const variant = catalog.manufacturers
+          .flatMap((manufacturer) => manufacturer.models)
+          .flatMap((model) => model.variants)
+          .find((item) => item.id === printer.catalog_variant_id);
+        if (!variant) {
+          if (active) setCommunities([]);
+          return;
+        }
+        const payload = await socialApi.communities({ variant: variant.slug });
+        if (active) setCommunities(payload);
+      } catch {
+        if (active) setCommunities([]);
+      }
+    }
+    void loadCommunities();
+    return () => {
+      active = false;
+    };
+  }, [printer.catalog_variant_id]);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (draft.visibility === "community" && !draft.community_slug) {
+      showToast({ tone: "danger", title: "Selecione a comunidade técnica" });
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const payload = {
+        printer_id: printer.id,
+        catalog_variant_id: printer.catalog_variant_id,
+        community_slug: draft.visibility === "community" ? draft.community_slug : null,
+        title: draft.title,
+        visibility: draft.visibility,
+        material_brand: draft.material_brand,
+        material_type: draft.material_type,
+        nozzle_diameter_mm: optionalNumber(draft.nozzle_diameter_mm),
+        bed_temperature_c: optionalInteger(draft.bed_temperature_c),
+        nozzle_temperature_c: optionalInteger(draft.nozzle_temperature_c),
+        flow_percent: optionalNumber(draft.flow_percent),
+        version_label: draft.version_label || "v1",
+        compatibility: parseKeyValueLines(draft.compatibility),
+        notes: draft.notes,
+        slicing: {
+          layer_height_mm: optionalNumber(draft.layer_height_mm),
+          speed_mm_s: optionalInteger(draft.speed_mm_s),
+          infill_percent: optionalInteger(draft.infill_percent),
+          supports_enabled: draft.supports_enabled,
+          goal: draft.goal,
+          settings: parseKeyValueLines(draft.settings),
+        },
+      };
+      if (editingId) {
+        await socialApi.updateMaterialProfile(editingId, payload);
+      } else {
+        await socialApi.createMaterialProfile(payload);
+      }
+      await loadProfiles();
+      setEditingId(null);
+      setDraft(emptyDraft);
+      showToast({ tone: "success", title: editingId ? "Perfil atualizado" : "Perfil criado" });
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : undefined;
+      setError(detail || "Falha ao salvar perfil de material");
+      showToast({ tone: "danger", title: "Falha ao salvar perfil", detail });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function edit(profile: MaterialProfile) {
+    setEditingId(profile.id);
+    setDraft({
+      title: profile.title,
+      visibility: profile.visibility,
+      community_slug: profile.community_slug || "",
+      material_brand: profile.material_brand,
+      material_type: profile.material_type,
+      nozzle_diameter_mm: profile.nozzle_diameter_mm?.toString() || "",
+      bed_temperature_c: profile.bed_temperature_c?.toString() || "",
+      nozzle_temperature_c: profile.nozzle_temperature_c?.toString() || "",
+      flow_percent: profile.flow_percent?.toString() || "",
+      version_label: profile.version_label,
+      compatibility: formatKeyValueLines(profile.compatibility),
+      layer_height_mm: profile.slicing.layer_height_mm?.toString() || "",
+      speed_mm_s: profile.slicing.speed_mm_s?.toString() || "",
+      infill_percent: profile.slicing.infill_percent?.toString() || "",
+      supports_enabled: profile.slicing.supports_enabled,
+      goal: profile.slicing.goal,
+      settings: formatKeyValueLines(Object.fromEntries(Object.entries(profile.slicing.settings).map(([key, value]) => [key, String(value)]))),
+      notes: profile.notes,
+    });
+  }
+
+  async function archive(profileId: number) {
+    setBusy(true);
+    try {
+      await socialApi.archiveMaterialProfile(profileId);
+      await loadProfiles();
+      showToast({ tone: "success", title: "Perfil arquivado" });
+    } catch (err) {
+      showToast({ tone: "danger", title: "Falha ao arquivar perfil", detail: err instanceof Error ? err.message : undefined });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function exportProfile(profileId: number) {
+    try {
+      const payload = await socialApi.exportMaterialProfile(profileId);
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+      showToast({ tone: "success", title: "Perfil exportado", detail: "JSON copiado para a área de transferência." });
+    } catch (err) {
+      showToast({ tone: "danger", title: "Falha ao exportar perfil", detail: err instanceof Error ? err.message : undefined });
+    }
+  }
+
+  return (
+    <section className="printer-public-panel printer-technical-panel">
+      <div className="panel-heading">
+        <div>
+          <span className="account-eyebrow">Material e fatiamento</span>
+          <h3>Perfis compartilháveis</h3>
+          <p className="muted">Registre material, temperaturas, nozzle e parâmetros de fatiamento para compartilhar compatibilidade. O perfil nunca é aplicado automaticamente na impressora.</p>
+        </div>
+        <Badge icon={SlidersHorizontal} label="Perfis" value={String(profiles.length)} />
+      </div>
+
+      <div className="printer-technical-layout">
+        <div className="printer-technical-list">
+          {profiles.map((profile) => (
+            <section key={profile.id} className="printer-technical-card">
+              <div>
+                <strong>{profile.title}</strong>
+                <span>{[profile.material_brand, profile.material_type, profile.nozzle_diameter_mm ? `${profile.nozzle_diameter_mm}mm` : null, profile.version_label].filter(Boolean).join(" / ")}</span>
+              </div>
+              <small>{profile.visibility === "community" ? profile.community_name || "Comunidade" : profile.visibility}</small>
+              <small>{profile.nozzle_temperature_c || "-"}C nozzle · {profile.bed_temperature_c || "-"}C mesa · {profile.slicing.layer_height_mm || "-"}mm camada</small>
+              <div className="overview-quick-actions">
+                <button type="button" className="secondary-button compact" onClick={() => edit(profile)} disabled={busy || loading}><Pencil size={14} />Editar</button>
+                <button type="button" className="secondary-button compact" onClick={() => void exportProfile(profile.id)} disabled={busy || loading}>Exportar</button>
+                <button type="button" className="ghost-button compact" onClick={() => void archive(profile.id)} disabled={busy || loading}><Trash2 size={14} />Arquivar</button>
+              </div>
+            </section>
+          ))}
+          {profiles.length === 0 ? <p className="muted">Nenhum perfil de material ou fatiamento cadastrado para esta impressora.</p> : null}
+        </div>
+
+        <form className="printer-technical-form" onSubmit={(event) => void submit(event)}>
+          <label>Título<input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} required /></label>
+          <label>Visibilidade<select value={draft.visibility} onChange={(event) => setDraft((current) => ({ ...current, visibility: event.target.value as MaterialDraft["visibility"] }))}><option value="private">Privado</option><option value="community">Comunidade</option><option value="public">Público</option></select></label>
+          <label>Comunidade<select value={draft.community_slug} disabled={draft.visibility !== "community"} onChange={(event) => setDraft((current) => ({ ...current, community_slug: event.target.value }))}><option value="">Selecione</option>{communities.map((community) => <option key={community.slug} value={community.slug}>{community.name}</option>)}</select></label>
+          <label>Marca<input value={draft.material_brand} onChange={(event) => setDraft((current) => ({ ...current, material_brand: event.target.value }))} /></label>
+          <label>Material<input value={draft.material_type} onChange={(event) => setDraft((current) => ({ ...current, material_type: event.target.value }))} required /></label>
+          <label>Nozzle mm<input value={draft.nozzle_diameter_mm} onChange={(event) => setDraft((current) => ({ ...current, nozzle_diameter_mm: event.target.value }))} inputMode="decimal" /></label>
+          <label>Nozzle C<input value={draft.nozzle_temperature_c} onChange={(event) => setDraft((current) => ({ ...current, nozzle_temperature_c: event.target.value }))} inputMode="numeric" /></label>
+          <label>Mesa C<input value={draft.bed_temperature_c} onChange={(event) => setDraft((current) => ({ ...current, bed_temperature_c: event.target.value }))} inputMode="numeric" /></label>
+          <label>Fluxo %<input value={draft.flow_percent} onChange={(event) => setDraft((current) => ({ ...current, flow_percent: event.target.value }))} inputMode="decimal" /></label>
+          <label>Versão<input value={draft.version_label} onChange={(event) => setDraft((current) => ({ ...current, version_label: event.target.value }))} /></label>
+          <label>Altura camada<input value={draft.layer_height_mm} onChange={(event) => setDraft((current) => ({ ...current, layer_height_mm: event.target.value }))} inputMode="decimal" /></label>
+          <label>Velocidade mm/s<input value={draft.speed_mm_s} onChange={(event) => setDraft((current) => ({ ...current, speed_mm_s: event.target.value }))} inputMode="numeric" /></label>
+          <label>Infill %<input value={draft.infill_percent} onChange={(event) => setDraft((current) => ({ ...current, infill_percent: event.target.value }))} inputMode="numeric" /></label>
+          <label>Objetivo<select value={draft.goal} onChange={(event) => setDraft((current) => ({ ...current, goal: event.target.value as MaterialDraft["goal"] }))}><option value="quality">Qualidade</option><option value="strength">Resistência</option><option value="speed">Velocidade</option><option value="prototype">Protótipo</option></select></label>
+          <label className="toggle-row"><input type="checkbox" checked={draft.supports_enabled} onChange={(event) => setDraft((current) => ({ ...current, supports_enabled: event.target.checked }))} />Suporte</label>
+          <label className="printer-public-wide">Compatibilidade<textarea value={draft.compatibility} onChange={(event) => setDraft((current) => ({ ...current, compatibility: event.target.value }))} rows={3} /></label>
+          <label className="printer-public-wide">Configurações livres<textarea value={draft.settings} onChange={(event) => setDraft((current) => ({ ...current, settings: event.target.value }))} rows={3} placeholder={"wall_loops=4\nbridge_speed=40"} /></label>
+          <label className="printer-public-wide">Observações<textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={3} /></label>
+          {error ? <p className="form-error">{error}</p> : null}
+          <div className="overview-quick-actions">
+            <button type="submit" className="primary-button" disabled={busy || loading}>{editingId ? "Salvar edição" : "Criar perfil"}</button>
+            {editingId ? <button type="button" className="secondary-button" onClick={() => { setEditingId(null); setDraft(emptyDraft); }} disabled={busy}>Cancelar edição</button> : null}
+          </div>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+function optionalNumber(value: string): number | null {
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) && value.trim() ? parsed : null;
+}
+
+function optionalInteger(value: string): number | null {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && value.trim() ? parsed : null;
 }
 
 interface PrinterPublicPanelProps {

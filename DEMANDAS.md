@@ -3921,7 +3921,14 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Concluído.
+- Lote 1 concluído com modelo de perfil de material em SQL/API.
+- Lote 2 concluído com perfil de fatiamento ligado ao perfil de material.
+- Lote 3 concluído com compatibilidade por variante, nozzle e material.
+- Lote 4 concluído com CRUD no detalhe da impressora e leitura pública na comunidade.
+- Lote 5 concluído com export/import JSON neutro.
+- Lote 6 concluído com testes de repository/API, build frontend, check oficial e validação visual local em desktop/mobile.
+- Validação: `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q`; `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`; validação visual local no detalhe da impressora e na aba `Perfis` da comunidade.
 
 ## PKG-64: Busca, Tags E Descoberta De Conteúdo
 

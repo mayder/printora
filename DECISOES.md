@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260616-10 - Perfis de material e fatiamento são compartilháveis, não executáveis
+
+Status: aceita
+Data: 2026-06-16
+Contexto: o PKG-63 precisa permitir compartilhamento de material e fatiamento por impressora, nozzle, material e objetivo antes de qualquer integração com engine de slicer.
+Decisao: criar o domínio `print_profiles`, com SQL próprio em `053_social_material_slicing_profiles.sql`, rotas dedicadas, CRUD no detalhe da impressora e leitura pública na aba `Perfis` da comunidade. O perfil material contém marca, tipo, temperatura, cama, fluxo, compatibilidade e versão; o perfil de fatiamento ligado contém layer height, velocidade, suporte, infill, objetivo e configurações livres. Export/import usa JSON neutro e importação entra privada.
+Alternativas consideradas: colocar campos de material dentro da configuração técnica do PKG-62; acoplar perfil diretamente a arquivo de slicer; executar/aplicar perfil automaticamente.
+Consequencias: o produto ganha comparação e compartilhamento técnico sem risco operacional. Aplicação automática, engine de fatiamento e formatos específicos ficam para pacotes posteriores.
+Impacto em testes: testes focados cobrem criação, compatibilidade, export/import, sanitização e visibilidade comunitária.
+Impacto em rollback: médio; há novo script SQLite `053_social_material_slicing_profiles.sql`.
+Como reverter: remover rotas/UI de perfis de material e restaurar backup SQLite anterior ao script `053_social_material_slicing_profiles.sql` se a tabela não puder permanecer.
+Referencias: `backend/sql/053_social_material_slicing_profiles.sql`, `backend/app/print_profiles.py`, `backend/app/routes/print_profiles.py`, `frontend/src/screens/PrinterDetailScreen.tsx`, `frontend/src/screens/PublicCommunityScreen.tsx`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260616-09 - Configuração técnica pública é perfil social separado da operação
 
 Status: aceita

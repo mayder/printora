@@ -2,7 +2,7 @@ import React from "react";
 import { Archive, ArrowLeft, Box, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Filter, FolderOpen, GitBranch, Heart, ListChecks, Lock, MessageSquare, Pencil, Pin, Printer, Reply, RotateCcw, Send, SlidersHorizontal, ThumbsUp, Trash2, UserRound, Users, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi } from "../services/socialApi";
-import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, FeedContentType, FeedOrder, LibraryCollectionVisibility, LibraryFileKind, LibraryItem, LibraryLicense, LibraryOrganizerSummary, LibraryVisibility, TechnicalConfigComparison, TechnicalPrinterConfig } from "../types";
+import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, FeedContentType, FeedOrder, LibraryCollectionVisibility, LibraryFileKind, LibraryItem, LibraryLicense, LibraryOrganizerSummary, LibraryVisibility, MaterialProfile, TechnicalConfigComparison, TechnicalPrinterConfig } from "../types";
 
 interface PublicCommunityScreenProps {
   slug: string;
@@ -230,6 +230,7 @@ function CommunityTabContent({ community, tab }: { community: CommunityDetail; t
 
 function CommunityTechnicalProfiles({ community }: { community: CommunityDetail }) {
   const [configs, setConfigs] = React.useState<TechnicalPrinterConfig[]>([]);
+  const [materialProfiles, setMaterialProfiles] = React.useState<MaterialProfile[]>([]);
   const [comparison, setComparison] = React.useState<TechnicalConfigComparison | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -240,13 +241,15 @@ function CommunityTechnicalProfiles({ community }: { community: CommunityDetail 
       setLoading(true);
       setError(null);
       try {
-        const [items, compare] = await Promise.all([
+        const [items, compare, materials] = await Promise.all([
           socialApi.communityTechnicalConfigs(community.slug),
           socialApi.communityTechnicalComparison(community.slug),
+          socialApi.communityMaterialProfiles(community.slug),
         ]);
         if (active) {
           setConfigs(items);
           setComparison(compare);
+          setMaterialProfiles(materials);
         }
       } catch (err) {
         if (active) setError(err instanceof Error ? err.message : "Perfis técnicos indisponíveis");
@@ -262,8 +265,8 @@ function CommunityTechnicalProfiles({ community }: { community: CommunityDetail 
 
   if (loading) return <Placeholder title="Perfis técnicos" text="Carregando configurações compartilhadas..." />;
   if (error) return <Placeholder title="Perfis técnicos indisponíveis" text={error} />;
-  if (configs.length === 0) {
-    return <Placeholder title="Perfis técnicos" text="Nenhuma configuração técnica pública foi compartilhada nesta comunidade." />;
+  if (configs.length === 0 && materialProfiles.length === 0) {
+    return <Placeholder title="Perfis técnicos" text="Nenhum perfil técnico, de material ou fatiamento foi compartilhado nesta comunidade." />;
   }
 
   return (
@@ -274,30 +277,65 @@ function CommunityTechnicalProfiles({ community }: { community: CommunityDetail 
           <p>Configurações públicas por impressora, componentes, mods e calibrações. Não há agente, host, IP, token ou permissão operacional.</p>
         </div>
       </div>
-      <div className="technical-comparison-grid">
-        <ComparisonGroup title="Componentes" values={comparison?.normalized_components ?? {}} />
-        <ComparisonGroup title="Calibrações" values={comparison?.normalized_calibrations ?? {}} />
-      </div>
-      <div className="technical-profile-list">
-        {configs.map((config) => (
-          <section key={config.id} className="technical-profile-card">
+      {configs.length ? (
+        <>
+          <div className="technical-comparison-grid">
+            <ComparisonGroup title="Componentes" values={comparison?.normalized_components ?? {}} />
+            <ComparisonGroup title="Calibrações" values={comparison?.normalized_calibrations ?? {}} />
+          </div>
+          <div className="technical-profile-list">
+            {configs.map((config) => (
+              <section key={config.id} className="technical-profile-card">
+                <div className="technical-profile-card__head">
+                  <div>
+                    <strong>{config.title}</strong>
+                    <span>{[config.manufacturer_name, config.model_name, config.variant_name].filter(Boolean).join(" / ")}</span>
+                  </div>
+                  <a href={config.owner_slug ? `/u/${config.owner_slug}` : "#"} aria-disabled={!config.owner_slug}>
+                    <UserRound size={15} />
+                    {config.owner_display_name ?? "Maker"}
+                  </a>
+                </div>
+                {config.mods.length ? <div className="community-chip-list">{config.mods.map((mod) => <span key={mod}>{mod}</span>)}</div> : null}
+                <SpecTable title="Componentes" values={config.components} />
+                <SpecTable title="Calibrações" values={config.calibrations} />
+                {config.notes ? <p>{config.notes}</p> : null}
+              </section>
+            ))}
+          </div>
+        </>
+      ) : null}
+      {materialProfiles.length ? (
+        <div className="technical-profile-list material-profile-list">
+          <h3>Perfis de material e fatiamento</h3>
+          {materialProfiles.map((profile) => (
+            <section key={profile.id} className="technical-profile-card material-profile-card">
             <div className="technical-profile-card__head">
               <div>
-                <strong>{config.title}</strong>
-                <span>{[config.manufacturer_name, config.model_name, config.variant_name].filter(Boolean).join(" / ")}</span>
+                <strong>{profile.title}</strong>
+                <span>{[profile.material_brand, profile.material_type, profile.nozzle_diameter_mm ? `${profile.nozzle_diameter_mm}mm` : null, profile.version_label].filter(Boolean).join(" / ")}</span>
               </div>
-              <a href={config.owner_slug ? `/u/${config.owner_slug}` : "#"} aria-disabled={!config.owner_slug}>
+              <a href={profile.owner_slug ? `/u/${profile.owner_slug}` : "#"} aria-disabled={!profile.owner_slug}>
                 <UserRound size={15} />
-                {config.owner_display_name ?? "Maker"}
+                {profile.owner_display_name ?? "Maker"}
               </a>
             </div>
-            {config.mods.length ? <div className="community-chip-list">{config.mods.map((mod) => <span key={mod}>{mod}</span>)}</div> : null}
-            <SpecTable title="Componentes" values={config.components} />
-            <SpecTable title="Calibrações" values={config.calibrations} />
-            {config.notes ? <p>{config.notes}</p> : null}
+            <div className="community-chip-list">
+              {profile.nozzle_temperature_c ? <span>{profile.nozzle_temperature_c}C nozzle</span> : null}
+              {profile.bed_temperature_c ? <span>{profile.bed_temperature_c}C mesa</span> : null}
+              {profile.flow_percent ? <span>{profile.flow_percent}% fluxo</span> : null}
+              {profile.slicing.layer_height_mm ? <span>{profile.slicing.layer_height_mm}mm camada</span> : null}
+              {profile.slicing.speed_mm_s ? <span>{profile.slicing.speed_mm_s}mm/s</span> : null}
+              {profile.slicing.infill_percent !== null ? <span>{profile.slicing.infill_percent}% infill</span> : null}
+              <span>{profile.slicing.supports_enabled ? "com suporte" : "sem suporte"}</span>
+              <span>{profile.slicing.goal}</span>
+            </div>
+            <SpecTable title="Compatibilidade" values={profile.compatibility} />
+            {profile.notes ? <p>{profile.notes}</p> : null}
           </section>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : null}
     </>
   );
 }

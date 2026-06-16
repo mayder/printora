@@ -197,6 +197,27 @@ Rollback funcional remove endpoints/UI de perfis técnicos e mantém os dados co
 legado; rollback estrutural exige backup SQLite anterior ao script
 `052_social_technical_printer_configs.sql`.
 
+Perfis de material e fatiamento:
+
+```bash
+curl -fsS -H "Authorization: Bearer <token>" \
+  "http://127.0.0.1:8069/api/social/me/material-profiles"
+
+curl -fsS \
+  "http://127.0.0.1:8069/api/social/communities/<slug>/material-profiles"
+
+curl -fsS \
+  "http://127.0.0.1:8069/api/social/material-profiles/<profile_id>/export"
+```
+
+O schema de perfis de material/fatiamento é aplicado por
+`backend/sql/053_social_material_slicing_profiles.sql`. Perfis compartilhados
+guardam marca/tipo de material, nozzle, temperaturas, fluxo, compatibilidade e
+parâmetros de fatiamento, mas não aplicam configuração na impressora. Remoção
+pela API é arquivamento lógico. Rollback funcional remove endpoints/UI de perfis
+de material e mantém os dados como legado; rollback estrutural exige backup
+SQLite anterior ao script `053_social_material_slicing_profiles.sql`.
+
 ## Comandos principais
 
 ```bash

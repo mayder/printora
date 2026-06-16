@@ -10,6 +10,7 @@ from app.config import get_settings
 from app.main import app
 from fastapi.testclient import TestClient
 
+from app.print_profiles import MaterialProfilePayload, PrintProfilesRepository, SlicingProfilePayload
 from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, LibraryCollectionCreate, LibraryCollectionItemCreate, LibraryFileMetadata, LibraryItemCreate, LibraryItemUpdate, LibraryVersionCreate, PrintListCreate, PrintListItemCreate, PrintListItemUpdate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
 from app.technical_profiles import TechnicalPrinterConfigPayload, TechnicalProfilesRepository
 
@@ -138,6 +139,68 @@ def test_technical_config_comparison_normalizes_community_fields(tmp_path: Path)
     assert len(comparison.configs) == 2
     assert comparison.normalized_components["hotend"] == ["Dragon HF", "Revo Voron"]
     assert comparison.normalized_calibrations["flow"] == ["0.96", "0.98"]
+
+
+def test_material_and_slicing_profile_tracks_compatibility_and_export(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    user = auth.create_user(UserRegisterRequest(email="material@example.com", password="correct-horse"))
+    social = SocialCatalogRepository(database_path)
+    variant = next(
+        variant
+        for manufacturer in social.list_catalog().manufacturers
+        for model in manufacturer.models
+        for variant in model.variants
+        if variant.slug == "voron-2-4-r2-350"
+    )
+    printer = PrinterRepository(database_path, user_id=user.id).create_printer(
+        PrinterCreate(name="Voron material", moonraker_url="http://secret-voron.local:7125", host_audit_mode="disabled")
+    )
+    social.update_profile(user.id, PublicProfileUpdate(slug="material-maker", display_name="Material Maker", visibility="public"))
+    social.update_printer_public(printer.id, user.id, PrinterPublicUpdate(public_profile_enabled=True, catalog_variant_id=variant.id))
+    community = social.list_communities(variant="voron-2-4-r2-350")[0]
+    repository = PrintProfilesRepository(database_path)
+
+    profile = repository.create_profile(
+        user.id,
+        MaterialProfilePayload(
+            printer_id=printer.id,
+            community_slug=community.slug,
+            title="ABS Voron 0.4",
+            visibility="community",
+            material_brand="KVP",
+            material_type="ABS",
+            nozzle_diameter_mm=0.4,
+            bed_temperature_c=110,
+            nozzle_temperature_c=245,
+            flow_percent=98,
+            version_label="v1",
+            compatibility={"printer": "Voron 2.4 R2 350mm", "nozzle": "0.4mm", "material": "ABS"},
+            slicing=SlicingProfilePayload(layer_height_mm=0.2, speed_mm_s=180, infill_percent=25, supports_enabled=False, goal="quality"),
+        ),
+    )
+    public_profiles = repository.community_profiles(community.slug)
+    exported = repository.export_profile(profile.id)
+    imported = repository.import_profile(user.id, exported)
+
+    assert profile.material_type == "ABS"
+    assert profile.slicing.layer_height_mm == 0.2
+    assert public_profiles[0].title == "ABS Voron 0.4"
+    assert "secret-voron" not in public_profiles[0].model_dump_json()
+    assert exported.format == "printora.material-profile.v1"
+    assert imported.visibility == "private"
+    assert imported.title.endswith("importado")
+
+    try:
+        repository.create_profile(
+            user.id,
+            MaterialProfilePayload(title="token privado", visibility="private", material_type="PLA"),
+        )
+    except ValueError as exc:
+        assert "sensível" in str(exc)
+    else:
+        raise AssertionError("perfil com dado sensível deveria falhar")
 
 
 def test_catalog_seed_has_broad_diy_klipper_catalog(tmp_path: Path) -> None:
@@ -744,6 +807,88 @@ def test_technical_printer_config_api_crud_and_public_contract(tmp_path, monkeyp
             assert "secret-voron" not in dumped
             assert "moonraker" not in dumped
             assert comparison.json()["normalized_components"]["hotend"] == ["Revo Voron"]
+    finally:
+        get_settings.cache_clear()
+
+
+def test_material_profile_api_crud_export_import_and_public_contract(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner = client.post("/api/auth/register", json={"email": "profile-owner@example.com", "password": "correct-horse"})
+            token = owner.json()["access_token"]
+            client.put(
+                "/api/social/me/profile",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"slug": "profile-owner", "display_name": "Profile Owner", "visibility": "public"},
+            )
+            printer = client.post(
+                "/api/printers",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"name": "Material Voron", "moonraker_url": "http://secret-voron.local:7125", "host_audit_mode": "disabled"},
+            ).json()
+            variant = _variant_id(tmp_path / "printora.db", "voron-2-4-r2-350")
+            client.put(
+                f"/api/printers/{printer['id']}/public-profile",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"public_profile_enabled": True, "catalog_variant_id": variant, "public_name": "Material Voron"},
+            )
+            community_slug = SocialCatalogRepository(tmp_path / "printora.db").list_communities(variant="voron-2-4-r2-350")[0].slug
+
+            payload = {
+                "printer_id": printer["id"],
+                "catalog_variant_id": variant,
+                "community_slug": community_slug,
+                "title": "ABS 0.4 qualidade",
+                "visibility": "community",
+                "material_brand": "KVP",
+                "material_type": "ABS",
+                "nozzle_diameter_mm": 0.4,
+                "bed_temperature_c": 110,
+                "nozzle_temperature_c": 245,
+                "flow_percent": 98,
+                "version_label": "v1",
+                "compatibility": {"printer": "Voron 2.4", "nozzle": "0.4mm", "material": "ABS"},
+                "slicing": {
+                    "layer_height_mm": 0.2,
+                    "speed_mm_s": 180,
+                    "infill_percent": 25,
+                    "supports_enabled": False,
+                    "goal": "quality",
+                    "settings": {"wall_loops": 4},
+                },
+            }
+            created = client.post("/api/social/material-profiles", headers={"Authorization": f"Bearer {token}"}, json=payload)
+            profile_id = created.json()["id"]
+            public_list = client.get(f"/api/social/communities/{community_slug}/material-profiles")
+            exported = client.get(f"/api/social/material-profiles/{profile_id}/export")
+            imported = client.post("/api/social/material-profiles/import", headers={"Authorization": f"Bearer {token}"}, json=exported.json())
+            updated = client.put(
+                f"/api/social/material-profiles/{profile_id}",
+                headers={"Authorization": f"Bearer {token}"},
+                json={**payload, "title": "ABS 0.4 resistência", "slicing": {**payload["slicing"], "goal": "strength"}},
+            )
+            bad = client.post(
+                "/api/social/material-profiles",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"title": "token privado", "material_type": "PLA", "visibility": "private", "slicing": {}},
+            )
+            archived = client.delete(f"/api/social/material-profiles/{profile_id}", headers={"Authorization": f"Bearer {token}"})
+
+            assert created.status_code == 200
+            assert public_list.status_code == 200
+            assert exported.status_code == 200
+            assert imported.status_code == 200
+            assert imported.json()["visibility"] == "private"
+            assert updated.status_code == 200
+            assert updated.json()["slicing"]["goal"] == "strength"
+            assert bad.status_code in {400, 422}
+            assert archived.status_code == 204
+            dumped = str(public_list.json()).lower()
+            assert "secret-voron" not in dumped
+            assert "moonraker" not in dumped
     finally:
         get_settings.cache_clear()
 

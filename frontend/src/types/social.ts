@@ -321,6 +321,56 @@ export interface TechnicalConfigComparison {
   normalized_calibrations: Record<string, string[]>;
 }
 
+export interface SlicingProfile {
+  id: number;
+  material_profile_id: number;
+  layer_height_mm: number | null;
+  speed_mm_s: number | null;
+  infill_percent: number | null;
+  supports_enabled: boolean;
+  goal: "quality" | "strength" | "speed" | "prototype";
+  settings: Record<string, string | number | boolean>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MaterialProfile {
+  id: number;
+  owner_user_id: number;
+  owner_slug: string | null;
+  owner_display_name: string | null;
+  printer_id: number | null;
+  printer_public_name: string | null;
+  catalog_variant_id: number | null;
+  manufacturer_name: string | null;
+  model_name: string | null;
+  variant_name: string | null;
+  community_slug: string | null;
+  community_id: number | null;
+  community_name: string | null;
+  linked_library_item_id: number | null;
+  title: string;
+  visibility: "private" | "community" | "public";
+  material_brand: string;
+  material_type: string;
+  nozzle_diameter_mm: number | null;
+  bed_temperature_c: number | null;
+  nozzle_temperature_c: number | null;
+  flow_percent: number | null;
+  notes: string;
+  version_label: string;
+  compatibility: Record<string, string>;
+  slicing: SlicingProfile;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MaterialProfileExport {
+  format: "printora.material-profile.v1";
+  profile: MaterialProfile;
+}
+
 export interface LibraryVersion {
   id: number;
   item_id: number;

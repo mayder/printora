@@ -20,6 +20,7 @@ from app.routes import (
     maintenance,
     operation,
     plugins,
+    print_profiles,
     printer_updates,
     printers,
     reports,
@@ -78,6 +79,7 @@ app.include_router(firmware.router)
 app.include_router(maintenance.router)
 app.include_router(operation.router)
 app.include_router(plugins.router)
+app.include_router(print_profiles.router)
 app.include_router(printer_updates.router)
 app.include_router(printers.router)
 app.include_router(reports.router)

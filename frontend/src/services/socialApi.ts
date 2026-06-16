@@ -22,6 +22,8 @@ import type {
   PublicProfile,
   RelationshipRecord,
   RelationshipSummary,
+  MaterialProfile,
+  MaterialProfileExport,
   TechnicalConfigComparison,
   TechnicalPrinterConfig,
 } from "../types";
@@ -166,6 +168,32 @@ export interface TechnicalPrinterConfigPayload {
   notes?: string;
 }
 
+export interface MaterialProfilePayload {
+  printer_id?: number | null;
+  catalog_variant_id?: number | null;
+  community_slug?: string | null;
+  linked_library_item_id?: number | null;
+  title: string;
+  visibility: "private" | "community" | "public";
+  material_brand?: string;
+  material_type: string;
+  nozzle_diameter_mm?: number | null;
+  bed_temperature_c?: number | null;
+  nozzle_temperature_c?: number | null;
+  flow_percent?: number | null;
+  notes?: string;
+  version_label?: string;
+  compatibility?: Record<string, string>;
+  slicing: {
+    layer_height_mm?: number | null;
+    speed_mm_s?: number | null;
+    infill_percent?: number | null;
+    supports_enabled?: boolean;
+    goal?: "quality" | "strength" | "speed" | "prototype";
+    settings?: Record<string, string | number | boolean>;
+  };
+}
+
 export const socialApi = {
   catalog: () => apiRequest<CatalogSummary>("/api/catalog"),
   adminCatalog: (filters: CatalogAdminFilters = {}) => {
@@ -240,6 +268,29 @@ export const socialApi = {
       body: JSON.stringify(payload),
     }),
   archiveTechnicalConfig: (configId: number) => apiRequest<void>(`/api/social/technical-configs/${configId}`, { method: "DELETE" }),
+  myMaterialProfiles: () => apiRequest<MaterialProfile[]>("/api/social/me/material-profiles"),
+  communityMaterialProfiles: (slug: string) =>
+    apiRequest<MaterialProfile[]>(`/api/social/communities/${encodeURIComponent(slug)}/material-profiles`),
+  createMaterialProfile: (payload: MaterialProfilePayload) =>
+    apiRequest<MaterialProfile>("/api/social/material-profiles", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  updateMaterialProfile: (profileId: number, payload: MaterialProfilePayload) =>
+    apiRequest<MaterialProfile>(`/api/social/material-profiles/${profileId}`, {
+      method: "PUT",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  archiveMaterialProfile: (profileId: number) => apiRequest<void>(`/api/social/material-profiles/${profileId}`, { method: "DELETE" }),
+  exportMaterialProfile: (profileId: number) => apiRequest<MaterialProfileExport>(`/api/social/material-profiles/${profileId}/export`),
+  importMaterialProfile: (payload: MaterialProfileExport) =>
+    apiRequest<MaterialProfile>("/api/social/material-profiles/import", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
   communityLibrary: (slug: string) => apiRequest<LibraryItem[]>(`/api/social/communities/${encodeURIComponent(slug)}/library`),
   profileLibrary: (slug: string) => apiRequest<LibraryItem[]>(`/api/social/profiles/${encodeURIComponent(slug)}/library`),
   libraryOrganizer: () => apiRequest<LibraryOrganizerSummary>("/api/social/me/library/organizer"),

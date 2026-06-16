@@ -246,7 +246,7 @@ def test_schema_versioning_includes_app_update_sql(tmp_path: Path) -> None:
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'app_update_steps'"
         ).fetchone()
 
-    assert scripts[-1] == "052_social_technical_printer_configs.sql"
+    assert scripts[-1] == "053_social_material_slicing_profiles.sql"
     assert run_table == ("app_update_runs",)
     assert step_table == ("app_update_steps",)
 
