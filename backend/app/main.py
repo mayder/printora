@@ -28,6 +28,7 @@ from app.routes import (
     setup,
     snapshots,
     social_catalog,
+    social_ranking,
     system,
     technical_profiles,
     z_offset,
@@ -88,6 +89,7 @@ app.include_router(search_discovery.router)
 app.include_router(setup.router)
 app.include_router(snapshots.router)
 app.include_router(social_catalog.router)
+app.include_router(social_ranking.router)
 app.include_router(system.router)
 app.include_router(technical_profiles.router)
 app.include_router(z_offset.router)

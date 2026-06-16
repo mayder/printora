@@ -302,6 +302,31 @@ Evidência visual esperada:
 - filtros/facetas aplicados alteram a lista;
 - payload público inspecionado sem Moonraker, agente, SSH, token, IP operacional, organização, permissão ou identificadores internos de pacote/lote/backlog.
 
+### PKG-65 - Ranking, recomendações e reputação técnica
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- `/api/social/recommendations` retorna conteúdo público com score determinístico e motivos visíveis;
+- `/api/social/reputation` retorna reputação técnica derivada de sinais públicos;
+- downloads, favoritos, soluções e reações contribuem para score;
+- favorito/download próprio não aumenta score nem reputação;
+- sinal negativo de denúncia/moderação é modelado para reduzir exposição quando existir;
+- conteúdo privado e dados operacionais não entram em score, recomendação ou reputação.
+
+Evidência visual esperada:
+
+- aba `Descoberta` mostra `Recomendações técnicas` com tipo, título, motivo, score, reputação e ação de abertura;
+- desktop e mobile sem sobreposição;
+- payload público inspecionado sem Moonraker, agente, SSH, token, IP operacional, organização, permissão ou identificadores internos.
+
 ### PKG-56 - Biblioteca base de arquivos STL/3MF
 
 Validação automatizada obrigatória para fechamento:

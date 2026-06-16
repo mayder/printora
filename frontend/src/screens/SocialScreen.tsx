@@ -2,7 +2,7 @@ import React from "react";
 import { Check, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, FileText, Filter, Globe2, RefreshCw, Search, Shield, Tags, UserRound, Users, Wrench } from "lucide-react";
 import { socialApi } from "../services/socialApi";
 import type { ScreenPropsFor } from "./ScreenProps";
-import type { CatalogSummary, Community, PublicPrinter, PublicProfile, RelationshipRecord, RelationshipSummary, SearchEntityType, SearchOrder, SearchResponse } from "../types";
+import type { CatalogSummary, Community, PublicPrinter, PublicProfile, RecommendationResponse, RelationshipRecord, RelationshipSummary, SearchEntityType, SearchOrder, SearchResponse } from "../types";
 
 type SocialScreenProps = ScreenPropsFor<"setError">;
 type SocialTab = "discovery" | "communities" | "printers" | "makers" | "relationships";
@@ -30,6 +30,7 @@ export function SocialScreen({ setError }: SocialScreenProps) {
   const [discoveryQuery, setDiscoveryQuery] = React.useState("");
   const [discoveryFilters, setDiscoveryFilters] = React.useState<DiscoveryFilters>({ entity_type: "", tag: "", material: "", component: "", license: "", file_kind: "", order: "relevance" });
   const [discovery, setDiscovery] = React.useState<SearchResponse | null>(null);
+  const [recommendations, setRecommendations] = React.useState<RecommendationResponse | null>(null);
   const [filters, setFilters] = React.useState<SocialFilters>({ manufacturer: "", model: "", variant: "", component: "", mod: "" });
   const [pages, setPages] = React.useState<Record<SocialTab, number>>({ discovery: 1, communities: 1, printers: 1, makers: 1, relationships: 1 });
   const [busy, setBusy] = React.useState(false);
@@ -84,7 +85,19 @@ export function SocialScreen({ setError }: SocialScreenProps) {
   async function loadSearchContent(page = 1) {
     setDiscoveryBusy(true);
     try {
-      setDiscovery(await socialApi.searchContent({ ...discoveryFilters, q: discoveryQuery.trim(), page, page_size: pageSize }));
+      const searchFilters = { ...discoveryFilters, q: discoveryQuery.trim(), page, page_size: pageSize };
+      const [searchPayload, recommendationPayload] = await Promise.all([
+        socialApi.searchContent(searchFilters),
+        socialApi.recommendations({
+          q: discoveryQuery.trim(),
+          material: discoveryFilters.material,
+          component: discoveryFilters.component,
+          entity_type: discoveryFilters.entity_type,
+          page_size: 4,
+        }),
+      ]);
+      setDiscovery(searchPayload);
+      setRecommendations(recommendationPayload);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao buscar conteúdo social");
     } finally {
@@ -156,6 +169,7 @@ export function SocialScreen({ setError }: SocialScreenProps) {
         {activeTab === "discovery" ? (
           <DiscoveryTab
             discovery={discovery}
+            recommendations={recommendations}
             query={discoveryQuery}
             setQuery={setDiscoveryQuery}
             filters={discoveryFilters}
@@ -250,6 +264,7 @@ function CatalogFilters({
 
 function DiscoveryTab({
   discovery,
+  recommendations,
   query,
   setQuery,
   filters,
@@ -260,6 +275,7 @@ function DiscoveryTab({
   search,
 }: {
   discovery: SearchResponse | null;
+  recommendations: RecommendationResponse | null;
   query: string;
   setQuery: React.Dispatch<React.SetStateAction<string>>;
   filters: DiscoveryFilters;
@@ -314,6 +330,7 @@ function DiscoveryTab({
         <DiscoveryInput label="Arquivo" icon={FileText} value={filters.file_kind} onChange={(value) => setFilters((current) => ({ ...current, file_kind: value }))} placeholder="stl, 3mf..." />
       </div>
       <FacetRail discovery={discovery} filters={filters} setFilters={setFilters} />
+      <RecommendationStrip recommendations={recommendations} />
       <div className="social-result-toolbar">
         <div className="social-result-summary">
           <strong>Resultados públicos</strong>
@@ -352,6 +369,37 @@ function DiscoveryTab({
         {results.length === 0 ? <EmptyState title="Nenhum conteúdo encontrado" text="Ajuste os filtros ou busque por comunidade, material, componente, arquivo ou perfil técnico publicado." /> : null}
       </div>
     </div>
+  );
+}
+
+function RecommendationStrip({ recommendations }: { recommendations: RecommendationResponse | null }) {
+  const items = recommendations?.items ?? [];
+  if (items.length === 0) return null;
+  return (
+    <section className="recommendation-strip" aria-label="Recomendações técnicas">
+      <div className="social-result-summary">
+        <strong>Recomendações técnicas</strong>
+        <span>{items.length} sugestões com score determinístico e motivo visível</span>
+      </div>
+      <div className="recommendation-grid">
+        {items.map((item) => (
+          <article key={`${item.result.entity_type}-${item.result.entity_id}`} className="recommendation-card">
+            <div>
+              <span className="discovery-type-pill">{entityTypeLabel(item.result.entity_type)}</span>
+              <strong>{item.result.title}</strong>
+            </div>
+            <p>{item.reasons.join(" · ")}</p>
+            <div className="recommendation-meta">
+              <span>Score {item.score}</span>
+              <span>Reputação {item.contributor_reputation}</span>
+            </div>
+            <a href={item.result.url} aria-label={`Abrir recomendação ${item.result.title}`}>
+              Abrir <ExternalLink size={14} />
+            </a>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 

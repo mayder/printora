@@ -20,8 +20,10 @@ import type {
   ProfileVisibility,
   PublicPrinter,
   PublicProfile,
+  RecommendationResponse,
   RelationshipRecord,
   RelationshipSummary,
+  ReputationResponse,
   SearchEntityType,
   SearchOrder,
   SearchResponse,
@@ -247,6 +249,15 @@ export const socialApi = {
     return apiRequest<SearchResponse>(`/api/social/search${query ? `?${query}` : ""}`);
   },
   tags: () => apiRequest<TagRecord[]>("/api/social/tags"),
+  recommendations: (filters: Pick<SearchDiscoveryFilters, "q" | "community" | "material" | "component" | "entity_type" | "page_size"> = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.set(key, String(value));
+    });
+    const query = params.toString();
+    return apiRequest<RecommendationResponse>(`/api/social/recommendations${query ? `?${query}` : ""}`);
+  },
+  reputation: (limit = 20) => apiRequest<ReputationResponse>(`/api/social/reputation?limit=${encodeURIComponent(String(limit))}`),
   publicPrinter: (printerId: number | string) => apiRequest<PublicPrinter>(`/api/public/printers/${encodeURIComponent(String(printerId))}`),
   publicPrinters: (filters: { manufacturer?: string; model?: string; variant?: string; mod?: string } = {}) => {
     const params = new URLSearchParams();

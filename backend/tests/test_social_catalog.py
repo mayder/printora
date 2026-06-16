@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from app.print_profiles import MaterialProfilePayload, PrintProfilesRepository, SlicingProfilePayload
 from app.search_discovery import SearchDiscoveryRepository
 from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, LibraryCollectionCreate, LibraryCollectionItemCreate, LibraryFileMetadata, LibraryItemCreate, LibraryItemUpdate, LibraryVersionCreate, PrintListCreate, PrintListItemCreate, PrintListItemUpdate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
+from app.social_ranking import SocialRankingRepository
 from app.technical_profiles import TechnicalPrinterConfigPayload, TechnicalProfilesRepository
 
 
@@ -285,6 +286,54 @@ def test_search_discovery_indexes_public_content_and_filters_private(tmp_path: P
     assert {"material-abs", "component-hotend", "license-cc-by", "file-stl"}.issubset(tags)
     assert "secret-voron" not in dumped
     assert "moonraker" not in dumped
+
+
+def test_social_ranking_recommendations_ignore_self_vote_and_explain_score(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="ranking-owner@example.com", password="correct-horse"))
+    peer = auth.create_user(UserRegisterRequest(email="ranking-peer@example.com", password="correct-horse"))
+    social = SocialCatalogRepository(database_path)
+    variant_id = _variant_id(database_path, "voron-2-4-r2-350")
+    social.update_profile(owner.id, PublicProfileUpdate(slug="ranking-owner", display_name="Ranking Owner", visibility="public"))
+    social.update_profile(peer.id, PublicProfileUpdate(slug="ranking-peer", display_name="Ranking Peer", visibility="public"))
+    item = social.create_library_item(
+        owner.id,
+        LibraryItemCreate(
+            title="Duto recomendado ABS",
+            description="Peça validada pela comunidade.",
+            visibility="community",
+            community_slug="variant-voron-design-voron-2-4-voron-2-4-r2-350",
+            catalog_variant_id=variant_id,
+            component="toolhead",
+            material_suggestion="ABS",
+            license="cc-by",
+            original_author_name="Ranking Owner",
+            publication_terms_accepted=True,
+            files=[LibraryFileMetadata(file_kind="stl", file_name="duct.stl")],
+        ),
+    )
+    social.set_library_favorite(item.id, owner.id, True)
+    social.set_library_favorite(item.id, peer.id, True)
+    social.register_library_download(item.id, owner.id)
+    social.register_library_download(item.id, peer.id)
+
+    ranking = SocialRankingRepository(database_path)
+    recommendations = ranking.recommendations(query="Duto", material="ABS", page_size=5)
+    reputation = ranking.profile_reputation("ranking-owner")
+    leaderboard = ranking.leaderboard()
+
+    recommended = next(entry for entry in recommendations.items if entry.result.title == "Duto recomendado ABS")
+    assert recommended.score >= 6
+    assert any("favorito" in reason or "download" in reason for reason in recommended.reasons)
+    assert reputation.reputation_score == 6
+    assert reputation.breakdown == {"download": 2, "favorite": 4}
+    assert leaderboard.records[0].slug == "ranking-owner"
+
+    with connect_database(database_path) as connection:
+        signal_count = connection.execute("SELECT COUNT(*) FROM social_quality_signals WHERE entity_type = 'library_item' AND entity_id = ?", (item.id,)).fetchone()[0]
+    assert signal_count == 2
 
 
 def test_catalog_seed_has_broad_diy_klipper_catalog(tmp_path: Path) -> None:

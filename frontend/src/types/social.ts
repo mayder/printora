@@ -513,3 +513,29 @@ export interface TagRecord {
   status: string;
   source: string;
 }
+
+export interface RecommendationItem {
+  result: SearchResult;
+  score: number;
+  reasons: string[];
+  contributor_reputation: number;
+}
+
+export interface RecommendationResponse {
+  items: RecommendationItem[];
+  indexed_count: number;
+  scoring: Record<string, number>;
+}
+
+export interface ReputationRecord {
+  user_id: number;
+  slug: string | null;
+  display_name: string | null;
+  contribution_count: number;
+  reputation_score: number;
+  breakdown: Record<string, number>;
+}
+
+export interface ReputationResponse {
+  records: ReputationRecord[];
+}
