@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260616-09 - Configuração técnica pública é perfil social separado da operação
+
+Status: aceita
+Data: 2026-06-16
+Contexto: o PKG-62 precisa permitir que makers compartilhem configurações de impressora, mods, componentes e calibrações sem transformar comunidade em permissão operacional nem expor dados sensíveis da frota.
+Decisao: criar o domínio `technical_profiles`, com SQL próprio em `052_social_technical_printer_configs.sql`, rotas dedicadas e leitura na aba `Perfis` da comunidade. O registro referencia usuário, impressora, variante do catálogo, comunidade e item de biblioteca quando existir, mas o payload público contém somente dados técnicos sanitizados. Arquivamento é lógico.
+Alternativas consideradas: adicionar tudo em `social_catalog.py`; guardar configurações em JSON dentro de impressoras públicas; expor campos operacionais sanitizados no frontend.
+Consequencias: o domínio social ganha comparação técnica por comunidade sem aumentar o módulo social principal e sem risco de virar acesso operacional. A leitura/comparação fica na comunidade; cadastro, edição e arquivamento ficam no detalhe da impressora.
+Impacto em testes: testes focados cobrem criação, edição, arquivamento lógico, sanitização de dados sensíveis, visibilidade comunitária e comparação normalizada.
+Impacto em rollback: médio; há novo script SQLite `052_social_technical_printer_configs.sql`.
+Como reverter: remover rotas/UI de perfis técnicos e restaurar backup SQLite anterior ao script `052_social_technical_printer_configs.sql` se a tabela não puder permanecer.
+Referencias: `backend/sql/052_social_technical_printer_configs.sql`, `backend/app/technical_profiles.py`, `backend/app/routes/technical_profiles.py`, `frontend/src/screens/PublicCommunityScreen.tsx`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260616-08 - Organizador da biblioteca separa favoritos, coleções e listas de impressão
 
 Status: aceita

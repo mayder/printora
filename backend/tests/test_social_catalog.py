@@ -11,6 +11,7 @@ from app.main import app
 from fastapi.testclient import TestClient
 
 from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, LibraryCollectionCreate, LibraryCollectionItemCreate, LibraryFileMetadata, LibraryItemCreate, LibraryItemUpdate, LibraryVersionCreate, PrintListCreate, PrintListItemCreate, PrintListItemUpdate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
+from app.technical_profiles import TechnicalPrinterConfigPayload, TechnicalProfilesRepository
 
 
 def test_catalog_seed_has_voron_models_and_variants(tmp_path: Path) -> None:
@@ -24,6 +25,119 @@ def test_catalog_seed_has_voron_models_and_variants(tmp_path: Path) -> None:
 
     assert {"voron-0-2", "voron-2-4"}.issubset(model_slugs)
     assert "Voron 2.4 R2 350mm" in variant_names
+
+
+def test_technical_printer_config_is_public_without_operational_secrets(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    user = auth.create_user(UserRegisterRequest(email="maker@example.com", password="correct-horse"))
+    printer = PrinterRepository(database_path, user_id=user.id).create_printer(
+        PrinterCreate(name="Voron bancada", moonraker_url="http://secret-voron.local:7125", host_audit_mode="disabled")
+    )
+    social = SocialCatalogRepository(database_path)
+    variant = next(
+        variant
+        for manufacturer in social.list_catalog().manufacturers
+        for model in manufacturer.models
+        for variant in model.variants
+        if variant.slug == "voron-2-4-r2-350"
+    )
+    social.update_profile(user.id, PublicProfileUpdate(slug="maker", display_name="Maker", visibility="public"))
+    social.update_printer_public(printer.id, user.id, PrinterPublicUpdate(public_profile_enabled=True, catalog_variant_id=variant.id))
+    community = social.list_communities(variant="voron-2-4-r2-350")[0]
+
+    repository = TechnicalProfilesRepository(database_path)
+    config = repository.create_config(
+        user.id,
+        TechnicalPrinterConfigPayload(
+            printer_id=printer.id,
+            community_slug=community.slug,
+            title="Voron 2.4 ABS estável",
+            visibility="community",
+            mods=["Tap", "Nevermore"],
+            components={"hotend": "Revo Voron", "extruder": "Clockwork 2"},
+            calibrations={"z_offset": "-0.420", "pressure_advance": "0.035"},
+            notes="Perfil técnico público com peças e ajuste documentados.",
+        ),
+    )
+
+    community_configs = repository.community_configs(community.slug)
+    assert config.id in {item.id for item in community_configs}
+    assert community_configs[0].manufacturer_name == "Voron Design"
+    assert "secret-voron" not in community_configs[0].model_dump_json()
+    assert "moonraker" not in community_configs[0].model_dump_json().lower()
+
+    try:
+        repository.create_config(
+            user.id,
+            TechnicalPrinterConfigPayload(
+                printer_id=printer.id,
+                community_slug=community.slug,
+                title="token privado",
+                visibility="community",
+            ),
+        )
+    except ValueError as exc:
+        assert "sensível" in str(exc)
+    else:
+        raise AssertionError("configuração com dado sensível deveria falhar")
+
+
+def test_technical_config_comparison_normalizes_community_fields(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    first = auth.create_user(UserRegisterRequest(email="first@example.com", password="correct-horse"))
+    second = auth.create_user(UserRegisterRequest(email="second@example.com", password="correct-horse"))
+    social = SocialCatalogRepository(database_path)
+    variant = next(
+        variant
+        for manufacturer in social.list_catalog().manufacturers
+        for model in manufacturer.models
+        for variant in model.variants
+        if variant.slug == "voron-2-4-r2-350"
+    )
+    first_printer = PrinterRepository(database_path, user_id=first.id).create_printer(
+        PrinterCreate(name="Voron A", moonraker_url="http://a.local:7125", host_audit_mode="disabled")
+    )
+    second_printer = PrinterRepository(database_path, user_id=second.id).create_printer(
+        PrinterCreate(name="Voron B", moonraker_url="http://b.local:7125", host_audit_mode="disabled")
+    )
+    social.update_profile(first.id, PublicProfileUpdate(slug="first", display_name="First", visibility="public"))
+    social.update_profile(second.id, PublicProfileUpdate(slug="second", display_name="Second", visibility="public"))
+    social.update_printer_public(first_printer.id, first.id, PrinterPublicUpdate(public_profile_enabled=True, catalog_variant_id=variant.id))
+    social.update_printer_public(second_printer.id, second.id, PrinterPublicUpdate(public_profile_enabled=True, catalog_variant_id=variant.id))
+    community = social.list_communities(variant="voron-2-4-r2-350")[0]
+    repository = TechnicalProfilesRepository(database_path)
+
+    repository.create_config(
+        first.id,
+        TechnicalPrinterConfigPayload(
+            printer_id=first_printer.id,
+            community_slug=community.slug,
+            title="ABS rápido",
+            visibility="community",
+            components={"hotend": "Dragon HF"},
+            calibrations={"flow": "0.96"},
+        ),
+    )
+    repository.create_config(
+        second.id,
+        TechnicalPrinterConfigPayload(
+            printer_id=second_printer.id,
+            community_slug=community.slug,
+            title="ABS qualidade",
+            visibility="community",
+            components={"hotend": "Revo Voron"},
+            calibrations={"flow": "0.98"},
+        ),
+    )
+
+    comparison = repository.compare_community(community.slug)
+    assert len(comparison.configs) == 2
+    assert comparison.normalized_components["hotend"] == ["Dragon HF", "Revo Voron"]
+    assert comparison.normalized_calibrations["flow"] == ["0.96", "0.98"]
 
 
 def test_catalog_seed_has_broad_diy_klipper_catalog(tmp_path: Path) -> None:
@@ -535,6 +649,101 @@ def test_public_printer_api_blocks_other_user_and_sanitizes_direct_payload(tmp_p
             assert "credential" not in dumped
             assert "organization" not in dumped
             assert "permission" not in dumped
+    finally:
+        get_settings.cache_clear()
+
+
+def test_technical_printer_config_api_crud_and_public_contract(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner = client.post("/api/auth/register", json={"email": "tech-owner@example.com", "password": "correct-horse"})
+            owner_token = owner.json()["access_token"]
+            profile = client.put(
+                "/api/social/me/profile",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"slug": "tech-owner", "display_name": "Tech Owner", "visibility": "public"},
+            )
+            printer_response = client.post(
+                "/api/printers",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={
+                    "name": "Tech Voron",
+                    "moonraker_url": "http://secret-voron.local:7125",
+                    "host_audit_mode": "disabled",
+                },
+            )
+            printer = printer_response.json()
+            variant = _variant_id(tmp_path / "printora.db", "voron-2-4-r2-350")
+            published = client.put(
+                f"/api/printers/{printer['id']}/public-profile",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"public_profile_enabled": True, "catalog_variant_id": variant, "public_name": "Tech Voron"},
+            )
+            communities = SocialCatalogRepository(tmp_path / "printora.db").list_communities(variant="voron-2-4-r2-350")
+            community_slug = communities[0].slug
+
+            created = client.post(
+                "/api/social/technical-configs",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={
+                    "printer_id": printer["id"],
+                    "community_slug": community_slug,
+                    "title": "ABS estável",
+                    "visibility": "community",
+                    "mods": ["Tap"],
+                    "components": {"hotend": "Revo Voron"},
+                    "calibrations": {"flow": "0.97"},
+                    "notes": "Uso público em ABS.",
+                },
+            )
+            config_id = created.json()["id"]
+            public_list = client.get(f"/api/social/communities/{community_slug}/technical-configs")
+            comparison = client.get(f"/api/social/communities/{community_slug}/technical-configs/comparison")
+            updated = client.put(
+                f"/api/social/technical-configs/{config_id}",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={
+                    "printer_id": printer["id"],
+                    "community_slug": community_slug,
+                    "title": "ABS qualidade",
+                    "visibility": "community",
+                    "mods": ["Tap", "Nevermore"],
+                    "components": {"hotend": "Revo Voron"},
+                    "calibrations": {"flow": "0.98"},
+                    "notes": "Uso público revisado.",
+                },
+            )
+            bad = client.post(
+                "/api/social/technical-configs",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={
+                    "printer_id": printer["id"],
+                    "community_slug": community_slug,
+                    "title": "Configuração sensível",
+                    "visibility": "community",
+                    "components": {"host": "secret-voron.local"},
+                },
+            )
+            archived = client.delete(f"/api/social/technical-configs/{config_id}", headers={"Authorization": f"Bearer {owner_token}"})
+            after_archive = client.get(f"/api/social/communities/{community_slug}/technical-configs")
+
+            assert profile.status_code == 200
+            assert published.status_code == 200
+            assert created.status_code == 200
+            assert public_list.status_code == 200
+            assert comparison.status_code == 200
+            assert updated.status_code == 200
+            assert bad.status_code in {400, 422}
+            assert archived.status_code == 204
+            assert after_archive.status_code == 200
+            assert after_archive.json() == []
+            dumped = str(public_list.json()).lower()
+            assert "secret-voron" not in dumped
+            assert "moonraker" not in dumped
+            assert comparison.json()["normalized_components"]["hotend"] == ["Revo Voron"]
     finally:
         get_settings.cache_clear()
 

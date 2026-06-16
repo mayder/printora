@@ -22,6 +22,8 @@ import type {
   PublicProfile,
   RelationshipRecord,
   RelationshipSummary,
+  TechnicalConfigComparison,
+  TechnicalPrinterConfig,
 } from "../types";
 
 const jsonHeaders = { "Content-Type": "application/json" };
@@ -151,6 +153,19 @@ export interface PrintListItemPayload {
   notes?: string | null;
 }
 
+export interface TechnicalPrinterConfigPayload {
+  printer_id?: number | null;
+  catalog_variant_id?: number | null;
+  community_slug?: string | null;
+  linked_library_item_id?: number | null;
+  title: string;
+  visibility: "private" | "community" | "public";
+  mods: string[];
+  components: Record<string, string>;
+  calibrations: Record<string, string>;
+  notes?: string;
+}
+
 export const socialApi = {
   catalog: () => apiRequest<CatalogSummary>("/api/catalog"),
   adminCatalog: (filters: CatalogAdminFilters = {}) => {
@@ -207,6 +222,24 @@ export const socialApi = {
     return apiRequest<Community[]>(`/api/social/communities${query ? `?${query}` : ""}`);
   },
   community: (slug: string) => apiRequest<CommunityDetail>(`/api/social/communities/${encodeURIComponent(slug)}`),
+  communityTechnicalConfigs: (slug: string) =>
+    apiRequest<TechnicalPrinterConfig[]>(`/api/social/communities/${encodeURIComponent(slug)}/technical-configs`),
+  communityTechnicalComparison: (slug: string) =>
+    apiRequest<TechnicalConfigComparison>(`/api/social/communities/${encodeURIComponent(slug)}/technical-configs/comparison`),
+  myTechnicalConfigs: () => apiRequest<TechnicalPrinterConfig[]>("/api/social/me/technical-configs"),
+  createTechnicalConfig: (payload: TechnicalPrinterConfigPayload) =>
+    apiRequest<TechnicalPrinterConfig>("/api/social/technical-configs", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  updateTechnicalConfig: (configId: number, payload: TechnicalPrinterConfigPayload) =>
+    apiRequest<TechnicalPrinterConfig>(`/api/social/technical-configs/${configId}`, {
+      method: "PUT",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  archiveTechnicalConfig: (configId: number) => apiRequest<void>(`/api/social/technical-configs/${configId}`, { method: "DELETE" }),
   communityLibrary: (slug: string) => apiRequest<LibraryItem[]>(`/api/social/communities/${encodeURIComponent(slug)}/library`),
   profileLibrary: (slug: string) => apiRequest<LibraryItem[]>(`/api/social/profiles/${encodeURIComponent(slug)}/library`),
   libraryOrganizer: () => apiRequest<LibraryOrganizerSummary>("/api/social/me/library/organizer"),

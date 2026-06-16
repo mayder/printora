@@ -610,6 +610,111 @@
   color: var(--muted);
 }
 
+.community-section-header {
+  align-items: start;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.community-section-header p {
+  color: var(--muted);
+  margin: 4px 0 0;
+}
+
+.technical-comparison-grid,
+.technical-profile-list {
+  display: grid;
+  gap: 12px;
+}
+
+.technical-comparison-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+.technical-comparison-card,
+.technical-profile-card {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.technical-comparison-card h3 {
+  font-size: 0.96rem;
+  margin: 0 0 10px;
+}
+
+.technical-comparison-card div {
+  align-items: start;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 120px minmax(0, 1fr);
+  padding: 8px 0;
+}
+
+.technical-comparison-card span,
+.technical-profile-card span,
+.technical-spec-table dd:first-of-type {
+  color: var(--muted);
+}
+
+.technical-comparison-card strong,
+.technical-profile-card strong,
+.technical-spec-table dd {
+  overflow-wrap: anywhere;
+}
+
+.technical-profile-card {
+  display: grid;
+  gap: 12px;
+}
+
+.technical-profile-card__head {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.technical-profile-card__head > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.technical-profile-card__head a {
+  align-items: center;
+  color: var(--text);
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.technical-spec-table {
+  display: grid;
+  gap: 0;
+  grid-template-columns: minmax(110px, 0.45fr) minmax(0, 1fr);
+  margin: 0;
+}
+
+.technical-spec-table dt {
+  color: var(--text);
+  font-weight: 700;
+  grid-column: 1 / -1;
+  margin-bottom: 6px;
+}
+
+.technical-spec-table dd {
+  border-top: 1px solid var(--border);
+  margin: 0;
+  padding: 7px 0;
+}
+
 @media (max-width: 960px) {
   .social-band,
   .social-layout {
@@ -621,7 +726,8 @@
   .community-filter-grid,
   .social-profile-search,
   .social-tabs,
-  .relationships-grid {
+  .relationships-grid,
+  .technical-comparison-grid {
     grid-template-columns: 1fr;
   }
 

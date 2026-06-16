@@ -1,5 +1,5 @@
 import React from "react";
-import { Printer as PrinterIcon } from "lucide-react";
+import { Pencil, Printer as PrinterIcon, SlidersHorizontal, Trash2 } from "lucide-react";
 import { Badge, Metric } from "../components/common";
 import { AgentsScreen } from "./AgentsScreen";
 import { FirmwareScreen } from "./FirmwareScreen";
@@ -10,7 +10,7 @@ import { TestsScreen } from "./TestsScreen";
 import { UpdatesScreen } from "./UpdatesScreen";
 import { socialApi } from "../services/socialApi";
 import type { PrinterDetailTab, PrintoraScreenProps } from "../hooks/usePrintoraApp";
-import type { CatalogSummary, PrinterRecord } from "../types";
+import type { CatalogSummary, Community, PrinterRecord, TechnicalPrinterConfig } from "../types";
 
 type PrinterDetailScreenProps = PrintoraScreenProps;
 
@@ -176,6 +176,7 @@ export function PrinterDetailScreen(props: PrinterDetailScreenProps) {
               </button>
             </div>
             <PrinterPublicPanel printer={selectedPrinter} loading={loading} loadPrinters={loadPrinters} showToast={props.showToast} />
+            <PrinterTechnicalConfigPanel printer={selectedPrinter} loading={loading} showToast={props.showToast} />
           </article>
         );
     }
@@ -231,6 +232,269 @@ export function PrinterDetailScreen(props: PrinterDetailScreenProps) {
       {activeContent}
     </>
   );
+}
+
+interface TechnicalConfigDraft {
+  title: string;
+  visibility: "private" | "community" | "public";
+  community_slug: string;
+  mods: string;
+  components: string;
+  calibrations: string;
+  notes: string;
+}
+
+function PrinterTechnicalConfigPanel({ printer, loading, showToast }: { printer: PrinterRecord; loading: boolean; showToast: PrintoraScreenProps["showToast"] }) {
+  const emptyDraft: TechnicalConfigDraft = {
+    title: `${printer.name} - configuração pública`,
+    visibility: "private",
+    community_slug: "",
+    mods: (printer.public_mods || []).join(", "),
+    components: "",
+    calibrations: "",
+    notes: "",
+  };
+  const [configs, setConfigs] = React.useState<TechnicalPrinterConfig[]>([]);
+  const [communities, setCommunities] = React.useState<Community[]>([]);
+  const [draft, setDraft] = React.useState<TechnicalConfigDraft>(emptyDraft);
+  const [editingId, setEditingId] = React.useState<number | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const loadConfigs = React.useCallback(async () => {
+    try {
+      const allConfigs = await socialApi.myTechnicalConfigs();
+      setConfigs(allConfigs.filter((config) => config.printer_id === printer.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Configurações técnicas indisponíveis");
+    }
+  }, [printer.id]);
+
+  React.useEffect(() => {
+    setDraft({
+      title: `${printer.name} - configuração pública`,
+      visibility: "private",
+      community_slug: "",
+      mods: (printer.public_mods || []).join(", "),
+      components: "",
+      calibrations: "",
+      notes: "",
+    });
+    setEditingId(null);
+    setError(null);
+    void loadConfigs();
+  }, [loadConfigs, printer]);
+
+  React.useEffect(() => {
+    let active = true;
+    async function loadCommunities() {
+      if (!printer.catalog_variant_id) {
+        setCommunities([]);
+        return;
+      }
+      try {
+        const catalog = await socialApi.catalog();
+        const variant = catalog.manufacturers
+          .flatMap((manufacturer) => manufacturer.models)
+          .flatMap((model) => model.variants)
+          .find((item) => item.id === printer.catalog_variant_id);
+        if (!variant) {
+          if (active) setCommunities([]);
+          return;
+        }
+        const payload = await socialApi.communities({ variant: variant.slug });
+        if (active) setCommunities(payload);
+      } catch {
+        if (active) setCommunities([]);
+      }
+    }
+    void loadCommunities();
+    return () => {
+      active = false;
+    };
+  }, [printer.catalog_variant_id]);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (draft.visibility === "community" && !draft.community_slug) {
+      showToast({ tone: "danger", title: "Selecione a comunidade técnica" });
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const payload = {
+        printer_id: printer.id,
+        catalog_variant_id: printer.catalog_variant_id,
+        community_slug: draft.visibility === "community" ? draft.community_slug : null,
+        title: draft.title,
+        visibility: draft.visibility,
+        mods: parseList(draft.mods),
+        components: parseKeyValueLines(draft.components),
+        calibrations: parseKeyValueLines(draft.calibrations),
+        notes: draft.notes,
+      };
+      if (editingId) {
+        await socialApi.updateTechnicalConfig(editingId, payload);
+      } else {
+        await socialApi.createTechnicalConfig(payload);
+      }
+      await loadConfigs();
+      setEditingId(null);
+      setDraft(emptyDraft);
+      showToast({ tone: "success", title: editingId ? "Configuração atualizada" : "Configuração criada" });
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : undefined;
+      setError(detail || "Falha ao salvar configuração técnica");
+      showToast({ tone: "danger", title: "Falha ao salvar configuração técnica", detail });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function edit(config: TechnicalPrinterConfig) {
+    setEditingId(config.id);
+    setDraft({
+      title: config.title,
+      visibility: config.visibility,
+      community_slug: config.community_slug || "",
+      mods: config.mods.join(", "),
+      components: formatKeyValueLines(config.components),
+      calibrations: formatKeyValueLines(config.calibrations),
+      notes: config.notes,
+    });
+  }
+
+  async function archive(configId: number) {
+    setBusy(true);
+    setError(null);
+    try {
+      await socialApi.archiveTechnicalConfig(configId);
+      await loadConfigs();
+      if (editingId === configId) {
+        setEditingId(null);
+        setDraft(emptyDraft);
+      }
+      showToast({ tone: "success", title: "Configuração arquivada" });
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : undefined;
+      setError(detail || "Falha ao arquivar configuração técnica");
+      showToast({ tone: "danger", title: "Falha ao arquivar configuração", detail });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="printer-public-panel printer-technical-panel">
+      <div className="panel-heading">
+        <div>
+          <span className="account-eyebrow">Configurações técnicas</span>
+          <h3>Perfis compartilháveis da impressora</h3>
+          <p className="muted">Cadastre mods, componentes e calibrações para comparação social. Não inclua host, IP, Moonraker, SSH, token, caminho local ou credencial.</p>
+        </div>
+        <Badge icon={SlidersHorizontal} label="Perfis" value={String(configs.length)} />
+      </div>
+
+      <div className="printer-technical-layout">
+        <div className="printer-technical-list">
+          {configs.map((config) => (
+            <section key={config.id} className="printer-technical-card">
+              <div>
+                <strong>{config.title}</strong>
+                <span>{config.visibility === "community" ? config.community_name || "Comunidade" : config.visibility === "public" ? "Público" : "Privado"}</span>
+              </div>
+              {config.mods.length ? <small>Mods: {config.mods.join(", ")}</small> : null}
+              <small>Componentes: {Object.keys(config.components).length}</small>
+              <small>Calibrações: {Object.keys(config.calibrations).length}</small>
+              <div className="overview-quick-actions">
+                <button type="button" className="secondary-button compact" onClick={() => edit(config)} disabled={busy || loading}>
+                  <Pencil size={14} />
+                  Editar
+                </button>
+                <button type="button" className="ghost-button compact" onClick={() => void archive(config.id)} disabled={busy || loading}>
+                  <Trash2 size={14} />
+                  Arquivar
+                </button>
+              </div>
+            </section>
+          ))}
+          {configs.length === 0 ? <p className="muted">Nenhuma configuração técnica cadastrada para esta impressora.</p> : null}
+        </div>
+
+        <form className="printer-technical-form" onSubmit={(event) => void submit(event)}>
+          <label>
+            Título
+            <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} maxLength={120} required />
+          </label>
+          <label>
+            Visibilidade
+            <select value={draft.visibility} onChange={(event) => setDraft((current) => ({ ...current, visibility: event.target.value as TechnicalConfigDraft["visibility"] }))}>
+              <option value="private">Privado</option>
+              <option value="community">Comunidade</option>
+              <option value="public">Público</option>
+            </select>
+          </label>
+          <label>
+            Comunidade
+            <select value={draft.community_slug} onChange={(event) => setDraft((current) => ({ ...current, community_slug: event.target.value }))} disabled={draft.visibility !== "community"}>
+              <option value="">Selecione</option>
+              {communities.map((community) => (
+                <option key={community.slug} value={community.slug}>{community.name}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Mods
+            <input value={draft.mods} onChange={(event) => setDraft((current) => ({ ...current, mods: event.target.value }))} placeholder="Tap, Nevermore" />
+          </label>
+          <label>
+            Componentes
+            <textarea value={draft.components} onChange={(event) => setDraft((current) => ({ ...current, components: event.target.value }))} rows={4} placeholder={"hotend=Revo Voron\nextrusor=Clockwork 2"} />
+          </label>
+          <label>
+            Calibrações
+            <textarea value={draft.calibrations} onChange={(event) => setDraft((current) => ({ ...current, calibrations: event.target.value }))} rows={4} placeholder={"z_offset=-0.420\npressure_advance=0.035"} />
+          </label>
+          <label className="printer-public-wide">
+            Observações públicas
+            <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={3} maxLength={2000} />
+          </label>
+          {error ? <p className="form-error">{error}</p> : null}
+          <div className="overview-quick-actions">
+            <button type="submit" className="primary-button" disabled={busy || loading}>{editingId ? "Salvar edição" : "Criar perfil"}</button>
+            {editingId ? (
+              <button type="button" className="secondary-button" onClick={() => { setEditingId(null); setDraft(emptyDraft); }} disabled={busy}>
+                Cancelar edição
+              </button>
+            ) : null}
+          </div>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+function parseList(value: string): string[] {
+  return value.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function parseKeyValueLines(value: string): Record<string, string> {
+  return Object.fromEntries(
+    value
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [key, ...rest] = line.split("=");
+        return [key.trim(), rest.join("=").trim()];
+      })
+      .filter(([key, item]) => key && item),
+  );
+}
+
+function formatKeyValueLines(value: Record<string, string>): string {
+  return Object.entries(value).map(([key, item]) => `${key}=${item}`).join("\n");
 }
 
 interface PrinterPublicPanelProps {

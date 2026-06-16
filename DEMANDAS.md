@@ -3875,7 +3875,13 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Concluído.
+- Lote 1 concluído com modelo de configuração técnica pública em SQL/API.
+- Lote 2 concluído com vínculo a impressora do usuário, variante do catálogo, comunidade e item de biblioteca opcional.
+- Lote 3 concluído com mods, componentes, calibrações e observações públicas sanitizadas.
+- Lote 4 concluído com comparação normalizada por comunidade.
+- Lote 5 concluído com leitura de perfis técnicos na aba `Perfis` da comunidade e CRUD no detalhe da impressora.
+- Validação: `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q`; `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`; validação visual local no detalhe da impressora e em `/c/variant-voron-design-voron-2-4-voron-2-4-r2-350`, incluindo viewport mobile.
 
 ## PKG-63: Perfis De Material E Fatiamento Compartilháveis
 

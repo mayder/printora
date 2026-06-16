@@ -2,7 +2,7 @@ import React from "react";
 import { Archive, ArrowLeft, Box, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Filter, FolderOpen, GitBranch, Heart, ListChecks, Lock, MessageSquare, Pencil, Pin, Printer, Reply, RotateCcw, Send, SlidersHorizontal, ThumbsUp, Trash2, UserRound, Users, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi } from "../services/socialApi";
-import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, FeedContentType, FeedOrder, LibraryCollectionVisibility, LibraryFileKind, LibraryItem, LibraryLicense, LibraryOrganizerSummary, LibraryVisibility } from "../types";
+import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, FeedContentType, FeedOrder, LibraryCollectionVisibility, LibraryFileKind, LibraryItem, LibraryLicense, LibraryOrganizerSummary, LibraryVisibility, TechnicalConfigComparison, TechnicalPrinterConfig } from "../types";
 
 interface PublicCommunityScreenProps {
   slug: string;
@@ -31,7 +31,7 @@ const tabs: Array<{ key: CommunityTab; label: string; icon: LucideIcon }> = [
   { key: "feed", label: "Feed", icon: MessageSquare },
   { key: "files", label: "Arquivos", icon: FolderOpen },
   { key: "mods", label: "Mods", icon: Wrench },
-  { key: "profiles", label: "Perfis", icon: UserRound },
+  { key: "profiles", label: "Perfis", icon: SlidersHorizontal },
   { key: "members", label: "Membros", icon: Users },
   { key: "printers", label: "Impressoras públicas", icon: Printer },
 ];
@@ -189,10 +189,13 @@ function CommunityTabContent({ community, tab }: { community: CommunityDetail; t
       </>
     );
   }
-  if (tab === "members" || tab === "profiles") {
+  if (tab === "profiles") {
+    return <CommunityTechnicalProfiles community={community} />;
+  }
+  if (tab === "members") {
     return (
       <>
-        <h2>{tab === "profiles" ? "Perfis" : "Membros"}</h2>
+        <h2>Membros</h2>
         <div className="public-printer-list">
           {community.members.map((member) => (
             <section key={member.user_id} className="public-printer-card">
@@ -223,6 +226,111 @@ function CommunityTabContent({ community, tab }: { community: CommunityDetail; t
     return <CommunityLibrary community={community} />;
   }
   return <CommunityFeed community={community} />;
+}
+
+function CommunityTechnicalProfiles({ community }: { community: CommunityDetail }) {
+  const [configs, setConfigs] = React.useState<TechnicalPrinterConfig[]>([]);
+  const [comparison, setComparison] = React.useState<TechnicalConfigComparison | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    async function loadProfiles() {
+      setLoading(true);
+      setError(null);
+      try {
+        const [items, compare] = await Promise.all([
+          socialApi.communityTechnicalConfigs(community.slug),
+          socialApi.communityTechnicalComparison(community.slug),
+        ]);
+        if (active) {
+          setConfigs(items);
+          setComparison(compare);
+        }
+      } catch (err) {
+        if (active) setError(err instanceof Error ? err.message : "Perfis técnicos indisponíveis");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void loadProfiles();
+    return () => {
+      active = false;
+    };
+  }, [community.slug]);
+
+  if (loading) return <Placeholder title="Perfis técnicos" text="Carregando configurações compartilhadas..." />;
+  if (error) return <Placeholder title="Perfis técnicos indisponíveis" text={error} />;
+  if (configs.length === 0) {
+    return <Placeholder title="Perfis técnicos" text="Nenhuma configuração técnica pública foi compartilhada nesta comunidade." />;
+  }
+
+  return (
+    <>
+      <div className="community-section-header">
+        <div>
+          <h2>Perfis técnicos compartilhados</h2>
+          <p>Configurações públicas por impressora, componentes, mods e calibrações. Não há agente, host, IP, token ou permissão operacional.</p>
+        </div>
+      </div>
+      <div className="technical-comparison-grid">
+        <ComparisonGroup title="Componentes" values={comparison?.normalized_components ?? {}} />
+        <ComparisonGroup title="Calibrações" values={comparison?.normalized_calibrations ?? {}} />
+      </div>
+      <div className="technical-profile-list">
+        {configs.map((config) => (
+          <section key={config.id} className="technical-profile-card">
+            <div className="technical-profile-card__head">
+              <div>
+                <strong>{config.title}</strong>
+                <span>{[config.manufacturer_name, config.model_name, config.variant_name].filter(Boolean).join(" / ")}</span>
+              </div>
+              <a href={config.owner_slug ? `/u/${config.owner_slug}` : "#"} aria-disabled={!config.owner_slug}>
+                <UserRound size={15} />
+                {config.owner_display_name ?? "Maker"}
+              </a>
+            </div>
+            {config.mods.length ? <div className="community-chip-list">{config.mods.map((mod) => <span key={mod}>{mod}</span>)}</div> : null}
+            <SpecTable title="Componentes" values={config.components} />
+            <SpecTable title="Calibrações" values={config.calibrations} />
+            {config.notes ? <p>{config.notes}</p> : null}
+          </section>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function ComparisonGroup({ title, values }: { title: string; values: Record<string, string[]> }) {
+  const entries = Object.entries(values);
+  return (
+    <section className="technical-comparison-card">
+      <h3>{title}</h3>
+      {entries.length ? entries.map(([key, items]) => (
+        <div key={key}>
+          <span>{key}</span>
+          <strong>{items.join(" / ")}</strong>
+        </div>
+      )) : <p>Sem dados normalizados.</p>}
+    </section>
+  );
+}
+
+function SpecTable({ title, values }: { title: string; values: Record<string, string> }) {
+  const entries = Object.entries(values);
+  if (entries.length === 0) return null;
+  return (
+    <dl className="technical-spec-table">
+      <dt>{title}</dt>
+      {entries.map(([key, value]) => (
+        <React.Fragment key={key}>
+          <dd>{key}</dd>
+          <dd>{value}</dd>
+        </React.Fragment>
+      ))}
+    </dl>
+  );
 }
 
 const visibilityOptions: Array<{ value: LibraryVisibility; label: string }> = [

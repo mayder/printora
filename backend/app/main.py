@@ -27,6 +27,7 @@ from app.routes import (
     snapshots,
     social_catalog,
     system,
+    technical_profiles,
     z_offset,
 )
 @asynccontextmanager
@@ -84,5 +85,6 @@ app.include_router(setup.router)
 app.include_router(snapshots.router)
 app.include_router(social_catalog.router)
 app.include_router(system.router)
+app.include_router(technical_profiles.router)
 app.include_router(z_offset.router)
 app.include_router(frontend.router)

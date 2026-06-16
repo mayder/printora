@@ -287,6 +287,40 @@ export interface LibraryItem {
   updated_at: string;
 }
 
+export interface TechnicalPrinterConfig {
+  id: number;
+  owner_user_id: number;
+  owner_slug: string | null;
+  owner_display_name: string | null;
+  printer_id: number | null;
+  printer_public_name: string | null;
+  catalog_variant_id: number | null;
+  manufacturer_name: string | null;
+  model_name: string | null;
+  variant_name: string | null;
+  community_slug: string | null;
+  community_id: number | null;
+  community_name: string | null;
+  linked_library_item_id: number | null;
+  title: string;
+  visibility: "private" | "community" | "public";
+  mods: string[];
+  components: Record<string, string>;
+  calibrations: Record<string, string>;
+  notes: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TechnicalConfigComparison {
+  community_slug: string;
+  community_name: string;
+  configs: TechnicalPrinterConfig[];
+  normalized_components: Record<string, string[]>;
+  normalized_calibrations: Record<string, string[]>;
+}
+
 export interface LibraryVersion {
   id: number;
   item_id: number;

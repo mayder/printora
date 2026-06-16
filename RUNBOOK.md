@@ -175,6 +175,28 @@ específica do modelo. Não execute `DELETE` manual em favoritos, coleções, li
 ou histórico sem confirmação explícita. Rollback estrutural exige backup SQLite
 anterior ao script `051_social_library_organizer.sql`.
 
+Configurações técnicas compartilhadas:
+
+```bash
+curl -fsS -H "Authorization: Bearer <token>" \
+  "http://127.0.0.1:8069/api/social/me/technical-configs"
+
+curl -fsS \
+  "http://127.0.0.1:8069/api/social/communities/<slug>/technical-configs"
+
+curl -fsS \
+  "http://127.0.0.1:8069/api/social/communities/<slug>/technical-configs/comparison"
+```
+
+O schema de configurações técnicas públicas é aplicado por
+`backend/sql/052_social_technical_printer_configs.sql`. Esses registros são
+perfil social técnico, não permissão operacional, e não devem conter Moonraker,
+agente, SSH, token, IP, host, caminho local ou credencial. Remoção pela API é
+arquivamento lógico; não execute `DELETE` manual sem confirmação explícita.
+Rollback funcional remove endpoints/UI de perfis técnicos e mantém os dados como
+legado; rollback estrutural exige backup SQLite anterior ao script
+`052_social_technical_printer_configs.sql`.
+
 ## Comandos principais
 
 ```bash
