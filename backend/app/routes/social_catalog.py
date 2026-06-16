@@ -27,6 +27,9 @@ from app.social_catalog import (
     DiscussionReactionPayload,
     FeedContentType,
     FeedOrder,
+    LibraryItem,
+    LibraryItemCreate,
+    LibraryItemUpdate,
     PrinterPublicUpdate,
     PublicPrinter,
     PublicProfile,
@@ -310,6 +313,89 @@ async def get_social_community_feed(
     if feed is None:
         raise HTTPException(status_code=404, detail="comunidade não encontrada")
     return feed
+
+
+@router.get("/api/social/communities/{slug}/library", response_model=list[LibraryItem])
+async def list_community_library(
+    slug: str,
+    current: CurrentUser | None = Depends(optional_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> list[LibraryItem]:
+    return repository.list_library_for_community(slug, current.user.id if current else None)
+
+
+@router.get("/api/social/profiles/{slug}/library", response_model=list[LibraryItem])
+async def list_profile_library(
+    slug: str,
+    current: CurrentUser | None = Depends(optional_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> list[LibraryItem]:
+    return repository.list_library_for_profile(slug, current.user.id if current else None)
+
+
+@router.post("/api/social/library", response_model=LibraryItem)
+async def create_library_item(
+    payload: LibraryItemCreate,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryItem:
+    try:
+        return repository.create_library_item(current.user.id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/api/social/library/{item_id}", response_model=LibraryItem)
+async def get_library_item(
+    item_id: int,
+    current: CurrentUser | None = Depends(optional_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryItem:
+    item = repository.library_item(item_id, current.user.id if current else None)
+    if item is None:
+        raise HTTPException(status_code=404, detail="arquivo não encontrado")
+    return item
+
+
+@router.put("/api/social/library/{item_id}", response_model=LibraryItem)
+async def update_library_item(
+    item_id: int,
+    payload: LibraryItemUpdate,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryItem:
+    try:
+        return repository.update_library_item(item_id, current.user.id, is_social_admin(current), payload)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/api/social/library/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def archive_library_item(
+    item_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> None:
+    try:
+        repository.archive_library_item(item_id, current.user.id, is_social_admin(current))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/social/library/{item_id}/downloads", response_model=LibraryItem)
+async def register_library_download(
+    item_id: int,
+    current: CurrentUser | None = Depends(optional_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryItem:
+    item = repository.register_library_download(item_id, current.user.id if current else None)
+    if item is None:
+        raise HTTPException(status_code=404, detail="arquivo não encontrado")
+    return item
 
 
 @router.post("/api/social/communities/{slug}/posts", response_model=CommunityFeedSummary)

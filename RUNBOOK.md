@@ -51,6 +51,21 @@ por `deleted_at`; não execute `DELETE` manual em discussões, comentários,
 reações ou histórico sem confirmação explícita. Rollback estrutural exige
 restaurar backup SQLite anterior ao script `045_social_discussions.sql`.
 
+Biblioteca de arquivos:
+
+```bash
+curl -fsS "http://127.0.0.1:8069/api/social/communities/<slug>/library"
+curl -fsS -X POST "http://127.0.0.1:8069/api/social/library/<item_id>/downloads"
+```
+
+O schema da biblioteca base é aplicado por
+`backend/sql/046_social_library_items.sql`. O pacote registra metadados de
+STL/3MF/ZIP e histórico de downloads; upload binário, quarentena e análise ficam
+em pacote posterior. Remoção de item é arquivamento lógico por `status`; não
+execute `DELETE` manual em itens, arquivos ou downloads sem confirmação
+explícita. Rollback estrutural exige restaurar backup SQLite anterior ao script
+`046_social_library_items.sql`.
+
 ## Comandos principais
 
 ```bash

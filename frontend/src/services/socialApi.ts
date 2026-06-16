@@ -10,6 +10,10 @@ import type {
   DiscussionDetail,
   FeedContentType,
   FeedOrder,
+  LibraryFileKind,
+  LibraryItem,
+  LibraryLicense,
+  LibraryVisibility,
   ProfileVisibility,
   PublicPrinter,
   PublicProfile,
@@ -85,6 +89,29 @@ export interface CommunityPostUpdatePayload {
   attachments?: Array<{ kind: "image" | "link"; url: string; label: string }>;
 }
 
+export interface LibraryFilePayload {
+  file_kind: LibraryFileKind;
+  file_name: string;
+  original_url?: string | null;
+  size_bytes?: number | null;
+  sha256?: string | null;
+}
+
+export interface LibraryItemPayload {
+  title: string;
+  description?: string;
+  visibility: LibraryVisibility;
+  community_slug?: string | null;
+  catalog_variant_id?: number | null;
+  component?: string | null;
+  version_label?: string;
+  material_suggestion?: string | null;
+  supports_required?: boolean;
+  orientation_notes?: string | null;
+  license: LibraryLicense;
+  files: LibraryFilePayload[];
+}
+
 export const socialApi = {
   catalog: () => apiRequest<CatalogSummary>("/api/catalog"),
   adminCatalog: (filters: CatalogAdminFilters = {}) => {
@@ -141,6 +168,22 @@ export const socialApi = {
     return apiRequest<Community[]>(`/api/social/communities${query ? `?${query}` : ""}`);
   },
   community: (slug: string) => apiRequest<CommunityDetail>(`/api/social/communities/${encodeURIComponent(slug)}`),
+  communityLibrary: (slug: string) => apiRequest<LibraryItem[]>(`/api/social/communities/${encodeURIComponent(slug)}/library`),
+  profileLibrary: (slug: string) => apiRequest<LibraryItem[]>(`/api/social/profiles/${encodeURIComponent(slug)}/library`),
+  createLibraryItem: (payload: LibraryItemPayload) =>
+    apiRequest<LibraryItem>("/api/social/library", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  updateLibraryItem: (itemId: number, payload: Partial<LibraryItemPayload>) =>
+    apiRequest<LibraryItem>(`/api/social/library/${itemId}`, {
+      method: "PUT",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  archiveLibraryItem: (itemId: number) => apiRequest<void>(`/api/social/library/${itemId}`, { method: "DELETE" }),
+  registerLibraryDownload: (itemId: number) => apiRequest<LibraryItem>(`/api/social/library/${itemId}/downloads`, { method: "POST" }),
   communityFeed: (
     slug: string,
     filters: {

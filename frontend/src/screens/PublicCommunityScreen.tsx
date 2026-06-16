@@ -1,8 +1,8 @@
 import React from "react";
-import { Archive, ArrowLeft, Box, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, FileText, Filter, FolderOpen, Lock, MessageSquare, Pencil, Pin, Printer, Reply, Send, SlidersHorizontal, ThumbsUp, Trash2, UserRound, Users, Wrench } from "lucide-react";
+import { Archive, ArrowLeft, Box, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Filter, FolderOpen, Lock, MessageSquare, Pencil, Pin, Printer, Reply, Send, SlidersHorizontal, ThumbsUp, Trash2, UserRound, Users, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi } from "../services/socialApi";
-import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, FeedContentType, FeedOrder } from "../types";
+import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, FeedContentType, FeedOrder, LibraryFileKind, LibraryItem, LibraryLicense, LibraryVisibility } from "../types";
 
 interface PublicCommunityScreenProps {
   slug: string;
@@ -200,9 +200,192 @@ function CommunityTabContent({ community, tab }: { community: CommunityDetail; t
     ) : <Placeholder title="Mods" text="A estrutura inicial usa mods declarados na publicação da impressora. Biblioteca dedicada será ligada ao pacote de arquivos/modelos." />;
   }
   if (tab === "files") {
-    return <Placeholder title="Arquivos" text="A aba está reservada para arquivos públicos vinculados à comunidade; contagem preparada e sem expor arquivos privados." />;
+    return <CommunityLibrary community={community} />;
   }
   return <CommunityFeed community={community} />;
+}
+
+const visibilityOptions: Array<{ value: LibraryVisibility; label: string }> = [
+  { value: "community", label: "Comunidade" },
+  { value: "public", label: "Público" },
+  { value: "friends", label: "Amigos" },
+  { value: "private", label: "Privado" },
+];
+
+const licenseOptions: Array<{ value: LibraryLicense; label: string }> = [
+  { value: "cc-by", label: "CC BY" },
+  { value: "cc-by-sa", label: "CC BY-SA" },
+  { value: "cc0", label: "CC0" },
+  { value: "mit", label: "MIT" },
+  { value: "custom", label: "Personalizada" },
+  { value: "all-rights-reserved", label: "Todos os direitos" },
+];
+
+function CommunityLibrary({ community }: { community: CommunityDetail }) {
+  const [items, setItems] = React.useState<LibraryItem[]>([]);
+  const [draft, setDraft] = React.useState({
+    title: "",
+    description: "",
+    visibility: "community" as LibraryVisibility,
+    component: "",
+    version_label: "v1",
+    material_suggestion: "",
+    supports_required: false,
+    orientation_notes: "",
+    license: "cc-by" as LibraryLicense,
+    file_kind: "stl" as LibraryFileKind,
+    file_name: "",
+    original_url: "",
+  });
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const loadLibrary = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setItems(await socialApi.communityLibrary(community.slug));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Biblioteca indisponível");
+    } finally {
+      setLoading(false);
+    }
+  }, [community.slug]);
+
+  React.useEffect(() => {
+    void loadLibrary();
+  }, [loadLibrary]);
+
+  async function submitItem(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+    try {
+      const created = await socialApi.createLibraryItem({
+        title: draft.title,
+        description: draft.description,
+        visibility: draft.visibility,
+        community_slug: community.slug,
+        catalog_variant_id: community.variant_id,
+        component: draft.component || null,
+        version_label: draft.version_label || "v1",
+        material_suggestion: draft.material_suggestion || null,
+        supports_required: draft.supports_required,
+        orientation_notes: draft.orientation_notes || null,
+        license: draft.license,
+        files: [{
+          file_kind: draft.file_kind,
+          file_name: draft.file_name,
+          original_url: draft.original_url || null,
+        }],
+      });
+      setItems((current) => [created, ...current.filter((item) => item.id !== created.id)]);
+      setDraft((current) => ({ ...current, title: "", description: "", file_name: "", original_url: "", component: "", material_suggestion: "", orientation_notes: "" }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível cadastrar arquivo");
+    }
+  }
+
+  async function registerDownload(itemId: number) {
+    try {
+      const updated = await socialApi.registerLibraryDownload(itemId);
+      setItems((current) => current.map((item) => item.id === updated.id ? updated : item));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Download não registrado");
+    }
+  }
+
+  async function archiveItem(itemId: number) {
+    try {
+      await socialApi.archiveLibraryItem(itemId);
+      setItems((current) => current.filter((item) => item.id !== itemId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível arquivar");
+    }
+  }
+
+  return (
+    <div className="community-library">
+      <div className="community-feed-header">
+        <div>
+          <h2>Biblioteca de arquivos</h2>
+          <p>Modelos STL/3MF e pacotes declarados por metadados, com dono, licença e visibilidade explícitos.</p>
+        </div>
+      </div>
+      <form className="community-library-form" onSubmit={submitItem}>
+        <div className="community-discussion-form-row">
+          <input value={draft.title} maxLength={160} placeholder="Nome do modelo" onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} required />
+          <select value={draft.visibility} onChange={(event) => setDraft((current) => ({ ...current, visibility: event.target.value as LibraryVisibility }))}>
+            {visibilityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+          <select value={draft.license} onChange={(event) => setDraft((current) => ({ ...current, license: event.target.value as LibraryLicense }))}>
+            {licenseOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </div>
+        <textarea value={draft.description} maxLength={1200} placeholder="Descrição técnica, compatibilidade e contexto de uso" onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} />
+        <div className="community-discussion-form-row">
+          <select value={draft.file_kind} onChange={(event) => setDraft((current) => ({ ...current, file_kind: event.target.value as LibraryFileKind }))}>
+            <option value="stl">STL</option>
+            <option value="3mf">3MF</option>
+            <option value="bundle">Pacote</option>
+          </select>
+          <input value={draft.file_name} placeholder="arquivo.stl" onChange={(event) => setDraft((current) => ({ ...current, file_name: event.target.value }))} required />
+          <input value={draft.original_url} placeholder="URL pública opcional" onChange={(event) => setDraft((current) => ({ ...current, original_url: event.target.value }))} />
+        </div>
+        <div className="community-discussion-form-row">
+          <input value={draft.component} placeholder="Componente" onChange={(event) => setDraft((current) => ({ ...current, component: event.target.value }))} />
+          <input value={draft.version_label} placeholder="Versão" onChange={(event) => setDraft((current) => ({ ...current, version_label: event.target.value }))} required />
+          <input value={draft.material_suggestion} placeholder="Material sugerido" onChange={(event) => setDraft((current) => ({ ...current, material_suggestion: event.target.value }))} />
+          <label className="community-toggle"><input type="checkbox" checked={draft.supports_required} onChange={(event) => setDraft((current) => ({ ...current, supports_required: event.target.checked }))} />Suporte</label>
+        </div>
+        <textarea value={draft.orientation_notes} maxLength={500} placeholder="Orientação de impressão" onChange={(event) => setDraft((current) => ({ ...current, orientation_notes: event.target.value }))} />
+        <button type="submit" className="primary-button"><FileText size={15} />Cadastrar arquivo</button>
+      </form>
+      {error ? <p className="public-action-error">{error}</p> : null}
+      {loading ? <p>Carregando biblioteca...</p> : items.length ? (
+        <div className="community-library-list">
+          {items.map((item) => (
+            <LibraryItemCard key={item.id} item={item} onDownload={() => registerDownload(item.id)} onArchive={() => archiveItem(item.id)} />
+          ))}
+        </div>
+      ) : <Placeholder title="Biblioteca vazia" text="Nenhum arquivo visível para esta comunidade." />}
+    </div>
+  );
+}
+
+function LibraryItemCard({ item, onDownload, onArchive }: { item: LibraryItem; onDownload: () => void; onArchive: () => void }) {
+  return (
+    <article className="community-library-card">
+      <header>
+        <div>
+          <span>{libraryVisibilityLabel(item.visibility)}</span>
+          <h3>{item.title}</h3>
+        </div>
+        <strong>{item.version_label}</strong>
+      </header>
+      {item.description ? <p>{item.description}</p> : null}
+      <div className="community-feed-tags">
+        {item.component ? <span>{item.component}</span> : null}
+        {item.material_suggestion ? <span>{item.material_suggestion}</span> : null}
+        {item.supports_required ? <span>Suporte necessário</span> : null}
+        <span>{licenseLabel(item.license)}</span>
+      </div>
+      <div className="community-file-list">
+        {item.files.map((file) => (
+          <span key={file.id ?? file.file_name}><FileText size={14} />{file.file_name} / {file.file_kind.toUpperCase()} / {file.validation_status}</span>
+        ))}
+      </div>
+      {item.orientation_notes ? <small>{item.orientation_notes}</small> : null}
+      <footer>
+        <span>{item.owner_display_name ? `Por ${item.owner_display_name}` : "Autor"}</span>
+        <span>{item.manufacturer_name && item.model_name ? `${item.manufacturer_name} / ${item.model_name}` : "Sem vínculo de catálogo"}</span>
+        <span>{item.download_count} downloads</span>
+      </footer>
+      <div className="community-feed-actions">
+        <button type="button" className="secondary-button" onClick={onDownload}><Download size={15} />Download</button>
+        <button type="button" className="secondary-button danger" onClick={onArchive}><Trash2 size={15} />Arquivar</button>
+      </div>
+    </article>
+  );
 }
 
 function CommunityFeed({ community }: { community: CommunityDetail }) {
@@ -529,6 +712,26 @@ function feedTypeLabel(type: FeedContentType) {
     file_announcement: "Arquivo",
     curation_notice: "Curadoria",
   }[type];
+}
+
+function libraryVisibilityLabel(visibility: LibraryVisibility) {
+  return {
+    private: "Privado",
+    friends: "Amigos",
+    community: "Comunidade",
+    public: "Público",
+  }[visibility];
+}
+
+function licenseLabel(license: LibraryLicense) {
+  return {
+    "cc-by": "CC BY",
+    "cc-by-sa": "CC BY-SA",
+    cc0: "CC0",
+    mit: "MIT",
+    custom: "Licença personalizada",
+    "all-rights-reserved": "Todos os direitos",
+  }[license];
 }
 
 function Placeholder({ title, text }: { title: string; text: string }) {

@@ -5,6 +5,9 @@ export type RelationshipType = "follow" | "friend" | "block";
 export type RelationshipStatus = "active" | "pending" | "accepted" | "ended";
 export type FeedContentType = "technical_post" | "question" | "mod" | "print_result" | "file_announcement" | "curation_notice";
 export type FeedOrder = "recent" | "recommended" | "pinned";
+export type LibraryVisibility = "private" | "friends" | "community" | "public";
+export type LibraryFileKind = "stl" | "3mf" | "bundle";
+export type LibraryLicense = "cc-by" | "cc-by-sa" | "cc0" | "mit" | "custom" | "all-rights-reserved";
 
 export interface CatalogVariant {
   id: number;
@@ -221,6 +224,44 @@ export interface DiscussionDetail {
   post: CommunityFeedItem;
   comments: DiscussionComment[];
   reactions: DiscussionReactionCount[];
+}
+
+export interface LibraryFileMetadata {
+  id: number | null;
+  file_kind: LibraryFileKind;
+  file_name: string;
+  original_url: string | null;
+  size_bytes: number | null;
+  sha256: string | null;
+  validation_status: string;
+}
+
+export interface LibraryItem {
+  id: number;
+  owner_user_id: number;
+  owner_slug: string | null;
+  owner_display_name: string | null;
+  community_id: number | null;
+  community_slug: string | null;
+  community_name: string | null;
+  catalog_variant_id: number | null;
+  manufacturer_name: string | null;
+  model_name: string | null;
+  variant_name: string | null;
+  title: string;
+  description: string;
+  visibility: LibraryVisibility;
+  component: string | null;
+  version_label: string;
+  material_suggestion: string | null;
+  supports_required: boolean;
+  orientation_notes: string | null;
+  license: LibraryLicense;
+  status: "active" | "archived";
+  files: LibraryFileMetadata[];
+  download_count: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface RelationshipRecord {

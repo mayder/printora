@@ -3571,7 +3571,7 @@ Estado atual:
 - Remoção lógica preserva encadeamento da discussão e mascara conteúdo removido.
 - UI da aba `Feed` em `/c/{slug}` permite publicar discussão, abrir detalhe, comentar, responder, reagir, editar, remover e marcar solução, com estados de erro/carregamento.
 - Histórico mínimo de edição/remoção/solução fica em `social_discussion_edit_history` e auditoria resumida em `catalog_audit_events` sem payload sensível.
-- Validação focada concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q` e `cd frontend && npm run build`.
+- Validação concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q`, `cd frontend && npm run build`, `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh` e fluxo local em `/c/{slug}` na aba `Arquivos` com login, cadastro de item STL e listagem da biblioteca.
 
 ## PKG-56: Biblioteca Base De Arquivos STL/3MF
 
@@ -3611,7 +3611,13 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado com `social_library_items`, `social_library_files` e `social_library_downloads` em `backend/sql/046_social_library_items.sql`.
+- Itens de biblioteca têm dono obrigatório, visibilidade explícita (`privado`, `amigos`, `comunidade`, `público`), licença, versão, metadados técnicos e vínculo opcional com comunidade e variante do catálogo.
+- Suporte inicial cobre metadados de STL, 3MF e pacote ZIP; upload binário, quarentena e análise profunda ficam no pacote dedicado seguinte.
+- APIs cobrem criação, detalhe, edição, arquivamento lógico, listagem por comunidade/perfil e registro de download com isolamento por visibilidade.
+- UI da aba `Arquivos` em `/c/{slug}` lista e cadastra modelos com estados separados; perfil público lista arquivos visíveis do autor.
+- Arquivos privados não aparecem em comunidade pública nem em perfil para terceiros; itens de amigos dependem de amizade aceita.
+- Validação focada concluída com `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q` e `cd frontend && npm run build`.
 
 ## PKG-57: Upload Seguro, Validação E Quarentena De Arquivos 3D
 

@@ -21,6 +21,9 @@ RelationshipStatus = Literal["active", "pending", "accepted", "ended"]
 FeedContentType = Literal["technical_post", "question", "mod", "print_result", "file_announcement", "curation_notice"]
 FeedOrder = Literal["recent", "recommended", "pinned"]
 DiscussionReactionType = Literal["like", "useful", "thanks"]
+LibraryVisibility = Literal["private", "friends", "community", "public"]
+LibraryFileKind = Literal["stl", "3mf", "bundle"]
+LibraryLicense = Literal["cc-by", "cc-by-sa", "cc0", "mit", "custom", "all-rights-reserved"]
 
 
 class CatalogVariant(BaseModel):
@@ -414,6 +417,128 @@ class DiscussionDetail(BaseModel):
     post: CommunityFeedItem
     comments: list[DiscussionComment]
     reactions: list[DiscussionReactionCount] = Field(default_factory=list)
+
+
+class LibraryFileMetadata(BaseModel):
+    id: int | None = None
+    file_kind: LibraryFileKind
+    file_name: str = Field(min_length=1, max_length=180)
+    original_url: str | None = Field(default=None, max_length=500)
+    size_bytes: int | None = Field(default=None, ge=1, le=500_000_000)
+    sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    validation_status: str = "metadata_only"
+
+    @field_validator("file_name")
+    @classmethod
+    def clean_file_name(cls, value: str) -> str:
+        return clean_library_file_name(value)
+
+    @field_validator("original_url")
+    @classmethod
+    def clean_original_url(cls, value: str | None) -> str | None:
+        return validate_public_url(value, field_name="original_url", allowed_hosts=None)
+
+    @field_validator("sha256")
+    @classmethod
+    def clean_sha256(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip().lower()
+        if not re.fullmatch(r"[0-9a-f]{64}", cleaned):
+            raise ValueError("sha256 inválido")
+        return cleaned
+
+
+class LibraryItemBase(BaseModel):
+    title: str = Field(min_length=1, max_length=160)
+    description: str = Field(default="", max_length=1200)
+    visibility: LibraryVisibility = "private"
+    community_slug: str | None = Field(default=None, max_length=160)
+    catalog_variant_id: int | None = Field(default=None, ge=1)
+    component: str | None = Field(default=None, max_length=80)
+    version_label: str = Field(default="v1", min_length=1, max_length=40)
+    material_suggestion: str | None = Field(default=None, max_length=80)
+    supports_required: bool = False
+    orientation_notes: str | None = Field(default=None, max_length=500)
+    license: LibraryLicense = "all-rights-reserved"
+    files: list[LibraryFileMetadata] = Field(min_length=1, max_length=12)
+
+    @field_validator("title", "description", "orientation_notes")
+    @classmethod
+    def reject_markup(cls, value: str | None) -> str | None:
+        return clean_discussion_text(value) if value is not None else None
+
+    @field_validator("component", "version_label", "material_suggestion")
+    @classmethod
+    def clean_short_text(cls, value: str | None) -> str | None:
+        return clean_optional_text(value)
+
+    @field_validator("community_slug")
+    @classmethod
+    def clean_community_slug(cls, value: str | None) -> str | None:
+        return normalize_slug(value) if value else None
+
+
+class LibraryItemCreate(LibraryItemBase):
+    pass
+
+
+class LibraryItemUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=160)
+    description: str | None = Field(default=None, max_length=1200)
+    visibility: LibraryVisibility | None = None
+    community_slug: str | None = Field(default=None, max_length=160)
+    catalog_variant_id: int | None = Field(default=None, ge=1)
+    component: str | None = Field(default=None, max_length=80)
+    version_label: str | None = Field(default=None, min_length=1, max_length=40)
+    material_suggestion: str | None = Field(default=None, max_length=80)
+    supports_required: bool | None = None
+    orientation_notes: str | None = Field(default=None, max_length=500)
+    license: LibraryLicense | None = None
+    files: list[LibraryFileMetadata] | None = Field(default=None, min_length=1, max_length=12)
+
+    @field_validator("title", "description", "orientation_notes")
+    @classmethod
+    def reject_markup(cls, value: str | None) -> str | None:
+        return clean_discussion_text(value) if value is not None else None
+
+    @field_validator("component", "version_label", "material_suggestion")
+    @classmethod
+    def clean_short_text(cls, value: str | None) -> str | None:
+        return clean_optional_text(value)
+
+    @field_validator("community_slug")
+    @classmethod
+    def clean_community_slug(cls, value: str | None) -> str | None:
+        return normalize_slug(value) if value else None
+
+
+class LibraryItem(BaseModel):
+    id: int
+    owner_user_id: int
+    owner_slug: str | None = None
+    owner_display_name: str | None = None
+    community_id: int | None = None
+    community_slug: str | None = None
+    community_name: str | None = None
+    catalog_variant_id: int | None = None
+    manufacturer_name: str | None = None
+    model_name: str | None = None
+    variant_name: str | None = None
+    title: str
+    description: str
+    visibility: LibraryVisibility
+    component: str | None = None
+    version_label: str
+    material_suggestion: str | None = None
+    supports_required: bool
+    orientation_notes: str | None = None
+    license: LibraryLicense
+    status: Literal["active", "archived"]
+    files: list[LibraryFileMetadata] = Field(default_factory=list)
+    download_count: int = 0
+    created_at: str
+    updated_at: str
 
 
 class RelationshipRecord(BaseModel):
@@ -1157,6 +1282,166 @@ class SocialCatalogRepository:
             row = connection.execute(FEED_ITEM_SQL + "WHERE f.id = ?", (cursor.lastrowid,)).fetchone()
         return _feed_item_from_row(row)
 
+    def create_library_item(self, actor_user_id: int, payload: LibraryItemCreate) -> LibraryItem:
+        with connect_database(self.database_path) as connection:
+            self._ensure_user_exists(connection, actor_user_id)
+            self._ensure_profile_for_user(connection, actor_user_id)
+            community_id = self._library_community_id(connection, payload.community_slug, payload.visibility)
+            self._ensure_library_variant(connection, payload.catalog_variant_id)
+            cursor = connection.execute(
+                """
+                INSERT INTO social_library_items (
+                    owner_user_id, community_id, catalog_variant_id, title, description, visibility,
+                    component, version_label, material_suggestion, supports_required, orientation_notes, license
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    actor_user_id,
+                    community_id,
+                    payload.catalog_variant_id,
+                    payload.title.strip(),
+                    payload.description.strip(),
+                    payload.visibility,
+                    clean_optional_text(payload.component),
+                    payload.version_label or "v1",
+                    clean_optional_text(payload.material_suggestion),
+                    1 if payload.supports_required else 0,
+                    clean_optional_text(payload.orientation_notes),
+                    payload.license,
+                ),
+            )
+            item_id = int(cursor.lastrowid)
+            self._replace_library_files(connection, item_id, payload.files)
+            self._audit(connection, "social_library_item", item_id, "create", actor_user_id, {"retention_days": 180})
+            row = self._library_item_row(connection, item_id)
+            return self._library_item_from_row(connection, row)
+
+    def update_library_item(self, item_id: int, actor_user_id: int, is_admin: bool, payload: LibraryItemUpdate) -> LibraryItem:
+        with connect_database(self.database_path) as connection:
+            existing = self._library_item_row(connection, item_id, include_archived=True)
+            if existing is None:
+                raise ValueError("item de biblioteca não encontrado")
+            self._ensure_library_owner(existing, actor_user_id, is_admin)
+            updates: list[str] = []
+            parameters: list[object] = []
+            data = payload.model_dump(exclude_unset=True)
+            if "title" in data and payload.title is not None:
+                updates.append("title = ?")
+                parameters.append(payload.title.strip())
+            if "description" in data and payload.description is not None:
+                updates.append("description = ?")
+                parameters.append(payload.description.strip())
+            if "visibility" in data and payload.visibility is not None:
+                if payload.visibility == "community" and "community_slug" not in data and existing["community_id"] is None:
+                    raise ValueError("visibilidade de comunidade exige comunidade")
+                updates.append("visibility = ?")
+                parameters.append(payload.visibility)
+            if "community_slug" in data:
+                visibility = payload.visibility or existing["visibility"]
+                updates.append("community_id = ?")
+                parameters.append(self._library_community_id(connection, payload.community_slug, visibility))
+            if "catalog_variant_id" in data:
+                self._ensure_library_variant(connection, payload.catalog_variant_id)
+                updates.append("catalog_variant_id = ?")
+                parameters.append(payload.catalog_variant_id)
+            for column, value in [
+                ("component", payload.component),
+                ("version_label", payload.version_label),
+                ("material_suggestion", payload.material_suggestion),
+                ("orientation_notes", payload.orientation_notes),
+            ]:
+                if column in data:
+                    updates.append(f"{column} = ?")
+                    parameters.append(clean_optional_text(value))
+            if "supports_required" in data and payload.supports_required is not None:
+                updates.append("supports_required = ?")
+                parameters.append(1 if payload.supports_required else 0)
+            if "license" in data and payload.license is not None:
+                updates.append("license = ?")
+                parameters.append(payload.license)
+            if updates:
+                updates.append("updated_at = CURRENT_TIMESTAMP")
+                connection.execute(f"UPDATE social_library_items SET {', '.join(updates)} WHERE id = ?", (*parameters, item_id))
+            if payload.files is not None:
+                self._replace_library_files(connection, item_id, payload.files)
+            self._audit(connection, "social_library_item", item_id, "update", actor_user_id, {"retention_days": 180})
+            row = self._library_item_row(connection, item_id)
+            return self._library_item_from_row(connection, row)
+
+    def archive_library_item(self, item_id: int, actor_user_id: int, is_admin: bool) -> None:
+        with connect_database(self.database_path) as connection:
+            row = self._library_item_row(connection, item_id, include_archived=True)
+            if row is None:
+                raise ValueError("item de biblioteca não encontrado")
+            self._ensure_library_owner(row, actor_user_id, is_admin)
+            connection.execute("UPDATE social_library_items SET status = 'archived', updated_at = CURRENT_TIMESTAMP WHERE id = ?", (item_id,))
+            self._audit(connection, "social_library_item", item_id, "archive", actor_user_id, {"retention_days": 180})
+
+    def library_item(self, item_id: int, viewer_user_id: int | None = None) -> LibraryItem | None:
+        with connect_database(self.database_path) as connection:
+            row = self._library_item_row(connection, item_id)
+            if row is None or not self._can_view_library_item(connection, row, viewer_user_id):
+                return None
+            return self._library_item_from_row(connection, row)
+
+    def list_library_for_community(self, slug: str, viewer_user_id: int | None = None) -> list[LibraryItem]:
+        clean_slug = normalize_slug(slug)
+        with connect_database(self.database_path) as connection:
+            self.sync_all_communities(connection)
+            rows = connection.execute(
+                LIBRARY_ITEM_SQL
+                + """
+                WHERE c.slug = ? AND li.status = 'active'
+                GROUP BY li.id
+                ORDER BY li.updated_at DESC, li.id DESC
+                LIMIT 100
+                """,
+                (clean_slug,),
+            ).fetchall()
+            return [
+                self._library_item_from_row(connection, row)
+                for row in rows
+                if self._can_view_library_item(connection, row, viewer_user_id)
+            ]
+
+    def list_library_for_profile(self, slug: str, viewer_user_id: int | None = None) -> list[LibraryItem]:
+        clean_slug = normalize_slug(slug)
+        with connect_database(self.database_path) as connection:
+            owner = connection.execute("SELECT user_id FROM social_profiles WHERE slug = ? AND visibility != 'private'", (clean_slug,)).fetchone()
+            if owner is None:
+                return []
+            rows = connection.execute(
+                LIBRARY_ITEM_SQL
+                + """
+                WHERE li.owner_user_id = ? AND li.status = 'active'
+                GROUP BY li.id
+                ORDER BY li.updated_at DESC, li.id DESC
+                LIMIT 100
+                """,
+                (owner["user_id"],),
+            ).fetchall()
+            return [
+                self._library_item_from_row(connection, row)
+                for row in rows
+                if self._can_view_library_item(connection, row, viewer_user_id)
+            ]
+
+    def register_library_download(self, item_id: int, viewer_user_id: int | None = None) -> LibraryItem | None:
+        with connect_database(self.database_path) as connection:
+            row = self._library_item_row(connection, item_id)
+            if row is None or not self._can_view_library_item(connection, row, viewer_user_id):
+                return None
+            connection.execute(
+                """
+                INSERT INTO social_library_downloads (item_id, user_id, anonymous_label)
+                VALUES (?, ?, ?)
+                """,
+                (item_id, viewer_user_id, None if viewer_user_id else "public"),
+            )
+            updated = self._library_item_row(connection, item_id)
+            return self._library_item_from_row(connection, updated)
+
     def create_community_post(self, slug: str, actor_user_id: int, payload: CommunityPostCreate) -> CommunityFeedItem:
         clean_slug = normalize_slug(slug)
         with connect_database(self.database_path) as connection:
@@ -1774,6 +2059,123 @@ class SocialCatalogRepository:
         ).fetchone()
         return row is not None
 
+    def _ensure_profile_for_user(self, connection, user_id: int) -> None:
+        if connection.execute("SELECT 1 FROM social_profiles WHERE user_id = ?", (user_id,)).fetchone() is not None:
+            return
+        user = connection.execute("SELECT email, display_name FROM auth_users WHERE id = ?", (user_id,)).fetchone()
+        if user is None:
+            raise ValueError("usuário não encontrado")
+        display_name = clean_optional_text(user["display_name"]) or str(user["email"]).split("@")[0]
+        connection.execute(
+            "INSERT INTO social_profiles (user_id, slug, display_name) VALUES (?, ?, ?)",
+            (user_id, self._unique_slug(connection, display_name, user_id), display_name),
+        )
+
+    def _library_community_id(self, connection, community_slug: str | None, visibility: LibraryVisibility) -> int | None:
+        if visibility == "community" and not community_slug:
+            raise ValueError("visibilidade de comunidade exige comunidade")
+        if not community_slug:
+            return None
+        community = connection.execute(
+            "SELECT id, status FROM social_communities WHERE slug = ?",
+            (normalize_slug(community_slug),),
+        ).fetchone()
+        if community is None:
+            raise ValueError("comunidade não encontrada")
+        if community["status"] not in {"active", "uncurated"}:
+            raise ValueError("comunidade não aceita novos arquivos")
+        return int(community["id"])
+
+    def _ensure_library_variant(self, connection, variant_id: int | None) -> None:
+        if variant_id is None:
+            return
+        row = connection.execute(
+            "SELECT id FROM catalog_printer_variants WHERE id = ? AND trust_state NOT IN ('blocked', 'obsolete')",
+            (variant_id,),
+        ).fetchone()
+        if row is None:
+            raise ValueError("variante de catálogo inválida")
+
+    def _replace_library_files(self, connection, item_id: int, files: list[LibraryFileMetadata]) -> None:
+        if not files:
+            raise ValueError("item de biblioteca exige pelo menos um arquivo")
+        connection.execute("DELETE FROM social_library_files WHERE item_id = ?", (item_id,))
+        for file in files:
+            connection.execute(
+                """
+                INSERT INTO social_library_files (
+                    item_id, file_kind, file_name, original_url, size_bytes, sha256, validation_status
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    item_id,
+                    file.file_kind,
+                    file.file_name,
+                    clean_optional_text(file.original_url),
+                    file.size_bytes,
+                    file.sha256,
+                    "metadata_only",
+                ),
+            )
+
+    def _library_item_row(self, connection, item_id: int, *, include_archived: bool = False):
+        status_clause = "" if include_archived else " AND li.status = 'active'"
+        return connection.execute(
+            LIBRARY_ITEM_SQL
+            + f"""
+            WHERE li.id = ?{status_clause}
+            GROUP BY li.id
+            """,
+            (item_id,),
+        ).fetchone()
+
+    def _library_item_from_row(self, connection, row) -> LibraryItem:
+        file_rows = connection.execute(
+            """
+            SELECT id, file_kind, file_name, original_url, size_bytes, sha256, validation_status
+            FROM social_library_files
+            WHERE item_id = ?
+            ORDER BY id
+            """,
+            (row["id"],),
+        ).fetchall()
+        return _library_item_from_row(row, file_rows)
+
+    def _can_view_library_item(self, connection, row, viewer_user_id: int | None) -> bool:
+        if row["status"] != "active":
+            return False
+        owner_id = int(row["owner_user_id"])
+        if viewer_user_id == owner_id:
+            return True
+        if viewer_user_id is not None and self._is_blocked(connection, owner_id, viewer_user_id):
+            return False
+        if row["visibility"] in {"public", "community"}:
+            return True
+        if row["visibility"] == "friends" and viewer_user_id is not None:
+            return self._are_friends(connection, owner_id, viewer_user_id)
+        return False
+
+    def _ensure_library_owner(self, row, actor_user_id: int, is_admin: bool) -> None:
+        if is_admin or int(row["owner_user_id"]) == actor_user_id:
+            return
+        raise PermissionError("ação permitida apenas para dono do arquivo ou administrador")
+
+    def _are_friends(self, connection, left_user_id: int, right_user_id: int) -> bool:
+        row = connection.execute(
+            """
+            SELECT 1 FROM social_relationships
+            WHERE relation_type = 'friend' AND status = 'accepted'
+              AND (
+                (actor_user_id = ? AND target_user_id = ?)
+                OR (actor_user_id = ? AND target_user_id = ?)
+              )
+            LIMIT 1
+            """,
+            (left_user_id, right_user_id, right_user_id, left_user_id),
+        ).fetchone()
+        return row is not None
+
     def _audit_relationship(self, connection, actor_user_id: int, target_user_id: int, action: str) -> None:
         self._audit(
             connection,
@@ -1853,7 +2255,10 @@ SELECT c.id, c.slug, c.name, c.scope, c.status, c.manufacturer_id, mf.slug AS ma
            WHEN cm.active = 1 AND p.public_profile_enabled = 1 AND sp.visibility = 'public' AND c.status IN ('active', 'uncurated')
            THEN cm.printer_id
        END) AS printer_count,
-       0 AS file_count,
+       COUNT(DISTINCT CASE
+           WHEN li.status = 'active' AND li.visibility IN ('public', 'community') AND c.status IN ('active', 'uncurated')
+           THEN li.id
+       END) AS file_count,
        COUNT(DISTINCT CASE
            WHEN cm.active = 1 AND p.public_profile_enabled = 1 AND sp.visibility = 'public'
                 AND c.status IN ('active', 'uncurated') AND COALESCE(p.public_mods_json, '[]') NOT IN ('[]', '')
@@ -1867,6 +2272,7 @@ LEFT JOIN catalog_manufacturers mf ON mf.id = c.manufacturer_id
 LEFT JOIN catalog_printer_models m ON m.id = c.model_id
 LEFT JOIN catalog_printer_variants v ON v.id = c.variant_id
 LEFT JOIN social_communities merged ON merged.id = c.merged_into_id
+LEFT JOIN social_library_items li ON li.community_id = c.id
 """
 
 COMMUNITY_GROUP_SQL = """
@@ -1887,6 +2293,23 @@ SELECT r.actor_user_id AS target_user_id, sp.slug AS target_slug, sp.display_nam
        r.relation_type, r.status, r.created_at, r.updated_at
 FROM social_relationships r
 LEFT JOIN social_profiles sp ON sp.user_id = r.actor_user_id
+"""
+
+LIBRARY_ITEM_SQL = """
+SELECT li.id, li.owner_user_id, sp.slug AS owner_slug, sp.display_name AS owner_display_name,
+       li.community_id, c.slug AS community_slug, c.name AS community_name,
+       li.catalog_variant_id, mf.name AS manufacturer_name, m.name AS model_name, v.name AS variant_name,
+       li.title, li.description, li.visibility, li.component, li.version_label,
+       li.material_suggestion, li.supports_required, li.orientation_notes, li.license,
+       li.status, li.created_at, li.updated_at,
+       COUNT(DISTINCT d.id) AS download_count
+FROM social_library_items li
+JOIN social_profiles sp ON sp.user_id = li.owner_user_id
+LEFT JOIN social_communities c ON c.id = li.community_id
+LEFT JOIN catalog_printer_variants v ON v.id = li.catalog_variant_id
+LEFT JOIN catalog_printer_models m ON m.id = v.model_id
+LEFT JOIN catalog_manufacturers mf ON mf.id = m.manufacturer_id
+LEFT JOIN social_library_downloads d ON d.item_id = li.id
 """
 
 FEED_ITEM_SQL = """
@@ -1921,6 +2344,17 @@ def clean_optional_text(value: object) -> str | None:
         return None
     cleaned = str(value).strip()
     return cleaned or None
+
+
+def clean_library_file_name(value: str) -> str:
+    cleaned = value.strip()
+    if not cleaned or "/" in cleaned or "\\" in cleaned or ".." in cleaned:
+        raise ValueError("nome de arquivo inválido")
+    suffix = Path(cleaned).suffix.lower()
+    allowed_suffixes = {".stl", ".3mf", ".zip"}
+    if suffix not in allowed_suffixes:
+        raise ValueError("biblioteca aceita STL, 3MF ou pacote ZIP")
+    return cleaned
 
 
 def clean_text_list(values: list[str], max_length: int) -> list[str]:
@@ -2187,6 +2621,47 @@ def _feed_item_from_row(row) -> CommunityFeedItem:
         deleted_at=deleted_at,
         source_type=str(row["source_type"]),
         source_id=row["source_id"],
+        created_at=str(row["created_at"]),
+        updated_at=str(row["updated_at"]),
+    )
+
+
+def _library_item_from_row(row, file_rows) -> LibraryItem:
+    return LibraryItem(
+        id=int(row["id"]),
+        owner_user_id=int(row["owner_user_id"]),
+        owner_slug=row["owner_slug"],
+        owner_display_name=row["owner_display_name"],
+        community_id=row["community_id"],
+        community_slug=row["community_slug"],
+        community_name=row["community_name"],
+        catalog_variant_id=row["catalog_variant_id"],
+        manufacturer_name=row["manufacturer_name"],
+        model_name=row["model_name"],
+        variant_name=row["variant_name"],
+        title=str(row["title"]),
+        description=str(row["description"] or ""),
+        visibility=row["visibility"],
+        component=row["component"],
+        version_label=str(row["version_label"]),
+        material_suggestion=row["material_suggestion"],
+        supports_required=bool(row["supports_required"]),
+        orientation_notes=row["orientation_notes"],
+        license=row["license"],
+        status=row["status"],
+        files=[
+            LibraryFileMetadata(
+                id=int(file_row["id"]),
+                file_kind=file_row["file_kind"],
+                file_name=str(file_row["file_name"]),
+                original_url=file_row["original_url"],
+                size_bytes=file_row["size_bytes"],
+                sha256=file_row["sha256"],
+                validation_status=str(file_row["validation_status"]),
+            )
+            for file_row in file_rows
+        ],
+        download_count=int(row["download_count"] or 0),
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
     )

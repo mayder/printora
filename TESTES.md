@@ -277,6 +277,34 @@ Evidência visual esperada:
 - erro legível quando usuário sem sessão/permissão tenta ação mutável.
 - tentativa de acessar impressora operacional por relação social continua bloqueada.
 
+### PKG-56 - Biblioteca base de arquivos STL/3MF
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- criação de item com dono obrigatório, licença e visibilidade explícita;
+- arquivos declarados como STL, 3MF ou pacote ZIP em modo `metadata_only`;
+- vínculo com comunidade e variante do catálogo quando informado;
+- arquivo privado não aparece em comunidade pública nem em perfil para terceiros;
+- item de amigos aparece somente para amizade aceita;
+- edição e arquivamento lógico restritos ao dono ou administrador;
+- registro de download incrementa histórico sem expor payload sensível;
+- nomes de arquivo com caminho relativo ou extensão inválida são rejeitados.
+
+Evidência visual esperada:
+
+- `/c/{slug}` na aba `Arquivos` com lista de biblioteca e formulário de cadastro separado;
+- card de arquivo com licença, versão, metadados técnicos, arquivos declarados, downloads e ações;
+- `/u/{slug}` com seção `Biblioteca` separada de `Impressoras públicas`;
+- ausência de nomes internos e de dados operacionais sensíveis no payload/render.
+
 ## Update do agente
 
 Validação focada:

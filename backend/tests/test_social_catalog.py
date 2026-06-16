@@ -7,7 +7,7 @@ from app.config import get_settings
 from app.main import app
 from fastapi.testclient import TestClient
 
-from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
+from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, LibraryFileMetadata, LibraryItemCreate, LibraryItemUpdate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
 
 
 def test_catalog_seed_has_voron_models_and_variants(tmp_path: Path) -> None:
@@ -1002,6 +1002,156 @@ def test_discussion_rejects_html_and_api_enforces_permissions(tmp_path, monkeypa
             assert "moonraker" not in dumped
             assert "ssh" not in dumped
             assert "token" not in dumped
+    finally:
+        get_settings.cache_clear()
+
+
+def test_library_items_visibility_catalog_links_and_downloads(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="owner@example.com", password="correct-horse"))
+    peer = auth.create_user(UserRegisterRequest(email="peer@example.com", password="correct-horse"))
+    stranger = auth.create_user(UserRegisterRequest(email="stranger@example.com", password="correct-horse"))
+    repository = SocialCatalogRepository(database_path)
+    variant = _variant_id(database_path, "voron-2-4-r2-350")
+    repository.update_profile(owner.id, PublicProfileUpdate(slug="owner-public", display_name="Owner", visibility="public"))
+    repository.update_profile(peer.id, PublicProfileUpdate(slug="peer-public", display_name="Peer", visibility="public"))
+    repository.get_or_create_profile(stranger.id)
+    repository.set_relationship(owner.id, peer.id, "friend", "pending")
+    repository.accept_friend(peer.id, owner.id)
+
+    public_item = repository.create_library_item(
+        owner.id,
+        LibraryItemCreate(
+            title="Stealthburner duct",
+            description="Duto base para ABS.",
+            visibility="community",
+            community_slug="variant-voron-design-voron-2-4-voron-2-4-r2-350",
+            catalog_variant_id=variant,
+            component="toolhead",
+            material_suggestion="ABS",
+            supports_required=True,
+            orientation_notes="Imprimir apoiado na face plana.",
+            license="cc-by-sa",
+            files=[LibraryFileMetadata(file_kind="stl", file_name="duct.stl", original_url="https://example.com/duct.stl", sha256="a" * 64)],
+        ),
+    )
+    private_item = repository.create_library_item(
+        owner.id,
+        LibraryItemCreate(
+            title="Calibracao privada",
+            visibility="private",
+            catalog_variant_id=variant,
+            license="all-rights-reserved",
+            files=[LibraryFileMetadata(file_kind="3mf", file_name="private.3mf")],
+        ),
+    )
+    friend_item = repository.create_library_item(
+        owner.id,
+        LibraryItemCreate(
+            title="Pacote para amigos",
+            visibility="friends",
+            license="custom",
+            files=[LibraryFileMetadata(file_kind="bundle", file_name="bundle.zip")],
+        ),
+    )
+
+    community_items = repository.list_library_for_community("variant-voron-design-voron-2-4-voron-2-4-r2-350")
+    owner_items = repository.list_library_for_profile("owner-public", owner.id)
+    peer_items = repository.list_library_for_profile("owner-public", peer.id)
+    stranger_items = repository.list_library_for_profile("owner-public", stranger.id)
+    downloaded = repository.register_library_download(public_item.id)
+
+    assert [item.title for item in community_items] == ["Stealthburner duct"]
+    assert {item.id for item in owner_items} >= {public_item.id, private_item.id, friend_item.id}
+    assert friend_item.id in {item.id for item in peer_items}
+    assert private_item.id not in {item.id for item in peer_items}
+    assert friend_item.id not in {item.id for item in stranger_items}
+    assert private_item.id not in {item.id for item in stranger_items}
+    assert downloaded is not None and downloaded.download_count == 1
+    assert downloaded.manufacturer_name == "Voron Design"
+    assert downloaded.files[0].validation_status == "metadata_only"
+
+    updated = repository.update_library_item(public_item.id, owner.id, False, LibraryItemUpdate(title="Stealthburner duct v2"))
+    repository.archive_library_item(public_item.id, owner.id, False)
+
+    assert updated.title == "Stealthburner duct v2"
+    assert repository.library_item(public_item.id) is None
+
+    try:
+        repository.update_library_item(private_item.id, stranger.id, False, LibraryItemUpdate(title="Invasao"))
+    except PermissionError as exc:
+        assert "dono" in str(exc)
+    else:
+        raise AssertionError("stranger should not edit library item")
+
+
+def test_library_api_contract_filters_private_items(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner = client.post("/api/auth/register", json={"email": "owner@example.com", "password": "correct-horse"})
+            owner_token = owner.json()["access_token"]
+            variant = _variant_id(tmp_path / "printora.db", "voron-2-4-r2-350")
+            client.put(
+                "/api/social/me/profile",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"slug": "owner-public", "display_name": "Owner Public", "visibility": "public"},
+            )
+            created_public = client.post(
+                "/api/social/library",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={
+                    "title": "Fan shroud",
+                    "description": "Arquivo base de fan shroud.",
+                    "visibility": "community",
+                    "community_slug": "variant-voron-design-voron-2-4-voron-2-4-r2-350",
+                    "catalog_variant_id": variant,
+                    "license": "cc-by",
+                    "files": [{"file_kind": "stl", "file_name": "fan-shroud.stl", "original_url": "https://example.com/fan-shroud.stl"}],
+                },
+            )
+            client.post(
+                "/api/social/library",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={
+                    "title": "Private fixture",
+                    "visibility": "private",
+                    "catalog_variant_id": variant,
+                    "license": "custom",
+                    "files": [{"file_kind": "3mf", "file_name": "private.3mf"}],
+                },
+            )
+
+            community = client.get("/api/social/communities/variant-voron-design-voron-2-4-voron-2-4-r2-350/library")
+            profile = client.get("/api/social/profiles/owner-public/library")
+            download = client.post(f"/api/social/library/{created_public.json()['id']}/downloads")
+            blocked_name = client.post(
+                "/api/social/library",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={
+                    "title": "Unsafe",
+                    "visibility": "public",
+                    "license": "cc0",
+                    "files": [{"file_kind": "stl", "file_name": "../unsafe.stl"}],
+                },
+            )
+            dumped = str(community.json()).lower()
+
+            assert created_public.status_code == 200
+            assert community.status_code == 200
+            assert profile.status_code == 200
+            assert download.status_code == 200
+            assert blocked_name.status_code == 422
+            assert [item["title"] for item in community.json()] == ["Fan shroud"]
+            assert [item["title"] for item in profile.json()] == ["Fan shroud"]
+            assert download.json()["download_count"] == 1
+            assert "private fixture" not in dumped
+            assert "token" not in dumped
+            assert "moonraker" not in dumped
     finally:
         get_settings.cache_clear()
 

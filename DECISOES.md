@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260616-03 - Biblioteca base separa metadados de upload e quarentena
+
+Status: aceita
+Data: 2026-06-16
+Contexto: o PKG-56 precisa criar a biblioteca de modelos 3D por comunidade/perfil antes do pacote de upload seguro, validação pesada e quarentena.
+Decisao: persistir itens em `social_library_items`, arquivos declarados em `social_library_files` e downloads em `social_library_downloads`. O pacote aceita STL, 3MF e ZIP apenas como metadados `metadata_only`, com dono obrigatório, licença, visibilidade explícita, vínculo opcional com comunidade/variante de catálogo e arquivamento lógico. Upload binário, armazenamento, quarentena, extração técnica e antivírus ficam no pacote dedicado seguinte.
+Alternativas consideradas: aceitar upload binário já no cadastro; guardar arquivos em JSON dentro do item; não registrar downloads até haver arquivo real.
+Consequencias: a UI já entrega biblioteca navegável sem assumir segurança de arquivo ainda inexistente. A separação reduz risco de aceitar binário sem validação e mantém rollback simples via script SQL.
+Impacto em testes: testes cobrem visibilidade, vínculo com catálogo, criação, edição, arquivamento, histórico de download, contrato HTTP e rejeição de nomes de arquivo inseguros.
+Impacto em rollback: médio; há novo script SQLite `046_social_library_items.sql`. Rollback funcional remove endpoints/UI de biblioteca e mantém dados como legado; rollback estrutural exige backup SQLite anterior ao script.
+Como reverter: remover endpoints `/api/social/library*`, métodos de biblioteca em `social_catalog`, UI de `Arquivos`/perfil, tipos/serviços frontend e restaurar backup SQLite anterior ao script `046_social_library_items.sql` se as tabelas não puderem permanecer.
+Referencias: `backend/sql/046_social_library_items.sql`, `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, `frontend/src/screens/PublicCommunityScreen.tsx`, `frontend/src/screens/PublicProfileScreen.tsx`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260616-02 - Discussões técnicas evoluem o feed sem virar permissão operacional
 
 Status: aceita

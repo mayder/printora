@@ -1,7 +1,7 @@
 import React from "react";
-import { Ban, ExternalLink, Lock, MapPin, Printer, UserPlus, UserRound, Users } from "lucide-react";
+import { Ban, Download, ExternalLink, FileText, Lock, MapPin, Printer, UserPlus, UserRound, Users } from "lucide-react";
 import { socialApi } from "../services/socialApi";
-import type { PublicPrinter, PublicProfile, RelationshipSummary } from "../types";
+import type { LibraryItem, PublicPrinter, PublicProfile, RelationshipSummary } from "../types";
 
 interface PublicProfileScreenProps {
   slug: string;
@@ -10,6 +10,7 @@ interface PublicProfileScreenProps {
 export function PublicProfileScreen({ slug }: PublicProfileScreenProps) {
   const [profile, setProfile] = React.useState<PublicProfile | null>(null);
   const [printers, setPrinters] = React.useState<PublicPrinter[]>([]);
+  const [library, setLibrary] = React.useState<LibraryItem[]>([]);
   const [relationships, setRelationships] = React.useState<RelationshipSummary | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
@@ -24,6 +25,7 @@ export function PublicProfileScreen({ slug }: PublicProfileScreenProps) {
       try {
         const profilePayload = await socialApi.publicProfile(slug);
         const printerPayload = await socialApi.profilePrinters(profilePayload.slug);
+        const libraryPayload = await socialApi.profileLibrary(profilePayload.slug);
         let relationshipPayload: RelationshipSummary | null = null;
         try {
           relationshipPayload = await socialApi.relationships();
@@ -33,6 +35,7 @@ export function PublicProfileScreen({ slug }: PublicProfileScreenProps) {
         if (!active) return;
         setProfile(profilePayload);
         setPrinters(printerPayload);
+        setLibrary(libraryPayload);
         setRelationships(relationshipPayload);
       } catch (err) {
         if (active) setError(err instanceof Error ? err.message : "Perfil público indisponível");
@@ -171,6 +174,28 @@ export function PublicProfileScreen({ slug }: PublicProfileScreenProps) {
                   </section>
                 ))}
                 {printers.length === 0 ? <p>Nenhuma impressora pública vinculada a este perfil.</p> : null}
+              </div>
+            </article>
+
+            <article className="panel public-profile-panel">
+              <h2>Biblioteca</h2>
+              <div className="public-printer-list">
+                {library.map((item) => (
+                  <section key={item.id} className="public-printer-card">
+                    <div>
+                      <FileText size={17} />
+                      <strong>{item.title}</strong>
+                    </div>
+                    <span>{item.files.map((file) => file.file_name).join(", ")}</span>
+                    {item.description ? <p>{item.description}</p> : null}
+                    <small>{item.version_label} / {item.license} / {item.download_count} downloads</small>
+                    <button type="button" className="secondary-button" onClick={() => void socialApi.registerLibraryDownload(item.id)}>
+                      <Download size={15} />
+                      Download
+                    </button>
+                  </section>
+                ))}
+                {library.length === 0 ? <p>Nenhum arquivo visível neste perfil.</p> : null}
               </div>
             </article>
           </section>
