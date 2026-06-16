@@ -337,6 +337,9 @@ def test_social_ranking_recommendations_ignore_self_vote_and_explain_score(tmp_p
         signal_count = connection.execute("SELECT COUNT(*) FROM social_quality_signals WHERE entity_type = 'library_item' AND entity_id = ?", (item.id,)).fetchone()[0]
     assert signal_count == 2
 
+    with connect_database(database_path) as connection:
+        connection.execute("DELETE FROM social_materialization_state")
+
     monkeypatch.setattr(ranking, "_rebuild_signals", lambda connection: pytest.fail("sinais atuais não devem reconstruir"))
     monkeypatch.setattr(
         ranking.search_repository,

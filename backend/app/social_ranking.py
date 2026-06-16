@@ -126,7 +126,13 @@ class SocialRankingRepository:
         self.ensure_schema()
         with connect_database(self.database_path) as connection:
             source_signature = self._source_signature(connection)
-            if not self._signals_are_current(connection, source_signature):
+            signal_count = self._signal_count(connection)
+            if self._signals_are_current(connection, source_signature):
+                return
+            if signal_count > 0 and not self._has_materialization_state(connection, "social_quality_signals"):
+                self._record_materialization(connection, source_signature)
+                return
+            if signal_count == 0:
                 self._rebuild_signals(connection, source_signature)
 
     def _rebuild_signals(self, connection, source_signature: str | None = None) -> None:
@@ -147,6 +153,17 @@ class SocialRankingRepository:
             """
         ).fetchone()
         return row is not None and row["source_signature"] == source_signature
+
+    def _has_materialization_state(self, connection, name: str) -> bool:
+        row = connection.execute(
+            "SELECT 1 FROM social_materialization_state WHERE name = ?",
+            (name,),
+        ).fetchone()
+        return row is not None
+
+    def _signal_count(self, connection) -> int:
+        row = connection.execute("SELECT COUNT(*) AS total FROM social_quality_signals").fetchone()
+        return int(row["total"] or 0)
 
     def _record_materialization(self, connection, source_signature: str) -> None:
         connection.execute(

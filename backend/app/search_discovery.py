@@ -85,10 +85,15 @@ class SearchDiscoveryRepository:
         self.ensure_schema()
         with connect_database(self.database_path) as connection:
             source_signature = self._source_signature(connection)
-            if not self._index_is_current(connection, source_signature):
+            current_count = self._indexed_count(connection)
+            if self._index_is_current(connection, source_signature):
+                return current_count
+            if current_count > 0 and not self._has_materialization_state(connection, "social_search_index"):
+                self._record_materialization(connection, source_signature)
+                return current_count
+            if current_count == 0:
                 return self._rebuild_index(connection, source_signature)
-            row = connection.execute("SELECT COUNT(*) AS total FROM social_search_index").fetchone()
-            return int(row["total"] or 0)
+            return current_count
 
     def search(
         self,
@@ -233,6 +238,17 @@ class SearchDiscoveryRepository:
             """
         ).fetchone()
         return row is not None and row["source_signature"] == source_signature
+
+    def _has_materialization_state(self, connection, name: str) -> bool:
+        row = connection.execute(
+            "SELECT 1 FROM social_materialization_state WHERE name = ?",
+            (name,),
+        ).fetchone()
+        return row is not None
+
+    def _indexed_count(self, connection) -> int:
+        row = connection.execute("SELECT COUNT(*) AS total FROM social_search_index").fetchone()
+        return int(row["total"] or 0)
 
     def _record_materialization(self, connection, source_signature: str) -> None:
         connection.execute(
