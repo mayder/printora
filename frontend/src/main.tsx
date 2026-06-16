@@ -196,7 +196,7 @@ function App() {
         <div className="sidebar-footer">
           <span>Contexto rápido</span>
           <strong>{selectedPrinter?.name ?? "nenhuma impressora"}</strong>
-          <small>{selectedPrinter?.moonraker_url ?? "Abra uma impressora pela lista."}</small>
+          <small>{selectedPrinter ? "Impressora selecionada" : "Abra uma impressora pela lista."}</small>
         </div>
       </aside>
       {mobileNavOpen ? <button type="button" className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} aria-label="Fechar menu" /> : null}
