@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.database import connect_database
+from app.database import connect_database, initialize_database
 
 
 SearchEntityType = Literal["community", "post", "library_item", "technical_config", "material_profile", "catalog_variant"]
@@ -73,7 +73,11 @@ class SearchDiscoveryRepository:
     def __init__(self, database_path: Path):
         self.database_path = database_path
 
+    def ensure_schema(self) -> None:
+        initialize_database(self.database_path)
+
     def rebuild_index(self) -> int:
+        self.ensure_schema()
         with connect_database(self.database_path) as connection:
             connection.execute("DELETE FROM social_search_index")
             rows = self._collect_rows(connection)
