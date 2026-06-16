@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260616-08 - Organizador da biblioteca separa favoritos, coleções e listas de impressão
+
+Status: aceita
+Data: 2026-06-16
+Contexto: o PKG-61 precisa organizar modelos sem executar fatiamento e sem vazar coleções privadas ou histórico pessoal.
+Decisao: criar um organizador social com favoritos por usuário, coleções com visibilidade `private`, `community` ou `public`, listas de impressão por usuário/impressora e itens de lista sempre ligados a uma versão específica de modelo. O histórico de download autenticado entra apenas no resumo do usuário.
+Alternativas consideradas: guardar favoritos em JSON no usuário; transformar coleção em feed; permitir lista de impressão sem versão.
+Consequencias: a UI consegue organizar modelos sem misturar CRUD de modelo com organização pessoal, e listas permanecem reprodutíveis porque apontam para uma versão imutável.
+Impacto em testes: testes cobrem isolamento de coleção privada, bloqueio de impressora de outro usuário, favorito, download histórico e lista por versão.
+Impacto em rollback: médio; há novo script SQLite `051_social_library_organizer.sql`.
+Como reverter: remover endpoints/UI do organizador e restaurar backup SQLite anterior ao script `051_social_library_organizer.sql` se necessário.
+Referencias: `backend/sql/051_social_library_organizer.sql`, `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, `frontend/src/screens/PublicCommunityScreen.tsx`, `backend/tests/test_social_catalog.py`.
+
 ### DEC-20260616-07 - Versionamento de biblioteca por snapshot imutável
 
 Status: aceita

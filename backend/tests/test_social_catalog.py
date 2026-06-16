@@ -10,7 +10,7 @@ from app.config import get_settings
 from app.main import app
 from fastapi.testclient import TestClient
 
-from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, LibraryFileMetadata, LibraryItemCreate, LibraryItemUpdate, LibraryVersionCreate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
+from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, LibraryCollectionCreate, LibraryCollectionItemCreate, LibraryFileMetadata, LibraryItemCreate, LibraryItemUpdate, LibraryVersionCreate, PrintListCreate, PrintListItemCreate, PrintListItemUpdate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
 
 
 def test_catalog_seed_has_voron_models_and_variants(tmp_path: Path) -> None:
@@ -1470,6 +1470,134 @@ def test_library_version_download_and_permissions(tmp_path, monkeypatch) -> None
             assert download.status_code == 200
             assert next(item for item in download.json()["versions"] if item["id"] == version_id)["download_count"] == 1
             assert next(item for item in download.json()["versions"] if item["version_label"] == "v1")["files"][0]["file_name"] == "model-v1.stl"
+    finally:
+        get_settings.cache_clear()
+
+
+def test_library_organizer_keeps_private_collections_and_versioned_print_lists(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="owner@example.com", password="correct-horse"))
+    stranger = auth.create_user(UserRegisterRequest(email="stranger@example.com", password="correct-horse"))
+    printer = PrinterRepository(database_path, user_id=owner.id).create_printer(
+        PrinterCreate(name="Voron lista", moonraker_url="http://voron.local:7125", host_audit_mode="disabled")
+    )
+    repository = SocialCatalogRepository(database_path)
+    repository.get_or_create_profile(owner.id)
+    repository.get_or_create_profile(stranger.id)
+    item = repository.create_library_item(
+        owner.id,
+        LibraryItemCreate(
+            title="Modelo para organizar",
+            visibility="public",
+            version_label="v1",
+            license="cc-by",
+            original_author_name="Owner",
+            publication_terms_accepted=True,
+            files=[LibraryFileMetadata(file_kind="stl", file_name="model-v1.stl")],
+        ),
+    )
+    versioned = repository.create_library_version(
+        item.id,
+        owner.id,
+        False,
+        LibraryVersionCreate(
+            version_label="v2",
+            changelog="Ajuste final.",
+            files=[LibraryFileMetadata(file_kind="stl", file_name="model-v2.stl")],
+        ),
+    )
+    repository.set_library_favorite(item.id, owner.id, True)
+    organizer = repository.create_library_collection(
+        owner.id,
+        LibraryCollectionCreate(name="Peças da Voron", visibility="private"),
+    )
+    collection_id = organizer.collections[0].id
+    organizer = repository.add_library_collection_item(
+        collection_id,
+        owner.id,
+        LibraryCollectionItemCreate(item_id=item.id, version_id=versioned.current_version_id, notes="Imprimir em ABS."),
+    )
+    organizer = repository.create_print_list(owner.id, PrintListCreate(name="Fila Voron", printer_id=printer.id))
+    print_list_id = organizer.print_lists[0].id
+    organizer = repository.add_print_list_item(
+        print_list_id,
+        owner.id,
+        PrintListItemCreate(item_id=item.id, version_id=versioned.current_version_id or 0),
+    )
+    list_item_id = organizer.print_lists[0].items[0].id
+    organizer = repository.update_print_list_item(list_item_id, owner.id, PrintListItemUpdate(status="printed", notes="Impresso sem suporte."))
+    repository.register_library_download(item.id, owner.id, versioned.current_version_id)
+
+    stranger_summary = repository.library_organizer(stranger.id)
+    owner_summary = repository.library_organizer(owner.id)
+
+    assert owner_summary.favorites[0].title == "Modelo para organizar"
+    assert owner_summary.collections[0].item_count == 1
+    assert owner_summary.print_lists[0].printer_id == printer.id
+    assert owner_summary.print_lists[0].items[0].version_id == versioned.current_version_id
+    assert owner_summary.print_lists[0].items[0].status == "printed"
+    assert owner_summary.downloads[0].version_label == "v2"
+    assert stranger_summary.collections == []
+    assert stranger_summary.print_lists == []
+    assert stranger_summary.favorites == []
+
+
+def test_library_organizer_api_blocks_cross_user_collection_and_printer(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner = client.post("/api/auth/register", json={"email": "owner@example.com", "password": "correct-horse"})
+            stranger = client.post("/api/auth/register", json={"email": "stranger@example.com", "password": "correct-horse"})
+            owner_token = owner.json()["access_token"]
+            stranger_token = stranger.json()["access_token"]
+            printer = client.post(
+                "/api/printers",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"name": "Voron API", "moonraker_url": "http://voron.local:7125", "host_audit_mode": "disabled"},
+            )
+            created = client.post(
+                "/api/social/library",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={
+                    "title": "Organizer API",
+                    "visibility": "public",
+                    "license": "cc-by",
+                    "original_author_name": "Owner",
+                    "publication_terms_accepted": True,
+                    "files": [{"file_kind": "stl", "file_name": "model.stl"}],
+                },
+            ).json()
+            collection = client.post(
+                "/api/social/library/collections",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"name": "Privada", "visibility": "private"},
+            ).json()["collections"][0]
+            forbidden_collection = client.post(
+                f"/api/social/library/collections/{collection['id']}/items",
+                headers={"Authorization": f"Bearer {stranger_token}"},
+                json={"item_id": created["id"], "version_id": created["current_version_id"]},
+            )
+            forbidden_printer = client.post(
+                "/api/social/print-lists",
+                headers={"Authorization": f"Bearer {stranger_token}"},
+                json={"name": "Fila alheia", "printer_id": printer.json()["id"]},
+            )
+            favorite = client.post(
+                f"/api/social/library/{created['id']}/favorite",
+                headers={"Authorization": f"Bearer {stranger_token}"},
+            )
+            summary = client.get("/api/social/me/library/organizer", headers={"Authorization": f"Bearer {stranger_token}"})
+
+            assert forbidden_collection.status_code == 403
+            assert forbidden_printer.status_code == 400
+            assert favorite.status_code == 200
+            assert summary.status_code == 200
+            assert summary.json()["favorites"][0]["id"] == created["id"]
+            assert summary.json()["collections"] == []
     finally:
         get_settings.cache_clear()
 

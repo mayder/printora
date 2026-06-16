@@ -134,6 +134,47 @@ funcional promove uma versão anterior como atual; não execute `DELETE` manual 
 versões ou downloads sem confirmação explícita. Rollback estrutural exige backup
 SQLite anterior ao script `050_social_library_versions.sql`.
 
+Organizador da biblioteca:
+
+```bash
+curl -fsS -H "Authorization: Bearer <token>" \
+  "http://127.0.0.1:8069/api/social/me/library/organizer"
+
+curl -fsS -X POST -H "Authorization: Bearer <token>" \
+  "http://127.0.0.1:8069/api/social/library/<item_id>/favorite"
+
+curl -fsS -X POST \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Peças da Voron","visibility":"private"}' \
+  "http://127.0.0.1:8069/api/social/library/collections"
+
+curl -fsS -X POST \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"item_id":1,"version_id":1}' \
+  "http://127.0.0.1:8069/api/social/library/collections/<collection_id>/items"
+
+curl -fsS -X POST \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Fila ABS","printer_id":1}' \
+  "http://127.0.0.1:8069/api/social/print-lists"
+
+curl -fsS -X POST \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"item_id":1,"version_id":1,"status":"want_to_print"}' \
+  "http://127.0.0.1:8069/api/social/print-lists/<print_list_id>/items"
+```
+
+O schema do organizador é aplicado por
+`backend/sql/051_social_library_organizer.sql`. Coleções privadas e listas de
+impressão são sempre filtradas pelo dono; listas devem referenciar uma versão
+específica do modelo. Não execute `DELETE` manual em favoritos, coleções, listas
+ou histórico sem confirmação explícita. Rollback estrutural exige backup SQLite
+anterior ao script `051_social_library_organizer.sql`.
+
 ## Comandos principais
 
 ```bash

@@ -8,6 +8,8 @@ export type FeedOrder = "recent" | "recommended" | "pinned";
 export type LibraryVisibility = "private" | "friends" | "community" | "public";
 export type LibraryFileKind = "stl" | "3mf" | "bundle";
 export type LibraryLicense = "cc-by" | "cc-by-sa" | "cc0" | "mit" | "custom" | "all-rights-reserved";
+export type LibraryCollectionVisibility = "private" | "community" | "public";
+export type PrintListItemStatus = "want_to_print" | "printed" | "problem";
 
 export interface CatalogVariant {
   id: number;
@@ -275,6 +277,10 @@ export interface LibraryItem {
   files: LibraryFileMetadata[];
   versions: LibraryVersion[];
   current_version_id: number | null;
+  favorite_count: number;
+  viewer_favorite: boolean;
+  collection_count: number;
+  print_list_count: number;
   download_count: number;
   created_at: string;
   updated_at: string;
@@ -291,6 +297,60 @@ export interface LibraryVersion {
   created_by_user_id: number;
   created_at: string;
   download_count: number;
+}
+
+export interface LibraryCollection {
+  id: number;
+  owner_user_id: number;
+  community_id: number | null;
+  community_slug: string | null;
+  community_name: string | null;
+  name: string;
+  description: string;
+  visibility: LibraryCollectionVisibility;
+  item_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PrintListItem {
+  id: number;
+  item_id: number;
+  version_id: number;
+  item_title: string;
+  version_label: string;
+  status: PrintListItemStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PrintList {
+  id: number;
+  owner_user_id: number;
+  printer_id: number | null;
+  printer_name: string | null;
+  name: string;
+  status: "active" | "archived";
+  items: PrintListItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LibraryDownloadHistoryItem {
+  id: number;
+  item_id: number;
+  version_id: number | null;
+  title: string;
+  version_label: string | null;
+  created_at: string;
+}
+
+export interface LibraryOrganizerSummary {
+  favorites: LibraryItem[];
+  collections: LibraryCollection[];
+  print_lists: PrintList[];
+  downloads: LibraryDownloadHistoryItem[];
 }
 
 export interface RelationshipRecord {

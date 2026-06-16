@@ -3833,7 +3833,10 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado com `backend/sql/051_social_library_organizer.sql`, adicionando favoritos, coleções, itens de coleção, listas de impressão e itens de lista com referência obrigatória à versão.
+- Backend expõe resumo do organizador, favoritar/desfavoritar, criação de coleção, inclusão de item/versionamento em coleção, criação de lista por impressora, inclusão de item versionado e atualização de status `want_to_print`, `printed` ou `problem`.
+- UI da aba `Arquivos` possui bloco separado de coleções/listas, criação de coleção, criação de lista de impressão, resumo de favoritos/downloads e ações por card para favoritar, adicionar à coleção e adicionar à lista.
+- Validação focada: `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py::test_library_organizer_keeps_private_collections_and_versioned_print_lists backend/tests/test_social_catalog.py::test_library_organizer_api_blocks_cross_user_collection_and_printer -q`, testes de schema direcionados e `cd frontend && npm run build` passaram.
 
 ## PKG-62: Configurações Técnicas Compartilhadas Por Impressora
 

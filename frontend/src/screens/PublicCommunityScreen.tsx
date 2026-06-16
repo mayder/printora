@@ -1,8 +1,8 @@
 import React from "react";
-import { Archive, ArrowLeft, Box, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Filter, FolderOpen, GitBranch, Lock, MessageSquare, Pencil, Pin, Printer, Reply, RotateCcw, Send, SlidersHorizontal, ThumbsUp, Trash2, UserRound, Users, Wrench } from "lucide-react";
+import { Archive, ArrowLeft, Box, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Filter, FolderOpen, GitBranch, Heart, ListChecks, Lock, MessageSquare, Pencil, Pin, Printer, Reply, RotateCcw, Send, SlidersHorizontal, ThumbsUp, Trash2, UserRound, Users, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi } from "../services/socialApi";
-import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, FeedContentType, FeedOrder, LibraryFileKind, LibraryItem, LibraryLicense, LibraryVisibility } from "../types";
+import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, FeedContentType, FeedOrder, LibraryCollectionVisibility, LibraryFileKind, LibraryItem, LibraryLicense, LibraryOrganizerSummary, LibraryVisibility } from "../types";
 
 interface PublicCommunityScreenProps {
   slug: string;
@@ -223,6 +223,7 @@ const licenseOptions: Array<{ value: LibraryLicense; label: string }> = [
 
 function CommunityLibrary({ community }: { community: CommunityDetail }) {
   const [items, setItems] = React.useState<LibraryItem[]>([]);
+  const [organizer, setOrganizer] = React.useState<LibraryOrganizerSummary | null>(null);
   const [draft, setDraft] = React.useState({
     title: "",
     description: "",
@@ -241,6 +242,8 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
     file_name: "",
     original_url: "",
   });
+  const [collectionDraft, setCollectionDraft] = React.useState({ name: "", visibility: "private" as LibraryCollectionVisibility });
+  const [printListDraft, setPrintListDraft] = React.useState({ name: "", printer_id: "" });
   const [uploadFile, setUploadFile] = React.useState<File | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -250,6 +253,11 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
     setError(null);
     try {
       setItems(await socialApi.communityLibrary(community.slug));
+      try {
+        setOrganizer(await socialApi.libraryOrganizer());
+      } catch {
+        setOrganizer(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Biblioteca indisponível");
     } finally {
@@ -302,6 +310,11 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
     try {
       const updated = await socialApi.registerLibraryDownload(itemId);
       setItems((current) => current.map((item) => item.id === updated.id ? updated : item));
+      try {
+        setOrganizer(await socialApi.libraryOrganizer());
+      } catch {
+        setOrganizer(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Download não registrado");
     }
@@ -311,6 +324,11 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
     try {
       const updated = await socialApi.registerLibraryVersionDownload(itemId, versionId);
       setItems((current) => current.map((item) => item.id === updated.id ? updated : item));
+      try {
+        setOrganizer(await socialApi.libraryOrganizer());
+      } catch {
+        setOrganizer(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Download da versão não registrado");
     }
@@ -341,6 +359,69 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
       setItems((current) => current.map((item) => item.id === updated.id ? updated : item));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Versão não promovida");
+    }
+  }
+
+  async function createCollection(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      setOrganizer(await socialApi.createLibraryCollection({
+        name: collectionDraft.name,
+        visibility: collectionDraft.visibility,
+        community_slug: collectionDraft.visibility === "community" ? community.slug : null,
+      }));
+      setCollectionDraft({ name: "", visibility: "private" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Coleção não criada");
+    }
+  }
+
+  async function createPrintList(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      setOrganizer(await socialApi.createPrintList({
+        name: printListDraft.name,
+        printer_id: printListDraft.printer_id ? Number(printListDraft.printer_id) : null,
+      }));
+      setPrintListDraft({ name: "", printer_id: "" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Lista não criada");
+    }
+  }
+
+  async function favoriteItem(itemId: number) {
+    try {
+      const updated = await socialApi.favoriteLibraryItem(itemId);
+      setItems((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setOrganizer(await socialApi.libraryOrganizer());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Favorito não registrado");
+    }
+  }
+
+  async function addToCollection(item: LibraryItem) {
+    const collection = organizer?.collections[0];
+    if (!collection) {
+      setError("Crie uma coleção antes de adicionar arquivos");
+      return;
+    }
+    try {
+      setOrganizer(await socialApi.addLibraryCollectionItem(collection.id, { item_id: item.id, version_id: item.current_version_id }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Arquivo não adicionado à coleção");
+    }
+  }
+
+  async function addToPrintList(item: LibraryItem) {
+    const printList = organizer?.print_lists[0];
+    if (!printList || !item.current_version_id) {
+      setError("Crie uma lista de impressão e mantenha uma versão atual antes de adicionar");
+      return;
+    }
+    try {
+      setOrganizer(await socialApi.addPrintListItem(printList.id, { item_id: item.id, version_id: item.current_version_id, status: "want_to_print" }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Arquivo não adicionado à lista");
     }
   }
 
@@ -410,6 +491,35 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
         <textarea value={draft.orientation_notes} maxLength={500} placeholder="Orientação de impressão" onChange={(event) => setDraft((current) => ({ ...current, orientation_notes: event.target.value }))} />
         <button type="submit" className="primary-button"><FileText size={15} />Cadastrar arquivo</button>
       </form>
+      {organizer ? (
+        <section className="community-organizer-panel">
+          <header>
+            <strong><ListChecks size={15} />Coleções e listas</strong>
+            <span>{organizer.favorites.length} favoritos / {organizer.collections.length} coleções / {organizer.print_lists.length} listas</span>
+          </header>
+          <div className="community-organizer-grid">
+            <form onSubmit={createCollection}>
+              <input value={collectionDraft.name} placeholder="Nova coleção" onChange={(event) => setCollectionDraft((current) => ({ ...current, name: event.target.value }))} required />
+              <select value={collectionDraft.visibility} onChange={(event) => setCollectionDraft((current) => ({ ...current, visibility: event.target.value as LibraryCollectionVisibility }))}>
+                <option value="private">Privada</option>
+                <option value="community">Comunidade</option>
+                <option value="public">Pública</option>
+              </select>
+              <button type="submit" className="secondary-button"><FolderOpen size={15} />Criar</button>
+            </form>
+            <form onSubmit={createPrintList}>
+              <input value={printListDraft.name} placeholder="Nova lista de impressão" onChange={(event) => setPrintListDraft((current) => ({ ...current, name: event.target.value }))} required />
+              <input value={printListDraft.printer_id} inputMode="numeric" placeholder="ID da impressora" onChange={(event) => setPrintListDraft((current) => ({ ...current, printer_id: event.target.value }))} />
+              <button type="submit" className="secondary-button"><Printer size={15} />Criar</button>
+            </form>
+          </div>
+          <div className="community-organizer-summary">
+            {organizer.collections.slice(0, 4).map((collection) => <span key={collection.id}>{collection.name} / {collection.item_count} itens</span>)}
+            {organizer.print_lists.slice(0, 4).map((list) => <span key={list.id}>{list.name} / {list.items.length} itens</span>)}
+            {organizer.downloads.slice(0, 3).map((download) => <span key={download.id}>{download.title} / {download.version_label || "atual"}</span>)}
+          </div>
+        </section>
+      ) : null}
       {error ? <p className="public-action-error">{error}</p> : null}
       {loading ? <p>Carregando biblioteca...</p> : items.length ? (
         <div className="community-library-list">
@@ -421,6 +531,9 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
               onVersionDownload={(versionId) => registerVersionDownload(item.id, versionId)}
               onCreateVersion={(versionLabel, changelog) => createVersion(item, versionLabel, changelog)}
               onPromoteVersion={(versionId) => promoteVersion(item.id, versionId)}
+              onFavorite={() => favoriteItem(item.id)}
+              onAddToCollection={() => addToCollection(item)}
+              onAddToPrintList={() => addToPrintList(item)}
               onArchive={() => archiveItem(item.id)}
               onAnalyze={analyzeFile}
             />
@@ -437,6 +550,9 @@ function LibraryItemCard({
   onVersionDownload,
   onCreateVersion,
   onPromoteVersion,
+  onFavorite,
+  onAddToCollection,
+  onAddToPrintList,
   onArchive,
   onAnalyze,
 }: {
@@ -445,6 +561,9 @@ function LibraryItemCard({
   onVersionDownload: (versionId: number) => void;
   onCreateVersion: (versionLabel: string, changelog: string) => void;
   onPromoteVersion: (versionId: number) => void;
+  onFavorite: () => void;
+  onAddToCollection: () => void;
+  onAddToPrintList: () => void;
   onArchive: () => void;
   onAnalyze: (fileId: number) => void;
 }) {
@@ -513,11 +632,17 @@ function LibraryItemCard({
         <span>{item.owner_display_name ? `Por ${item.owner_display_name}` : "Autor"}</span>
         <span>{item.manufacturer_name && item.model_name ? `${item.manufacturer_name} / ${item.model_name}` : "Sem vínculo de catálogo"}</span>
         <span>{item.download_count} downloads</span>
+        <span>{item.favorite_count} favoritos</span>
+        <span>{item.collection_count} coleções</span>
+        <span>{item.print_list_count} listas</span>
       </footer>
       <div className="community-feed-actions">
         {item.files.filter((file) => file.id && ["quarantined", "analysis_failed", "analyzed"].includes(file.validation_status)).map((file) => (
           <button key={file.id} type="button" className="secondary-button" onClick={() => onAnalyze(file.id ?? 0)}><Box size={15} />Analisar</button>
         ))}
+        <button type="button" className="secondary-button" onClick={onFavorite}><Heart size={15} />Favoritar</button>
+        <button type="button" className="secondary-button" onClick={onAddToCollection}><FolderOpen size={15} />Coleção</button>
+        <button type="button" className="secondary-button" onClick={onAddToPrintList}><ListChecks size={15} />Lista</button>
         <button type="button" className="secondary-button" onClick={onDownload}><Download size={15} />Download</button>
         <button type="button" className="secondary-button danger" onClick={onArchive}><Trash2 size={15} />Arquivar</button>
       </div>

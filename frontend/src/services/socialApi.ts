@@ -10,10 +10,13 @@ import type {
   DiscussionDetail,
   FeedContentType,
   FeedOrder,
+  LibraryCollectionVisibility,
   LibraryFileKind,
   LibraryItem,
+  LibraryOrganizerSummary,
   LibraryLicense,
   LibraryVisibility,
+  PrintListItemStatus,
   ProfileVisibility,
   PublicPrinter,
   PublicProfile,
@@ -123,6 +126,31 @@ export interface LibraryVersionPayload {
   files: LibraryFilePayload[];
 }
 
+export interface LibraryCollectionPayload {
+  name: string;
+  description?: string;
+  visibility: LibraryCollectionVisibility;
+  community_slug?: string | null;
+}
+
+export interface LibraryCollectionItemPayload {
+  item_id: number;
+  version_id?: number | null;
+  notes?: string | null;
+}
+
+export interface PrintListPayload {
+  name: string;
+  printer_id?: number | null;
+}
+
+export interface PrintListItemPayload {
+  item_id: number;
+  version_id: number;
+  status?: PrintListItemStatus;
+  notes?: string | null;
+}
+
 export const socialApi = {
   catalog: () => apiRequest<CatalogSummary>("/api/catalog"),
   adminCatalog: (filters: CatalogAdminFilters = {}) => {
@@ -181,6 +209,37 @@ export const socialApi = {
   community: (slug: string) => apiRequest<CommunityDetail>(`/api/social/communities/${encodeURIComponent(slug)}`),
   communityLibrary: (slug: string) => apiRequest<LibraryItem[]>(`/api/social/communities/${encodeURIComponent(slug)}/library`),
   profileLibrary: (slug: string) => apiRequest<LibraryItem[]>(`/api/social/profiles/${encodeURIComponent(slug)}/library`),
+  libraryOrganizer: () => apiRequest<LibraryOrganizerSummary>("/api/social/me/library/organizer"),
+  createLibraryCollection: (payload: LibraryCollectionPayload) =>
+    apiRequest<LibraryOrganizerSummary>("/api/social/library/collections", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  addLibraryCollectionItem: (collectionId: number, payload: LibraryCollectionItemPayload) =>
+    apiRequest<LibraryOrganizerSummary>(`/api/social/library/collections/${collectionId}/items`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  createPrintList: (payload: PrintListPayload) =>
+    apiRequest<LibraryOrganizerSummary>("/api/social/print-lists", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  addPrintListItem: (printListId: number, payload: PrintListItemPayload) =>
+    apiRequest<LibraryOrganizerSummary>(`/api/social/print-lists/${printListId}/items`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  updatePrintListItem: (printListItemId: number, payload: { status: PrintListItemStatus; notes?: string | null }) =>
+    apiRequest<LibraryOrganizerSummary>(`/api/social/print-list-items/${printListItemId}`, {
+      method: "PUT",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
   createLibraryItem: (payload: LibraryItemPayload) =>
     apiRequest<LibraryItem>("/api/social/library", {
       method: "POST",
@@ -194,6 +253,8 @@ export const socialApi = {
       body: JSON.stringify(payload),
     }),
   archiveLibraryItem: (itemId: number) => apiRequest<void>(`/api/social/library/${itemId}`, { method: "DELETE" }),
+  favoriteLibraryItem: (itemId: number) => apiRequest<LibraryItem>(`/api/social/library/${itemId}/favorite`, { method: "POST" }),
+  unfavoriteLibraryItem: (itemId: number) => apiRequest<LibraryItem>(`/api/social/library/${itemId}/favorite`, { method: "DELETE" }),
   registerLibraryDownload: (itemId: number) => apiRequest<LibraryItem>(`/api/social/library/${itemId}/downloads`, { method: "POST" }),
   registerLibraryVersionDownload: (itemId: number, versionId: number) =>
     apiRequest<LibraryItem>(`/api/social/library/${itemId}/versions/${versionId}/downloads`, { method: "POST" }),

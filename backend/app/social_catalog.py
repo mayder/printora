@@ -29,6 +29,8 @@ DiscussionReactionType = Literal["like", "useful", "thanks"]
 LibraryVisibility = Literal["private", "friends", "community", "public"]
 LibraryFileKind = Literal["stl", "3mf", "bundle"]
 LibraryLicense = Literal["cc-by", "cc-by-sa", "cc0", "mit", "custom", "all-rights-reserved"]
+LibraryCollectionVisibility = Literal["private", "community", "public"]
+PrintListItemStatus = Literal["want_to_print", "printed", "problem"]
 
 
 class CatalogVariant(BaseModel):
@@ -588,6 +590,120 @@ class LibraryVersion(BaseModel):
     download_count: int = 0
 
 
+class LibraryCollectionCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    description: str = Field(default="", max_length=500)
+    visibility: LibraryCollectionVisibility = "private"
+    community_slug: str | None = Field(default=None, max_length=160)
+
+    @field_validator("name", "description")
+    @classmethod
+    def clean_text(cls, value: str) -> str:
+        return clean_discussion_text(value)
+
+    @field_validator("community_slug")
+    @classmethod
+    def clean_community_slug(cls, value: str | None) -> str | None:
+        return normalize_slug(value) if value else None
+
+
+class LibraryCollectionItemCreate(BaseModel):
+    item_id: int = Field(ge=1)
+    version_id: int | None = Field(default=None, ge=1)
+    notes: str | None = Field(default=None, max_length=300)
+
+    @field_validator("notes")
+    @classmethod
+    def clean_notes(cls, value: str | None) -> str | None:
+        return clean_discussion_text(value) if value is not None else None
+
+
+class LibraryCollection(BaseModel):
+    id: int
+    owner_user_id: int
+    community_id: int | None = None
+    community_slug: str | None = None
+    community_name: str | None = None
+    name: str
+    description: str
+    visibility: LibraryCollectionVisibility
+    item_count: int = 0
+    created_at: str
+    updated_at: str
+
+
+class PrintListCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    printer_id: int | None = Field(default=None, ge=1)
+
+    @field_validator("name")
+    @classmethod
+    def clean_name(cls, value: str) -> str:
+        return clean_discussion_text(value)
+
+
+class PrintListItemCreate(BaseModel):
+    item_id: int = Field(ge=1)
+    version_id: int = Field(ge=1)
+    status: PrintListItemStatus = "want_to_print"
+    notes: str | None = Field(default=None, max_length=300)
+
+    @field_validator("notes")
+    @classmethod
+    def clean_notes(cls, value: str | None) -> str | None:
+        return clean_discussion_text(value) if value is not None else None
+
+
+class PrintListItemUpdate(BaseModel):
+    status: PrintListItemStatus
+    notes: str | None = Field(default=None, max_length=300)
+
+    @field_validator("notes")
+    @classmethod
+    def clean_notes(cls, value: str | None) -> str | None:
+        return clean_discussion_text(value) if value is not None else None
+
+
+class PrintListItem(BaseModel):
+    id: int
+    item_id: int
+    version_id: int
+    item_title: str
+    version_label: str
+    status: PrintListItemStatus
+    notes: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class PrintList(BaseModel):
+    id: int
+    owner_user_id: int
+    printer_id: int | None = None
+    printer_name: str | None = None
+    name: str
+    status: Literal["active", "archived"]
+    items: list[PrintListItem] = Field(default_factory=list)
+    created_at: str
+    updated_at: str
+
+
+class LibraryDownloadHistoryItem(BaseModel):
+    id: int
+    item_id: int
+    version_id: int | None = None
+    title: str
+    version_label: str | None = None
+    created_at: str
+
+
+class LibraryOrganizerSummary(BaseModel):
+    favorites: list[LibraryItem] = Field(default_factory=list)
+    collections: list[LibraryCollection] = Field(default_factory=list)
+    print_lists: list[PrintList] = Field(default_factory=list)
+    downloads: list[LibraryDownloadHistoryItem] = Field(default_factory=list)
+
+
 class LibraryItem(BaseModel):
     id: int
     owner_user_id: int
@@ -619,6 +735,10 @@ class LibraryItem(BaseModel):
     files: list[LibraryFileMetadata] = Field(default_factory=list)
     versions: list[LibraryVersion] = Field(default_factory=list)
     current_version_id: int | None = None
+    favorite_count: int = 0
+    viewer_favorite: bool = False
+    collection_count: int = 0
+    print_list_count: int = 0
     download_count: int = 0
     created_at: str
     updated_at: str
@@ -1575,6 +1695,120 @@ class SocialCatalogRepository:
             )
             updated = self._library_item_row(connection, item_id)
             return self._library_item_from_row(connection, updated)
+
+    def library_organizer(self, actor_user_id: int) -> LibraryOrganizerSummary:
+        with connect_database(self.database_path) as connection:
+            self._ensure_user_exists(connection, actor_user_id)
+            return self._library_organizer_summary(connection, actor_user_id)
+
+    def set_library_favorite(self, item_id: int, actor_user_id: int, enabled: bool) -> LibraryItem:
+        with connect_database(self.database_path) as connection:
+            row = self._library_item_row(connection, item_id)
+            if row is None or not self._can_view_library_item(connection, row, actor_user_id):
+                raise ValueError("arquivo não encontrado")
+            if enabled:
+                connection.execute(
+                    "INSERT OR IGNORE INTO social_library_favorites (user_id, item_id) VALUES (?, ?)",
+                    (actor_user_id, item_id),
+                )
+            else:
+                connection.execute("DELETE FROM social_library_favorites WHERE user_id = ? AND item_id = ?", (actor_user_id, item_id))
+            self._audit(connection, "social_library_item", item_id, "favorite" if enabled else "unfavorite", actor_user_id, {"retention_days": 180})
+            updated = self._library_item_row(connection, item_id)
+            return self._library_item_from_row(connection, updated)
+
+    def create_library_collection(self, actor_user_id: int, payload: LibraryCollectionCreate) -> LibraryOrganizerSummary:
+        with connect_database(self.database_path) as connection:
+            self._ensure_user_exists(connection, actor_user_id)
+            community_id = self._collection_community_id(connection, payload.community_slug, payload.visibility)
+            cursor = connection.execute(
+                """
+                INSERT INTO social_library_collections (owner_user_id, community_id, name, description, visibility)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (actor_user_id, community_id, payload.name.strip(), payload.description.strip(), payload.visibility),
+            )
+            self._audit(connection, "social_library_collection", int(cursor.lastrowid), "create", actor_user_id, {"retention_days": 180})
+            return self._library_organizer_summary(connection, actor_user_id)
+
+    def add_library_collection_item(self, collection_id: int, actor_user_id: int, payload: LibraryCollectionItemCreate) -> LibraryOrganizerSummary:
+        with connect_database(self.database_path) as connection:
+            collection = self._library_collection_row(connection, collection_id)
+            if collection is None:
+                raise ValueError("coleção não encontrada")
+            self._ensure_collection_owner(collection, actor_user_id)
+            item_row = self._library_item_row(connection, payload.item_id)
+            if item_row is None or not self._can_view_library_item(connection, item_row, actor_user_id):
+                raise ValueError("arquivo não encontrado")
+            version_id = payload.version_id or self._current_library_version_id(connection, payload.item_id)
+            self._ensure_library_version(connection, payload.item_id, version_id)
+            connection.execute(
+                """
+                INSERT INTO social_library_collection_items (collection_id, item_id, version_id, added_by_user_id, notes)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(collection_id, item_id, version_id) DO UPDATE SET
+                    notes = excluded.notes
+                """,
+                (collection_id, payload.item_id, version_id, actor_user_id, clean_optional_text(payload.notes)),
+            )
+            self._audit(connection, "social_library_collection", collection_id, "add_item", actor_user_id, {"retention_days": 180, "item_id": payload.item_id, "version_id": version_id})
+            return self._library_organizer_summary(connection, actor_user_id)
+
+    def create_print_list(self, actor_user_id: int, payload: PrintListCreate) -> LibraryOrganizerSummary:
+        with connect_database(self.database_path) as connection:
+            self._ensure_user_exists(connection, actor_user_id)
+            self._ensure_print_list_printer(connection, actor_user_id, payload.printer_id)
+            cursor = connection.execute(
+                "INSERT INTO social_print_lists (owner_user_id, printer_id, name) VALUES (?, ?, ?)",
+                (actor_user_id, payload.printer_id, payload.name.strip()),
+            )
+            self._audit(connection, "social_print_list", int(cursor.lastrowid), "create", actor_user_id, {"retention_days": 180})
+            return self._library_organizer_summary(connection, actor_user_id)
+
+    def add_print_list_item(self, print_list_id: int, actor_user_id: int, payload: PrintListItemCreate) -> LibraryOrganizerSummary:
+        with connect_database(self.database_path) as connection:
+            print_list = self._print_list_row(connection, print_list_id)
+            if print_list is None:
+                raise ValueError("lista de impressão não encontrada")
+            self._ensure_print_list_owner(print_list, actor_user_id)
+            item_row = self._library_item_row(connection, payload.item_id)
+            if item_row is None or not self._can_view_library_item(connection, item_row, actor_user_id):
+                raise ValueError("arquivo não encontrado")
+            self._ensure_library_version(connection, payload.item_id, payload.version_id)
+            connection.execute(
+                """
+                INSERT INTO social_print_list_items (print_list_id, item_id, version_id, status, notes)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(print_list_id, item_id, version_id) DO UPDATE SET
+                    status = excluded.status,
+                    notes = excluded.notes,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (print_list_id, payload.item_id, payload.version_id, payload.status, clean_optional_text(payload.notes)),
+            )
+            self._audit(connection, "social_print_list", print_list_id, "add_item", actor_user_id, {"retention_days": 180, "item_id": payload.item_id, "version_id": payload.version_id})
+            return self._library_organizer_summary(connection, actor_user_id)
+
+    def update_print_list_item(self, print_list_item_id: int, actor_user_id: int, payload: PrintListItemUpdate) -> LibraryOrganizerSummary:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT pli.id, pli.print_list_id, pl.owner_user_id
+                FROM social_print_list_items pli
+                JOIN social_print_lists pl ON pl.id = pli.print_list_id
+                WHERE pli.id = ?
+                """,
+                (print_list_item_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError("item de lista não encontrado")
+            self._ensure_print_list_owner(row, actor_user_id)
+            connection.execute(
+                "UPDATE social_print_list_items SET status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (payload.status, clean_optional_text(payload.notes), print_list_item_id),
+            )
+            self._audit(connection, "social_print_list", int(row["print_list_id"]), "update_item", actor_user_id, {"retention_days": 180, "item_id": print_list_item_id, "status": payload.status})
+            return self._library_organizer_summary(connection, actor_user_id)
 
     def create_library_version(self, item_id: int, actor_user_id: int, is_admin: bool, payload: LibraryVersionCreate) -> LibraryItem:
         with connect_database(self.database_path) as connection:
@@ -2571,6 +2805,198 @@ class SocialCatalogRepository:
                 ),
             )
 
+    def _library_organizer_summary(self, connection, actor_user_id: int) -> LibraryOrganizerSummary:
+        favorite_rows = connection.execute(
+            LIBRARY_ITEM_SQL
+            + """
+            WHERE fav.user_id = ? AND li.status = 'active'
+            GROUP BY li.id
+            ORDER BY fav.created_at DESC
+            LIMIT 60
+            """,
+            (actor_user_id,),
+        ).fetchall()
+        favorites = [
+            self._library_item_from_row(connection, row).model_copy(update={"viewer_favorite": True})
+            for row in favorite_rows
+            if self._can_view_library_item(connection, row, actor_user_id)
+        ]
+        return LibraryOrganizerSummary(
+            favorites=favorites,
+            collections=self._library_collections(connection, actor_user_id),
+            print_lists=self._print_lists(connection, actor_user_id),
+            downloads=self._library_download_history(connection, actor_user_id),
+        )
+
+    def _library_collections(self, connection, actor_user_id: int) -> list[LibraryCollection]:
+        rows = connection.execute(
+            """
+            SELECT col.id, col.owner_user_id, col.community_id, c.slug AS community_slug, c.name AS community_name,
+                   col.name, col.description, col.visibility, col.created_at, col.updated_at,
+                   COUNT(ci.item_id) AS item_count
+            FROM social_library_collections col
+            LEFT JOIN social_communities c ON c.id = col.community_id
+            LEFT JOIN social_library_collection_items ci ON ci.collection_id = col.id
+            WHERE col.owner_user_id = ? AND col.status = 'active'
+            GROUP BY col.id
+            ORDER BY col.updated_at DESC, col.id DESC
+            LIMIT 50
+            """,
+            (actor_user_id,),
+        ).fetchall()
+        return [
+            LibraryCollection(
+                id=int(row["id"]),
+                owner_user_id=int(row["owner_user_id"]),
+                community_id=row["community_id"],
+                community_slug=row["community_slug"],
+                community_name=row["community_name"],
+                name=str(row["name"]),
+                description=str(row["description"] or ""),
+                visibility=row["visibility"],
+                item_count=int(row["item_count"] or 0),
+                created_at=str(row["created_at"]),
+                updated_at=str(row["updated_at"]),
+            )
+            for row in rows
+        ]
+
+    def _print_lists(self, connection, actor_user_id: int) -> list[PrintList]:
+        rows = connection.execute(
+            """
+            SELECT pl.id, pl.owner_user_id, pl.printer_id, p.name AS printer_name,
+                   pl.name, pl.status, pl.created_at, pl.updated_at
+            FROM social_print_lists pl
+            LEFT JOIN printers p ON p.id = pl.printer_id
+            WHERE pl.owner_user_id = ? AND pl.status = 'active'
+            ORDER BY pl.updated_at DESC, pl.id DESC
+            LIMIT 50
+            """,
+            (actor_user_id,),
+        ).fetchall()
+        return [
+            PrintList(
+                id=int(row["id"]),
+                owner_user_id=int(row["owner_user_id"]),
+                printer_id=row["printer_id"],
+                printer_name=row["printer_name"],
+                name=str(row["name"]),
+                status=row["status"],
+                items=self._print_list_items(connection, int(row["id"])),
+                created_at=str(row["created_at"]),
+                updated_at=str(row["updated_at"]),
+            )
+            for row in rows
+        ]
+
+    def _print_list_items(self, connection, print_list_id: int) -> list[PrintListItem]:
+        rows = connection.execute(
+            """
+            SELECT pli.id, pli.item_id, pli.version_id, li.title AS item_title,
+                   v.version_label, pli.status, pli.notes, pli.created_at, pli.updated_at
+            FROM social_print_list_items pli
+            JOIN social_library_items li ON li.id = pli.item_id
+            JOIN social_library_versions v ON v.id = pli.version_id
+            WHERE pli.print_list_id = ?
+            ORDER BY pli.updated_at DESC, pli.id DESC
+            LIMIT 100
+            """,
+            (print_list_id,),
+        ).fetchall()
+        return [
+            PrintListItem(
+                id=int(row["id"]),
+                item_id=int(row["item_id"]),
+                version_id=int(row["version_id"]),
+                item_title=str(row["item_title"]),
+                version_label=str(row["version_label"]),
+                status=row["status"],
+                notes=row["notes"],
+                created_at=str(row["created_at"]),
+                updated_at=str(row["updated_at"]),
+            )
+            for row in rows
+        ]
+
+    def _library_download_history(self, connection, actor_user_id: int) -> list[LibraryDownloadHistoryItem]:
+        rows = connection.execute(
+            """
+            SELECT d.id, d.item_id, d.version_id, li.title, v.version_label, d.created_at
+            FROM social_library_downloads d
+            JOIN social_library_items li ON li.id = d.item_id
+            LEFT JOIN social_library_versions v ON v.id = d.version_id
+            WHERE d.user_id = ?
+            ORDER BY d.created_at DESC, d.id DESC
+            LIMIT 80
+            """,
+            (actor_user_id,),
+        ).fetchall()
+        return [
+            LibraryDownloadHistoryItem(
+                id=int(row["id"]),
+                item_id=int(row["item_id"]),
+                version_id=row["version_id"],
+                title=str(row["title"]),
+                version_label=row["version_label"],
+                created_at=str(row["created_at"]),
+            )
+            for row in rows
+        ]
+
+    def _collection_community_id(self, connection, community_slug: str | None, visibility: LibraryCollectionVisibility) -> int | None:
+        if visibility == "community" and not community_slug:
+            raise ValueError("coleção de comunidade exige comunidade")
+        if not community_slug:
+            return None
+        return self._library_community_id(connection, community_slug, "community")
+
+    def _library_collection_row(self, connection, collection_id: int):
+        return connection.execute(
+            "SELECT id, owner_user_id FROM social_library_collections WHERE id = ? AND status = 'active'",
+            (collection_id,),
+        ).fetchone()
+
+    def _print_list_row(self, connection, print_list_id: int):
+        return connection.execute(
+            "SELECT id, owner_user_id FROM social_print_lists WHERE id = ? AND status = 'active'",
+            (print_list_id,),
+        ).fetchone()
+
+    def _ensure_collection_owner(self, row, actor_user_id: int) -> None:
+        if int(row["owner_user_id"]) != actor_user_id:
+            raise PermissionError("ação permitida apenas para dono da coleção")
+
+    def _ensure_print_list_owner(self, row, actor_user_id: int) -> None:
+        if int(row["owner_user_id"]) != actor_user_id:
+            raise PermissionError("ação permitida apenas para dono da lista")
+
+    def _ensure_print_list_printer(self, connection, actor_user_id: int, printer_id: int | None) -> None:
+        if printer_id is None:
+            return
+        row = connection.execute(
+            "SELECT id FROM printers WHERE id = ? AND owner_user_id = ?",
+            (printer_id, actor_user_id),
+        ).fetchone()
+        if row is None:
+            raise ValueError("impressora não encontrada para a lista")
+
+    def _current_library_version_id(self, connection, item_id: int) -> int:
+        row = connection.execute(
+            "SELECT id FROM social_library_versions WHERE item_id = ? AND is_current = 1 ORDER BY id DESC LIMIT 1",
+            (item_id,),
+        ).fetchone()
+        if row is None:
+            raise ValueError("arquivo sem versão atual")
+        return int(row["id"])
+
+    def _ensure_library_version(self, connection, item_id: int, version_id: int) -> None:
+        row = connection.execute(
+            "SELECT id FROM social_library_versions WHERE item_id = ? AND id = ?",
+            (item_id, version_id),
+        ).fetchone()
+        if row is None:
+            raise ValueError("versão não encontrada")
+
     def _library_item_row(self, connection, item_id: int, *, include_archived: bool = False):
         status_clause = "" if include_archived else " AND li.status = 'active'"
         return connection.execute(
@@ -2771,6 +3197,9 @@ SELECT li.id, li.owner_user_id, sp.slug AS owner_slug, sp.display_name AS owner_
        li.original_author_name, li.source_url, li.attribution_text, li.remix_source_item_id,
        remix.title AS remix_source_title, li.publication_terms_accepted_at,
        li.status, li.created_at, li.updated_at,
+       COUNT(DISTINCT fav.user_id) AS favorite_count,
+       COUNT(DISTINCT ci.collection_id) AS collection_count,
+       COUNT(DISTINCT pli.id) AS print_list_count,
        COUNT(DISTINCT d.id) AS download_count
 FROM social_library_items li
 JOIN social_profiles sp ON sp.user_id = li.owner_user_id
@@ -2780,6 +3209,9 @@ LEFT JOIN catalog_printer_models m ON m.id = v.model_id
 LEFT JOIN catalog_manufacturers mf ON mf.id = m.manufacturer_id
 LEFT JOIN social_library_downloads d ON d.item_id = li.id
 LEFT JOIN social_library_items remix ON remix.id = li.remix_source_item_id
+LEFT JOIN social_library_favorites fav ON fav.item_id = li.id
+LEFT JOIN social_library_collection_items ci ON ci.item_id = li.id
+LEFT JOIN social_print_list_items pli ON pli.item_id = li.id
 """
 
 FEED_ITEM_SQL = """
@@ -3357,6 +3789,9 @@ def _library_item_from_row(row, file_rows, version_rows=None) -> LibraryItem:
         ],
         versions=versions,
         current_version_id=next((version.id for version in versions if version.is_current), None),
+        favorite_count=int(row["favorite_count"] or 0),
+        collection_count=int(row["collection_count"] or 0),
+        print_list_count=int(row["print_list_count"] or 0),
         download_count=int(row["download_count"] or 0),
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),

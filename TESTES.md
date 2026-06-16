@@ -412,6 +412,35 @@ Evidência visual esperada:
 - formulário compacto para nova versão com changelog;
 - ações de download de versão específica e uso de versão anterior.
 
+### PKG-61 - Coleções, favoritos, downloads e listas de impressão
+
+Validação automatizada obrigatória para fechamento:
+
+```bash
+backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q
+backend/.venv/bin/python -m pytest backend/tests/test_schema_versioning.py backend/tests/test_update_self.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Cenários cobertos:
+
+- favorito fica isolado por usuário e aparece no resumo do organizador;
+- coleção privada não aparece no organizador de outro usuário;
+- coleção de comunidade exige comunidade válida;
+- item adicionado à coleção referencia item visível e versão existente;
+- lista de impressão só aceita impressora do dono;
+- item de lista de impressão referencia versão específica do modelo;
+- status da lista cobre `want_to_print`, `printed` e `problem`;
+- histórico de downloads autenticado fica no resumo do usuário e preserva versão.
+
+Evidência visual esperada:
+
+- aba `Arquivos` com bloco `Coleções e listas`;
+- criação de coleção separada do cadastro de modelo;
+- criação de lista de impressão separada do cadastro de modelo;
+- card de modelo com ações de favoritar, adicionar à coleção e adicionar à lista.
+
 ## Update do agente
 
 Validação focada:

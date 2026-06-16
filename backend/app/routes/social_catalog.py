@@ -27,10 +27,16 @@ from app.social_catalog import (
     DiscussionReactionPayload,
     FeedContentType,
     FeedOrder,
+    LibraryCollectionCreate,
+    LibraryCollectionItemCreate,
     LibraryItem,
     LibraryItemCreate,
     LibraryItemUpdate,
+    LibraryOrganizerSummary,
     LibraryVersionCreate,
+    PrintListCreate,
+    PrintListItemCreate,
+    PrintListItemUpdate,
     PrinterPublicUpdate,
     PublicPrinter,
     PublicProfile,
@@ -334,6 +340,83 @@ async def list_profile_library(
     return repository.list_library_for_profile(slug, current.user.id if current else None)
 
 
+@router.get("/api/social/me/library/organizer", response_model=LibraryOrganizerSummary)
+async def get_library_organizer(
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryOrganizerSummary:
+    return repository.library_organizer(current.user.id)
+
+
+@router.post("/api/social/library/collections", response_model=LibraryOrganizerSummary)
+async def create_library_collection(
+    payload: LibraryCollectionCreate,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryOrganizerSummary:
+    try:
+        return repository.create_library_collection(current.user.id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/social/library/collections/{collection_id}/items", response_model=LibraryOrganizerSummary)
+async def add_library_collection_item(
+    collection_id: int,
+    payload: LibraryCollectionItemCreate,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryOrganizerSummary:
+    try:
+        return repository.add_library_collection_item(collection_id, current.user.id, payload)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/social/print-lists", response_model=LibraryOrganizerSummary)
+async def create_print_list(
+    payload: PrintListCreate,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryOrganizerSummary:
+    try:
+        return repository.create_print_list(current.user.id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/social/print-lists/{print_list_id}/items", response_model=LibraryOrganizerSummary)
+async def add_print_list_item(
+    print_list_id: int,
+    payload: PrintListItemCreate,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryOrganizerSummary:
+    try:
+        return repository.add_print_list_item(print_list_id, current.user.id, payload)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.put("/api/social/print-list-items/{print_list_item_id}", response_model=LibraryOrganizerSummary)
+async def update_print_list_item(
+    print_list_item_id: int,
+    payload: PrintListItemUpdate,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryOrganizerSummary:
+    try:
+        return repository.update_print_list_item(print_list_item_id, current.user.id, payload)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.post("/api/social/library", response_model=LibraryItem)
 async def create_library_item(
     payload: LibraryItemCreate,
@@ -356,6 +439,30 @@ async def get_library_item(
     if item is None:
         raise HTTPException(status_code=404, detail="arquivo não encontrado")
     return item
+
+
+@router.post("/api/social/library/{item_id}/favorite", response_model=LibraryItem)
+async def favorite_library_item(
+    item_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryItem:
+    try:
+        return repository.set_library_favorite(item_id, current.user.id, True)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/api/social/library/{item_id}/favorite", response_model=LibraryItem)
+async def unfavorite_library_item(
+    item_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryItem:
+    try:
+        return repository.set_library_favorite(item_id, current.user.id, False)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.put("/api/social/library/{item_id}", response_model=LibraryItem)
