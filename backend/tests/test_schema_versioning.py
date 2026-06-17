@@ -59,7 +59,7 @@ def test_initialize_database_ignores_macos_appledouble_sql_files(tmp_path: Path,
             ).fetchall()
         ]
     assert "._018_app_update_runs.sql" not in scripts
-    assert scripts[-1] == "060_social_file_storage.sql"
+    assert scripts[-1] == _latest_sql_script_name()
 
 
 def test_initialize_database_is_idempotent_and_preserves_existing_data(tmp_path: Path) -> None:
@@ -179,7 +179,7 @@ def test_system_version_endpoint_is_read_only(tmp_path: Path, monkeypatch) -> No
         assert payload["database_path"] == str(tmp_path / "printora.db")
         assert payload["schema_revision"] == _sql_script_count()
         assert payload["schema_current"]["revision"] == _sql_script_count()
-        assert payload["schema_current"]["latest_script"] == "060_social_file_storage.sql"
+        assert payload["schema_current"]["latest_script"] == _latest_sql_script_name()
         assert payload["schema_scripts_applied"] == _sql_script_count()
         assert len(payload["applied_sql_scripts"]) == _sql_script_count()
         assert any(
@@ -272,7 +272,7 @@ def test_initialize_database_repairs_corrupt_materialization_cache(tmp_path: Pat
         ).fetchone()
     assert backups
     assert table == ("social_materialization_state",)
-    assert latest == ("060_social_file_storage.sql",)
+    assert latest == (_latest_sql_script_name(),)
 
 
 def _create_legacy_database(database_path: Path) -> None:
@@ -312,6 +312,10 @@ def _create_legacy_database(database_path: Path) -> None:
 
 def _sql_script_count() -> int:
     return len(list(database_module.SQL_DIR.glob("*.sql")))
+
+
+def _latest_sql_script_name() -> str:
+    return sorted(database_module.SQL_DIR.glob("[0-9]*.sql"))[-1].name
 
 
 def _schema_backups(data_dir: Path) -> list[Path]:

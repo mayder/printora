@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 import app.self_update as self_update_module
+import app.database as database_module
 from app.config import get_settings
 from app.database import initialize_database
 from app.main import app
@@ -246,9 +247,13 @@ def test_schema_versioning_includes_app_update_sql(tmp_path: Path) -> None:
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'app_update_steps'"
         ).fetchone()
 
-    assert scripts[-1] == "060_social_file_storage.sql"
+    assert scripts[-1] == _latest_sql_script_name()
     assert run_table == ("app_update_runs",)
     assert step_table == ("app_update_steps",)
+
+
+def _latest_sql_script_name() -> str:
+    return sorted(database_module.SQL_DIR.glob("[0-9]*.sql"))[-1].name
 
 
 def test_apply_rejects_without_confirmation(tmp_path: Path, monkeypatch) -> None:

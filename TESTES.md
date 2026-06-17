@@ -1448,6 +1448,18 @@ Critérios:
 - Testes automatizados focados: `cd backend && uv run --extra dev pytest ../backend/tests/test_social_catalog.py -k 'library_storage or library_upload_quarantine' -q` e `cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-70 - Ponte Controlada Com Engine De Fatiamento
+
+- Validar que `GET /api/slicing/engine` retorna bloqueio claro quando OrcaSlicer/PrusaSlicer não estiver configurado.
+- Validar que o detector aceita binário configurado por `PRINTORA_SLICER_ENGINE_PATH` e lê versão sem vazar home local, token ou segredo.
+- Validar que `POST /api/slicing/dry-run` não executa fatiamento real, não cria G-code e retorna contrato de entrada/saída com comando previsto.
+- Validar que payload com referência sensível é rejeitado antes de registrar dry-run.
+- Validar que checks de engine e dry-runs são registrados em tabelas auditáveis.
+- Validar UI de Administração com painel read-only, estado bloqueado/pronto, botão com ícone e texto sem identificadores internos.
+- Testes automatizados focados: `cd backend && uv run --extra dev pytest ../backend/tests/test_slicing.py -q`.
+- Validação frontend focada: `npm --prefix frontend run build`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

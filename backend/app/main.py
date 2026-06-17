@@ -27,6 +27,7 @@ from app.routes import (
     reports,
     search_discovery,
     setup,
+    slicing,
     snapshots,
     social_catalog,
     social_moderation,
@@ -49,7 +50,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Printora", version="0.1.33", lifespan=lifespan)
+app = FastAPI(title="Printora", version="0.1.34", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -96,6 +97,7 @@ app.include_router(printers.router)
 app.include_router(reports.router)
 app.include_router(search_discovery.router)
 app.include_router(setup.router)
+app.include_router(slicing.router)
 app.include_router(snapshots.router)
 app.include_router(social_catalog.router)
 app.include_router(social_moderation.router)

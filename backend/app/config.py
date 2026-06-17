@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     self_update_unix_script_path: Path = Field(default=Path(__file__).resolve().parents[2] / "scripts" / "update_printora.sh")
     self_update_windows_script_path: Path = Field(default=Path(__file__).resolve().parents[2] / "scripts" / "update_printora_windows.ps1")
     self_update_timeout_seconds: float = 900.0
+    slicer_engine_path: Path | None = None
+    slicer_engine_timeout_seconds: float = 600.0
+    slicer_engine_work_dir: Path | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

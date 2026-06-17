@@ -1309,6 +1309,50 @@ Rollback:
 - se `060_social_file_storage.sql` já tiver sido aplicado e for necessário remover schema, restaurar backup SQLite anterior criado pelo versionador;
 - não executar `DELETE`, `DROP TABLE` ou remoção manual de arquivos sem confirmação explícita e backup.
 
+## Fatiamento Controlado
+
+Escopo:
+
+- detectar OrcaSlicer/PrusaSlicer por CLI local ou caminho configurado;
+- registrar checks de engine e dry-runs sanitizados;
+- manter fatiamento real bloqueado até haver pipeline de job, perfil, impressora e preflight.
+
+Configuração:
+
+```bash
+export PRINTORA_SLICER_ENGINE_PATH="/caminho/para/orcaslicer"
+```
+
+Endpoints:
+
+- status da engine: `GET /api/slicing/engine`;
+- dry-run do contrato: `POST /api/slicing/dry-run`.
+
+Banco:
+
+- ordem: `061_slicing_engine_bridge.sql` depois de `060_social_file_storage.sql`;
+- tabelas: `slicing_engine_checks`, `slicing_dry_run_logs`;
+- impacto: adiciona trilha auditável de detecção/dry-run sem alterar impressoras, agentes, Moonraker, biblioteca social ou arquivos existentes.
+
+Validação:
+
+```bash
+cd backend && uv run --extra dev pytest ../backend/tests/test_slicing.py -q
+npm --prefix frontend run build
+```
+
+Smoke útil:
+
+```bash
+curl -s http://127.0.0.1:8069/api/slicing/engine
+```
+
+Rollback:
+
+- reverter `backend/app/slicing.py`, `backend/app/routes/slicing.py`, integração no `main.py`, serviço frontend de slicing, painel de Administração e documentação;
+- se `061_slicing_engine_bridge.sql` já tiver sido aplicado e for necessário remover schema, restaurar backup SQLite anterior criado pelo versionador;
+- não executar `DROP TABLE` ou limpeza manual de histórico sem confirmação explícita.
+
 Rollback:
 
 - para remover a camada de autenticação, reverter os arquivos do PKG-39;

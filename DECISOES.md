@@ -758,3 +758,15 @@ Consequencias: o custo passa a ser mensurável, o usuário recebe feedback de co
 Impacto em testes: testes de upload/cota, relatório de storage, revisão de retenção, schema versionado, build frontend e `./check.sh`.
 Impacto em rollback: médio; reverter remove relatório e bloqueio de cota, mas arquivos já gravados permanecem no diretório local.
 Como reverter: reverter `backend/app/social_storage.py`, `backend/app/routes/social_storage.py`, integração de upload em `social_catalog.py`, painel de biblioteca no frontend e documentação. Se `060_social_file_storage.sql` já tiver sido aplicado, restaurar backup SQLite anterior criado pelo versionador; não executar `DELETE` ou `DROP TABLE` sem confirmação explícita.
+
+### DEC-20260616-17 - Fatiamento usa CLI externa controlada sem UI embutida
+
+Status: aceita
+Data: 2026-06-16
+Contexto: o Printora precisa iniciar integração com engine de fatiamento sem transformar o produto em uma tela embutida do OrcaSlicer/PrusaSlicer nem executar comandos reais antes de perfil, impressora e material estarem compatíveis.
+Decisao: a primeira ponte suporta OrcaSlicer/PrusaSlicer por CLI detectada no host ou agente, com configuração opcional por `PRINTORA_SLICER_ENGINE_PATH`. O backend expõe somente detecção, versão e dry-run de worker isolado; fatiamento real permanece bloqueado até o pipeline rastreável validar modelo, perfil, impressora e material.
+Alternativas consideradas: embutir a UI do fatiador em iframe/webview; chamar qualquer binário configurado livremente; iniciar geração real de G-code no primeiro pacote.
+Consequencias: a integração fica simples, auditável e reversível. O usuário recebe bloqueio claro quando a engine não está instalada, e os próximos pacotes podem acoplar jobs/artefatos sem refazer o contrato.
+Impacto em testes: `backend/tests/test_slicing.py`, build frontend, schema versionado e `./check.sh`.
+Impacto em rollback: baixo a médio; reverter remove endpoints e painel de engine, mas tabelas já aplicadas permanecem sem afetar impressoras, agentes ou arquivos.
+Como reverter: reverter `backend/app/slicing.py`, `backend/app/routes/slicing.py`, integração em `backend/app/main.py`, painel de Administração e documentação. Se `061_slicing_engine_bridge.sql` já tiver sido aplicado e precisar desfazer schema, restaurar backup SQLite anterior criado pelo versionador; não executar `DROP TABLE` sem confirmação explícita.

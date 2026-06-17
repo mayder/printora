@@ -1,4 +1,6 @@
+import React from "react";
 import { Metric } from "../components/common";
+import { slicingApi, type SlicingEngineInfo } from "../services/slicingApi";
 import { formatDateTime } from "../utils/formatters";
 import type { ScreenPropsFor } from "./ScreenProps";
 
@@ -45,6 +47,21 @@ export function SettingsScreen(props: SettingsScreenProps) {
     systemReleases,
   } = props;
   const isPlatformAdmin = authUser?.email?.toLowerCase() === "breno@mayder.com.br";
+  const [slicingEngine, setSlicingEngine] = React.useState<SlicingEngineInfo | null>(null);
+  const [slicingLoading, setSlicingLoading] = React.useState(false);
+  const [slicingError, setSlicingError] = React.useState<string | null>(null);
+
+  async function loadSlicingEngine() {
+    setSlicingLoading(true);
+    setSlicingError(null);
+    try {
+      setSlicingEngine(await slicingApi.engine());
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao verificar engine de fatiamento");
+    } finally {
+      setSlicingLoading(false);
+    }
+  }
 
   return (
     <>
@@ -78,6 +95,38 @@ export function SettingsScreen(props: SettingsScreenProps) {
           <Metric label="Diagnóstico host" value="por agente" />
           <Metric label="CAN técnico" value="por impressora" />
         </div>
+      </article>
+
+      <article className="panel wide panel-section panel-settings">
+        <div className="panel-header-row">
+          <div>
+            <h2>Fatiamento controlado</h2>
+            <p>Verificação somente leitura da engine CLI. O Printora não embute a interface do fatiador.</p>
+          </div>
+          <button type="button" className="secondary-button" onClick={() => void loadSlicingEngine()} disabled={slicingLoading}>
+            <RefreshCw className={slicingLoading ? "button-busy-icon" : undefined} size={16} />
+            {slicingLoading ? "Verificando" : "Verificar engine"}
+          </button>
+        </div>
+        <div className="release-summary-grid">
+          <Metric label="Engine" value={slicingEngine?.engine ?? "OrcaSlicer"} />
+          <Metric label="Status" value={slicingEngine?.status === "ready" ? "pronta" : "bloqueada"} />
+          <Metric label="Versão" value={slicingEngine?.version_text ?? "-"} />
+          <Metric label="Modo" value="dry-run" />
+        </div>
+        {slicingError ? (
+          <div className="action-result warning">
+            <strong>Falha na verificação</strong>
+            <span>{slicingError}</span>
+          </div>
+        ) : null}
+        {slicingEngine ? (
+          <div className={`action-result ${slicingEngine.status === "ready" ? "success" : "warning"}`}>
+            <strong>{slicingEngine.status === "ready" ? "Engine detectada" : "Engine não configurada"}</strong>
+            <span>{slicingEngine.detected_path ?? slicingEngine.installation_hint}</span>
+            {slicingEngine.warnings.length ? <small>{slicingEngine.warnings.join(" ")}</small> : null}
+          </div>
+        ) : null}
       </article>
 
       {isPlatformAdmin ? (

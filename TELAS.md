@@ -261,6 +261,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Em Comunidades > Arquivos, o fluxo de biblioteca deve manter cadastro em modal separado, lista de itens em cards e organizador em painel próprio; cota/uso/retenção aparecem em painel compacto de armazenamento, sem misturar regra de upload ou limpeza na UI.
 - O painel de armazenamento da biblioteca deve mostrar uso, cota, espaço disponível, quantidade de arquivos, candidatos de retenção, custo estimado e ação de revisão supervisionada. A revisão não deve prometer exclusão automática nem usar rótulos internos de pacote/lote.
 - Em telas responsivas de biblioteca, formulários, painel de armazenamento e cards de arquivo devem quebrar linha sem sobrepor texto, botões ou métricas.
+- Na tela Administração, `Fatiamento controlado` mostra apenas verificação read-only da engine CLI, status, versão, modo dry-run e instrução de instalação. Essa tela não executa fatiamento real, não embute UI de fatiador e não mistura CRUD de modelo, perfil ou impressora.
+- O painel de fatiamento controlado deve usar botão com ícone de recarregar para verificação, métricas compactas e resultado acionável. Paths exibidos devem vir sanitizados pelo backend.
 
 ## Pendencias de mapeamento
 

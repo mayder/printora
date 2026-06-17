@@ -4272,7 +4272,19 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado.
+
+Notas de conclusão:
+
+- Decisão técnica: Printora usa OrcaSlicer/PrusaSlicer via CLI controlada, sem embutir a UI do fatiador.
+- SQL `061_slicing_engine_bridge.sql` registra checks de engine e dry-runs sanitizados em tabelas próprias.
+- Backend adicionou módulo `slicing` com detector de engine, leitura de versão, contrato de entrada/saída e worker em dry-run.
+- Endpoints `GET /api/slicing/engine` e `POST /api/slicing/dry-run` bloqueiam por padrão quando a engine não está configurada.
+- Logs e paths retornados são sanitizados para não expor home local, tokens ou segredos conhecidos.
+- Administração recebeu painel compacto de verificação read-only da engine, separado de CRUD de impressoras/modelos/perfis.
+- Documentação atualizada em `TELAS.md`, `TESTES.md`, `DECISOES.md` e `RUNBOOK.md`.
+- Testes focados adicionados em `backend/tests/test_slicing.py`.
+- Validação executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_slicing.py -q`; `npm --prefix frontend run build`.
 
 ## PKG-71: Pipeline De Fatiamento Por Perfil E Impressora
 
