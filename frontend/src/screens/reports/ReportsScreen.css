@@ -101,7 +101,7 @@
 
 :is(.section-reports, .section-printer-detail) .report-status-card {
   display: grid;
-  gap: 6px;
+  gap: 10px;
   align-content: start;
   min-width: 0;
   border: 1px solid var(--border-soft);
@@ -111,7 +111,15 @@
   padding: 13px;
 }
 
+:is(.section-reports, .section-printer-detail) .report-status-card-header {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
 :is(.section-reports, .section-printer-detail) .report-status-card svg {
+  flex: 0 0 auto;
   color: var(--accent);
 }
 

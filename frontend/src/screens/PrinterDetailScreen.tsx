@@ -1,5 +1,5 @@
 import React from "react";
-import { Pencil, Printer as PrinterIcon, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Pencil, Printer as PrinterIcon, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { Badge, Metric } from "../components/common";
 import { AgentsScreen } from "./AgentsScreen";
 import { FirmwareScreen } from "./FirmwareScreen";
@@ -195,7 +195,7 @@ export function PrinterDetailScreen(props: PrinterDetailScreenProps) {
             <h2>{selectedPrinter.name}</h2>
             <p className="muted">{selectedPrinter.cloud_model || "Modelo não informado"} · {selectedPrinter.location || "sem localização"}</p>
           </div>
-          <div className="overview-strip">
+          <div className="overview-strip printer-detail-strip">
             <Badge icon={Gauge} label="Decisão" value={formatDecision(health?.decision)} />
             <div className="badge-with-action">
               <Badge icon={Radio} label="Agente" value={selectedPrinter.cloud_status} />
@@ -370,6 +370,18 @@ function PrinterTechnicalConfigPanel({ printer, loading, showToast }: { printer:
     setFormOpen(true);
   }
 
+  function startCreate() {
+    setEditingId(null);
+    setDraft(emptyDraft);
+    setFormOpen(true);
+  }
+
+  function closeForm() {
+    setEditingId(null);
+    setDraft(emptyDraft);
+    setFormOpen(false);
+  }
+
   async function archive(configId: number) {
     setBusy(true);
     setError(null);
@@ -396,13 +408,13 @@ function PrinterTechnicalConfigPanel({ printer, loading, showToast }: { printer:
       <div className="panel-heading">
         <div>
           <span className="account-eyebrow">Configurações técnicas</span>
-          <h3>Perfis compartilháveis da impressora</h3>
-          <p className="muted">Cadastre mods, componentes e calibrações para comparação social. Não inclua host, IP, Moonraker, SSH, token, caminho local ou credencial.</p>
+          <h3>Configurações técnicas compartilháveis</h3>
+          <p className="muted">Cadastre combinações de mods, componentes e calibrações para comparação social. Não inclua host, IP, Moonraker, SSH, token, caminho local ou credencial.</p>
         </div>
-        <Badge icon={SlidersHorizontal} label="Perfis" value={String(configs.length)} />
+        <Badge icon={SlidersHorizontal} label="Configs" value={String(configs.length)} />
       </div>
 
-      <div className={`printer-technical-layout ${formOpen ? "" : "summary-only"}`}>
+      <div className="printer-technical-layout summary-only">
         <div className="printer-technical-list">
           {configs.map((config) => (
             <section key={config.id} className="printer-technical-card">
@@ -426,66 +438,75 @@ function PrinterTechnicalConfigPanel({ printer, loading, showToast }: { printer:
             </section>
           ))}
           {configs.length === 0 ? <p className="muted">Nenhuma configuração técnica cadastrada para esta impressora.</p> : null}
-          {!formOpen ? (
-            <button type="button" className="secondary-button" onClick={() => { setEditingId(null); setDraft(emptyDraft); setFormOpen(true); }} disabled={busy || loading}>
-              <SlidersHorizontal size={15} />
-              Criar configuração
-            </button>
-          ) : null}
+          <button type="button" className="secondary-button" onClick={startCreate} disabled={busy || loading}>
+            <SlidersHorizontal size={15} />
+            Criar configuração técnica
+          </button>
         </div>
 
-        {formOpen ? <form className="printer-technical-form" onSubmit={(event) => void submit(event)}>
-          <label>
-            Título
-            <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} maxLength={120} required />
-          </label>
-          <label>
-            Visibilidade
-            <select value={draft.visibility} onChange={(event) => setDraft((current) => ({ ...current, visibility: event.target.value as TechnicalConfigDraft["visibility"] }))}>
-              <option value="private">Privado</option>
-              <option value="community">Comunidade</option>
-              <option value="public">Público</option>
-            </select>
-          </label>
-          <label>
-            Comunidade
-            <select value={draft.community_slug} onChange={(event) => setDraft((current) => ({ ...current, community_slug: event.target.value }))} disabled={draft.visibility !== "community"}>
-              <option value="">Selecione</option>
-              {communities.map((community) => (
-                <option key={community.slug} value={community.slug}>{community.name}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Mods
-            <input value={draft.mods} onChange={(event) => setDraft((current) => ({ ...current, mods: event.target.value }))} placeholder="Tap, Nevermore" />
-          </label>
-          <label>
-            Componentes
-            <textarea value={draft.components} onChange={(event) => setDraft((current) => ({ ...current, components: event.target.value }))} rows={4} placeholder={"hotend=Revo Voron\nextrusor=Clockwork 2"} />
-          </label>
-          <label>
-            Calibrações
-            <textarea value={draft.calibrations} onChange={(event) => setDraft((current) => ({ ...current, calibrations: event.target.value }))} rows={4} placeholder={"z_offset=-0.420\npressure_advance=0.035"} />
-          </label>
-          <label className="printer-public-wide">
-            Observações públicas
-            <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={3} maxLength={2000} />
-          </label>
-          {error ? <p className="form-error">{error}</p> : null}
-          <div className="overview-quick-actions">
-            <button type="submit" className="primary-button" disabled={busy || loading}>{editingId ? "Salvar edição" : "Criar configuração"}</button>
-            {editingId ? (
-              <button type="button" className="secondary-button" onClick={() => { setEditingId(null); setDraft(emptyDraft); setFormOpen(false); }} disabled={busy}>
-                Cancelar edição
-              </button>
-            ) : (
-              <button type="button" className="secondary-button" onClick={() => { setDraft(emptyDraft); setFormOpen(false); }} disabled={busy}>
-                Cancelar
-              </button>
-            )}
+        {formOpen ? (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={editingId ? "Editar configuração técnica" : "Criar configuração técnica"}>
+            <div className="modal-card printer-technical-modal-card">
+              <div className="modal-header">
+                <div>
+                  <h2><SlidersHorizontal size={18} />{editingId ? "Editar configuração técnica" : "Criar configuração técnica"}</h2>
+                  <p>Cadastre somente dados compartilháveis. Não inclua host, IP, SSH, token, caminho local ou credencial.</p>
+                </div>
+                <button type="button" className="ghost-button" onClick={closeForm} disabled={busy} aria-label="Fechar configuração técnica">
+                  <X size={16} />
+                </button>
+              </div>
+              <form className="printer-technical-form" onSubmit={(event) => void submit(event)}>
+                <label>
+                  Título
+                  <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} maxLength={120} required />
+                </label>
+                <label>
+                  Visibilidade
+                  <select value={draft.visibility} onChange={(event) => setDraft((current) => ({ ...current, visibility: event.target.value as TechnicalConfigDraft["visibility"] }))}>
+                    <option value="private">Privado</option>
+                    <option value="community">Comunidade</option>
+                    <option value="public">Público</option>
+                  </select>
+                </label>
+                <label>
+                  Comunidade
+                  <select value={draft.community_slug} onChange={(event) => setDraft((current) => ({ ...current, community_slug: event.target.value }))} disabled={draft.visibility !== "community"}>
+                    <option value="">Selecione</option>
+                    {communities.map((community) => (
+                      <option key={community.slug} value={community.slug}>{community.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Mods
+                  <input value={draft.mods} onChange={(event) => setDraft((current) => ({ ...current, mods: event.target.value }))} placeholder="Tap, Nevermore" />
+                </label>
+                <label>
+                  Componentes
+                  <textarea value={draft.components} onChange={(event) => setDraft((current) => ({ ...current, components: event.target.value }))} rows={4} placeholder={"hotend=Revo Voron\nextrusor=Clockwork 2"} />
+                </label>
+                <label>
+                  Calibrações
+                  <textarea value={draft.calibrations} onChange={(event) => setDraft((current) => ({ ...current, calibrations: event.target.value }))} rows={4} placeholder={"z_offset=-0.420\npressure_advance=0.035"} />
+                </label>
+                <label className="printer-public-wide">
+                  Observações públicas
+                  <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={3} maxLength={2000} />
+                </label>
+                {error ? <p className="form-error printer-public-wide">{error}</p> : null}
+                <div className="modal-footer printer-public-wide">
+                  <button type="button" className="ghost-button" onClick={closeForm} disabled={busy}>
+                    Cancelar
+                  </button>
+                  <button type="submit" className="primary-button" disabled={busy || loading}>
+                    {editingId ? "Salvar configuração" : "Criar configuração técnica"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </form> : null}
+        ) : null}
       </div>
     </section>
   );
@@ -686,6 +707,18 @@ function PrinterMaterialProfilePanel({ printer, loading, showToast }: { printer:
     setFormOpen(true);
   }
 
+  function startCreate() {
+    setEditingId(null);
+    setDraft(emptyDraft);
+    setFormOpen(true);
+  }
+
+  function closeForm() {
+    setEditingId(null);
+    setDraft(emptyDraft);
+    setFormOpen(false);
+  }
+
   async function archive(profileId: number) {
     setBusy(true);
     try {
@@ -719,13 +752,13 @@ function PrinterMaterialProfilePanel({ printer, loading, showToast }: { printer:
       <div className="panel-heading">
         <div>
           <span className="account-eyebrow">Material e fatiamento</span>
-          <h3>Perfis compartilháveis</h3>
+          <h3>Perfis de material e fatiamento</h3>
           <p className="muted">Registre material, temperaturas, nozzle e parâmetros de fatiamento para compartilhar compatibilidade. O perfil nunca é aplicado automaticamente na impressora.</p>
         </div>
-        <Badge icon={SlidersHorizontal} label="Perfis" value={String(profiles.length)} />
+        <Badge icon={SlidersHorizontal} label="Materiais" value={String(profiles.length)} />
       </div>
 
-      <div className={`printer-technical-layout ${formOpen ? "" : "summary-only"}`}>
+      <div className="printer-technical-layout summary-only">
         <div className="printer-technical-list">
           {profiles.map((profile) => (
             <section key={profile.id} className="printer-technical-card">
@@ -743,43 +776,56 @@ function PrinterMaterialProfilePanel({ printer, loading, showToast }: { printer:
             </section>
           ))}
           {profiles.length === 0 ? <p className="muted">Nenhum perfil de material ou fatiamento cadastrado para esta impressora.</p> : null}
-          {!formOpen ? (
-            <button type="button" className="secondary-button" onClick={() => { setEditingId(null); setDraft(emptyDraft); setFormOpen(true); }} disabled={busy || loading}>
-              <SlidersHorizontal size={15} />
-              Criar perfil
-            </button>
-          ) : null}
+          <button type="button" className="secondary-button" onClick={startCreate} disabled={busy || loading}>
+            <SlidersHorizontal size={15} />
+            Criar perfil de material
+          </button>
         </div>
 
-        {formOpen ? <form className="printer-technical-form" onSubmit={(event) => void submit(event)}>
-          <label>Título<input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} required /></label>
-          <label>Visibilidade<select value={draft.visibility} onChange={(event) => setDraft((current) => ({ ...current, visibility: event.target.value as MaterialDraft["visibility"] }))}><option value="private">Privado</option><option value="community">Comunidade</option><option value="public">Público</option></select></label>
-          <label>Comunidade<select value={draft.community_slug} disabled={draft.visibility !== "community"} onChange={(event) => setDraft((current) => ({ ...current, community_slug: event.target.value }))}><option value="">Selecione</option>{communities.map((community) => <option key={community.slug} value={community.slug}>{community.name}</option>)}</select></label>
-          <label>Marca<input value={draft.material_brand} onChange={(event) => setDraft((current) => ({ ...current, material_brand: event.target.value }))} /></label>
-          <label>Material<input value={draft.material_type} onChange={(event) => setDraft((current) => ({ ...current, material_type: event.target.value }))} required /></label>
-          <label>Nozzle mm<input value={draft.nozzle_diameter_mm} onChange={(event) => setDraft((current) => ({ ...current, nozzle_diameter_mm: event.target.value }))} inputMode="decimal" /></label>
-          <label>Nozzle C<input value={draft.nozzle_temperature_c} onChange={(event) => setDraft((current) => ({ ...current, nozzle_temperature_c: event.target.value }))} inputMode="numeric" /></label>
-          <label>Mesa C<input value={draft.bed_temperature_c} onChange={(event) => setDraft((current) => ({ ...current, bed_temperature_c: event.target.value }))} inputMode="numeric" /></label>
-          <label>Fluxo %<input value={draft.flow_percent} onChange={(event) => setDraft((current) => ({ ...current, flow_percent: event.target.value }))} inputMode="decimal" /></label>
-          <label>Versão<input value={draft.version_label} onChange={(event) => setDraft((current) => ({ ...current, version_label: event.target.value }))} /></label>
-          <label>Altura camada<input value={draft.layer_height_mm} onChange={(event) => setDraft((current) => ({ ...current, layer_height_mm: event.target.value }))} inputMode="decimal" /></label>
-          <label>Velocidade mm/s<input value={draft.speed_mm_s} onChange={(event) => setDraft((current) => ({ ...current, speed_mm_s: event.target.value }))} inputMode="numeric" /></label>
-          <label>Infill %<input value={draft.infill_percent} onChange={(event) => setDraft((current) => ({ ...current, infill_percent: event.target.value }))} inputMode="numeric" /></label>
-          <label>Objetivo<select value={draft.goal} onChange={(event) => setDraft((current) => ({ ...current, goal: event.target.value as MaterialDraft["goal"] }))}><option value="quality">Qualidade</option><option value="strength">Resistência</option><option value="speed">Velocidade</option><option value="prototype">Protótipo</option></select></label>
-          <label className="toggle-row"><input type="checkbox" checked={draft.supports_enabled} onChange={(event) => setDraft((current) => ({ ...current, supports_enabled: event.target.checked }))} />Suporte</label>
-          <label className="printer-public-wide">Compatibilidade<textarea value={draft.compatibility} onChange={(event) => setDraft((current) => ({ ...current, compatibility: event.target.value }))} rows={3} /></label>
-          <label className="printer-public-wide">Configurações livres<textarea value={draft.settings} onChange={(event) => setDraft((current) => ({ ...current, settings: event.target.value }))} rows={3} placeholder={"wall_loops=4\nbridge_speed=40"} /></label>
-          <label className="printer-public-wide">Observações<textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={3} /></label>
-          {error ? <p className="form-error">{error}</p> : null}
-          <div className="overview-quick-actions">
-            <button type="submit" className="primary-button" disabled={busy || loading}>{editingId ? "Salvar edição" : "Criar perfil"}</button>
-            {editingId ? (
-              <button type="button" className="secondary-button" onClick={() => { setEditingId(null); setDraft(emptyDraft); setFormOpen(false); }} disabled={busy}>Cancelar edição</button>
-            ) : (
-              <button type="button" className="secondary-button" onClick={() => { setDraft(emptyDraft); setFormOpen(false); }} disabled={busy}>Cancelar</button>
-            )}
+        {formOpen ? (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={editingId ? "Editar perfil de material" : "Criar perfil de material"}>
+            <div className="modal-card printer-technical-modal-card">
+              <div className="modal-header">
+                <div>
+                  <h2><SlidersHorizontal size={18} />{editingId ? "Editar perfil de material" : "Criar perfil de material"}</h2>
+                  <p>Registre parâmetros compartilháveis. O perfil não aplica configuração automaticamente na impressora.</p>
+                </div>
+                <button type="button" className="ghost-button" onClick={closeForm} disabled={busy} aria-label="Fechar perfil de material">
+                  <X size={16} />
+                </button>
+              </div>
+              <form className="printer-technical-form" onSubmit={(event) => void submit(event)}>
+                <label>Título<input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} required /></label>
+                <label>Visibilidade<select value={draft.visibility} onChange={(event) => setDraft((current) => ({ ...current, visibility: event.target.value as MaterialDraft["visibility"] }))}><option value="private">Privado</option><option value="community">Comunidade</option><option value="public">Público</option></select></label>
+                <label>Comunidade<select value={draft.community_slug} disabled={draft.visibility !== "community"} onChange={(event) => setDraft((current) => ({ ...current, community_slug: event.target.value }))}><option value="">Selecione</option>{communities.map((community) => <option key={community.slug} value={community.slug}>{community.name}</option>)}</select></label>
+                <label>Marca<input value={draft.material_brand} onChange={(event) => setDraft((current) => ({ ...current, material_brand: event.target.value }))} /></label>
+                <label>Material<input value={draft.material_type} onChange={(event) => setDraft((current) => ({ ...current, material_type: event.target.value }))} required /></label>
+                <label>Nozzle mm<input value={draft.nozzle_diameter_mm} onChange={(event) => setDraft((current) => ({ ...current, nozzle_diameter_mm: event.target.value }))} inputMode="decimal" /></label>
+                <label>Nozzle C<input value={draft.nozzle_temperature_c} onChange={(event) => setDraft((current) => ({ ...current, nozzle_temperature_c: event.target.value }))} inputMode="numeric" /></label>
+                <label>Mesa C<input value={draft.bed_temperature_c} onChange={(event) => setDraft((current) => ({ ...current, bed_temperature_c: event.target.value }))} inputMode="numeric" /></label>
+                <label>Fluxo %<input value={draft.flow_percent} onChange={(event) => setDraft((current) => ({ ...current, flow_percent: event.target.value }))} inputMode="decimal" /></label>
+                <label>Versão<input value={draft.version_label} onChange={(event) => setDraft((current) => ({ ...current, version_label: event.target.value }))} /></label>
+                <label>Altura camada<input value={draft.layer_height_mm} onChange={(event) => setDraft((current) => ({ ...current, layer_height_mm: event.target.value }))} inputMode="decimal" /></label>
+                <label>Velocidade mm/s<input value={draft.speed_mm_s} onChange={(event) => setDraft((current) => ({ ...current, speed_mm_s: event.target.value }))} inputMode="numeric" /></label>
+                <label>Infill %<input value={draft.infill_percent} onChange={(event) => setDraft((current) => ({ ...current, infill_percent: event.target.value }))} inputMode="numeric" /></label>
+                <label>Objetivo<select value={draft.goal} onChange={(event) => setDraft((current) => ({ ...current, goal: event.target.value as MaterialDraft["goal"] }))}><option value="quality">Qualidade</option><option value="strength">Resistência</option><option value="speed">Velocidade</option><option value="prototype">Protótipo</option></select></label>
+                <label className="toggle-row"><input type="checkbox" checked={draft.supports_enabled} onChange={(event) => setDraft((current) => ({ ...current, supports_enabled: event.target.checked }))} />Suporte</label>
+                <label className="printer-public-wide">Compatibilidade<textarea value={draft.compatibility} onChange={(event) => setDraft((current) => ({ ...current, compatibility: event.target.value }))} rows={3} /></label>
+                <label className="printer-public-wide">Configurações livres<textarea value={draft.settings} onChange={(event) => setDraft((current) => ({ ...current, settings: event.target.value }))} rows={3} placeholder={"wall_loops=4\nbridge_speed=40"} /></label>
+                <label className="printer-public-wide">Observações<textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={3} /></label>
+                {error ? <p className="form-error printer-public-wide">{error}</p> : null}
+                <div className="modal-footer printer-public-wide">
+                  <button type="button" className="ghost-button" onClick={closeForm} disabled={busy}>
+                    Cancelar
+                  </button>
+                  <button type="submit" className="primary-button" disabled={busy || loading}>
+                    {editingId ? "Salvar perfil de material" : "Criar perfil de material"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </form> : null}
+        ) : null}
       </div>
     </section>
   );
@@ -812,12 +858,16 @@ function PrinterPublicPanel({ printer, loading, loadPrinters, showToast }: Print
   const [editing, setEditing] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
 
-  React.useEffect(() => {
+  function resetDraft() {
     setVariantId(printer.catalog_variant_id ? String(printer.catalog_variant_id) : "");
     setPublicName(printer.public_name || printer.name);
     setDescription(printer.public_description || "");
     setMods((printer.public_mods || []).join(", "));
     setImages((printer.public_images || []).join("\n"));
+  }
+
+  React.useEffect(() => {
+    resetDraft();
     setEditing(false);
   }, [printer]);
 
@@ -891,7 +941,7 @@ function PrinterPublicPanel({ printer, loading, loadPrinters, showToast }: Print
       <div className="panel-heading">
         <div>
           <span className="account-eyebrow">Publicação da impressora</span>
-          <h3>Perfil público da impressora real</h3>
+          <h3>Perfil público da impressora</h3>
           <p className="muted">Ficam públicos nome, descrição, fabricante, modelo, variante, volume, cinemática, mods e imagens. Moonraker, IP, SSH, agente, tokens, organização e permissões nunca entram no contrato público.</p>
         </div>
         <Badge icon={PrinterIcon} label="Estado" value={stateLabel} />
@@ -908,63 +958,83 @@ function PrinterPublicPanel({ printer, loading, loadPrinters, showToast }: Print
           {imageList.slice(0, 6).map((imageUrl) => <img key={imageUrl} src={imageUrl} alt="" />)}
         </div>
       </div>
-      {!editing ? (
-        <div className="overview-quick-actions">
-          <button type="button" className="secondary-button" disabled={loading || saving} onClick={() => setEditing(true)}>
-            <Pencil size={15} />
-            Editar publicação
+      <div className="overview-quick-actions">
+        <button type="button" className="secondary-button" disabled={loading || saving} onClick={() => setEditing(true)}>
+          <Pencil size={15} />
+          Editar perfil público
+        </button>
+        {printer.public_profile_enabled ? (
+          <button type="button" className="secondary-button" disabled={loading || saving} onClick={() => void save(false)}>
+            Tornar privada
           </button>
-          {printer.public_profile_enabled ? (
-            <button type="button" className="secondary-button" disabled={loading || saving} onClick={() => void save(false)}>
-              Tornar privada
-            </button>
-          ) : null}
+        ) : null}
+      </div>
+
+      {editing ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Editar perfil público da impressora">
+          <div className="modal-card printer-public-modal-card">
+            <div className="modal-header">
+              <div>
+                <h2><PrinterIcon size={18} />Editar perfil público</h2>
+                <p>Defina apenas os dados que podem aparecer no perfil público da impressora.</p>
+              </div>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => {
+                  resetDraft();
+                  setEditing(false);
+                }}
+                disabled={saving}
+                aria-label="Fechar perfil público"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="printer-public-grid">
+              <label>
+                Nome público
+                <input value={publicName} onChange={(event) => setPublicName(event.target.value)} maxLength={120} />
+              </label>
+              <label>
+                Variante canônica
+                <select value={variantId} onChange={(event) => setVariantId(event.target.value)}>
+                  <option value="">Selecione a variante</option>
+                  {variants.map((variant) => (
+                    <option key={variant.id} value={variant.id} disabled={variant.disabled}>
+                      {variant.label}{variant.disabled ? " indisponível" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="printer-public-wide">
+                Descrição pública
+                <textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} rows={3} />
+              </label>
+              <label>
+                Mods públicos
+                <input value={mods} onChange={(event) => setMods(event.target.value)} placeholder="Tap, Nevermore" maxLength={500} />
+              </label>
+              <label>
+                Imagens públicas HTTPS
+                <textarea value={images} onChange={(event) => setImages(event.target.value)} rows={3} placeholder="https://..." />
+                {imageError ? <small className="form-error">URL inválida: {imageError}</small> : null}
+              </label>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="ghost-button" disabled={saving} onClick={() => { resetDraft(); setEditing(false); }}>
+                Cancelar
+              </button>
+              <button type="button" className="secondary-button" disabled={loading || saving || !printer.public_profile_enabled} onClick={() => void save(false)}>
+                Tornar privada
+              </button>
+              <button type="button" className="primary-button" disabled={loading || saving || Boolean(imageError)} onClick={() => void save(true)}>
+                Publicar
+              </button>
+            </div>
+          </div>
         </div>
-      ) : (
-        <>
-          <div className="printer-public-grid">
-            <label>
-              Nome público
-              <input value={publicName} onChange={(event) => setPublicName(event.target.value)} maxLength={120} />
-            </label>
-            <label>
-              Variante canônica
-              <select value={variantId} onChange={(event) => setVariantId(event.target.value)}>
-                <option value="">Selecione a variante</option>
-                {variants.map((variant) => (
-                  <option key={variant.id} value={variant.id} disabled={variant.disabled}>
-                    {variant.label}{variant.disabled ? " indisponível" : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="printer-public-wide">
-              Descrição pública
-              <textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} rows={3} />
-            </label>
-            <label>
-              Mods públicos
-              <input value={mods} onChange={(event) => setMods(event.target.value)} placeholder="Tap, Nevermore" maxLength={500} />
-            </label>
-            <label>
-              Imagens públicas HTTPS
-              <textarea value={images} onChange={(event) => setImages(event.target.value)} rows={3} placeholder="https://..." />
-              {imageError ? <small className="form-error">URL inválida: {imageError}</small> : null}
-            </label>
-          </div>
-          <div className="overview-quick-actions">
-            <button type="button" className="primary-button" disabled={loading || saving || Boolean(imageError)} onClick={() => void save(true)}>
-              Publicar
-            </button>
-            <button type="button" className="secondary-button" disabled={loading || saving || !printer.public_profile_enabled} onClick={() => void save(false)}>
-              Tornar privada
-            </button>
-            <button type="button" className="secondary-button" disabled={saving} onClick={() => setEditing(false)}>
-              Cancelar
-            </button>
-          </div>
-        </>
-      )}
+      ) : null}
     </section>
   );
 }

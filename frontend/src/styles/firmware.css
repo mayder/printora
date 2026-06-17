@@ -279,11 +279,12 @@
 
 .firmware-state-banner div {
   display: grid;
-  gap: 2px;
+  gap: 6px;
 }
 
 .firmware-state-banner span {
   color: var(--muted);
+  line-height: 1.45;
 }
 
 .firmware-empty-state {

@@ -379,21 +379,35 @@
 
 .maintenance-filter-row {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.maintenance-filter-row .filter-toolbar,
+.maintenance-filter-row .maintenance-area-select {
+  min-height: 52px;
+  margin: 0;
+}
+
+.maintenance-filter-row .filter-toolbar {
+  align-items: center;
+  padding: 8px 10px;
+}
+
+.maintenance-filter-row .filter-toolbar button {
+  min-height: 36px;
 }
 
 .maintenance-area-select {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 38px;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--surface-1);
-  padding: 4px 8px;
+  padding: 8px 10px;
 }
 
 .maintenance-area-select span {
@@ -405,7 +419,7 @@
 
 .maintenance-area-select select {
   min-width: 164px;
-  min-height: 28px;
+  min-height: 36px;
   border: 1px solid var(--border-soft);
   border-radius: 6px;
   background: var(--secondary-bg);

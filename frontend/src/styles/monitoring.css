@@ -84,6 +84,11 @@
   padding: 11px 12px;
 }
 
+.monitor-warning span,
+.monitor-note span {
+  line-height: 1.45;
+}
+
 .monitor-note {
   border-color: var(--border-soft);
   border-left-color: var(--accent);

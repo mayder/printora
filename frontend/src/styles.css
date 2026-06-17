@@ -1465,9 +1465,23 @@ label {
 }
 
 .alert {
-  margin-bottom: 16px;
+  margin: 16px 0;
   padding: 12px 14px;
   border-radius: 6px;
+}
+
+.monitor-warning,
+.monitor-note,
+.firmware-state-banner,
+.operation-state,
+.snapshot-diff,
+.report-primary-reason,
+.report-finding,
+.update-warning,
+.update-risk,
+.test-blockers,
+.maintenance-print-hours-banner {
+  margin-block: 16px;
 }
 
 .danger {

@@ -52,8 +52,13 @@
 
 .operation-state span {
   display: block;
-  margin-top: 3px;
   color: var(--muted);
+  line-height: 1.45;
+}
+
+.operation-state div {
+  display: grid;
+  gap: 6px;
 }
 
 .wide-operation-panel {

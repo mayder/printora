@@ -162,6 +162,32 @@
   font-size: 12px;
 }
 
+.printer-detail-header .panel-heading {
+  align-items: stretch;
+}
+
+.printer-detail-header .panel-heading > div:first-child {
+  display: grid;
+  align-content: center;
+}
+
+.printer-detail-header .printer-detail-strip {
+  flex: 1 1 620px;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(210px, 1fr) minmax(180px, 0.9fr);
+  justify-self: stretch;
+  justify-content: end;
+  align-items: stretch;
+  max-width: 920px;
+  margin-left: auto;
+  margin-bottom: 0;
+}
+
+.printer-detail-header .printer-detail-strip .badge,
+.printer-detail-header .printer-detail-strip .badge-with-action {
+  justify-self: stretch;
+  width: 100%;
+}
+
 .agent-install-box {
   display: grid;
   gap: 12px;
@@ -751,6 +777,28 @@
   border-radius: 8px;
   object-fit: cover;
   width: 100%;
+}
+
+.printer-public-modal-card {
+  width: min(900px, 100%);
+}
+
+.printer-public-modal-card .printer-public-grid {
+  margin-bottom: 16px;
+}
+
+.printer-technical-modal-card {
+  width: min(980px, 100%);
+}
+
+.printer-technical-modal-card .printer-technical-form {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.printer-technical-modal-card .modal-footer {
+  margin-top: 4px;
 }
 
 .form-error {

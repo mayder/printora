@@ -639,8 +639,10 @@ function ReportStatusCard({
 }) {
   return (
     <div className={`report-status-card ${tone}`}>
-      <Icon size={19} strokeWidth={2.1} />
-      <span>{label}</span>
+      <div className="report-status-card-header">
+        <Icon size={19} strokeWidth={2.1} />
+        <span>{label}</span>
+      </div>
       <strong>{formatReportValue(value)}</strong>
       <p>{detail}</p>
     </div>
