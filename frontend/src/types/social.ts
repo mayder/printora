@@ -316,6 +316,10 @@ export interface LibraryItem {
   remix_source_item_id: number | null;
   remix_source_title: string | null;
   publication_terms_accepted_at: string | null;
+  content_class: "community" | "curated" | "premium" | "sponsored";
+  commercial_status: "none" | "pending_review" | "approved" | "rejected";
+  commercial_metadata: Record<string, unknown>;
+  promotion_disclosure: string;
   status: "active" | "archived";
   files: LibraryFileMetadata[];
   versions: LibraryVersion[];
@@ -327,6 +331,49 @@ export interface LibraryItem {
   download_count: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface ExternalSourceRecord {
+  id: number;
+  name: string;
+  base_url: string;
+  license_policy: string;
+  attribution_required: boolean;
+  status: "active" | "paused" | "blocked";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExternalReferenceRecord {
+  id: number;
+  source_id: number | null;
+  source_name: string | null;
+  library_item_id: number | null;
+  title: string;
+  external_url: string;
+  author_name: string;
+  license: string;
+  attribution_text: string;
+  checksum_sha256: string | null;
+  import_mode: "bookmark" | "metadata_only";
+  duplicate_library_file_id: number | null;
+  hosted_in_printora: boolean;
+  status: "active" | "archived";
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExternalImportPreview {
+  title: string;
+  external_url: string;
+  source_host: string;
+  suggested_source_name: string;
+  license: string;
+  attribution_text: string;
+  import_mode: "bookmark" | "metadata_only";
+  hosted_in_printora: boolean;
+  duplicate_library_file_id: number | null;
 }
 
 export interface TechnicalPrinterConfig {

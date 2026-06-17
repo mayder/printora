@@ -185,6 +185,7 @@ export function PublicProfileScreen({ slug, embedded = false }: PublicProfileScr
                     </div>
                     <span>{item.files.map((file) => file.file_name).join(", ")}</span>
                     {item.description ? <p>{item.description}</p> : null}
+                    {item.content_class !== "community" ? <small>{commercialLabel(item.content_class, item.commercial_status)}{item.promotion_disclosure ? ` · ${item.promotion_disclosure}` : ""}</small> : null}
                     <small>{item.version_label} / {item.license} / {item.original_author_name || "autoria não declarada"} / {item.download_count} downloads</small>
                     <button type="button" className="secondary-button" onClick={() => void socialApi.registerLibraryDownload(item.id)}>
                       <Download size={15} />
@@ -218,6 +219,16 @@ export function PublicProfileScreen({ slug, embedded = false }: PublicProfileScr
       {content}
     </main>
   );
+}
+
+function commercialLabel(contentClass: LibraryItem["content_class"], status: LibraryItem["commercial_status"]) {
+  const labels: Record<LibraryItem["content_class"], string> = {
+    community: "Comunidade",
+    curated: "Curado",
+    premium: "Premium",
+    sponsored: "Patrocinado",
+  };
+  return `${labels[contentClass]} · ${status === "approved" ? "revisado" : "em revisão"}`;
 }
 
 function summarizeRelationship(targetUserId: number, relationships: RelationshipSummary) {

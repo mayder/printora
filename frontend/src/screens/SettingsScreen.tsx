@@ -1,7 +1,7 @@
 import React from "react";
 import { Metric } from "../components/common";
 import { printerApi } from "../services/printerApi";
-import { slicingApi, type PrintDelivery, type PrintPreflight, type SlicingEngineInfo, type SlicingJob } from "../services/slicingApi";
+import { slicingApi, type PrintDelivery, type PrintJobFeedback, type PrintJobHistory, type PrintPreflight, type SlicingEngineInfo, type SlicingJob } from "../services/slicingApi";
 import { formatDateTime } from "../utils/formatters";
 import type { ScreenPropsFor } from "./ScreenProps";
 import type { PrinterRecord } from "../types/printers";
@@ -55,7 +55,9 @@ export function SettingsScreen(props: SettingsScreenProps) {
   const [slicingJobs, setSlicingJobs] = React.useState<SlicingJob[]>([]);
   const [printPreflights, setPrintPreflights] = React.useState<PrintPreflight[]>([]);
   const [printDeliveries, setPrintDeliveries] = React.useState<PrintDelivery[]>([]);
+  const [printHistory, setPrintHistory] = React.useState<PrintJobHistory[]>([]);
   const [deliveryConfirmations, setDeliveryConfirmations] = React.useState<Record<number, string>>({});
+  const [feedbackDrafts, setFeedbackDrafts] = React.useState<Record<number, { outcome: PrintJobFeedback["outcome"]; visibility: PrintJobFeedback["visibility"]; note: string; photo_url: string }>>({});
   const [slicingPrinters, setSlicingPrinters] = React.useState<PrinterRecord[]>([]);
   const [slicingJobBusy, setSlicingJobBusy] = React.useState(false);
   const [slicingDraft, setSlicingDraft] = React.useState({
@@ -85,13 +87,14 @@ export function SettingsScreen(props: SettingsScreenProps) {
 
   async function loadSlicingPipeline() {
     try {
-      const [printersResponse, jobs, preflights, deliveries] = await Promise.all([printerApi.list(), slicingApi.jobs(), slicingApi.preflights(), slicingApi.deliveries()]);
+      const [printersResponse, jobs, preflights, deliveries, history] = await Promise.all([printerApi.list(), slicingApi.jobs(), slicingApi.preflights(), slicingApi.deliveries(), slicingApi.history()]);
       const printersPayload = await printersResponse.json() as PrinterRecord[] | { printers?: PrinterRecord[] };
       const printers = Array.isArray(printersPayload) ? printersPayload : printersPayload.printers ?? [];
       setSlicingPrinters(printers.filter((printer) => printer.is_active));
       setSlicingJobs(jobs);
       setPrintPreflights(preflights);
       setPrintDeliveries(deliveries);
+      setPrintHistory(history);
       setSlicingDraft((current) => current.printerId || printers.length === 0 ? current : { ...current, printerId: String(printers[0].id) });
     } catch (err) {
       setSlicingError(err instanceof Error ? err.message : "Falha ao carregar pipeline de fatiamento");
@@ -189,6 +192,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
         confirmation_phrase: confirmation,
       });
       setPrintDeliveries((current) => [delivery, ...current.filter((item) => item.id !== delivery.id)].slice(0, 30));
+      setPrintHistory(await slicingApi.history());
     } catch (err) {
       setSlicingError(err instanceof Error ? err.message : "Falha ao enviar G-code");
     } finally {
@@ -204,6 +208,39 @@ export function SettingsScreen(props: SettingsScreenProps) {
       setPrintDeliveries((current) => current.map((item) => item.id === delivery.id ? delivery : item));
     } catch (err) {
       setSlicingError(err instanceof Error ? err.message : "Falha ao remover arquivo remoto");
+    } finally {
+      setSlicingJobBusy(false);
+    }
+  }
+
+  async function recordPrintResult(history: PrintJobHistory, status: PrintJobHistory["status"]) {
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const updated = await slicingApi.recordHistoryEvent(history.id, { status, result: { status } });
+      setPrintHistory((current) => [updated, ...current.filter((item) => item.id !== updated.id)]);
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao atualizar resultado de impressão");
+    } finally {
+      setSlicingJobBusy(false);
+    }
+  }
+
+  async function submitPrintFeedback(history: PrintJobHistory) {
+    const draft = feedbackDrafts[history.id] ?? { outcome: "worked", visibility: "private", note: "", photo_url: "" };
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const updated = await slicingApi.addHistoryFeedback(history.id, {
+        outcome: draft.outcome,
+        visibility: draft.visibility,
+        note: draft.note,
+        photo_url: draft.photo_url || null,
+      });
+      setPrintHistory((current) => [updated, ...current.filter((item) => item.id !== updated.id)]);
+      setFeedbackDrafts((current) => ({ ...current, [history.id]: { outcome: "worked", visibility: "private", note: "", photo_url: "" } }));
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao registrar feedback de impressão");
     } finally {
       setSlicingJobBusy(false);
     }
@@ -389,6 +426,76 @@ export function SettingsScreen(props: SettingsScreenProps) {
         </div>
       </article>
 
+      <article className="panel wide panel-section panel-settings">
+        <div className="panel-header-row">
+          <div>
+            <h2>Histórico de impressão</h2>
+            <p>Resultados, feedback e telemetria segura vinculados ao modelo, versão, perfil e impressora.</p>
+          </div>
+          <button type="button" className="secondary-button" onClick={() => void loadSlicingPipeline()} disabled={slicingJobBusy}>
+            <RefreshCw className={slicingJobBusy ? "button-busy-icon" : undefined} size={16} />
+            Recarregar
+          </button>
+        </div>
+        <div className="settings-job-list">
+          {printHistory.length === 0 ? <p className="muted">Nenhum histórico de impressão registrado.</p> : null}
+          {printHistory.slice(0, 8).map((history) => {
+            const draft = feedbackDrafts[history.id] ?? { outcome: "worked", visibility: "private", note: "", photo_url: "" };
+            return (
+              <div key={history.id} className={`update-row ${history.status === "failed" ? "failed" : history.status === "completed" ? "success" : ""}`}>
+                <div className="update-main">
+                  <div>
+                    <strong>{history.model_reference}</strong>
+                    <span>{printHistoryStatus(history.status)} · {history.quality_reference || "qualidade padrão"} · {formatDateTime(history.created_at)}</span>
+                    <small>Retenção: {history.retention_days} dias · {history.visibility === "public" ? "feedback público" : "privado"}</small>
+                    <PrintTelemetrySummary history={history} />
+                    {history.feedback.slice(0, 2).map((feedback) => (
+                      <small key={feedback.id}>{feedbackOutcomeText(feedback.outcome)} · {feedback.visibility === "public" ? "público" : "privado"}{feedback.note ? ` · ${feedback.note}` : ""}</small>
+                    ))}
+                  </div>
+                  <div className="inline-actions print-history-actions">
+                    <button type="button" className="secondary-button" onClick={() => void recordPrintResult(history, "completed")} disabled={slicingJobBusy}>Concluiu</button>
+                    <button type="button" className="secondary-button" onClick={() => void recordPrintResult(history, "failed")} disabled={slicingJobBusy}>Falhou</button>
+                  </div>
+                </div>
+                <div className="settings-inline-form compact">
+                  <label>
+                    Resultado
+                    <select
+                      value={draft.outcome}
+                      onChange={(event) => setFeedbackDrafts((current) => ({ ...current, [history.id]: { ...draft, outcome: event.target.value as PrintJobFeedback["outcome"] } }))}
+                    >
+                      <option value="worked">Deu certo</option>
+                      <option value="failed">Falhou</option>
+                      <option value="needs_adjustment">Precisa ajuste</option>
+                    </select>
+                  </label>
+                  <label>
+                    Visibilidade
+                    <select
+                      value={draft.visibility}
+                      onChange={(event) => setFeedbackDrafts((current) => ({ ...current, [history.id]: { ...draft, visibility: event.target.value as PrintJobFeedback["visibility"] } }))}
+                    >
+                      <option value="private">Privado</option>
+                      <option value="public">Público</option>
+                    </select>
+                  </label>
+                  <label>
+                    Observação
+                    <input value={draft.note} maxLength={500} onChange={(event) => setFeedbackDrafts((current) => ({ ...current, [history.id]: { ...draft, note: event.target.value } }))} />
+                  </label>
+                  <label>
+                    Foto HTTPS
+                    <input value={draft.photo_url} placeholder="https://..." onChange={(event) => setFeedbackDrafts((current) => ({ ...current, [history.id]: { ...draft, photo_url: event.target.value } }))} />
+                  </label>
+                  <button type="button" className="primary-button" onClick={() => void submitPrintFeedback(history)} disabled={slicingJobBusy}>Salvar feedback</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </article>
+
       {isPlatformAdmin ? (
         <>
           <article className={`panel wide panel-section panel-settings releases-panel ${releasePanelClass(systemReleases)}`}>
@@ -537,6 +644,36 @@ function latestPreflightForJob(preflights: PrintPreflight[], jobId: number): Pri
 
 function latestDeliveryForJob(deliveries: PrintDelivery[], jobId: number): PrintDelivery | null {
   return deliveries.find((item) => item.slicing_job_id === jobId) ?? null;
+}
+
+function printHistoryStatus(status: PrintJobHistory["status"]): string {
+  const labels: Record<PrintJobHistory["status"], string> = {
+    sent: "enviado",
+    started: "iniciado",
+    completed: "concluído",
+    failed: "falhou",
+    canceled: "cancelado",
+  };
+  return labels[status];
+}
+
+function feedbackOutcomeText(outcome: PrintJobFeedback["outcome"]): string {
+  const labels: Record<PrintJobFeedback["outcome"], string> = {
+    worked: "deu certo",
+    failed: "falhou",
+    needs_adjustment: "precisa ajuste",
+  };
+  return labels[outcome];
+}
+
+function PrintTelemetrySummary({ history }: { history: PrintJobHistory }) {
+  const entries = [
+    history.telemetry.duration_seconds ? `${Math.round(Number(history.telemetry.duration_seconds) / 60)} min` : "",
+    history.telemetry.filament_used_g ? `${history.telemetry.filament_used_g}g` : "",
+    history.telemetry.layer_count ? `${history.telemetry.layer_count} camadas` : "",
+  ].filter(Boolean);
+  if (entries.length === 0) return null;
+  return <small>{entries.join(" · ")}</small>;
 }
 
 function PreflightSummary({ preflight, delivery }: { preflight: PrintPreflight | null; delivery: PrintDelivery | null }) {

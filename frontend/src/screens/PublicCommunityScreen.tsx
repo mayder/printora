@@ -2,7 +2,7 @@ import React from "react";
 import { Archive, ArrowLeft, Box, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Filter, FolderOpen, GitBranch, HardDrive, Heart, ListChecks, Lock, MessageSquare, Pencil, Pin, Printer, Reply, RotateCcw, Send, SlidersHorizontal, ThumbsUp, Trash2, UserRound, Users, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi } from "../services/socialApi";
-import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, FeedContentType, FeedOrder, LibraryCollectionVisibility, LibraryFileKind, LibraryItem, LibraryLicense, LibraryOrganizerSummary, LibraryVisibility, MaterialProfile, StorageReport, TechnicalConfigComparison, TechnicalPrinterConfig } from "../types";
+import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, ExternalReferenceRecord, ExternalSourceRecord, FeedContentType, FeedOrder, LibraryCollectionVisibility, LibraryFileKind, LibraryItem, LibraryLicense, LibraryOrganizerSummary, LibraryVisibility, MaterialProfile, StorageReport, TechnicalConfigComparison, TechnicalPrinterConfig } from "../types";
 
 interface PublicCommunityScreenProps {
   slug: string;
@@ -391,6 +391,8 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
   const [items, setItems] = React.useState<LibraryItem[]>([]);
   const [organizer, setOrganizer] = React.useState<LibraryOrganizerSummary | null>(null);
   const [storageReport, setStorageReport] = React.useState<StorageReport | null>(null);
+  const [externalSources, setExternalSources] = React.useState<ExternalSourceRecord[]>([]);
+  const [externalReferences, setExternalReferences] = React.useState<ExternalReferenceRecord[]>([]);
   const [draft, setDraft] = React.useState({
     title: "",
     description: "",
@@ -405,12 +407,15 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
     source_url: "",
     attribution_text: "",
     publication_terms_accepted: false,
+    content_class: "community" as LibraryItem["content_class"],
+    promotion_disclosure: "",
     file_kind: "stl" as LibraryFileKind,
     file_name: "",
     original_url: "",
   });
   const [collectionDraft, setCollectionDraft] = React.useState({ name: "", visibility: "private" as LibraryCollectionVisibility });
   const [printListDraft, setPrintListDraft] = React.useState({ name: "", printer_id: "" });
+  const [externalDraft, setExternalDraft] = React.useState({ sourceName: "", sourceUrl: "", url: "", title: "", author: "", license: "", attribution: "", checksum: "" });
   const [uploadFile, setUploadFile] = React.useState<File | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -430,6 +435,14 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
         setStorageReport(await socialApi.libraryStorageReport());
       } catch {
         setStorageReport(null);
+      }
+      try {
+        const [sources, references] = await Promise.all([socialApi.externalSources(), socialApi.externalReferences()]);
+        setExternalSources(sources);
+        setExternalReferences(references);
+      } catch {
+        setExternalSources([]);
+        setExternalReferences([]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Biblioteca indisponível");
@@ -462,6 +475,8 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
         source_url: draft.source_url || null,
         attribution_text: draft.attribution_text || null,
         publication_terms_accepted: draft.publication_terms_accepted,
+        content_class: draft.content_class,
+        promotion_disclosure: draft.promotion_disclosure || null,
         files: [{
           file_kind: draft.file_kind,
           file_name: draft.file_name,
@@ -472,7 +487,7 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
         created = await socialApi.uploadLibraryFile(created.id, uploadFile);
       }
       setItems((current) => [created, ...current.filter((item) => item.id !== created.id)]);
-      setDraft((current) => ({ ...current, title: "", description: "", file_name: "", original_url: "", component: "", material_suggestion: "", orientation_notes: "", original_author_name: "", source_url: "", attribution_text: "", publication_terms_accepted: false }));
+      setDraft((current) => ({ ...current, title: "", description: "", file_name: "", original_url: "", component: "", material_suggestion: "", orientation_notes: "", original_author_name: "", source_url: "", attribution_text: "", publication_terms_accepted: false, content_class: "community", promotion_disclosure: "" }));
       setUploadFile(null);
       setCreateOpen(false);
       try {
@@ -631,6 +646,39 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
     }
   }
 
+  async function createExternalBookmark(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+    try {
+      let sourceId = externalSources[0]?.id ?? null;
+      if (externalDraft.sourceName.trim() && externalDraft.sourceUrl.trim()) {
+        const source = await socialApi.createExternalSource({
+          name: externalDraft.sourceName,
+          base_url: externalDraft.sourceUrl,
+          attribution_required: true,
+        });
+        sourceId = source.id;
+        setExternalSources((current) => [source, ...current.filter((item) => item.id !== source.id)]);
+      }
+      const preview = await socialApi.previewExternalImport(externalDraft.url, externalDraft.checksum || undefined);
+      const created = await socialApi.createExternalReference({
+        source_id: sourceId,
+        title: externalDraft.title || preview.title,
+        external_url: preview.external_url,
+        author_name: externalDraft.author,
+        license: externalDraft.license,
+        attribution_text: externalDraft.attribution || preview.attribution_text,
+        checksum_sha256: externalDraft.checksum || null,
+        import_mode: "bookmark",
+        metadata: { community_slug: community.slug, source_host: preview.source_host },
+      });
+      setExternalReferences((current) => [created, ...current.filter((item) => item.id !== created.id)]);
+      setExternalDraft({ sourceName: "", sourceUrl: "", url: "", title: "", author: "", license: "", attribution: "", checksum: "" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao registrar referência externa");
+    }
+  }
+
   return (
     <div className="community-library">
       <div className="community-feed-header">
@@ -670,6 +718,19 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
                   <label className="community-library-field span-full">
                     <span>Descrição técnica</span>
                     <textarea value={draft.description} maxLength={1200} placeholder="Compatibilidade, contexto de uso e observações relevantes para impressão." onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} />
+                  </label>
+                  <label className="community-library-field">
+                    <span>Classificação</span>
+                    <select value={draft.content_class} onChange={(event) => setDraft((current) => ({ ...current, content_class: event.target.value as LibraryItem["content_class"] }))}>
+                      <option value="community">Comunidade</option>
+                      <option value="curated">Curado</option>
+                      <option value="premium">Premium</option>
+                      <option value="sponsored">Patrocinado</option>
+                    </select>
+                  </label>
+                  <label className="community-library-field span-2">
+                    <span>Transparência</span>
+                    <input value={draft.promotion_disclosure} maxLength={300} placeholder="Ex.: conteúdo patrocinado por..." onChange={(event) => setDraft((current) => ({ ...current, promotion_disclosure: event.target.value }))} />
                   </label>
                 </div>
               </section>
@@ -830,6 +891,49 @@ function CommunityLibrary({ community }: { community: CommunityDetail }) {
           </div>
         </section>
       ) : null}
+      <section className="community-storage-panel">
+        <header>
+          <strong><ExternalLink size={15} />Fontes externas</strong>
+          <span>{externalReferences.length} referência(s) sem cópia de arquivo</span>
+        </header>
+        <form className="community-library-form-grid" onSubmit={createExternalBookmark}>
+          <label className="community-library-field">
+            <span>Fonte</span>
+            <input value={externalDraft.sourceName} placeholder="Printables, MakerWorld..." onChange={(event) => setExternalDraft((current) => ({ ...current, sourceName: event.target.value }))} />
+          </label>
+          <label className="community-library-field">
+            <span>URL base</span>
+            <input value={externalDraft.sourceUrl} placeholder="https://..." onChange={(event) => setExternalDraft((current) => ({ ...current, sourceUrl: event.target.value }))} />
+          </label>
+          <label className="community-library-field span-2">
+            <span>URL externa</span>
+            <input value={externalDraft.url} placeholder="https://..." onChange={(event) => setExternalDraft((current) => ({ ...current, url: event.target.value }))} required />
+          </label>
+          <label className="community-library-field">
+            <span>Título</span>
+            <input value={externalDraft.title} onChange={(event) => setExternalDraft((current) => ({ ...current, title: event.target.value }))} />
+          </label>
+          <label className="community-library-field">
+            <span>Autor/licença</span>
+            <input value={externalDraft.author} placeholder="Autor" onChange={(event) => setExternalDraft((current) => ({ ...current, author: event.target.value }))} />
+          </label>
+          <label className="community-library-field span-2">
+            <span>Atribuição</span>
+            <input value={externalDraft.attribution} placeholder="Texto obrigatório de crédito" onChange={(event) => setExternalDraft((current) => ({ ...current, attribution: event.target.value }))} />
+          </label>
+          <label className="community-library-field span-2">
+            <span>Checksum opcional</span>
+            <input value={externalDraft.checksum} maxLength={64} placeholder="SHA-256 para detectar duplicidade" onChange={(event) => setExternalDraft((current) => ({ ...current, checksum: event.target.value }))} />
+          </label>
+          <button type="submit" className="secondary-button"><ExternalLink size={15} />Salvar bookmark</button>
+        </form>
+        {externalReferences.slice(0, 4).map((reference) => (
+          <div key={reference.id} className="community-file-list">
+            <span><ExternalLink size={14} />{reference.title} · {reference.source_name ?? "fonte externa"} · {reference.hosted_in_printora ? "hospedado" : "referência externa"}</span>
+            {reference.duplicate_library_file_id ? <span>Possível duplicidade por checksum</span> : null}
+          </div>
+        ))}
+      </section>
       {error ? <p className="public-action-error">{error}</p> : null}
       {loading ? <p>Carregando biblioteca...</p> : items.length ? (
         <div className="community-library-list">
@@ -889,6 +993,13 @@ function LibraryItemCard({
         <strong>{item.version_label}</strong>
       </header>
       {item.description ? <p>{item.description}</p> : null}
+      {item.content_class !== "community" ? (
+        <div className="community-license-strip">
+          <span>{commercialContentLabel(item.content_class)}</span>
+          <span>{item.commercial_status === "approved" ? "Revisado" : "Em revisão"}</span>
+          {item.promotion_disclosure ? <span>{item.promotion_disclosure}</span> : null}
+        </div>
+      ) : null}
       <div className="community-license-strip">
         <span>{licenseLabel(item.license)}</span>
         <span>{item.original_author_name ? `Autor: ${item.original_author_name}` : "Autoria não declarada"}</span>
@@ -1366,6 +1477,15 @@ function libraryVisibilityLabel(visibility: LibraryVisibility) {
     community: "Comunidade",
     public: "Público",
   }[visibility];
+}
+
+function commercialContentLabel(contentClass: LibraryItem["content_class"]) {
+  return {
+    community: "Comunidade",
+    curated: "Curado",
+    premium: "Premium",
+    sponsored: "Patrocinado",
+  }[contentClass];
 }
 
 function licenseLabel(license: LibraryLicense) {

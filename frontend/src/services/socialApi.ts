@@ -8,6 +8,9 @@ import type {
   CommunityFeedSummary,
   DiscussionComment,
   DiscussionDetail,
+  ExternalImportPreview,
+  ExternalReferenceRecord,
+  ExternalSourceRecord,
   FeedContentType,
   FeedOrder,
   LibraryCollectionVisibility,
@@ -147,6 +150,9 @@ export interface LibraryItemPayload {
   attribution_text?: string | null;
   remix_source_item_id?: number | null;
   publication_terms_accepted?: boolean;
+  content_class?: LibraryItem["content_class"];
+  commercial_metadata?: Record<string, unknown>;
+  promotion_disclosure?: string | null;
   files: LibraryFilePayload[];
 }
 
@@ -179,6 +185,25 @@ export interface PrintListItemPayload {
   version_id: number;
   status?: PrintListItemStatus;
   notes?: string | null;
+}
+
+export interface ExternalSourcePayload {
+  name: string;
+  base_url: string;
+  license_policy?: string;
+  attribution_required?: boolean;
+}
+
+export interface ExternalReferencePayload {
+  source_id?: number | null;
+  title: string;
+  external_url: string;
+  author_name?: string;
+  license?: string;
+  attribution_text?: string;
+  checksum_sha256?: string | null;
+  import_mode?: "bookmark" | "metadata_only";
+  metadata?: Record<string, unknown>;
 }
 
 export interface TechnicalPrinterConfigPayload {
@@ -446,6 +471,12 @@ export const socialApi = {
       headers: jsonHeaders,
       body: JSON.stringify(payload),
     }),
+  reviewLibraryCommercialStatus: (itemId: number, payload: { status: LibraryItem["commercial_status"]; note?: string }) =>
+    apiRequest<LibraryItem>(`/api/social/library/${itemId}/commercial-review`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
   archiveLibraryItem: (itemId: number) => apiRequest<void>(`/api/social/library/${itemId}`, { method: "DELETE" }),
   favoriteLibraryItem: (itemId: number) => apiRequest<LibraryItem>(`/api/social/library/${itemId}/favorite`, { method: "POST" }),
   unfavoriteLibraryItem: (itemId: number) => apiRequest<LibraryItem>(`/api/social/library/${itemId}/favorite`, { method: "DELETE" }),
@@ -467,6 +498,25 @@ export const socialApi = {
       body: file,
     }),
   analyzeLibraryFile: (fileId: number) => apiRequest<LibraryItem>(`/api/social/library/files/${fileId}/analysis`, { method: "POST" }),
+  externalSources: () => apiRequest<ExternalSourceRecord[]>("/api/social/external-library/sources"),
+  createExternalSource: (payload: ExternalSourcePayload) =>
+    apiRequest<ExternalSourceRecord>("/api/social/external-library/sources", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  previewExternalImport: (externalUrl: string, checksum?: string) => {
+    const query = new URLSearchParams({ external_url: externalUrl });
+    if (checksum) query.set("checksum_sha256", checksum);
+    return apiRequest<ExternalImportPreview>(`/api/social/external-library/preview?${query}`);
+  },
+  externalReferences: () => apiRequest<ExternalReferenceRecord[]>("/api/social/external-library/references"),
+  createExternalReference: (payload: ExternalReferencePayload) =>
+    apiRequest<ExternalReferenceRecord>("/api/social/external-library/references", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
   communityFeed: (
     slug: string,
     filters: {

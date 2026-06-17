@@ -4473,7 +4473,17 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado.
+
+Notas de implementação:
+
+- Backend adicionou `print_job_history` e `print_job_feedback`, com vínculo a entrega de G-code, job de fatiamento, modelo, versão, perfil, impressora e usuário.
+- API adicionou `/api/slicing/history`, eventos de resultado e feedback manual público/privado.
+- Telemetria persistida é reduzida a campos seguros; respostas públicas não expõem `printer_id` nem payload remoto bruto.
+- Feedback de impressão alimenta sinais de ranking em `social_quality_signals` usando `print_success` ou penalização `report`, sem publicar dados operacionais privados.
+- UI de Administração ganhou painel separado `Histórico de impressão`, com status, telemetria segura, resultado e formulário de feedback.
+- Retenção padrão: 180 dias em histórico/feedback de impressão.
+- SQL aditivo: `backend/sql/065_print_job_history.sql`.
 
 ## PKG-75: Marketplace E Curadoria De Conteúdo Premium
 
@@ -4513,7 +4523,16 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado.
+
+Notas de implementação:
+
+- Biblioteca social ganhou classificação `community`, `curated`, `premium` e `sponsored`, status comercial e metadados comerciais.
+- Conteúdo premium/patrocinado público exige revisão aprovada antes de publicação.
+- API administrativa adicionou revisão comercial auditada em `/api/social/library/{item_id}/commercial-review`.
+- Cards públicos exibem transparência de conteúdo curado, premium ou patrocinado; patrocinado não aparece como recomendação técnica neutra.
+- Biblioteca comunitária continua disponível sem cobrança e cobrança real permanece fora do escopo.
+- SQL aditivo: `backend/sql/066_social_library_commercial_curation.sql`.
 
 ## PKG-76: Integrações Externas E Importação De Bibliotecas
 
@@ -4553,4 +4572,13 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado.
+
+Notas de implementação:
+
+- Backend adicionou cadastro de fontes externas, preview determinístico por URL e referências externas sem cópia de arquivo.
+- API adicionou `/api/social/external-library/sources`, `/preview` e `/references`.
+- Importação por URL registra metadados, licença, atribuição e checksum opcional, sem depender de serviço externo instável.
+- Deduplicação por checksum aponta arquivo local existente quando houver correspondência.
+- UI de comunidade ganhou painel `Fontes externas` separado da biblioteca hospedada, deixando claro quando o item é referência externa.
+- SQL aditivo: `backend/sql/067_external_library_imports.sql`.

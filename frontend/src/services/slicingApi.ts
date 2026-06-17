@@ -83,6 +83,40 @@ export type PrintDelivery = {
   rolled_back_at: string | null;
 };
 
+export type PrintJobFeedback = {
+  id: number;
+  history_id: number;
+  outcome: "worked" | "failed" | "needs_adjustment";
+  visibility: "private" | "public";
+  note: string;
+  photo_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PrintJobHistory = {
+  id: number;
+  owner_user_id: number | null;
+  printer_id: number | null;
+  slicing_job_id: number | null;
+  delivery_id: number | null;
+  library_item_id: number | null;
+  model_reference: string;
+  model_version_reference: string;
+  profile_reference: string | null;
+  quality_reference: string;
+  status: "sent" | "started" | "completed" | "failed" | "canceled";
+  visibility: "private" | "public";
+  telemetry: Record<string, any>;
+  result: Record<string, any>;
+  retention_days: number;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  feedback: PrintJobFeedback[];
+};
+
 export type SlicingJobCreate = {
   printer_id: number;
   material_profile_id?: number | null;
@@ -99,6 +133,7 @@ export const slicingApi = {
   jobs: () => apiRequest<SlicingJob[]>("/api/slicing/jobs"),
   preflights: () => apiRequest<PrintPreflight[]>("/api/slicing/preflights"),
   deliveries: () => apiRequest<PrintDelivery[]>("/api/slicing/deliveries"),
+  history: () => apiRequest<PrintJobHistory[]>("/api/slicing/history"),
   createJob: (body: SlicingJobCreate) =>
     apiRequest<SlicingJob>("/api/slicing/jobs", {
       method: "POST",
@@ -116,4 +151,14 @@ export const slicingApi = {
     }),
   cancelDelivery: (deliveryId: number) => apiRequest<PrintDelivery>(`/api/slicing/deliveries/${deliveryId}/cancel`, { method: "POST" }),
   rollbackDelivery: (deliveryId: number) => apiRequest<PrintDelivery>(`/api/slicing/deliveries/${deliveryId}/rollback`, { method: "POST" }),
+  recordHistoryEvent: (historyId: number, body: { status: PrintJobHistory["status"]; telemetry?: Record<string, any>; result?: Record<string, any> }) =>
+    apiRequest<PrintJobHistory>(`/api/slicing/history/${historyId}/events`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  addHistoryFeedback: (historyId: number, body: { outcome: PrintJobFeedback["outcome"]; visibility: PrintJobFeedback["visibility"]; note?: string; photo_url?: string | null }) =>
+    apiRequest<PrintJobHistory>(`/api/slicing/history/${historyId}/feedback`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };

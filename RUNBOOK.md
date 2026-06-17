@@ -175,6 +175,62 @@ específica do modelo. Não execute `DELETE` manual em favoritos, coleções, li
 ou histórico sem confirmação explícita. Rollback estrutural exige backup SQLite
 anterior ao script `051_social_library_organizer.sql`.
 
+Histórico de impressão e feedback:
+
+```bash
+curl -fsS -H "Authorization: Bearer <token>" \
+  "http://127.0.0.1:8069/api/slicing/history"
+
+curl -fsS -X POST \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"outcome":"worked","visibility":"private","note":"ABS ok"}' \
+  "http://127.0.0.1:8069/api/slicing/history/<history_id>/feedback"
+```
+
+O schema é aplicado por `backend/sql/065_print_job_history.sql`.
+Histórico e feedback têm retenção padrão de 180 dias. Payload público remove
+identificador privado da impressora e reduz telemetria. Rollback funcional
+remove endpoints/UI de histórico e mantém dados como legado; rollback estrutural
+exige restaurar backup SQLite anterior ao script `065_print_job_history.sql`.
+
+Marketplace e curadoria comercial:
+
+```bash
+curl -fsS -X POST \
+  -H "Authorization: Bearer <token-admin>" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"approved","note":"Revisado para destaque premium"}' \
+  "http://127.0.0.1:8069/api/social/library/<item_id>/commercial-review"
+```
+
+O schema é aplicado por
+`backend/sql/066_social_library_commercial_curation.sql`. Conteúdo premium ou
+patrocinado público exige revisão aprovada. Patrocinado deve exibir aviso de
+transparência. Não há cobrança real neste fluxo. Rollback funcional remove
+revisão comercial e UI de transparência; rollback estrutural exige backup SQLite
+anterior ao script `066_social_library_commercial_curation.sql`.
+
+Fontes externas e bookmarks:
+
+```bash
+curl -fsS -H "Authorization: Bearer <token>" \
+  "http://127.0.0.1:8069/api/social/external-library/preview?external_url=https://example.com/model.stl"
+
+curl -fsS -X POST \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Modelo externo","external_url":"https://example.com/model.stl","attribution_text":"Fonte externa: example.com","import_mode":"bookmark"}' \
+  "http://127.0.0.1:8069/api/social/external-library/references"
+```
+
+O schema é aplicado por `backend/sql/067_external_library_imports.sql`.
+Bookmark externo não copia arquivo. Importação controlada registra metadados,
+licença, atribuição e checksum opcional para deduplicação. Falha de fonte externa
+não deve bloquear a biblioteca local. Rollback funcional remove endpoints/UI de
+fontes externas; rollback estrutural exige backup SQLite anterior ao script
+`067_external_library_imports.sql`.
+
 Configurações técnicas compartilhadas:
 
 ```bash

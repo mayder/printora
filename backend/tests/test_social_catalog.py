@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from app.print_profiles import MaterialProfilePayload, PrintProfilesRepository, SlicingProfilePayload
 from app.search_discovery import SearchDiscoveryRepository
-from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, LibraryCollectionCreate, LibraryCollectionItemCreate, LibraryFileMetadata, LibraryItemCreate, LibraryItemUpdate, LibraryVersionCreate, PrintListCreate, PrintListItemCreate, PrintListItemUpdate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
+from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, LibraryCollectionCreate, LibraryCollectionItemCreate, LibraryCommercialReviewCreate, LibraryFileMetadata, LibraryItemCreate, LibraryItemUpdate, LibraryVersionCreate, PrintListCreate, PrintListItemCreate, PrintListItemUpdate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
 from app.social_moderation import ModerationActionPayload, ModerationReportCreate, SocialModerationRepository
 from app.social_notifications import ContentFollowPayload, NotificationPreferenceUpdate, SocialNotificationsRepository
 from app.social_ranking import SocialRankingRepository
@@ -34,6 +34,60 @@ def test_catalog_seed_has_voron_models_and_variants(tmp_path: Path) -> None:
 
     assert {"voron-0-2", "voron-2-4"}.issubset(model_slugs)
     assert "Voron 2.4 R2 350mm" in variant_names
+
+
+def test_premium_library_item_requires_commercial_review_before_publication(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="premium-owner@example.com", password="correct-horse"))
+    admin = auth.create_user(UserRegisterRequest(email="breno@mayder.com.br", password="correct-horse"))
+    social = SocialCatalogRepository(database_path)
+    social.update_profile(owner.id, PublicProfileUpdate(slug="premium-owner", display_name="Premium Owner", visibility="public"))
+
+    try:
+        social.create_library_item(
+            owner.id,
+                LibraryItemCreate(
+                    title="Peça premium",
+                    visibility="public",
+                license="cc-by",
+                original_author_name="Premium Owner",
+                publication_terms_accepted=True,
+                content_class="premium",
+                files=[LibraryFileMetadata(file_kind="stl", file_name="premium.stl")],
+            ),
+        )
+    except ValueError as exc:
+        assert "revisão aprovada" in str(exc)
+    else:
+        raise AssertionError("premium público sem revisão deveria falhar")
+
+    item = social.create_library_item(
+        owner.id,
+        LibraryItemCreate(
+            title="Peça premium",
+            visibility="private",
+            license="cc-by",
+            content_class="premium",
+            files=[LibraryFileMetadata(file_kind="stl", file_name="premium.stl")],
+        ),
+    )
+    reviewed = social.review_library_commercial_status(item.id, admin.id, True, LibraryCommercialReviewCreate(status="approved", note="Curadoria comercial aprovada"))
+    published = social.update_library_item(
+        item.id,
+        owner.id,
+        False,
+        LibraryItemUpdate(
+            visibility="public",
+            original_author_name="Premium Owner",
+            publication_terms_accepted=True,
+        ),
+    )
+
+    assert reviewed.commercial_status == "approved"
+    assert published.content_class == "premium"
+    assert published.promotion_disclosure
 
 
 def test_technical_printer_config_is_public_without_operational_secrets(tmp_path: Path) -> None:

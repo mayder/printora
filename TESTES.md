@@ -59,6 +59,28 @@ Comando obrigatório antes de commit:
 ./check.sh
 ```
 
+## Impressão, marketplace e fontes externas
+
+Validação focada:
+
+```bash
+cd backend && uv run --extra dev pytest tests/test_print_history.py tests/test_social_catalog.py tests/test_external_library.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Aceite:
+
+- histórico de impressão não expõe impressora privada em resposta pública;
+- feedback público/privado persiste resultado, nota e foto HTTPS opcional;
+- sinais de ranking são atualizados por sucesso/falha sem payload sensível;
+- premium/patrocinado público exige revisão aprovada;
+- conteúdo patrocinado exibe transparência e não aparece como recomendação técnica neutra;
+- bookmark externo não copia arquivo e diferencia referência externa de item hospedado;
+- importação externa exige atribuição quando a fonte assim definir;
+- checksum opcional detecta duplicidade com arquivo local;
+- falha de fonte externa não quebra biblioteca local.
+
 ## Social, Catálogo E Comunidades
 
 Validação focada:

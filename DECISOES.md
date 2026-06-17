@@ -29,6 +29,45 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260617-01 - Impressão real alimenta ranking sem expor telemetria privada
+
+Status: aceita
+Data: 2026-06-17
+Contexto: resultados reais de impressão precisam melhorar recomendações e troubleshooting, mas impressora, Moonraker e telemetria detalhada são dados privados.
+Decisao: criar histórico de impressão ligado ao fluxo de entrega de G-code, com feedback público ou privado e telemetria mínima segura. Feedback de sucesso/falha atualiza `social_quality_signals` com sinais explicáveis, sem publicar identificador privado de impressora.
+Alternativas consideradas: usar apenas downloads/favoritos; expor telemetria completa; criar ranking separado para impressão.
+Consequencias: recomendações passam a considerar resultado real de impressão mantendo privacidade e rollback simples por domínio.
+Impacto em testes: testes focados devem cobrir privacidade do payload, feedback, atualização de ranking e validação de foto HTTPS.
+Impacto em rollback: médio; há novo script SQLite `065_print_job_history.sql`.
+Como reverter: remover endpoints/UI de histórico e restaurar backup SQLite anterior ao script `065_print_job_history.sql` se os dados não puderem permanecer como legado.
+Referencias: `backend/sql/065_print_job_history.sql`, `backend/app/print_history.py`, `backend/app/routes/slicing.py`, `frontend/src/screens/SettingsScreen.tsx`.
+
+### DEC-20260617-02 - Premium e patrocinado exigem revisão e transparência
+
+Status: aceita
+Data: 2026-06-17
+Contexto: o marketplace precisa preparar conteúdo premium/curado/patrocinado sem cobrar de fato e sem confundir promoção com recomendação técnica neutra.
+Decisao: adicionar classificação comercial no item da biblioteca, revisão administrativa separada e aviso de transparência no payload/UI. Conteúdo premium ou patrocinado só pode ficar público com revisão aprovada.
+Alternativas consideradas: criar marketplace separado; permitir premium sem revisão; misturar promoção no ranking técnico.
+Consequencias: a biblioteca comunitária segue livre, promoção fica auditável e cobrança real permanece fora do escopo.
+Impacto em testes: testes devem cobrir bloqueio de publicação sem revisão, aprovação administrativa e aviso de patrocinado.
+Impacto em rollback: médio; há novo script SQLite `066_social_library_commercial_curation.sql`.
+Como reverter: remover campos/rota/UI comerciais e restaurar backup SQLite anterior ao script `066_social_library_commercial_curation.sql` se necessário.
+Referencias: `backend/sql/066_social_library_commercial_curation.sql`, `backend/app/social_catalog.py`, `backend/app/routes/social_catalog.py`, `frontend/src/screens/PublicCommunityScreen.tsx`.
+
+### DEC-20260617-03 - Integração externa começa como bookmark controlado
+
+Status: aceita
+Data: 2026-06-17
+Contexto: importar bibliotecas externas pode gerar risco legal, dependência instável e cópia indevida de arquivo.
+Decisao: implementar fonte externa, preview determinístico e referência/bookmark por URL como primeira etapa. O sistema registra metadados, licença, atribuição e checksum opcional, mas não copia arquivo externo sem fluxo futuro específico.
+Alternativas consideradas: baixar arquivo externo automaticamente; integrar API de repositórios externos já no primeiro lote; guardar apenas URL livre em descrição.
+Consequencias: integração externa fica segura, auditável e sem dependência de serviço externo no teste local.
+Impacto em testes: testes devem cobrir atribuição obrigatória, bookmark sem cópia, preview por URL e deduplicação por checksum.
+Impacto em rollback: médio; há novo script SQLite `067_external_library_imports.sql`.
+Como reverter: remover endpoints/UI de fontes externas e restaurar backup SQLite anterior ao script `067_external_library_imports.sql` se necessário.
+Referencias: `backend/sql/067_external_library_imports.sql`, `backend/app/external_library.py`, `backend/app/routes/external_library.py`, `frontend/src/screens/PublicCommunityScreen.tsx`.
+
 ### DEC-20260616-14 - Notificacoes sociais ficam separadas de alertas operacionais
 
 Status: aceita

@@ -16,6 +16,7 @@ from app.routes import (
     calibration,
     can_monitor,
     checklists,
+    external_library,
     firmware,
     frontend,
     maintenance,
@@ -87,6 +88,7 @@ app.include_router(backups.router)
 app.include_router(calibration.router)
 app.include_router(can_monitor.router)
 app.include_router(checklists.router)
+app.include_router(external_library.router)
 app.include_router(firmware.router)
 app.include_router(maintenance.router)
 app.include_router(operation.router)

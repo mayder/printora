@@ -32,6 +32,8 @@ LibraryFileKind = Literal["stl", "3mf", "bundle"]
 LibraryLicense = Literal["cc-by", "cc-by-sa", "cc0", "mit", "custom", "all-rights-reserved"]
 LibraryCollectionVisibility = Literal["private", "community", "public"]
 PrintListItemStatus = Literal["want_to_print", "printed", "problem"]
+LibraryContentClass = Literal["community", "curated", "premium", "sponsored"]
+LibraryCommercialStatus = Literal["none", "pending_review", "approved", "rejected"]
 
 
 class CatalogVariant(BaseModel):
@@ -483,6 +485,9 @@ class LibraryItemBase(BaseModel):
     attribution_text: str | None = Field(default=None, max_length=500)
     remix_source_item_id: int | None = Field(default=None, ge=1)
     publication_terms_accepted: bool = False
+    content_class: LibraryContentClass = "community"
+    commercial_metadata: dict[str, object] = Field(default_factory=dict)
+    promotion_disclosure: str | None = Field(default=None, max_length=300)
     files: list[LibraryFileMetadata] = Field(min_length=1, max_length=12)
 
     @field_validator("title", "description", "orientation_notes")
@@ -495,7 +500,7 @@ class LibraryItemBase(BaseModel):
     def clean_short_text(cls, value: str | None) -> str | None:
         return clean_optional_text(value)
 
-    @field_validator("original_author_name", "attribution_text")
+    @field_validator("original_author_name", "attribution_text", "promotion_disclosure")
     @classmethod
     def clean_credit_text(cls, value: str | None) -> str | None:
         return clean_discussion_text(value) if value is not None else None
@@ -532,6 +537,9 @@ class LibraryItemUpdate(BaseModel):
     attribution_text: str | None = Field(default=None, max_length=500)
     remix_source_item_id: int | None = Field(default=None, ge=1)
     publication_terms_accepted: bool | None = None
+    content_class: LibraryContentClass | None = None
+    commercial_metadata: dict[str, object] | None = None
+    promotion_disclosure: str | None = Field(default=None, max_length=300)
     files: list[LibraryFileMetadata] | None = Field(default=None, min_length=1, max_length=12)
 
     @field_validator("title", "description", "orientation_notes")
@@ -544,7 +552,7 @@ class LibraryItemUpdate(BaseModel):
     def clean_short_text(cls, value: str | None) -> str | None:
         return clean_optional_text(value)
 
-    @field_validator("original_author_name", "attribution_text")
+    @field_validator("original_author_name", "attribution_text", "promotion_disclosure")
     @classmethod
     def clean_credit_text(cls, value: str | None) -> str | None:
         return clean_discussion_text(value) if value is not None else None
@@ -733,6 +741,10 @@ class LibraryItem(BaseModel):
     remix_source_item_id: int | None = None
     remix_source_title: str | None = None
     publication_terms_accepted_at: str | None = None
+    content_class: LibraryContentClass = "community"
+    commercial_status: LibraryCommercialStatus = "none"
+    commercial_metadata: dict[str, object] = Field(default_factory=dict)
+    promotion_disclosure: str = ""
     status: Literal["active", "archived"]
     files: list[LibraryFileMetadata] = Field(default_factory=list)
     versions: list[LibraryVersion] = Field(default_factory=list)
@@ -744,6 +756,16 @@ class LibraryItem(BaseModel):
     download_count: int = 0
     created_at: str
     updated_at: str
+
+
+class LibraryCommercialReviewCreate(BaseModel):
+    status: LibraryCommercialStatus
+    note: str = Field(default="", max_length=500)
+
+    @field_validator("note")
+    @classmethod
+    def clean_note(cls, value: str) -> str:
+        return clean_discussion_text(value)
 
 
 class RelationshipRecord(BaseModel):
@@ -1523,15 +1545,18 @@ class SocialCatalogRepository:
             community_id = self._library_community_id(connection, payload.community_slug, payload.visibility)
             self._ensure_library_variant(connection, payload.catalog_variant_id)
             self._ensure_library_item_publishable(connection, payload.visibility, payload.license, payload.original_author_name, payload.publication_terms_accepted, payload.remix_source_item_id)
+            commercial_status: LibraryCommercialStatus = "pending_review" if payload.content_class in {"premium", "sponsored"} else "none"
+            self._ensure_commercial_publishable(payload.visibility, payload.content_class, commercial_status)
             cursor = connection.execute(
                 """
                 INSERT INTO social_library_items (
                     owner_user_id, community_id, catalog_variant_id, title, description, visibility,
                     component, version_label, material_suggestion, supports_required, orientation_notes, license,
                     original_author_name, source_url, attribution_text, remix_source_item_id,
-                    publication_terms_accepted_at
+                    publication_terms_accepted_at, content_class, commercial_status, commercial_metadata_json,
+                    promotion_disclosure
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END, ?, ?, ?, ?)
                 """,
                 (
                     actor_user_id,
@@ -1551,6 +1576,10 @@ class SocialCatalogRepository:
                     clean_optional_text(payload.attribution_text),
                     payload.remix_source_item_id,
                     1 if payload.publication_terms_accepted else 0,
+                    payload.content_class,
+                    commercial_status,
+                    json.dumps(payload.commercial_metadata, ensure_ascii=False),
+                    commercial_disclosure(payload.content_class, payload.promotion_disclosure),
                 ),
             )
             item_id = int(cursor.lastrowid)
@@ -1622,6 +1651,20 @@ class SocialCatalogRepository:
                 self._ensure_library_remix_source(connection, payload.remix_source_item_id, item_id)
                 updates.append("remix_source_item_id = ?")
                 parameters.append(payload.remix_source_item_id)
+            if "content_class" in data and payload.content_class is not None:
+                updates.append("content_class = ?")
+                parameters.append(payload.content_class)
+                if payload.content_class in {"premium", "sponsored"}:
+                    updates.append("commercial_status = CASE WHEN commercial_status = 'approved' THEN commercial_status ELSE 'pending_review' END")
+                else:
+                    updates.append("commercial_status = 'none'")
+            if "commercial_metadata" in data and payload.commercial_metadata is not None:
+                updates.append("commercial_metadata_json = ?")
+                parameters.append(json.dumps(payload.commercial_metadata, ensure_ascii=False))
+            if "promotion_disclosure" in data:
+                next_class = payload.content_class or existing["content_class"]
+                updates.append("promotion_disclosure = ?")
+                parameters.append(commercial_disclosure(next_class, payload.promotion_disclosure))
             if payload.publication_terms_accepted is True:
                 updates.append("publication_terms_accepted_at = COALESCE(publication_terms_accepted_at, CURRENT_TIMESTAMP)")
             resulting_visibility = payload.visibility or existing["visibility"]
@@ -1630,6 +1673,13 @@ class SocialCatalogRepository:
             resulting_terms = bool(payload.publication_terms_accepted) or existing["publication_terms_accepted_at"] is not None
             resulting_remix = payload.remix_source_item_id if "remix_source_item_id" in data else existing["remix_source_item_id"]
             self._ensure_library_item_publishable(connection, resulting_visibility, resulting_license, resulting_author, resulting_terms, resulting_remix, current_item_id=item_id)
+            resulting_class = payload.content_class or existing["content_class"]
+            resulting_commercial_status = existing["commercial_status"]
+            if payload.content_class in {"premium", "sponsored"} and existing["commercial_status"] != "approved":
+                resulting_commercial_status = "pending_review"
+            elif payload.content_class in {"community", "curated"}:
+                resulting_commercial_status = "none"
+            self._ensure_commercial_publishable(resulting_visibility, resulting_class, resulting_commercial_status)
             if updates:
                 updates.append("updated_at = CURRENT_TIMESTAMP")
                 connection.execute(f"UPDATE social_library_items SET {', '.join(updates)} WHERE id = ?", (*parameters, item_id))
@@ -1644,6 +1694,36 @@ class SocialCatalogRepository:
                     make_current=True,
                 )
             self._audit(connection, "social_library_item", item_id, "update", actor_user_id, {"retention_days": 180})
+            row = self._library_item_row(connection, item_id)
+            return self._library_item_from_row(connection, row)
+
+    def review_library_commercial_status(self, item_id: int, reviewer_user_id: int, is_admin: bool, payload: LibraryCommercialReviewCreate) -> LibraryItem:
+        if not is_admin:
+            raise PermissionError("revisão comercial exige administrador")
+        if payload.status == "none":
+            raise ValueError("revisão comercial exige status de revisão")
+        with connect_database(self.database_path) as connection:
+            existing = self._library_item_row(connection, item_id, include_archived=True)
+            if existing is None:
+                raise ValueError("item de biblioteca não encontrado")
+            if existing["content_class"] not in {"premium", "sponsored"} and payload.status == "approved":
+                raise ValueError("aprovação comercial só se aplica a premium ou patrocinado")
+            connection.execute(
+                """
+                INSERT INTO social_library_commercial_reviews (item_id, reviewer_user_id, status, note)
+                VALUES (?, ?, ?, ?)
+                """,
+                (item_id, reviewer_user_id, payload.status, payload.note.strip()),
+            )
+            connection.execute(
+                """
+                UPDATE social_library_items
+                SET commercial_status = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (payload.status, item_id),
+            )
+            self._audit(connection, "social_library_item", item_id, "commercial_review", reviewer_user_id, {"retention_days": 180, "status": payload.status})
             row = self._library_item_row(connection, item_id)
             return self._library_item_from_row(connection, row)
 
@@ -2691,6 +2771,12 @@ class SocialCatalogRepository:
         if not publication_terms_accepted:
             raise ValueError("publicação pública exige aceite dos termos")
 
+    def _ensure_commercial_publishable(self, visibility: LibraryVisibility, content_class: LibraryContentClass, commercial_status: LibraryCommercialStatus) -> None:
+        if visibility not in {"public", "community"}:
+            return
+        if content_class in {"premium", "sponsored"} and commercial_status != "approved":
+            raise ValueError("conteúdo premium ou patrocinado exige revisão aprovada antes de publicação")
+
     def _replace_library_files(self, connection, item_id: int, files: list[LibraryFileMetadata]) -> None:
         if not files:
             raise ValueError("item de biblioteca exige pelo menos um arquivo")
@@ -3224,6 +3310,7 @@ SELECT li.id, li.owner_user_id, sp.slug AS owner_slug, sp.display_name AS owner_
        li.material_suggestion, li.supports_required, li.orientation_notes, li.license,
        li.original_author_name, li.source_url, li.attribution_text, li.remix_source_item_id,
        remix.title AS remix_source_title, li.publication_terms_accepted_at,
+       li.content_class, li.commercial_status, li.commercial_metadata_json, li.promotion_disclosure,
        li.status, li.created_at, li.updated_at,
        COUNT(DISTINCT fav.user_id) AS favorite_count,
        COUNT(DISTINCT ci.collection_id) AS collection_count,
@@ -3267,6 +3354,17 @@ def normalize_slug(value: str) -> str:
     if not slug:
         raise ValueError("slug inválido")
     return slug[:80]
+
+
+def commercial_disclosure(content_class: LibraryContentClass, value: str | None = None) -> str:
+    clean = clean_discussion_text(value or "") or ""
+    if content_class == "sponsored":
+        return clean or "Conteúdo patrocinado. Não é recomendação técnica neutra."
+    if content_class == "premium":
+        return clean or "Conteúdo premium curado. Biblioteca comunitária permanece disponível."
+    if content_class == "curated":
+        return clean or "Conteúdo curado por revisão técnica."
+    return clean
 
 
 def clean_optional_text(value: object) -> str | None:
@@ -3795,6 +3893,10 @@ def _library_item_from_row(row, file_rows, version_rows=None) -> LibraryItem:
         remix_source_item_id=row["remix_source_item_id"],
         remix_source_title=row["remix_source_title"],
         publication_terms_accepted_at=row["publication_terms_accepted_at"],
+        content_class=row["content_class"],
+        commercial_status=row["commercial_status"],
+        commercial_metadata=_json_dict(row["commercial_metadata_json"]),
+        promotion_disclosure=str(row["promotion_disclosure"] or ""),
         status=row["status"],
         files=[
             LibraryFileMetadata(

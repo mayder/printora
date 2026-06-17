@@ -32,6 +32,7 @@ from app.social_catalog import (
     FeedOrder,
     LibraryCollectionCreate,
     LibraryCollectionItemCreate,
+    LibraryCommercialReviewCreate,
     LibraryItem,
     LibraryItemCreate,
     LibraryItemUpdate,
@@ -558,6 +559,21 @@ async def update_library_item(
 ) -> LibraryItem:
     try:
         return repository.update_library_item(item_id, current.user.id, is_social_admin(current), payload)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/social/library/{item_id}/commercial-review", response_model=LibraryItem)
+async def review_library_commercial_status(
+    item_id: int,
+    payload: LibraryCommercialReviewCreate,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SocialCatalogRepository = Depends(get_social_repository),
+) -> LibraryItem:
+    try:
+        return repository.review_library_commercial_status(item_id, current.user.id, is_social_admin(current), payload)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
