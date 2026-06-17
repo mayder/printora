@@ -44,6 +44,7 @@ function readableApiError(message: string, status: number): string {
 
 const AUTH_TOKEN_KEY = "printora.authToken";
 const STEP_UP_TOKEN_KEY = "printora.stepUpToken";
+export const AUTH_SESSION_EXPIRED_EVENT = "printora:auth-session-expired";
 
 export function getStoredAuthToken(): string | null {
   if (typeof window === "undefined") {
@@ -81,6 +82,15 @@ export function storeStepUpToken(token: string | null): void {
   }
 }
 
+function notifyUnauthorizedSession(response: Response): void {
+  if (response.status !== 401 || !getStoredAuthToken() || typeof window === "undefined") {
+    return;
+  }
+  storeAuthToken(null);
+  storeStepUpToken(null);
+  window.dispatchEvent(new CustomEvent(AUTH_SESSION_EXPIRED_EVENT));
+}
+
 function apiInput(input: RequestInfo | URL): RequestInfo | URL {
   if (typeof input !== "string" || !input.startsWith("/")) {
     return input;
@@ -115,6 +125,7 @@ function apiInit(init?: RequestInit): RequestInit | undefined {
 export async function apiRequest<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
   const response = await fetch(apiInput(input), apiInit(init));
   if (!response.ok) {
+    notifyUnauthorizedSession(response);
     throw new Error(await readApiError(response));
   }
   if (response.status === 204) {
@@ -131,6 +142,7 @@ export async function apiOptional<T>(input: RequestInfo | URL, init?: RequestIni
   const response = await fetch(apiInput(input), apiInit(init));
   if (!response.ok) {
     if (response.status === 401) {
+      notifyUnauthorizedSession(response);
       return null;
     }
     throw new Error(await readApiError(response));
@@ -139,5 +151,7 @@ export async function apiOptional<T>(input: RequestInfo | URL, init?: RequestIni
 }
 
 export async function apiResponse(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  return fetch(apiInput(input), apiInit(init));
+  const response = await fetch(apiInput(input), apiInit(init));
+  notifyUnauthorizedSession(response);
+  return response;
 }

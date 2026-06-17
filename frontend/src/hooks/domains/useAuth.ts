@@ -1,6 +1,6 @@
 import React from "react";
 import * as authApi from "../../services/authApi";
-import { getStoredAuthToken, storeAuthToken } from "../../services/http";
+import { AUTH_SESSION_EXPIRED_EVENT, getStoredAuthToken, storeAuthToken, storeStepUpToken } from "../../services/http";
 import { browserTimezone, setPrintoraUserTimezone } from "../../utils/formatters";
 import type {
   AgentCredentialRecord,
@@ -45,6 +45,22 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
   const [agentCredentialLabel, setAgentCredentialLabel] = React.useState("");
   const [agentCredentials, setAgentCredentials] = React.useState<AgentCredentialRecord[]>([]);
   const [createdAgentCredential, setCreatedAgentCredential] = React.useState<AgentCredentialResponse | null>(null);
+
+  React.useEffect(() => {
+    function handleExpiredSession() {
+      storeAuthToken(null);
+      storeStepUpToken(null);
+      setAuthUser(null);
+      setAuthReady(true);
+      setPrintoraUserTimezone(null);
+      setMfaSetup(null);
+      setAgentCredentials([]);
+      setCreatedAgentCredential(null);
+      setError("Sessão expirada ou inválida. Entre novamente.");
+    }
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleExpiredSession);
+    return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, handleExpiredSession);
+  }, [setError]);
 
   async function loadAuth() {
     if (!getStoredAuthToken()) {

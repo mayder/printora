@@ -195,17 +195,23 @@ export function usePrintoraApp() {
   function showToast(options: ShowToastOptions) {
     const id = toastIdRef.current + 1;
     toastIdRef.current = id;
-    setToasts((currentToasts) => [
-      ...currentToasts,
-      {
+    setToasts((currentToasts) => {
+      const nextToast = {
         id,
         tone: options.tone ?? "info",
         title: options.title,
         detail: compactToastDetail(options.detail),
         actionLabel: options.actionLabel,
         onAction: options.onAction,
-      },
-    ].slice(-4));
+      };
+      const isDuplicate = currentToasts.some((toast) =>
+        toast.tone === nextToast.tone && toast.title === nextToast.title && toast.detail === nextToast.detail
+      );
+      if (isDuplicate) {
+        return currentToasts;
+      }
+      return [...currentToasts, nextToast].slice(-4);
+    });
     window.setTimeout(() => dismissToast(id), 5000);
   }
 
