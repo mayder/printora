@@ -1894,7 +1894,8 @@ Estado atual:
 - Falha durante aplicação de SQL restaura o arquivo original a partir do backup automático.
 - Validação pós-schema usa `PRAGMA integrity_check`, registra resultado em `schema_integrity_checks` e bloqueia conclusão quando falha.
 - Reexecução de `initialize_database()` não reaplica scripts já registrados, não duplica metadados e preserva dados existentes.
-- Endpoint read-only `GET /api/system/version` expõe versão, `data_dir`, caminho do banco, scripts aplicados, schema atual e última validação, sem conteúdo do banco.
+- Endpoint read-only `GET /api/system/version` expõe somente metadados públicos de versão/schema, sem caminhos locais ou lista detalhada de scripts.
+- Endpoint interno `GET /api/system/version/internal` exige usuário de suporte e expõe detalhes de schema para diagnóstico local/suporte.
 - Testes automatizados cobrem banco novo, banco existente legado, reexecução idempotente e endpoint de versão.
 
 ## PKG-21: Releases Do Printora Na Tela Configurações

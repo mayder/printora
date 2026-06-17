@@ -156,6 +156,46 @@ def get_database_version_info(database_path: Path, data_dir: Path | None = None)
         }
 
 
+def get_public_database_version_info(database_path: Path) -> dict[str, object]:
+    with connect_database(database_path) as connection:
+        app_version = connection.execute(
+            """
+            SELECT app_name, version, schema_revision
+            FROM app_version
+            WHERE id = 1
+            """
+        ).fetchone()
+        latest_schema = connection.execute(
+            """
+            SELECT script_name, applied_at
+            FROM schema_versions
+            ORDER BY execution_order DESC, script_name DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        latest_integrity = connection.execute(
+            """
+            SELECT status, checked_at
+            FROM schema_integrity_checks
+            ORDER BY checked_at DESC, id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        schema_revision = app_version["schema_revision"] if app_version else 0
+        return {
+            "app_name": app_version["app_name"] if app_version else APP_NAME,
+            "version": app_version["version"] if app_version else _installed_app_version(),
+            "schema_revision": schema_revision,
+            "schema_current": {
+                "revision": schema_revision,
+                "latest_script": latest_schema["script_name"] if latest_schema else None,
+                "latest_applied_at": latest_schema["applied_at"] if latest_schema else None,
+            },
+            "latest_integrity_status": latest_integrity["status"] if latest_integrity else None,
+            "latest_integrity_checked_at": latest_integrity["checked_at"] if latest_integrity else None,
+        }
+
+
 def _ensure_legacy_schema_compatibility(connection: sqlite3.Connection) -> None:
     if not _table_exists(connection, "app_events"):
         return

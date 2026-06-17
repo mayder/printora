@@ -477,3 +477,72 @@
   display: block;
   color: var(--muted);
 }
+
+@media (max-width: 920px) {
+  .maintenance-layout,
+  .maintenance-workspace,
+  .maintenance-hero,
+  .maintenance-status-grid,
+  .maintenance-panel-card,
+  .maintenance-filter-row,
+  .maintenance-area-select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .maintenance-hero {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .maintenance-hero-actions {
+    justify-content: stretch;
+  }
+
+  .maintenance-hero-actions button,
+  .maintenance-print-hours-chip,
+  .maintenance-print-hours-banner {
+    width: 100%;
+  }
+
+  .maintenance-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .maintenance-filter-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .maintenance-area-select {
+    justify-content: space-between;
+  }
+
+  .maintenance-area-select select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .maintenance-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .maintenance-task-card,
+  .maintenance-task-card-header,
+  .maintenance-task-meta {
+    min-width: 0;
+  }
+
+  .maintenance-card-actions,
+  .maintenance-card-actions.has-undo,
+  .maintenance-card-actions.has-na {
+    grid-template-columns: 1fr;
+  }
+
+  .maintenance-card-actions button {
+    width: 100%;
+  }
+}

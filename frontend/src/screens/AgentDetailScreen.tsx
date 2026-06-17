@@ -88,16 +88,10 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
   } = props;
   const rows = buildAgentRows(printers, fleetPairingOverviews);
   const row = rows.find((candidate) => candidate.agent.id === selectedAgentId) ?? rows.find((candidate) => candidate.printer.id === selectedPrinterId) ?? rows[0] ?? null;
-  const health = agentSupport?.agents.find((item) => item.agent.id === row?.agent.id) ?? null;
+  const health = agentSupport?.agents.find((item) => item.agent?.id === row?.agent.id) ?? null;
   const expectedAgentVersion = agentUpdateManifest?.recommended_version ?? health?.expected_version ?? agentInstallStatus?.expected_agent_version ?? "-";
   const outdated = row ? expectedAgentVersion !== "-" && row.agent.agent_version !== expectedAgentVersion : false;
   const latestDoctor = agentSupport?.latest_doctor ?? null;
-  const raspberryCheck = getDoctorCheck(latestDoctor, "raspberry_throttling");
-  const devicePlatform = stringFromRecord(latestDoctor?.result, "platform") || row.agent.platform || "-";
-  const doctorGeneratedAt = formatDateTime(latestDoctor?.finished_at ?? latestDoctor?.updated_at);
-  const hostMetrics = parseHostMetrics(row.agent.capabilities.host_metrics);
-  const moonrakerStatus = getDoctorCheck(latestDoctor, "moonraker");
-  const printoraService = hostMetrics ? findPrintoraService(hostMetrics.services) : null;
 
   async function updateAgent(rowToUpdate: AgentFleetRow) {
     if (!canRequestSystemAgentUpdate(rowToUpdate)) {
@@ -128,14 +122,21 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
     );
   }
 
+  const raspberryCheck = getDoctorCheck(latestDoctor, "raspberry_throttling");
+  const devicePlatform = stringFromRecord(latestDoctor?.result, "platform") || row.agent.platform || "-";
+  const doctorGeneratedAt = formatDateTime(latestDoctor?.finished_at ?? latestDoctor?.updated_at);
+  const hostMetrics = parseHostMetrics(row.agent.capabilities.host_metrics);
+  const moonrakerStatus = getDoctorCheck(latestDoctor, "moonraker");
+  const printoraService = hostMetrics ? findPrintoraService(hostMetrics.services) : null;
+
   return (
     <>
       <article className="panel wide panel-section panel-agents">
         <div className="panel-heading">
           <div>
-            <button type="button" className="ghost-button compact" onClick={() => setActiveSection("agents")}>
+            <button type="button" className="ghost-button compact" onClick={() => setActiveSection("agents")} aria-label="Voltar para agentes">
               <ArrowLeft size={15} />
-              Agentes
+              Voltar para agentes
             </button>
             <h2>{row.agent.stable_id}</h2>
             <p className="muted">{row.printer.name} · {row.agent.platform || "plataforma não informada"}</p>
@@ -160,7 +161,7 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
           <Badge icon={Gauge} label="Versão instalada" value={row.agent.agent_version ?? "-"} />
           <Badge icon={RefreshCw} label="Versão esperada" value={expectedAgentVersion} />
           <Badge icon={Radio} label="Último contato" value={formatDateTime(row.agent.last_seen_at)} />
-          <Badge icon={KeyRound} label="Credencial" value={row.agent.credential_prefix} />
+          <Badge icon={KeyRound} label="Credencial" value={row.agent.status === "revoked" ? "revogada" : "configurada"} />
         </div>
         {outdated ? (
           <div className="auth-step">

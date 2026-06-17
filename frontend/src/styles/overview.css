@@ -5,6 +5,17 @@
   margin-bottom: 14px;
 }
 
+@media (max-width: 920px) {
+  .overview-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-strip .badge {
+    justify-self: stretch;
+    width: 100%;
+  }
+}
+
 .overview-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 0.34fr);
@@ -206,4 +217,41 @@
 .fleet-action-card:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+@media (max-width: 920px) {
+  .overview-hero,
+  .overview-status-grid,
+  .fleet-dashboard-grid,
+  .fleet-action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-status-card,
+  .overview-risk-card,
+  .fleet-dashboard-card,
+  .fleet-action-card {
+    min-width: 0;
+  }
+
+  .overview-status-grid .metric,
+  .fleet-dashboard-metrics .metric {
+    grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .overview-status-grid .metric strong,
+  .fleet-dashboard-metrics .metric strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .fleet-dashboard-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .fleet-action-card {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
 }

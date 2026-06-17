@@ -396,7 +396,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
                   <Metric label="Plataforma" value={selectedAgentRow.agent.platform ?? "-"} />
                   <Metric label="Pareado em" value={formatDateTime(selectedAgentRow.agent.paired_at)} />
                   <Metric label="Último contato" value={formatDateTime(selectedAgentRow.agent.last_seen_at)} />
-                  <Metric label="Credencial" value={selectedAgentRow.agent.credential_prefix} />
+                  <Metric label="Credencial" value={agentCredentialStatus(selectedAgentRow.agent.status)} />
                   <Metric label="Status" value={selectedAgentRow.agent.status} />
                 </div>
                 <div className="printer-card-actions">
@@ -456,7 +456,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
               <div className="printer-card-grid">
                 <Metric label="Pareado em" value={formatDateTime(row.agent.paired_at)} />
                 <Metric label="Último contato" value={formatDateTime(row.agent.last_seen_at)} />
-                <Metric label="Credencial" value={row.agent.credential_prefix} />
+                <Metric label="Credencial" value={agentCredentialStatus(row.agent.status)} />
                 <Metric label="Online agora" value={isAgentHeartbeatRecent(row.agent) ? "sim" : "não"} />
               </div>
               <div className="printer-card-actions">
@@ -498,7 +498,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
           <Badge icon={Server} label="Impressora" value={selectedPrinter?.name ?? "-"} />
           <Badge icon={Radio} label="Agentes pareados" value={agentInstallStatus?.active_agents ?? selectedAgentRows.length} />
           <Badge icon={CheckCircle2} label="Online agora" value={selectedAgentRows.filter((row) => isAgentHeartbeatRecent(row.agent)).length} />
-          <Badge icon={Gauge} label="Token ativo" value={activeTokens.length ? activeTokens[0].token_prefix : "-"} />
+          <Badge icon={Gauge} label="Token ativo" value={activeTokens.length ? "ativo" : "-"} />
         </div>
         {agentInstallStatus ? <p className="muted">{agentInstallStatus.diagnostic}</p> : null}
         {hasActivePairedAgent ? (
@@ -517,7 +517,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
             <div className="printer-card-header">
               <div>
                 <strong>Comandos de instalação</strong>
-                <span>Token {agentInstallPlan.token_prefix} expira em {formatDateTime(agentInstallPlan.expires_at)}.</span>
+                <span>Token temporário expira em {formatDateTime(agentInstallPlan.expires_at)}.</span>
               </div>
               <button type="button" className="secondary-button" onClick={() => setAgentInstallPlan(null)}>
                 Ocultar
@@ -720,7 +720,7 @@ function TokenTable({
         {tokens.length === 0 ? <span className="muted">{emptyText}</span> : null}
         {tokens.map((token) => (
           <div key={token.id}>
-            <strong>{token.token_prefix}</strong>
+            <strong>{token.status === "active" ? "Token ativo" : "Token encerrado"}</strong>
             <span>{token.status} · expira {formatDateTime(token.expires_at)}</span>
             <div className="printer-card-actions">
               {token.status === "active" && createdPairingToken?.id === token.id && createdPairingToken.token ? (
@@ -832,6 +832,10 @@ function canRequestSystemAgentUpdate(row: AgentFleetRow) {
 function agentUpdateButtonLabel(row: AgentFleetRow, context: "row" | "detail" = "row") {
   void row;
   return context === "detail" ? "Atualizar agente" : "Atualizar";
+}
+
+function agentCredentialStatus(status: string): string {
+  return status === "revoked" ? "revogada" : "configurada";
 }
 
 async function copyTextToClipboard(text: string) {

@@ -171,8 +171,11 @@ Cenários cobertos:
 Evidência visual esperada:
 
 - detalhe da impressora com área `Publicação da impressora`;
+- aba `Resumo` do detalhe da impressora sem formulários de publicação, configuração técnica ou material abertos por padrão; os formulários devem aparecer somente após `Editar publicação`, `Criar configuração`, `Criar perfil` ou `Editar`;
+- resumo da impressora, Operação e Manutenção em mobile claro/escuro sem texto vertical, sobreposição, scroll horizontal ou grids de desktop comprimidos;
 - prévia pública antes de publicar;
 - página pública real `/p/{printer_id}`;
+- páginas públicas standalone `/p/{printer_id}` e `/u/{slug}` respeitando o tema claro/escuro persistido;
 - página direta de impressora privada retornando indisponível;
 - payload público inspecionado sem dados sensíveis.
 
@@ -857,7 +860,8 @@ Validações:
 - validação pós-schema usa `PRAGMA integrity_check` e registra resultado em `schema_integrity_checks`;
 - falha de `integrity_check` bloqueia conclusão de `initialize_database()`;
 - reexecutar `initialize_database()` não duplica registros de versão;
-- `GET /api/system/version` retorna versão do app, `data_dir`, caminho do banco, scripts SQL aplicados, schema atual e última validação sem conteúdo do banco;
+- `GET /api/system/version` retorna somente metadados públicos de versão/schema, sem `data_dir`, caminho do banco, lista de scripts SQL ou resultado detalhado de integridade;
+- `GET /api/system/version/internal` exige usuário de suporte e retorna os detalhes internos de schema para diagnóstico local/suporte;
 - tabelas multi-impressora existem;
 - endpoints não armazenam credenciais;
 - fixtures ficam em `backend/tests/fixtures/`.
@@ -1239,7 +1243,8 @@ Critérios:
 
 ### Updater Do Printora
 
-- Confirmar que `GET /api/system/version` retorna versão do app, caminho de dados e schema aplicado.
+- Confirmar que `GET /api/system/version` retorna versão do app e schema aplicado sem caminhos locais.
+- Confirmar que `GET /api/system/version/internal` exige usuário de suporte para expor detalhes internos de schema.
 - Confirmar que `GET /api/system/releases` funciona com fixture local e com rede indisponível.
 - Confirmar que a tela Configurações mostra versão instalada, última release e changelog.
 - Chamar `POST /api/system/update/plan` com tag alvo e confirmar que apenas o banco local registra plano/etapas.

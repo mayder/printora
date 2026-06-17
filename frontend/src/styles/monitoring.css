@@ -528,3 +528,55 @@
     stroke-dashoffset: 0;
   }
 }
+
+@media (max-width: 920px) {
+  .monitor-primary-grid,
+  .monitor-grid,
+  .print-monitor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .monitor-card,
+  .monitor-card-wide,
+  .monitor-primary-side,
+  .temperature-monitor-card,
+  .temperature-monitor {
+    grid-column: auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .temperature-table {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow: visible;
+  }
+
+  .temperature-table-head {
+    display: none;
+  }
+
+  .temperature-table-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px 10px;
+    align-items: start;
+  }
+
+  .temperature-name {
+    grid-column: 1 / -1;
+  }
+
+  .temperature-name strong {
+    white-space: normal;
+  }
+
+  .temperature-target,
+  .temperature-target-readonly,
+  .temperature-target-control {
+    width: 100%;
+    min-width: 0;
+    justify-self: stretch;
+  }
+}

@@ -9,6 +9,7 @@ import app.database as database_module
 from app.config import _default_data_dir, get_settings
 from app.database import DatabaseSchemaError, connect_database, initialize_database
 from app.main import app
+from app.auth import AuthRepository, UserRegisterRequest
 
 
 def test_initialize_database_registers_sql_scripts_on_new_database(tmp_path: Path) -> None:
@@ -175,30 +176,54 @@ def test_system_version_endpoint_is_read_only(tmp_path: Path, monkeypatch) -> No
         payload = response.json()
         assert payload["app_name"] == "Printora"
         assert payload["version"] == app.version
-        assert payload["data_dir"] == str(tmp_path)
-        assert payload["database_path"] == str(tmp_path / "printora.db")
         assert payload["schema_revision"] == _sql_script_count()
         assert payload["schema_current"]["revision"] == _sql_script_count()
         assert payload["schema_current"]["latest_script"] == _latest_sql_script_name()
-        assert payload["schema_scripts_applied"] == _sql_script_count()
-        assert len(payload["applied_sql_scripts"]) == _sql_script_count()
-        assert any(
-            script["script_name"] == "018_app_update_runs.sql"
-            for script in payload["applied_sql_scripts"]
-        )
-        assert payload["applied_sql_scripts"][0]["script_name"] == "000_schema_versioning.sql"
-        assert set(payload["applied_sql_scripts"][0]) == {
-            "script_name",
-            "execution_order",
-            "applied_at",
-        }
-        assert payload["latest_schema_script"].endswith(".sql")
         assert payload["latest_integrity_status"] == "ok"
-        assert payload["latest_integrity_result"] == ["ok"]
-        assert payload["latest_validation"]["status"] == "ok"
-        assert payload["latest_validation"]["result"] == ["ok"]
+        assert "data_dir" not in payload
+        assert "database_path" not in payload
+        assert "applied_sql_scripts" not in payload
+        assert "latest_integrity_result" not in payload
         assert "printers" not in payload
         assert "payload_json" not in str(payload)
+    finally:
+        get_settings.cache_clear()
+
+
+def test_system_version_internal_endpoint_requires_support_user(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        with TestClient(app) as client:
+            anonymous = client.get("/api/system/version/internal")
+            assert anonymous.status_code == 401
+
+            repository = AuthRepository(get_settings().database_path)
+            user = repository.create_user(
+                UserRegisterRequest(email="user@example.com", password="correct-horse")
+            )
+            user_token, _ = repository.create_session(user.id)
+            forbidden = client.get(
+                "/api/system/version/internal",
+                headers={"Authorization": f"Bearer {user_token}"},
+            )
+            assert forbidden.status_code == 403
+
+            support = repository.create_user(
+                UserRegisterRequest(email="breno@mayder.com.br", password="correct-horse")
+            )
+            support_token, _ = repository.create_session(support.id)
+            response = client.get(
+                "/api/system/version/internal",
+                headers={"Authorization": f"Bearer {support_token}"},
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["data_dir"] == str(tmp_path)
+        assert payload["database_path"] == str(tmp_path / "printora.db")
+        assert len(payload["applied_sql_scripts"]) == _sql_script_count()
+        assert payload["latest_integrity_result"] == ["ok"]
     finally:
         get_settings.cache_clear()
 

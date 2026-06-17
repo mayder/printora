@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timezone
 from importlib import metadata
 from pathlib import Path
@@ -169,7 +170,7 @@ def _parse_release(raw: dict[str, Any], *, channel: str, installed_version: str)
     prerelease = bool(raw.get("prerelease"))
     draft = bool(raw.get("draft"))
     release_channel = _channel_for_release(tag, prerelease)
-    changelog = _string(raw.get("body")) or ""
+    changelog = _sanitize_release_text(_string(raw.get("body")) or "")
     return ReleaseRecord(
         tag=tag,
         name=name,
@@ -233,3 +234,9 @@ def _summarize_changelog(value: str, *, max_chars: int = 280) -> str:
     if len(summary) <= max_chars:
         return summary
     return summary[: max_chars - 1].rstrip() + "…"
+
+
+def _sanitize_release_text(value: str) -> str:
+    without_package_prefix = re.sub(r"\bPKG-\d+\s*:\s*", "", value, flags=re.IGNORECASE)
+    without_package_ids = re.sub(r"\bPKG-\d+\b", "entrega", without_package_prefix, flags=re.IGNORECASE)
+    return re.sub(r"\blote\s+\d+\b", "etapa", without_package_ids, flags=re.IGNORECASE)

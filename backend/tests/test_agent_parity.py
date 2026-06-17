@@ -58,7 +58,7 @@ def test_remote_parity_job_flow_and_cached_state(tmp_path: Path, monkeypatch) ->
             assert client.post(f"/api/agent/jobs/{job['id']}/ack", headers=_auth(credential)).status_code == 200
             result = client.post(
                 f"/api/agent/jobs/{job['id']}/result",
-                json={"correlation_id": job["correlation_id"], "result": {"safe_mode": "read_only", "kind": "health"}},
+                json={"correlation_id": job["correlation_id"], "result": {"safe_mode": "read_only", "kind": "health", "detail": "PKG-47 ptr_agent_secret"}},
                 headers=_auth(credential),
             )
             assert result.status_code == 200
@@ -67,6 +67,8 @@ def test_remote_parity_job_flow_and_cached_state(tmp_path: Path, monkeypatch) ->
             health = next(feature for feature in overview["features"] if feature["key"] == "health")
             assert health["state"] == "cached"
             assert health["latest_job"]["result"]["kind"] == "health"
+            assert "PKG" not in str(health["latest_job"])
+            assert "ptr_agent_" not in str(health["latest_job"])
 
             blocked = client.post(
                 f"/api/printers/{printer['id']}/remote/parity/jobs",

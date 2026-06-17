@@ -188,9 +188,9 @@ export function PrinterDetailScreen(props: PrinterDetailScreenProps) {
       <article className="panel wide printer-detail-header">
         <div className="panel-heading">
           <div>
-            <button type="button" className="ghost-button compact" onClick={() => setActiveSection("printers")}>
+            <button type="button" className="ghost-button compact" onClick={() => setActiveSection("printers")} aria-label="Voltar para impressoras">
               <ArrowLeft size={15} />
-              Impressoras
+              Voltar para impressoras
             </button>
             <h2>{selectedPrinter.name}</h2>
             <p className="muted">{selectedPrinter.cloud_model || "Modelo não informado"} · {selectedPrinter.location || "sem localização"}</p>
@@ -259,6 +259,7 @@ function PrinterTechnicalConfigPanel({ printer, loading, showToast }: { printer:
   const [communities, setCommunities] = React.useState<Community[]>([]);
   const [draft, setDraft] = React.useState<TechnicalConfigDraft>(emptyDraft);
   const [editingId, setEditingId] = React.useState<number | null>(null);
+  const [formOpen, setFormOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -282,6 +283,7 @@ function PrinterTechnicalConfigPanel({ printer, loading, showToast }: { printer:
       notes: "",
     });
     setEditingId(null);
+    setFormOpen(false);
     setError(null);
     void loadConfigs();
   }, [loadConfigs, printer]);
@@ -343,6 +345,7 @@ function PrinterTechnicalConfigPanel({ printer, loading, showToast }: { printer:
       await loadConfigs();
       setEditingId(null);
       setDraft(emptyDraft);
+      setFormOpen(false);
       showToast({ tone: "success", title: editingId ? "Configuração atualizada" : "Configuração criada" });
     } catch (err) {
       const detail = err instanceof Error ? err.message : undefined;
@@ -364,6 +367,7 @@ function PrinterTechnicalConfigPanel({ printer, loading, showToast }: { printer:
       calibrations: formatKeyValueLines(config.calibrations),
       notes: config.notes,
     });
+    setFormOpen(true);
   }
 
   async function archive(configId: number) {
@@ -375,6 +379,7 @@ function PrinterTechnicalConfigPanel({ printer, loading, showToast }: { printer:
       if (editingId === configId) {
         setEditingId(null);
         setDraft(emptyDraft);
+        setFormOpen(false);
       }
       showToast({ tone: "success", title: "Configuração arquivada" });
     } catch (err) {
@@ -397,7 +402,7 @@ function PrinterTechnicalConfigPanel({ printer, loading, showToast }: { printer:
         <Badge icon={SlidersHorizontal} label="Perfis" value={String(configs.length)} />
       </div>
 
-      <div className="printer-technical-layout">
+      <div className={`printer-technical-layout ${formOpen ? "" : "summary-only"}`}>
         <div className="printer-technical-list">
           {configs.map((config) => (
             <section key={config.id} className="printer-technical-card">
@@ -421,9 +426,15 @@ function PrinterTechnicalConfigPanel({ printer, loading, showToast }: { printer:
             </section>
           ))}
           {configs.length === 0 ? <p className="muted">Nenhuma configuração técnica cadastrada para esta impressora.</p> : null}
+          {!formOpen ? (
+            <button type="button" className="secondary-button" onClick={() => { setEditingId(null); setDraft(emptyDraft); setFormOpen(true); }} disabled={busy || loading}>
+              <SlidersHorizontal size={15} />
+              Criar configuração
+            </button>
+          ) : null}
         </div>
 
-        <form className="printer-technical-form" onSubmit={(event) => void submit(event)}>
+        {formOpen ? <form className="printer-technical-form" onSubmit={(event) => void submit(event)}>
           <label>
             Título
             <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} maxLength={120} required />
@@ -463,14 +474,18 @@ function PrinterTechnicalConfigPanel({ printer, loading, showToast }: { printer:
           </label>
           {error ? <p className="form-error">{error}</p> : null}
           <div className="overview-quick-actions">
-            <button type="submit" className="primary-button" disabled={busy || loading}>{editingId ? "Salvar edição" : "Criar perfil"}</button>
+            <button type="submit" className="primary-button" disabled={busy || loading}>{editingId ? "Salvar edição" : "Criar configuração"}</button>
             {editingId ? (
-              <button type="button" className="secondary-button" onClick={() => { setEditingId(null); setDraft(emptyDraft); }} disabled={busy}>
+              <button type="button" className="secondary-button" onClick={() => { setEditingId(null); setDraft(emptyDraft); setFormOpen(false); }} disabled={busy}>
                 Cancelar edição
               </button>
-            ) : null}
+            ) : (
+              <button type="button" className="secondary-button" onClick={() => { setDraft(emptyDraft); setFormOpen(false); }} disabled={busy}>
+                Cancelar
+              </button>
+            )}
           </div>
-        </form>
+        </form> : null}
       </div>
     </section>
   );
@@ -544,6 +559,7 @@ function PrinterMaterialProfilePanel({ printer, loading, showToast }: { printer:
   const [communities, setCommunities] = React.useState<Community[]>([]);
   const [draft, setDraft] = React.useState<MaterialDraft>(emptyDraft);
   const [editingId, setEditingId] = React.useState<number | null>(null);
+  const [formOpen, setFormOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -559,6 +575,7 @@ function PrinterMaterialProfilePanel({ printer, loading, showToast }: { printer:
   React.useEffect(() => {
     setDraft(emptyDraft);
     setEditingId(null);
+    setFormOpen(false);
     setError(null);
     void loadProfiles();
   }, [loadProfiles, printer.id]);
@@ -633,6 +650,7 @@ function PrinterMaterialProfilePanel({ printer, loading, showToast }: { printer:
       await loadProfiles();
       setEditingId(null);
       setDraft(emptyDraft);
+      setFormOpen(false);
       showToast({ tone: "success", title: editingId ? "Perfil atualizado" : "Perfil criado" });
     } catch (err) {
       const detail = err instanceof Error ? err.message : undefined;
@@ -665,6 +683,7 @@ function PrinterMaterialProfilePanel({ printer, loading, showToast }: { printer:
       settings: formatKeyValueLines(Object.fromEntries(Object.entries(profile.slicing.settings).map(([key, value]) => [key, String(value)]))),
       notes: profile.notes,
     });
+    setFormOpen(true);
   }
 
   async function archive(profileId: number) {
@@ -672,6 +691,11 @@ function PrinterMaterialProfilePanel({ printer, loading, showToast }: { printer:
     try {
       await socialApi.archiveMaterialProfile(profileId);
       await loadProfiles();
+      if (editingId === profileId) {
+        setEditingId(null);
+        setDraft(emptyDraft);
+        setFormOpen(false);
+      }
       showToast({ tone: "success", title: "Perfil arquivado" });
     } catch (err) {
       showToast({ tone: "danger", title: "Falha ao arquivar perfil", detail: err instanceof Error ? err.message : undefined });
@@ -701,7 +725,7 @@ function PrinterMaterialProfilePanel({ printer, loading, showToast }: { printer:
         <Badge icon={SlidersHorizontal} label="Perfis" value={String(profiles.length)} />
       </div>
 
-      <div className="printer-technical-layout">
+      <div className={`printer-technical-layout ${formOpen ? "" : "summary-only"}`}>
         <div className="printer-technical-list">
           {profiles.map((profile) => (
             <section key={profile.id} className="printer-technical-card">
@@ -719,9 +743,15 @@ function PrinterMaterialProfilePanel({ printer, loading, showToast }: { printer:
             </section>
           ))}
           {profiles.length === 0 ? <p className="muted">Nenhum perfil de material ou fatiamento cadastrado para esta impressora.</p> : null}
+          {!formOpen ? (
+            <button type="button" className="secondary-button" onClick={() => { setEditingId(null); setDraft(emptyDraft); setFormOpen(true); }} disabled={busy || loading}>
+              <SlidersHorizontal size={15} />
+              Criar perfil
+            </button>
+          ) : null}
         </div>
 
-        <form className="printer-technical-form" onSubmit={(event) => void submit(event)}>
+        {formOpen ? <form className="printer-technical-form" onSubmit={(event) => void submit(event)}>
           <label>Título<input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} required /></label>
           <label>Visibilidade<select value={draft.visibility} onChange={(event) => setDraft((current) => ({ ...current, visibility: event.target.value as MaterialDraft["visibility"] }))}><option value="private">Privado</option><option value="community">Comunidade</option><option value="public">Público</option></select></label>
           <label>Comunidade<select value={draft.community_slug} disabled={draft.visibility !== "community"} onChange={(event) => setDraft((current) => ({ ...current, community_slug: event.target.value }))}><option value="">Selecione</option>{communities.map((community) => <option key={community.slug} value={community.slug}>{community.name}</option>)}</select></label>
@@ -743,9 +773,13 @@ function PrinterMaterialProfilePanel({ printer, loading, showToast }: { printer:
           {error ? <p className="form-error">{error}</p> : null}
           <div className="overview-quick-actions">
             <button type="submit" className="primary-button" disabled={busy || loading}>{editingId ? "Salvar edição" : "Criar perfil"}</button>
-            {editingId ? <button type="button" className="secondary-button" onClick={() => { setEditingId(null); setDraft(emptyDraft); }} disabled={busy}>Cancelar edição</button> : null}
+            {editingId ? (
+              <button type="button" className="secondary-button" onClick={() => { setEditingId(null); setDraft(emptyDraft); setFormOpen(false); }} disabled={busy}>Cancelar edição</button>
+            ) : (
+              <button type="button" className="secondary-button" onClick={() => { setDraft(emptyDraft); setFormOpen(false); }} disabled={busy}>Cancelar</button>
+            )}
           </div>
-        </form>
+        </form> : null}
       </div>
     </section>
   );
@@ -775,6 +809,7 @@ function PrinterPublicPanel({ printer, loading, loadPrinters, showToast }: Print
   const [description, setDescription] = React.useState(printer.public_description || "");
   const [mods, setMods] = React.useState((printer.public_mods || []).join(", "));
   const [images, setImages] = React.useState((printer.public_images || []).join("\n"));
+  const [editing, setEditing] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
@@ -783,6 +818,7 @@ function PrinterPublicPanel({ printer, loading, loadPrinters, showToast }: Print
     setDescription(printer.public_description || "");
     setMods((printer.public_mods || []).join(", "));
     setImages((printer.public_images || []).join("\n"));
+    setEditing(false);
   }, [printer]);
 
   React.useEffect(() => {
@@ -841,6 +877,7 @@ function PrinterPublicPanel({ printer, loading, loadPrinters, showToast }: Print
         public_images: imageList,
       });
       await loadPrinters();
+      setEditing(false);
       showToast({ tone: "success", title: publicEnabled ? "Impressora publicada" : "Impressora tornou-se privada" });
     } catch (err) {
       showToast({ tone: "danger", title: "Falha ao atualizar publicação", detail: err instanceof Error ? err.message : undefined });
@@ -859,36 +896,6 @@ function PrinterPublicPanel({ printer, loading, loadPrinters, showToast }: Print
         </div>
         <Badge icon={PrinterIcon} label="Estado" value={stateLabel} />
       </div>
-      <div className="printer-public-grid">
-        <label>
-          Nome público
-          <input value={publicName} onChange={(event) => setPublicName(event.target.value)} maxLength={120} />
-        </label>
-        <label>
-          Variante canônica
-          <select value={variantId} onChange={(event) => setVariantId(event.target.value)}>
-            <option value="">Selecione a variante</option>
-            {variants.map((variant) => (
-              <option key={variant.id} value={variant.id} disabled={variant.disabled}>
-                {variant.label}{variant.disabled ? " indisponível" : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="printer-public-wide">
-          Descrição pública
-          <textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} rows={3} />
-        </label>
-        <label>
-          Mods públicos
-          <input value={mods} onChange={(event) => setMods(event.target.value)} placeholder="Tap, Nevermore" maxLength={500} />
-        </label>
-        <label>
-          Imagens públicas HTTPS
-          <textarea value={images} onChange={(event) => setImages(event.target.value)} rows={3} placeholder="https://..." />
-          {imageError ? <small className="form-error">URL inválida: {imageError}</small> : null}
-        </label>
-      </div>
       <div className="printer-public-preview">
         <div>
           <strong>{publicName || printer.name}</strong>
@@ -901,14 +908,63 @@ function PrinterPublicPanel({ printer, loading, loadPrinters, showToast }: Print
           {imageList.slice(0, 6).map((imageUrl) => <img key={imageUrl} src={imageUrl} alt="" />)}
         </div>
       </div>
-      <div className="overview-quick-actions">
-        <button type="button" className="primary-button" disabled={loading || saving || Boolean(imageError)} onClick={() => void save(true)}>
-          Publicar
-        </button>
-        <button type="button" className="secondary-button" disabled={loading || saving || !printer.public_profile_enabled} onClick={() => void save(false)}>
-          Tornar privada
-        </button>
-      </div>
+      {!editing ? (
+        <div className="overview-quick-actions">
+          <button type="button" className="secondary-button" disabled={loading || saving} onClick={() => setEditing(true)}>
+            <Pencil size={15} />
+            Editar publicação
+          </button>
+          {printer.public_profile_enabled ? (
+            <button type="button" className="secondary-button" disabled={loading || saving} onClick={() => void save(false)}>
+              Tornar privada
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <>
+          <div className="printer-public-grid">
+            <label>
+              Nome público
+              <input value={publicName} onChange={(event) => setPublicName(event.target.value)} maxLength={120} />
+            </label>
+            <label>
+              Variante canônica
+              <select value={variantId} onChange={(event) => setVariantId(event.target.value)}>
+                <option value="">Selecione a variante</option>
+                {variants.map((variant) => (
+                  <option key={variant.id} value={variant.id} disabled={variant.disabled}>
+                    {variant.label}{variant.disabled ? " indisponível" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="printer-public-wide">
+              Descrição pública
+              <textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} rows={3} />
+            </label>
+            <label>
+              Mods públicos
+              <input value={mods} onChange={(event) => setMods(event.target.value)} placeholder="Tap, Nevermore" maxLength={500} />
+            </label>
+            <label>
+              Imagens públicas HTTPS
+              <textarea value={images} onChange={(event) => setImages(event.target.value)} rows={3} placeholder="https://..." />
+              {imageError ? <small className="form-error">URL inválida: {imageError}</small> : null}
+            </label>
+          </div>
+          <div className="overview-quick-actions">
+            <button type="button" className="primary-button" disabled={loading || saving || Boolean(imageError)} onClick={() => void save(true)}>
+              Publicar
+            </button>
+            <button type="button" className="secondary-button" disabled={loading || saving || !printer.public_profile_enabled} onClick={() => void save(false)}>
+              Tornar privada
+            </button>
+            <button type="button" className="secondary-button" disabled={saving} onClick={() => setEditing(false)}>
+              Cancelar
+            </button>
+          </div>
+        </>
+      )}
     </section>
   );
 }

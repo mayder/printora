@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -178,7 +179,7 @@ class AgentSupportRepository:
         protocol_compatible = protocol_version in {None, AGENT_PROTOCOL_VERSION}
         state = _health_state(agent, online)
         return AgentHealthSummary(
-            agent=agent,
+            agent=_sanitize_agent(agent),
             state=state,
             online=online,
             heartbeat_age_seconds=age_seconds,
@@ -207,7 +208,7 @@ class AgentSupportRepository:
         return [_agent_from_row(row) for row in rows]
 
     def _events(self, printer_id: int) -> list[AgentEventRecord]:
-        return AgentPairingRepository(self.database_path).list_events(printer_id, limit=40)
+        return [_sanitize_event(event) for event in AgentPairingRepository(self.database_path).list_events(printer_id, limit=40)]
 
     def _recent_jobs(self, printer_id: int, limit: int) -> list[AgentJobRecord]:
         with connect_database(self.database_path) as connection:
@@ -351,6 +352,14 @@ def _sanitize_job(job: AgentJobRecord) -> AgentJobRecord:
     return AgentJobRecord(**data)
 
 
+def _sanitize_agent(agent: AgentRecord) -> AgentRecord:
+    return agent.model_copy(update={"credential_prefix": "[redacted]"})
+
+
+def _sanitize_event(event: AgentEventRecord) -> AgentEventRecord:
+    return event.model_copy(update={"detail": _sanitize_text(event.detail)})
+
+
 def _sanitize_payload(value: Any) -> Any:
     if isinstance(value, dict):
         cleaned: dict[str, Any] = {}
@@ -372,10 +381,7 @@ def _sanitize_text(value: str | None) -> str | None:
     if value is None:
         return None
     text = value[:500]
-    for marker in ("ptr_agent_", "ptr_pair_", "ptr_sess_"):
-        if marker in text:
-            text = text.replace(marker, marker + "[redacted]")
-    return text
+    return re.sub(r"ptr_(?:agent|pair|sess)_[A-Za-z0-9_-]+", "[redacted]", text)
 
 
 def _age_seconds(value: str | None) -> int | None:

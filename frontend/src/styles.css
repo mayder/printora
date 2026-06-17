@@ -660,6 +660,7 @@ label {
 
 .panel {
   grid-column: span 6;
+  min-width: 0;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--surface-2);
@@ -749,6 +750,14 @@ label {
   gap: 12px;
   align-items: center;
   margin-bottom: 14px;
+}
+
+.panel-heading > div:first-child {
+  min-width: 0;
+}
+
+.panel-heading > .badge {
+  flex: 0 0 auto;
 }
 
 .panel-heading p {
@@ -1254,6 +1263,7 @@ label {
 .release-row {
   display: grid;
   gap: 8px;
+  min-width: 0;
   border: 1px solid var(--border-soft);
   border-left: 3px solid var(--status-neutral);
   border-radius: 7px;
@@ -1269,6 +1279,7 @@ label {
 .release-latest-card > div {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
 .release-latest-card strong,
@@ -1281,6 +1292,7 @@ label {
 .release-latest-card p,
 .release-row p {
   color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .release-latest-card p,
@@ -1305,10 +1317,11 @@ label {
 
 .badge {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 34px minmax(82px, 1fr);
   gap: 10px;
   align-items: center;
-  min-width: 0;
+  justify-self: end;
+  min-width: 150px;
   border: 1px solid var(--border-soft);
   border-radius: 6px;
   padding: 12px;
@@ -1345,7 +1358,8 @@ label {
   min-width: 0;
   color: var(--muted);
   font-size: 12px;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .badge-text strong {
@@ -1353,8 +1367,8 @@ label {
   min-width: 0;
   font-size: 20px;
   line-height: 1.15;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .panel-operation .badge-text strong {
@@ -1462,6 +1476,12 @@ label {
 }
 
 @media (max-width: 920px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
   .app-shell {
     grid-template-columns: 1fr;
   }
@@ -1506,12 +1526,14 @@ label {
   }
 
   .workspace {
+    min-width: 0;
     padding: 14px 14px 92px;
   }
 
   .grid {
     grid-template-columns: 1fr;
     display: grid;
+    min-width: 0;
   }
 
   .topbar {
@@ -1524,6 +1546,12 @@ label {
   .topbar-title {
     display: flex;
     grid-template-columns: none;
+    align-items: center;
+  }
+
+  .topbar h1 {
+    font-size: 28px;
+    line-height: 1.08;
   }
 
   .section-icon {
@@ -1534,7 +1562,8 @@ label {
     display: flex;
     flex-wrap: nowrap;
     gap: 8px;
-    justify-content: flex-end;
+    justify-content: flex-start;
+    width: 100%;
   }
 
   .page-helper {
@@ -1546,7 +1575,7 @@ label {
   }
 
   .topbar-account {
-    flex: 0 1 220px;
+    flex: 1 1 0;
     min-width: 0;
   }
 
@@ -1561,10 +1590,12 @@ label {
 
   .topbar-alert {
     width: 40px;
+    flex: 0 0 40px;
   }
 
   .topbar-info {
     width: 40px;
+    flex: 0 0 40px;
   }
 
   .topbar-alert span {
@@ -1578,6 +1609,7 @@ label {
 
   .panel {
     grid-column: 1 / -1;
+    min-width: 0;
   }
 
   .monitor-card-wide {
@@ -1682,6 +1714,99 @@ label {
   .snapshot-compare,
   .snapshot-row {
     grid-template-columns: 1fr;
+  }
+
+  .printer-detail-header {
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .printer-detail-header .panel-heading {
+    display: grid;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .printer-detail-header .panel-heading > div:first-child {
+    display: grid;
+    gap: 8px;
+  }
+
+  .printer-detail-header .panel-heading h2 {
+    margin-top: 0;
+    font-size: 26px;
+    line-height: 1.12;
+  }
+
+  .printer-detail-header .panel-heading p {
+    font-size: 18px;
+    line-height: 1.25;
+  }
+
+  .printer-detail-header .overview-strip {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 0;
+    width: 100%;
+  }
+
+  .printer-detail-header .badge,
+  .printer-detail-header .badge-with-action {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .printer-detail-header .badge-with-action {
+    grid-template-columns: minmax(0, 1fr) 40px;
+    gap: 8px;
+  }
+
+  .printer-detail-header .badge-with-action .status-refresh-button {
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    align-self: stretch;
+  }
+
+  .printer-detail-header .badge {
+    grid-template-columns: 42px minmax(0, 1fr);
+    min-height: 74px;
+  }
+
+  .printer-detail-header .badge-text strong {
+    font-size: 24px;
+  }
+
+  .detail-tabbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .detail-tabbar button {
+    min-height: 48px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+
+  .section-printer-detail .overview-hero {
+    gap: 12px;
+  }
+
+  .section-printer-detail .overview-status-card,
+  .section-printer-detail .overview-risk-card {
+    padding: 16px;
+  }
+
+  .section-printer-detail .overview-status-card h2 {
+    font-size: 28px;
+    line-height: 1.08;
+  }
+
+  .section-printer-detail .overview-risk-card > strong {
+    font-size: 38px;
+    line-height: 1.05;
   }
 
   .firmware-section-heading,

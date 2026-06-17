@@ -562,13 +562,13 @@ function ModelTable({ models, selectedModelId, onSelect }: { models: CatalogMode
             }
           }}
         >
-          <span>{model.manufacturer_name}</span>
-          <strong>{model.name}</strong>
-          <span>{model.kinematics}</span>
-          <span>{model.variants.length}</span>
-          <span>{formatFirmwareSummary(model.variants)}</span>
-          <span><span className={`catalog-state state-${model.trust_state}`}>{model.trust_state}</span></span>
-          <span>
+          <span data-label="Fabricante">{model.manufacturer_name}</span>
+          <strong data-label="Modelo">{model.name}</strong>
+          <span data-label="Cinemática">{model.kinematics}</span>
+          <span data-label="Variações">{model.variants.length}</span>
+          <span data-label="Firmware">{formatFirmwareSummary(model.variants)}</span>
+          <span data-label="Estado"><span className={`catalog-state state-${model.trust_state}`}>{model.trust_state}</span></span>
+          <span data-label="Ações">
             <a
               className="catalog-row-action-button"
               href={`?section=catalog&model=${encodeURIComponent(model.slug)}`}

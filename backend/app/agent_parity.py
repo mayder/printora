@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
@@ -158,8 +159,34 @@ def _feature(
         state=state,
         safety=safety,
         detail=detail,
-        latest_job=latest,
+        latest_job=_sanitize_job(latest) if latest else None,
     )
+
+
+def _sanitize_job(job: AgentJobRecord) -> AgentJobRecord:
+    data = job.model_dump()
+    data["payload"] = _sanitize_payload(data.get("payload"))
+    data["result"] = _sanitize_payload(data.get("result")) if data.get("result") is not None else None
+    data["error_message"] = _sanitize_text(data.get("error_message"))
+    return AgentJobRecord(**data)
+
+
+def _sanitize_payload(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _sanitize_payload(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_payload(item) for item in value[:50]]
+    if isinstance(value, str):
+        return _sanitize_text(value)
+    return value
+
+
+def _sanitize_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    text = value[:500]
+    text = text.replace("PKG-", "entrega-")
+    return re.sub(r"ptr_(?:agent|pair|sess)_[A-Za-z0-9_-]+", "[redacted]", text)
 
 
 def _job_from_row(row) -> AgentJobRecord:

@@ -5,7 +5,8 @@ from pathlib import Path
 from fastapi import Depends
 
 from app.install_diagnostics import InstallationDiagnosticsResponse, build_installation_diagnostics
-from app.routes.auth import require_current_user_when_configured
+from app.database import get_database_version_info, get_public_database_version_info
+from app.routes.auth import require_current_user, require_current_user_when_configured
 from app.routes.support import *
 
 router = APIRouter()
@@ -20,6 +21,14 @@ async def health() -> dict[str, str]:
 
 @router.get("/api/system/version")
 async def system_version() -> dict[str, object]:
+    settings = get_settings()
+    return get_public_database_version_info(settings.database_path)
+
+
+@router.get("/api/system/version/internal")
+async def system_version_internal(current=Depends(require_current_user)) -> dict[str, object]:
+    if current.user.email.lower() != "breno@mayder.com.br":
+        raise HTTPException(status_code=403, detail="acesso restrito ao suporte")
     settings = get_settings()
     return get_database_version_info(settings.database_path, settings.data_dir)
 

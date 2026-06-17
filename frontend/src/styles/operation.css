@@ -853,6 +853,7 @@
 
 @media (max-width: 920px) {
   .operation-actions-summary,
+  .operation-capabilities,
   .operation-console-grid,
   .operation-misc-grid,
   .operation-position-grid,
@@ -866,6 +867,14 @@
   .operation-execution-gate,
   .temperature-history-row {
     grid-template-columns: 1fr;
+  }
+
+  .operation-command-center,
+  .operation-capability-summary-card {
+    grid-column: auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .operation-jog-row {

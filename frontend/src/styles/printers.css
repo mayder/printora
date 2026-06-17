@@ -7,6 +7,7 @@
 .printer-card {
   display: grid;
   gap: 12px;
+  min-width: 0;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--surface-3);
@@ -23,6 +24,11 @@
   justify-content: space-between;
   gap: 12px;
   align-items: start;
+  min-width: 0;
+}
+
+.printer-card-header > div:first-child {
+  min-width: 0;
 }
 
 .printer-card-header strong,
@@ -98,6 +104,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px 14px;
+  min-width: 0;
   border-top: 1px solid var(--border-soft);
   padding-top: 8px;
 }
@@ -112,6 +119,41 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
+}
+
+@media (max-width: 920px) {
+  .printer-dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .printer-card-header {
+    display: grid;
+  }
+
+  .printer-card-header > .status-pill,
+  .printer-card-header > .status-inline-actions {
+    max-width: none;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .printer-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .printer-card-grid .metric {
+    grid-template-columns: minmax(112px, 0.45fr) minmax(0, 1fr);
+  }
+
+  .printer-card-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .printer-card-actions button {
+    width: 100%;
+  }
 }
 
 .printer-card-actions button {
@@ -719,6 +761,10 @@
   display: grid;
   gap: 16px;
   grid-template-columns: minmax(240px, 0.45fr) minmax(0, 1fr);
+}
+
+.printer-technical-layout.summary-only {
+  grid-template-columns: 1fr;
 }
 
 .printer-technical-list,

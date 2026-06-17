@@ -100,7 +100,7 @@ export function PublicCommunityScreen({ slug, embedded = false }: PublicCommunit
             <div className="public-spec-list">
               <span><Archive size={15} />Catálogo mestre</span>
               <span><SlidersHorizontal size={15} />{communityContext(community)}</span>
-              <span><Lock size={15} />Sem acesso operacional, agente, Moonraker, SSH, token ou organização</span>
+              <span><Lock size={15} />Sem acesso à operação nem dados privados da impressora</span>
             </div>
           </article>
 

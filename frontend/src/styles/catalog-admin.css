@@ -1086,7 +1086,7 @@
 
   .catalog-table-header,
   .catalog-table-row {
-    min-width: 980px;
+    min-width: 920px;
   }
 }
 
@@ -1125,6 +1125,49 @@
   .catalog-filter-actions button {
     flex: 1;
     justify-content: center;
+  }
+
+  .catalog-table {
+    border: 0;
+    gap: 10px;
+    overflow: visible;
+  }
+
+  .catalog-table-header {
+    display: none;
+  }
+
+  .catalog-table-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-3);
+    padding: 12px;
+  }
+
+  .catalog-table-row > span,
+  .catalog-table-row > strong {
+    display: grid;
+    grid-template-columns: minmax(92px, 0.35fr) minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .catalog-table-row > span::before,
+  .catalog-table-row > strong::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .catalog-table-row > span:last-child,
+  .catalog-table-row > strong:last-child {
+    align-items: center;
   }
 
   .catalog-pagination {

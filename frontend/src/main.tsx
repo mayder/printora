@@ -56,7 +56,15 @@ function openAccountTab(tab: AccountTab, setActiveSection: (section: AppSection)
   }, 0);
 }
 
+function useStoredDocumentTheme() {
+  useEffect(() => {
+    const storedTheme = window.localStorage.getItem("printora-theme");
+    document.documentElement.dataset.theme = storedTheme === "light" ? "light" : "dark";
+  }, []);
+}
+
 function App() {
+  useStoredDocumentTheme();
   const publicProfileSlug = readPublicProfilePathSlug();
   const embeddedProfileSlug = readEmbeddedProfileSlug();
   const publicPrinterId = readPublicPrinterId();

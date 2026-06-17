@@ -34,6 +34,7 @@ def test_agent_support_overview_is_scoped_and_reports_alerts(tmp_path: Path, mon
             payload = overview.json()
             assert payload["safe_mode"] == "agent_support_sanitized"
             assert payload["agents"][0]["state"] == "outdated"
+            assert payload["agents"][0]["agent"]["credential_prefix"] == "[redacted]"
             codes = {alert["code"] for alert in payload["alerts"]}
             assert "agent_outdated" in codes
             assert "protocol_incompatible" in codes
@@ -91,6 +92,8 @@ def test_agent_support_doctor_and_bundle_are_sanitized(tmp_path: Path, monkeypat
             text = bundle.text
             assert "ptr_agent_secret" not in text
             assert "ptr_pair_secret" not in text
+            assert "ptr_agent_" not in text
+            assert "ptr_pair_" not in text
             assert "secret-key" not in text
             assert "[redacted]" in text
     finally:

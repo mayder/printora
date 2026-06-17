@@ -544,7 +544,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
                     {systemReleases.latest_release.channel}
                   </small>
                 </div>
-                <p>{systemReleases.latest_release.changelog_summary || "Sem changelog informado."}</p>
+                <p>{releaseSummaryForDisplay(systemReleases.latest_release.changelog_summary)}</p>
               </div>
             ) : (
               <div className="release-latest-card">
@@ -576,7 +576,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
                       {release.installed ? "publicada" : release.channel}
                     </span>
                   </div>
-                  <p>{release.changelog_summary || "Sem changelog informado."}</p>
+                  <p>{releaseSummaryForDisplay(release.changelog_summary)}</p>
                 </div>
               ))}
             </div>
@@ -655,6 +655,17 @@ function printHistoryStatus(status: PrintJobHistory["status"]): string {
     canceled: "cancelado",
   };
   return labels[status];
+}
+
+function releaseSummaryForDisplay(summary?: string | null): string {
+  if (!summary?.trim()) {
+    return "Sem changelog informado.";
+  }
+  return summary
+    .replace(/\bPKG-\d+\s*:\s*/gi, "")
+    .replace(/\bPKG-\d+\b/gi, "entrega")
+    .replace(/\blote\s+\d+\b/gi, "etapa")
+    .trim();
 }
 
 function feedbackOutcomeText(outcome: PrintJobFeedback["outcome"]): string {
