@@ -610,7 +610,7 @@ function SearchableFilter({
   }
 
   return (
-    <div className="social-combobox-field" ref={ref}>
+    <div className={`social-combobox-field${open ? " open" : ""}`} ref={ref}>
       <span className="social-filter-label">{label}</span>
       <button type="button" className="social-combobox-trigger" aria-expanded={open} aria-haspopup="listbox" onClick={() => setOpen((current) => !current)}>
         <span>{selected?.label ?? emptyLabel}</span>

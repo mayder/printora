@@ -404,6 +404,11 @@
   gap: 6px;
   min-width: 0;
   position: relative;
+  z-index: 1;
+}
+
+.social-combobox-field.open {
+  z-index: 40;
 }
 
 .social-filter-label {
@@ -422,11 +427,17 @@
   display: grid;
   font: inherit;
   grid-template-columns: minmax(0, 1fr) auto;
-  min-height: 36px;
+  min-height: 40px;
   min-width: 0;
-  padding: 7px 10px;
+  padding: 9px 10px;
   text-align: left;
   width: 100%;
+}
+
+.social-combobox-trigger:hover,
+.social-combobox-trigger:focus-visible {
+  border-color: var(--accent);
+  outline: 0;
 }
 
 .social-combobox-trigger span {
@@ -436,42 +447,48 @@
 }
 
 .social-combobox-popover {
-  background: var(--panel);
+  background: #0d1218;
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
   display: grid;
-  gap: 8px;
   left: 0;
   min-width: min(320px, calc(100vw - 48px));
-  padding: 8px;
+  overflow: hidden;
   position: absolute;
   right: 0;
   top: calc(100% + 6px);
-  z-index: 30;
+  z-index: 60;
 }
 
 .social-combobox-search {
   align-items: center;
-  background: var(--input-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
   display: grid;
-  gap: 7px;
+  gap: 8px;
   grid-template-columns: auto minmax(0, 1fr);
-  padding: 0 9px;
+  padding: 8px 10px;
 }
 
 .social-combobox-search input {
+  background: transparent;
   border: 0;
-  min-height: 34px;
+  color: var(--text);
+  font: inherit;
   padding: 0;
+  min-height: 24px;
+  outline: 0;
+  width: 100%;
+}
+
+.social-combobox-search input::placeholder {
+  color: var(--muted);
 }
 
 .social-combobox-options {
   display: grid;
-  gap: 2px;
-  max-height: 260px;
+  max-height: 240px;
   overflow: auto;
 }
 
@@ -479,15 +496,14 @@
   align-items: center;
   background: transparent;
   border: 0;
-  border-radius: 6px;
   color: var(--text);
   cursor: pointer;
   display: grid;
   font: inherit;
   gap: 8px;
   grid-template-columns: 16px minmax(0, 1fr);
-  min-height: 32px;
-  padding: 7px 8px;
+  min-height: 36px;
+  padding: 9px 10px;
   text-align: left;
 }
 
