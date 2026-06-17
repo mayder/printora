@@ -367,10 +367,15 @@
 
 .maintenance-section-heading {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.maintenance-section-heading > div:first-child {
+  flex: 1 1 220px;
+  min-width: 0;
 }
 
 .maintenance-section-heading h3 {
@@ -378,26 +383,33 @@
 }
 
 .maintenance-filter-row {
+  flex: 999 1 auto;
   display: flex;
   align-items: stretch;
   justify-content: flex-end;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .maintenance-filter-row .filter-toolbar,
 .maintenance-filter-row .maintenance-area-select {
-  min-height: 52px;
+  min-height: 42px;
   margin: 0;
 }
 
 .maintenance-filter-row .filter-toolbar {
   align-items: center;
-  padding: 8px 10px;
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding: 5px 6px;
 }
 
 .maintenance-filter-row .filter-toolbar button {
-  min-height: 36px;
+  min-height: 30px;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .maintenance-area-select {
@@ -407,7 +419,8 @@
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--surface-1);
-  padding: 8px 10px;
+  padding: 5px 8px;
+  min-width: 0;
 }
 
 .maintenance-area-select span {
@@ -418,7 +431,8 @@
 }
 
 .maintenance-area-select select {
-  min-width: 164px;
+  width: clamp(112px, 12vw, 155px);
+  min-width: 0;
   min-height: 36px;
   border: 1px solid var(--border-soft);
   border-radius: 6px;
@@ -428,6 +442,17 @@
   font-size: 12px;
   font-weight: 800;
   padding: 5px 28px 5px 8px;
+}
+
+@media (max-width: 1120px) {
+  .maintenance-section-heading {
+    flex-wrap: wrap;
+  }
+
+  .maintenance-filter-row {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
 }
 
 .maintenance-task-form,
