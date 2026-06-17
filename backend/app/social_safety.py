@@ -173,6 +173,28 @@ class SocialSafetyRepository:
                 reason=reason,
             )
 
+    def record_rate_limit_denial(self, *, actor_user_id: int | None, action: str, subject: str, target_user_id: int | None = None) -> None:
+        self.ensure_schema()
+        subject_hash = hash_subject(subject)
+        reason = "limite temporário de segurança social atingido"
+        limit, window_seconds = _limit_for_action(action)
+        with connect_database(self.database_path) as connection:
+            connection.execute(
+                """
+                INSERT INTO social_rate_limit_events (actor_user_id, action, subject_hash, allowed, reason)
+                VALUES (?, ?, ?, 0, ?)
+                """,
+                (actor_user_id, action, subject_hash, reason),
+            )
+            self._record_abuse_signal(
+                connection,
+                actor_user_id,
+                target_user_id,
+                action,
+                reason,
+                {"window_seconds": window_seconds, "limit": limit, "source": "memory_guard"},
+            )
+
     def abuse_signals(self, *, status: AbuseSignalStatus | None = None, limit: int = 80) -> list[AbuseSignalRecord]:
         self.ensure_schema()
         clauses: list[str] = []

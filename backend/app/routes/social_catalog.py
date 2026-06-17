@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import re
+import time
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.auth import CurrentUser
@@ -51,6 +54,7 @@ from app.social_safety import SocialSafetyRepository
 
 
 router = APIRouter(tags=["social-catalog"])
+_PROFILE_SEARCH_WINDOWS: dict[str, list[float]] = {}
 
 
 def get_social_repository() -> SocialCatalogRepository:
@@ -107,7 +111,7 @@ def _enforce_social_limit(
     target_user_id: int | None = None,
     subject_suffix: str = "",
 ) -> None:
-    subject = _request_subject(request, current)
+    subject = f"{get_settings().database_path}:{_request_subject(request, current)}"
     if current is not None and subject_suffix:
         subject = f"{subject}:{subject_suffix}"
     result = repository.check_rate_limit(
@@ -118,6 +122,34 @@ def _enforce_social_limit(
     )
     if not result.allowed:
         raise HTTPException(status_code=429, detail=result.reason, headers={"Retry-After": str(result.retry_after_seconds)})
+
+
+def _enforce_profile_search_limit(
+    repository: SocialSafetyRepository,
+    request: Request,
+    current: CurrentUser | None,
+    query: str | None,
+) -> None:
+    limit = 30
+    window_seconds = 60
+    now = time.monotonic()
+    query_key = re.sub(r"[-_]*\d+$", "", (query or "").strip().lower()) or "directory"
+    subject = f"{get_settings().database_path}:{_request_subject(request, current)}:{query_key}"
+    hits = [stamp for stamp in _PROFILE_SEARCH_WINDOWS.get(subject, []) if now - stamp < window_seconds]
+    if len(hits) >= limit:
+        repository.record_rate_limit_denial(
+            actor_user_id=current.user.id if current else None,
+            action="profile_search",
+            subject=subject,
+        )
+        _PROFILE_SEARCH_WINDOWS[subject] = hits
+        raise HTTPException(
+            status_code=429,
+            detail="limite temporário de segurança social atingido",
+            headers={"Retry-After": str(window_seconds)},
+        )
+    hits.append(now)
+    _PROFILE_SEARCH_WINDOWS[subject] = hits
 
 
 @router.get("/api/catalog", response_model=CatalogSummary)
@@ -243,7 +275,7 @@ async def search_public_profiles(
     safety: SocialSafetyRepository = Depends(get_safety_repository),
 ) -> list[PublicProfile]:
     try:
-        _enforce_social_limit(safety, request, current, "profile_search", subject_suffix=q or "")
+        _enforce_profile_search_limit(safety, request, current, q)
         return repository.search_profiles(q, current.user.id if current else None)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
