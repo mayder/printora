@@ -20,6 +20,12 @@
   width: 100%;
 }
 
+.firmware-status-grid .badge {
+  justify-self: stretch;
+  min-width: 0;
+  width: 100%;
+}
+
 .firmware-status-grid + .firmware-state-banner,
 .firmware-state-banner + .firmware-state-banner {
   margin-top: 18px;
