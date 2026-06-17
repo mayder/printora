@@ -265,6 +265,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - O painel de fatiamento controlado deve usar botão com ícone de recarregar para verificação, métricas compactas e resultado acionável. Paths exibidos devem vir sanitizados pelo backend.
 - Na tela Administração, `Pipeline de fatiamento` mostra criação e acompanhamento de jobs rastreáveis com seleção de impressora, referência de modelo, qualidade e dimensões. A lista deve exibir estado, erro, artefatos e ações de executar/cancelar sem misturar cadastro de impressora ou edição de perfil.
 - O formulário do pipeline deve quebrar responsivamente em duas colunas e uma coluna no mobile, mantendo botões, labels e campos sem sobreposição.
+- Na tela Administração, jobs concluídos de fatiamento exibem ação `Preflight`. O resultado deve mostrar aprovado, bloqueado ou pendente remoto, metadados resumidos, blockers, warnings e checklist antes de qualquer ação de envio.
+- Enquanto o preflight remoto estiver pendente, a UI deve oferecer atualização explícita sem prometer envio ou impressão.
 
 ## Pendencias de mapeamento
 

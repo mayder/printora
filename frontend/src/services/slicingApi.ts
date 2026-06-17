@@ -39,6 +39,23 @@ export type SlicingJob = {
   canceled_at: string | null;
 };
 
+export type PrintPreflight = {
+  id: number;
+  owner_user_id: number | null;
+  printer_id: number;
+  slicing_job_id: number;
+  remote_agent_job_id: number | null;
+  status: "approved" | "blocked" | "pending_remote" | "failed";
+  local_metadata: Record<string, any>;
+  remote_preflight: Record<string, any>;
+  blockers: string[];
+  warnings: string[];
+  checklist: string[];
+  created_at: string;
+  updated_at: string;
+  approved_at: string | null;
+};
+
 export type SlicingJobCreate = {
   printer_id: number;
   material_profile_id?: number | null;
@@ -53,6 +70,7 @@ export type SlicingJobCreate = {
 export const slicingApi = {
   engine: () => apiRequest<SlicingEngineInfo>("/api/slicing/engine"),
   jobs: () => apiRequest<SlicingJob[]>("/api/slicing/jobs"),
+  preflights: () => apiRequest<PrintPreflight[]>("/api/slicing/preflights"),
   createJob: (body: SlicingJobCreate) =>
     apiRequest<SlicingJob>("/api/slicing/jobs", {
       method: "POST",
@@ -61,4 +79,6 @@ export const slicingApi = {
     }),
   runJob: (jobId: number) => apiRequest<SlicingJob>(`/api/slicing/jobs/${jobId}/run`, { method: "POST" }),
   cancelJob: (jobId: number) => apiRequest<SlicingJob>(`/api/slicing/jobs/${jobId}/cancel`, { method: "POST" }),
+  createPreflight: (jobId: number) => apiRequest<PrintPreflight>(`/api/slicing/jobs/${jobId}/preflight`, { method: "POST" }),
+  refreshPreflight: (preflightId: number) => apiRequest<PrintPreflight>(`/api/slicing/preflights/${preflightId}/refresh`, { method: "POST" }),
 };

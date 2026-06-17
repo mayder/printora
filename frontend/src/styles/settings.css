@@ -260,6 +260,27 @@
   justify-content: flex-end;
 }
 
+.settings-preflight-summary {
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+  padding-left: 8px;
+  border-left: 3px solid var(--status-neutral);
+}
+
+.settings-preflight-summary.approved {
+  border-left-color: var(--success);
+}
+
+.settings-preflight-summary.blocked,
+.settings-preflight-summary.failed {
+  border-left-color: var(--danger);
+}
+
+.settings-preflight-summary.pending_remote {
+  border-left-color: var(--warning);
+}
+
 @media (max-width: 920px) {
   .settings-inline-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -1,7 +1,7 @@
 import React from "react";
 import { Metric } from "../components/common";
 import { printerApi } from "../services/printerApi";
-import { slicingApi, type SlicingEngineInfo, type SlicingJob } from "../services/slicingApi";
+import { slicingApi, type PrintPreflight, type SlicingEngineInfo, type SlicingJob } from "../services/slicingApi";
 import { formatDateTime } from "../utils/formatters";
 import type { ScreenPropsFor } from "./ScreenProps";
 import type { PrinterRecord } from "../types/printers";
@@ -53,6 +53,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
   const [slicingLoading, setSlicingLoading] = React.useState(false);
   const [slicingError, setSlicingError] = React.useState<string | null>(null);
   const [slicingJobs, setSlicingJobs] = React.useState<SlicingJob[]>([]);
+  const [printPreflights, setPrintPreflights] = React.useState<PrintPreflight[]>([]);
   const [slicingPrinters, setSlicingPrinters] = React.useState<PrinterRecord[]>([]);
   const [slicingJobBusy, setSlicingJobBusy] = React.useState(false);
   const [slicingDraft, setSlicingDraft] = React.useState({
@@ -82,11 +83,12 @@ export function SettingsScreen(props: SettingsScreenProps) {
 
   async function loadSlicingPipeline() {
     try {
-      const [printersResponse, jobs] = await Promise.all([printerApi.list(), slicingApi.jobs()]);
+      const [printersResponse, jobs, preflights] = await Promise.all([printerApi.list(), slicingApi.jobs(), slicingApi.preflights()]);
       const printersPayload = await printersResponse.json() as PrinterRecord[] | { printers?: PrinterRecord[] };
       const printers = Array.isArray(printersPayload) ? printersPayload : printersPayload.printers ?? [];
       setSlicingPrinters(printers.filter((printer) => printer.is_active));
       setSlicingJobs(jobs);
+      setPrintPreflights(preflights);
       setSlicingDraft((current) => current.printerId || printers.length === 0 ? current : { ...current, printerId: String(printers[0].id) });
     } catch (err) {
       setSlicingError(err instanceof Error ? err.message : "Falha ao carregar pipeline de fatiamento");
@@ -142,6 +144,32 @@ export function SettingsScreen(props: SettingsScreenProps) {
       setSlicingJobs((current) => current.map((item) => item.id === job.id ? job : item));
     } catch (err) {
       setSlicingError(err instanceof Error ? err.message : "Falha ao cancelar job de fatiamento");
+    } finally {
+      setSlicingJobBusy(false);
+    }
+  }
+
+  async function createPrintPreflight(jobId: number) {
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const preflight = await slicingApi.createPreflight(jobId);
+      setPrintPreflights((current) => [preflight, ...current.filter((item) => item.id !== preflight.id)].slice(0, 30));
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao criar preflight de impressão");
+    } finally {
+      setSlicingJobBusy(false);
+    }
+  }
+
+  async function refreshPrintPreflight(preflightId: number) {
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const preflight = await slicingApi.refreshPreflight(preflightId);
+      setPrintPreflights((current) => current.map((item) => item.id === preflight.id ? preflight : item));
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao atualizar preflight de impressão");
     } finally {
       setSlicingJobBusy(false);
     }
@@ -266,6 +294,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
                   <span>{slicingJobStatus(job.status)} · {job.quality_reference} · {formatDateTime(job.created_at)}</span>
                   {job.error_message ? <small>{job.error_message}</small> : null}
                   {job.artifacts.length ? <small>{job.artifacts.length} artefato(s) rastreado(s)</small> : null}
+                  <PreflightSummary preflight={latestPreflightForJob(printPreflights, job.id)} />
                 </div>
                 <div className="inline-actions">
                   {job.status === "planned" || job.status === "failed" ? (
@@ -276,6 +305,16 @@ export function SettingsScreen(props: SettingsScreenProps) {
                   {job.status === "planned" || job.status === "running" ? (
                     <button type="button" className="secondary-button" onClick={() => void cancelSlicingJob(job.id)} disabled={slicingJobBusy}>
                       Cancelar
+                    </button>
+                  ) : null}
+                  {job.status === "completed" ? (
+                    <button type="button" className="secondary-button" onClick={() => void createPrintPreflight(job.id)} disabled={slicingJobBusy}>
+                      Preflight
+                    </button>
+                  ) : null}
+                  {latestPreflightForJob(printPreflights, job.id)?.status === "pending_remote" ? (
+                    <button type="button" className="secondary-button" onClick={() => void refreshPrintPreflight(latestPreflightForJob(printPreflights, job.id)!.id)} disabled={slicingJobBusy}>
+                      Atualizar preflight
                     </button>
                   ) : null}
                 </div>
@@ -425,4 +464,26 @@ function slicingJobStatus(status: SlicingJob["status"]): string {
     canceled: "cancelado",
   };
   return labels[status];
+}
+
+function latestPreflightForJob(preflights: PrintPreflight[], jobId: number): PrintPreflight | null {
+  return preflights.find((item) => item.slicing_job_id === jobId) ?? null;
+}
+
+function PreflightSummary({ preflight }: { preflight: PrintPreflight | null }) {
+  if (!preflight) return null;
+  const labels: Record<PrintPreflight["status"], string> = {
+    approved: "preflight aprovado",
+    blocked: "preflight bloqueado",
+    pending_remote: "preflight remoto pendente",
+    failed: "preflight falhou",
+  };
+  return (
+    <div className={`settings-preflight-summary ${preflight.status}`}>
+      <small>{labels[preflight.status]} · {preflight.local_metadata.command_count ?? 0} comando(s)</small>
+      {preflight.blockers.slice(0, 2).map((blocker) => <small key={blocker}>{blocker}</small>)}
+      {preflight.warnings.slice(0, 2).map((warning) => <small key={warning}>{warning}</small>)}
+      {preflight.status === "approved" ? <small>{preflight.checklist.slice(0, 3).join(" · ")}</small> : null}
+    </div>
+  );
 }

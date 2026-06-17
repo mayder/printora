@@ -4374,7 +4374,18 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado.
+
+Notas de conclusão:
+
+- SQL `063_print_preflight_checks.sql` cria preflights de impressão ligados ao job de fatiamento e ao job remoto do agente quando existir.
+- Backend adicionou `print_preflight` com parser seguro de G-code, extração de dimensões, temperaturas, tipo de filamento, nozzle, tempo estimado e checksum.
+- Preflight local bloqueia job não concluído, G-code de outra impressora, artefato ausente, temperatura perigosa, G-code sem comandos e divergência de volume; divergências de temperatura/perfil viram warnings antes do envio.
+- Preflight remoto usa job `remote_gcode_preflight` do agente para estado atual de Moonraker/Klipper e bloqueia quando não há agente ativo, quando a impressora está imprimindo ou quando o remoto retorna blockers.
+- Administração mostra preflight por job concluído, status aprovado/bloqueado/pendente, bloqueios, warnings, quantidade de comandos e checklist antes do envio.
+- Documentação atualizada em `TELAS.md`, `TESTES.md`, `DECISOES.md` e `RUNBOOK.md`.
+- Testes focados adicionados em `backend/tests/test_print_preflight.py` com fixture `backend/tests/fixtures/gcode/preflight_abs_cube.gcode`.
+- Validação executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_print_preflight.py ../backend/tests/test_slicing_pipeline.py ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q`; `npm --prefix frontend run build`.
 
 ## PKG-73: Envio Seguro De G-code Para Impressora
 

@@ -1474,6 +1474,22 @@ Critérios:
 - Validação frontend focada: `npm --prefix frontend run build`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-72 - Preflight De Impressão A Partir De Arquivo Fatiado
+
+- Validar parser seguro de G-code usando fixture controlada em `backend/tests/fixtures/gcode/preflight_abs_cube.gcode`.
+- Validar extração de dimensões máximas, temperaturas, filamento, nozzle, tempo estimado e checksum do artefato.
+- Validar bloqueio quando job não está concluído, G-code pertence a outra impressora ou artefato G-code não existe.
+- Validar bloqueio de temperatura perigosa e G-code sem comandos imprimíveis.
+- Validar warnings para divergência entre G-code e perfil de material.
+- Validar criação de job remoto `remote_gcode_preflight` quando há agente ativo.
+- Validar refresh para aprovado quando o agente retorna `can_execute=true`.
+- Validar bloqueio quando o agente retorna impressão em andamento ou blockers.
+- Validar UI de Administração com ação `Preflight`, blockers, warnings, metadados resumidos e checklist.
+- Testes automatizados focados: `cd backend && uv run --extra dev pytest ../backend/tests/test_print_preflight.py ../backend/tests/test_slicing_pipeline.py -q`.
+- Validação de schema/update: `cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q`.
+- Validação frontend focada: `npm --prefix frontend run build`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

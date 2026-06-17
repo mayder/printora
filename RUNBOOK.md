@@ -1390,6 +1390,42 @@ Rollback:
 - se `062_slicing_jobs.sql` já tiver sido aplicado e for necessário remover schema, restaurar backup SQLite anterior criado pelo versionador;
 - não executar `DROP TABLE`, remoção manual de artefatos ou limpeza de histórico sem confirmação explícita.
 
+## Preflight De Impressão
+
+Escopo:
+
+- analisar metadados de G-code gerado por job concluído;
+- validar volume, temperatura, nozzle/material quando houver metadados;
+- criar preflight remoto via agente para confirmar estado Moonraker/Klipper;
+- bloquear envio quando não há agente online, quando a impressora está imprimindo ou quando há incompatibilidade;
+- exibir checklist antes de qualquer envio.
+
+Endpoints:
+
+- listar preflights: `GET /api/slicing/preflights`;
+- criar preflight para job: `POST /api/slicing/jobs/<job_id>/preflight`;
+- atualizar retorno remoto: `POST /api/slicing/preflights/<preflight_id>/refresh`.
+
+Banco:
+
+- ordem: `063_print_preflight_checks.sql` depois de `062_slicing_jobs.sql`;
+- tabela: `print_preflight_checks`;
+- impacto: adiciona histórico de preflight e vínculo opcional com `agent_jobs`; não envia G-code e não altera Moonraker/Klipper.
+
+Validação:
+
+```bash
+cd backend && uv run --extra dev pytest ../backend/tests/test_print_preflight.py ../backend/tests/test_slicing_pipeline.py -q
+cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q
+npm --prefix frontend run build
+```
+
+Rollback:
+
+- reverter `backend/app/print_preflight.py`, endpoints de preflight em `backend/app/routes/slicing.py`, serviço frontend de slicing, painel de preflight e documentação;
+- se `063_print_preflight_checks.sql` já tiver sido aplicado e for necessário remover schema, restaurar backup SQLite anterior criado pelo versionador;
+- não executar `DROP TABLE`, remoção manual de preflights ou limpeza de `agent_jobs` sem confirmação explícita.
+
 Rollback:
 
 - para remover a camada de autenticação, reverter os arquivos do PKG-39;

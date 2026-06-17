@@ -782,3 +782,15 @@ Consequencias: preflight e envio seguro passam a ter uma origem rastreável. O b
 Impacto em testes: `backend/tests/test_slicing_pipeline.py`, schema versionado, build frontend e `./check.sh`.
 Impacto em rollback: médio; reverter remove API/UI do pipeline, mas jobs já criados permanecem no SQLite se o SQL tiver sido aplicado.
 Como reverter: reverter `backend/app/slicing_pipeline.py`, endpoints de jobs em `backend/app/routes/slicing.py`, painel de pipeline no frontend e documentação. Se `062_slicing_jobs.sql` já tiver sido aplicado e precisar desfazer schema, restaurar backup SQLite anterior criado pelo versionador; não executar `DROP TABLE` sem confirmação explícita.
+
+### DEC-20260616-19 - Preflight de impressão separa análise local e estado remoto
+
+Status: aceita
+Data: 2026-06-16
+Contexto: G-code gerado por fatiamento precisa ser validado antes de qualquer envio para impressora. A análise do arquivo é local e reproduzível, mas o estado real da impressora depende do agente/Moonraker no momento do envio.
+Decisao: persistir `print_preflight_checks` com metadados locais do G-code e, quando houver agente ativo, vincular um job `remote_gcode_preflight`. O preflight só fica aprovado quando não há blockers locais e o agente confirma `can_execute=true`, sem impressão em andamento.
+Alternativas consideradas: validar apenas o G-code local; delegar todo preflight ao agente; acoplar preflight diretamente ao envio seguro.
+Consequencias: PKG-73 pode exigir preflight aprovado e recente antes de salvar ou iniciar impressão. Ambientes sem agente continuam bloqueados com diagnóstico claro e checklist preservado.
+Impacto em testes: `backend/tests/test_print_preflight.py`, fixture G-code, schema versionado, build frontend e `./check.sh`.
+Impacto em rollback: médio; reverter remove API/UI de preflight, mas registros aplicados permanecem no SQLite se o script já rodou.
+Como reverter: reverter `backend/app/print_preflight.py`, endpoints de preflight em `backend/app/routes/slicing.py`, painel de preflight no frontend e documentação. Se `063_print_preflight_checks.sql` já tiver sido aplicado e precisar desfazer schema, restaurar backup SQLite anterior criado pelo versionador; não executar `DROP TABLE` sem confirmação explícita.
