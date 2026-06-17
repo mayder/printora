@@ -1420,6 +1420,49 @@ cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.
 npm --prefix frontend run build
 ```
 
+## Envio Seguro De G-code
+
+Escopo:
+
+- enviar G-code fatiado somente a partir de preflight aprovado e recente;
+- salvar arquivo no host via agente sem iniciar impressão;
+- iniciar impressão somente com confirmação textual ou step-up válido;
+- auditar usuário, impressora, job, preflight, checksum, arquivo remoto, versão do modelo, perfil e resultado remoto;
+- remover automaticamente somente arquivo salvo sem impressão iniciada.
+
+Endpoints:
+
+- listar entregas: `GET /api/slicing/deliveries`;
+- criar entrega: `POST /api/slicing/deliveries`;
+- cancelar entrega pendente: `POST /api/slicing/deliveries/<delivery_id>/cancel`;
+- remover arquivo salvo sem impressão: `POST /api/slicing/deliveries/<delivery_id>/rollback`.
+
+Banco:
+
+- ordem: `064_print_gcode_deliveries.sql` depois de `063_print_preflight_checks.sql`;
+- tabela: `print_gcode_deliveries`;
+- impacto: adiciona auditoria de entrega; não altera jobs antigos nem apaga artefatos.
+
+Agente:
+
+- `remote_gcode_upload` executa preflight remoto novamente e envia multipart para `/server/files/upload`;
+- `remote_gcode_delete` remove arquivo salvo por `/server/files/gcodes/<arquivo>`;
+- resultado remoto é sanitizado e não retorna `gcode_content`.
+
+Rollback:
+
+- se a entrega estiver `pending_remote`, cancelar o job antes do agente iniciar;
+- se o modo for `save_only` e status `saved`, usar rollback automático para remover o arquivo remoto;
+- se a impressão foi iniciada, rollback automático é bloqueado; usar controles do Moonraker/Klipper para pausar/cancelar com operador presente.
+
+Validação:
+
+```bash
+cd backend && uv run --extra dev pytest ../backend/tests/test_print_delivery.py ../backend/tests/test_print_preflight.py -q
+cd agent && go test ./...
+npm --prefix frontend run build
+```
+
 Rollback:
 
 - reverter `backend/app/print_preflight.py`, endpoints de preflight em `backend/app/routes/slicing.py`, serviço frontend de slicing, painel de preflight e documentação;

@@ -4424,7 +4424,17 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado.
+
+Notas de implementação:
+
+- Backend adicionou `print_delivery` com exigência de preflight aprovado e recente antes de salvar ou iniciar impressão.
+- API adicionou listagem, criação, cancelamento e rollback de entregas de G-code em `/api/slicing/deliveries`.
+- Agente adicionou jobs `remote_gcode_upload` e `remote_gcode_delete` para enviar arquivo ao Moonraker e remover arquivo salvo quando a impressão não foi iniciada.
+- UI de Administração > Pipeline de fatiamento mostra status de envio, ação de salvar arquivo, confirmação textual para iniciar impressão e remoção segura de arquivo salvo.
+- Auditoria persiste usuário, impressora, job, preflight, checksum, arquivo remoto, versão do modelo, perfil e resultado remoto.
+- SQL aditivo: `backend/sql/064_print_gcode_deliveries.sql`.
+- Validação executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_print_delivery.py ../backend/tests/test_print_preflight.py -q`; `go test ./...` em `agent`; `npm --prefix frontend run build`.
 
 ## PKG-74: Histórico De Trabalhos, Resultados E Telemetria De Impressão
 

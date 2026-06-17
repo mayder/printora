@@ -794,3 +794,15 @@ Consequencias: PKG-73 pode exigir preflight aprovado e recente antes de salvar o
 Impacto em testes: `backend/tests/test_print_preflight.py`, fixture G-code, schema versionado, build frontend e `./check.sh`.
 Impacto em rollback: médio; reverter remove API/UI de preflight, mas registros aplicados permanecem no SQLite se o script já rodou.
 Como reverter: reverter `backend/app/print_preflight.py`, endpoints de preflight em `backend/app/routes/slicing.py`, painel de preflight no frontend e documentação. Se `063_print_preflight_checks.sql` já tiver sido aplicado e precisar desfazer schema, restaurar backup SQLite anterior criado pelo versionador; não executar `DROP TABLE` sem confirmação explícita.
+
+### DEC-20260617-20 - Envio de G-code usa entrega auditada e upload remoto pelo agente
+
+Status: aceita
+Data: 2026-06-17
+Contexto: depois do preflight aprovado, o Printora precisa salvar ou iniciar impressão sem expor G-code bruto no frontend, sem enviar para impressora errada e com rollback operacional quando o arquivo ainda não foi impresso.
+Decisao: persistir `print_gcode_deliveries` como trilha de entrega e usar jobs de agente `remote_gcode_upload` e `remote_gcode_delete`. A entrega exige preflight aprovado e recente; iniciar impressão exige confirmação textual ou step-up válido. O agente reexecuta preflight remoto antes do upload e envia o arquivo por multipart para Moonraker.
+Alternativas consideradas: enviar cada linha por `/printer/gcode/script`; acoplar envio diretamente ao preflight; salvar arquivo remoto sem auditoria dedicada.
+Consequencias: o envio fica rastreável por usuário, impressora, job, preflight e checksum. O rollback automático só remove arquivo salvo sem impressão iniciada; impressão iniciada continua dependendo de ação operacional no Moonraker/Klipper.
+Impacto em testes: `backend/tests/test_print_delivery.py`, testes Go do agente, build frontend, schema versionado e `./check.sh`.
+Impacto em rollback: médio; reverter remove API/UI/agent jobs de entrega, mas registros aplicados permanecem no SQLite se o script já rodou.
+Como reverter: reverter `backend/app/print_delivery.py`, endpoints de entrega em `backend/app/routes/slicing.py`, jobs `remote_gcode_upload`/`remote_gcode_delete` no agente, painel de entrega no frontend e documentação. Se `064_print_gcode_deliveries.sql` já tiver sido aplicado e precisar desfazer schema, restaurar backup SQLite anterior criado pelo versionador; não executar `DROP TABLE` ou remoção manual de arquivos sem confirmação explícita.

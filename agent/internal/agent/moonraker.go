@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"sort"
@@ -399,6 +401,68 @@ func looksLikeAwaitingHeadersTimeout(detail string) bool {
 	return strings.Contains(detail, "awaiting headers") && (strings.Contains(detail, "timeout") || strings.Contains(detail, "deadline exceeded"))
 }
 
+func (c *MoonrakerClient) RemoteGcodeUpload(ctx context.Context, jobPayload map[string]any) map[string]any {
+	preflight := c.RemoteGcodePreflight(ctx, jobPayload)
+	if preflight["can_execute"] != true {
+		return sanitizeMap(map[string]any{
+			"safe_mode": "remote_gcode_upload_blocked",
+			"kind":      "gcode_upload",
+			"status":    "blocked",
+			"detail":    "preflight remoto bloqueou o envio",
+			"preflight": preflight,
+		})
+	}
+	content := stringValue(jobPayload["gcode_content"])
+	remoteName := safeRemoteGcodePath(stringValue(jobPayload["remote_filename"]))
+	if content == "" || remoteName == "" {
+		return sanitizeMap(map[string]any{
+			"safe_mode": "remote_gcode_upload_blocked",
+			"kind":      "gcode_upload",
+			"status":    "blocked",
+			"detail":    "job remoto sem arquivo G-code válido",
+			"preflight": preflight,
+		})
+	}
+	startPrint := jobPayload["start_print"] == true
+	result := map[string]any{
+		"safe_mode":       "remote_gcode_upload",
+		"kind":            "gcode_upload",
+		"status":          "uploaded",
+		"remote_filename": remoteName,
+		"started":         startPrint,
+		"preflight":       preflight,
+	}
+	if err := c.uploadGcode(ctx, remoteName, content, startPrint, result); err != nil {
+		result["status"] = "failed"
+		result["detail"] = err.Error()
+		return sanitizeMap(result)
+	}
+	if startPrint {
+		result["status"] = "started"
+	}
+	return sanitizeMap(result)
+}
+
+func (c *MoonrakerClient) RemoteGcodeDelete(ctx context.Context, jobPayload map[string]any) map[string]any {
+	remoteName := safeRemoteGcodePath(stringValue(jobPayload["remote_filename"]))
+	result := map[string]any{
+		"safe_mode":       "remote_gcode_delete",
+		"kind":            "gcode_delete",
+		"status":          "deleted",
+		"remote_filename": remoteName,
+	}
+	if remoteName == "" {
+		result["status"] = "failed"
+		result["detail"] = "arquivo remoto inválido"
+		return sanitizeMap(result)
+	}
+	if err := c.delete(ctx, "/server/files/gcodes/"+url.PathEscape(remoteName), "moonraker_response", result); err != nil {
+		result["status"] = "failed"
+		result["detail"] = err.Error()
+	}
+	return sanitizeMap(result)
+}
+
 func (c *MoonrakerClient) gcodeStore(ctx context.Context, count int) any {
 	payload := map[string]any{}
 	if count <= 0 {
@@ -408,6 +472,77 @@ func (c *MoonrakerClient) gcodeStore(ctx context.Context, count int) any {
 		return map[string]any{"error": err.Error()}
 	}
 	return payload["gcode_store"]
+}
+
+func (c *MoonrakerClient) uploadGcode(ctx context.Context, remoteName string, content string, print bool, result map[string]any) error {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	_ = writer.WriteField("root", "gcodes")
+	_ = writer.WriteField("path", "printora")
+	_ = writer.WriteField("print", fmt.Sprintf("%t", print))
+	fileName := remoteName
+	if idx := strings.LastIndex(remoteName, "/"); idx >= 0 {
+		fileName = remoteName[idx+1:]
+	}
+	part, err := writer.CreateFormFile("file", fileName)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(part, strings.NewReader(content)); err != nil {
+		return err
+	}
+	if err := writer.Close(); err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/server/files/upload", &body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	resp, err := c.http.Do(req)
+	if err != nil {
+		result["moonraker_response_error"] = err.Error()
+		return err
+	}
+	defer resp.Body.Close()
+	var payload any
+	_ = json.NewDecoder(resp.Body).Decode(&payload)
+	result["moonraker_response"] = payload
+	if resp.StatusCode >= 400 {
+		err := fmt.Errorf("moonraker /server/files/upload: status %d", resp.StatusCode)
+		result["moonraker_response_error"] = err.Error()
+		return err
+	}
+	return nil
+}
+
+func safeRemoteGcodePath(value string) string {
+	value = strings.TrimSpace(strings.ReplaceAll(value, "\\", "/"))
+	value = strings.TrimPrefix(value, "/")
+	parts := strings.Split(value, "/")
+	clean := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" || part == "." || part == ".." {
+			continue
+		}
+		part = strings.Map(func(r rune) rune {
+			if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '.' || r == '_' || r == '-' {
+				return r
+			}
+			return '_'
+		}, part)
+		if part != "" {
+			clean = append(clean, part)
+		}
+	}
+	if len(clean) == 0 {
+		return ""
+	}
+	if !strings.HasSuffix(strings.ToLower(clean[len(clean)-1]), ".gcode") {
+		clean[len(clean)-1] += ".gcode"
+	}
+	return strings.Join(clean, "/")
 }
 
 func gcodeStoreMessages(value any) []string {
@@ -792,5 +927,34 @@ func (c *MoonrakerClient) get(ctx context.Context, path string, key string, out 
 		return err
 	}
 	out[key] = decoded
+	return nil
+}
+
+func (c *MoonrakerClient) delete(ctx context.Context, path string, key string, out map[string]any) error {
+	target, err := url.JoinPath(c.baseURL, strings.TrimPrefix(path, "/"))
+	if err != nil {
+		out[key+"_error"] = err.Error()
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, target, nil)
+	if err != nil {
+		out[key+"_error"] = err.Error()
+		return err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		out[key+"_error"] = err.Error()
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		err := fmt.Errorf("moonraker %s: status %d", path, resp.StatusCode)
+		out[key+"_error"] = err.Error()
+		return err
+	}
+	var decoded any
+	if err := json.NewDecoder(resp.Body).Decode(&decoded); err == nil {
+		out[key] = decoded
+	}
 	return nil
 }

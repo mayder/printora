@@ -56,6 +56,33 @@ export type PrintPreflight = {
   approved_at: string | null;
 };
 
+export type PrintDelivery = {
+  id: number;
+  owner_user_id: number | null;
+  printer_id: number;
+  slicing_job_id: number;
+  preflight_id: number;
+  remote_agent_job_id: number | null;
+  rollback_agent_job_id: number | null;
+  mode: "save_only" | "save_and_print";
+  status: "pending_remote" | "saved" | "printing" | "blocked" | "failed" | "canceled" | "rollback_pending" | "rolled_back" | "rollback_failed";
+  remote_filename: string;
+  gcode_checksum_sha256: string;
+  gcode_size_bytes: number;
+  confirmation_phrase: string;
+  confirmation_matched: boolean;
+  preflight_snapshot: Record<string, any>;
+  remote_result: Record<string, any>;
+  rollback_result: Record<string, any>;
+  blockers: string[];
+  audit: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  canceled_at: string | null;
+  rolled_back_at: string | null;
+};
+
 export type SlicingJobCreate = {
   printer_id: number;
   material_profile_id?: number | null;
@@ -71,6 +98,7 @@ export const slicingApi = {
   engine: () => apiRequest<SlicingEngineInfo>("/api/slicing/engine"),
   jobs: () => apiRequest<SlicingJob[]>("/api/slicing/jobs"),
   preflights: () => apiRequest<PrintPreflight[]>("/api/slicing/preflights"),
+  deliveries: () => apiRequest<PrintDelivery[]>("/api/slicing/deliveries"),
   createJob: (body: SlicingJobCreate) =>
     apiRequest<SlicingJob>("/api/slicing/jobs", {
       method: "POST",
@@ -81,4 +109,11 @@ export const slicingApi = {
   cancelJob: (jobId: number) => apiRequest<SlicingJob>(`/api/slicing/jobs/${jobId}/cancel`, { method: "POST" }),
   createPreflight: (jobId: number) => apiRequest<PrintPreflight>(`/api/slicing/jobs/${jobId}/preflight`, { method: "POST" }),
   refreshPreflight: (preflightId: number) => apiRequest<PrintPreflight>(`/api/slicing/preflights/${preflightId}/refresh`, { method: "POST" }),
+  createDelivery: (body: { preflight_id: number; mode: "save_only" | "save_and_print"; confirmation_phrase?: string; step_up_token?: string | null }) =>
+    apiRequest<PrintDelivery>("/api/slicing/deliveries", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  cancelDelivery: (deliveryId: number) => apiRequest<PrintDelivery>(`/api/slicing/deliveries/${deliveryId}/cancel`, { method: "POST" }),
+  rollbackDelivery: (deliveryId: number) => apiRequest<PrintDelivery>(`/api/slicing/deliveries/${deliveryId}/rollback`, { method: "POST" }),
 };

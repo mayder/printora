@@ -108,6 +108,14 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Social | Tela autocontida `frontend/src/screens/SocialScreen.tsx` | `frontend/src/services/socialApi.ts` |
 | Catálogo mestre | Tela autocontida `frontend/src/screens/CatalogAdminScreen.tsx` | `frontend/src/services/socialApi.ts` |
 
+## Administracao - Fatiamento e envio
+
+- A area `Pipeline de fatiamento` em Administracao separa criacao/listagem de jobs, preflight e entrega segura de G-code.
+- Job concluido mostra acao `Preflight`; preflight aprovado libera `Salvar G-code` e `Iniciar impressão`.
+- `Iniciar impressão` exige confirmação inline no formato mostrado pela própria tela; a UI nao exibe conteudo bruto do G-code nem tokens.
+- Entrega salva mostra arquivo remoto e status; rollback automatico fica restrito a arquivo salvo sem impressão iniciada.
+- Estados bloqueado, falha, pendente, salvo e impressão iniciada devem ficar visiveis no card do job.
+
 ## Distribuicao de conteudo
 
 - Backups de impressora ficam na aba `Diagnostico` do detalhe da impressora, junto de snapshots, comparacoes, relatorio sanitizado e evidencias diagnosticas.

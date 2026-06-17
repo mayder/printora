@@ -1,7 +1,7 @@
 import React from "react";
 import { Metric } from "../components/common";
 import { printerApi } from "../services/printerApi";
-import { slicingApi, type PrintPreflight, type SlicingEngineInfo, type SlicingJob } from "../services/slicingApi";
+import { slicingApi, type PrintDelivery, type PrintPreflight, type SlicingEngineInfo, type SlicingJob } from "../services/slicingApi";
 import { formatDateTime } from "../utils/formatters";
 import type { ScreenPropsFor } from "./ScreenProps";
 import type { PrinterRecord } from "../types/printers";
@@ -54,6 +54,8 @@ export function SettingsScreen(props: SettingsScreenProps) {
   const [slicingError, setSlicingError] = React.useState<string | null>(null);
   const [slicingJobs, setSlicingJobs] = React.useState<SlicingJob[]>([]);
   const [printPreflights, setPrintPreflights] = React.useState<PrintPreflight[]>([]);
+  const [printDeliveries, setPrintDeliveries] = React.useState<PrintDelivery[]>([]);
+  const [deliveryConfirmations, setDeliveryConfirmations] = React.useState<Record<number, string>>({});
   const [slicingPrinters, setSlicingPrinters] = React.useState<PrinterRecord[]>([]);
   const [slicingJobBusy, setSlicingJobBusy] = React.useState(false);
   const [slicingDraft, setSlicingDraft] = React.useState({
@@ -83,12 +85,13 @@ export function SettingsScreen(props: SettingsScreenProps) {
 
   async function loadSlicingPipeline() {
     try {
-      const [printersResponse, jobs, preflights] = await Promise.all([printerApi.list(), slicingApi.jobs(), slicingApi.preflights()]);
+      const [printersResponse, jobs, preflights, deliveries] = await Promise.all([printerApi.list(), slicingApi.jobs(), slicingApi.preflights(), slicingApi.deliveries()]);
       const printersPayload = await printersResponse.json() as PrinterRecord[] | { printers?: PrinterRecord[] };
       const printers = Array.isArray(printersPayload) ? printersPayload : printersPayload.printers ?? [];
       setSlicingPrinters(printers.filter((printer) => printer.is_active));
       setSlicingJobs(jobs);
       setPrintPreflights(preflights);
+      setPrintDeliveries(deliveries);
       setSlicingDraft((current) => current.printerId || printers.length === 0 ? current : { ...current, printerId: String(printers[0].id) });
     } catch (err) {
       setSlicingError(err instanceof Error ? err.message : "Falha ao carregar pipeline de fatiamento");
@@ -170,6 +173,37 @@ export function SettingsScreen(props: SettingsScreenProps) {
       setPrintPreflights((current) => current.map((item) => item.id === preflight.id ? preflight : item));
     } catch (err) {
       setSlicingError(err instanceof Error ? err.message : "Falha ao atualizar preflight de impressão");
+    } finally {
+      setSlicingJobBusy(false);
+    }
+  }
+
+  async function createPrintDelivery(preflight: PrintPreflight, mode: PrintDelivery["mode"]) {
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const confirmation = mode === "save_and_print" ? deliveryConfirmations[preflight.id] ?? "" : "";
+      const delivery = await slicingApi.createDelivery({
+        preflight_id: preflight.id,
+        mode,
+        confirmation_phrase: confirmation,
+      });
+      setPrintDeliveries((current) => [delivery, ...current.filter((item) => item.id !== delivery.id)].slice(0, 30));
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao enviar G-code");
+    } finally {
+      setSlicingJobBusy(false);
+    }
+  }
+
+  async function rollbackPrintDelivery(deliveryId: number) {
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const delivery = await slicingApi.rollbackDelivery(deliveryId);
+      setPrintDeliveries((current) => current.map((item) => item.id === delivery.id ? delivery : item));
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao remover arquivo remoto");
     } finally {
       setSlicingJobBusy(false);
     }
@@ -294,9 +328,14 @@ export function SettingsScreen(props: SettingsScreenProps) {
                   <span>{slicingJobStatus(job.status)} · {job.quality_reference} · {formatDateTime(job.created_at)}</span>
                   {job.error_message ? <small>{job.error_message}</small> : null}
                   {job.artifacts.length ? <small>{job.artifacts.length} artefato(s) rastreado(s)</small> : null}
-                  <PreflightSummary preflight={latestPreflightForJob(printPreflights, job.id)} />
+                  <PreflightSummary preflight={latestPreflightForJob(printPreflights, job.id)} delivery={latestDeliveryForJob(printDeliveries, job.id)} />
                 </div>
                 <div className="inline-actions">
+                  {(() => {
+                    const latestPreflight = latestPreflightForJob(printPreflights, job.id);
+                    const latestDelivery = latestDeliveryForJob(printDeliveries, job.id);
+                    return (
+                      <>
                   {job.status === "planned" || job.status === "failed" ? (
                     <button type="button" className="secondary-button" onClick={() => void runSlicingJob(job.id)} disabled={slicingJobBusy}>
                       Executar
@@ -317,6 +356,32 @@ export function SettingsScreen(props: SettingsScreenProps) {
                       Atualizar preflight
                     </button>
                   ) : null}
+                  {latestPreflight?.status === "approved" ? (
+                    <>
+                      <label className="settings-confirm-inline">
+                        <span>Confirmar início</span>
+                        <input
+                          value={deliveryConfirmations[latestPreflight.id] ?? ""}
+                          onChange={(event) => setDeliveryConfirmations((current) => ({ ...current, [latestPreflight.id]: event.target.value }))}
+                          placeholder={`IMPRIMIR ${latestPreflight.printer_id}-${latestPreflight.id}`}
+                        />
+                      </label>
+                      <button type="button" className="secondary-button" onClick={() => void createPrintDelivery(latestPreflight, "save_only")} disabled={slicingJobBusy}>
+                        Salvar G-code
+                      </button>
+                      <button type="button" className="primary-button" onClick={() => void createPrintDelivery(latestPreflight, "save_and_print")} disabled={slicingJobBusy}>
+                        Iniciar impressão
+                      </button>
+                    </>
+                  ) : null}
+                  {latestDelivery?.status === "saved" && latestDelivery.mode === "save_only" ? (
+                    <button type="button" className="secondary-button" onClick={() => void rollbackPrintDelivery(latestDelivery.id)} disabled={slicingJobBusy}>
+                      Remover arquivo
+                    </button>
+                  ) : null}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -470,20 +535,45 @@ function latestPreflightForJob(preflights: PrintPreflight[], jobId: number): Pri
   return preflights.find((item) => item.slicing_job_id === jobId) ?? null;
 }
 
-function PreflightSummary({ preflight }: { preflight: PrintPreflight | null }) {
-  if (!preflight) return null;
+function latestDeliveryForJob(deliveries: PrintDelivery[], jobId: number): PrintDelivery | null {
+  return deliveries.find((item) => item.slicing_job_id === jobId) ?? null;
+}
+
+function PreflightSummary({ preflight, delivery }: { preflight: PrintPreflight | null; delivery: PrintDelivery | null }) {
+  if (!preflight && !delivery) return null;
   const labels: Record<PrintPreflight["status"], string> = {
     approved: "preflight aprovado",
     blocked: "preflight bloqueado",
     pending_remote: "preflight remoto pendente",
     failed: "preflight falhou",
   };
+  const deliveryLabels: Record<PrintDelivery["status"], string> = {
+    pending_remote: "envio pendente",
+    saved: "G-code salvo",
+    printing: "impressão iniciada",
+    blocked: "envio bloqueado",
+    failed: "envio falhou",
+    canceled: "envio cancelado",
+    rollback_pending: "remoção pendente",
+    rolled_back: "arquivo removido",
+    rollback_failed: "remoção falhou",
+  };
   return (
-    <div className={`settings-preflight-summary ${preflight.status}`}>
-      <small>{labels[preflight.status]} · {preflight.local_metadata.command_count ?? 0} comando(s)</small>
-      {preflight.blockers.slice(0, 2).map((blocker) => <small key={blocker}>{blocker}</small>)}
-      {preflight.warnings.slice(0, 2).map((warning) => <small key={warning}>{warning}</small>)}
-      {preflight.status === "approved" ? <small>{preflight.checklist.slice(0, 3).join(" · ")}</small> : null}
+    <div className={`settings-preflight-summary ${preflight?.status ?? delivery?.status}`}>
+      {preflight ? (
+        <>
+          <small>{labels[preflight.status]} · {preflight.local_metadata.command_count ?? 0} comando(s)</small>
+          {preflight.blockers.slice(0, 2).map((blocker) => <small key={blocker}>{blocker}</small>)}
+          {preflight.warnings.slice(0, 2).map((warning) => <small key={warning}>{warning}</small>)}
+          {preflight.status === "approved" ? <small>{preflight.checklist.slice(0, 3).join(" · ")}</small> : null}
+        </>
+      ) : null}
+      {delivery ? (
+        <>
+          <small>{deliveryLabels[delivery.status]} · {delivery.remote_filename}</small>
+          {delivery.blockers.slice(0, 2).map((blocker) => <small key={blocker}>{blocker}</small>)}
+        </>
+      ) : null}
     </div>
   );
 }

@@ -1490,6 +1490,21 @@ Critérios:
 - Validação frontend focada: `npm --prefix frontend run build`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-73 - Envio Seguro De G-code Para Impressora
+
+- Validar que envio exige preflight aprovado e recente.
+- Validar bloqueio quando o preflight expirou, não pertence ao job/impressora ou o checksum do G-code mudou.
+- Validar `save_only` criando entrega auditada sem iniciar impressão.
+- Validar `save_and_print` exigindo confirmação textual correta ou step-up válido.
+- Validar que o frontend não recebe conteudo bruto do G-code no resultado da entrega.
+- Validar rollback remoto apenas para arquivo salvo sem impressão iniciada.
+- Validar agente Go com upload multipart para `/server/files/upload` e remoção por `/server/files/gcodes/<arquivo>`.
+- Validar UI de Administração com status de entrega, confirmação inline, salvar, iniciar e remover arquivo.
+- Testes automatizados focados: `cd backend && uv run --extra dev pytest ../backend/tests/test_print_delivery.py ../backend/tests/test_print_preflight.py -q`.
+- Validação do agente: `cd agent && go test ./...`.
+- Validação frontend focada: `npm --prefix frontend run build`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

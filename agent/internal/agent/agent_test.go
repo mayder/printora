@@ -488,6 +488,58 @@ func TestRemoteGcodeExecuteTreatsAwaitingHeadersTimeoutAsDispatched(t *testing.T
 	}
 }
 
+func TestRemoteGcodeUploadSendsMultipartFileAndCanStartPrint(t *testing.T) {
+	var sawUpload bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/server/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"klippy_state": "ready"}})
+		case "/printer/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"state": "ready"}})
+		case "/printer/objects/list":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"objects": []any{"toolhead", "print_stats"}}})
+		case "/printer/objects/query":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"status": map[string]any{"print_stats": map[string]any{"state": "standby"}}}})
+		case "/server/files/upload":
+			sawUpload = true
+			if err := r.ParseMultipartForm(1024 * 1024); err != nil {
+				t.Fatal(err)
+			}
+			if r.FormValue("root") != "gcodes" || r.FormValue("path") != "printora" || r.FormValue("print") != "true" {
+				t.Fatalf("unexpected upload form: %#v", r.Form)
+			}
+			file, header, err := r.FormFile("file")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer file.Close()
+			if header.Filename != "cube_job_1.gcode" {
+				t.Fatalf("unexpected filename: %s", header.Filename)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"item": map[string]any{"path": "printora/cube_job_1.gcode"}}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewMoonrakerClient(server.URL, time.Second)
+	result := client.RemoteGcodeUpload(context.Background(), map[string]any{
+		"remote_filename": "printora/cube_job_1.gcode",
+		"gcode_content":   "G28\n",
+		"start_print":     true,
+	})
+	if !sawUpload {
+		t.Fatal("expected upload request")
+	}
+	if result["status"] != "started" || result["started"] != true {
+		t.Fatalf("unexpected upload result: %#v", result)
+	}
+	if _, leaked := result["gcode_content"]; leaked {
+		t.Fatalf("gcode content leaked in result: %#v", result)
+	}
+}
+
 func TestAgentHandlesRemoteDoctorWithSanitizedLogTail(t *testing.T) {
 	tmpDir := t.TempDir()
 	logPath := filepath.Join(tmpDir, "agent.log")

@@ -281,6 +281,30 @@
   border-left-color: var(--warning);
 }
 
+.settings-preflight-summary.saved,
+.settings-preflight-summary.printing,
+.settings-preflight-summary.rolled_back {
+  border-left-color: var(--success);
+}
+
+.settings-confirm-inline {
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+  max-width: 220px;
+}
+
+.settings-confirm-inline span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.settings-confirm-inline input {
+  min-height: 34px;
+  border-radius: 8px;
+}
+
 @media (max-width: 920px) {
   .settings-inline-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));

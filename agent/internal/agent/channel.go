@@ -252,6 +252,20 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 		} else {
 			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
 		}
+	case "remote_gcode_upload":
+		payload := r.Moonraker.RemoteGcodeUpload(ctx, job.Payload)
+		if payload["status"] == "uploaded" || payload["status"] == "started" {
+			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+		} else {
+			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
+		}
+	case "remote_gcode_delete":
+		payload := r.Moonraker.RemoteGcodeDelete(ctx, job.Payload)
+		if payload["status"] == "deleted" {
+			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+		} else {
+			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
+		}
 	case "remote_host_script":
 		payload := RemoteHostScript(ctx, job.Payload)
 		if payload["status"] == "ok" {
