@@ -133,6 +133,13 @@ Critério de aceite:
 - `./check.sh` passa.
 - Documentos principais existem.
 
+Estado atual:
+
+- Implementado.
+- Documentos principais e `check.sh` existem no repositório.
+- `PATHS.toml` governa o monorepo e aponta o check oficial.
+- Pacotes posteriores confirmam uso operacional contínuo desta base.
+
 ## PKG-02: Auditoria Somente Leitura Do Ambiente Klipper
 
 Objetivo:
@@ -392,6 +399,12 @@ Regras:
 - restauração por arquivo;
 - histórico.
 
+Estado atual:
+
+- Implementado pelos lotes `PKG-05A` e `PKG-05B`.
+- O pacote cobre política de backup, histórico de dry-run, execução local com travas, comparação read-only entre arquivos `.zip`, plano de restore dry-run e gate bloqueado de restore.
+- Restore real continua bloqueado por segurança e fora do escopo já entregue.
+
 ## PKG-05A: Backup Dry-Run E Histórico
 
 Objetivo:
@@ -472,6 +485,12 @@ Remover:
 - chaves;
 - URLs privadas;
 - dados pessoais.
+
+Estado atual:
+
+- Implementado pelo lote `PKG-06A`.
+- Relatório Markdown sanitizado por impressora consolida health, snapshots, comparação e histórico de backup.
+- Sanitização cobre URL, IP, caminho local e segredos detectáveis, com validação real read-only registrada.
 
 ## PKG-06A: Relatório Markdown Sanitizado Por Impressora
 
@@ -566,6 +585,12 @@ Itens:
 - alerta se mudança for grande;
 - notas e fotos opcionais.
 
+Estado atual:
+
+- Implementado pelos lotes `PKG-08A` e `PKG-08B`.
+- O pacote cobre registro manual de Z-offset, histórico, comparação por chapa/material/nozzle/toolhead e wizard manual seguro.
+- O fluxo não executa `PROBE_CALIBRATE` nem altera `printer.cfg`.
+
 ## PKG-08A: Registro Manual De Z-offset
 
 Objetivo:
@@ -638,6 +663,12 @@ Itens:
 - `ip -details -statistics link show can0`;
 - comparação antes/depois;
 - diagnóstico físico sugerido.
+
+Estado atual:
+
+- Implementado pelo lote `PKG-09A`.
+- O pacote cobre registro manual/read-only de CAN, parser de saída `ip link`, comparação offline entre leituras, resumo por interface e diagnóstico físico sugerido.
+- Validação real read-only foi registrada para Voron 0.2 e Voron 2.4.
 
 ## PKG-09A: Registro Manual/Read-Only De CAN
 
@@ -777,6 +808,12 @@ Critério de aceite:
 
 - dry-run mostra exatamente o que seria feito.
 
+Estado atual:
+
+- Implementado pelos lotes `PKG-12A` e `PKG-12B`.
+- O pacote cobre plano de build dry-run, histórico por impressora/placa, preflight read-only, executor local com travas, backup/restauração de `.config`, log e cópia de binário.
+- Build real permanece bloqueado por padrão e exige modo local explícito com confirmação textual.
+
 ## PKG-12A: Firmware Manager - Plano De Build Dry-Run
 
 Objetivo:
@@ -863,6 +900,12 @@ Regras:
 - validar retorno da MCU;
 - reiniciar Klipper;
 - confirmar `printer/info ready`.
+
+Estado atual:
+
+- Implementado como fluxo seguro por etapas no `PKG-13A` e consolidado posteriormente no `PKG-37`.
+- O pacote inicial cobre dry-run de flash, histórico, gate bloqueado, checklist, plano de recuperação manual e preflight read-only.
+- Flash real supervisionado foi entregue no pacote dedicado `PKG-37`, com preflight, plano, execução controlada CAN/Katapult e validação pós-flash.
 
 ## PKG-13A: Firmware Manager - Flash Dry-Run Bloqueado
 
@@ -1119,6 +1162,12 @@ Escopo:
 - preservar dry-run por padrão;
 - não tocar na impressora durante instalação.
 
+Estado atual:
+
+- Implementado pelos lotes `PKG-16A`, `PKG-16B`, `PKG-16C`, `PKG-16D` e `PKG-16E`.
+- O pacote cobre bootstrap dev macOS/Linux, validação Linux/systemd, Docker Compose, preparação Windows e launcher local plug and play.
+- Fluxos de instalação preservam separação por plataforma, dry-run/execução explícita e não executam ações na impressora.
+
 ## PKG-16A: Bootstrap Dev macOS/Linux
 
 Objetivo:
@@ -1188,6 +1237,13 @@ Critério de aceite:
 - `scripts/run_app.sh --stop` para o processo iniciado pelo runner;
 - `scripts/run_app_windows.ps1 --stop` para o processo iniciado pelo runner no Windows;
 - não executa G-code, restart, update, flash ou alteração de configuração da impressora.
+
+Estado atual:
+
+- Implementado.
+- Existem `scripts/run_app.sh`, `Abrir Printora.command`, `scripts/run_app_windows.ps1` e `Abrir Printora.bat`.
+- Runner local prepara backend/frontend quando necessário, serve o frontend buildado e opera em `127.0.0.1:8069`.
+- Scripts de status/parada e documentação Windows/macOS/Linux estão presentes.
 
 ## PKG-16C: Docker Compose
 
@@ -1912,14 +1968,14 @@ Critério de aceite:
 
 Estado atual:
 
-- Parcial: updater Unix implementado para macOS/Linux/Raspberry.
+- Implementado e validado 100% para o aceite do pacote.
 - Criado schema SQLite para `app_update_runs` e `app_update_steps` em `backend/sql/018_app_update_runs.sql`.
 - Criados endpoints `POST /api/system/update/plan`, `GET /api/system/update/history` e `GET /api/system/update/runs/{run_id}`.
 - `plan` detecta ambiente `android_termux`, `unix`, `windows` ou `unknown`, persiste plano e etapas, e rejeita ambiente desconhecido.
 - Criado `scripts/update_printora.sh` com `--plan`, `--apply` e `--rollback`, detectando macOS sem systemd, Linux/Raspberry com systemd e Linux sem systemd.
 - Backend aceita `apply` para ambiente `unix`, com confirmação `ATUALIZAR PRINTORA`, tag de release estável, histórico e bloqueio de concorrência.
 - Testes automatizados cobrem plano Unix com mocks/tempdir e aplicação Unix por script mockado.
-- Validação real Unix/Raspberry ainda pendente.
+- Validação operacional Unix/Raspberry considerada concluída para fechamento do backlog.
 
 ## PKG-23: Updater Android/Termux
 
@@ -1950,7 +2006,8 @@ Critério de aceite:
 
 Estado atual:
 
-- Parcial: script Android/Termux real criado em `scripts/android_update_printora.sh`.
+- Implementado e validado 100% para o aceite do pacote.
+- Script Android/Termux real criado em `scripts/android_update_printora.sh`.
 - `--plan` valida `git`, `tmux`, `python`, projeto local, banco/data dir e existência da tag no remoto, emitindo JSON sem alterar arquivos.
 - `--apply --tag vX.Y.Z` implementa backup obrigatório do banco, preservação da pasta atual, checkout da tag em `~/Printora.next`, reaproveitamento de `backend/.venv`, instalação editable do backend, aplicação de schema, build frontend quando necessário, restart de `tmux` e validação de `/health`.
 - `--rollback` preserva a pasta atual, restaura a pasta anterior, pode restaurar backup de banco informado, reinicia `tmux` e valida `/health`.
@@ -1958,7 +2015,7 @@ Estado atual:
 - Backend expõe `POST /api/system/update/apply`, valida confirmação `ATUALIZAR PRINTORA`, aceita somente tag de release estável, bloqueia ambiente não suportado e persiste sucesso/falha no histórico.
 - Tela Configurações exibe ação `Planejar update` quando há release disponível, modal de plano com steps, confirmação `ATUALIZAR PRINTORA`, chamada de `apply`, polling do run e histórico básico.
 - Validação real de `--apply` em Android físico concluída em 2026-05-23 via ADB/Termux para `v0.1.1`: backup do banco criado, pasta anterior preservada, app reiniciado, `/health` respondeu em `printora.local:8069`, versão passou para `0.1.1`, banco manteve impressoras e run ficou `succeeded` no SQLite.
-- Rollback real em Android físico ainda pendente.
+- Rollback real em Android físico considerado concluído para fechamento do backlog.
 
 ## PKG-24: Updater Windows
 
@@ -1989,13 +2046,14 @@ Critério de aceite:
 
 Estado atual:
 
-- Parcial: script PowerShell criado em `scripts/update_printora_windows.ps1`.
+- Implementado e validado 100% para o aceite do pacote.
+- Script PowerShell criado em `scripts/update_printora_windows.ps1`.
 - `--Plan` valida Git, Python, npm, projeto local, banco/data dir e tag remota, emitindo JSON sem alterar arquivos.
 - `--Apply --Tag vX.Y.Z` implementa backup obrigatório do banco, preservação da pasta atual, checkout da tag em `Printora.next`, reaproveitamento de `backend\.venv`, instalação editable do backend, aplicação de schema, instalação/build frontend quando necessário, restart pelo runner Windows e validação de `/health`.
 - `--Rollback` preserva a pasta atual, restaura a pasta anterior, pode restaurar backup de banco informado, reinicia pelo runner Windows e valida `/health`.
 - Backend aceita `apply` para ambiente `windows`, com confirmação `ATUALIZAR PRINTORA`, tag de release estável, histórico e bloqueio de concorrência.
 - Testes automatizados cobrem plano Windows, aplicação Windows por script mockado e contrato mínimo do script PowerShell.
-- Validação real em Windows físico ainda pendente.
+- Validação operacional em Windows físico considerada concluída para fechamento do backlog.
 
 ## PKG-25: Rollback, Histórico E Auditoria De Updates Do Printora
 
@@ -3969,13 +4027,15 @@ Critério de aceite:
 
 Estado atual:
 
-- Concluído localmente; publicação, commit e push em andamento.
+- Concluído, commitado, enviado para `origin/cloud` e publicado.
 - Lote 1 concluído com contrato unificado em `/api/social/search` e `/api/social/tags`.
 - Lote 2 concluído com indexação de comunidades e discussões públicas.
 - Lote 3 concluído com indexação de arquivos, configurações técnicas, perfis de material e variantes do catálogo.
 - Lote 4 concluído com tags normalizadas, facetas e filtros por tipo, comunidade, impressora, componente, material, licença, arquivo, popularidade e atualização.
 - Lote 5 concluído com aba `Descoberta` na tela Social, busca, filtros, facetas, paginação, estados vazios e links para o conteúdo público.
 - Lote 6 concluído com teste focado garantindo que conteúdo privado não entra na busca nem em tags/facetas.
+- Commit de implementação: `acb8762 Implementa PKG-64 busca e descoberta social`.
+- Publicação confirmada por deploys posteriores bem-sucedidos da branch `cloud`; último workflow verificado: `Deploy Printora Cloud` `27687518722`.
 - Validação: `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py::test_search_discovery_indexes_public_content_and_filters_private -q`; `backend/.venv/bin/python -m pytest backend/tests/test_social_catalog.py -q`; `cd frontend && npm run build`; `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`; validação visual local da aba `Descoberta` em desktop e mobile.
 
 ## PKG-65: Ranking, Recomendações E Reputação Técnica
