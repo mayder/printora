@@ -175,9 +175,11 @@ export function PrinterDetailScreen(props: PrinterDetailScreenProps) {
                 Atualizar status
               </button>
             </div>
-            <PrinterPublicPanel printer={selectedPrinter} loading={loading} loadPrinters={loadPrinters} showToast={props.showToast} />
-            <PrinterTechnicalConfigPanel printer={selectedPrinter} loading={loading} showToast={props.showToast} />
-            <PrinterMaterialProfilePanel printer={selectedPrinter} loading={loading} showToast={props.showToast} />
+            <div className="printer-profile-grid">
+              <PrinterPublicPanel printer={selectedPrinter} loading={loading} loadPrinters={loadPrinters} showToast={props.showToast} />
+              <PrinterTechnicalConfigPanel printer={selectedPrinter} loading={loading} showToast={props.showToast} />
+              <PrinterMaterialProfilePanel printer={selectedPrinter} loading={loading} showToast={props.showToast} />
+            </div>
           </article>
         );
     }

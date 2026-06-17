@@ -721,12 +721,32 @@
     grid-template-columns: 1fr;
   }
 }
-.printer-public-panel {
+.printer-profile-grid {
   border-top: 1px solid var(--border);
   display: grid;
-  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
   margin-top: 18px;
   padding-top: 18px;
+}
+
+.printer-public-panel {
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  display: grid;
+  gap: 16px;
+  padding: 14px;
+}
+
+.printer-public-panel .panel-heading {
+  align-items: flex-start;
+  margin-bottom: 0;
+}
+
+.printer-public-panel .panel-heading > .badge {
+  min-width: 112px;
 }
 
 .printer-public-grid {
@@ -870,6 +890,7 @@
 }
 
 @media (max-width: 900px) {
+  .printer-profile-grid,
   .printer-public-grid,
   .printer-public-preview,
   .printer-technical-layout,
