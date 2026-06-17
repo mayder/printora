@@ -5,13 +5,8 @@
   margin-bottom: 14px;
 }
 
-.fleet-overview-strip {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  justify-content: stretch;
-  gap: 10px;
-}
-
-.fleet-overview-strip .badge {
+.overview-strip .badge,
+.overview-strip .badge-with-action {
   justify-self: stretch;
   min-width: 0;
   width: 100%;
@@ -20,11 +15,6 @@
 @media (max-width: 920px) {
   .overview-strip {
     grid-template-columns: 1fr;
-  }
-
-  .overview-strip .badge {
-    justify-self: stretch;
-    width: 100%;
   }
 }
 
