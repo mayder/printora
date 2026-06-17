@@ -348,6 +348,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  max-height: 172px;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .discovery-facet-group button,
@@ -393,7 +396,7 @@
 .recommendation-grid {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .recommendation-card {
@@ -412,6 +415,15 @@
   min-width: 0;
 }
 
+.recommendation-card strong {
+  display: -webkit-box;
+  line-height: 1.25;
+  min-height: 2.5em;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .recommendation-card strong,
 .recommendation-card p,
 .recommendation-meta span {
@@ -419,10 +431,14 @@
 }
 
 .recommendation-card p {
+  display: -webkit-box;
   color: var(--muted);
   font-size: 0.8rem;
   line-height: 1.35;
   margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .recommendation-meta {
@@ -436,8 +452,8 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--muted);
-  font-size: 0.76rem;
-  padding: 4px 7px;
+  font-size: 0.72rem;
+  padding: 3px 6px;
 }
 
 .recommendation-card a {
