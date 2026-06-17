@@ -4324,7 +4324,18 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado.
+
+Notas de conclusão:
+
+- SQL `062_slicing_jobs.sql` cria jobs de fatiamento e artefatos rastreáveis por usuário, impressora, perfil e modelo.
+- Backend adicionou `slicing_pipeline` com criação, execução, cancelamento, validação de volume útil e compatibilidade de perfil.
+- A execução usa a ponte do PKG anterior: sem engine configurada, o job falha com log acionável; com engine CLI configurada, o worker roda em diretório isolado, registra G-code, log e metadados.
+- Endpoints `GET /api/slicing/jobs`, `POST /api/slicing/jobs`, `POST /api/slicing/jobs/{id}/run` e `POST /api/slicing/jobs/{id}/cancel` entregam histórico e estados do pipeline.
+- Administração recebeu painel de pipeline com seleção de impressora, modelo, dimensões, qualidade, criação de job, execução, cancelamento e lista de resultados.
+- Documentação atualizada em `TELAS.md`, `TESTES.md`, `DECISOES.md` e `RUNBOOK.md`.
+- Testes focados adicionados em `backend/tests/test_slicing_pipeline.py`.
+- Validação executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_slicing.py ../backend/tests/test_slicing_pipeline.py ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q`; `npm --prefix frontend run build`.
 
 ## PKG-72: Preflight De Impressão A Partir De Arquivo Fatiado
 

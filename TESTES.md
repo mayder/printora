@@ -1460,6 +1460,20 @@ Critérios:
 - Validação frontend focada: `npm --prefix frontend run build`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-71 - Pipeline De Fatiamento Por Perfil E Impressora
+
+- Validar criação de job com usuário, impressora, perfil opcional, modelo, dimensões e qualidade.
+- Validar bloqueio de modelo maior que o volume útil catalogado da impressora.
+- Validar bloqueio de perfil incompatível com a variação catalogada da impressora.
+- Validar execução com engine ausente gerando falha acionável e log rastreado, sem G-code falso.
+- Validar execução com engine configurada em worker isolado, registrando artefatos `gcode`, `log` e `metadata`.
+- Validar cancelamento de job planejado ou em execução.
+- Validar UI de Administração com formulário responsivo, lista de jobs, estados, erros, artefatos e ações.
+- Testes automatizados focados: `cd backend && uv run --extra dev pytest ../backend/tests/test_slicing.py ../backend/tests/test_slicing_pipeline.py -q`.
+- Validação de schema/update: `cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q`.
+- Validação frontend focada: `npm --prefix frontend run build`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

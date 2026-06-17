@@ -1353,6 +1353,43 @@ Rollback:
 - se `061_slicing_engine_bridge.sql` já tiver sido aplicado e for necessário remover schema, restaurar backup SQLite anterior criado pelo versionador;
 - não executar `DROP TABLE` ou limpeza manual de histórico sem confirmação explícita.
 
+## Pipeline De Fatiamento
+
+Escopo:
+
+- criar job por modelo, impressora, perfil e qualidade;
+- validar volume útil catalogado e compatibilidade de perfil;
+- executar worker controlado quando a engine CLI estiver configurada;
+- registrar artefatos `gcode`, `log` e `metadata`;
+- permitir cancelamento de job planejado/em execução.
+
+Endpoints:
+
+- listar jobs: `GET /api/slicing/jobs`;
+- criar job: `POST /api/slicing/jobs`;
+- executar job: `POST /api/slicing/jobs/<id>/run`;
+- cancelar job: `POST /api/slicing/jobs/<id>/cancel`.
+
+Banco:
+
+- ordem: `062_slicing_jobs.sql` depois de `061_slicing_engine_bridge.sql`;
+- tabelas: `slicing_jobs`, `slicing_job_artifacts`;
+- impacto: adiciona histórico e artefatos rastreáveis; não envia arquivo para impressora e não altera Moonraker/Klipper.
+
+Validação:
+
+```bash
+cd backend && uv run --extra dev pytest ../backend/tests/test_slicing.py ../backend/tests/test_slicing_pipeline.py -q
+cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q
+npm --prefix frontend run build
+```
+
+Rollback:
+
+- reverter `backend/app/slicing_pipeline.py`, endpoints de jobs em `backend/app/routes/slicing.py`, serviço frontend de slicing, painel de pipeline e documentação;
+- se `062_slicing_jobs.sql` já tiver sido aplicado e for necessário remover schema, restaurar backup SQLite anterior criado pelo versionador;
+- não executar `DROP TABLE`, remoção manual de artefatos ou limpeza de histórico sem confirmação explícita.
+
 Rollback:
 
 - para remover a camada de autenticação, reverter os arquivos do PKG-39;

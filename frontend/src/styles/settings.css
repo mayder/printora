@@ -219,6 +219,67 @@
   justify-content: flex-start;
 }
 
+.settings-inline-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.1fr) minmax(220px, 1.4fr) minmax(160px, 1fr) repeat(3, minmax(76px, 0.45fr)) auto;
+  gap: 10px;
+  align-items: end;
+  margin: 12px 0 16px;
+}
+
+.settings-inline-form label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.settings-inline-form input,
+.settings-inline-form select {
+  min-width: 0;
+}
+
+.settings-job-list {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-job-list .update-row.success {
+  border-left-color: var(--success);
+}
+
+.settings-job-list .update-row.failed {
+  border-left-color: var(--danger);
+}
+
+.inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 920px) {
+  .settings-inline-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings-inline-form .primary-button {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 620px) {
+  .settings-inline-form {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-actions {
+    justify-content: flex-start;
+  }
+}
+
 .install-diagnostics-panel[open] {
   display: grid;
   gap: 12px;

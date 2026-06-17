@@ -263,6 +263,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Em telas responsivas de biblioteca, formulários, painel de armazenamento e cards de arquivo devem quebrar linha sem sobrepor texto, botões ou métricas.
 - Na tela Administração, `Fatiamento controlado` mostra apenas verificação read-only da engine CLI, status, versão, modo dry-run e instrução de instalação. Essa tela não executa fatiamento real, não embute UI de fatiador e não mistura CRUD de modelo, perfil ou impressora.
 - O painel de fatiamento controlado deve usar botão com ícone de recarregar para verificação, métricas compactas e resultado acionável. Paths exibidos devem vir sanitizados pelo backend.
+- Na tela Administração, `Pipeline de fatiamento` mostra criação e acompanhamento de jobs rastreáveis com seleção de impressora, referência de modelo, qualidade e dimensões. A lista deve exibir estado, erro, artefatos e ações de executar/cancelar sem misturar cadastro de impressora ou edição de perfil.
+- O formulário do pipeline deve quebrar responsivamente em duas colunas e uma coluna no mobile, mantendo botões, labels e campos sem sobreposição.
 
 ## Pendencias de mapeamento
 

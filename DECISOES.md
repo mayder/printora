@@ -770,3 +770,15 @@ Consequencias: a integração fica simples, auditável e reversível. O usuário
 Impacto em testes: `backend/tests/test_slicing.py`, build frontend, schema versionado e `./check.sh`.
 Impacto em rollback: baixo a médio; reverter remove endpoints e painel de engine, mas tabelas já aplicadas permanecem sem afetar impressoras, agentes ou arquivos.
 Como reverter: reverter `backend/app/slicing.py`, `backend/app/routes/slicing.py`, integração em `backend/app/main.py`, painel de Administração e documentação. Se `061_slicing_engine_bridge.sql` já tiver sido aplicado e precisar desfazer schema, restaurar backup SQLite anterior criado pelo versionador; não executar `DROP TABLE` sem confirmação explícita.
+
+### DEC-20260616-18 - Jobs de fatiamento persistem artefatos antes de qualquer envio
+
+Status: aceita
+Data: 2026-06-16
+Contexto: o fatiamento precisa ser rastreável por modelo, perfil, impressora e usuário antes de qualquer preflight ou envio para Moonraker. Sem job persistido, erro de engine, incompatibilidade de volume e artefatos gerados ficariam soltos.
+Decisao: criar `slicing_jobs` e `slicing_job_artifacts` como trilha do pipeline. O job começa planejado, pode ser executado/cancelado e só conclui quando o worker registra artefatos. Se a engine não estiver configurada, o job falha com log acionável em vez de criar G-code simulado.
+Alternativas consideradas: reaproveitar apenas logs de dry-run; gravar G-code direto no filesystem sem linha de job; acoplar fatiamento ao envio para a impressora.
+Consequencias: preflight e envio seguro passam a ter uma origem rastreável. O banco recebe tabelas aditivas e rollback estrutural deve restaurar backup SQLite em vez de remover dados manualmente.
+Impacto em testes: `backend/tests/test_slicing_pipeline.py`, schema versionado, build frontend e `./check.sh`.
+Impacto em rollback: médio; reverter remove API/UI do pipeline, mas jobs já criados permanecem no SQLite se o SQL tiver sido aplicado.
+Como reverter: reverter `backend/app/slicing_pipeline.py`, endpoints de jobs em `backend/app/routes/slicing.py`, painel de pipeline no frontend e documentação. Se `062_slicing_jobs.sql` já tiver sido aplicado e precisar desfazer schema, restaurar backup SQLite anterior criado pelo versionador; não executar `DROP TABLE` sem confirmação explícita.

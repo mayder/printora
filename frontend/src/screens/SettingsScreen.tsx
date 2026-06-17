@@ -1,8 +1,10 @@
 import React from "react";
 import { Metric } from "../components/common";
-import { slicingApi, type SlicingEngineInfo } from "../services/slicingApi";
+import { printerApi } from "../services/printerApi";
+import { slicingApi, type SlicingEngineInfo, type SlicingJob } from "../services/slicingApi";
 import { formatDateTime } from "../utils/formatters";
 import type { ScreenPropsFor } from "./ScreenProps";
+import type { PrinterRecord } from "../types/printers";
 
 type SettingsScreenProps = ScreenPropsFor<
   | "authUser"
@@ -50,6 +52,21 @@ export function SettingsScreen(props: SettingsScreenProps) {
   const [slicingEngine, setSlicingEngine] = React.useState<SlicingEngineInfo | null>(null);
   const [slicingLoading, setSlicingLoading] = React.useState(false);
   const [slicingError, setSlicingError] = React.useState<string | null>(null);
+  const [slicingJobs, setSlicingJobs] = React.useState<SlicingJob[]>([]);
+  const [slicingPrinters, setSlicingPrinters] = React.useState<PrinterRecord[]>([]);
+  const [slicingJobBusy, setSlicingJobBusy] = React.useState(false);
+  const [slicingDraft, setSlicingDraft] = React.useState({
+    printerId: "",
+    modelReference: "library://modelo.stl",
+    qualityReference: "0.20 qualidade",
+    x: "",
+    y: "",
+    z: "",
+  });
+
+  React.useEffect(() => {
+    void loadSlicingPipeline();
+  }, []);
 
   async function loadSlicingEngine() {
     setSlicingLoading(true);
@@ -60,6 +77,73 @@ export function SettingsScreen(props: SettingsScreenProps) {
       setSlicingError(err instanceof Error ? err.message : "Falha ao verificar engine de fatiamento");
     } finally {
       setSlicingLoading(false);
+    }
+  }
+
+  async function loadSlicingPipeline() {
+    try {
+      const [printersResponse, jobs] = await Promise.all([printerApi.list(), slicingApi.jobs()]);
+      const printersPayload = await printersResponse.json() as PrinterRecord[] | { printers?: PrinterRecord[] };
+      const printers = Array.isArray(printersPayload) ? printersPayload : printersPayload.printers ?? [];
+      setSlicingPrinters(printers.filter((printer) => printer.is_active));
+      setSlicingJobs(jobs);
+      setSlicingDraft((current) => current.printerId || printers.length === 0 ? current : { ...current, printerId: String(printers[0].id) });
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao carregar pipeline de fatiamento");
+    }
+  }
+
+  async function createSlicingJob() {
+    const printerId = Number(slicingDraft.printerId);
+    if (!printerId) {
+      setSlicingError("Selecione uma impressora para criar o job.");
+      return;
+    }
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const job = await slicingApi.createJob({
+        printer_id: printerId,
+        engine: "orcaslicer",
+        model_reference: slicingDraft.modelReference,
+        model_dimensions: {
+          x_mm: numberOrNull(slicingDraft.x),
+          y_mm: numberOrNull(slicingDraft.y),
+          z_mm: numberOrNull(slicingDraft.z),
+        },
+        quality_reference: slicingDraft.qualityReference,
+      });
+      setSlicingJobs((current) => [job, ...current.filter((item) => item.id !== job.id)].slice(0, 20));
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao criar job de fatiamento");
+    } finally {
+      setSlicingJobBusy(false);
+    }
+  }
+
+  async function runSlicingJob(jobId: number) {
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const job = await slicingApi.runJob(jobId);
+      setSlicingJobs((current) => current.map((item) => item.id === job.id ? job : item));
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao executar job de fatiamento");
+    } finally {
+      setSlicingJobBusy(false);
+    }
+  }
+
+  async function cancelSlicingJob(jobId: number) {
+    setSlicingJobBusy(true);
+    setSlicingError(null);
+    try {
+      const job = await slicingApi.cancelJob(jobId);
+      setSlicingJobs((current) => current.map((item) => item.id === job.id ? job : item));
+    } catch (err) {
+      setSlicingError(err instanceof Error ? err.message : "Falha ao cancelar job de fatiamento");
+    } finally {
+      setSlicingJobBusy(false);
     }
   }
 
@@ -127,6 +211,78 @@ export function SettingsScreen(props: SettingsScreenProps) {
             {slicingEngine.warnings.length ? <small>{slicingEngine.warnings.join(" ")}</small> : null}
           </div>
         ) : null}
+      </article>
+
+      <article className="panel wide panel-section panel-settings">
+        <div className="panel-header-row">
+          <div>
+            <h2>Pipeline de fatiamento</h2>
+            <p>Jobs rastreáveis por modelo, impressora, perfil e artefatos. Execução real depende da engine configurada.</p>
+          </div>
+          <button type="button" className="secondary-button" onClick={() => void loadSlicingPipeline()} disabled={slicingJobBusy}>
+            <RefreshCw className={slicingJobBusy ? "button-busy-icon" : undefined} size={16} />
+            Recarregar
+          </button>
+        </div>
+        <div className="settings-inline-form">
+          <label>
+            Impressora
+            <select value={slicingDraft.printerId} onChange={(event) => setSlicingDraft((current) => ({ ...current, printerId: event.target.value }))}>
+              <option value="">Selecione</option>
+              {slicingPrinters.map((printer) => <option key={printer.id} value={printer.id}>{printer.name}</option>)}
+            </select>
+          </label>
+          <label>
+            Modelo
+            <input value={slicingDraft.modelReference} onChange={(event) => setSlicingDraft((current) => ({ ...current, modelReference: event.target.value }))} />
+          </label>
+          <label>
+            Qualidade
+            <input value={slicingDraft.qualityReference} onChange={(event) => setSlicingDraft((current) => ({ ...current, qualityReference: event.target.value }))} />
+          </label>
+          <label>
+            X mm
+            <input inputMode="decimal" value={slicingDraft.x} onChange={(event) => setSlicingDraft((current) => ({ ...current, x: event.target.value }))} />
+          </label>
+          <label>
+            Y mm
+            <input inputMode="decimal" value={slicingDraft.y} onChange={(event) => setSlicingDraft((current) => ({ ...current, y: event.target.value }))} />
+          </label>
+          <label>
+            Z mm
+            <input inputMode="decimal" value={slicingDraft.z} onChange={(event) => setSlicingDraft((current) => ({ ...current, z: event.target.value }))} />
+          </label>
+          <button type="button" className="primary-button" onClick={() => void createSlicingJob()} disabled={slicingJobBusy || !slicingDraft.printerId}>
+            Criar job
+          </button>
+        </div>
+        <div className="settings-job-list">
+          {slicingJobs.length === 0 ? <p className="muted">Nenhum job de fatiamento registrado.</p> : null}
+          {slicingJobs.slice(0, 6).map((job) => (
+            <div key={job.id} className={`update-row ${job.status === "failed" ? "failed" : job.status === "completed" ? "success" : ""}`}>
+              <div className="update-main">
+                <div>
+                  <strong>#{job.id} · {job.model_reference}</strong>
+                  <span>{slicingJobStatus(job.status)} · {job.quality_reference} · {formatDateTime(job.created_at)}</span>
+                  {job.error_message ? <small>{job.error_message}</small> : null}
+                  {job.artifacts.length ? <small>{job.artifacts.length} artefato(s) rastreado(s)</small> : null}
+                </div>
+                <div className="inline-actions">
+                  {job.status === "planned" || job.status === "failed" ? (
+                    <button type="button" className="secondary-button" onClick={() => void runSlicingJob(job.id)} disabled={slicingJobBusy}>
+                      Executar
+                    </button>
+                  ) : null}
+                  {job.status === "planned" || job.status === "running" ? (
+                    <button type="button" className="secondary-button" onClick={() => void cancelSlicingJob(job.id)} disabled={slicingJobBusy}>
+                      Cancelar
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </article>
 
       {isPlatformAdmin ? (
@@ -253,4 +409,20 @@ export function SettingsScreen(props: SettingsScreenProps) {
       ) : null}
     </>
   );
+}
+
+function numberOrNull(value: string): number | null {
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function slicingJobStatus(status: SlicingJob["status"]): string {
+  const labels: Record<SlicingJob["status"], string> = {
+    planned: "planejado",
+    running: "executando",
+    completed: "concluído",
+    failed: "falhou",
+    canceled: "cancelado",
+  };
+  return labels[status];
 }
