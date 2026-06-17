@@ -417,84 +417,91 @@ function DiscoveryTab({
   const total = discovery ? results.length + (discovery.has_more ? 1 : 0) + (page - 1) * pageSize : 0;
   return (
     <div className="discovery-workspace">
-      <div className="discovery-searchbar">
-        <label>
-          Buscar conteúdo
-          <span className="input-with-icon">
+      <section className="discovery-control-panel">
+        <div className="discovery-searchbar">
+          <label>
+            Buscar conteúdo
+            <span className="input-with-icon">
+              <Search size={15} />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") search(); }} placeholder="material, peça, perfil, comunidade..." />
+            </span>
+          </label>
+          <button type="button" className="secondary-button" onClick={search} disabled={busy}>
             <Search size={15} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") search(); }} placeholder="material, peça, perfil, comunidade..." />
-          </span>
-        </label>
-        <button type="button" className="secondary-button" onClick={search} disabled={busy}>
-          <Search size={15} />
-          Buscar
-        </button>
-      </div>
-      <div className="discovery-filter-grid">
-        <label>
-          Tipo
-          <select value={filters.entity_type} onChange={(event) => setFilters((current) => ({ ...current, entity_type: event.target.value as SearchEntityType | "" }))}>
-            <option value="">Todos</option>
-            <option value="community">Comunidades</option>
-            <option value="post">Discussões</option>
-            <option value="library_item">Arquivos</option>
-            <option value="technical_config">Configurações</option>
-            <option value="material_profile">Materiais</option>
-            <option value="catalog_variant">Catálogo</option>
-          </select>
-        </label>
-        <label>
-          Ordenação
-          <select value={filters.order} onChange={(event) => setFilters((current) => ({ ...current, order: event.target.value as SearchOrder }))}>
-            <option value="relevance">Relevância</option>
-            <option value="recent">Mais recentes</option>
-            <option value="popular">Populares</option>
-          </select>
-        </label>
-        <DiscoveryInput label="Tag" icon={Tags} value={filters.tag} onChange={(value) => setFilters((current) => ({ ...current, tag: value }))} placeholder="material-abs" />
-        <DiscoveryInput label="Material" icon={Filter} value={filters.material} onChange={(value) => setFilters((current) => ({ ...current, material: value }))} placeholder="ABS, PETG..." />
-        <DiscoveryInput label="Componente" icon={Wrench} value={filters.component} onChange={(value) => setFilters((current) => ({ ...current, component: value }))} placeholder="hotend, extrusor..." />
-        <DiscoveryInput label="Licença" icon={Shield} value={filters.license} onChange={(value) => setFilters((current) => ({ ...current, license: value }))} placeholder="cc-by, mit..." />
-        <DiscoveryInput label="Arquivo" icon={FileText} value={filters.file_kind} onChange={(value) => setFilters((current) => ({ ...current, file_kind: value }))} placeholder="stl, 3mf..." />
-      </div>
-      <FacetRail discovery={discovery} filters={filters} setFilters={setFilters} />
-      <RecommendationStrip recommendations={recommendations} />
-      <div className="social-result-toolbar">
-        <div className="social-result-summary">
-          <strong>Resultados públicos</strong>
-          <span>{results.length} resultados nesta página, {discovery?.indexed_count ?? 0} itens indexados</span>
+            Buscar
+          </button>
         </div>
-        <Pagination total={total} page={page} setPage={setPage} />
-      </div>
-      <div className="discovery-result-list">
-        {results.map((result) => (
-          <article key={`${result.entity_type}-${result.entity_id}`} className="social-discovery-card discovery-result-card">
-            <div className="discovery-result-topline">
-              <span className="discovery-type-pill">{entityTypeLabel(result.entity_type)}</span>
-              <span>{formatDate(result.updated_at)}</span>
+        <div className="discovery-filter-grid">
+          <label>
+            Tipo
+            <select value={filters.entity_type} onChange={(event) => setFilters((current) => ({ ...current, entity_type: event.target.value as SearchEntityType | "" }))}>
+              <option value="">Todos</option>
+              <option value="community">Comunidades</option>
+              <option value="post">Discussões</option>
+              <option value="library_item">Arquivos</option>
+              <option value="technical_config">Configurações</option>
+              <option value="material_profile">Materiais</option>
+              <option value="catalog_variant">Catálogo</option>
+            </select>
+          </label>
+          <label>
+            Ordenação
+            <select value={filters.order} onChange={(event) => setFilters((current) => ({ ...current, order: event.target.value as SearchOrder }))}>
+              <option value="relevance">Relevância</option>
+              <option value="recent">Mais recentes</option>
+              <option value="popular">Populares</option>
+            </select>
+          </label>
+          <DiscoveryInput label="Tag" icon={Tags} value={filters.tag} onChange={(value) => setFilters((current) => ({ ...current, tag: value }))} placeholder="material-abs" />
+          <DiscoveryInput label="Material" icon={Filter} value={filters.material} onChange={(value) => setFilters((current) => ({ ...current, material: value }))} placeholder="ABS, PETG..." />
+          <DiscoveryInput label="Componente" icon={Wrench} value={filters.component} onChange={(value) => setFilters((current) => ({ ...current, component: value }))} placeholder="hotend, extrusor..." />
+          <DiscoveryInput label="Licença" icon={Shield} value={filters.license} onChange={(value) => setFilters((current) => ({ ...current, license: value }))} placeholder="cc-by, mit..." />
+          <DiscoveryInput label="Arquivo" icon={FileText} value={filters.file_kind} onChange={(value) => setFilters((current) => ({ ...current, file_kind: value }))} placeholder="stl, 3mf..." />
+        </div>
+      </section>
+
+      <div className="discovery-content-grid">
+        <FacetRail discovery={discovery} filters={filters} setFilters={setFilters} />
+        <div className="discovery-main-column">
+          <RecommendationStrip recommendations={recommendations} />
+          <div className="social-result-toolbar">
+            <div className="social-result-summary">
+              <strong>Resultados públicos</strong>
+              <span>{results.length} resultados nesta página, {discovery?.indexed_count ?? 0} itens indexados</span>
             </div>
-            <div className="social-card-copy">
-              <strong>{result.title}</strong>
-              <span>{result.summary || "Sem resumo público."}</span>
-              <small>{resultContext(result)}</small>
-            </div>
-            <TagList tags={result.tags} />
-            <div className="social-card-stats">
-              <span className="social-card-stat">
-                <b>{result.popularity_score}</b>
-                <small>Popularidade</small>
-              </span>
-              <span className="social-card-stat">
-                <b>{result.owner_display_name ?? result.community_name ?? "Público"}</b>
-                <small>Origem</small>
-              </span>
-            </div>
-            <a className="social-card-action" href={result.url} aria-label={`Abrir ${result.title}`}>
-              Abrir resultado <ExternalLink size={15} />
-            </a>
-          </article>
-        ))}
-        {results.length === 0 ? <EmptyState title="Nenhum conteúdo encontrado" text="Ajuste os filtros ou busque por comunidade, material, componente, arquivo ou perfil técnico publicado." /> : null}
+            <Pagination total={total} page={page} setPage={setPage} />
+          </div>
+          <div className="discovery-result-list">
+            {results.map((result) => (
+              <article key={`${result.entity_type}-${result.entity_id}`} className="social-discovery-card discovery-result-card">
+                <div className="discovery-result-topline">
+                  <span className="discovery-type-pill">{entityTypeLabel(result.entity_type)}</span>
+                  <span>{formatDate(result.updated_at)}</span>
+                </div>
+                <div className="social-card-copy">
+                  <strong>{result.title}</strong>
+                  <span>{result.summary || "Sem resumo público."}</span>
+                  <small>{resultContext(result)}</small>
+                </div>
+                <TagList tags={result.tags} />
+                <div className="social-card-stats">
+                  <span className="social-card-stat">
+                    <b>{result.popularity_score}</b>
+                    <small>Popularidade</small>
+                  </span>
+                  <span className="social-card-stat">
+                    <b>{result.owner_display_name ?? result.community_name ?? "Público"}</b>
+                    <small>Origem</small>
+                  </span>
+                </div>
+                <a className="social-card-action" href={result.url} aria-label={`Abrir ${result.title}`}>
+                  Abrir resultado <ExternalLink size={15} />
+                </a>
+              </article>
+            ))}
+            {results.length === 0 ? <EmptyState title="Nenhum conteúdo encontrado" text="Ajuste os filtros ou busque por comunidade, material, componente, arquivo ou perfil técnico publicado." /> : null}
+          </div>
+        </div>
       </div>
     </div>
   );
