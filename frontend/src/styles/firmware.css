@@ -20,12 +20,23 @@
   width: 100%;
 }
 
+.firmware-status-grid + .firmware-state-banner,
+.firmware-state-banner + .firmware-state-banner {
+  margin-top: 18px;
+}
+
 .firmware-focus-grid,
 .firmware-result-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
   gap: 14px;
   min-width: 0;
+}
+
+.firmware-state-banner + .firmware-focus-grid,
+.firmware-focus-grid + .firmware-board-section,
+.firmware-board-section + .firmware-control-panel {
+  margin-top: 18px;
 }
 
 .firmware-status-grid > *,
@@ -293,6 +304,7 @@
   border-radius: 8px;
   background: var(--warning-soft);
   padding: 12px;
+  margin-block: 14px;
 }
 
 .firmware-board-form {

@@ -27,6 +27,11 @@
   gap: 10px;
 }
 
+.monitor-status-strip + .monitor-warning,
+.monitor-status-strip + .monitor-note {
+  margin-top: 18px;
+}
+
 .monitor-badge {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -104,6 +109,11 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+}
+
+.monitor-warning + .monitor-grid,
+.monitor-note + .monitor-grid {
+  margin-top: 18px;
 }
 
 .monitor-primary-grid {

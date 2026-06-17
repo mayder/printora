@@ -87,7 +87,7 @@ export function OverviewScreen(props: OverviewScreenProps) {
           </div>
         </div>
 
-        <div className="overview-strip">
+        <div className="overview-strip fleet-overview-strip">
           <Badge icon={Server} label="Impressoras" value={fleet.totalPrinters} />
           <Badge icon={Radio} label="Agentes online" value={fleet.onlinePrinters} />
           <Badge icon={AlertTriangle} label="Atenção" value={fleet.attentionPrinters} />

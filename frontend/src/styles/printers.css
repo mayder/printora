@@ -163,6 +163,8 @@
 }
 
 .printer-detail-header .panel-heading {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(620px, 920px);
   align-items: stretch;
 }
 
@@ -172,13 +174,11 @@
 }
 
 .printer-detail-header .printer-detail-strip {
-  flex: 1 1 620px;
-  grid-template-columns: minmax(180px, 0.9fr) minmax(210px, 1fr) minmax(180px, 0.9fr);
-  justify-self: stretch;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(230px, 1fr) minmax(180px, 0.9fr);
+  justify-self: end;
   justify-content: end;
   align-items: stretch;
-  max-width: 920px;
-  margin-left: auto;
+  width: 100%;
   margin-bottom: 0;
 }
 
@@ -186,6 +186,12 @@
 .printer-detail-header .printer-detail-strip .badge-with-action {
   justify-self: stretch;
   width: 100%;
+}
+
+@media (max-width: 920px) {
+  .printer-detail-header .panel-heading {
+    grid-template-columns: 1fr;
+  }
 }
 
 .agent-install-box {
