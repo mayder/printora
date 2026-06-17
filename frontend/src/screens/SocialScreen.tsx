@@ -463,7 +463,6 @@ function DiscoveryTab({
       <div className="discovery-content-grid">
         <FacetRail discovery={discovery} filters={filters} setFilters={setFilters} />
         <div className="discovery-main-column">
-          <RecommendationStrip recommendations={recommendations} />
           <div className="social-result-toolbar">
             <div className="social-result-summary">
               <strong>Resultados públicos</strong>
@@ -501,6 +500,7 @@ function DiscoveryTab({
             ))}
             {results.length === 0 ? <EmptyState title="Nenhum conteúdo encontrado" text="Ajuste os filtros ou busque por comunidade, material, componente, arquivo ou perfil técnico publicado." /> : null}
           </div>
+          <RecommendationStrip recommendations={recommendations} />
         </div>
       </div>
     </div>
