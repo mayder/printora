@@ -4797,6 +4797,25 @@ Critério de aceite:
 - remoção não apaga arquivo/dado sem fluxo explícito e confirmação quando aplicável;
 - `./check.sh` passa no fechamento do pacote.
 
+Status:
+
+- Implementado.
+
+Notas de implementação:
+
+- `Projetos de impressão > Meus projetos` lista projetos próprios e referências salvas, separado da exploração pública.
+- Backend adicionou criação, edição, upload pessoal, link externo, arquivamento lógico e relatório de armazenamento em `/api/print-projects`.
+- Upload STL/3MF/ZIP grava objeto em quarentena local, valida assinatura, registra checksum/tamanho/motivo de rejeição e bloqueia só o arquivo inválido.
+- Link externo fica como `external_reference`, sem arquivo local, sem elegibilidade para fatiamento/envio.
+- Projeto pessoal não exige comunidade; compartilhamento em comunidade continua N:N e não muda dono, arquivos, visibilidade ou classificação.
+- UI adicionou abas `Explorar` e `Meus projetos`, formulário de criação, upload por função do arquivo, cadastro de link externo, estados por arquivo, snapshots e painel de cota.
+- Arquivamento marca o projeto como arquivado e preserva arquivos/linhas; não há exclusão automática.
+- O estado `em revisão` permanece em `publication_status`; não foi modelado como visibilidade para preservar o `CHECK` já publicado de `visibility`.
+- SQL aditivo: `backend/sql/070_print_project_personal_library.sql`.
+- Validação focada executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_print_projects.py ../backend/tests/test_schema_versioning.py::test_initialize_database_registers_sql_scripts_on_new_database -q`; `npm --prefix frontend run build`.
+- Validação visual/local executada em `Projetos de impressão > Meus projetos`: criação de projeto privado sem comunidade, upload de arquivo principal, falha parcial em peça opcional, link externo sem arquivo local, painel de cota e responsividade mobile sem overflow horizontal.
+- Fechamento executado: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh` (`445 passed`, Go agent ok, frontend build ok, `test:releases` ok).
+
 Estado atual:
 
 - Planejado.

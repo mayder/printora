@@ -300,6 +300,11 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - O formulário do pipeline deve quebrar responsivamente em duas colunas e uma coluna no mobile, mantendo botões, labels e campos sem sobreposição.
 - Na tela Administração, preflight e entrega aparecem somente como diagnóstico/fallback de job existente. As ações principais de preflight, salvar G-code e enviar pertencem ao fluxo do projeto.
 - Enquanto o preflight remoto estiver pendente, a UI deve oferecer atualização explícita sem prometer envio ou impressão.
+- `Projetos de impressão > Meus projetos` é a área diária de criação e gestão pessoal de projetos. A tela permite criar projeto sem comunidade, escolher visibilidade privada/não listada/pública, informar licença/tags, enviar STL/3MF/ZIP por função do arquivo, adicionar referência externa e arquivar logicamente.
+- Arquivos do projeto mostram função, tipo, estado de validação e estado de fatiamento: elegível, bloqueado, sem arquivo local, em validação ou falha no arquivo.
+- Link externo aparece como referência sem arquivo local e nunca como hospedado; a tela deve deixar visível que ele não é fatiável enquanto não houver arquivo validado.
+- O painel de armazenamento pessoal em `Meus projetos` mostra uso, cota, arquivos e proporção de uso. Retenção/custo detalhado pode evoluir sobre a política existente, sem prometer exclusão automática.
+- Comunidades continuam como descoberta/compartilhamento de projetos. Upload direto de arquivo em comunidade não é fluxo principal e não deve substituir criação em `Projetos de impressão`.
 
 ## Pendencias de mapeamento
 

@@ -1594,6 +1594,21 @@ Critérios:
 - Validação frontend focada: `npm --prefix frontend run build`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-78 - Meus Projetos, Upload E Links Externos
+
+- Validar criação de projeto pessoal sem comunidade.
+- Validar upload multi-arquivo STL/3MF/ZIP com arquivo principal e peça opcional.
+- Validar que arquivo rejeitado/falho bloqueia só o arquivo afetado e não torna o projeto inteiro ingerenciável quando há arquivo válido.
+- Validar link externo como referência sem arquivo local e bloqueado para fatiamento/envio.
+- Validar listagem `Meus projetos` com projetos próprios e salvos por referência.
+- Validar painel de armazenamento pessoal com uso/cota/quantidade de arquivos.
+- Validar snapshot imutável criado em criação, edição, upload e link externo.
+- Validar arquivamento lógico sem apagar arquivos.
+- Validar responsividade da tela `Projetos de impressão` em desktop e mobile.
+- Testes automatizados focados: `cd backend && uv run --extra dev pytest ../backend/tests/test_print_projects.py ../backend/tests/test_schema_versioning.py::test_initialize_database_registers_sql_scripts_on_new_database -q`.
+- Validação frontend focada: `npm --prefix frontend run build`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

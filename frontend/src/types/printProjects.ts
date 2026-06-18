@@ -5,6 +5,7 @@ export type PrintProjectCommercialClass = "free" | "curated" | "premium" | "spon
 export type PrintProjectFileKind = "stl" | "3mf" | "zip" | "image" | "documentation" | "link" | "gcode" | "artifact";
 export type PrintProjectFileRole = "primary" | "printable" | "optional_part" | "documentation" | "preview" | "external_reference" | "artifact";
 export type PrintProjectFileValidationStatus = "metadata_only" | "quarantined" | "validated" | "rejected" | "analysis_failed";
+export type PrintProjectFileSliceStatus = "eligible" | "blocked" | "external_no_local" | "pending" | "failure";
 
 export interface PrintProjectContract {
   root_entity: string;
@@ -31,6 +32,9 @@ export interface PrintProjectFile {
   sha256: string | null;
   validation_status: PrintProjectFileValidationStatus;
   can_slice: boolean;
+  uploaded_size_bytes: number | null;
+  rejection_reason: string | null;
+  slice_status: PrintProjectFileSliceStatus;
 }
 
 export interface PrintProjectSummary {
@@ -71,4 +75,34 @@ export interface PrintProjectDetail extends PrintProjectSummary {
   versions: PrintProjectVersion[];
   saved_by_viewer: boolean;
   immutable_snapshot_ready: boolean;
+}
+
+export interface PrintProjectCreatePayload {
+  title: string;
+  description?: string;
+  visibility?: PrintProjectVisibility;
+  license?: string;
+  original_author_name?: string;
+  attribution_text?: string;
+  source_url?: string | null;
+  tags?: string[];
+  material?: string;
+  component?: string;
+}
+
+export interface PrintProjectUpdatePayload extends Partial<PrintProjectCreatePayload> {}
+
+export interface PrintProjectExternalLinkPayload {
+  url: string;
+  label?: string;
+  attribution_text?: string;
+}
+
+export interface PrintProjectStorageReport {
+  quota_bytes: number;
+  used_bytes: number;
+  remaining_bytes: number;
+  file_count: number;
+  hosted_project_count: number;
+  external_reference_count: number;
 }

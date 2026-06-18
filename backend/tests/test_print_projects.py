@@ -1,8 +1,22 @@
 from pathlib import Path
 
+from fastapi.testclient import TestClient
+
 from app.auth import AuthRepository, UserRegisterRequest
+from app.config import get_settings
 from app.database import connect_database, initialize_database
-from app.print_projects import PrintProjectSaveRequest, PrintProjectShareRequest, PrintProjectsRepository
+from app.main import app
+from app.print_projects import (
+    PrintProjectCreateRequest,
+    PrintProjectExternalLinkRequest,
+    PrintProjectSaveRequest,
+    PrintProjectShareRequest,
+    PrintProjectUpdateRequest,
+    PrintProjectsRepository,
+)
+
+
+VALID_STL = b"solid printora\nfacet normal 0 0 0\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid\n"
 
 
 def test_print_project_contract_sets_project_as_root_entity(tmp_path: Path) -> None:
@@ -256,3 +270,151 @@ def test_community_share_is_many_to_many_and_does_not_change_project_ownership_o
     assert project["owner_user_id"] == owner.id
     assert project["visibility"] == "public"
     assert project["commercial_class"] == "free"
+
+
+def test_create_personal_project_without_community_and_upload_multiple_files(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    user = AuthRepository(database_path).create_user(
+        UserRegisterRequest(email="personal@example.com", password="correct-horse")
+    )
+    repository = PrintProjectsRepository(database_path)
+
+    created = repository.create_project(
+        user.id,
+        PrintProjectCreateRequest(
+            title="Suporte de mesa",
+            description="Projeto pessoal multi arquivo",
+            visibility="private",
+            license="cc-by",
+            tags=["mesa", "organizador"],
+            material="PLA",
+            component="suporte",
+        ),
+    )
+    uploaded = repository.upload_file(user.id, created.id, "suporte-principal.stl", "primary", VALID_STL)
+    uploaded = repository.upload_file(user.id, created.id, "clipe-opcional.stl", "optional_part", VALID_STL)
+    my_projects = repository.my_projects(user.id)
+    storage = repository.storage_report(user.id)
+
+    assert uploaded.visibility == "private"
+    assert uploaded.community_shares == []
+    assert uploaded.file_count == 2
+    assert uploaded.primary_file is not None
+    assert uploaded.primary_file.file_name == "suporte-principal.stl"
+    assert uploaded.primary_file.slice_status in {"pending", "eligible"}
+    assert storage.file_count == 2
+    assert storage.used_bytes == len(VALID_STL) * 2
+    assert my_projects[0].id == created.id
+
+
+def test_upload_rejection_blocks_only_the_affected_project_file(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    user = AuthRepository(database_path).create_user(
+        UserRegisterRequest(email="rejected-file@example.com", password="correct-horse")
+    )
+    repository = PrintProjectsRepository(database_path)
+    project = repository.create_project(user.id, PrintProjectCreateRequest(title="Projeto parcial"))
+
+    detail = repository.upload_file(user.id, project.id, "valido.stl", "primary", VALID_STL)
+    detail = repository.upload_file(user.id, project.id, "quebrado.stl", "optional_part", b"bad")
+
+    rejected = next(file for file in detail.files if file.file_name == "quebrado.stl")
+    assert detail.can_slice is True
+    assert detail.file_count == 2
+    assert rejected.can_slice is False
+    assert rejected.validation_status == "rejected"
+    assert rejected.slice_status == "failure"
+
+
+def test_external_link_is_personal_bookmark_and_cannot_slice_without_local_file(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    user = AuthRepository(database_path).create_user(
+        UserRegisterRequest(email="external-link@example.com", password="correct-horse")
+    )
+    repository = PrintProjectsRepository(database_path)
+    project = repository.create_project(user.id, PrintProjectCreateRequest(title="Bookmark externo", source_url="https://example.com/model"))
+
+    detail = repository.add_external_link(
+        user.id,
+        project.id,
+        PrintProjectExternalLinkRequest(url="https://example.com/model", label="Modelo externo"),
+    )
+
+    assert detail.external_reference_only is True
+    assert detail.can_slice is False
+    assert detail.files[0].file_role == "external_reference"
+    assert detail.files[0].slice_status == "external_no_local"
+
+
+def test_update_project_metadata_creates_new_snapshot_without_changing_previous_snapshot(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    user = AuthRepository(database_path).create_user(
+        UserRegisterRequest(email="edit-project@example.com", password="correct-horse")
+    )
+    repository = PrintProjectsRepository(database_path)
+    project = repository.create_project(user.id, PrintProjectCreateRequest(title="Projeto editável"))
+
+    detail = repository.update_project(
+        user.id,
+        project.id,
+        PrintProjectUpdateRequest(title="Projeto editado", tags=["editado"], material="PETG"),
+    )
+
+    assert detail.title == "Projeto editado"
+    assert len(detail.versions) == 2
+    assert detail.versions[-1].project_snapshot["title"] == "Projeto editável"
+    assert detail.versions[0].project_snapshot["title"] == "Projeto editado"
+
+
+def test_archive_project_hides_it_without_deleting_files(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    user = AuthRepository(database_path).create_user(
+        UserRegisterRequest(email="archive-project@example.com", password="correct-horse")
+    )
+    repository = PrintProjectsRepository(database_path)
+    project = repository.create_project(user.id, PrintProjectCreateRequest(title="Projeto arquivável"))
+    repository.upload_file(user.id, project.id, "peca.stl", "primary", VALID_STL)
+
+    repository.archive_project(user.id, project.id)
+
+    with connect_database(database_path) as connection:
+        file_count = connection.execute("SELECT COUNT(*) FROM print_project_files WHERE project_id = ?", (project.id,)).fetchone()[0]
+        lifecycle = connection.execute("SELECT lifecycle_status FROM print_projects WHERE id = ?", (project.id,)).fetchone()["lifecycle_status"]
+    assert file_count == 1
+    assert lifecycle == "archived"
+    assert repository.detail(project.slug, user.id) is None
+
+
+def test_private_project_detail_route_uses_authenticated_viewer(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            token_response = client.post(
+                "/api/auth/register",
+                json={"email": "private-detail@example.com", "password": "correct-horse"},
+            )
+            assert token_response.status_code == 200
+            token = token_response.json()["access_token"]
+            created = client.post(
+                "/api/print-projects",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"title": "Projeto privado via rota", "visibility": "private"},
+            )
+            assert created.status_code == 200
+            slug = created.json()["slug"]
+
+            public_response = client.get(f"/api/print-projects/{slug}")
+            authenticated_response = client.get(f"/api/print-projects/{slug}", headers={"Authorization": f"Bearer {token}"})
+
+            assert public_response.status_code == 404
+            assert authenticated_response.status_code == 200
+            assert authenticated_response.json()["title"] == "Projeto privado via rota"
+    finally:
+        get_settings.cache_clear()

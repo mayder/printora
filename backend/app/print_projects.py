@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.database import connect_database
+from app.social_catalog import clean_library_file_name, validate_public_url, _validate_library_upload
+from app.social_storage import DEFAULT_USER_QUOTA_BYTES, SocialStorageRepository
 
 ProjectVisibility = Literal["private", "unlisted", "public"]
 ProjectLifecycleStatus = Literal["draft", "active", "archived"]
@@ -15,6 +18,7 @@ ProjectCommercialClass = Literal["free", "curated", "premium", "sponsored"]
 ProjectFileKind = Literal["stl", "3mf", "zip", "image", "documentation", "link", "gcode", "artifact"]
 ProjectFileRole = Literal["primary", "printable", "optional_part", "documentation", "preview", "external_reference", "artifact"]
 ProjectFileValidationStatus = Literal["metadata_only", "quarantined", "validated", "rejected", "analysis_failed"]
+ProjectFileSliceStatus = Literal["eligible", "blocked", "external_no_local", "pending", "failure"]
 
 
 class PrintProjectContract(BaseModel):
@@ -42,6 +46,9 @@ class PrintProjectFile(BaseModel):
     sha256: str | None
     validation_status: ProjectFileValidationStatus
     can_slice: bool
+    uploaded_size_bytes: int | None = None
+    rejection_reason: str | None = None
+    slice_status: ProjectFileSliceStatus = "blocked"
 
 
 class PrintProjectSummary(BaseModel):
@@ -97,6 +104,65 @@ class PrintProjectCommunityShare(BaseModel):
 
 class PrintProjectShareRequest(BaseModel):
     community_slug: str = Field(min_length=1, max_length=180)
+
+
+class PrintProjectCreateRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=180)
+    description: str = Field(default="", max_length=1200)
+    visibility: ProjectVisibility = "private"
+    license: str = Field(default="", max_length=80)
+    original_author_name: str = Field(default="", max_length=160)
+    attribution_text: str = Field(default="", max_length=500)
+    source_url: str | None = Field(default=None, max_length=500)
+    tags: list[str] = Field(default_factory=list)
+    material: str = Field(default="", max_length=120)
+    component: str = Field(default="", max_length=120)
+
+    @field_validator("source_url")
+    @classmethod
+    def clean_source_url(cls, value: str | None) -> str | None:
+        return validate_public_url(value, field_name="source_url", allowed_hosts=None)
+
+
+class PrintProjectUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=180)
+    description: str | None = Field(default=None, max_length=1200)
+    visibility: ProjectVisibility | None = None
+    license: str | None = Field(default=None, max_length=80)
+    original_author_name: str | None = Field(default=None, max_length=160)
+    attribution_text: str | None = Field(default=None, max_length=500)
+    source_url: str | None = Field(default=None, max_length=500)
+    tags: list[str] | None = None
+    material: str | None = Field(default=None, max_length=120)
+    component: str | None = Field(default=None, max_length=120)
+
+    @field_validator("source_url")
+    @classmethod
+    def clean_source_url(cls, value: str | None) -> str | None:
+        return validate_public_url(value, field_name="source_url", allowed_hosts=None)
+
+
+class PrintProjectExternalLinkRequest(BaseModel):
+    url: str = Field(min_length=8, max_length=500)
+    label: str = Field(default="Referência externa", max_length=180)
+    attribution_text: str = Field(default="", max_length=500)
+
+    @field_validator("url")
+    @classmethod
+    def clean_url(cls, value: str) -> str:
+        cleaned = validate_public_url(value, field_name="url", allowed_hosts=None)
+        if cleaned is None:
+            raise ValueError("url externa obrigatória")
+        return cleaned
+
+
+class PrintProjectStorageReport(BaseModel):
+    quota_bytes: int
+    used_bytes: int
+    remaining_bytes: int
+    file_count: int
+    hosted_project_count: int
+    external_reference_count: int
 
 
 class PrintProjectsRepository:
@@ -178,6 +244,53 @@ class PrintProjectsRepository:
                 tuple(params),
             ).fetchall()
         return [_project_from_row(row) for row in rows]
+
+    def my_projects(self, actor_user_id: int) -> list[PrintProjectSummary]:
+        with connect_database(self.database_path) as connection:
+            rows = connection.execute(
+                PROJECT_SQL
+                + """
+                WHERE p.owner_user_id = ?
+                   OR EXISTS (
+                        SELECT 1
+                        FROM print_project_saves ps
+                        WHERE ps.project_id = p.id
+                          AND ps.owner_user_id = ?
+                          AND ps.status = 'active'
+                   )
+                GROUP BY p.id
+                ORDER BY p.updated_at DESC, p.id DESC
+                """,
+                (actor_user_id, actor_user_id),
+            ).fetchall()
+        return [_project_from_row(row) for row in rows]
+
+    def storage_report(self, actor_user_id: int) -> PrintProjectStorageReport:
+        with connect_database(self.database_path) as connection:
+            quota = _quota_for_user(connection, actor_user_id)
+            row = connection.execute(
+                """
+                SELECT
+                    COALESCE(SUM(COALESCE(f.uploaded_size_bytes, f.size_bytes, 0)), 0) AS used_bytes,
+                    COUNT(f.id) AS file_count,
+                    COUNT(DISTINCT CASE WHEN f.file_role != 'external_reference' THEN p.id END) AS hosted_project_count,
+                    COALESCE(SUM(CASE WHEN f.file_role = 'external_reference' THEN 1 ELSE 0 END), 0) AS external_reference_count
+                FROM print_projects p
+                LEFT JOIN print_project_files f ON f.project_id = p.id
+                WHERE p.owner_user_id = ?
+                  AND p.lifecycle_status != 'archived'
+                """,
+                (actor_user_id,),
+            ).fetchone()
+        used = int(row["used_bytes"] or 0)
+        return PrintProjectStorageReport(
+            quota_bytes=quota,
+            used_bytes=used,
+            remaining_bytes=max(quota - used, 0),
+            file_count=int(row["file_count"] or 0),
+            hosted_project_count=int(row["hosted_project_count"] or 0),
+            external_reference_count=int(row["external_reference_count"] or 0),
+        )
 
     def community_projects(self, community_slug: str) -> list[PrintProjectSummary]:
         return self.explore(community=community_slug, limit=50)
@@ -284,6 +397,171 @@ class PrintProjectsRepository:
             raise ValueError("projeto não encontrado")
         return detail
 
+    def create_project(self, actor_user_id: int, payload: PrintProjectCreateRequest) -> PrintProjectDetail:
+        metadata = _project_metadata(payload.material, payload.component)
+        with connect_database(self.database_path) as connection:
+            slug = _unique_slug(connection, payload.title)
+            cursor = connection.execute(
+                """
+                INSERT INTO print_projects (
+                    owner_user_id, slug, title, description, visibility, lifecycle_status,
+                    publication_status, commercial_class, license, original_author_name,
+                    attribution_text, source_url, tags_json, metadata_json
+                )
+                VALUES (?, ?, ?, ?, ?, 'active', 'draft', 'free', ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    actor_user_id,
+                    slug,
+                    payload.title.strip(),
+                    payload.description.strip(),
+                    payload.visibility,
+                    payload.license.strip(),
+                    payload.original_author_name.strip(),
+                    payload.attribution_text.strip(),
+                    payload.source_url,
+                    _tags_json(payload.tags),
+                    json.dumps(metadata, ensure_ascii=False),
+                ),
+            )
+            project_id = int(cursor.lastrowid)
+            self._create_snapshot(connection, project_id, actor_user_id, "v1", "Projeto criado")
+        detail = self.detail(slug, actor_user_id)
+        if detail is None:
+            raise ValueError("projeto não encontrado")
+        return detail
+
+    def update_project(self, actor_user_id: int, project_id: int, payload: PrintProjectUpdateRequest) -> PrintProjectDetail:
+        with connect_database(self.database_path) as connection:
+            project = self._owned_project(connection, actor_user_id, project_id)
+            metadata = _loads_dict(project["metadata_json"])
+            updates: list[str] = []
+            params: list[Any] = []
+            for field_name in ("title", "description", "visibility", "license", "original_author_name", "attribution_text", "source_url"):
+                value = getattr(payload, field_name)
+                if value is not None:
+                    updates.append(f"{field_name} = ?")
+                    params.append(value.strip() if isinstance(value, str) else value)
+            if payload.tags is not None:
+                updates.append("tags_json = ?")
+                params.append(_tags_json(payload.tags))
+            if payload.material is not None:
+                metadata["material"] = payload.material.strip()
+            if payload.component is not None:
+                metadata["component"] = payload.component.strip()
+            if payload.material is not None or payload.component is not None:
+                updates.append("metadata_json = ?")
+                params.append(json.dumps(metadata, ensure_ascii=False))
+            if not updates:
+                return self.detail(str(project["slug"]), actor_user_id)  # type: ignore[return-value]
+            updates.append("updated_at = CURRENT_TIMESTAMP")
+            params.append(project_id)
+            connection.execute(f"UPDATE print_projects SET {', '.join(updates)} WHERE id = ?", tuple(params))
+            self._create_snapshot(connection, project_id, actor_user_id, "edição", "Metadados atualizados")
+            slug = str(project["slug"])
+        detail = self.detail(slug, actor_user_id)
+        if detail is None:
+            raise ValueError("projeto não encontrado")
+        return detail
+
+    def archive_project(self, actor_user_id: int, project_id: int) -> None:
+        with connect_database(self.database_path) as connection:
+            project = self._owned_project(connection, actor_user_id, project_id)
+            connection.execute(
+                """
+                UPDATE print_projects
+                SET lifecycle_status = 'archived', updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (project_id,),
+            )
+
+    def add_external_link(self, actor_user_id: int, project_id: int, payload: PrintProjectExternalLinkRequest) -> PrintProjectDetail:
+        with connect_database(self.database_path) as connection:
+            project = self._owned_project(connection, actor_user_id, project_id)
+            cursor = connection.execute(
+                """
+                INSERT INTO print_project_files (
+                    project_id, file_kind, file_role, file_name, external_url,
+                    validation_status, can_slice, rejection_reason
+                )
+                VALUES (?, 'link', 'external_reference', ?, ?, 'metadata_only', 0, 'referência externa sem arquivo local validado')
+                """,
+                (project_id, payload.label.strip() or "Referência externa", payload.url),
+            )
+            if project["primary_file_id"] is None:
+                connection.execute("UPDATE print_projects SET primary_file_id = ? WHERE id = ?", (cursor.lastrowid, project_id))
+            if payload.attribution_text.strip():
+                connection.execute(
+                    "UPDATE print_projects SET attribution_text = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (payload.attribution_text.strip(), project_id),
+                )
+            else:
+                connection.execute("UPDATE print_projects SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (project_id,))
+            self._create_snapshot(connection, project_id, actor_user_id, "link externo", "Referência externa adicionada")
+            slug = str(project["slug"])
+        detail = self.detail(slug, actor_user_id)
+        if detail is None:
+            raise ValueError("projeto não encontrado")
+        return detail
+
+    def upload_file(self, actor_user_id: int, project_id: int, file_name: str, file_role: ProjectFileRole, body: bytes) -> PrintProjectDetail:
+        if file_role == "external_reference":
+            raise ValueError("use link externo para referência sem arquivo local")
+        clean_name = clean_library_file_name(file_name)
+        if len(body) > 25 * 1024 * 1024:
+            raise ValueError("arquivo excede limite de 25 MB")
+        file_kind = _project_file_kind_from_name(clean_name)
+        checksum = hashlib.sha256(body).hexdigest()
+        validation_status: ProjectFileValidationStatus = "quarantined"
+        rejection_reason = None
+        can_slice = file_role in {"primary", "printable", "optional_part"} and file_kind in {"stl", "3mf", "zip"}
+        try:
+            _validate_library_upload(clean_name, _library_kind_for_project(file_kind), body)
+        except ValueError as exc:
+            validation_status = "rejected"
+            rejection_reason = str(exc)
+            can_slice = False
+        storage = SocialStorageRepository(self.database_path)
+        with connect_database(self.database_path) as connection:
+            project = self._owned_project(connection, actor_user_id, project_id)
+            storage.ensure_upload_allowed(connection, actor_user_id, len(body))
+            stored = storage.storage.write_quarantine(checksum, Path(clean_name).suffix.lower(), body)
+            cursor = connection.execute(
+                """
+                INSERT INTO print_project_files (
+                    project_id, file_kind, file_role, file_name, storage_path, size_bytes,
+                    sha256, validation_status, can_slice, quarantine_key, uploaded_size_bytes,
+                    uploaded_at, rejection_reason, is_primary_preview
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
+                """,
+                (
+                    project_id,
+                    file_kind,
+                    file_role,
+                    clean_name,
+                    stored.key,
+                    len(body),
+                    checksum,
+                    validation_status,
+                    1 if can_slice else 0,
+                    stored.key,
+                    len(body),
+                    rejection_reason,
+                    1 if file_role in {"primary", "preview"} else 0,
+                ),
+            )
+            if file_role == "primary" or project["primary_file_id"] is None:
+                connection.execute("UPDATE print_projects SET primary_file_id = ? WHERE id = ?", (cursor.lastrowid, project_id))
+            connection.execute("UPDATE print_projects SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (project_id,))
+            self._create_snapshot(connection, project_id, actor_user_id, "arquivo", f"Arquivo {clean_name} adicionado")
+            slug = str(project["slug"])
+        detail = self.detail(slug, actor_user_id)
+        if detail is None:
+            raise ValueError("projeto não encontrado")
+        return detail
+
     def share_with_community(self, actor_user_id: int, project_id: int, payload: PrintProjectShareRequest) -> PrintProjectDetail:
         with connect_database(self.database_path) as connection:
             project = connection.execute(
@@ -321,6 +599,66 @@ class PrintProjectsRepository:
             raise ValueError("projeto não encontrado")
         return detail
 
+    def _owned_project(self, connection, actor_user_id: int, project_id: int):
+        row = connection.execute(
+            """
+            SELECT *
+            FROM print_projects
+            WHERE id = ? AND owner_user_id = ? AND lifecycle_status != 'archived'
+            """,
+            (project_id, actor_user_id),
+        ).fetchone()
+        if row is None:
+            raise PermissionError("projeto não encontrado ou sem permissão")
+        return row
+
+    def _create_snapshot(self, connection, project_id: int, actor_user_id: int, label: str, changelog: str) -> None:
+        project = connection.execute("SELECT * FROM print_projects WHERE id = ?", (project_id,)).fetchone()
+        files = connection.execute(
+            """
+            SELECT id, file_kind, file_role, file_name, external_url, size_bytes, sha256,
+                   validation_status, can_slice, rejection_reason
+            FROM print_project_files
+            WHERE project_id = ?
+            ORDER BY id
+            """,
+            (project_id,),
+        ).fetchall()
+        project_snapshot = {
+            "id": project["id"],
+            "slug": project["slug"],
+            "title": project["title"],
+            "description": project["description"],
+            "visibility": project["visibility"],
+            "publication_status": project["publication_status"],
+            "commercial_class": project["commercial_class"],
+            "license": project["license"],
+            "tags": _loads_list(project["tags_json"]),
+            "metadata": _loads_dict(project["metadata_json"]),
+        }
+        files_snapshot = [dict(file_row) for file_row in files]
+        cursor = connection.execute(
+            """
+            INSERT INTO print_project_versions (
+                project_id, version_label, changelog, project_snapshot_json,
+                files_snapshot_json, created_by_user_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                project_id,
+                label,
+                changelog,
+                json.dumps(project_snapshot, ensure_ascii=False),
+                json.dumps(files_snapshot, ensure_ascii=False),
+                actor_user_id,
+            ),
+        )
+        connection.execute(
+            "UPDATE print_projects SET current_version_id = ? WHERE id = ?",
+            (cursor.lastrowid, project_id),
+        )
+
 
 PROJECT_SQL = """
 SELECT
@@ -334,6 +672,8 @@ SELECT
     pf.sha256 AS primary_file_sha256,
     pf.validation_status AS primary_file_validation_status,
     pf.can_slice AS primary_file_can_slice,
+    pf.uploaded_size_bytes AS primary_file_uploaded_size_bytes,
+    pf.rejection_reason AS primary_file_rejection_reason,
     COUNT(DISTINCT f.id) AS file_count,
     SUM(CASE WHEN f.file_role IN ('primary', 'printable', 'optional_part') THEN 1 ELSE 0 END) AS printable_file_count,
     SUM(CASE WHEN f.can_slice = 1 THEN 1 ELSE 0 END) AS slicable_file_count,
@@ -359,6 +699,9 @@ def _project_from_row(row) -> PrintProjectSummary:
             sha256=row["primary_file_sha256"],
             validation_status=row["primary_file_validation_status"],
             can_slice=bool(row["primary_file_can_slice"]),
+            uploaded_size_bytes=row["primary_file_uploaded_size_bytes"],
+            rejection_reason=row["primary_file_rejection_reason"],
+            slice_status=_slice_status(row["primary_file_role"], row["primary_file_validation_status"], bool(row["primary_file_can_slice"])),
         )
     file_count = int(row["file_count"] or 0)
     slicable_file_count = int(row["slicable_file_count"] or 0)
@@ -412,6 +755,9 @@ def _file_from_row(row) -> PrintProjectFile:
         sha256=row["sha256"],
         validation_status=row["validation_status"],
         can_slice=bool(row["can_slice"]),
+        uploaded_size_bytes=row["uploaded_size_bytes"] if "uploaded_size_bytes" in row.keys() else None,
+        rejection_reason=row["rejection_reason"] if "rejection_reason" in row.keys() else None,
+        slice_status=_slice_status(row["file_role"], row["validation_status"], bool(row["can_slice"])),
     )
 
 
@@ -442,3 +788,76 @@ def _loads_dict_list(value: str | None) -> list[dict[str, Any]]:
     if not isinstance(parsed, list):
         return []
     return [item for item in parsed if isinstance(item, dict)]
+
+
+def _project_file_kind_from_name(file_name: str) -> ProjectFileKind:
+    suffix = Path(file_name).suffix.lower()
+    if suffix == ".stl":
+        return "stl"
+    if suffix == ".3mf":
+        return "3mf"
+    if suffix == ".zip":
+        return "zip"
+    raise ValueError("projeto aceita STL, 3MF ou ZIP")
+
+
+def _library_kind_for_project(file_kind: ProjectFileKind) -> Literal["stl", "3mf", "bundle"]:
+    if file_kind == "stl":
+        return "stl"
+    if file_kind == "3mf":
+        return "3mf"
+    return "bundle"
+
+
+def _slice_status(file_role: str, validation_status: str, can_slice: bool) -> ProjectFileSliceStatus:
+    if file_role == "external_reference":
+        return "external_no_local"
+    if validation_status in {"quarantined", "metadata_only"}:
+        return "pending"
+    if validation_status in {"rejected", "analysis_failed"}:
+        return "failure"
+    return "eligible" if can_slice else "blocked"
+
+
+def _project_metadata(material: str, component: str) -> dict[str, str]:
+    metadata: dict[str, str] = {}
+    if material.strip():
+        metadata["material"] = material.strip()
+    if component.strip():
+        metadata["component"] = component.strip()
+    return metadata
+
+
+def _tags_json(tags: list[str]) -> str:
+    cleaned = []
+    for tag in tags:
+        value = str(tag).strip().lower()
+        if value and value not in cleaned:
+            cleaned.append(value[:40])
+    return json.dumps(cleaned[:12], ensure_ascii=False)
+
+
+def _unique_slug(connection, title: str) -> str:
+    base = "".join(char.lower() if char.isalnum() else "-" for char in title.strip())
+    base = "-".join(part for part in base.split("-") if part)[:80] or "projeto"
+    candidate = base
+    suffix = 2
+    while connection.execute("SELECT 1 FROM print_projects WHERE slug = ?", (candidate,)).fetchone():
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    return candidate
+
+
+def _quota_for_user(connection, actor_user_id: int) -> int:
+    row = connection.execute(
+        """
+        SELECT quota_bytes
+        FROM social_file_storage_policies
+        WHERE status = 'active'
+          AND ((scope_type = 'user' AND scope_id = ?) OR scope_type = 'global')
+        ORDER BY CASE scope_type WHEN 'user' THEN 0 ELSE 1 END
+        LIMIT 1
+        """,
+        (actor_user_id,),
+    ).fetchone()
+    return int(row["quota_bytes"]) if row is not None else DEFAULT_USER_QUOTA_BYTES

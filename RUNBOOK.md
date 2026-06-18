@@ -1584,6 +1584,37 @@ cd agent && go test ./...
 npm --prefix frontend run build
 ```
 
+### Projetos de impressão pessoais
+
+Endpoints autenticados:
+
+- listar área pessoal: `GET /api/print-projects/me`;
+- relatório de armazenamento pessoal: `GET /api/print-projects/me/storage`;
+- criar projeto: `POST /api/print-projects`;
+- editar metadados: `PATCH /api/print-projects/<project_id>`;
+- upload pessoal: `POST /api/print-projects/<project_id>/files/upload?file_name=<nome>&file_role=<funcao>` com corpo `application/octet-stream`;
+- adicionar referência externa: `POST /api/print-projects/<project_id>/external-links`;
+- arquivar projeto: `DELETE /api/print-projects/<project_id>`.
+
+Banco:
+
+- ordem: `070_print_project_personal_library.sql` depois de `069_print_project_experience.sql`;
+- efeito: adiciona metadados de quarentena/upload/rejeição nos arquivos de projeto e índices de checksum/storage;
+- não apaga projeto, arquivo, versão, comunidade ou referência salva.
+
+Validação:
+
+```bash
+cd backend && uv run --extra dev pytest ../backend/tests/test_print_projects.py ../backend/tests/test_schema_versioning.py::test_initialize_database_registers_sql_scripts_on_new_database -q
+npm --prefix frontend run build
+```
+
+Rollback:
+
+- reverter `backend/app/print_projects.py`, `backend/app/routes/print_projects.py`, serviço/tipos/tela de projetos no frontend e documentação;
+- se `070_print_project_personal_library.sql` já tiver sido aplicado e for necessário remover colunas/índices, restaurar backup SQLite anterior criado pelo versionador;
+- não executar `DROP TABLE`, recriação manual de tabela ou remoção de arquivos de quarentena sem confirmação explícita.
+
 Rollback:
 
 - reverter `backend/app/print_preflight.py`, endpoints de preflight em `backend/app/routes/slicing.py`, serviço frontend de slicing, painel de preflight e documentação;

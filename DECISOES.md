@@ -870,3 +870,15 @@ Consequencias: o envio fica rastreável por usuário, impressora, job, preflight
 Impacto em testes: `backend/tests/test_print_delivery.py`, testes Go do agente, build frontend, schema versionado e `./check.sh`.
 Impacto em rollback: médio; reverter remove API/UI/agent jobs de entrega, mas registros aplicados permanecem no SQLite se o script já rodou.
 Como reverter: reverter `backend/app/print_delivery.py`, endpoints de entrega em `backend/app/routes/slicing.py`, jobs `remote_gcode_upload`/`remote_gcode_delete` no agente, painel de entrega no frontend e documentação. Se `064_print_gcode_deliveries.sql` já tiver sido aplicado e precisar desfazer schema, restaurar backup SQLite anterior criado pelo versionador; não executar `DROP TABLE` ou remoção manual de arquivos sem confirmação explícita.
+
+### DEC-20260618-02 - Meus projetos centraliza upload pessoal e referência externa
+
+Status: aceita
+Data: 2026-06-18
+Contexto: depois da criação da entidade raiz `Projeto de impressão`, upload e links externos precisavam sair do fluxo diário de Comunidade. O usuário deve criar e gerir projeto pessoal antes de publicar, vender, compartilhar, fatiar ou enviar.
+Decisao: adicionar rotas autenticadas em `/api/print-projects` para área pessoal, upload STL/3MF/ZIP em quarentena, link externo como `external_reference`, relatório de cota e arquivamento lógico. Comunidade continua N:N apenas para compartilhar/descobrir projeto. Referência externa sem arquivo local validado não é fatiável.
+Alternativas consideradas: manter upload principal em Comunidade; criar uma nova entidade paralela de biblioteca pessoal; copiar arquivos ao salvar referência pública.
+Consequencias: ownership, arquivos, visibilidade, publicação e comunidade ficam desacoplados. Falha de um arquivo bloqueia só aquele arquivo. Links externos não viram arquivos hospedados por inferência. O estado `em revisão` permanece em publicação, não em visibilidade, para preservar o schema já publicado.
+Impacto em testes: `backend/tests/test_print_projects.py`, schema versionado, build frontend e `./check.sh`.
+Impacto em rollback: médio; reverter remove as rotas e UI novas, mas arquivos de quarentena já gravados podem permanecer no filesystem local.
+Como reverter: reverter `backend/sql/070_print_project_personal_library.sql`, `backend/app/print_projects.py`, `backend/app/routes/print_projects.py`, `frontend/src/screens/PrintProjectsScreen.tsx`, `frontend/src/services/printProjectsApi.ts`, `frontend/src/types/printProjects.ts`, estilos e documentação. Se o SQL já tiver sido aplicado, restaurar backup SQLite anterior; não executar `DROP TABLE`, recriação manual ou limpeza de arquivos sem confirmação explícita.

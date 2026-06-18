@@ -1,5 +1,14 @@
 import { apiRequest } from "./http";
-import type { PrintProjectContract, PrintProjectDetail, PrintProjectSummary } from "../types/printProjects";
+import type {
+  PrintProjectCreatePayload,
+  PrintProjectContract,
+  PrintProjectDetail,
+  PrintProjectExternalLinkPayload,
+  PrintProjectFileRole,
+  PrintProjectStorageReport,
+  PrintProjectSummary,
+  PrintProjectUpdatePayload,
+} from "../types/printProjects";
 
 export interface PrintProjectExploreFilters {
   q?: string;
@@ -21,6 +30,39 @@ export const printProjectsApi = {
     return apiRequest<PrintProjectSummary[]>(`/api/print-projects${query ? `?${query}` : ""}`);
   },
   detail: (slug: string) => apiRequest<PrintProjectDetail>(`/api/print-projects/${encodeURIComponent(slug)}`),
+  myProjects: () => apiRequest<PrintProjectSummary[]>("/api/print-projects/me"),
+  storage: () => apiRequest<PrintProjectStorageReport>("/api/print-projects/me/storage"),
+  create: (payload: PrintProjectCreatePayload) =>
+    apiRequest<PrintProjectDetail>("/api/print-projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  update: (projectId: number, payload: PrintProjectUpdatePayload) =>
+    apiRequest<PrintProjectDetail>(`/api/print-projects/${projectId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  archive: (projectId: number) =>
+    apiRequest<{ ok: boolean }>(`/api/print-projects/${projectId}`, {
+      method: "DELETE",
+    }),
+  uploadFile: (projectId: number, file: File, fileRole: PrintProjectFileRole) =>
+    apiRequest<PrintProjectDetail>(
+      `/api/print-projects/${projectId}/files/upload?file_name=${encodeURIComponent(file.name)}&file_role=${encodeURIComponent(fileRole)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: file,
+      },
+    ),
+  addExternalLink: (projectId: number, payload: PrintProjectExternalLinkPayload) =>
+    apiRequest<PrintProjectDetail>(`/api/print-projects/${projectId}/external-links`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
   saveReference: (projectId: number) =>
     apiRequest<PrintProjectDetail>(`/api/print-projects/${projectId}/save`, {
       method: "POST",
