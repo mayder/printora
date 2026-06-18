@@ -67,7 +67,13 @@
 
 .social-discovery-panel {
   grid-column: 1 / -1;
-  gap: 16px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-areas:
+    "header header"
+    "tabs content";
+  align-items: start;
 }
 
 .social-panel {
@@ -86,6 +92,12 @@
   display: flex;
   gap: 8px;
   justify-content: space-between;
+}
+
+.social-discovery-panel > header {
+  grid-area: header;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 12px;
 }
 
 .social-panel header h3 {
@@ -132,8 +144,32 @@
   border-radius: 8px;
   display: grid;
   gap: 6px;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  padding: 6px;
+  grid-area: tabs;
+  grid-template-columns: 1fr;
+  padding: 8px;
+  position: sticky;
+  top: 82px;
+}
+
+.social-tab-panel {
+  display: grid;
+  gap: 14px;
+  grid-area: content;
+  min-width: 0;
+}
+
+.social-tab-panel > * {
+  min-width: 0;
+}
+
+.social-tabs::before {
+  color: var(--muted);
+  content: "Áreas";
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  padding: 4px 8px 2px;
+  text-transform: uppercase;
 }
 
 .social-tabs button {
@@ -147,16 +183,21 @@
   font: inherit;
   font-weight: 700;
   gap: 8px;
-  justify-content: center;
+  justify-content: flex-start;
   min-height: 38px;
   min-width: 0;
-  padding: 8px 10px;
+  padding: 9px 10px;
+  text-align: left;
 }
 
 .social-tabs button.active {
   background: var(--panel);
   border-color: var(--border);
   color: var(--text);
+}
+
+.social-tabs button.active svg {
+  color: var(--accent);
 }
 
 .social-notifications-panel {
@@ -1079,6 +1120,18 @@
   .social-band,
   .social-layout {
     grid-template-columns: 1fr;
+  }
+
+  .social-discovery-panel {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "header"
+      "tabs"
+      "content";
+  }
+
+  .social-tabs {
+    position: static;
   }
 
   .social-status-grid,

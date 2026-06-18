@@ -192,49 +192,51 @@ export function SocialScreen({ setError }: SocialScreenProps) {
           })}
         </nav>
 
-        {activeTab === "communities" || activeTab === "printers" ? (
-          <CatalogFilters
-            catalog={catalog}
-            filters={filters}
-            setFilters={setFilters}
-            showComponent={activeTab === "communities"}
-            showMod={activeTab === "printers"}
-          />
-        ) : null}
+        <div className="social-tab-panel">
+          {activeTab === "communities" || activeTab === "printers" ? (
+            <CatalogFilters
+              catalog={catalog}
+              filters={filters}
+              setFilters={setFilters}
+              showComponent={activeTab === "communities"}
+              showMod={activeTab === "printers"}
+            />
+          ) : null}
 
-        {activeTab === "discovery" ? (
-          <DiscoveryTab
-            discovery={discovery}
-            recommendations={recommendations}
-            query={discoveryQuery}
-            setQuery={setDiscoveryQuery}
-            filters={discoveryFilters}
-            setFilters={setDiscoveryFilters}
-            busy={discoveryBusy}
-            page={pages.discovery}
-            setPage={(page) => setPages((current) => ({ ...current, discovery: page }))}
-            search={() => {
-              setPages((current) => ({ ...current, discovery: 1 }));
-              void loadSearchContent(1);
-            }}
-          />
-        ) : null}
-        {activeTab === "communities" ? <CommunitiesTab communities={communities} page={pages.communities} setPage={(page) => setPages((current) => ({ ...current, communities: page }))} /> : null}
-        {activeTab === "printers" ? <PrintersTab printers={publicPrinters} page={pages.printers} setPage={(page) => setPages((current) => ({ ...current, printers: page }))} /> : null}
-        {activeTab === "makers" ? (
-          <MakersTab makers={makers} makerSearch={makerSearch} setMakerSearch={setMakerSearch} searchMakers={searchMakers} busy={busy} page={pages.makers} setPage={(page) => setPages((current) => ({ ...current, makers: page }))} />
-        ) : null}
-        {activeTab === "relationships" ? <RelationshipsTab relationships={relationships} /> : null}
-        {activeTab === "notifications" ? (
-          <NotificationsTab
-            center={notificationCenter}
-            status={notificationStatus}
-            setStatus={setNotificationStatus}
-            reload={loadNotifications}
-            markAllRead={markAllNotificationsRead}
-            updatePreference={updateNotificationPreference}
-          />
-        ) : null}
+          {activeTab === "discovery" ? (
+            <DiscoveryTab
+              discovery={discovery}
+              recommendations={recommendations}
+              query={discoveryQuery}
+              setQuery={setDiscoveryQuery}
+              filters={discoveryFilters}
+              setFilters={setDiscoveryFilters}
+              busy={discoveryBusy}
+              page={pages.discovery}
+              setPage={(page) => setPages((current) => ({ ...current, discovery: page }))}
+              search={() => {
+                setPages((current) => ({ ...current, discovery: 1 }));
+                void loadSearchContent(1);
+              }}
+            />
+          ) : null}
+          {activeTab === "communities" ? <CommunitiesTab communities={communities} page={pages.communities} setPage={(page) => setPages((current) => ({ ...current, communities: page }))} /> : null}
+          {activeTab === "printers" ? <PrintersTab printers={publicPrinters} page={pages.printers} setPage={(page) => setPages((current) => ({ ...current, printers: page }))} /> : null}
+          {activeTab === "makers" ? (
+            <MakersTab makers={makers} makerSearch={makerSearch} setMakerSearch={setMakerSearch} searchMakers={searchMakers} busy={busy} page={pages.makers} setPage={(page) => setPages((current) => ({ ...current, makers: page }))} />
+          ) : null}
+          {activeTab === "relationships" ? <RelationshipsTab relationships={relationships} /> : null}
+          {activeTab === "notifications" ? (
+            <NotificationsTab
+              center={notificationCenter}
+              status={notificationStatus}
+              setStatus={setNotificationStatus}
+              reload={loadNotifications}
+              markAllRead={markAllNotificationsRead}
+              updatePreference={updateNotificationPreference}
+            />
+          ) : null}
+        </div>
       </section>
     </div>
   );
