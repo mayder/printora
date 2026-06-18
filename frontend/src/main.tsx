@@ -9,6 +9,7 @@ import { OverviewScreen } from "./screens/OverviewScreen";
 import { PrintersScreen } from "./screens/PrintersScreen";
 import { AgentsScreen } from "./screens/AgentsScreen";
 import { AgentDetailScreen } from "./screens/AgentDetailScreen";
+import { PrintProjectsScreen } from "./screens/PrintProjectsScreen";
 import { SocialScreen } from "./screens/SocialScreen";
 import { CatalogAdminScreen } from "./screens/CatalogAdminScreen";
 import { SetupScreen } from "./screens/SetupScreen";
@@ -43,6 +44,7 @@ import "./styles/calibration.css";
 import "./styles/tests.css";
 import "./styles/reports.css";
 import "./styles/about.css";
+import "./styles/print-projects.css";
 import "./styles/social.css";
 import "./styles/catalog-admin.css";
 
@@ -128,6 +130,8 @@ function App() {
         return <AgentsScreen {...screenProps} />;
       case "agent-detail":
         return <AgentDetailScreen {...screenProps} />;
+      case "projects":
+        return <PrintProjectsScreen {...screenProps} />;
       case "social":
         return <SocialScreen {...screenProps} />;
       case "catalog":

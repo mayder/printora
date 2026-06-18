@@ -29,10 +29,24 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260618-01 - Projeto de impressão é a entidade raiz de conteúdo imprimível
+
+Status: aceita
+Data: 2026-06-18
+Contexto: a modelagem anterior nasceu em torno de biblioteca social, arquivos por comunidade e fluxo de fatiamento/envio em Administração. Esse desenho deixa comunidade parecendo dona do conteúdo, dificulta projetos com múltiplos arquivos STL/3MF/ZIP e mistura descoberta social com operação diária de impressão.
+Decisao: adotar `Projeto de impressão` como entidade raiz para conteúdo imprimível. Arquivos do projeto, versões/snapshots, compartilhamentos em comunidade, publicação, jobs de fatiamento, entrega/G-code e histórico de impressão são relações ou derivados do projeto. Comunidade é apenas canal de compartilhamento/descoberta em relação N:N; Administração é apenas configuração, diagnóstico, política e fallback operacional. Jobs, G-code e histórico devem apontar para snapshot imutável do projeto e dos arquivos selecionados.
+Alternativas consideradas: manter modelo/arquivo como item da comunidade; criar cópias por comunidade; manter fatiamento diário em Administração; tratar cada STL como projeto independente.
+Consequencias: o mesmo projeto pode servir para todo o sistema, aparecer em zero, uma ou várias comunidades sem duplicação e conter múltiplos arquivos/peças. Fluxos legados de comunidade/Administração devem ser migrados, rebaixados ou removidos somente após a área nova estar validada. Decisões anteriores sobre biblioteca social passam a ser interpretadas como base legada a ser reaproveitada/migrada, não como raiz final do domínio.
+Impacto em testes: testes dos PKG-77 a PKG-81 devem cobrir projeto multi-arquivo, snapshot imutável, relação N:N com comunidades, privacidade, publicação independente, fatiamento por seleção de arquivos, histórico sanitizado e regressão dos atalhos legados.
+Impacto em rollback: médio; a implementação deve manter compatibilidade ou redirects enquanto dados legados existirem. Remoção de telas/rotas antigas só ocorre depois de validação do fluxo novo.
+Como reverter: reativar entradas legadas de biblioteca/comunidade/Administração como fluxo principal e tratar projetos como camada de apresentação, mantendo dados criados como legado; reversão física de dados só com backup SQLite e confirmação explícita.
+Referencias: `DEMANDAS.md` PKG-77 a PKG-81, `TELAS.md` Distribuição de conteúdo.
+
 ### DEC-20260617-01 - Impressão real alimenta ranking sem expor telemetria privada
 
 Status: aceita
 Data: 2026-06-17
+Vigência: válida como regra de privacidade/ranking, mas subordinada à DEC-20260618-01; sinais públicos novos apontam para projeto central e snapshot, não para cópia por comunidade.
 Contexto: resultados reais de impressão precisam melhorar recomendações e troubleshooting, mas impressora, Moonraker e telemetria detalhada são dados privados.
 Decisao: criar histórico de impressão ligado ao fluxo de entrega de G-code, com feedback público ou privado e telemetria mínima segura. Feedback de sucesso/falha atualiza `social_quality_signals` com sinais explicáveis, sem publicar identificador privado de impressora.
 Alternativas consideradas: usar apenas downloads/favoritos; expor telemetria completa; criar ranking separado para impressão.
@@ -46,6 +60,7 @@ Referencias: `backend/sql/065_print_job_history.sql`, `backend/app/print_history
 
 Status: aceita
 Data: 2026-06-17
+Vigência: válida como regra comercial, mas subordinada à DEC-20260618-01; classificação comercial nova pertence ao projeto central, não à comunidade.
 Contexto: o marketplace precisa preparar conteúdo premium/curado/patrocinado sem cobrar de fato e sem confundir promoção com recomendação técnica neutra.
 Decisao: adicionar classificação comercial no item da biblioteca, revisão administrativa separada e aviso de transparência no payload/UI. Conteúdo premium ou patrocinado só pode ficar público com revisão aprovada.
 Alternativas consideradas: criar marketplace separado; permitir premium sem revisão; misturar promoção no ranking técnico.
@@ -59,6 +74,7 @@ Referencias: `backend/sql/066_social_library_commercial_curation.sql`, `backend/
 
 Status: aceita
 Data: 2026-06-17
+Vigência: válida como mecanismo legado/base, mas subordinada à DEC-20260618-01; referências externas novas pertencem a projetos de impressão.
 Contexto: importar bibliotecas externas pode gerar risco legal, dependência instável e cópia indevida de arquivo.
 Decisao: implementar fonte externa, preview determinístico e referência/bookmark por URL como primeira etapa. O sistema registra metadados, licença, atribuição e checksum opcional, mas não copia arquivo externo sem fluxo futuro específico.
 Alternativas consideradas: baixar arquivo externo automaticamente; integrar API de repositórios externos já no primeiro lote; guardar apenas URL livre em descrição.
@@ -148,8 +164,9 @@ Referencias: `backend/sql/052_social_technical_printer_configs.sql`, `backend/ap
 
 ### DEC-20260616-08 - Organizador da biblioteca separa favoritos, coleções e listas de impressão
 
-Status: aceita
+Status: substituida
 Data: 2026-06-16
+Substituida por: DEC-20260618-01. Vigência residual: dados e endpoints existentes podem ser reaproveitados/migrados, mas projetos de impressão são a raiz final.
 Contexto: o PKG-61 precisa organizar modelos sem executar fatiamento e sem vazar coleções privadas ou histórico pessoal.
 Decisao: criar um organizador social com favoritos por usuário, coleções com visibilidade `private`, `community` ou `public`, listas de impressão por usuário/impressora e itens de lista sempre ligados a uma versão específica de modelo. O histórico de download autenticado entra apenas no resumo do usuário.
 Alternativas consideradas: guardar favoritos em JSON no usuário; transformar coleção em feed; permitir lista de impressão sem versão.
@@ -161,8 +178,9 @@ Referencias: `backend/sql/051_social_library_organizer.sql`, `backend/app/social
 
 ### DEC-20260616-07 - Versionamento de biblioteca por snapshot imutável
 
-Status: aceita
+Status: substituida
 Data: 2026-06-16
+Substituida por: DEC-20260618-01. Vigência residual: snapshots de biblioteca viram base legada para snapshots imutáveis de projeto.
 Contexto: o PKG-60 precisa permitir evolução de modelos sem sobrescrever artefatos já baixados, citados ou usados como origem de remix.
 Decisao: persistir versões em `social_library_versions` com snapshot JSON dos arquivos, metadados do item, changelog, autor da versão e marcador `is_current`. O item mantém os arquivos correntes para listagem simples, mas cada versão preserva seu snapshot; downloads podem apontar para versão específica.
 Alternativas consideradas: duplicar item por versão; criar tabela normalizada para cada arquivo de versão; manter apenas `version_label` no item.
@@ -174,8 +192,9 @@ Referencias: `backend/sql/050_social_library_versions.sql`, `backend/app/social_
 
 ### DEC-20260616-06 - Publicação pública exige autoria, licença e termos
 
-Status: aceita
+Status: substituida
 Data: 2026-06-16
+Substituida por: DEC-20260618-01. Vigência residual: regras de autoria/licença continuam válidas, mas aplicadas ao projeto central.
 Contexto: o PKG-59 precisa reduzir risco legal da biblioteca e deixar direitos de uso claros antes de downloads e remixes.
 Decisao: itens `public` e `community` exigem `original_author_name`, `license` e aceite de termos antes da publicação. Fonte pública, atribuição e origem de remix ficam no item; itens privados podem existir como rascunho sem exposição pública. Remix referencia item ativo e não pode apontar para si mesmo.
 Alternativas consideradas: permitir publicação pública com licença padrão implícita; deixar autoria apenas como dono do perfil; postergar remix para versionamento.
@@ -187,8 +206,9 @@ Referencias: `backend/sql/049_social_library_license_attribution.sql`, `backend/
 
 ### DEC-20260616-05 - Análise 3D usa parser controlado e preview derivado
 
-Status: aceita
+Status: substituida
 Data: 2026-06-16
+Substituida por: DEC-20260618-01. Vigência residual: análise por arquivo continua válida, mas arquivo passa a pertencer ao projeto.
 Contexto: o PKG-58 precisa entregar dimensões, alertas e preview de modelos sem executar código nem depender de ferramenta externa pesada.
 Decisao: analisar STL/3MF/ZIP com parsers controlados em Python/stdlib, lendo vértices e triângulos para derivar bounding box, dimensões, volume aproximado, contagens e alertas. O preview é SVG gerado a partir do bounding box, salvo em `thumbnail_svg`; falha fica restrita ao arquivo como `analysis_failed`.
 Alternativas consideradas: usar biblioteca nativa de malha; renderizar WebGL real no servidor; bloquear item inteiro em falha de análise.
@@ -200,8 +220,9 @@ Referencias: `backend/sql/048_social_library_analysis.sql`, `backend/app/social_
 
 ### DEC-20260616-04 - Upload 3D usa corpo bruto e quarentena local controlada
 
-Status: aceita
+Status: substituida
 Data: 2026-06-16
+Substituida por: DEC-20260618-01. Vigência residual: upload bruto/quarentena continua válido, mas entrada principal passa a ser arquivo de projeto, não item de comunidade.
 Contexto: o PKG-57 precisa aceitar arquivo 3D real com segurança, mas o ambiente não possui `python-multipart` e o upload deve ficar separado da validação técnica profunda do pacote seguinte.
 Decisao: expor upload por corpo `application/octet-stream` em item existente da biblioteca, usando `file_name` na query apenas como metadado validado. O arquivo é salvo em `<data_dir>/library_uploads/quarantine` com nome derivado de SHA-256, nunca por path do usuário. O backend valida extensão, tamanho, assinatura básica, ZIP seguro, checksum e deduplicação; resultado fica como `quarantined` ou `rejected`.
 Alternativas consideradas: adicionar dependência multipart; aceitar upload direto para storage público; validar e liberar download imediatamente.
@@ -213,8 +234,9 @@ Referencias: `backend/sql/047_social_library_uploads.sql`, `backend/app/social_c
 
 ### DEC-20260616-03 - Biblioteca base separa metadados de upload e quarentena
 
-Status: aceita
+Status: substituida
 Data: 2026-06-16
+Substituida por: DEC-20260618-01. Vigência residual: tabelas `social_library_*` permanecem como legado/base de migração.
 Contexto: o PKG-56 precisa criar a biblioteca de modelos 3D por comunidade/perfil antes do pacote de upload seguro, validação pesada e quarentena.
 Decisao: persistir itens em `social_library_items`, arquivos declarados em `social_library_files` e downloads em `social_library_downloads`. O pacote aceita STL, 3MF e ZIP apenas como metadados `metadata_only`, com dono obrigatório, licença, visibilidade explícita, vínculo opcional com comunidade/variante de catálogo e arquivamento lógico. Upload binário, armazenamento, quarentena, extração técnica e antivírus ficam no pacote dedicado seguinte.
 Alternativas consideradas: aceitar upload binário já no cadastro; guardar arquivos em JSON dentro do item; não registrar downloads até haver arquivo real.
@@ -790,6 +812,7 @@ Como reverter: reverter `backend/sql/034_auth_user_timezone.sql`, campos de auth
 
 Status: aceita
 Data: 2026-06-16
+Vigência: válida como política de storage/cota, mas subordinada à DEC-20260618-01; a superfície nova é `Projetos de impressão > Meus projetos`.
 Contexto: a biblioteca social passou a aceitar arquivos reais em quarentena. Sem cota e retenção, o crescimento de arquivos ficaria sem controle e uma migração futura para object storage exigiria desfazer acoplamento ao filesystem local.
 Decisao: criar uma camada dedicada de storage social com política de cota/custo/retenção, adapter local de caminho seguro e relatório autenticado de uso. O upload verifica cota antes de gravar o objeto local. Retenção gera revisão `dry_run` auditável e não apaga arquivo, linha ou versão automaticamente.
 Alternativas consideradas: manter limite fixo de 25 MB por upload; apagar arquivos rejeitados imediatamente; implementar bucket externo já neste pacote.
@@ -802,8 +825,9 @@ Como reverter: reverter `backend/app/social_storage.py`, `backend/app/routes/soc
 
 Status: aceita
 Data: 2026-06-16
+Vigência: válida como regra de engine controlada, mas subordinada à DEC-20260618-01; fatiamento real diário deve partir de projeto de impressão.
 Contexto: o Printora precisa iniciar integração com engine de fatiamento sem transformar o produto em uma tela embutida do OrcaSlicer/PrusaSlicer nem executar comandos reais antes de perfil, impressora e material estarem compatíveis.
-Decisao: a primeira ponte suporta OrcaSlicer/PrusaSlicer por CLI detectada no host ou agente, com configuração opcional por `PRINTORA_SLICER_ENGINE_PATH`. O backend expõe somente detecção, versão e dry-run de worker isolado; fatiamento real permanece bloqueado até o pipeline rastreável validar modelo, perfil, impressora e material.
+Decisao: a primeira ponte suporta OrcaSlicer/PrusaSlicer por CLI detectada no host ou agente, com configuração opcional por `PRINTORA_SLICER_ENGINE_PATH`. O backend expõe somente detecção, versão e dry-run de worker isolado; fatiamento real permanece bloqueado até o pipeline rastreável validar projeto/item legado, perfil, impressora e material.
 Alternativas consideradas: embutir a UI do fatiador em iframe/webview; chamar qualquer binário configurado livremente; iniciar geração real de G-code no primeiro pacote.
 Consequencias: a integração fica simples, auditável e reversível. O usuário recebe bloqueio claro quando a engine não está instalada, e os próximos pacotes podem acoplar jobs/artefatos sem refazer o contrato.
 Impacto em testes: `backend/tests/test_slicing.py`, build frontend, schema versionado e `./check.sh`.
@@ -812,9 +836,10 @@ Como reverter: reverter `backend/app/slicing.py`, `backend/app/routes/slicing.py
 
 ### DEC-20260616-18 - Jobs de fatiamento persistem artefatos antes de qualquer envio
 
-Status: aceita
+Status: substituida
 Data: 2026-06-16
-Contexto: o fatiamento precisa ser rastreável por modelo, perfil, impressora e usuário antes de qualquer preflight ou envio para Moonraker. Sem job persistido, erro de engine, incompatibilidade de volume e artefatos gerados ficariam soltos.
+Substituida por: DEC-20260618-01. Vigência residual: tabelas de job/artefato podem ser reaproveitadas, mas novos jobs diários devem nascer do projeto de impressão com snapshot imutável.
+Contexto: o fatiamento precisava ser rastreável por item/modelo legado, perfil, impressora e usuário antes de qualquer preflight ou envio para Moonraker. No desenho substituído, isso evolui para projeto de impressão com snapshot imutável. Sem job persistido, erro de engine, incompatibilidade de volume e artefatos gerados ficariam soltos.
 Decisao: criar `slicing_jobs` e `slicing_job_artifacts` como trilha do pipeline. O job começa planejado, pode ser executado/cancelado e só conclui quando o worker registra artefatos. Se a engine não estiver configurada, o job falha com log acionável em vez de criar G-code simulado.
 Alternativas consideradas: reaproveitar apenas logs de dry-run; gravar G-code direto no filesystem sem linha de job; acoplar fatiamento ao envio para a impressora.
 Consequencias: preflight e envio seguro passam a ter uma origem rastreável. O banco recebe tabelas aditivas e rollback estrutural deve restaurar backup SQLite em vez de remover dados manualmente.

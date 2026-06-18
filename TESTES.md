@@ -81,6 +81,48 @@ Aceite:
 - checksum opcional detecta duplicidade com arquivo local;
 - falha de fonte externa não quebra biblioteca local.
 
+## PKG-77 a PKG-81 - Projetos de impressão
+
+Validação obrigatória para fechamento de cada pacote proporcional ao lote, e completa no fechamento do PKG-81:
+
+```bash
+cd backend && uv run --extra dev pytest tests/test_print_projects.py tests/test_print_project_privacy.py tests/test_slicing_pipeline.py tests/test_print_delivery.py tests/test_print_history.py -q
+cd frontend && npm run build
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Aceite de domínio:
+
+- projeto de impressão é a entidade raiz; arquivos, versões/snapshots, compartilhamentos, publicação, jobs, G-code e histórico são relações ou derivados;
+- projeto pode conter múltiplos arquivos, com arquivo principal/preview, arquivos imprimíveis, peças opcionais, documentação, links externos e artefatos;
+- compartilhamento com comunidade é N:N; remover compartilhamento não apaga projeto, não arquiva, não muda ownership, não muda visibilidade e não remove arquivos;
+- visibilidade, revisão/publicação, classificação comercial e compartilhamento em comunidade são dimensões separadas;
+- classificação comercial usa `gratuito`, `curado`, `premium` ou `patrocinado`; comunidade não é classificação comercial;
+- `Salvar nos meus projetos` não duplica arquivo indevidamente: deve registrar referência/salvo, fork/remix explícito ou cópia somente quando o usuário confirmar e a licença permitir;
+- bookmark/link externo sem arquivo hospedado/importado/validado não pode ser fatiado, salvo como G-code ou enviado para impressora;
+- falha parcial de arquivo não bloqueia o projeto inteiro quando houver arquivos válidos, mas bloqueia publicação/fatiamento/envio da peça inválida e mostra estado acionável;
+- job de fatiamento aponta para snapshot imutável do projeto, arquivos selecionados, orientação/dimensões relevantes, perfil, usuário e impressora;
+- alteração posterior do projeto não altera job, preflight, G-code ou histórico já criados;
+- histórico público é agregado/sanitizado por projeto/material/perfil/tipo técnico e nunca expõe impressora privada, agente, Moonraker, token, IP, path ou organização;
+- `Social > Comunidades > Projetos` lista compartilhamentos e aponta para o projeto central; não cria/upload/fatia/envia arquivo como fluxo principal;
+- Administração mostra configuração/diagnóstico/fallback do fatiamento; criação diária de job, preflight, salvar G-code e envio ficam no fluxo do projeto;
+- rotas e entradas legadas (`models`, biblioteca social, comunidade/arquivos, pipeline administrativo) redirecionam, ficam somente leitura ou são rebaixadas sem quebrar dados existentes.
+
+Validação inicial do contrato central:
+
+```bash
+cd backend && uv run --extra dev pytest ../backend/tests/test_print_projects.py -q
+npm --prefix frontend run build
+```
+
+Critérios do lote inicial:
+
+- `/api/print-projects/contract` retorna `Projeto de impressão` como entidade raiz;
+- `/api/print-projects` lista apenas projetos públicos ativos;
+- referência externa sem arquivo validado aparece como não fatiável;
+- projeto multi-arquivo com uma peça válida e outra inválida mantém o projeto acessível e bloqueia só o arquivo inválido para fatiamento;
+- a tela `Projetos de impressão` aparece no menu principal sem expor identificadores internos de pacote/lote.
+
 ## Social, Catálogo E Comunidades
 
 Validação focada:
@@ -434,6 +476,10 @@ Evidência visual esperada:
 - controles de descoberta, seguidores, mensagens, menções e histórico de downloads sociais visíveis e responsivos;
 - indicadores de limites acionados e sinais ativos sem expor dados técnicos internos;
 - tela sem sobreposição em desktop e mobile.
+
+### PKG-56 a PKG-61 - Biblioteca legada antes de Projetos de impressão
+
+Os cenários abaixo registram a validação histórica da biblioteca social implementada antes da DEC-20260618-01. Para qualquer implementação nova ou reteste após PKG-77, a raiz do domínio deve ser `Projeto de impressão`; comunidade não cadastra/upload/fatia/envia arquivo como fluxo principal. Evidências antigas em `/c/{slug}` aba `Arquivos` devem virar compatibilidade/redirect, leitura legada ou migração para `Projetos de impressão`.
 
 ### PKG-56 - Biblioteca base de arquivos STL/3MF
 
@@ -1471,7 +1517,7 @@ Critérios:
 - Validar relatório `GET /api/social/me/library/storage` com política, uso, cota restante, custo estimado, plano de retenção e plano futuro de object storage.
 - Validar revisão `POST /api/social/me/library/storage/retention-reviews` como `dry_run`, auditável e sem exclusão automática.
 - Validar que arquivo referenciado por versão atual fica bloqueado no plano de retenção.
-- Validar que UI de Comunidades > Arquivos mostra painel de armazenamento organizado, responsivo e separado de cadastro/lista/detalhe.
+- Validar que o painel de armazenamento fica em `Projetos de impressão > Meus projetos`; comunidade mostra apenas projetos compartilhados e não contém upload/gestão principal de arquivo.
 - Testes automatizados focados: `cd backend && uv run --extra dev pytest ../backend/tests/test_social_catalog.py -k 'library_storage or library_upload_quarantine' -q` e `cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
@@ -1489,13 +1535,13 @@ Critérios:
 
 ### PKG-71 - Pipeline De Fatiamento Por Perfil E Impressora
 
-- Validar criação de job com usuário, impressora, perfil opcional, modelo, dimensões e qualidade.
-- Validar bloqueio de modelo maior que o volume útil catalogado da impressora.
+- Validação histórica/legada: criação de job com usuário, impressora, perfil opcional, item/modelo legado, dimensões e qualidade. Após PKG-77 a PKG-81, criação diária de job deve partir de projeto e snapshot imutável.
+- Validar bloqueio de item/modelo legado ou projeto maior que o volume útil catalogado da impressora.
 - Validar bloqueio de perfil incompatível com a variação catalogada da impressora.
 - Validar execução com engine ausente gerando falha acionável e log rastreado, sem G-code falso.
 - Validar execução com engine configurada em worker isolado, registrando artefatos `gcode`, `log` e `metadata`.
 - Validar cancelamento de job planejado ou em execução.
-- Validar UI de Administração com formulário responsivo, lista de jobs, estados, erros, artefatos e ações.
+- Validar UI de Administração como diagnóstico/fallback responsivo para jobs, estados, erros, artefatos e ações técnicas. Após PKG-77 a PKG-81, formulário principal de criação fica em `Projetos de impressão`.
 - Testes automatizados focados: `cd backend && uv run --extra dev pytest ../backend/tests/test_slicing.py ../backend/tests/test_slicing_pipeline.py -q`.
 - Validação de schema/update: `cd backend && uv run --extra dev pytest ../backend/tests/test_schema_versioning.py ../backend/tests/test_update_self.py -q`.
 - Validação frontend focada: `npm --prefix frontend run build`.

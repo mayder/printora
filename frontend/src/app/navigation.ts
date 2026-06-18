@@ -1,4 +1,4 @@
-import { Activity, Database, FileText, Home, Info, Network, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
+import { Activity, Database, FileArchive, FileText, Home, Info, Network, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
@@ -7,6 +7,7 @@ export type AppSection =
   | "printer-detail"
   | "agents"
   | "agent-detail"
+  | "projects"
   | "social"
   | "catalog"
   | "setup"
@@ -62,6 +63,13 @@ export const appSections: Array<{
     label: "Detalhe do agente",
     detail: "Diagnóstico e vínculo de um agente.",
     purpose: "Veja saúde, fila, doctor remoto, suporte e credencial do agente dentro do registro selecionado.",
+  },
+  {
+    key: "projects",
+    icon: FileArchive,
+    label: "Projetos de impressão",
+    detail: "Biblioteca central de projetos, arquivos, referências externas e snapshots.",
+    purpose: "Explore projetos imprimíveis, salve referências e inicie fluxos de fatiamento a partir do projeto central.",
   },
   {
     key: "social",
@@ -157,7 +165,7 @@ export const appSections: Array<{
 ];
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
-  { title: "Principal", sections: ["overview", "printers", "agents", "social", "catalog", "setup"] },
+  { title: "Principal", sections: ["overview", "printers", "agents", "projects", "social", "catalog", "setup"] },
   { title: "Sistema", sections: ["settings"] },
 ];
 

@@ -51,7 +51,35 @@ por `deleted_at`; não execute `DELETE` manual em discussões, comentários,
 reações ou histórico sem confirmação explícita. Rollback estrutural exige
 restaurar backup SQLite anterior ao script `045_social_discussions.sql`.
 
-Biblioteca de arquivos:
+Projetos de impressão e compatibilidade legada:
+
+O domínio canônico para conteúdo imprimível é `Projeto de impressão`.
+Arquivos, versões, compartilhamentos em comunidade, publicação, jobs de
+fatiamento, entregas de G-code e histórico são relações ou derivados do projeto.
+Comunidades são apenas canais de descoberta/compartilhamento; Administração é
+configuração, diagnóstico, política e fallback operacional.
+
+Os endpoints `/api/social/library*` e telas antigas de comunidade descritos
+abaixo existem como base legada/compatibilidade até a migração dos PKG-77 a
+PKG-81. Eles não devem orientar implementação nova como se comunidade fosse dona
+de arquivo ou projeto. Novos fluxos devem criar/editar/publicar/fatiar/enviar a
+partir de `Projetos de impressão`.
+
+Contrato e exploração inicial:
+
+```bash
+curl -fsS "http://127.0.0.1:8069/api/print-projects/contract"
+curl -fsS "http://127.0.0.1:8069/api/print-projects?limit=5"
+```
+
+O schema central inicial é aplicado por
+`backend/sql/068_print_projects_core.sql`. Ele cria projetos, arquivos,
+versões/snapshots e compartilhamentos N:N com comunidades sem apagar ou migrar
+automaticamente tabelas legadas. Rollback funcional remove a entrada de menu e
+rotas `/api/print-projects*`, mantendo dados como legado; rollback estrutural
+exige restaurar backup SQLite anterior ao script `068_print_projects_core.sql`.
+
+Biblioteca de arquivos legada:
 
 ```bash
 curl -fsS "http://127.0.0.1:8069/api/social/communities/<slug>/library"
@@ -66,7 +94,7 @@ execute `DELETE` manual em itens, arquivos ou downloads sem confirmação
 explícita. Rollback estrutural exige restaurar backup SQLite anterior ao script
 `046_social_library_items.sql`.
 
-Upload e quarentena de arquivos 3D:
+Upload e quarentena de arquivos 3D legados:
 
 ```bash
 curl -fsS -X POST \
@@ -110,7 +138,7 @@ funcional remove validações/UI de licença avançada e mantém dados; rollback
 estrutural exige backup SQLite anterior ao script
 `049_social_library_license_attribution.sql`.
 
-Versionamento de modelos:
+Versionamento legado de arquivos/modelos:
 
 ```bash
 curl -fsS -X POST \
@@ -134,7 +162,7 @@ funcional promove uma versão anterior como atual; não execute `DELETE` manual 
 versões ou downloads sem confirmação explícita. Rollback estrutural exige backup
 SQLite anterior ao script `050_social_library_versions.sql`.
 
-Organizador da biblioteca:
+Organizador legado da biblioteca:
 
 ```bash
 curl -fsS -H "Authorization: Bearer <token>" \
@@ -170,12 +198,13 @@ curl -fsS -X POST \
 
 O schema do organizador é aplicado por
 `backend/sql/051_social_library_organizer.sql`. Coleções privadas e listas de
-impressão são sempre filtradas pelo dono; listas devem referenciar uma versão
-específica do modelo. Não execute `DELETE` manual em favoritos, coleções, listas
-ou histórico sem confirmação explícita. Rollback estrutural exige backup SQLite
+impressão são sempre filtradas pelo dono; listas legadas referenciam uma versão
+específica do item/modelo. No domínio novo, listas devem apontar para projeto e
+snapshot. Não execute `DELETE` manual em favoritos, coleções, listas ou
+histórico sem confirmação explícita. Rollback estrutural exige backup SQLite
 anterior ao script `051_social_library_organizer.sql`.
 
-Histórico de impressão e feedback:
+Histórico de impressão e feedback legado:
 
 ```bash
 curl -fsS -H "Authorization: Bearer <token>" \
@@ -190,11 +219,13 @@ curl -fsS -X POST \
 
 O schema é aplicado por `backend/sql/065_print_job_history.sql`.
 Histórico e feedback têm retenção padrão de 180 dias. Payload público remove
-identificador privado da impressora e reduz telemetria. Rollback funcional
-remove endpoints/UI de histórico e mantém dados como legado; rollback estrutural
-exige restaurar backup SQLite anterior ao script `065_print_job_history.sql`.
+identificador privado da impressora e reduz telemetria. No domínio novo, sinais
+públicos devem ser agregados/sanitizados por projeto/material/perfil/tipo
+técnico e nunca por cópia de comunidade. Rollback funcional remove endpoints/UI
+de histórico e mantém dados como legado; rollback estrutural exige restaurar
+backup SQLite anterior ao script `065_print_job_history.sql`.
 
-Marketplace e curadoria comercial:
+Marketplace e curadoria comercial legados:
 
 ```bash
 curl -fsS -X POST \
@@ -207,11 +238,13 @@ curl -fsS -X POST \
 O schema é aplicado por
 `backend/sql/066_social_library_commercial_curation.sql`. Conteúdo premium ou
 patrocinado público exige revisão aprovada. Patrocinado deve exibir aviso de
-transparência. Não há cobrança real neste fluxo. Rollback funcional remove
-revisão comercial e UI de transparência; rollback estrutural exige backup SQLite
-anterior ao script `066_social_library_commercial_curation.sql`.
+transparência. Não há cobrança real neste fluxo. No domínio novo, classificação
+comercial pertence ao projeto central e é independente de compartilhamentos em
+comunidade. Rollback funcional remove revisão comercial e UI de transparência;
+rollback estrutural exige backup SQLite anterior ao script
+`066_social_library_commercial_curation.sql`.
 
-Fontes externas e bookmarks:
+Fontes externas e bookmarks legados:
 
 ```bash
 curl -fsS -H "Authorization: Bearer <token>" \
@@ -227,7 +260,9 @@ curl -fsS -X POST \
 O schema é aplicado por `backend/sql/067_external_library_imports.sql`.
 Bookmark externo não copia arquivo. Importação controlada registra metadados,
 licença, atribuição e checksum opcional para deduplicação. Falha de fonte externa
-não deve bloquear a biblioteca local. Rollback funcional remove endpoints/UI de
+não deve bloquear a biblioteca/projetos locais. Bookmark externo não permite
+fatiamento ou envio enquanto não houver arquivo hospedado/importado, validado e
+autorizado no projeto. Rollback funcional remove endpoints/UI de
 fontes externas; rollback estrutural exige backup SQLite anterior ao script
 `067_external_library_imports.sql`.
 
@@ -730,7 +765,7 @@ Rollback do PKG-53:
 Comunidades automáticas:
 
 - abrir `/?section=social` autenticado e validar lista de comunidades com filtros por fabricante, modelo, variante e componente;
-- abrir `/c/<community_slug>` e conferir nome, escopo, status, fabricante/modelo/variante, contagens e abas `Feed`, `Arquivos`, `Mods`, `Perfis`, `Membros` e `Impressoras públicas`;
+- abrir `/c/<community_slug>` e conferir nome, escopo, status, fabricante/modelo/variante, contagens e abas `Feed`, `Projetos`, `Mods`, `Perfis`, `Membros` e `Impressoras públicas`;
 - publicar impressora real com variante canônica e confirmar associação às comunidades de fabricante, modelo e variante;
 - trocar variante e confirmar que a variante antiga fica sem vínculo ativo e a nova recebe a impressora pública;
 - despublicar ou tornar o perfil `private` e confirmar contagens zeradas e ausência da impressora na comunidade;
@@ -1322,11 +1357,12 @@ Rollback:
 - se `059_social_safety_antiabuse.sql` já tiver sido aplicado e for necessário remover schema, restaurar backup SQLite anterior criado pelo versionador;
 - não executar `DELETE` ou `DROP TABLE` manual sem confirmação explícita.
 
-## Armazenamento social, cotas e retenção
+## Armazenamento social legado, cotas e retenção
 
 Escopo:
 
-- arquivos da biblioteca social usam storage local em `PRINTORA_DATA_DIR/library_uploads`;
+- arquivos legados da biblioteca social usam storage local em `PRINTORA_DATA_DIR/library_uploads`;
+- após PKG-77 a PKG-81, o painel e a política operacional pertencem a `Projetos de impressão > Meus projetos`, reaproveitando ou migrando esse storage;
 - upload consulta cota antes de gravar o objeto em quarentena;
 - relatório autenticado: `GET /api/social/me/library/storage`;
 - revisão supervisionada: `POST /api/social/me/library/storage/retention-reviews`.
@@ -1388,7 +1424,7 @@ Banco:
 
 - ordem: `061_slicing_engine_bridge.sql` depois de `060_social_file_storage.sql`;
 - tabelas: `slicing_engine_checks`, `slicing_dry_run_logs`;
-- impacto: adiciona trilha auditável de detecção/dry-run sem alterar impressoras, agentes, Moonraker, biblioteca social ou arquivos existentes.
+- impacto: adiciona trilha auditável de detecção/dry-run sem alterar impressoras, agentes, Moonraker, dados legados de biblioteca ou projetos/arquivos existentes.
 
 Validação:
 
@@ -1413,7 +1449,8 @@ Rollback:
 
 Escopo:
 
-- criar job por modelo, impressora, perfil e qualidade;
+- manter compatibilidade/diagnóstico de jobs legados até a migração para `Projetos de impressão`;
+- novos jobs diários devem nascer no fluxo do projeto, com snapshot imutável, arquivos selecionados, impressora, perfil e qualidade;
 - validar volume útil catalogado e compatibilidade de perfil;
 - executar worker controlado quando a engine CLI estiver configurada;
 - registrar artefatos `gcode`, `log` e `metadata`;
@@ -1430,7 +1467,7 @@ Banco:
 
 - ordem: `062_slicing_jobs.sql` depois de `061_slicing_engine_bridge.sql`;
 - tabelas: `slicing_jobs`, `slicing_job_artifacts`;
-- impacto: adiciona histórico e artefatos rastreáveis; não envia arquivo para impressora e não altera Moonraker/Klipper.
+- impacto: adiciona histórico e artefatos rastreáveis; não envia arquivo para impressora e não altera Moonraker/Klipper. A UI principal de criação/acompanhamento deve migrar para `Projetos de impressão`; Administração fica como diagnóstico/fallback.
 
 Validação:
 
@@ -1483,7 +1520,7 @@ Escopo:
 - enviar G-code fatiado somente a partir de preflight aprovado e recente;
 - salvar arquivo no host via agente sem iniciar impressão;
 - iniciar impressão somente com confirmação textual ou step-up válido;
-- auditar usuário, impressora, job, preflight, checksum, arquivo remoto, versão do modelo, perfil e resultado remoto;
+- auditar usuário, impressora, job, preflight, checksum, arquivo remoto, snapshot/projeto ou versão legada, perfil e resultado remoto;
 - remover automaticamente somente arquivo salvo sem impressão iniciada.
 
 Endpoints:

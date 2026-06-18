@@ -103,11 +103,11 @@
 - PKG-74: Histórico de trabalhos, resultados e telemetria de impressão
 - PKG-75: Marketplace e curadoria de conteúdo premium
 - PKG-76: Integrações externas e importação de bibliotecas
-- PKG-77: Área central de Modelos 3D
-- PKG-78: Meus modelos, upload e links externos
-- PKG-79: Publicação, venda e vitrine de modelos
-- PKG-80: Fatiamento a partir de modelo salvo
-- PKG-81: Envio para impressora e histórico por modelo
+- PKG-77: Área central de Projetos de Impressão
+- PKG-78: Meus projetos, upload e links externos
+- PKG-79: Publicação, venda e vitrine de projetos
+- PKG-80: Fatiamento a partir de projeto salvo
+- PKG-81: Envio para impressora e histórico por projeto
 
 ## Política De Backlog
 
@@ -4384,7 +4384,7 @@ Lotes:
 Critério de aceite:
 
 - job não fatiará modelo maior que o volume útil sem confirmação/erro claro;
-- G-code fica associado à versão do modelo e perfis usados;
+- G-code fica associado à versão do item/modelo legado e perfis usados; após PKG-77 a PKG-81, deve apontar para snapshot imutável do projeto;
 - falha preserva logs acionáveis;
 - `./check.sh` passa.
 
@@ -4469,7 +4469,7 @@ Entregáveis:
 - upload remoto do G-code para Moonraker via agente;
 - confirmação textual ou step-up para iniciar impressão;
 - opção de apenas salvar arquivo sem imprimir;
-- auditoria de usuário, impressora, arquivo, versão do modelo e perfil;
+- auditoria de usuário, impressora, arquivo, versão do item/modelo legado ou snapshot de projeto e perfil;
 - rollback operacional: cancelar job pendente, remover arquivo enviado quando seguro;
 - UI de envio e status.
 
@@ -4498,7 +4498,7 @@ Notas de implementação:
 - API adicionou listagem, criação, cancelamento e rollback de entregas de G-code em `/api/slicing/deliveries`.
 - Agente adicionou jobs `remote_gcode_upload` e `remote_gcode_delete` para enviar arquivo ao Moonraker e remover arquivo salvo quando a impressão não foi iniciada.
 - UI de Administração > Pipeline de fatiamento mostra status de envio, ação de salvar arquivo, confirmação textual para iniciar impressão e remoção segura de arquivo salvo.
-- Auditoria persiste usuário, impressora, job, preflight, checksum, arquivo remoto, versão do modelo, perfil e resultado remoto.
+- Auditoria persiste usuário, impressora, job, preflight, checksum, arquivo remoto, versão do item/modelo legado ou snapshot de projeto, perfil e resultado remoto.
 - SQL aditivo: `backend/sql/064_print_gcode_deliveries.sql`.
 - Validação executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_print_delivery.py ../backend/tests/test_print_preflight.py -q`; `go test ./...` em `agent`; `npm --prefix frontend run build`.
 
@@ -4649,17 +4649,24 @@ Notas de implementação:
 - UI de comunidade ganhou painel `Fontes externas` separado da biblioteca hospedada, deixando claro quando o item é referência externa.
 - SQL aditivo: `backend/sql/067_external_library_imports.sql`.
 
-## PKG-77: Área Central De Modelos 3D
+## PKG-77: Área Central De Projetos De Impressão
 
 Objetivo:
 
-Criar uma área principal de produto para descobrir, buscar e abrir modelos 3D, separando o fluxo de modelos do contexto social de comunidade e da Administração.
+Criar uma área principal e isolada de produto para descobrir, buscar e abrir projetos de impressão, separando o fluxo de projetos do contexto social de comunidade e da Administração.
 
 Contexto inicial:
 
 - a base técnica de biblioteca, upload, links externos, fatiamento e envio já existe, mas ficou distribuída entre `Social > Comunidades > Arquivos` e `Administração > Pipeline de fatiamento`;
 - o usuário precisa de um ponto de entrada diário para STL/3MF/ZIP/link externo, parecido com bibliotecas de modelos como Printables, MakerWorld e repositórios externos;
 - Comunidades devem continuar como contexto social e vitrine, não como a tela principal de gestão de arquivos;
+- projeto de impressão não pertence a uma comunidade: ele é uma entidade central/pessoal/global e pode ser compartilhado em zero, uma ou várias comunidades;
+- projeto de impressão pode conter um ou vários arquivos, como STL, 3MF, ZIP, imagens, documentação, links externos e artefatos gerados;
+- a entidade raiz do domínio passa a ser `Projeto de impressão`; arquivos, versões, compartilhamentos, publicação, jobs de fatiamento, entregas de G-code e histórico são relações ou derivados do projeto;
+- compartilhamento em comunidade é relação N:N entre projeto e comunidade; remover compartilhamento não arquiva, apaga, despublica nem transfere ownership do projeto;
+- fatiamento e histórico devem sempre apontar para versão/snapshot imutável do projeto e dos arquivos selecionados;
+- rotas/entradas legadas como `models`, biblioteca social, comunidade/arquivos e pipeline administrativo devem virar redirect, atalho, compatibilidade somente leitura ou fallback, sem guiar fluxo novo;
+- a modelagem antiga baseada em arquivo/modelo dentro de comunidade deve ser migrada/rebaixada sem remover fluxo antigo antes do fluxo novo estar validado;
 - Administração deve ficar para configuração da engine, status, caminhos, diagnóstico e política, não para uso cotidiano de fatiar/enviar.
 
 Dependências:
@@ -4670,49 +4677,72 @@ Dependências:
 
 Entregáveis:
 
-- novo menu principal `Modelos 3D`;
-- tela de exploração com busca por nome, tag, material, componente, licença, arquivo e origem;
+- novo menu principal `Projetos de impressão`;
+- tela de exploração com busca por nome, tag, material, componente, licença, arquivo, origem e comunidade onde foi compartilhado;
 - suporte visual para item hospedado no Printora e referência externa;
-- cards/lista com licença, autor, origem, comunidade, tipo de arquivo, contagem de downloads/favoritos e ação principal;
-- detalhe dedicado do modelo, substituindo a dependência de abrir comunidade para entender o arquivo;
-- ação `Salvar nos meus modelos`;
-- navegação para comunidade relacionada sem tornar comunidade dona do fluxo;
-- remoção ou rebaixamento da entrada de biblioteca dentro de Social para papel de vitrine/contexto;
+- cards/lista com licença, autor, origem, comunidades onde foi compartilhado, tipo de arquivo, contagem de downloads/favoritos e ação principal;
+- detalhe dedicado do projeto, substituindo a dependência de abrir comunidade para entender arquivos;
+- contrato canônico do domínio com `Projeto de impressão`, `Arquivo do projeto`, `Versão do projeto`, `Compartilhamento em comunidade`, `Publicação`, `Job de fatiamento`, `Entrega/G-code` e `Histórico de impressão`;
+- versionamento do projeto por snapshot imutável, incluindo lista de arquivos, metadados relevantes e seleção usada por jobs;
+- ação `Salvar nos meus projetos` com semântica explícita: salvar referência, criar fork/remix ou copiar arquivo somente quando houver confirmação e licença permitir;
+- navegação para comunidades onde o projeto foi compartilhado, sem tornar comunidade dona do projeto;
+- remoção/rebaixamento da entrada de biblioteca dentro de Social para papel de vitrine/contexto;
+- plano de migração e limpeza das telas antigas de `Social > Comunidades > Arquivos` e `Administração > Pipeline de fatiamento`, incluindo redirects/atalhos, modo somente leitura quando aplicável e critérios para remoção;
 - documentação em `TELAS.md` e testes proporcionais.
 
 Lotes:
 
-1. Definir navegação, tela e contratos de leitura reaproveitando endpoints existentes.
-2. Criar tela `Modelos 3D` com busca, filtros, estados vazios e cards.
-3. Criar detalhe de modelo com metadados, origem, licença, versões, arquivos e ações.
-4. Implementar ação `Salvar nos meus modelos` sem duplicar arquivo indevidamente.
-5. Ajustar Social/Comunidades para apontarem para o detalhe central do modelo.
-6. Atualizar documentação e validação visual.
+1. Definir contrato canônico do domínio e navegação, reaproveitando endpoints existentes quando não preservarem a modelagem antiga incorreta.
+2. Criar tela `Projetos de impressão` com busca, filtros, estados vazios e cards.
+3. Criar detalhe de projeto com metadados, origem, licença, versões, arquivos e ações.
+4. Implementar ação `Salvar nos meus projetos` sem duplicar arquivo indevidamente.
+5. Ajustar Social/Comunidades para exibirem compartilhamentos e apontarem para o detalhe central do projeto.
+6. Definir migração de itens legados de biblioteca/comunidade para projetos centrais, preservando histórico e URLs por redirect/atalho.
+7. Documentar limpeza das telas antigas e critérios para remover/rebaixar entradas legadas.
+8. Atualizar documentação e validação visual.
 
 Critério de aceite:
 
-- usuário consegue encontrar modelos sem entrar em uma comunidade;
+- usuário consegue encontrar projetos sem entrar em uma comunidade;
+- o mesmo projeto pode aparecer em várias comunidades ou em nenhuma, sem duplicar a entidade principal;
+- projeto com múltiplos arquivos é tratado como uma única entidade operacional;
+- compartilhamento em comunidade não muda dono, visibilidade principal, publicação nem arquivos do projeto;
+- jobs, G-code e histórico ficam ligados a versão/snapshot imutável do projeto;
 - item externo e item hospedado ficam claramente diferenciados;
+- link/bookmark externo sem arquivo hospedado/importado/validado não pode ser fatiado, salvo como G-code ou enviado para impressora;
 - conteúdo privado não aparece na exploração pública;
-- nenhum dado operacional de impressora, agente, Moonraker, SSH, token, IP, organização ou permissão aparece em modelo público;
+- nenhum dado operacional de impressora, agente, Moonraker, SSH, token, IP, organização ou permissão aparece em projeto público;
 - Social continua útil para comunidade, mas não é o caminho principal para gerenciar STL/3MF;
+- entradas antigas não são removidas antes de existir fluxo novo validado;
 - `./check.sh` passa no fechamento do pacote.
 
 Estado atual:
 
-- Planejado.
+- Em andamento.
 
-## PKG-78: Meus Modelos, Upload E Links Externos
+Notas de implementação:
+
+- Lote 1 iniciou o contrato canônico com schema central de projetos, arquivos, versões/snapshots e compartilhamentos N:N com comunidades.
+- Backend adicionou `/api/print-projects/contract` e `/api/print-projects` para exploração pública inicial.
+- Frontend adicionou a entrada principal `Projetos de impressão`, tela de exploração, busca, contrato operacional, estado vazio e cards.
+- Referência externa sem arquivo hospedado/importado/validado aparece como não fatiável; falha parcial de arquivo não bloqueia o projeto quando há arquivo válido.
+- Fluxos legados de Social e Administração ainda não foram removidos; seguem como compatibilidade até validação dos próximos lotes.
+- SQL aditivo: `backend/sql/068_print_projects_core.sql`.
+
+## PKG-78: Meus Projetos, Upload E Links Externos
 
 Objetivo:
 
-Criar a área pessoal onde o usuário gerencia todos os modelos que subiu, salvou, importou ou referenciou por link externo.
+Criar a área pessoal onde o usuário gerencia todos os projetos de impressão que subiu, salvou, importou ou referenciou por link externo.
 
 Contexto inicial:
 
 - upload e referências externas existem como fluxo de biblioteca de comunidade;
 - o usuário precisa de uma biblioteca pessoal antes de publicar, vender, compartilhar ou fatiar;
-- nem todo item pessoal deve pertencer imediatamente a uma comunidade.
+- projeto pessoal não pertence a comunidade; quando aplicável, ele apenas pode ser compartilhado em comunidades;
+- projeto precisa distinguir arquivo principal/preview, arquivos imprimíveis, peças opcionais, documentação e links externos;
+- falha parcial de análise/quarentena deve isolar o arquivo/peça afetado sem derrubar o projeto inteiro quando houver arquivos válidos;
+- upload/gestão de arquivo dentro de comunidade deve virar compartilhamento de projeto existente ou atalho para criar projeto na área central.
 
 Dependências:
 
@@ -4723,30 +4753,39 @@ Dependências:
 
 Entregáveis:
 
-- aba ou subárea `Meus modelos` dentro de `Modelos 3D`;
-- listagem de modelos pessoais: enviados, salvos, importados e links externos;
-- cadastro por upload STL/3MF/ZIP;
+- aba ou subárea `Meus projetos` dentro de `Projetos de impressão`;
+- listagem de projetos pessoais: enviados, salvos, importados e links externos;
+- cadastro por upload de um ou vários arquivos STL/3MF/ZIP;
 - cadastro por URL externa, com origem como Printables, MakerWorld, GitHub ou site genérico;
+- marcação de arquivo principal/preview, peças opcionais, grupo/conjunto, documentação e arquivos que entram no fatiamento;
+- estado por arquivo: válido, quarentena, análise pendente, falha, rejeitado, externo sem arquivo local, elegível ou bloqueado para fatiamento;
 - edição de título, descrição, tags, material sugerido, componente, licença, autoria, atribuição e visibilidade;
 - estado privado, não listado, público e em revisão;
 - painel de armazenamento pessoal com uso, cota, arquivos, retenção e custo estimado;
-- separação entre arquivo hospedado e referência externa sem cópia;
+- separação entre arquivo hospedado, conjunto de arquivos e referência externa sem cópia indevida;
+- remoção/rebaixamento do upload direto em `Comunidade > Arquivos` como fluxo principal, mantendo apenas compartilhamento de projeto;
 - estados de validação/quarentena/análise visíveis;
 - testes e documentação.
 
 Lotes:
 
-1. Mapear biblioteca pessoal sobre os modelos e endpoints existentes.
-2. Criar listagem `Meus modelos` com filtros e estados.
-3. Criar modal de upload pessoal com seções de modelo, arquivo, licença e impressão.
-4. Criar cadastro de link externo com atribuição/checksum opcional.
-5. Integrar painel de armazenamento/cota pessoal.
-6. Adicionar edição/arquivamento sem apagar arquivo sem confirmação.
-7. Testes de privacidade, upload/link externo e responsividade.
+1. Mapear biblioteca pessoal sobre projetos e endpoints existentes.
+2. Criar listagem `Meus projetos` com filtros e estados.
+3. Criar modal de upload pessoal com seções de projeto, arquivos, licença e impressão.
+4. Criar gestão de arquivos do projeto com principal/preview, seleção imprimível, peças opcionais e documentação.
+5. Criar cadastro de link externo com atribuição/checksum opcional.
+6. Integrar painel de armazenamento/cota pessoal.
+7. Adicionar edição/arquivamento sem apagar arquivo sem confirmação.
+8. Rebaixar upload direto em comunidade para ação de compartilhar projeto existente ou criar projeto central.
+9. Testes de privacidade, upload/link externo e responsividade.
 
 Critério de aceite:
 
-- usuário consegue criar modelo sem escolher comunidade;
+- usuário consegue criar projeto sem escolher comunidade;
+- usuário pode compartilhar o mesmo projeto em múltiplas comunidades sem criar cópias do projeto;
+- projeto pode ter múltiplos arquivos sem quebrar busca, detalhe, publicação ou fatiamento;
+- projeto sempre deixa claro qual arquivo/peça é principal, qual é opcional e quais arquivos são elegíveis para fatiamento;
+- arquivo inválido/rejeitado não entra em publicação pública, fatiamento, G-code ou envio; projeto com outros arquivos válidos continua gerenciável;
 - upload STL/3MF/ZIP entra em quarentena/validação antes de uso público;
 - link externo fica marcado como referência e não como arquivo hospedado;
 - usuário distingue privado, não listado, público e em revisão;
@@ -4757,16 +4796,18 @@ Estado atual:
 
 - Planejado.
 
-## PKG-79: Publicação, Venda E Vitrine De Modelos
+## PKG-79: Publicação, Venda E Vitrine De Projetos
 
 Objetivo:
 
-Permitir que modelos pessoais sejam publicados, compartilhados, curados, patrocinados ou colocados à venda sem misturar esse fluxo com comunidade ou Administração.
+Permitir que projetos pessoais sejam publicados, compartilhados, curados, patrocinados ou colocados à venda sem misturar esse fluxo com comunidade ou Administração.
 
 Contexto inicial:
 
-- classificação comercial existe na biblioteca social, mas a gestão está no contexto de comunidade;
-- o produto precisa deixar claro quando um modelo é gratuito, pago, patrocinado, curado ou apenas link externo;
+- classificação comercial existe hoje na biblioteca social legada, mas deve migrar para o projeto central;
+- o produto precisa deixar claro quando um projeto é gratuito, pago, patrocinado, curado ou apenas link externo;
+- publicação do projeto é independente de comunidade; comunidade é canal opcional de compartilhamento/descoberta;
+- estado de visibilidade, estado de revisão/publicação, classificação comercial e compartilhamento em comunidade são dimensões separadas, não um único campo misturado;
 - cobrança real pode ficar para pacote futuro, mas o contrato de publicação/venda precisa estar preparado.
 
 Dependências:
@@ -4778,31 +4819,35 @@ Dependências:
 
 Entregáveis:
 
-- controles de publicação no detalhe do modelo pessoal;
-- estados: privado, não listado, público, em revisão, rejeitado, arquivado;
-- classificação: comunidade/gratuito, curado, premium, patrocinado;
+- controles de publicação no detalhe do projeto pessoal;
+- visibilidade: privado, não listado ou público;
+- revisão/publicação: rascunho, em revisão, aprovado, rejeitado ou arquivado;
+- classificação: gratuito, curado, premium, patrocinado;
+- compartilhamentos em comunidades independentes da publicação principal;
 - campos de preço/condição comercial preparados sem ativar cobrança real quando fora de escopo;
 - transparência obrigatória para patrocinado;
 - revisão antes de premium/patrocinado público;
-- página pública do modelo com licença, autoria, versões, arquivos, fonte e ações permitidas;
-- vínculo opcional com comunidade como contexto de descoberta;
+- página pública do projeto com licença, autoria, versões, arquivos, fonte e ações permitidas;
+- compartilhamento opcional em zero, uma ou várias comunidades como contexto de descoberta;
 - painel de conteúdo publicado pelo usuário.
 
 Lotes:
 
-1. Normalizar estados de publicação e classificação comercial no modelo central.
-2. Criar UI de publicação a partir de `Meus modelos`.
-3. Criar página/detalhe público de modelo.
+1. Normalizar visibilidade, revisão/publicação, classificação comercial e compartilhamentos como dimensões separadas no projeto central.
+2. Criar UI de publicação a partir de `Meus projetos`.
+3. Criar página/detalhe público de projeto.
 4. Integrar revisão comercial e moderação.
 5. Exibir transparência de patrocinado/premium sem parecer recomendação técnica neutra.
-6. Documentar o que fica fora: pagamento real, repasse financeiro e fiscal.
+6. Remover dependência de página pública/comercial baseada em comunidade como dona do arquivo.
+7. Documentar o que fica fora: pagamento real, repasse financeiro e fiscal.
 
 Critério de aceite:
 
-- modelo privado não aparece em busca, comunidade ou página pública;
-- modelo pago/premium não é confundido com comunitário gratuito;
+- projeto privado não aparece em busca, comunidade ou página pública;
+- projeto pago/premium não é confundido com comunitário gratuito;
 - patrocinado sempre aparece como promoção/transparência;
-- fluxo não exige comunidade para publicar;
+- alterar compartilhamento em comunidade não altera visibilidade, revisão ou classificação comercial do projeto;
+- fluxo não exige comunidade para publicar, vender, fatiar ou compartilhar link público;
 - pagamento real não é simulado como se estivesse pronto;
 - `./check.sh` passa no fechamento do pacote.
 
@@ -4810,16 +4855,18 @@ Estado atual:
 
 - Planejado.
 
-## PKG-80: Fatiamento A Partir De Modelo Salvo
+## PKG-80: Fatiamento A Partir De Projeto Salvo
 
 Objetivo:
 
-Mover o fluxo de fatiamento diário para `Modelos 3D > Meus modelos`, permitindo escolher um modelo salvo, uma impressora, material/perfil/qualidade e gerar job de fatiamento.
+Mover o fluxo de fatiamento diário para `Projetos de impressão > Meus projetos`, permitindo escolher um projeto salvo, um ou mais arquivos/peças, uma impressora, material/perfil/qualidade e gerar job de fatiamento.
 
 Contexto inicial:
 
 - o pipeline de fatiamento existe em Administração, mas essa área deve ser reservada para configuração e diagnóstico;
-- o usuário deve fatiar a partir de um modelo que está na própria biblioteca pessoal;
+- o usuário deve fatiar a partir de um projeto que está na própria biblioteca pessoal;
+- fatiamento pode partir de um arquivo único ou de seleção de arquivos/peças dentro de um projeto;
+- fatiamento deve capturar snapshot imutável da versão do projeto, arquivos selecionados, orientação/dimensões relevantes e perfil usado;
 - perfil de material/fatiamento e compatibilidade devem entrar antes do job.
 
 Dependências:
@@ -4831,26 +4878,28 @@ Dependências:
 
 Entregáveis:
 
-- ação `Fatiar` no detalhe de modelo pessoal;
-- wizard/fluxo curto: modelo -> impressora -> perfil/material -> qualidade -> dimensões/orientação quando aplicável;
+- ação `Fatiar` no detalhe de projeto pessoal;
+- wizard/fluxo curto: projeto -> arquivos/peças -> impressora -> perfil/material -> qualidade -> dimensões/orientação quando aplicável;
 - uso de impressoras do usuário e compatibilidade básica por volume/material/nozzle;
-- criação de job de fatiamento vinculado ao modelo e versão;
-- lista de jobs do modelo, com estado, erro, artefatos e ação de preflight;
+- criação de job de fatiamento vinculado ao projeto, versão/snapshot, arquivos selecionados e configuração usada;
+- lista de jobs do projeto, com estado, erro, artefatos e ação de preflight;
 - Administração mantém apenas verificação da engine, paths, modo dry-run, diagnóstico e políticas.
 
 Lotes:
 
-1. Definir contrato de job a partir de modelo salvo.
-2. Criar ação `Fatiar` no detalhe de modelo.
-3. Criar seleção de impressora e perfil/material/qualidade.
+1. Definir contrato de job a partir de projeto salvo e snapshot imutável.
+2. Criar ação `Fatiar` no detalhe de projeto.
+3. Criar seleção de arquivos/peças, impressora e perfil/material/qualidade.
 4. Integrar criação e acompanhamento do job existente.
-5. Mostrar artefatos e preflight a partir do modelo.
+5. Mostrar artefatos e preflight a partir do projeto.
 6. Rebaixar `Administração > Pipeline de fatiamento` para configuração/diagnóstico.
+7. Remover/rebaixar a navegação antiga de fatiamento diário em Administração após validação do fluxo novo.
 
 Critério de aceite:
 
-- usuário não precisa entrar em Administração para fatiar modelo;
-- job sempre fica vinculado ao modelo, versão, usuário, impressora e perfil;
+- usuário não precisa entrar em Administração para fatiar projeto;
+- job sempre fica vinculado ao projeto, versão/snapshot, arquivos selecionados, usuário, impressora e perfil;
+- alteração posterior do projeto ou dos arquivos não altera job, artefato, preflight ou histórico já criado;
 - impressora incompatível mostra bloqueio/aviso antes do job;
 - engine ausente mostra erro acionável e aponta Administração para configuração;
 - `./check.sh` passa no fechamento do pacote.
@@ -4859,17 +4908,19 @@ Estado atual:
 
 - Planejado.
 
-## PKG-81: Envio Para Impressora E Histórico Por Modelo
+## PKG-81: Envio Para Impressora E Histórico Por Projeto
 
 Objetivo:
 
-Concluir o fluxo diário a partir de `Meus modelos`: preflight, salvar G-code, iniciar impressão, acompanhar entrega e registrar histórico/feedback vinculados ao modelo.
+Concluir o fluxo diário a partir de `Meus projetos`: preflight, salvar G-code, iniciar impressão, acompanhar entrega e registrar histórico/feedback vinculados ao projeto.
 
 Contexto inicial:
 
 - envio seguro e histórico existem no pipeline administrativo;
-- o usuário espera operar a partir do modelo salvo e da própria impressora;
-- histórico deve ajudar a decidir se o modelo funcionou, em qual impressora/material/perfil e com qual resultado.
+- o usuário espera operar a partir do projeto salvo e da própria impressora;
+- histórico deve ajudar a decidir se o projeto funcionou, em qual impressora/material/perfil e com qual resultado;
+- histórico público deve ser agregado e sanitizado por projeto/material/perfil/tipo técnico, sem identificar impressora privada ou ambiente operacional;
+- envio de arquivo/G-code não deve ficar dentro de comunidade como fluxo operacional.
 
 Dependências:
 
@@ -4881,30 +4932,33 @@ Dependências:
 
 Entregáveis:
 
-- preflight exibido no contexto do modelo e da impressora escolhida;
-- ações `Salvar G-code` e `Enviar para impressora` no fluxo do modelo;
+- preflight exibido no contexto do projeto e da impressora escolhida;
+- ações `Salvar G-code` e `Enviar para impressora` no fluxo do projeto;
 - confirmação forte para iniciar impressão;
 - status de entrega, arquivo remoto e rollback seguro quando permitido;
-- histórico por modelo com impressora, perfil, material, resultado, tempo, falha e feedback;
-- feedback público/privado sem expor impressora privada;
+- histórico por projeto com impressora, perfil, material, resultado, tempo, falha e feedback;
+- feedback público/privado, com versão pública agregada/sanitizada sem expor impressora privada;
 - integração com ranking/recomendações somente com sinais seguros;
-- Administração permanece como diagnóstico, não tela principal de envio.
+- Administração permanece como diagnóstico, não tela principal de envio;
+- Comunidade permanece como contexto de compartilhamento/descoberta, não como tela de upload/envio operacional.
 
 Lotes:
 
-1. Exibir preflight por job/modelo.
-2. Mover ações de salvar/enviar para o contexto do modelo.
+1. Exibir preflight por job/projeto.
+2. Mover ações de salvar/enviar para o contexto do projeto.
 3. Mostrar status de entrega e rollback seguro.
-4. Criar histórico por modelo e por impressora.
+4. Criar histórico por projeto e por impressora.
 5. Adicionar feedback e foto HTTPS opcional.
 6. Integrar sinais seguros com ranking/recomendação.
-7. Testes de segurança, confirmação e privacidade.
+7. Remover/rebaixar envio operacional de arquivo/G-code a partir de comunidade e Administração após validação do fluxo novo.
+8. Testes de segurança, confirmação e privacidade.
 
 Critério de aceite:
 
 - G-code não é salvo ou enviado sem preflight aprovado quando a política exigir;
 - iniciar impressão exige confirmação textual ou step-up quando aplicável;
 - histórico público nunca expõe impressora privada, agente, Moonraker, token, IP ou path sensível;
+- sinais públicos de resultado são agregados/sanitizados e apontam para o projeto central, nunca para cópia por comunidade;
 - rollback só aparece quando seguro;
 - usuário entende claramente se apenas salvou arquivo ou iniciou impressão;
 - `./check.sh` passa no fechamento do pacote.

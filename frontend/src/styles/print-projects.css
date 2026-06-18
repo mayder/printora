@@ -1,0 +1,187 @@
+.print-projects-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  grid-column: 1 / -1;
+  min-width: 0;
+  width: 100%;
+}
+
+.print-projects-band,
+.print-projects-toolbar,
+.print-projects-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.print-projects-band {
+  align-items: center;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 360px);
+  padding: 20px;
+}
+
+.print-projects-band h2,
+.print-projects-panel h3 {
+  margin: 0;
+}
+
+.print-projects-band p,
+.print-projects-contract small,
+.print-project-rule span,
+.print-project-card p,
+.print-project-card span,
+.print-project-card dt {
+  color: var(--muted);
+}
+
+.print-projects-contract {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+}
+
+.print-projects-contract strong {
+  font-size: 1.2rem;
+}
+
+.print-projects-toolbar {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 12px;
+}
+
+.print-projects-toolbar label {
+  align-items: center;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 10px;
+}
+
+.print-projects-toolbar input {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font: inherit;
+  min-height: 40px;
+  min-width: 0;
+  outline: 0;
+  width: 100%;
+}
+
+.print-projects-layout {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 340px);
+}
+
+.print-projects-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.print-projects-panel > header {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.print-project-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.print-project-card {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.print-project-card header,
+.print-project-card dl,
+.print-project-badges,
+.print-project-rule {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.print-project-card header {
+  justify-content: space-between;
+}
+
+.print-project-card header div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.print-project-card strong,
+.print-project-card span,
+.print-project-card p {
+  overflow-wrap: anywhere;
+}
+
+.print-project-badges {
+  flex-wrap: wrap;
+}
+
+.print-project-badges span {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.82rem;
+  padding: 4px 8px;
+}
+
+.print-project-card dl {
+  border-top: 1px solid var(--border-soft);
+  justify-content: space-between;
+  margin: 0;
+  padding-top: 10px;
+}
+
+.print-project-card dt,
+.print-project-card dd {
+  margin: 0;
+}
+
+.print-project-rule {
+  align-items: flex-start;
+}
+
+.print-project-rule div {
+  display: grid;
+  gap: 3px;
+}
+
+@media (max-width: 920px) {
+  .print-projects-band,
+  .print-projects-layout,
+  .print-projects-toolbar,
+  .print-project-grid {
+    grid-template-columns: 1fr;
+  }
+}
