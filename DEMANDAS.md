@@ -4954,7 +4954,9 @@ Notas de implementação:
 - Validação focada executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_slicing_pipeline.py ../backend/tests/test_print_projects.py ../backend/tests/test_schema_versioning.py::test_initialize_database_registers_sql_scripts_on_new_database -q`; `npm --prefix frontend run build`.
 - Validação visual/local executada em `Projetos de impressão > Meus projetos`: projeto com STL local e link externo, job existente por API com snapshot, engine ausente bloqueando ação, engine fake liberando criação pela UI, link externo desabilitado para seleção e responsividade mobile sem overflow horizontal em 390px.
 - Fechamento executado: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh` (`450 passed`, Go agent ok, frontend build ok, `test:releases` ok).
-- Pendência operacional: commit, publicação e smoke pós-publicação.
+- Commit de implementação: `d592718`.
+- Publicação executada na branch `cloud` via GitHub Actions `Deploy Printora Cloud`, run `27774263408`.
+- Smoke pós-publicação: `/health` ok, `/api/print-projects/contract` ok, `/api/slicing/projects/1/jobs` retorna `401` sem autenticação, `/api/print-projects?limit=1` ok.
 
 ## PKG-81: Envio Para Impressora E Histórico Por Projeto
 
