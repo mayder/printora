@@ -54,7 +54,7 @@
   align-items: center;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto repeat(3, minmax(130px, 180px));
   padding: 12px;
 }
 
@@ -69,7 +69,8 @@
   padding: 0 10px;
 }
 
-.print-projects-toolbar input {
+.print-projects-toolbar input,
+.print-projects-toolbar select {
   background: transparent;
   border: 0;
   color: var(--text);
@@ -78,6 +79,13 @@
   min-width: 0;
   outline: 0;
   width: 100%;
+}
+
+.print-projects-toolbar select {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 10px;
 }
 
 .print-projects-layout {
@@ -175,6 +183,54 @@
 .print-project-rule div {
   display: grid;
   gap: 3px;
+}
+
+.print-project-detail-section {
+  border-top: 1px solid var(--border-soft);
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+.print-project-detail-section h4 {
+  margin: 0;
+}
+
+.print-project-file-row,
+.print-project-version {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 10px;
+}
+
+.print-project-file-row div,
+.print-project-version {
+  min-width: 0;
+}
+
+.print-project-file-row strong,
+.print-project-file-row span,
+.print-project-version strong,
+.print-project-version span {
+  overflow-wrap: anywhere;
+}
+
+.print-project-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.print-project-tags span {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 8px;
 }
 
 @media (max-width: 920px) {

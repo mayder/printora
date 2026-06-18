@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.database import connect_database
 
@@ -68,6 +68,37 @@ class PrintProjectSummary(BaseModel):
     updated_at: str
 
 
+class PrintProjectVersion(BaseModel):
+    id: int
+    version_label: str
+    changelog: str
+    project_snapshot: dict[str, Any]
+    files_snapshot: list[dict[str, Any]]
+    created_at: str
+
+
+class PrintProjectDetail(PrintProjectSummary):
+    files: list[PrintProjectFile]
+    versions: list[PrintProjectVersion]
+    saved_by_viewer: bool = False
+    immutable_snapshot_ready: bool
+
+
+class PrintProjectSaveRequest(BaseModel):
+    save_kind: Literal["reference", "fork", "copy"] = "reference"
+    confirmed_copy: bool = False
+
+
+class PrintProjectCommunityShare(BaseModel):
+    community_slug: str
+    community_name: str
+    shared_at: str
+
+
+class PrintProjectShareRequest(BaseModel):
+    community_slug: str = Field(min_length=1, max_length=180)
+
+
 class PrintProjectsRepository:
     def __init__(self, database_path: Path):
         self.database_path = database_path
@@ -96,16 +127,45 @@ class PrintProjectsRepository:
             legacy_surfaces=["Social > Comunidades > Arquivos", "Administração > Pipeline de fatiamento", "/api/social/library*"],
         )
 
-    def explore(self, query: str = "", limit: int = 24) -> list[PrintProjectSummary]:
+    def explore(
+        self,
+        query: str = "",
+        file_kind: str = "",
+        license: str = "",
+        origin: str = "",
+        community: str = "",
+        limit: int = 24,
+    ) -> list[PrintProjectSummary]:
         safe_limit = min(max(limit, 1), 50)
-        pattern = f"%{query.strip()}%"
-        params: tuple[Any, ...]
+        params: list[Any] = []
         where = "WHERE p.visibility = 'public' AND p.lifecycle_status != 'archived'"
         if query.strip():
+            pattern = f"%{query.strip()}%"
             where += " AND (p.title LIKE ? OR p.description LIKE ? OR p.tags_json LIKE ?)"
-            params = (pattern, pattern, pattern, safe_limit)
-        else:
-            params = (safe_limit,)
+            params.extend([pattern, pattern, pattern])
+        if file_kind.strip():
+            where += " AND EXISTS (SELECT 1 FROM print_project_files fk WHERE fk.project_id = p.id AND fk.file_kind = ?)"
+            params.append(file_kind.strip())
+        if license.strip():
+            where += " AND p.license = ?"
+            params.append(license.strip())
+        if origin == "hosted":
+            where += " AND EXISTS (SELECT 1 FROM print_project_files hf WHERE hf.project_id = p.id AND hf.file_role != 'external_reference')"
+        elif origin == "external":
+            where += " AND NOT EXISTS (SELECT 1 FROM print_project_files hf WHERE hf.project_id = p.id AND hf.file_role != 'external_reference')"
+        if community.strip():
+            where += """
+                AND EXISTS (
+                    SELECT 1
+                    FROM print_project_community_shares pcs_filter
+                    JOIN social_communities c_filter ON c_filter.id = pcs_filter.community_id
+                    WHERE pcs_filter.project_id = p.id
+                      AND pcs_filter.status = 'active'
+                      AND c_filter.slug = ?
+                )
+            """
+            params.append(community.strip())
+        params.append(safe_limit)
         with connect_database(self.database_path) as connection:
             rows = connection.execute(
                 PROJECT_SQL
@@ -115,9 +175,151 @@ class PrintProjectsRepository:
                 ORDER BY p.updated_at DESC, p.id DESC
                 LIMIT ?
                 """,
-                params,
+                tuple(params),
             ).fetchall()
         return [_project_from_row(row) for row in rows]
+
+    def community_projects(self, community_slug: str) -> list[PrintProjectSummary]:
+        return self.explore(community=community_slug, limit=50)
+
+    def detail(self, slug: str, viewer_user_id: int | None = None) -> PrintProjectDetail | None:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                PROJECT_SQL
+                + """
+                WHERE p.slug = ?
+                  AND p.lifecycle_status != 'archived'
+                  AND (p.visibility IN ('public', 'unlisted') OR p.owner_user_id = ?)
+                GROUP BY p.id
+                """,
+                (slug, viewer_user_id or -1),
+            ).fetchone()
+            if row is None:
+                return None
+            files = [
+                _file_from_row(file_row)
+                for file_row in connection.execute(
+                    """
+                    SELECT *
+                    FROM print_project_files
+                    WHERE project_id = ?
+                    ORDER BY
+                        CASE file_role
+                            WHEN 'primary' THEN 1
+                            WHEN 'printable' THEN 2
+                            WHEN 'optional_part' THEN 3
+                            WHEN 'preview' THEN 4
+                            WHEN 'documentation' THEN 5
+                            WHEN 'external_reference' THEN 6
+                            ELSE 7
+                        END,
+                        id
+                    """,
+                    (row["id"],),
+                ).fetchall()
+            ]
+            versions = [
+                _version_from_row(version_row)
+                for version_row in connection.execute(
+                    """
+                    SELECT *
+                    FROM print_project_versions
+                    WHERE project_id = ?
+                    ORDER BY created_at DESC, id DESC
+                    """,
+                    (row["id"],),
+                ).fetchall()
+            ]
+            saved_by_viewer = False
+            if viewer_user_id is not None:
+                saved_by_viewer = bool(
+                    connection.execute(
+                        """
+                        SELECT 1
+                        FROM print_project_saves
+                        WHERE owner_user_id = ? AND project_id = ? AND status = 'active'
+                        LIMIT 1
+                        """,
+                        (viewer_user_id, row["id"]),
+                    ).fetchone()
+                )
+        summary = _project_from_row(row)
+        return PrintProjectDetail(
+            **summary.model_dump(),
+            files=files,
+            versions=versions,
+            saved_by_viewer=saved_by_viewer,
+            immutable_snapshot_ready=bool(versions),
+        )
+
+    def save_project(self, actor_user_id: int, project_id: int, payload: PrintProjectSaveRequest) -> PrintProjectDetail:
+        if payload.save_kind == "copy" and not payload.confirmed_copy:
+            raise ValueError("cópia de arquivo exige confirmação explícita")
+        if payload.save_kind in {"fork", "copy"}:
+            raise ValueError("fork e cópia serão tratados em Meus projetos; use salvar referência neste fluxo")
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT slug
+                FROM print_projects
+                WHERE id = ? AND lifecycle_status != 'archived' AND visibility IN ('public', 'unlisted')
+                """,
+                (project_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError("projeto não encontrado")
+            connection.execute(
+                """
+                INSERT INTO print_project_saves (owner_user_id, project_id, save_kind)
+                VALUES (?, ?, ?)
+                ON CONFLICT(owner_user_id, project_id, save_kind) DO UPDATE SET
+                    status = 'active',
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (actor_user_id, project_id, payload.save_kind),
+            )
+            slug = str(row["slug"])
+        detail = self.detail(slug, actor_user_id)
+        if detail is None:
+            raise ValueError("projeto não encontrado")
+        return detail
+
+    def share_with_community(self, actor_user_id: int, project_id: int, payload: PrintProjectShareRequest) -> PrintProjectDetail:
+        with connect_database(self.database_path) as connection:
+            project = connection.execute(
+                """
+                SELECT id, slug, owner_user_id
+                FROM print_projects
+                WHERE id = ? AND lifecycle_status != 'archived'
+                """,
+                (project_id,),
+            ).fetchone()
+            if project is None:
+                raise ValueError("projeto não encontrado")
+            if project["owner_user_id"] is not None and int(project["owner_user_id"]) != actor_user_id:
+                raise PermissionError("somente o dono pode compartilhar o projeto")
+            community = connection.execute(
+                "SELECT id FROM social_communities WHERE slug = ? AND status = 'active'",
+                (payload.community_slug,),
+            ).fetchone()
+            if community is None:
+                raise ValueError("comunidade não encontrada")
+            connection.execute(
+                """
+                INSERT INTO print_project_community_shares (project_id, community_id, shared_by_user_id)
+                VALUES (?, ?, ?)
+                ON CONFLICT(project_id, community_id) DO UPDATE SET
+                    status = 'active',
+                    shared_by_user_id = excluded.shared_by_user_id,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (project_id, community["id"], actor_user_id),
+            )
+            slug = str(project["slug"])
+        detail = self.detail(slug, actor_user_id)
+        if detail is None:
+            raise ValueError("projeto não encontrado")
+        return detail
 
 
 PROJECT_SQL = """
@@ -197,3 +399,46 @@ def _loads_list(value: str | None) -> list[str]:
 
 def _is_external_only(primary_file: PrintProjectFile | None, file_count: int) -> bool:
     return file_count == 1 and primary_file is not None and primary_file.file_role == "external_reference"
+
+
+def _file_from_row(row) -> PrintProjectFile:
+    return PrintProjectFile(
+        id=int(row["id"]),
+        file_kind=row["file_kind"],
+        file_role=row["file_role"],
+        file_name=str(row["file_name"]),
+        external_url=row["external_url"],
+        size_bytes=row["size_bytes"],
+        sha256=row["sha256"],
+        validation_status=row["validation_status"],
+        can_slice=bool(row["can_slice"]),
+    )
+
+
+def _version_from_row(row) -> PrintProjectVersion:
+    return PrintProjectVersion(
+        id=int(row["id"]),
+        version_label=str(row["version_label"]),
+        changelog=str(row["changelog"] or ""),
+        project_snapshot=_loads_dict(row["project_snapshot_json"]),
+        files_snapshot=_loads_dict_list(row["files_snapshot_json"]),
+        created_at=str(row["created_at"]),
+    )
+
+
+def _loads_dict(value: str | None) -> dict[str, Any]:
+    try:
+        parsed = json.loads(value or "{}")
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _loads_dict_list(value: str | None) -> list[dict[str, Any]]:
+    try:
+        parsed = json.loads(value or "[]")
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [item for item in parsed if isinstance(item, dict)]

@@ -123,6 +123,22 @@ Critérios do lote inicial:
 - projeto multi-arquivo com uma peça válida e outra inválida mantém o projeto acessível e bloqueia só o arquivo inválido para fatiamento;
 - a tela `Projetos de impressão` aparece no menu principal sem expor identificadores internos de pacote/lote.
 
+Validação de fechamento da área central:
+
+```bash
+cd backend && uv run --extra dev pytest ../backend/tests/test_print_projects.py -q
+npm --prefix frontend run build
+./check.sh
+```
+
+Critérios adicionais:
+
+- detalhe central retorna arquivos, versões/snapshots e estado de salvamento;
+- `Salvar nos meus projetos` cria referência sem duplicar arquivo;
+- compartilhamento com comunidade é N:N e não altera owner, visibilidade nem classificação comercial;
+- comunidade lista projetos centrais compartilhados e não apresenta upload/fatiamento/envio como fluxo principal;
+- Administração lista jobs existentes como diagnóstico/fallback e não cria job diário nem inicia envio operacional como caminho principal.
+
 ## Social, Catálogo E Comunidades
 
 Validação focada:

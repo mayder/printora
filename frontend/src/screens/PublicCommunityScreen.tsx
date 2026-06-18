@@ -2,14 +2,16 @@ import React from "react";
 import { Archive, ArrowLeft, Box, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Filter, FolderOpen, GitBranch, HardDrive, Heart, ListChecks, Lock, MessageSquare, Pencil, Pin, Printer, Reply, RotateCcw, Send, SlidersHorizontal, ThumbsUp, Trash2, UserRound, Users, Wrench, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { socialApi } from "../services/socialApi";
+import { printProjectsApi } from "../services/printProjectsApi";
 import type { Community, CommunityDetail, CommunityFeedItem, CommunityFeedSummary, DiscussionComment, DiscussionDetail, ExternalReferenceRecord, ExternalSourceRecord, FeedContentType, FeedOrder, LibraryCollectionVisibility, LibraryFileKind, LibraryItem, LibraryLicense, LibraryOrganizerSummary, LibraryVisibility, MaterialProfile, StorageReport, TechnicalConfigComparison, TechnicalPrinterConfig } from "../types";
+import type { PrintProjectSummary } from "../types/printProjects";
 
 interface PublicCommunityScreenProps {
   slug: string;
   embedded?: boolean;
 }
 
-type CommunityTab = "feed" | "files" | "mods" | "profiles" | "members" | "printers";
+type CommunityTab = "feed" | "projects" | "mods" | "profiles" | "members" | "printers";
 
 const feedTypeOptions: Array<{ value: FeedContentType | ""; label: string }> = [
   { value: "", label: "Todos" },
@@ -17,7 +19,7 @@ const feedTypeOptions: Array<{ value: FeedContentType | ""; label: string }> = [
   { value: "question", label: "Dúvidas" },
   { value: "mod", label: "Mods" },
   { value: "print_result", label: "Resultados" },
-  { value: "file_announcement", label: "Arquivos" },
+  { value: "file_announcement", label: "Projetos" },
   { value: "curation_notice", label: "Curadoria" },
 ];
 
@@ -29,7 +31,7 @@ const feedOrderOptions: Array<{ value: FeedOrder; label: string }> = [
 
 const tabs: Array<{ key: CommunityTab; label: string; icon: LucideIcon }> = [
   { key: "feed", label: "Feed", icon: MessageSquare },
-  { key: "files", label: "Arquivos", icon: FolderOpen },
+  { key: "projects", label: "Projetos", icon: FolderOpen },
   { key: "mods", label: "Mods", icon: Wrench },
   { key: "profiles", label: "Perfis", icon: SlidersHorizontal },
   { key: "members", label: "Membros", icon: Users },
@@ -91,7 +93,7 @@ export function PublicCommunityScreen({ slug, embedded = false }: PublicCommunit
           <section className="community-metrics">
             <CommunityMetric icon={Users} label="Membros" value={community.member_count} />
             <CommunityMetric icon={Printer} label="Impressoras públicas" value={community.printer_count} />
-            <CommunityMetric icon={FileText} label="Arquivos" value={community.file_count} />
+            <CommunityMetric icon={FileText} label="Projetos" value={community.file_count} />
             <CommunityMetric icon={Wrench} label="Mods" value={community.mod_count} />
           </section>
 
@@ -222,10 +224,64 @@ function CommunityTabContent({ community, tab }: { community: CommunityDetail; t
       </>
     ) : <Placeholder title="Mods" text="A estrutura inicial usa mods declarados na publicação da impressora. Biblioteca dedicada será ligada ao pacote de arquivos/modelos." />;
   }
-  if (tab === "files") {
-    return <CommunityLibrary community={community} />;
+  if (tab === "projects") {
+    return <CommunityProjects community={community} />;
   }
   return <CommunityFeed community={community} />;
+}
+
+function CommunityProjects({ community }: { community: CommunityDetail }) {
+  const [projects, setProjects] = React.useState<PrintProjectSummary[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    async function loadProjects() {
+      setLoading(true);
+      setError(null);
+      try {
+        const payload = await printProjectsApi.communityProjects(community.slug);
+        if (active) setProjects(payload);
+      } catch (err) {
+        if (active) setError(err instanceof Error ? err.message : "Projetos indisponíveis");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void loadProjects();
+    return () => {
+      active = false;
+    };
+  }, [community.slug]);
+
+  if (loading) return <Placeholder title="Projetos" text="Carregando projetos compartilhados..." />;
+  if (error) return <Placeholder title="Projetos indisponíveis" text={error} />;
+  return (
+    <>
+      <div className="community-section-header">
+        <div>
+          <h2>Projetos compartilhados</h2>
+          <p>Esta comunidade é uma vitrine. Upload, fatiamento e envio ficam no detalhe central do projeto.</p>
+        </div>
+        <a className="secondary-button" href="/?section=projects">Abrir projetos</a>
+      </div>
+      <div className="public-printer-list">
+        {projects.map((project) => (
+          <section key={project.id} className="public-printer-card">
+            <div>
+              {project.external_reference_only ? <ExternalLink size={17} /> : <FolderOpen size={17} />}
+              <strong>{project.title}</strong>
+            </div>
+            <span>{project.license || "Licença não informada"} · {project.can_slice ? "Fatiável" : "Não fatiável"}</span>
+            {project.description ? <p>{project.description}</p> : null}
+            <a href={`/?section=projects`}><ExternalLink size={15} />Abrir no centro de projetos</a>
+          </section>
+        ))}
+        {projects.length === 0 ? <p>Nenhum projeto central foi compartilhado nesta comunidade.</p> : null}
+      </div>
+    </>
+  );
 }
 
 function CommunityTechnicalProfiles({ community }: { community: CommunityDetail }) {

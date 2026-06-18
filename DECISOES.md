@@ -40,7 +40,7 @@ Consequencias: o mesmo projeto pode servir para todo o sistema, aparecer em zero
 Impacto em testes: testes dos PKG-77 a PKG-81 devem cobrir projeto multi-arquivo, snapshot imutável, relação N:N com comunidades, privacidade, publicação independente, fatiamento por seleção de arquivos, histórico sanitizado e regressão dos atalhos legados.
 Impacto em rollback: médio; a implementação deve manter compatibilidade ou redirects enquanto dados legados existirem. Remoção de telas/rotas antigas só ocorre depois de validação do fluxo novo.
 Como reverter: reativar entradas legadas de biblioteca/comunidade/Administração como fluxo principal e tratar projetos como camada de apresentação, mantendo dados criados como legado; reversão física de dados só com backup SQLite e confirmação explícita.
-Referencias: `DEMANDAS.md` PKG-77 a PKG-81, `TELAS.md` Distribuição de conteúdo.
+Referencias: `DEMANDAS.md` PKG-77 a PKG-81, `TELAS.md` Distribuição de conteúdo, `backend/sql/068_print_projects_core.sql`, `backend/sql/069_print_project_experience.sql`, `/api/print-projects`.
 
 ### DEC-20260617-01 - Impressão real alimenta ranking sem expor telemetria privada
 

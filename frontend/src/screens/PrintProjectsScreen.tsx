@@ -1,10 +1,11 @@
 import React from "react";
-import { ExternalLink, FileArchive, FileText, Link2, RefreshCw, Search, ShieldCheck, Tags } from "lucide-react";
+import { CheckCircle2, ExternalLink, FileArchive, FileText, Link2, RefreshCw, Search, ShieldCheck, Tags } from "lucide-react";
 import { printProjectsApi } from "../services/printProjectsApi";
-import type { PrintProjectContract, PrintProjectSummary } from "../types/printProjects";
+import type { PrintProjectContract, PrintProjectDetail, PrintProjectFile, PrintProjectSummary } from "../types/printProjects";
 import type { ScreenPropsFor } from "./ScreenProps";
 
-type PrintProjectsScreenProps = ScreenPropsFor<"setError">;
+type PrintProjectsScreenProps = ScreenPropsFor<"authUser" | "setError">;
+type ProjectFilters = { file_kind: string; license: string; origin: "" | "hosted" | "external" };
 
 const commercialLabels: Record<PrintProjectSummary["commercial_class"], string> = {
   free: "Gratuito",
@@ -21,18 +22,31 @@ const publicationLabels: Record<PrintProjectSummary["publication_status"], strin
   archived: "Arquivado",
 };
 
-export function PrintProjectsScreen({ setError }: PrintProjectsScreenProps) {
+const fileRoleLabels: Record<PrintProjectFile["file_role"], string> = {
+  primary: "Principal",
+  printable: "Imprimível",
+  optional_part: "Peça opcional",
+  documentation: "Documentação",
+  preview: "Preview",
+  external_reference: "Referência externa",
+  artifact: "Artefato",
+};
+
+export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenProps) {
   const [query, setQuery] = React.useState("");
+  const [filters, setFilters] = React.useState<ProjectFilters>({ file_kind: "", license: "", origin: "" });
   const [contract, setContract] = React.useState<PrintProjectContract | null>(null);
   const [projects, setProjects] = React.useState<PrintProjectSummary[]>([]);
+  const [selectedProject, setSelectedProject] = React.useState<PrintProjectDetail | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [savingId, setSavingId] = React.useState<number | null>(null);
 
   async function loadProjects(nextQuery = query) {
     setBusy(true);
     try {
       const [contractPayload, projectsPayload] = await Promise.all([
         printProjectsApi.contract(),
-        printProjectsApi.explore({ q: nextQuery.trim(), limit: 24 }),
+        printProjectsApi.explore({ q: nextQuery.trim(), ...filters, limit: 24 }),
       ]);
       setContract(contractPayload);
       setProjects(projectsPayload);
@@ -43,9 +57,30 @@ export function PrintProjectsScreen({ setError }: PrintProjectsScreenProps) {
     }
   }
 
+  async function openProject(project: PrintProjectSummary) {
+    setError(null);
+    try {
+      setSelectedProject(await printProjectsApi.detail(project.slug));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao abrir projeto");
+    }
+  }
+
+  async function saveProject(projectId: number) {
+    setSavingId(projectId);
+    try {
+      const detail = await printProjectsApi.saveReference(projectId);
+      setSelectedProject(detail);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao salvar projeto");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   React.useEffect(() => {
     void loadProjects("");
-  }, []);
+  }, [filters.file_kind, filters.license, filters.origin]);
 
   return (
     <div className="print-projects-screen">
@@ -78,6 +113,25 @@ export function PrintProjectsScreen({ setError }: PrintProjectsScreenProps) {
           <RefreshCw size={16} />
           {busy ? "Carregando" : "Atualizar"}
         </button>
+        <select value={filters.file_kind} onChange={(event) => setFilters((current) => ({ ...current, file_kind: event.target.value }))} aria-label="Tipo de arquivo">
+          <option value="">Todos os arquivos</option>
+          <option value="stl">STL</option>
+          <option value="3mf">3MF</option>
+          <option value="zip">ZIP</option>
+          <option value="link">Link externo</option>
+        </select>
+        <select value={filters.license} onChange={(event) => setFilters((current) => ({ ...current, license: event.target.value }))} aria-label="Licença">
+          <option value="">Todas as licenças</option>
+          <option value="cc-by">CC BY</option>
+          <option value="cc-by-sa">CC BY-SA</option>
+          <option value="cc0">CC0</option>
+          <option value="mit">MIT</option>
+        </select>
+        <select value={filters.origin} onChange={(event) => setFilters((current) => ({ ...current, origin: event.target.value as ProjectFilters["origin"] }))} aria-label="Origem">
+          <option value="">Todas as origens</option>
+          <option value="hosted">Hospedado</option>
+          <option value="external">Referência externa</option>
+        </select>
       </section>
 
       <section className="print-projects-layout">
@@ -95,25 +149,31 @@ export function PrintProjectsScreen({ setError }: PrintProjectsScreenProps) {
           ) : (
             <div className="print-project-grid">
               {projects.map((project) => (
-                <ProjectCard key={project.id} project={project} />
+                <ProjectCard key={project.id} project={project} onOpen={openProject} />
               ))}
             </div>
           )}
         </div>
 
         <aside className="print-projects-panel print-projects-rules">
-          <h3>Contrato operacional</h3>
-          <Rule icon={ShieldCheck} label="Snapshot" text="Fatiamento, G-code e histórico exigem versão imutável." />
-          <Rule icon={Link2} label="Links externos" text="Referência sem arquivo validado não pode ser fatiada ou enviada." />
-          <Rule icon={Tags} label="Dimensões separadas" text="Visibilidade, publicação, venda e comunidade não se misturam." />
-          <Rule icon={FileText} label="Legado" text="Comunidade e Administração ficam como vitrine, diagnóstico ou fallback." />
+          {selectedProject ? (
+            <ProjectDetail project={selectedProject} authUserPresent={!!authUser} saving={savingId === selectedProject.id} onSave={saveProject} />
+          ) : (
+            <>
+              <h3>Contrato operacional</h3>
+              <Rule icon={ShieldCheck} label="Snapshot" text="Fatiamento, G-code e histórico exigem versão imutável." />
+              <Rule icon={Link2} label="Links externos" text="Referência sem arquivo validado não pode ser fatiada ou enviada." />
+              <Rule icon={Tags} label="Dimensões separadas" text="Visibilidade, publicação, venda e comunidade não se misturam." />
+              <Rule icon={FileText} label="Legado" text="Comunidade e Administração ficam como vitrine, diagnóstico ou fallback." />
+            </>
+          )}
         </aside>
       </section>
     </div>
   );
 }
 
-function ProjectCard({ project }: { project: PrintProjectSummary }) {
+function ProjectCard({ project, onOpen }: { project: PrintProjectSummary; onOpen: (project: PrintProjectSummary) => void }) {
   return (
     <article className="print-project-card">
       <header>
@@ -139,7 +199,62 @@ function ProjectCard({ project }: { project: PrintProjectSummary }) {
           <dd>{project.community_shares.length}</dd>
         </div>
       </dl>
+      <button type="button" className="secondary-button" onClick={() => void onOpen(project)}>
+        Abrir projeto
+      </button>
     </article>
+  );
+}
+
+function ProjectDetail({ project, authUserPresent, saving, onSave }: { project: PrintProjectDetail; authUserPresent: boolean; saving: boolean; onSave: (projectId: number) => void }) {
+  return (
+    <>
+      <header>
+        <h3>{project.title}</h3>
+        {project.external_reference_only ? <ExternalLink size={18} /> : <FileArchive size={18} />}
+      </header>
+      <p>{project.description || "Sem descrição."}</p>
+      <div className="print-project-badges">
+        <span>{commercialLabels[project.commercial_class]}</span>
+        <span>{publicationLabels[project.publication_status]}</span>
+        <span>{project.immutable_snapshot_ready ? "Snapshot pronto" : "Snapshot pendente"}</span>
+      </div>
+      <section className="print-project-detail-section">
+        <h4>Arquivos</h4>
+        {project.files.map((file) => <ProjectFileRow key={file.id} file={file} />)}
+        {project.files.length === 0 ? <span className="muted">Nenhum arquivo declarado.</span> : null}
+      </section>
+      <section className="print-project-detail-section">
+        <h4>Comunidades</h4>
+        {project.community_shares.length ? <div className="print-project-tags">{project.community_shares.map((community) => <span key={community}>{community}</span>)}</div> : <span className="muted">Ainda não compartilhado.</span>}
+      </section>
+      <section className="print-project-detail-section">
+        <h4>Versões</h4>
+        {project.versions.map((version) => (
+          <div className="print-project-version" key={version.id}>
+            <strong>{version.version_label}</strong>
+            <span>{version.changelog || "Snapshot imutável do projeto."}</span>
+          </div>
+        ))}
+        {project.versions.length === 0 ? <span className="muted">Snapshot será exigido antes de fatiar, gerar G-code ou registrar histórico.</span> : null}
+      </section>
+      <button type="button" className="primary-button" disabled={!authUserPresent || saving || project.saved_by_viewer} onClick={() => onSave(project.id)}>
+        {project.saved_by_viewer ? <CheckCircle2 size={16} /> : null}
+        {project.saved_by_viewer ? "Salvo" : saving ? "Salvando" : "Salvar nos meus projetos"}
+      </button>
+    </>
+  );
+}
+
+function ProjectFileRow({ file }: { file: PrintProjectFile }) {
+  return (
+    <div className="print-project-file-row">
+      <div>
+        <strong>{file.file_name}</strong>
+        <span>{file.file_kind.toUpperCase()} · {fileRoleLabels[file.file_role]}</span>
+      </div>
+      <span>{file.can_slice ? "Fatiável" : "Bloqueado"}</span>
+    </div>
   );
 }
 

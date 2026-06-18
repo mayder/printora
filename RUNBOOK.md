@@ -70,6 +70,8 @@ Contrato e exploração inicial:
 ```bash
 curl -fsS "http://127.0.0.1:8069/api/print-projects/contract"
 curl -fsS "http://127.0.0.1:8069/api/print-projects?limit=5"
+curl -fsS "http://127.0.0.1:8069/api/print-projects/<slug>"
+curl -fsS "http://127.0.0.1:8069/api/social/communities/<slug>/projects"
 ```
 
 O schema central inicial é aplicado por
@@ -78,6 +80,32 @@ versões/snapshots e compartilhamentos N:N com comunidades sem apagar ou migrar
 automaticamente tabelas legadas. Rollback funcional remove a entrada de menu e
 rotas `/api/print-projects*`, mantendo dados como legado; rollback estrutural
 exige restaurar backup SQLite anterior ao script `068_print_projects_core.sql`.
+
+`backend/sql/069_print_project_experience.sql` adiciona salvamentos pessoais de
+projeto por referência, sem copiar arquivo. A ação autenticada:
+
+```bash
+curl -fsS -X POST \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"save_kind":"reference"}' \
+  "http://127.0.0.1:8069/api/print-projects/<project_id>/save"
+```
+
+Compartilhamento com comunidade é relação N:N:
+
+```bash
+curl -fsS -X POST \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"community_slug":"<slug>"}' \
+  "http://127.0.0.1:8069/api/print-projects/<project_id>/communities"
+```
+
+Essas ações não alteram ownership, arquivos, visibilidade, publicação ou
+classificação comercial do projeto. Rollback funcional remove UI/rotas novas e
+mantém os dados; rollback estrutural exige backup SQLite anterior ao script
+`069_print_project_experience.sql`.
 
 Biblioteca de arquivos legada:
 

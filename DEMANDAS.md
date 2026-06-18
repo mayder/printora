@@ -4718,16 +4718,21 @@ Critério de aceite:
 
 Estado atual:
 
-- Em andamento.
+- Implementado.
 
 Notas de implementação:
 
 - Lote 1 iniciou o contrato canônico com schema central de projetos, arquivos, versões/snapshots e compartilhamentos N:N com comunidades.
 - Backend adicionou `/api/print-projects/contract` e `/api/print-projects` para exploração pública inicial.
-- Frontend adicionou a entrada principal `Projetos de impressão`, tela de exploração, busca, contrato operacional, estado vazio e cards.
+- Backend adicionou detalhe central, salvar referência sem cópia, compartilhamento N:N com comunidade e listagem de projetos por comunidade.
+- Frontend adicionou a entrada principal `Projetos de impressão`, tela de exploração, filtros, busca, contrato operacional, estado vazio, cards, detalhe central, arquivos, versões/snapshots, comunidades e ação `Salvar nos meus projetos`.
+- Comunidades exibem `Projetos` compartilhados e apontam para a área central; upload/gestão direta de arquivos em comunidade deixa de ser o fluxo principal.
+- Administração > Pipeline de fatiamento foi rebaixada para diagnóstico/fallback: não cria job diário, não inicia preflight novo e não salva/envia G-code como fluxo principal.
 - Referência externa sem arquivo hospedado/importado/validado aparece como não fatiável; falha parcial de arquivo não bloqueia o projeto quando há arquivo válido.
 - Fluxos legados de Social e Administração ainda não foram removidos; seguem como compatibilidade até validação dos próximos lotes.
 - SQL aditivo: `backend/sql/068_print_projects_core.sql`.
+- SQL aditivo: `backend/sql/069_print_project_experience.sql`.
+- Validação executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_print_projects.py -q`; `npm --prefix frontend run build`.
 
 ## PKG-78: Meus Projetos, Upload E Links Externos
 

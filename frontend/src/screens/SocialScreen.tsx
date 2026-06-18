@@ -440,7 +440,7 @@ function DiscoveryTab({
               <option value="">Todos</option>
               <option value="community">Comunidades</option>
               <option value="post">Discussões</option>
-              <option value="library_item">Arquivos</option>
+              <option value="library_item">Projetos</option>
               <option value="technical_config">Configurações</option>
               <option value="material_profile">Materiais</option>
               <option value="catalog_variant">Catálogo</option>
@@ -558,7 +558,7 @@ function FacetRail({ discovery, filters, setFilters }: { discovery: SearchRespon
     { title: "Tags", items: discovery.facets.tags.slice(0, 8), field: "tag" as const },
     { title: "Materiais", items: discovery.facets.materials.slice(0, 6), field: "material" as const },
     { title: "Componentes", items: discovery.facets.components.slice(0, 6), field: "component" as const },
-    { title: "Arquivos", items: discovery.facets.file_kinds.slice(0, 6), field: "file_kind" as const },
+    { title: "Tipos de projeto", items: discovery.facets.file_kinds.slice(0, 6), field: "file_kind" as const },
   ];
   return (
     <div className="discovery-facet-rail">
@@ -864,7 +864,7 @@ function entityTypeLabel(type: SearchEntityType) {
   const labels: Record<SearchEntityType, string> = {
     community: "Comunidade",
     post: "Discussão",
-    library_item: "Arquivo",
+    library_item: "Projeto",
     technical_config: "Configuração",
     material_profile: "Material",
     catalog_variant: "Catálogo",

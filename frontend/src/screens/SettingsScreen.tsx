@@ -316,44 +316,17 @@ export function SettingsScreen(props: SettingsScreenProps) {
         <div className="panel-header-row">
           <div>
             <h2>Pipeline de fatiamento</h2>
-            <p>Jobs rastreáveis por modelo, impressora, perfil e artefatos. Execução real depende da engine configurada.</p>
+            <p>Diagnóstico técnico de jobs, artefatos, preflight e entregas. O fluxo diário começa em Projetos de impressão.</p>
           </div>
           <button type="button" className="secondary-button" onClick={() => void loadSlicingPipeline()} disabled={slicingJobBusy}>
             <RefreshCw className={slicingJobBusy ? "button-busy-icon" : undefined} size={16} />
             Recarregar
           </button>
         </div>
-        <div className="settings-inline-form">
-          <label>
-            Impressora
-            <select value={slicingDraft.printerId} onChange={(event) => setSlicingDraft((current) => ({ ...current, printerId: event.target.value }))}>
-              <option value="">Selecione</option>
-              {slicingPrinters.map((printer) => <option key={printer.id} value={printer.id}>{printer.name}</option>)}
-            </select>
-          </label>
-          <label>
-            Modelo
-            <input value={slicingDraft.modelReference} onChange={(event) => setSlicingDraft((current) => ({ ...current, modelReference: event.target.value }))} />
-          </label>
-          <label>
-            Qualidade
-            <input value={slicingDraft.qualityReference} onChange={(event) => setSlicingDraft((current) => ({ ...current, qualityReference: event.target.value }))} />
-          </label>
-          <label>
-            X mm
-            <input inputMode="decimal" value={slicingDraft.x} onChange={(event) => setSlicingDraft((current) => ({ ...current, x: event.target.value }))} />
-          </label>
-          <label>
-            Y mm
-            <input inputMode="decimal" value={slicingDraft.y} onChange={(event) => setSlicingDraft((current) => ({ ...current, y: event.target.value }))} />
-          </label>
-          <label>
-            Z mm
-            <input inputMode="decimal" value={slicingDraft.z} onChange={(event) => setSlicingDraft((current) => ({ ...current, z: event.target.value }))} />
-          </label>
-          <button type="button" className="primary-button" onClick={() => void createSlicingJob()} disabled={slicingJobBusy || !slicingDraft.printerId}>
-            Criar job
-          </button>
+        <div className="action-result">
+          <strong>Entrada operacional rebaixada</strong>
+          <span>Criação de job, preflight novo, salvar G-code e iniciar impressão ficam no detalhe do projeto. Esta área permanece para suporte, leitura e ações seguras em jobs existentes.</span>
+          <a className="secondary-button compact" href="/?section=projects">Abrir projetos de impressão</a>
         </div>
         <div className="settings-job-list">
           {slicingJobs.length === 0 ? <p className="muted">Nenhum job de fatiamento registrado.</p> : null}
@@ -373,43 +346,15 @@ export function SettingsScreen(props: SettingsScreenProps) {
                     const latestDelivery = latestDeliveryForJob(printDeliveries, job.id);
                     return (
                       <>
-                  {job.status === "planned" || job.status === "failed" ? (
-                    <button type="button" className="secondary-button" onClick={() => void runSlicingJob(job.id)} disabled={slicingJobBusy}>
-                      Executar
-                    </button>
-                  ) : null}
                   {job.status === "planned" || job.status === "running" ? (
                     <button type="button" className="secondary-button" onClick={() => void cancelSlicingJob(job.id)} disabled={slicingJobBusy}>
                       Cancelar
-                    </button>
-                  ) : null}
-                  {job.status === "completed" ? (
-                    <button type="button" className="secondary-button" onClick={() => void createPrintPreflight(job.id)} disabled={slicingJobBusy}>
-                      Preflight
                     </button>
                   ) : null}
                   {latestPreflightForJob(printPreflights, job.id)?.status === "pending_remote" ? (
                     <button type="button" className="secondary-button" onClick={() => void refreshPrintPreflight(latestPreflightForJob(printPreflights, job.id)!.id)} disabled={slicingJobBusy}>
                       Atualizar preflight
                     </button>
-                  ) : null}
-                  {latestPreflight?.status === "approved" ? (
-                    <>
-                      <label className="settings-confirm-inline">
-                        <span>Confirmar início</span>
-                        <input
-                          value={deliveryConfirmations[latestPreflight.id] ?? ""}
-                          onChange={(event) => setDeliveryConfirmations((current) => ({ ...current, [latestPreflight.id]: event.target.value }))}
-                          placeholder={`IMPRIMIR ${latestPreflight.printer_id}-${latestPreflight.id}`}
-                        />
-                      </label>
-                      <button type="button" className="secondary-button" onClick={() => void createPrintDelivery(latestPreflight, "save_only")} disabled={slicingJobBusy}>
-                        Salvar G-code
-                      </button>
-                      <button type="button" className="primary-button" onClick={() => void createPrintDelivery(latestPreflight, "save_and_print")} disabled={slicingJobBusy}>
-                        Iniciar impressão
-                      </button>
-                    </>
                   ) : null}
                   {latestDelivery?.status === "saved" && latestDelivery.mode === "save_only" ? (
                     <button type="button" className="secondary-button" onClick={() => void rollbackPrintDelivery(latestDelivery.id)} disabled={slicingJobBusy}>

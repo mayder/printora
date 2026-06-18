@@ -56,3 +56,19 @@ export interface PrintProjectSummary {
   created_at: string;
   updated_at: string;
 }
+
+export interface PrintProjectVersion {
+  id: number;
+  version_label: string;
+  changelog: string;
+  project_snapshot: Record<string, unknown>;
+  files_snapshot: Array<Record<string, unknown>>;
+  created_at: string;
+}
+
+export interface PrintProjectDetail extends PrintProjectSummary {
+  files: PrintProjectFile[];
+  versions: PrintProjectVersion[];
+  saved_by_viewer: boolean;
+  immutable_snapshot_ready: boolean;
+}
