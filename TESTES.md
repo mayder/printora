@@ -1637,6 +1637,22 @@ Critérios:
 - Validação frontend focada: `npm --prefix frontend run build`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-81 - Envio Para Impressora E Histórico Por Projeto
+
+- Validar que preflight aparece no detalhe do projeto e fica associado ao job/snapshot do projeto.
+- Validar que `Salvar G-code` e `Enviar` ficam no fluxo de `Projetos de impressão > Meus projetos`, não como ação principal de Administração ou Comunidade.
+- Validar que `Enviar` só habilita com confirmação textual esperada ou autorização reforçada quando aplicável.
+- Validar que G-code não é salvo/enviado sem preflight aprovado quando a política exigir.
+- Validar status de entrega, arquivo remoto e rollback apenas quando o modo/status for seguro.
+- Validar histórico filtrado no projeto com status, qualidade, perfil/material, resultado, falha e feedback.
+- Validar feedback privado/público e foto HTTPS opcional.
+- Validar que histórico público sanitizado não expõe impressora privada, agente, Moonraker, token, IP, path, organização ou permissão.
+- Validar que sinais públicos apontam ao projeto central e não a cópia por comunidade.
+- Validar responsividade do fluxo de envio/histórico em desktop/mobile sem overflow horizontal.
+- Testes automatizados focados: `cd backend && uv run --extra dev pytest ../backend/tests/test_print_history.py ../backend/tests/test_print_delivery.py ../backend/tests/test_slicing_pipeline.py ../backend/tests/test_print_projects.py ../backend/tests/test_schema_versioning.py::test_initialize_database_registers_sql_scripts_on_new_database -q`.
+- Validação frontend focada: `npm --prefix frontend run build`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

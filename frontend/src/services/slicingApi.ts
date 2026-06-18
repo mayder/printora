@@ -169,6 +169,7 @@ export const slicingApi = {
   createDelivery: (body: { preflight_id: number; mode: "save_only" | "save_and_print"; confirmation_phrase?: string; step_up_token?: string | null }) =>
     apiRequest<PrintDelivery>("/api/slicing/deliveries", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
   cancelDelivery: (deliveryId: number) => apiRequest<PrintDelivery>(`/api/slicing/deliveries/${deliveryId}/cancel`, { method: "POST" }),
@@ -176,11 +177,13 @@ export const slicingApi = {
   recordHistoryEvent: (historyId: number, body: { status: PrintJobHistory["status"]; telemetry?: Record<string, any>; result?: Record<string, any> }) =>
     apiRequest<PrintJobHistory>(`/api/slicing/history/${historyId}/events`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
   addHistoryFeedback: (historyId: number, body: { outcome: PrintJobFeedback["outcome"]; visibility: PrintJobFeedback["visibility"]; note?: string; photo_url?: string | null }) =>
     apiRequest<PrintJobHistory>(`/api/slicing/history/${historyId}/feedback`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
 };

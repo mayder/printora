@@ -55,6 +55,19 @@ Impacto em rollback: baixo/médio; a aplicação pode voltar a listar jobs legad
 Como reverter: reverter rotas/serviços/UI de job por projeto e tratar colunas novas como legado técnico; remoção física de colunas/tabelas só por restauração de backup e confirmação explícita.
 Referencias: `backend/sql/072_project_slicing_jobs.sql`, `backend/app/slicing_pipeline.py`, `backend/app/routes/slicing.py`, `frontend/src/screens/PrintProjectsScreen.tsx`.
 
+### DEC-20260618-03 - Envio e histórico operacionais pertencem ao projeto
+
+Status: aceita
+Data: 2026-06-18
+Contexto: preflight, entrega de G-code e histórico já existiam no pipeline administrativo, mas o fluxo diário precisa partir de `Projetos de impressão > Meus projetos` sem transformar Administração ou Comunidade em tela operacional principal.
+Decisao: reaproveitar os contratos existentes de preflight, entrega, rollback, histórico e feedback, exibindo e acionando essas etapas no painel do projeto a partir dos jobs vinculados ao snapshot. Administração fica como diagnóstico/fallback. Histórico público continua sendo sanitizado pelo backend e feedback público só aceita foto HTTPS.
+Alternativas consideradas: criar rotas duplicadas específicas de projeto para cada etapa; manter envio apenas em Administração; permitir envio a partir de comunidade; expor dados privados no histórico do projeto para facilitar suporte.
+Consequencias: a operação diária fica no contexto correto do projeto, com menor duplicação de backend. A UI filtra jobs/preflights/entregas/histórico pelo vínculo do job ao projeto, enquanto o backend preserva as garantias de preflight aprovado, confirmação textual/step-up e sanitização pública.
+Impacto em testes: cobrir salvar/enviar a partir de job de projeto, confirmação textual, histórico por projeto, feedback e privacidade pública sem dados de impressora privada.
+Impacto em rollback: baixo; contratos de backend seguem compartilhados. Reversão principal remove a superfície operacional do projeto e mantém Administração como fallback técnico.
+Como reverter: reverter painel de envio/histórico no projeto e ajustes frontend; manter dados de entrega/histórico como legado auditável.
+Referencias: `frontend/src/screens/PrintProjectsScreen.tsx`, `frontend/src/services/slicingApi.ts`, `backend/tests/test_print_history.py`, `backend/app/print_delivery.py`, `backend/app/print_history.py`.
+
 ### DEC-20260617-01 - Impressão real alimenta ranking sem expor telemetria privada
 
 Status: aceita

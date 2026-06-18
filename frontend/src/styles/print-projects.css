@@ -440,6 +440,58 @@
   min-width: 0;
 }
 
+.print-project-job-actions,
+.print-project-feedback-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, auto));
+  justify-content: end;
+  min-width: 0;
+}
+
+.print-project-job-actions input,
+.print-project-feedback-grid input,
+.print-project-feedback-grid select {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  min-height: 36px;
+  min-width: 0;
+  padding: 0 10px;
+}
+
+.print-project-history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.print-project-history-list h4 {
+  margin: 0;
+}
+
+.print-project-history-row {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.print-project-history-row > div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.print-project-history-row span,
+.print-project-history-row small {
+  color: var(--muted);
+}
+
 .print-project-slicing-warning {
   background: var(--warning-soft);
   border: 1px solid var(--warning);
@@ -475,8 +527,15 @@
   .print-project-slice-files label,
   .print-project-slicing-grid,
   .print-project-job-row,
+  .print-project-job-actions,
+  .print-project-feedback-grid,
   .print-project-upload-row {
     grid-template-columns: 1fr;
+  }
+
+  .print-project-job-actions,
+  .print-project-feedback-grid {
+    justify-content: stretch;
   }
 
   .print-project-tabs {

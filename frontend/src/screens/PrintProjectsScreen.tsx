@@ -8,15 +8,26 @@ import {
   FileText,
   HardDrive,
   Link2,
+  Play,
   RefreshCw,
+  RotateCcw,
   Search,
+  Send,
   ShieldCheck,
   Tags,
   Upload,
 } from "lucide-react";
 import { printProjectsApi } from "../services/printProjectsApi";
 import { printerApi } from "../services/printerApi";
-import { slicingApi, type SlicingEngineInfo, type SlicingJob } from "../services/slicingApi";
+import {
+  slicingApi,
+  type PrintDelivery,
+  type PrintJobFeedback,
+  type PrintJobHistory,
+  type PrintPreflight,
+  type SlicingEngineInfo,
+  type SlicingJob,
+} from "../services/slicingApi";
 import type { PrinterRecord } from "../types/printers";
 import type {
   PrintProjectContract,
@@ -385,6 +396,11 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
   const [quality, setQuality] = React.useState("0.20 qualidade");
   const [profile, setProfile] = React.useState("");
   const [jobs, setJobs] = React.useState<SlicingJob[]>([]);
+  const [preflights, setPreflights] = React.useState<PrintPreflight[]>([]);
+  const [deliveries, setDeliveries] = React.useState<PrintDelivery[]>([]);
+  const [history, setHistory] = React.useState<PrintJobHistory[]>([]);
+  const [confirmationByPreflight, setConfirmationByPreflight] = React.useState<Record<number, string>>({});
+  const [feedbackDrafts, setFeedbackDrafts] = React.useState<Record<number, { outcome: PrintJobFeedback["outcome"]; visibility: PrintJobFeedback["visibility"]; note: string; photo_url: string }>>({});
   const [busy, setBusy] = React.useState(false);
   const [preflightMessage, setPreflightMessage] = React.useState("");
 
@@ -399,17 +415,28 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
 
   async function loadSlicingContext() {
     try {
-      const [printerResponse, projectJobs, engine] = await Promise.all([printerApi.list(), slicingApi.projectJobs(project.id), slicingApi.engine()]);
+      const [printerResponse, projectJobs, engine, preflightRows, deliveryRows, historyRows] = await Promise.all([
+        printerApi.list(),
+        slicingApi.projectJobs(project.id),
+        slicingApi.engine(),
+        slicingApi.preflights(),
+        slicingApi.deliveries(),
+        slicingApi.history(),
+      ]);
       if (!printerResponse.ok) {
         throw new Error("Falha ao carregar impressoras");
       }
       const printerPayload = (await printerResponse.json()) as { printers?: PrinterRecord[] } | PrinterRecord[];
       const printerRecords = Array.isArray(printerPayload) ? printerPayload : printerPayload.printers ?? [];
       const activePrinters = printerRecords.filter((printer) => printer.is_active);
+      const jobIds = new Set(projectJobs.map((job) => job.id));
       setPrinters(activePrinters);
       setPrinterId((current) => current || String(activePrinters[0]?.id ?? ""));
       setJobs(projectJobs);
       setEngineInfo(engine);
+      setPreflights(preflightRows.filter((item) => jobIds.has(item.slicing_job_id)));
+      setDeliveries(deliveryRows.filter((item) => jobIds.has(item.slicing_job_id)));
+      setHistory(historyRows.filter((item) => item.slicing_job_id !== null && jobIds.has(item.slicing_job_id)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao carregar contexto de fatiamento");
     }
@@ -433,8 +460,22 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
         profile_reference: profile || null,
       });
       setJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
+      await loadSlicingContext();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao criar job de fatiamento");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runJob(jobId: number) {
+    setBusy(true);
+    try {
+      const job = await slicingApi.runJob(jobId);
+      setJobs((current) => current.map((item) => (item.id === job.id ? job : item)));
+      await loadSlicingContext();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao executar fatiamento");
     } finally {
       setBusy(false);
     }
@@ -445,8 +486,81 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
     try {
       const preflight = await slicingApi.createPreflight(jobId);
       setPreflightMessage(`Preflight ${preflight.status}`);
+      setPreflights((current) => [preflight, ...current.filter((item) => item.id !== preflight.id)]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao criar preflight");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function refreshPreflight(preflightId: number) {
+    setBusy(true);
+    try {
+      const preflight = await slicingApi.refreshPreflight(preflightId);
+      setPreflights((current) => current.map((item) => (item.id === preflight.id ? preflight : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao atualizar preflight");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createDelivery(preflight: PrintPreflight, mode: PrintDelivery["mode"]) {
+    setBusy(true);
+    try {
+      const delivery = await slicingApi.createDelivery({
+        preflight_id: preflight.id,
+        mode,
+        confirmation_phrase: mode === "save_and_print" ? confirmationByPreflight[preflight.id] ?? "" : "",
+      });
+      setDeliveries((current) => [delivery, ...current.filter((item) => item.id !== delivery.id)]);
+      await loadSlicingContext();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao enviar G-code");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rollbackDelivery(deliveryId: number) {
+    setBusy(true);
+    try {
+      const delivery = await slicingApi.rollbackDelivery(deliveryId);
+      setDeliveries((current) => current.map((item) => (item.id === delivery.id ? delivery : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao remover arquivo salvo");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function recordHistory(historyId: number, status: PrintJobHistory["status"]) {
+    setBusy(true);
+    try {
+      const updated = await slicingApi.recordHistoryEvent(historyId, { status, result: { status } });
+      setHistory((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao atualizar histórico");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addFeedback(historyId: number) {
+    const draft = feedbackDrafts[historyId] ?? { outcome: "worked", visibility: "private", note: "", photo_url: "" };
+    setBusy(true);
+    try {
+      const updated = await slicingApi.addHistoryFeedback(historyId, {
+        outcome: draft.outcome,
+        visibility: draft.visibility,
+        note: draft.note,
+        photo_url: draft.photo_url || null,
+      });
+      setHistory((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setFeedbackDrafts((current) => ({ ...current, [historyId]: { outcome: "worked", visibility: "private", note: "", photo_url: "" } }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao registrar feedback");
     } finally {
       setBusy(false);
     }
@@ -506,17 +620,136 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
       {preflightMessage ? <span className="muted">{preflightMessage}</span> : null}
       {jobs.length ? (
         <div className="print-project-job-list">
-          {jobs.map((job) => (
-            <div className="print-project-job-row" key={job.id}>
-              <div>
-                <strong>Job #{job.id}</strong>
-                <span>{job.status} · snapshot {job.print_project_version_id ?? "-"}</span>
+          {jobs.map((job) => {
+            const latestPreflight = preflights.find((item) => item.slicing_job_id === job.id) ?? null;
+            const latestDelivery = deliveries.find((item) => item.slicing_job_id === job.id) ?? null;
+            const expectedConfirmation = latestPreflight ? `IMPRIMIR ${latestPreflight.printer_id}-${latestPreflight.id}` : "";
+            return (
+              <div className="print-project-job-row" key={job.id}>
+                <div>
+                  <strong>Job #{job.id}</strong>
+                  <span>{slicingJobStatus(job.status)} · snapshot {job.print_project_version_id ?? "-"}</span>
+                  {job.error_message ? <small>{job.error_message}</small> : null}
+                  {latestPreflight ? <small>Preflight {preflightStatus(latestPreflight.status)}</small> : null}
+                  {latestDelivery ? <small>{deliveryModeLabel(latestDelivery.mode)} · {deliveryStatus(latestDelivery.status)} · {latestDelivery.remote_filename}</small> : null}
+                </div>
+                <div className="print-project-job-actions">
+                  {job.status === "planned" || job.status === "failed" ? (
+                    <button type="button" className="secondary-button" onClick={() => void runJob(job.id)} disabled={busy || engineBlocked}>
+                      <Play size={15} />
+                      Executar
+                    </button>
+                  ) : null}
+                  {job.status === "completed" ? (
+                    <button type="button" className="secondary-button" onClick={() => void createPreflight(job.id)} disabled={busy}>
+                      <ShieldCheck size={15} />
+                      Preflight
+                    </button>
+                  ) : null}
+                  {latestPreflight?.status === "pending_remote" ? (
+                    <button type="button" className="secondary-button" onClick={() => void refreshPreflight(latestPreflight.id)} disabled={busy}>
+                      <RefreshCw size={15} />
+                      Atualizar
+                    </button>
+                  ) : null}
+                  {latestPreflight?.status === "approved" ? (
+                    <>
+                      <button type="button" className="secondary-button" onClick={() => void createDelivery(latestPreflight, "save_only")} disabled={busy}>
+                        <FileArchive size={15} />
+                        Salvar G-code
+                      </button>
+                      <input
+                        value={confirmationByPreflight[latestPreflight.id] ?? ""}
+                        onChange={(event) => setConfirmationByPreflight((current) => ({ ...current, [latestPreflight.id]: event.target.value }))}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") event.preventDefault();
+                        }}
+                        placeholder={expectedConfirmation}
+                        disabled={busy}
+                      />
+                      <button
+                        type="button"
+                        className="primary-button"
+                        onClick={() => void createDelivery(latestPreflight, "save_and_print")}
+                        disabled={busy || (confirmationByPreflight[latestPreflight.id] ?? "") !== expectedConfirmation}
+                      >
+                        <Send size={15} />
+                        Enviar
+                      </button>
+                    </>
+                  ) : null}
+                  {latestDelivery?.status === "saved" && latestDelivery.mode === "save_only" ? (
+                    <button type="button" className="secondary-button" onClick={() => void rollbackDelivery(latestDelivery.id)} disabled={busy}>
+                      <RotateCcw size={15} />
+                      Remover salvo
+                    </button>
+                  ) : null}
+                </div>
               </div>
-              <button type="button" className="secondary-button" onClick={() => void createPreflight(job.id)} disabled={busy || job.status !== "completed"}>
-                Preflight
-              </button>
-            </div>
-          ))}
+            );
+          })}
+        </div>
+      ) : null}
+      {history.length ? (
+        <div className="print-project-history-list">
+          <h4>Histórico do projeto</h4>
+          {history.map((item) => {
+            const draft = feedbackDrafts[item.id] ?? { outcome: "worked", visibility: "private", note: "", photo_url: "" };
+            return (
+              <div className="print-project-history-row" key={item.id}>
+                <div>
+                  <strong>{printHistoryStatus(item.status)}</strong>
+                  <span>{item.quality_reference || "qualidade padrão"} · {item.visibility === "public" ? "público sanitizado" : "privado"}</span>
+                  {item.feedback.slice(0, 2).map((feedback) => (
+                    <small key={feedback.id}>{feedbackOutcomeText(feedback.outcome)} · {feedback.visibility === "public" ? "público" : "privado"}{feedback.note ? ` · ${feedback.note}` : ""}</small>
+                  ))}
+                </div>
+                <div className="print-project-feedback-grid">
+                  <select
+                    value={draft.outcome}
+                    onChange={(event) => setFeedbackDrafts((current) => ({ ...current, [item.id]: { ...draft, outcome: event.target.value as PrintJobFeedback["outcome"] } }))}
+                    disabled={busy}
+                  >
+                    <option value="worked">Deu certo</option>
+                    <option value="failed">Falhou</option>
+                    <option value="needs_adjustment">Precisa ajuste</option>
+                  </select>
+                  <select
+                    value={draft.visibility}
+                    onChange={(event) => setFeedbackDrafts((current) => ({ ...current, [item.id]: { ...draft, visibility: event.target.value as PrintJobFeedback["visibility"] } }))}
+                    disabled={busy}
+                  >
+                    <option value="private">Privado</option>
+                    <option value="public">Público sanitizado</option>
+                  </select>
+                  <input
+                    value={draft.note}
+                    onChange={(event) => setFeedbackDrafts((current) => ({ ...current, [item.id]: { ...draft, note: event.target.value } }))}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.preventDefault();
+                    }}
+                    placeholder="Feedback"
+                    disabled={busy}
+                  />
+                  <input
+                    value={draft.photo_url}
+                    onChange={(event) => setFeedbackDrafts((current) => ({ ...current, [item.id]: { ...draft, photo_url: event.target.value } }))}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.preventDefault();
+                    }}
+                    placeholder="Foto HTTPS opcional"
+                    disabled={busy}
+                  />
+                  <button type="button" className="secondary-button" onClick={() => void addFeedback(item.id)} disabled={busy}>
+                    Registrar feedback
+                  </button>
+                  <button type="button" className="secondary-button" onClick={() => void recordHistory(item.id, "completed")} disabled={busy}>
+                    Concluiu
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : null}
     </form>
@@ -820,6 +1053,66 @@ function Rule({ icon: Icon, label, text }: { icon: React.ComponentType<{ size?: 
       </div>
     </div>
   );
+}
+
+function slicingJobStatus(status: SlicingJob["status"]): string {
+  const labels: Record<SlicingJob["status"], string> = {
+    planned: "planejado",
+    running: "executando",
+    completed: "concluído",
+    failed: "falhou",
+    canceled: "cancelado",
+  };
+  return labels[status];
+}
+
+function preflightStatus(status: PrintPreflight["status"]): string {
+  const labels: Record<PrintPreflight["status"], string> = {
+    approved: "aprovado",
+    blocked: "bloqueado",
+    pending_remote: "aguardando agente",
+    failed: "falhou",
+  };
+  return labels[status];
+}
+
+function deliveryStatus(status: PrintDelivery["status"]): string {
+  const labels: Record<PrintDelivery["status"], string> = {
+    pending_remote: "aguardando agente",
+    saved: "salvo",
+    printing: "imprimindo",
+    blocked: "bloqueado",
+    failed: "falhou",
+    canceled: "cancelado",
+    rollback_pending: "removendo",
+    rolled_back: "removido",
+    rollback_failed: "falha ao remover",
+  };
+  return labels[status];
+}
+
+function deliveryModeLabel(mode: PrintDelivery["mode"]): string {
+  return mode === "save_and_print" ? "enviar e iniciar" : "salvar G-code";
+}
+
+function printHistoryStatus(status: PrintJobHistory["status"]): string {
+  const labels: Record<PrintJobHistory["status"], string> = {
+    sent: "enviado",
+    started: "iniciado",
+    completed: "concluído",
+    failed: "falhou",
+    canceled: "cancelado",
+  };
+  return labels[status];
+}
+
+function feedbackOutcomeText(outcome: PrintJobFeedback["outcome"]): string {
+  const labels: Record<PrintJobFeedback["outcome"], string> = {
+    worked: "deu certo",
+    failed: "falhou",
+    needs_adjustment: "precisa ajuste",
+  };
+  return labels[outcome];
 }
 
 function formatBytes(value: number): string {

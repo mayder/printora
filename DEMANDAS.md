@@ -5015,4 +5015,17 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado.
+
+Notas de implementação:
+
+- `Projetos de impressão > Meus projetos > Fatiamento` passou a concentrar o fluxo diário: executar job concluível, criar/atualizar preflight, salvar G-code, iniciar envio com confirmação textual, mostrar entrega e rollback seguro quando permitido.
+- A tela carrega jobs do projeto, preflights, entregas e histórico do usuário, filtrando pelo vínculo de job ao projeto central.
+- Histórico do projeto aparece no detalhe com status, qualidade, visibilidade, feedback privado/público sanitizado e foto HTTPS opcional via contrato existente.
+- Serviço frontend de slicing passou a enviar JSON corretamente em entrega, evento de histórico e feedback.
+- Backend manteve o contrato de privacidade pública já existente: histórico público remove impressora privada e só expõe telemetry/result sanitizados.
+- Teste automatizado novo cobre entrega/histórico a partir de job de projeto, preservando `project://...`, `project-version:<id>` e privacidade pública sem vazamento de impressora privada.
+- Validação focada executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_print_history.py ../backend/tests/test_print_delivery.py ../backend/tests/test_slicing_pipeline.py ../backend/tests/test_print_projects.py ../backend/tests/test_schema_versioning.py::test_initialize_database_registers_sql_scripts_on_new_database -q`; `npm --prefix frontend run build`.
+- Validação visual/local executada em `Projetos de impressão > Meus projetos`: job concluído, preflight aprovado, ação `Salvar G-code`, confirmação textual habilitando `Enviar`, entrega/histórico no painel do projeto, feedback e responsividade mobile sem overflow horizontal em 390px.
+- Fechamento executado: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh` (`451 passed`, Go agent ok, frontend build ok, `test:releases` ok).
+- Pendência operacional: commit, publicação e smoke pós-publicação.

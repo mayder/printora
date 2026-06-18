@@ -309,6 +309,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - A vitrine pública só exibe projetos aprovados. Patrocinado deve aparecer como promoção identificada, nunca como recomendação técnica neutra. Premium deve ser distinguido de gratuito/comunitário.
 - `Projetos de impressão > Meus projetos > Fatiamento` permite selecionar arquivos locais fatiáveis do projeto, escolher impressora, qualidade e perfil/material, criar job e ver jobs do projeto com status e snapshot. Link externo sem arquivo local validado aparece desabilitado e não entra na seleção.
 - Quando a engine de fatiamento estiver indisponível, a tela deve bloquear criação de job e apontar Administração como local de configuração/diagnóstico.
+- O mesmo painel mostra preflight, entrega e histórico por projeto: `Salvar G-code`, `Enviar`, confirmação textual obrigatória para iniciar impressão, status da entrega, rollback seguro de arquivo salvo e feedback privado/público sanitizado.
+- Histórico público no contexto do projeto nunca deve exibir impressora privada, agente, Moonraker, token, IP, path, organização ou permissão.
 
 ## Pendencias de mapeamento
 

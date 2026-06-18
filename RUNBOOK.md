@@ -1684,6 +1684,46 @@ Rollback:
 - se o SQL já tiver sido aplicado e for necessário remover colunas/índice, restaurar backup SQLite anterior criado pelo versionador;
 - não executar `DROP TABLE`, recriação de `slicing_jobs` ou remoção manual de jobs/artefatos/preflights sem confirmação explícita.
 
+### Envio e histórico por projeto
+
+Fluxo operacional:
+
+- executar o job de fatiamento do projeto até `completed`;
+- criar preflight no job concluído;
+- salvar G-code ou iniciar impressão somente com preflight aprovado e recente;
+- para iniciar impressão, informar a confirmação textual exibida no painel ou usar autorização reforçada quando aplicável;
+- registrar histórico e feedback no contexto do projeto, mantendo feedback público sanitizado.
+
+Endpoints reaproveitados:
+
+- executar job: `POST /api/slicing/jobs/<job_id>/run`;
+- criar preflight: `POST /api/slicing/jobs/<job_id>/preflight`;
+- atualizar preflight remoto: `POST /api/slicing/preflights/<preflight_id>/refresh`;
+- salvar/enviar G-code: `POST /api/slicing/deliveries`;
+- rollback seguro de arquivo salvo: `POST /api/slicing/deliveries/<delivery_id>/rollback`;
+- listar histórico: `GET /api/slicing/history`;
+- registrar evento: `POST /api/slicing/history/<history_id>/events`;
+- registrar feedback: `POST /api/slicing/history/<history_id>/feedback`.
+
+Privacidade:
+
+- histórico público deve usar payload sanitizado do backend;
+- nunca publicar impressora privada, agente, Moonraker, token, IP, path, organização ou permissão;
+- foto pública exige URL HTTPS.
+
+Validação:
+
+```bash
+cd backend && uv run --extra dev pytest ../backend/tests/test_print_history.py ../backend/tests/test_print_delivery.py ../backend/tests/test_slicing_pipeline.py ../backend/tests/test_print_projects.py ../backend/tests/test_schema_versioning.py::test_initialize_database_registers_sql_scripts_on_new_database -q
+npm --prefix frontend run build
+```
+
+Rollback:
+
+- reverter painel de envio/histórico em `frontend/src/screens/PrintProjectsScreen.tsx`, ajustes do serviço frontend de slicing, testes e documentação;
+- backend de entrega/histórico permanece compatível e compartilhado com Administração como diagnóstico/fallback;
+- não remover entregas, histórico, feedback ou agent jobs sem confirmação explícita e backup.
+
 Rollback:
 
 - reverter `backend/app/print_preflight.py`, endpoints de preflight em `backend/app/routes/slicing.py`, serviço frontend de slicing, painel de preflight e documentação;
