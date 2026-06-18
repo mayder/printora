@@ -305,6 +305,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Link externo aparece como referência sem arquivo local e nunca como hospedado; a tela deve deixar visível que ele não é fatiável enquanto não houver arquivo validado.
 - O painel de armazenamento pessoal em `Meus projetos` mostra uso, cota, arquivos e proporção de uso. Retenção/custo detalhado pode evoluir sobre a política existente, sem prometer exclusão automática.
 - Comunidades continuam como descoberta/compartilhamento de projetos. Upload direto de arquivo em comunidade não é fluxo principal e não deve substituir criação em `Projetos de impressão`.
+- `Projetos de impressão > Meus projetos > Publicação e vitrine` permite configurar visibilidade, classificação comercial, preço preparado, condição comercial e transparência. Conteúdo premium/patrocinado deve mostrar que cobrança real não está ativa neste fluxo.
+- A vitrine pública só exibe projetos aprovados. Patrocinado deve aparecer como promoção identificada, nunca como recomendação técnica neutra. Premium deve ser distinguido de gratuito/comunitário.
 
 ## Pendencias de mapeamento
 

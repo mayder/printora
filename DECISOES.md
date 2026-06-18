@@ -882,3 +882,15 @@ Consequencias: ownership, arquivos, visibilidade, publicação e comunidade fica
 Impacto em testes: `backend/tests/test_print_projects.py`, schema versionado, build frontend e `./check.sh`.
 Impacto em rollback: médio; reverter remove as rotas e UI novas, mas arquivos de quarentena já gravados podem permanecer no filesystem local.
 Como reverter: reverter `backend/sql/070_print_project_personal_library.sql`, `backend/app/print_projects.py`, `backend/app/routes/print_projects.py`, `frontend/src/screens/PrintProjectsScreen.tsx`, `frontend/src/services/printProjectsApi.ts`, `frontend/src/types/printProjects.ts`, estilos e documentação. Se o SQL já tiver sido aplicado, restaurar backup SQLite anterior; não executar `DROP TABLE`, recriação manual ou limpeza de arquivos sem confirmação explícita.
+
+### DEC-20260618-03 - Publicação comercial de projeto é dimensão separada
+
+Status: aceita
+Data: 2026-06-18
+Contexto: projetos pessoais precisam ser publicados, curados, patrocinados ou preparados como premium sem transformar Comunidade em dona do projeto e sem simular cobrança real.
+Decisao: manter `visibility`, `publication_status`, `commercial_class` e compartilhamentos N:N como dimensões independentes em `print_projects`. A vitrine pública só lista projetos públicos aprovados. Premium exige preço preparado e revisão; patrocinado exige transparência explícita e revisão. Pagamento, repasse financeiro e fiscal ficam fora do escopo.
+Alternativas consideradas: usar comunidade como aprovação pública; reaproveitar diretamente os campos comerciais da biblioteca social legada; marcar premium como público sem revisão.
+Consequencias: projeto privado ou em revisão não vaza na busca pública. Compartilhar em comunidade não publica nem vende. O contrato já prepara vitrine comercial sem prometer checkout real.
+Impacto em testes: `backend/tests/test_print_projects.py`, schema versionado, build frontend e `./check.sh`.
+Impacto em rollback: médio; reverter remove controles e regras novas, mas valores comerciais já gravados podem permanecer no SQLite.
+Como reverter: reverter `backend/sql/071_print_project_publication.sql`, alterações em `backend/app/print_projects.py`, `backend/app/routes/print_projects.py`, frontend de projetos e documentação. Se o SQL já tiver sido aplicado, restaurar backup SQLite anterior; não executar `DROP TABLE`, recriação manual de `print_projects` ou limpeza de revisões sem confirmação explícita.

@@ -7,6 +7,8 @@ from app.print_projects import (
     PrintProjectContract,
     PrintProjectDetail,
     PrintProjectExternalLinkRequest,
+    PrintProjectPublicationRequest,
+    PrintProjectPublicationReviewRequest,
     ProjectFileRole,
     PrintProjectSaveRequest,
     PrintProjectShareRequest,
@@ -16,6 +18,7 @@ from app.print_projects import (
     PrintProjectsRepository,
 )
 from app.routes.auth import CurrentUser, get_auth_repository, require_current_user
+from app.routes.social_catalog import is_social_admin
 
 router = APIRouter(tags=["print-projects"])
 
@@ -125,6 +128,36 @@ async def archive_print_project(
         return {"ok": True}
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.put("/api/print-projects/{project_id}/publication", response_model=PrintProjectDetail)
+async def update_print_project_publication(
+    project_id: int,
+    payload: PrintProjectPublicationRequest,
+    current: CurrentUser = Depends(require_current_user),
+    repository: PrintProjectsRepository = Depends(get_print_projects_repository),
+) -> PrintProjectDetail:
+    try:
+        return repository.update_publication(current.user.id, project_id, payload)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/print-projects/{project_id}/publication-review", response_model=PrintProjectDetail)
+async def review_print_project_publication(
+    project_id: int,
+    payload: PrintProjectPublicationReviewRequest,
+    current: CurrentUser = Depends(require_current_user),
+    repository: PrintProjectsRepository = Depends(get_print_projects_repository),
+) -> PrintProjectDetail:
+    if not is_social_admin(current):
+        raise HTTPException(status_code=403, detail="revisão de publicação restrita ao administrador")
+    try:
+        return repository.review_publication(current.user.id, project_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/api/print-projects/{project_id}/save", response_model=PrintProjectDetail)

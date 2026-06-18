@@ -63,6 +63,10 @@ class PrintProjectSummary(BaseModel):
     license: str
     original_author_name: str
     source_url: str | None
+    price_cents: int = 0
+    currency: str = "BRL"
+    commercial_terms: str = ""
+    promotion_disclosure: str = ""
     primary_file: PrintProjectFile | None
     file_count: int
     printable_file_count: int
@@ -84,9 +88,18 @@ class PrintProjectVersion(BaseModel):
     created_at: str
 
 
+class PrintProjectPublicationReview(BaseModel):
+    id: int
+    status: Literal["pending_review", "approved", "rejected"]
+    note: str
+    reviewer_user_id: int | None
+    created_at: str
+
+
 class PrintProjectDetail(PrintProjectSummary):
     files: list[PrintProjectFile]
     versions: list[PrintProjectVersion]
+    publication_reviews: list[PrintProjectPublicationReview] = Field(default_factory=list)
     saved_by_viewer: bool = False
     immutable_snapshot_ready: bool
 
@@ -165,6 +178,26 @@ class PrintProjectStorageReport(BaseModel):
     external_reference_count: int
 
 
+class PrintProjectPublicationRequest(BaseModel):
+    visibility: ProjectVisibility
+    commercial_class: ProjectCommercialClass = "free"
+    price_cents: int = Field(default=0, ge=0)
+    currency: str = Field(default="BRL", min_length=3, max_length=3)
+    commercial_terms: str = Field(default="", max_length=800)
+    promotion_disclosure: str = Field(default="", max_length=500)
+    submit_for_review: bool = False
+
+    @field_validator("currency")
+    @classmethod
+    def clean_currency(cls, value: str) -> str:
+        return value.strip().upper()
+
+
+class PrintProjectPublicationReviewRequest(BaseModel):
+    status: Literal["approved", "rejected"]
+    note: str = Field(default="", max_length=800)
+
+
 class PrintProjectsRepository:
     def __init__(self, database_path: Path):
         self.database_path = database_path
@@ -204,7 +237,7 @@ class PrintProjectsRepository:
     ) -> list[PrintProjectSummary]:
         safe_limit = min(max(limit, 1), 50)
         params: list[Any] = []
-        where = "WHERE p.visibility = 'public' AND p.lifecycle_status != 'archived'"
+        where = "WHERE p.visibility = 'public' AND p.publication_status = 'approved' AND p.lifecycle_status != 'archived'"
         if query.strip():
             pattern = f"%{query.strip()}%"
             where += " AND (p.title LIKE ? OR p.description LIKE ? OR p.tags_json LIKE ?)"
@@ -302,7 +335,10 @@ class PrintProjectsRepository:
                 + """
                 WHERE p.slug = ?
                   AND p.lifecycle_status != 'archived'
-                  AND (p.visibility IN ('public', 'unlisted') OR p.owner_user_id = ?)
+                  AND (
+                        p.owner_user_id = ?
+                        OR (p.visibility IN ('public', 'unlisted') AND p.publication_status = 'approved')
+                  )
                 GROUP BY p.id
                 """,
                 (slug, viewer_user_id or -1),
@@ -343,6 +379,19 @@ class PrintProjectsRepository:
                     (row["id"],),
                 ).fetchall()
             ]
+            publication_reviews = [
+                _publication_review_from_row(review_row)
+                for review_row in connection.execute(
+                    """
+                    SELECT *
+                    FROM print_project_publication_reviews
+                    WHERE project_id = ?
+                    ORDER BY created_at DESC, id DESC
+                    LIMIT 10
+                    """,
+                    (row["id"],),
+                ).fetchall()
+            ]
             saved_by_viewer = False
             if viewer_user_id is not None:
                 saved_by_viewer = bool(
@@ -361,6 +410,7 @@ class PrintProjectsRepository:
             **summary.model_dump(),
             files=files,
             versions=versions,
+            publication_reviews=publication_reviews,
             saved_by_viewer=saved_by_viewer,
             immutable_snapshot_ready=bool(versions),
         )
@@ -475,6 +525,86 @@ class PrintProjectsRepository:
                 """,
                 (project_id,),
             )
+
+    def update_publication(self, actor_user_id: int, project_id: int, payload: PrintProjectPublicationRequest) -> PrintProjectDetail:
+        _validate_publication_payload(payload)
+        with connect_database(self.database_path) as connection:
+            project = self._owned_project(connection, actor_user_id, project_id)
+            publication_status = _publication_status_for_payload(payload)
+            connection.execute(
+                """
+                UPDATE print_projects
+                SET visibility = ?,
+                    publication_status = ?,
+                    commercial_class = ?,
+                    price_cents = ?,
+                    currency = ?,
+                    commercial_terms = ?,
+                    promotion_disclosure = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (
+                    payload.visibility,
+                    publication_status,
+                    payload.commercial_class,
+                    payload.price_cents,
+                    payload.currency,
+                    payload.commercial_terms.strip(),
+                    payload.promotion_disclosure.strip(),
+                    project_id,
+                ),
+            )
+            if publication_status == "in_review":
+                connection.execute(
+                    """
+                    INSERT INTO print_project_publication_reviews (project_id, reviewer_user_id, status, note)
+                    VALUES (?, NULL, 'pending_review', ?)
+                    """,
+                    (project_id, _review_note_for_payload(payload)),
+                )
+            self._create_snapshot(connection, project_id, actor_user_id, "publicação", "Configuração de publicação atualizada")
+            slug = str(project["slug"])
+        detail = self.detail(slug, actor_user_id)
+        if detail is None:
+            raise ValueError("projeto não encontrado")
+        return detail
+
+    def review_publication(self, reviewer_user_id: int, project_id: int, payload: PrintProjectPublicationReviewRequest) -> PrintProjectDetail:
+        with connect_database(self.database_path) as connection:
+            project = connection.execute(
+                """
+                SELECT *
+                FROM print_projects
+                WHERE id = ? AND lifecycle_status != 'archived'
+                """,
+                (project_id,),
+            ).fetchone()
+            if project is None:
+                raise ValueError("projeto não encontrado")
+            if project["commercial_class"] == "sponsored" and not str(project["promotion_disclosure"] or "").strip():
+                raise ValueError("patrocinado exige transparência antes da aprovação")
+            connection.execute(
+                """
+                INSERT INTO print_project_publication_reviews (project_id, reviewer_user_id, status, note)
+                VALUES (?, ?, ?, ?)
+                """,
+                (project_id, reviewer_user_id, payload.status, payload.note.strip()),
+            )
+            connection.execute(
+                """
+                UPDATE print_projects
+                SET publication_status = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (payload.status, project_id),
+            )
+            self._create_snapshot(connection, project_id, reviewer_user_id, "revisão", f"Publicação {payload.status}")
+            slug = str(project["slug"])
+        detail = self.detail(slug, reviewer_user_id)
+        if detail is None:
+            raise ValueError("projeto não encontrado")
+        return detail
 
     def add_external_link(self, actor_user_id: int, project_id: int, payload: PrintProjectExternalLinkRequest) -> PrintProjectDetail:
         with connect_database(self.database_path) as connection:
@@ -717,6 +847,10 @@ def _project_from_row(row) -> PrintProjectSummary:
         license=str(row["license"] or ""),
         original_author_name=str(row["original_author_name"] or ""),
         source_url=row["source_url"],
+        price_cents=int(row["price_cents"] or 0) if "price_cents" in row.keys() else 0,
+        currency=str(row["currency"] or "BRL") if "currency" in row.keys() else "BRL",
+        commercial_terms=str(row["commercial_terms"] or "") if "commercial_terms" in row.keys() else "",
+        promotion_disclosure=str(row["promotion_disclosure"] or "") if "promotion_disclosure" in row.keys() else "",
         primary_file=primary_file,
         file_count=file_count,
         printable_file_count=int(row["printable_file_count"] or 0),
@@ -768,6 +902,16 @@ def _version_from_row(row) -> PrintProjectVersion:
         changelog=str(row["changelog"] or ""),
         project_snapshot=_loads_dict(row["project_snapshot_json"]),
         files_snapshot=_loads_dict_list(row["files_snapshot_json"]),
+        created_at=str(row["created_at"]),
+    )
+
+
+def _publication_review_from_row(row) -> PrintProjectPublicationReview:
+    return PrintProjectPublicationReview(
+        id=int(row["id"]),
+        status=row["status"],
+        note=str(row["note"] or ""),
+        reviewer_user_id=row["reviewer_user_id"],
         created_at=str(row["created_at"]),
     )
 
@@ -861,3 +1005,32 @@ def _quota_for_user(connection, actor_user_id: int) -> int:
         (actor_user_id,),
     ).fetchone()
     return int(row["quota_bytes"]) if row is not None else DEFAULT_USER_QUOTA_BYTES
+
+
+def _validate_publication_payload(payload: PrintProjectPublicationRequest) -> None:
+    if payload.commercial_class == "sponsored" and not payload.promotion_disclosure.strip():
+        raise ValueError("patrocinado exige transparência explícita")
+    if payload.commercial_class == "premium" and payload.price_cents <= 0:
+        raise ValueError("premium exige preço preparado")
+    if payload.commercial_class in {"free", "curated"} and payload.price_cents > 0:
+        raise ValueError("preço preparado é permitido somente para premium")
+
+
+def _publication_status_for_payload(payload: PrintProjectPublicationRequest) -> ProjectPublicationStatus:
+    if payload.visibility == "private":
+        return "draft"
+    if payload.commercial_class in {"curated", "premium", "sponsored"}:
+        return "in_review"
+    if payload.submit_for_review:
+        return "approved"
+    return "draft"
+
+
+def _review_note_for_payload(payload: PrintProjectPublicationRequest) -> str:
+    if payload.commercial_class == "sponsored":
+        return "Revisão comercial solicitada para conteúdo patrocinado."
+    if payload.commercial_class == "premium":
+        return "Revisão comercial solicitada para conteúdo premium."
+    if payload.commercial_class == "curated":
+        return "Revisão de curadoria solicitada."
+    return "Publicação solicitada."

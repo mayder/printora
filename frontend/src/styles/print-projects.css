@@ -272,7 +272,8 @@
 }
 
 .print-project-form,
-.print-project-link-form {
+.print-project-link-form,
+.print-project-publication-form {
   display: grid;
   gap: 10px;
 }
@@ -286,7 +287,8 @@
 }
 
 .print-project-form label,
-.print-project-link-form label {
+.print-project-link-form label,
+.print-project-publication-form label {
   color: var(--muted);
   display: grid;
   font-size: 0.85rem;
@@ -297,6 +299,8 @@
 .print-project-form input,
 .print-project-form select,
 .print-project-link-form input,
+.print-project-publication-form input,
+.print-project-publication-form select,
 .print-project-upload-row select {
   background: var(--input-bg);
   border: 1px solid var(--border);
@@ -355,6 +359,12 @@
   grid-template-columns: minmax(0, 1fr) minmax(120px, 180px) auto;
 }
 
+.print-project-publication-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .file-button {
   cursor: pointer;
   position: relative;
@@ -378,6 +388,7 @@
   .print-project-grid,
   .print-project-form,
   .print-project-link-form,
+  .print-project-publication-grid,
   .print-project-upload-row {
     grid-template-columns: 1fr;
   }

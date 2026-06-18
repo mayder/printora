@@ -9,6 +9,8 @@ from app.main import app
 from app.print_projects import (
     PrintProjectCreateRequest,
     PrintProjectExternalLinkRequest,
+    PrintProjectPublicationRequest,
+    PrintProjectPublicationReviewRequest,
     PrintProjectSaveRequest,
     PrintProjectShareRequest,
     PrintProjectUpdateRequest,
@@ -418,3 +420,106 @@ def test_private_project_detail_route_uses_authenticated_viewer(tmp_path: Path, 
             assert authenticated_response.json()["title"] == "Projeto privado via rota"
     finally:
         get_settings.cache_clear()
+
+
+def test_publication_keeps_draft_out_of_public_explore_until_approved(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    user = AuthRepository(database_path).create_user(
+        UserRegisterRequest(email="publish-free@example.com", password="correct-horse")
+    )
+    repository = PrintProjectsRepository(database_path)
+    project = repository.create_project(user.id, PrintProjectCreateRequest(title="Projeto publico livre"))
+    repository.upload_file(user.id, project.id, "peca.stl", "primary", VALID_STL)
+
+    draft = repository.update_publication(
+        user.id,
+        project.id,
+        PrintProjectPublicationRequest(visibility="public", commercial_class="free", submit_for_review=False),
+    )
+    assert draft.publication_status == "draft"
+    assert repository.explore("publico") == []
+
+    approved = repository.update_publication(
+        user.id,
+        project.id,
+        PrintProjectPublicationRequest(visibility="public", commercial_class="free", submit_for_review=True),
+    )
+
+    public_projects = repository.explore("publico")
+    assert approved.publication_status == "approved"
+    assert len(public_projects) == 1
+    assert public_projects[0].commercial_class == "free"
+
+
+def test_premium_project_requires_review_before_public_exposure(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    owner = AuthRepository(database_path).create_user(
+        UserRegisterRequest(email="premium-owner@example.com", password="correct-horse")
+    )
+    reviewer = AuthRepository(database_path).create_user(
+        UserRegisterRequest(email="breno@mayder.com.br", password="correct-horse")
+    )
+    repository = PrintProjectsRepository(database_path)
+    project = repository.create_project(owner.id, PrintProjectCreateRequest(title="Projeto premium"))
+    repository.upload_file(owner.id, project.id, "premium.stl", "primary", VALID_STL)
+
+    in_review = repository.update_publication(
+        owner.id,
+        project.id,
+        PrintProjectPublicationRequest(
+            visibility="public",
+            commercial_class="premium",
+            price_cents=1990,
+            commercial_terms="Pagamento real fora do escopo atual.",
+            submit_for_review=True,
+        ),
+    )
+    assert in_review.publication_status == "in_review"
+    assert in_review.price_cents == 1990
+    assert repository.explore("premium") == []
+
+    approved = repository.review_publication(
+        reviewer.id,
+        project.id,
+        PrintProjectPublicationReviewRequest(status="approved", note="Revisado para vitrine premium."),
+    )
+
+    public_projects = repository.explore("premium")
+    assert approved.publication_status == "approved"
+    assert approved.publication_reviews[0].status == "approved"
+    assert public_projects[0].commercial_class == "premium"
+
+
+def test_sponsored_project_requires_disclosure_and_community_share_does_not_publish(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    owner = AuthRepository(database_path).create_user(
+        UserRegisterRequest(email="sponsored-owner@example.com", password="correct-horse")
+    )
+    repository = PrintProjectsRepository(database_path)
+    project = repository.create_project(owner.id, PrintProjectCreateRequest(title="Projeto patrocinado"))
+    with connect_database(database_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO social_communities (slug, name, scope, status)
+            VALUES ('vitrine-share', 'Vitrine Share', 'manufacturer', 'active')
+            """
+        )
+
+    try:
+        repository.update_publication(
+            owner.id,
+            project.id,
+            PrintProjectPublicationRequest(visibility="public", commercial_class="sponsored", submit_for_review=True),
+        )
+    except ValueError as exc:
+        assert "transparência" in str(exc)
+    else:
+        raise AssertionError("sponsored without disclosure should fail")
+
+    shared = repository.share_with_community(owner.id, project.id, PrintProjectShareRequest(community_slug="vitrine-share"))
+    assert shared.publication_status == "draft"
+    assert shared.visibility == "private"
+    assert repository.community_projects("vitrine-share") == []

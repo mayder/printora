@@ -1615,6 +1615,40 @@ Rollback:
 - se `070_print_project_personal_library.sql` já tiver sido aplicado e for necessário remover colunas/índices, restaurar backup SQLite anterior criado pelo versionador;
 - não executar `DROP TABLE`, recriação manual de tabela ou remoção de arquivos de quarentena sem confirmação explícita.
 
+### Publicação e vitrine de projetos
+
+Endpoints autenticados:
+
+- configurar publicação do projeto: `PUT /api/print-projects/<project_id>/publication`;
+- revisar publicação comercial/curadoria: `POST /api/print-projects/<project_id>/publication-review`.
+
+Regras:
+
+- a busca pública lista somente projetos `visibility=public`, `publication_status=approved` e não arquivados;
+- premium exige preço preparado e revisão antes de exposição pública;
+- patrocinado exige transparência explícita e revisão antes de exposição pública;
+- pagamento real, repasse financeiro e fiscal não estão ativos neste fluxo;
+- compartilhamento em comunidade não altera visibility/publication/commercial_class.
+
+Banco:
+
+- ordem: `071_print_project_publication.sql` depois de `070_print_project_personal_library.sql`;
+- efeito: adiciona preço preparado, moeda, termos, transparência e histórico de revisão de publicação no projeto central;
+- não altera comunidades, arquivos ou ownership.
+
+Validação:
+
+```bash
+cd backend && uv run --extra dev pytest ../backend/tests/test_print_projects.py ../backend/tests/test_schema_versioning.py::test_initialize_database_registers_sql_scripts_on_new_database -q
+npm --prefix frontend run build
+```
+
+Rollback:
+
+- reverter `backend/sql/071_print_project_publication.sql`, regras de publicação em `backend/app/print_projects.py`, rotas novas, painel de publicação no frontend e documentação;
+- se o SQL já tiver sido aplicado e for necessário remover colunas/tabela, restaurar backup SQLite anterior criado pelo versionador;
+- não executar `DROP TABLE`, recriação de `print_projects` ou remoção manual de revisões sem confirmação explícita.
+
 Rollback:
 
 - reverter `backend/app/print_preflight.py`, endpoints de preflight em `backend/app/routes/slicing.py`, serviço frontend de slicing, painel de preflight e documentação;

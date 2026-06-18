@@ -17,6 +17,7 @@ import {
 import { printProjectsApi } from "../services/printProjectsApi";
 import type {
   PrintProjectContract,
+  PrintProjectCommercialClass,
   PrintProjectDetail,
   PrintProjectFile,
   PrintProjectFileRole,
@@ -250,6 +251,7 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
             {selectedProject ? (
               <>
                 <ProjectDetail project={selectedProject} authUserPresent={!!authUser} saving={savingId === selectedProject.id} onSave={saveProject} />
+                <ProjectPublicationForm project={selectedProject} setError={setError} onChanged={(detail) => void afterProjectMutation(detail)} />
                 <ProjectFileActions project={selectedProject} setError={setError} onChanged={(detail) => void afterProjectMutation(detail)} />
               </>
             ) : (
@@ -448,6 +450,92 @@ function ProjectFileActions({ project, setError, onChanged }: { project: PrintPr
   );
 }
 
+function ProjectPublicationForm({ project, setError, onChanged }: { project: PrintProjectDetail; setError: (message: string | null) => void; onChanged: (detail: PrintProjectDetail) => void }) {
+  const [visibility, setVisibility] = React.useState<PrintProjectVisibility>(project.visibility);
+  const [commercialClass, setCommercialClass] = React.useState<PrintProjectCommercialClass>(project.commercial_class);
+  const [price, setPrice] = React.useState(project.price_cents ? String(Math.round(project.price_cents / 100)) : "");
+  const [terms, setTerms] = React.useState(project.commercial_terms);
+  const [disclosure, setDisclosure] = React.useState(project.promotion_disclosure);
+  const [busy, setBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    setVisibility(project.visibility);
+    setCommercialClass(project.commercial_class);
+    setPrice(project.price_cents ? String(Math.round(project.price_cents / 100)) : "");
+    setTerms(project.commercial_terms);
+    setDisclosure(project.promotion_disclosure);
+  }, [project.id, project.visibility, project.commercial_class, project.price_cents, project.commercial_terms, project.promotion_disclosure]);
+
+  async function submitPublication(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const price_cents = commercialClass === "premium" ? Math.max(0, Number(price || 0) * 100) : 0;
+      onChanged(
+        await printProjectsApi.updatePublication(project.id, {
+          visibility,
+          commercial_class: commercialClass,
+          price_cents,
+          currency: "BRL",
+          commercial_terms: terms,
+          promotion_disclosure: disclosure,
+          submit_for_review: true,
+        }),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao atualizar publicação");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="print-project-detail-section print-project-publication-form" onSubmit={(event) => void submitPublication(event)}>
+      <h4>Publicação e vitrine</h4>
+      <div className="print-project-publication-grid">
+        <label>
+          Visibilidade
+          <select value={visibility} onChange={(event) => setVisibility(event.target.value as PrintProjectVisibility)} disabled={busy}>
+            <option value="private">Privado</option>
+            <option value="unlisted">Não listado</option>
+            <option value="public">Público</option>
+          </select>
+        </label>
+        <label>
+          Classificação
+          <select value={commercialClass} onChange={(event) => setCommercialClass(event.target.value as PrintProjectCommercialClass)} disabled={busy}>
+            <option value="free">Gratuito</option>
+            <option value="curated">Curado</option>
+            <option value="premium">Premium</option>
+            <option value="sponsored">Patrocinado</option>
+          </select>
+        </label>
+        <label>
+          Preço preparado
+          <input value={price} onChange={(event) => setPrice(event.target.value)} inputMode="numeric" disabled={busy || commercialClass !== "premium"} />
+        </label>
+      </div>
+      <label>
+        Condição comercial
+        <input value={terms} onChange={(event) => setTerms(event.target.value)} placeholder="Pagamento real ainda não está ativo" disabled={busy} />
+      </label>
+      <label>
+        Transparência
+        <input value={disclosure} onChange={(event) => setDisclosure(event.target.value)} placeholder="Obrigatória para patrocinado" disabled={busy} />
+      </label>
+      <div className="print-project-badges">
+        <span>{publicationLabels[project.publication_status]}</span>
+        <span>{commercialLabels[project.commercial_class]}</span>
+        {project.publication_reviews[0] ? <span>Última revisão: {project.publication_reviews[0].status}</span> : null}
+      </div>
+      <button type="submit" className="primary-button" disabled={busy}>
+        <ShieldCheck size={16} />
+        Atualizar publicação
+      </button>
+    </form>
+  );
+}
+
 function StoragePanel({ storage }: { storage: PrintProjectStorageReport | null }) {
   const usedPercent = storage ? Math.min(100, Math.round((storage.used_bytes / Math.max(storage.quota_bytes, 1)) * 100)) : 0;
   return (
@@ -479,6 +567,8 @@ function ProjectCard({ project, onOpen }: { project: PrintProjectSummary; onOpen
         <span>{visibilityLabels[project.visibility]}</span>
         <span>{commercialLabels[project.commercial_class]}</span>
         <span>{publicationLabels[project.publication_status]}</span>
+        {project.commercial_class === "sponsored" ? <span>Promoção identificada</span> : null}
+        {project.commercial_class === "premium" ? <span>Pagamento não ativo</span> : null}
         <span>{project.can_slice ? "Fatiável" : "Não fatiável"}</span>
       </div>
       <dl>
@@ -510,8 +600,11 @@ function ProjectDetail({ project, authUserPresent, saving, onSave }: { project: 
         <span>{visibilityLabels[project.visibility]}</span>
         <span>{commercialLabels[project.commercial_class]}</span>
         <span>{publicationLabels[project.publication_status]}</span>
+        {project.price_cents > 0 ? <span>{formatMoney(project.price_cents, project.currency)}</span> : null}
         <span>{project.immutable_snapshot_ready ? "Snapshot pronto" : "Snapshot pendente"}</span>
       </div>
+      {project.promotion_disclosure ? <p className="muted">{project.promotion_disclosure}</p> : null}
+      {project.commercial_terms ? <p className="muted">{project.commercial_terms}</p> : null}
       <section className="print-project-detail-section">
         <h4>Arquivos</h4>
         {project.files.map((file) => <ProjectFileRow key={file.id} file={file} />)}
@@ -582,4 +675,8 @@ function formatBytes(value: number): string {
   if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
   if (value >= 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${value} B`;
+}
+
+function formatMoney(value: number, currency: string): string {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: currency || "BRL" }).format(value / 100);
 }

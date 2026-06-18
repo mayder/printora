@@ -49,6 +49,10 @@ export interface PrintProjectSummary {
   license: string;
   original_author_name: string;
   source_url: string | null;
+  price_cents: number;
+  currency: string;
+  commercial_terms: string;
+  promotion_disclosure: string;
   primary_file: PrintProjectFile | null;
   file_count: number;
   printable_file_count: number;
@@ -70,9 +74,18 @@ export interface PrintProjectVersion {
   created_at: string;
 }
 
+export interface PrintProjectPublicationReview {
+  id: number;
+  status: "pending_review" | "approved" | "rejected";
+  note: string;
+  reviewer_user_id: number | null;
+  created_at: string;
+}
+
 export interface PrintProjectDetail extends PrintProjectSummary {
   files: PrintProjectFile[];
   versions: PrintProjectVersion[];
+  publication_reviews: PrintProjectPublicationReview[];
   saved_by_viewer: boolean;
   immutable_snapshot_ready: boolean;
 }
@@ -105,4 +118,14 @@ export interface PrintProjectStorageReport {
   file_count: number;
   hosted_project_count: number;
   external_reference_count: number;
+}
+
+export interface PrintProjectPublicationPayload {
+  visibility: PrintProjectVisibility;
+  commercial_class: PrintProjectCommercialClass;
+  price_cents?: number;
+  currency?: string;
+  commercial_terms?: string;
+  promotion_disclosure?: string;
+  submit_for_review?: boolean;
 }

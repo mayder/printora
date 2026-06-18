@@ -5,6 +5,7 @@ import type {
   PrintProjectDetail,
   PrintProjectExternalLinkPayload,
   PrintProjectFileRole,
+  PrintProjectPublicationPayload,
   PrintProjectStorageReport,
   PrintProjectSummary,
   PrintProjectUpdatePayload,
@@ -47,6 +48,12 @@ export const printProjectsApi = {
   archive: (projectId: number) =>
     apiRequest<{ ok: boolean }>(`/api/print-projects/${projectId}`, {
       method: "DELETE",
+    }),
+  updatePublication: (projectId: number, payload: PrintProjectPublicationPayload) =>
+    apiRequest<PrintProjectDetail>(`/api/print-projects/${projectId}/publication`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     }),
   uploadFile: (projectId: number, file: File, fileRole: PrintProjectFileRole) =>
     apiRequest<PrintProjectDetail>(

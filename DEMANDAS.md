@@ -4816,10 +4816,6 @@ Notas de implementação:
 - Validação visual/local executada em `Projetos de impressão > Meus projetos`: criação de projeto privado sem comunidade, upload de arquivo principal, falha parcial em peça opcional, link externo sem arquivo local, painel de cota e responsividade mobile sem overflow horizontal.
 - Fechamento executado: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh` (`445 passed`, Go agent ok, frontend build ok, `test:releases` ok).
 
-Estado atual:
-
-- Planejado.
-
 ## PKG-79: Publicação, Venda E Vitrine De Projetos
 
 Objetivo:
@@ -4877,7 +4873,21 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado.
+
+Notas de implementação:
+
+- Publicação passou a ser dimensão do projeto central: visibilidade, revisão/publicação, classificação comercial e compartilhamentos em comunidade permanecem separados.
+- Busca/vitrine pública só lista projetos `public` com publicação `approved`; projeto privado, rascunho, em revisão ou rejeitado não aparece na busca nem por comunidade.
+- Backend adicionou configuração de publicação em `/api/print-projects/<project_id>/publication` e revisão administrativa em `/api/print-projects/<project_id>/publication-review`.
+- Premium exige preço preparado e entra em revisão; patrocinado exige transparência explícita e entra em revisão; pagamento real, repasse e fiscal ficam fora do escopo.
+- Comunidade continua apenas como canal N:N: compartilhar em comunidade não altera visibilidade, publicação nem classificação comercial.
+- UI adicionou painel `Publicação e vitrine` no detalhe de `Meus projetos`, com visibilidade, classificação, preço preparado, condição comercial, transparência e estado de revisão.
+- Cards/detalhe público exibem classificação, status, preço preparado, transparência de patrocinado e aviso de pagamento não ativo para premium.
+- SQL aditivo: `backend/sql/071_print_project_publication.sql`.
+- Validação focada executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_print_projects.py ../backend/tests/test_schema_versioning.py::test_initialize_database_registers_sql_scripts_on_new_database -q`; `npm --prefix frontend run build`.
+- Validação visual/local executada em `Projetos de impressão > Meus projetos`: projeto premium público entra em revisão, preço preparado aparece, texto informa pagamento fora do fluxo atual, vitrine pública fica vazia enquanto a revisão não aprova e painel responsivo não gera overflow horizontal em 390px.
+- Fechamento executado: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh` (`448 passed`, Go agent ok, frontend build ok, `test:releases` ok).
 
 ## PKG-80: Fatiamento A Partir De Projeto Salvo
 

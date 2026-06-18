@@ -1609,6 +1609,19 @@ Critérios:
 - Validação frontend focada: `npm --prefix frontend run build`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-79 - Publicação, Venda E Vitrine De Projetos
+
+- Validar que projeto privado, rascunho, em revisão ou rejeitado não aparece em busca pública, comunidade ou detalhe público anônimo.
+- Validar que projeto gratuito público só entra na vitrine quando a publicação estiver aprovada.
+- Validar premium com preço preparado entrando em revisão e ficando oculto até aprovação administrativa.
+- Validar patrocinado exigindo transparência explícita antes de revisão/aprovação.
+- Validar que compartilhamento em comunidade não muda visibilidade, publicação ou classificação comercial.
+- Validar que pagamento real não aparece como ativo nem é simulado.
+- Validar UI `Publicação e vitrine` em desktop/mobile com badges de premium/patrocinado.
+- Testes automatizados focados: `cd backend && uv run --extra dev pytest ../backend/tests/test_print_projects.py ../backend/tests/test_schema_versioning.py::test_initialize_database_registers_sql_scripts_on_new_database -q`.
+- Validação frontend focada: `npm --prefix frontend run build`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:
