@@ -33,7 +33,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Estado, efeitos e orquestracao de API ficam em hooks por dominio em `frontend/src/hooks/domains`; `frontend/src/hooks/usePrintoraApp.ts` apenas compoe shell, contexto e dominios.
 - Chamadas HTTP ficam isoladas por dominio em `frontend/src/services`.
 - Componentes reutilizados ficam em `frontend/src/components`.
-- O menu lateral principal mostra somente telas globais, que nao dependem de uma impressora selecionada: `overview`, `printers`, `agents`, `social`, `catalog`, `setup` e `settings`.
+- O menu lateral principal mostra somente telas globais, que nao dependem de uma impressora selecionada: `overview`, `printers`, `agents`, `models`, `social`, `catalog`, `setup` e `settings`.
 - Telas operacionais de impressora nao aparecem no menu lateral; elas ficam como abas internas de `printer-detail`, aberto a partir da lista de impressoras.
 - O seletor de impressora da topbar e o rodape lateral sao apenas contexto rapido. Eles nao definem a arquitetura de navegacao nem tornam o menu dependente de impressora; abrir o detalhe de uma impressora nao deve trocar esse contexto rapido.
 - A topbar e fixa/sticky e deve conter apenas controles globais: titulo da area atual, alertas da frota, Sobre, tema claro/escuro e conta do usuario no extremo direito.
@@ -51,6 +51,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Impressoras | `printers` | `/?section=printers`, `/#printers` | `frontend/src/screens/PrintersScreen.tsx` | Lista e cadastro das impressoras gerenciadas; cada registro abre detalhe proprio | Nao exige impressora ativa | existente |
 | Detalhe da impressora | `printer-detail` | Estado interno da SPA | `frontend/src/screens/PrinterDetailScreen.tsx` | Registro operacional da impressora com acao de voltar para a lista e abas de resumo, operacao, updates, calibracao, firmware, manutencao, diagnostico e agentes | Exige registro de impressora aberto | existente |
 | Agentes | `agents` | `/?section=agents`, `/#agents` | `frontend/src/screens/AgentsScreen.tsx` | Lista de todos os agentes da frota, sem operacoes de impressora no menu global | Nao exige impressora ativa | existente |
+| Modelos 3D | `models` | `/?section=models`, `/#models` | `frontend/src/screens/ModelsScreen.tsx` | Explorar, salvar, enviar, referenciar, publicar e fatiar STL/3MF/ZIP/link externo a partir da biblioteca pessoal do usuário | Nao exige impressora ativa; fatiamento/envio exige impressora escolhida no fluxo | planejada |
 | Detalhe do agente | `agent-detail` | Estado interno da SPA | `frontend/src/screens/AgentDetailScreen.tsx` | Registro de agente com acao explicita de voltar para a lista, impressora vinculada, dispositivo/host, versao, saude, fila, doctor remoto, suporte e credencial | Exige agente aberto | existente |
 | Social | `social` | `/?section=social`, `/#social` | `frontend/src/screens/SocialScreen.tsx` | Descoberta pública de makers, impressoras públicas, comunidades automáticas e relações sociais | Nao exige impressora ativa | existente |
 | Catálogo | `catalog` | `/?section=catalog`, `/#catalog` | `frontend/src/screens/CatalogAdminScreen.tsx` | Curadoria administrativa do catálogo mestre de fabricantes, modelos, variantes e componentes | Nao exige impressora ativa; edição exige administrador | existente |
@@ -110,6 +111,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 
 ## Administracao - Fatiamento e envio
 
+- Esta área é operacional/administrativa. O fluxo diário de escolher modelo, fatiar e enviar para impressora deve ficar em `Modelos 3D`.
 - A area `Pipeline de fatiamento` em Administracao separa criacao/listagem de jobs, preflight e entrega segura de G-code.
 - Job concluido mostra acao `Preflight`; preflight aprovado libera `Salvar G-code` e `Iniciar impressão`.
 - `Iniciar impressão` exige confirmação inline no formato mostrado pela própria tela; a UI nao exibe conteudo bruto do G-code nem tokens.
@@ -121,6 +123,17 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 
 ## Distribuicao de conteudo
 
+- A tela `Modelos 3D` é a entrada principal para STL/3MF/ZIP e links externos. Ela deve permitir explorar modelos públicos, buscar por conteúdo, salvar na conta, abrir detalhe, enviar/uploadar modelo próprio, cadastrar link externo, publicar, colocar em revisão/venda quando aplicável e iniciar fatiamento a partir de modelo salvo.
+- `Modelos 3D` possui pelo menos as áreas `Explorar`, `Meus modelos`, `Salvos`, `Listas` e `Jobs de fatiamento`. A navegação deve ser clara e não depender de escolher uma comunidade antes.
+- `Explorar` lista modelos públicos e referências externas com filtros por tipo de arquivo, origem, licença, material, componente, fabricante/modelo/variante, preço/classificação e comunidade relacionada. Item hospedado no Printora e link externo devem ter indicação visual diferente.
+- O detalhe de modelo centraliza título, descrição, imagens/preview, arquivos e versões, origem, licença, autoria, atribuição, comunidade relacionada, tags, compatibilidade, downloads, favoritos, status comercial e ações `Salvar nos meus modelos`, `Fatiar`, `Publicar/Editar publicação` quando o usuário for dono.
+- `Meus modelos` lista tudo que o usuário subiu, salvou, importou ou referenciou. O usuário deve conseguir criar modelo por upload STL/3MF/ZIP ou por link externo, editar metadados, visibilidade, licença, autoria, atribuição, tags, material/componente, arquivar e consultar storage/cota.
+- Upload e link externo devem abrir em modal ou estado de cadastro dedicado, separados em seções `Modelo`, `Arquivo ou link`, `Autoria e licença`, `Publicação` e `Impressão`. O cadastro não deve exigir comunidade.
+- Modelos podem estar `privado`, `não listado`, `público`, `em revisão`, `rejeitado` ou `arquivado`. Premium/patrocinado/curado deve ter transparência e revisão antes de aparecer publicamente.
+- A ação `Fatiar` parte do detalhe de um modelo salvo e guia o usuário por `modelo -> impressora -> perfil/material -> qualidade -> job -> preflight -> salvar G-code ou enviar`. O fluxo deve usar as impressoras do usuário e mostrar incompatibilidade de volume, material, nozzle ou estado da impressora antes de executar.
+- `Administração > Fatiamento controlado` fica restrito a configuração, verificação da engine, paths sanitizados, status, diagnóstico, políticas e fallback operacional. Não é a entrada principal para criar job diário de fatiamento.
+- `Social > Comunidades > Arquivos` vira vitrine/contexto comunitário dos modelos relacionados à comunidade. A criação e gestão principal de STL/3MF/link próprio ficam em `Modelos 3D > Meus modelos`; comunidades podem apontar para o detalhe central do modelo.
+- Histórico de impressão deve ser acessível pelo modelo e pela impressora, indicando perfil/material, resultado, falha, feedback e privacidade, sem expor impressora privada em conteúdo público.
 - Backups de impressora ficam na aba `Diagnostico` do detalhe da impressora, junto de snapshots, comparacoes, relatorio sanitizado e evidencias diagnosticas.
 - Auditoria read-only da impressora fica na aba `Diagnostico` do detalhe da impressora.
 - Na tela Relatorios, a leitura principal deve explicar para usuario leigo se pode imprimir, por que nao imprimir quando houver bloqueio e qual acao segura seguir.

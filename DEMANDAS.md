@@ -103,6 +103,11 @@
 - PKG-74: Histórico de trabalhos, resultados e telemetria de impressão
 - PKG-75: Marketplace e curadoria de conteúdo premium
 - PKG-76: Integrações externas e importação de bibliotecas
+- PKG-77: Área central de Modelos 3D
+- PKG-78: Meus modelos, upload e links externos
+- PKG-79: Publicação, venda e vitrine de modelos
+- PKG-80: Fatiamento a partir de modelo salvo
+- PKG-81: Envio para impressora e histórico por modelo
 
 ## Política De Backlog
 
@@ -4643,3 +4648,267 @@ Notas de implementação:
 - Deduplicação por checksum aponta arquivo local existente quando houver correspondência.
 - UI de comunidade ganhou painel `Fontes externas` separado da biblioteca hospedada, deixando claro quando o item é referência externa.
 - SQL aditivo: `backend/sql/067_external_library_imports.sql`.
+
+## PKG-77: Área Central De Modelos 3D
+
+Objetivo:
+
+Criar uma área principal de produto para descobrir, buscar e abrir modelos 3D, separando o fluxo de modelos do contexto social de comunidade e da Administração.
+
+Contexto inicial:
+
+- a base técnica de biblioteca, upload, links externos, fatiamento e envio já existe, mas ficou distribuída entre `Social > Comunidades > Arquivos` e `Administração > Pipeline de fatiamento`;
+- o usuário precisa de um ponto de entrada diário para STL/3MF/ZIP/link externo, parecido com bibliotecas de modelos como Printables, MakerWorld e repositórios externos;
+- Comunidades devem continuar como contexto social e vitrine, não como a tela principal de gestão de arquivos;
+- Administração deve ficar para configuração da engine, status, caminhos, diagnóstico e política, não para uso cotidiano de fatiar/enviar.
+
+Dependências:
+
+- PKG-56 a PKG-61 para biblioteca, versões, coleções e listas.
+- PKG-64 e PKG-65 para busca, ranking e recomendações.
+- PKG-76 para referências externas.
+
+Entregáveis:
+
+- novo menu principal `Modelos 3D`;
+- tela de exploração com busca por nome, tag, material, componente, licença, arquivo e origem;
+- suporte visual para item hospedado no Printora e referência externa;
+- cards/lista com licença, autor, origem, comunidade, tipo de arquivo, contagem de downloads/favoritos e ação principal;
+- detalhe dedicado do modelo, substituindo a dependência de abrir comunidade para entender o arquivo;
+- ação `Salvar nos meus modelos`;
+- navegação para comunidade relacionada sem tornar comunidade dona do fluxo;
+- remoção ou rebaixamento da entrada de biblioteca dentro de Social para papel de vitrine/contexto;
+- documentação em `TELAS.md` e testes proporcionais.
+
+Lotes:
+
+1. Definir navegação, tela e contratos de leitura reaproveitando endpoints existentes.
+2. Criar tela `Modelos 3D` com busca, filtros, estados vazios e cards.
+3. Criar detalhe de modelo com metadados, origem, licença, versões, arquivos e ações.
+4. Implementar ação `Salvar nos meus modelos` sem duplicar arquivo indevidamente.
+5. Ajustar Social/Comunidades para apontarem para o detalhe central do modelo.
+6. Atualizar documentação e validação visual.
+
+Critério de aceite:
+
+- usuário consegue encontrar modelos sem entrar em uma comunidade;
+- item externo e item hospedado ficam claramente diferenciados;
+- conteúdo privado não aparece na exploração pública;
+- nenhum dado operacional de impressora, agente, Moonraker, SSH, token, IP, organização ou permissão aparece em modelo público;
+- Social continua útil para comunidade, mas não é o caminho principal para gerenciar STL/3MF;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-78: Meus Modelos, Upload E Links Externos
+
+Objetivo:
+
+Criar a área pessoal onde o usuário gerencia todos os modelos que subiu, salvou, importou ou referenciou por link externo.
+
+Contexto inicial:
+
+- upload e referências externas existem como fluxo de biblioteca de comunidade;
+- o usuário precisa de uma biblioteca pessoal antes de publicar, vender, compartilhar ou fatiar;
+- nem todo item pessoal deve pertencer imediatamente a uma comunidade.
+
+Dependências:
+
+- PKG-77.
+- PKG-56 a PKG-61.
+- PKG-69 para cota, retenção e custo.
+- PKG-76 para links externos.
+
+Entregáveis:
+
+- aba ou subárea `Meus modelos` dentro de `Modelos 3D`;
+- listagem de modelos pessoais: enviados, salvos, importados e links externos;
+- cadastro por upload STL/3MF/ZIP;
+- cadastro por URL externa, com origem como Printables, MakerWorld, GitHub ou site genérico;
+- edição de título, descrição, tags, material sugerido, componente, licença, autoria, atribuição e visibilidade;
+- estado privado, não listado, público e em revisão;
+- painel de armazenamento pessoal com uso, cota, arquivos, retenção e custo estimado;
+- separação entre arquivo hospedado e referência externa sem cópia;
+- estados de validação/quarentena/análise visíveis;
+- testes e documentação.
+
+Lotes:
+
+1. Mapear biblioteca pessoal sobre os modelos e endpoints existentes.
+2. Criar listagem `Meus modelos` com filtros e estados.
+3. Criar modal de upload pessoal com seções de modelo, arquivo, licença e impressão.
+4. Criar cadastro de link externo com atribuição/checksum opcional.
+5. Integrar painel de armazenamento/cota pessoal.
+6. Adicionar edição/arquivamento sem apagar arquivo sem confirmação.
+7. Testes de privacidade, upload/link externo e responsividade.
+
+Critério de aceite:
+
+- usuário consegue criar modelo sem escolher comunidade;
+- upload STL/3MF/ZIP entra em quarentena/validação antes de uso público;
+- link externo fica marcado como referência e não como arquivo hospedado;
+- usuário distingue privado, não listado, público e em revisão;
+- remoção não apaga arquivo/dado sem fluxo explícito e confirmação quando aplicável;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-79: Publicação, Venda E Vitrine De Modelos
+
+Objetivo:
+
+Permitir que modelos pessoais sejam publicados, compartilhados, curados, patrocinados ou colocados à venda sem misturar esse fluxo com comunidade ou Administração.
+
+Contexto inicial:
+
+- classificação comercial existe na biblioteca social, mas a gestão está no contexto de comunidade;
+- o produto precisa deixar claro quando um modelo é gratuito, pago, patrocinado, curado ou apenas link externo;
+- cobrança real pode ficar para pacote futuro, mas o contrato de publicação/venda precisa estar preparado.
+
+Dependências:
+
+- PKG-77.
+- PKG-78.
+- PKG-75.
+- PKG-66 para moderação/curadoria.
+
+Entregáveis:
+
+- controles de publicação no detalhe do modelo pessoal;
+- estados: privado, não listado, público, em revisão, rejeitado, arquivado;
+- classificação: comunidade/gratuito, curado, premium, patrocinado;
+- campos de preço/condição comercial preparados sem ativar cobrança real quando fora de escopo;
+- transparência obrigatória para patrocinado;
+- revisão antes de premium/patrocinado público;
+- página pública do modelo com licença, autoria, versões, arquivos, fonte e ações permitidas;
+- vínculo opcional com comunidade como contexto de descoberta;
+- painel de conteúdo publicado pelo usuário.
+
+Lotes:
+
+1. Normalizar estados de publicação e classificação comercial no modelo central.
+2. Criar UI de publicação a partir de `Meus modelos`.
+3. Criar página/detalhe público de modelo.
+4. Integrar revisão comercial e moderação.
+5. Exibir transparência de patrocinado/premium sem parecer recomendação técnica neutra.
+6. Documentar o que fica fora: pagamento real, repasse financeiro e fiscal.
+
+Critério de aceite:
+
+- modelo privado não aparece em busca, comunidade ou página pública;
+- modelo pago/premium não é confundido com comunitário gratuito;
+- patrocinado sempre aparece como promoção/transparência;
+- fluxo não exige comunidade para publicar;
+- pagamento real não é simulado como se estivesse pronto;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-80: Fatiamento A Partir De Modelo Salvo
+
+Objetivo:
+
+Mover o fluxo de fatiamento diário para `Modelos 3D > Meus modelos`, permitindo escolher um modelo salvo, uma impressora, material/perfil/qualidade e gerar job de fatiamento.
+
+Contexto inicial:
+
+- o pipeline de fatiamento existe em Administração, mas essa área deve ser reservada para configuração e diagnóstico;
+- o usuário deve fatiar a partir de um modelo que está na própria biblioteca pessoal;
+- perfil de material/fatiamento e compatibilidade devem entrar antes do job.
+
+Dependências:
+
+- PKG-78.
+- PKG-63 para perfis de material/fatiamento.
+- PKG-70 e PKG-71 para engine e pipeline.
+- PKG-72 para preflight.
+
+Entregáveis:
+
+- ação `Fatiar` no detalhe de modelo pessoal;
+- wizard/fluxo curto: modelo -> impressora -> perfil/material -> qualidade -> dimensões/orientação quando aplicável;
+- uso de impressoras do usuário e compatibilidade básica por volume/material/nozzle;
+- criação de job de fatiamento vinculado ao modelo e versão;
+- lista de jobs do modelo, com estado, erro, artefatos e ação de preflight;
+- Administração mantém apenas verificação da engine, paths, modo dry-run, diagnóstico e políticas.
+
+Lotes:
+
+1. Definir contrato de job a partir de modelo salvo.
+2. Criar ação `Fatiar` no detalhe de modelo.
+3. Criar seleção de impressora e perfil/material/qualidade.
+4. Integrar criação e acompanhamento do job existente.
+5. Mostrar artefatos e preflight a partir do modelo.
+6. Rebaixar `Administração > Pipeline de fatiamento` para configuração/diagnóstico.
+
+Critério de aceite:
+
+- usuário não precisa entrar em Administração para fatiar modelo;
+- job sempre fica vinculado ao modelo, versão, usuário, impressora e perfil;
+- impressora incompatível mostra bloqueio/aviso antes do job;
+- engine ausente mostra erro acionável e aponta Administração para configuração;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-81: Envio Para Impressora E Histórico Por Modelo
+
+Objetivo:
+
+Concluir o fluxo diário a partir de `Meus modelos`: preflight, salvar G-code, iniciar impressão, acompanhar entrega e registrar histórico/feedback vinculados ao modelo.
+
+Contexto inicial:
+
+- envio seguro e histórico existem no pipeline administrativo;
+- o usuário espera operar a partir do modelo salvo e da própria impressora;
+- histórico deve ajudar a decidir se o modelo funcionou, em qual impressora/material/perfil e com qual resultado.
+
+Dependências:
+
+- PKG-80.
+- PKG-72.
+- PKG-73.
+- PKG-74.
+- PKG-47 para execução remota segura.
+
+Entregáveis:
+
+- preflight exibido no contexto do modelo e da impressora escolhida;
+- ações `Salvar G-code` e `Enviar para impressora` no fluxo do modelo;
+- confirmação forte para iniciar impressão;
+- status de entrega, arquivo remoto e rollback seguro quando permitido;
+- histórico por modelo com impressora, perfil, material, resultado, tempo, falha e feedback;
+- feedback público/privado sem expor impressora privada;
+- integração com ranking/recomendações somente com sinais seguros;
+- Administração permanece como diagnóstico, não tela principal de envio.
+
+Lotes:
+
+1. Exibir preflight por job/modelo.
+2. Mover ações de salvar/enviar para o contexto do modelo.
+3. Mostrar status de entrega e rollback seguro.
+4. Criar histórico por modelo e por impressora.
+5. Adicionar feedback e foto HTTPS opcional.
+6. Integrar sinais seguros com ranking/recomendação.
+7. Testes de segurança, confirmação e privacidade.
+
+Critério de aceite:
+
+- G-code não é salvo ou enviado sem preflight aprovado quando a política exigir;
+- iniciar impressão exige confirmação textual ou step-up quando aplicável;
+- histórico público nunca expõe impressora privada, agente, Moonraker, token, IP ou path sensível;
+- rollback só aparece quando seguro;
+- usuário entende claramente se apenas salvou arquivo ou iniciou impressão;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
