@@ -46,6 +46,22 @@ class SlicingJobCreate(BaseModel):
         return cleaned
 
 
+class ProjectSlicingJobCreate(BaseModel):
+    project_id: int = Field(ge=1)
+    selected_file_ids: list[int] = Field(default_factory=list, min_length=1, max_length=20)
+    printer_id: int = Field(ge=1)
+    material_profile_id: int | None = Field(default=None, ge=1)
+    engine: SlicerEngine = "orcaslicer"
+    model_dimensions: ModelDimensions = Field(default_factory=ModelDimensions)
+    quality_reference: str = Field(default="quality", min_length=1, max_length=120)
+    profile_reference: str | None = Field(default=None, max_length=160)
+
+    @field_validator("quality_reference", "profile_reference")
+    @classmethod
+    def clean_reference(cls, value: str | None) -> str | None:
+        return SlicingJobCreate.clean_reference(value)
+
+
 class SlicingArtifact(BaseModel):
     id: int
     job_id: int
@@ -67,6 +83,10 @@ class SlicingJob(BaseModel):
     model_version_reference: str
     model_dimensions: dict[str, Any]
     quality_reference: str
+    print_project_id: int | None = None
+    print_project_version_id: int | None = None
+    selected_project_files: list[dict[str, Any]] = Field(default_factory=list)
+    project_snapshot: dict[str, Any] = Field(default_factory=dict)
     status: SlicingJobStatus
     compatibility: dict[str, Any]
     input: dict[str, Any]
@@ -119,6 +139,67 @@ class SlicingPipelineRepository:
                     payload.quality_reference,
                     json.dumps(compatibility, ensure_ascii=False),
                     json.dumps(input_payload, ensure_ascii=False),
+                ),
+            )
+            job_id = int(cursor.lastrowid)
+        job = self.get_job(job_id, actor_user_id)
+        if job is None:
+            raise ValueError("job de fatiamento não encontrado")
+        return job
+
+    def create_project_job(self, actor_user_id: int, payload: ProjectSlicingJobCreate) -> SlicingJob:
+        project, version, selected_files = self._project_selection_for_actor(actor_user_id, payload)
+        model_reference = f"project://{project['slug']}?files={','.join(str(file['id']) for file in selected_files)}"
+        model_version_reference = f"project-version:{version['id']}"
+        legacy_payload = SlicingJobCreate(
+            printer_id=payload.printer_id,
+            material_profile_id=payload.material_profile_id,
+            engine=payload.engine,
+            model_reference=model_reference,
+            model_version_reference=model_version_reference,
+            model_dimensions=payload.model_dimensions,
+            quality_reference=payload.quality_reference,
+            profile_reference=payload.profile_reference,
+        )
+        printer = self._printer_for_actor(payload.printer_id, actor_user_id)
+        profile = self._material_profile(payload.material_profile_id, actor_user_id) if payload.material_profile_id else None
+        compatibility = self._validate_compatibility(printer, profile, legacy_payload)
+        project_snapshot = _loads_dict(version["project_snapshot_json"])
+        selected_files_snapshot = [_file_snapshot(file) for file in selected_files]
+        input_payload = {
+            "printer": {"id": printer["id"], "name": printer["name"], "catalog_variant_id": printer["catalog_variant_id"]},
+            "material_profile": _profile_summary(profile),
+            "project": project_snapshot,
+            "selected_files": selected_files_snapshot,
+            "quality": payload.quality_reference,
+            "profile_reference": payload.profile_reference,
+        }
+        with connect_database(self.database_path) as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO slicing_jobs (
+                    owner_user_id, printer_id, material_profile_id, engine, model_reference,
+                    model_version_reference, model_dimensions_json, quality_reference, compatibility_json,
+                    input_json, print_project_id, print_project_version_id, selected_project_files_json,
+                    project_snapshot_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    actor_user_id,
+                    payload.printer_id,
+                    payload.material_profile_id,
+                    payload.engine,
+                    model_reference,
+                    model_version_reference,
+                    json.dumps(payload.model_dimensions.model_dump(), ensure_ascii=False),
+                    payload.quality_reference,
+                    json.dumps(compatibility, ensure_ascii=False),
+                    json.dumps(input_payload, ensure_ascii=False),
+                    payload.project_id,
+                    int(version["id"]),
+                    json.dumps(selected_files_snapshot, ensure_ascii=False),
+                    json.dumps(project_snapshot, ensure_ascii=False),
                 ),
             )
             job_id = int(cursor.lastrowid)
@@ -191,6 +272,20 @@ class SlicingPipelineRepository:
                 LIMIT ?
                 """,
                 params,
+            ).fetchall()
+        return [self._job_from_row(row) for row in rows]
+
+    def list_project_jobs(self, actor_user_id: int, project_id: int, limit: int = 20) -> list[SlicingJob]:
+        with connect_database(self.database_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM slicing_jobs
+                WHERE owner_user_id = ? AND print_project_id = ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+                """,
+                (actor_user_id, project_id, max(1, min(limit, 100))),
             ).fetchall()
         return [self._job_from_row(row) for row in rows]
 
@@ -269,6 +364,57 @@ class SlicingPipelineRepository:
                 (catalog_variant_id,),
             ).fetchone()
         return json.loads(row["build_volume_json"]) if row else {}
+
+    def _project_selection_for_actor(self, actor_user_id: int, payload: ProjectSlicingJobCreate):
+        with connect_database(self.database_path) as connection:
+            project = connection.execute(
+                """
+                SELECT *
+                FROM print_projects p
+                WHERE p.id = ?
+                  AND p.lifecycle_status != 'archived'
+                  AND (
+                    p.owner_user_id = ?
+                    OR EXISTS (
+                        SELECT 1
+                        FROM print_project_saves ps
+                        WHERE ps.project_id = p.id AND ps.owner_user_id = ? AND ps.status = 'active'
+                    )
+                  )
+                """,
+                (payload.project_id, actor_user_id, actor_user_id),
+            ).fetchone()
+            if project is None:
+                raise ValueError("projeto não encontrado ou não salvo pelo usuário")
+            version_id = project["current_version_id"]
+            if version_id is None:
+                raise ValueError("projeto precisa de snapshot antes de fatiar")
+            version = connection.execute(
+                "SELECT * FROM print_project_versions WHERE id = ? AND project_id = ?",
+                (version_id, payload.project_id),
+            ).fetchone()
+            if version is None:
+                raise ValueError("snapshot do projeto não encontrado")
+            placeholders = ",".join("?" for _ in payload.selected_file_ids)
+            files = connection.execute(
+                f"""
+                SELECT *
+                FROM print_project_files
+                WHERE project_id = ? AND id IN ({placeholders})
+                ORDER BY id
+                """,
+                (payload.project_id, *payload.selected_file_ids),
+            ).fetchall()
+        if len(files) != len(set(payload.selected_file_ids)):
+            raise ValueError("seleção contém arquivo inexistente no projeto")
+        blocked = [
+            str(file["file_name"])
+            for file in files
+            if int(file["can_slice"] or 0) != 1 or file["file_role"] == "external_reference"
+        ]
+        if blocked:
+            raise ValueError("arquivos sem arquivo local validado não podem ser fatiados: " + ", ".join(blocked))
+        return project, version, files
 
     def _execute_worker(self, job: SlicingJob, command_preview: list[str]) -> dict[str, Any]:
         executable = _resolve_engine_path(self.settings, job.engine)
@@ -369,6 +515,10 @@ class SlicingPipelineRepository:
             model_version_reference=row["model_version_reference"],
             model_dimensions=json.loads(row["model_dimensions_json"]),
             quality_reference=row["quality_reference"],
+            print_project_id=row["print_project_id"] if "print_project_id" in row.keys() else None,
+            print_project_version_id=row["print_project_version_id"] if "print_project_version_id" in row.keys() else None,
+            selected_project_files=_loads_dict_list(row["selected_project_files_json"]) if "selected_project_files_json" in row.keys() else [],
+            project_snapshot=_loads_dict(row["project_snapshot_json"]) if "project_snapshot_json" in row.keys() else {},
             status=row["status"],
             compatibility=json.loads(row["compatibility_json"]),
             input=json.loads(row["input_json"]),
@@ -424,6 +574,37 @@ def _profile_summary(profile) -> dict[str, Any]:
             "settings": json.loads(profile["settings_json"]),
         },
     }
+
+
+def _file_snapshot(file) -> dict[str, Any]:
+    return {
+        "id": int(file["id"]),
+        "file_name": file["file_name"],
+        "file_kind": file["file_kind"],
+        "file_role": file["file_role"],
+        "size_bytes": file["size_bytes"],
+        "sha256": file["sha256"],
+        "validation_status": file["validation_status"],
+        "can_slice": bool(file["can_slice"]),
+    }
+
+
+def _loads_dict(value: str | None) -> dict[str, Any]:
+    try:
+        parsed = json.loads(value or "{}")
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _loads_dict_list(value: str | None) -> list[dict[str, Any]]:
+    try:
+        parsed = json.loads(value or "[]")
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [item for item in parsed if isinstance(item, dict)]
 
 
 def _float_or_none(value: Any) -> float | None:

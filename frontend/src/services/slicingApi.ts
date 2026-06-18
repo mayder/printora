@@ -21,6 +21,10 @@ export type SlicingJob = {
   model_version_reference: string;
   model_dimensions: Record<string, unknown>;
   quality_reference: string;
+  print_project_id?: number | null;
+  print_project_version_id?: number | null;
+  selected_project_files?: Array<Record<string, any>>;
+  project_snapshot?: Record<string, any>;
   status: "planned" | "running" | "completed" | "failed" | "canceled";
   compatibility: Record<string, unknown>;
   input: Record<string, any>;
@@ -128,6 +132,17 @@ export type SlicingJobCreate = {
   profile_reference?: string | null;
 };
 
+export type ProjectSlicingJobCreate = {
+  project_id: number;
+  selected_file_ids: number[];
+  printer_id: number;
+  material_profile_id?: number | null;
+  engine: "orcaslicer" | "prusaslicer";
+  model_dimensions: { x_mm?: number | null; y_mm?: number | null; z_mm?: number | null };
+  quality_reference: string;
+  profile_reference?: string | null;
+};
+
 export const slicingApi = {
   engine: () => apiRequest<SlicingEngineInfo>("/api/slicing/engine"),
   jobs: () => apiRequest<SlicingJob[]>("/api/slicing/jobs"),
@@ -136,6 +151,13 @@ export const slicingApi = {
   history: () => apiRequest<PrintJobHistory[]>("/api/slicing/history"),
   createJob: (body: SlicingJobCreate) =>
     apiRequest<SlicingJob>("/api/slicing/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  projectJobs: (projectId: number) => apiRequest<SlicingJob[]>(`/api/slicing/projects/${projectId}/jobs`),
+  createProjectJob: (projectId: number, body: ProjectSlicingJobCreate) =>
+    apiRequest<SlicingJob>(`/api/slicing/projects/${projectId}/jobs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

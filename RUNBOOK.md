@@ -1649,6 +1649,41 @@ Rollback:
 - se o SQL já tiver sido aplicado e for necessário remover colunas/tabela, restaurar backup SQLite anterior criado pelo versionador;
 - não executar `DROP TABLE`, recriação de `print_projects` ou remoção manual de revisões sem confirmação explícita.
 
+### Fatiamento por projeto salvo
+
+Endpoints autenticados:
+
+- listar jobs do projeto: `GET /api/slicing/projects/<project_id>/jobs`;
+- criar job do projeto: `POST /api/slicing/projects/<project_id>/jobs`.
+
+Contrato operacional:
+
+- o projeto precisa pertencer ao usuário ou estar salvo por ele;
+- o projeto precisa ter `current_version_id`;
+- `selected_file_ids` deve conter arquivos do projeto com arquivo local validado e `can_slice=true`;
+- referência externa sem arquivo hospedado/importado/validado é bloqueada para fatiamento;
+- o job grava `print_project_id`, `print_project_version_id`, snapshot do projeto e snapshot dos arquivos selecionados;
+- alterações posteriores no projeto ou nos arquivos não reescrevem jobs já criados.
+
+Banco:
+
+- ordem: `072_project_slicing_jobs.sql` depois de `071_print_project_publication.sql`;
+- efeito: adiciona vínculo opcional de `slicing_jobs` com projeto, versão/snapshot e arquivos selecionados;
+- não apaga jobs antigos nem altera artefatos, preflights, entregas ou histórico.
+
+Validação:
+
+```bash
+cd backend && uv run --extra dev pytest ../backend/tests/test_slicing_pipeline.py ../backend/tests/test_print_projects.py ../backend/tests/test_schema_versioning.py::test_initialize_database_registers_sql_scripts_on_new_database -q
+npm --prefix frontend run build
+```
+
+Rollback:
+
+- reverter `backend/sql/072_project_slicing_jobs.sql`, criação/listagem de jobs por projeto em `backend/app/slicing_pipeline.py` e `backend/app/routes/slicing.py`, serviço frontend de slicing, painel `Fatiamento` em projetos e documentação;
+- se o SQL já tiver sido aplicado e for necessário remover colunas/índice, restaurar backup SQLite anterior criado pelo versionador;
+- não executar `DROP TABLE`, recriação de `slicing_jobs` ou remoção manual de jobs/artefatos/preflights sem confirmação explícita.
+
 Rollback:
 
 - reverter `backend/app/print_preflight.py`, endpoints de preflight em `backend/app/routes/slicing.py`, serviço frontend de slicing, painel de preflight e documentação;

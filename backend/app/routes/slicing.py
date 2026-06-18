@@ -9,7 +9,7 @@ from app.print_history import PrintFeedbackCreate, PrintHistoryRepository, Print
 from app.routes.auth import CurrentUser, require_current_user_when_configured
 from app.print_preflight import PrintPreflightRecord, PrintPreflightRepository
 from app.slicing import SlicingDryRunResult, SlicingEngineBridge, SlicingEngineInfo, SlicingRepository, SlicingRequest, SlicerEngine
-from app.slicing_pipeline import SlicingJob, SlicingJobCreate, SlicingPipelineRepository
+from app.slicing_pipeline import ProjectSlicingJobCreate, SlicingJob, SlicingJobCreate, SlicingPipelineRepository
 
 router = APIRouter(prefix="/api/slicing", tags=["slicing"])
 
@@ -79,6 +79,32 @@ async def create_slicing_job(
 ) -> SlicingJob:
     try:
         return repository.create_job(current.user.id if current else None, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/projects/{project_id}/jobs", response_model=list[SlicingJob])
+async def list_project_slicing_jobs(
+    project_id: int,
+    current: CurrentUser = Depends(require_current_user_when_configured),
+    repository: SlicingPipelineRepository = Depends(get_slicing_pipeline_repository),
+) -> list[SlicingJob]:
+    if current is None:
+        raise HTTPException(status_code=401, detail="autenticação obrigatória")
+    return repository.list_project_jobs(current.user.id, project_id)
+
+
+@router.post("/projects/{project_id}/jobs", response_model=SlicingJob)
+async def create_project_slicing_job(
+    project_id: int,
+    payload: ProjectSlicingJobCreate,
+    current: CurrentUser = Depends(require_current_user_when_configured),
+    repository: SlicingPipelineRepository = Depends(get_slicing_pipeline_repository),
+) -> SlicingJob:
+    if current is None:
+        raise HTTPException(status_code=401, detail="autenticação obrigatória")
+    try:
+        return repository.create_project_job(current.user.id, payload.model_copy(update={"project_id": project_id}))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

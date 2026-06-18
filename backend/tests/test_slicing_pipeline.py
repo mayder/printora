@@ -4,9 +4,12 @@ from app.auth import AuthRepository, UserRegisterRequest
 from app.config import Settings
 from app.database import connect_database, initialize_database
 from app.print_profiles import MaterialProfilePayload, PrintProfilesRepository, SlicingProfilePayload
+from app.print_projects import PrintProjectCreateRequest, PrintProjectExternalLinkRequest, PrintProjectUpdateRequest, PrintProjectsRepository
 from app.printers import PrinterCreate, PrinterRepository
-from app.slicing_pipeline import ModelDimensions, SlicingJobCreate, SlicingPipelineRepository
+from app.slicing_pipeline import ModelDimensions, ProjectSlicingJobCreate, SlicingJobCreate, SlicingPipelineRepository
 from app.social_catalog import SocialCatalogRepository
+
+VALID_STL = b"solid printora\nfacet normal 0 0 0\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid\n"
 
 
 def test_slicing_job_fails_when_engine_is_unavailable(tmp_path: Path) -> None:
@@ -109,6 +112,70 @@ def test_slicing_job_blocks_oversized_model_and_cancels_planned_job(tmp_path: Pa
 
     assert canceled.status == "canceled"
     assert canceled.canceled_at is not None
+
+
+def test_project_slicing_job_uses_immutable_project_snapshot(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    user, printer_id, profile_id = _seed_printer_and_profile(database_path)
+    projects = PrintProjectsRepository(database_path)
+    project = projects.create_project(user.id, PrintProjectCreateRequest(title="Projeto para fatiar", visibility="private"))
+    detail = projects.upload_file(user.id, project.id, "principal.stl", "primary", VALID_STL)
+    file_id = detail.files[0].id
+    repository = SlicingPipelineRepository(database_path, Settings(data_dir=tmp_path))
+
+    job = repository.create_project_job(
+        user.id,
+        ProjectSlicingJobCreate(
+            project_id=project.id,
+            selected_file_ids=[file_id],
+            printer_id=printer_id,
+            material_profile_id=profile_id,
+            model_dimensions=ModelDimensions(x_mm=20, y_mm=20, z_mm=20),
+            quality_reference="0.20 qualidade",
+            profile_reference="ABS 0.4",
+        ),
+    )
+    projects.update_project(user.id, project.id, PrintProjectUpdateRequest(title="Projeto alterado"))
+    listed = repository.list_project_jobs(user.id, project.id)
+
+    assert job.print_project_id == project.id
+    assert job.print_project_version_id is not None
+    assert job.selected_project_files[0]["file_name"] == "principal.stl"
+    assert job.project_snapshot["title"] == "Projeto para fatiar"
+    assert job.input["selected_files"][0]["sha256"]
+    assert listed[0].id == job.id
+
+
+def test_project_slicing_blocks_external_reference_without_local_file(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    user, printer_id, profile_id = _seed_printer_and_profile(database_path)
+    projects = PrintProjectsRepository(database_path)
+    project = projects.create_project(user.id, PrintProjectCreateRequest(title="Projeto link externo"))
+    detail = projects.add_external_link(
+        user.id,
+        project.id,
+        PrintProjectExternalLinkRequest(url="https://example.com/model", label="Modelo externo"),
+    )
+    repository = SlicingPipelineRepository(database_path, Settings(data_dir=tmp_path))
+
+    try:
+        repository.create_project_job(
+            user.id,
+            ProjectSlicingJobCreate(
+                project_id=project.id,
+                selected_file_ids=[detail.files[0].id],
+                printer_id=printer_id,
+                material_profile_id=profile_id,
+                model_dimensions=ModelDimensions(x_mm=20, y_mm=20, z_mm=20),
+                quality_reference="0.20 qualidade",
+            ),
+        )
+    except ValueError as exc:
+        assert "não podem ser fatiados" in str(exc)
+    else:
+        raise AssertionError("link externo sem arquivo local deveria bloquear fatiamento")
 
 
 def _seed_printer_and_profile(database_path: Path):

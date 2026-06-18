@@ -1622,6 +1622,21 @@ Critérios:
 - Validação frontend focada: `npm --prefix frontend run build`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-80 - Fatiamento A Partir De Projeto Salvo
+
+- Validar criação de job a partir de `Projetos de impressão > Meus projetos`, sem entrar em Administração.
+- Validar que o job aponta para projeto, versão/snapshot, arquivos selecionados, usuário, impressora, qualidade e perfil/material quando informado.
+- Validar que alteração posterior do projeto não altera snapshot do job nem seleção de arquivos gravada.
+- Validar que link externo sem arquivo local validado fica desabilitado na UI e bloqueado no backend.
+- Validar que seleção com arquivo inválido ou não fatiável bloqueia só aquele arquivo, não o projeto inteiro quando há arquivo válido.
+- Validar incompatibilidade de impressora/perfil/dimensões antes da criação do job.
+- Validar engine ausente como erro acionável apontando Administração para configuração.
+- Validar lista de jobs no detalhe do projeto, estado, snapshot e ação de preflight quando o job estiver completo.
+- Validar responsividade do painel `Fatiamento` em desktop/mobile sem overflow horizontal.
+- Testes automatizados focados: `cd backend && uv run --extra dev pytest ../backend/tests/test_slicing_pipeline.py ../backend/tests/test_print_projects.py ../backend/tests/test_schema_versioning.py::test_initialize_database_registers_sql_scripts_on_new_database -q`.
+- Validação frontend focada: `npm --prefix frontend run build`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

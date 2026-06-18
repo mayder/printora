@@ -15,6 +15,9 @@ import {
   Upload,
 } from "lucide-react";
 import { printProjectsApi } from "../services/printProjectsApi";
+import { printerApi } from "../services/printerApi";
+import { slicingApi, type SlicingEngineInfo, type SlicingJob } from "../services/slicingApi";
+import type { PrinterRecord } from "../types/printers";
 import type {
   PrintProjectContract,
   PrintProjectCommercialClass,
@@ -252,6 +255,7 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
               <>
                 <ProjectDetail project={selectedProject} authUserPresent={!!authUser} saving={savingId === selectedProject.id} onSave={saveProject} />
                 <ProjectPublicationForm project={selectedProject} setError={setError} onChanged={(detail) => void afterProjectMutation(detail)} />
+                <ProjectSlicingPanel project={selectedProject} setError={setError} />
                 <ProjectFileActions project={selectedProject} setError={setError} onChanged={(detail) => void afterProjectMutation(detail)} />
               </>
             ) : (
@@ -367,6 +371,154 @@ function ProjectCreateForm({ disabled, onCreated, setError }: { disabled: boolea
         <FilePlus2 size={16} />
         Criar projeto
       </button>
+    </form>
+  );
+}
+
+function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetail; setError: (message: string | null) => void }) {
+  const slicableFiles = project.files.filter((file) => file.can_slice && file.file_role !== "external_reference");
+  const fileSignature = project.files.map((file) => `${file.id}:${file.can_slice}:${file.file_role}`).join("|");
+  const [selectedFileIds, setSelectedFileIds] = React.useState<number[]>(slicableFiles.map((file) => file.id));
+  const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
+  const [printerId, setPrinterId] = React.useState("");
+  const [engineInfo, setEngineInfo] = React.useState<SlicingEngineInfo | null>(null);
+  const [quality, setQuality] = React.useState("0.20 qualidade");
+  const [profile, setProfile] = React.useState("");
+  const [jobs, setJobs] = React.useState<SlicingJob[]>([]);
+  const [busy, setBusy] = React.useState(false);
+  const [preflightMessage, setPreflightMessage] = React.useState("");
+
+  React.useEffect(() => {
+    setSelectedFileIds(slicableFiles.map((file) => file.id));
+    setPreflightMessage("");
+  }, [project.id, fileSignature]);
+
+  React.useEffect(() => {
+    void loadSlicingContext();
+  }, [project.id]);
+
+  async function loadSlicingContext() {
+    try {
+      const [printerResponse, projectJobs, engine] = await Promise.all([printerApi.list(), slicingApi.projectJobs(project.id), slicingApi.engine()]);
+      if (!printerResponse.ok) {
+        throw new Error("Falha ao carregar impressoras");
+      }
+      const printerPayload = (await printerResponse.json()) as { printers?: PrinterRecord[] } | PrinterRecord[];
+      const printerRecords = Array.isArray(printerPayload) ? printerPayload : printerPayload.printers ?? [];
+      const activePrinters = printerRecords.filter((printer) => printer.is_active);
+      setPrinters(activePrinters);
+      setPrinterId((current) => current || String(activePrinters[0]?.id ?? ""));
+      setJobs(projectJobs);
+      setEngineInfo(engine);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao carregar contexto de fatiamento");
+    }
+  }
+
+  function toggleFile(fileId: number) {
+    setSelectedFileIds((current) => (current.includes(fileId) ? current.filter((id) => id !== fileId) : [...current, fileId]));
+  }
+
+  async function createJob(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const job = await slicingApi.createProjectJob(project.id, {
+        project_id: project.id,
+        selected_file_ids: selectedFileIds,
+        printer_id: Number(printerId),
+        engine: "orcaslicer",
+        model_dimensions: {},
+        quality_reference: quality,
+        profile_reference: profile || null,
+      });
+      setJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao criar job de fatiamento");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createPreflight(jobId: number) {
+    setBusy(true);
+    try {
+      const preflight = await slicingApi.createPreflight(jobId);
+      setPreflightMessage(`Preflight ${preflight.status}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao criar preflight");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const engineBlocked = engineInfo?.status === "blocked";
+
+  return (
+    <form className="print-project-detail-section print-project-slicing-form" onSubmit={(event) => void createJob(event)}>
+      <h4>Fatiamento</h4>
+      {engineBlocked ? (
+        <div className="print-project-slicing-warning">
+          Engine indisponível. Configure a engine em Administração antes de executar fatiamento.
+        </div>
+      ) : null}
+      {slicableFiles.length ? (
+        <div className="print-project-slice-files">
+          {project.files.map((file) => (
+            <label key={file.id} className={!file.can_slice || file.file_role === "external_reference" ? "disabled" : ""}>
+              <input
+                type="checkbox"
+                checked={selectedFileIds.includes(file.id)}
+                onChange={() => toggleFile(file.id)}
+                disabled={!file.can_slice || file.file_role === "external_reference" || busy}
+              />
+              <span>{file.file_name}</span>
+              <small>{sliceLabels[file.slice_status]}</small>
+            </label>
+          ))}
+        </div>
+      ) : (
+        <span className="muted">Adicione um arquivo local validado para fatiar.</span>
+      )}
+      <div className="print-project-slicing-grid">
+        <label>
+          Impressora
+          <select value={printerId} onChange={(event) => setPrinterId(event.target.value)} disabled={busy || printers.length === 0}>
+            <option value="">Selecione</option>
+            {printers.map((printer) => (
+              <option key={printer.id} value={printer.id}>{printer.name}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Qualidade
+          <input value={quality} onChange={(event) => setQuality(event.target.value)} disabled={busy} />
+        </label>
+        <label>
+          Perfil/material
+          <input value={profile} onChange={(event) => setProfile(event.target.value)} placeholder="Opcional" disabled={busy} />
+        </label>
+      </div>
+      <button type="submit" className="primary-button" disabled={busy || engineBlocked || !printerId || selectedFileIds.length === 0}>
+        <FileArchive size={16} />
+        Criar job de fatiamento
+      </button>
+      {preflightMessage ? <span className="muted">{preflightMessage}</span> : null}
+      {jobs.length ? (
+        <div className="print-project-job-list">
+          {jobs.map((job) => (
+            <div className="print-project-job-row" key={job.id}>
+              <div>
+                <strong>Job #{job.id}</strong>
+                <span>{job.status} · snapshot {job.print_project_version_id ?? "-"}</span>
+              </div>
+              <button type="button" className="secondary-button" onClick={() => void createPreflight(job.id)} disabled={busy || job.status !== "completed"}>
+                Preflight
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </form>
   );
 }

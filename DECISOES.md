@@ -42,6 +42,19 @@ Impacto em rollback: médio; a implementação deve manter compatibilidade ou re
 Como reverter: reativar entradas legadas de biblioteca/comunidade/Administração como fluxo principal e tratar projetos como camada de apresentação, mantendo dados criados como legado; reversão física de dados só com backup SQLite e confirmação explícita.
 Referencias: `DEMANDAS.md` PKG-77 a PKG-81, `TELAS.md` Distribuição de conteúdo, `backend/sql/068_print_projects_core.sql`, `backend/sql/069_print_project_experience.sql`, `/api/print-projects`.
 
+### DEC-20260618-02 - Job de fatiamento por projeto congela snapshot e arquivos selecionados
+
+Status: aceita
+Data: 2026-06-18
+Contexto: o fluxo diário de fatiamento saiu de Administração e passou a partir de `Projetos de impressão > Meus projetos`. O usuário pode alterar título, arquivos, publicação e compartilhamentos depois de criar um job, mas artefatos, preflight, entrega e histórico precisam continuar auditáveis.
+Decisao: todo job criado a partir de projeto salvo grava `print_project_id`, `print_project_version_id`, snapshot do projeto e snapshot dos arquivos selecionados no momento da criação. Referências externas sem arquivo local validado não entram em seleção de fatiamento. Administração permanece como configuração/diagnóstico/fallback, não como criador principal de job diário.
+Alternativas consideradas: referenciar apenas o projeto atual; copiar arquivos para uma entidade nova de job; manter criação diária no pipeline administrativo; aceitar bookmark externo como modelo fatiável.
+Consequencias: alterações posteriores no projeto não mudam jobs existentes, e consumidores de preflight/G-code/histórico podem usar o snapshot do job como fonte auditável. O schema adiciona colunas em `slicing_jobs`, mantendo jobs legados sem projeto como compatibilidade.
+Impacto em testes: cobrir criação por projeto, snapshot imutável, link externo bloqueado, seleção parcial de arquivos, compatibilidade de impressora/perfil e ausência de engine com erro acionável.
+Impacto em rollback: baixo/médio; a aplicação pode voltar a listar jobs legados sem projeto, mas colunas aplicadas devem permanecer ou o banco deve ser restaurado por backup SQLite do versionador.
+Como reverter: reverter rotas/serviços/UI de job por projeto e tratar colunas novas como legado técnico; remoção física de colunas/tabelas só por restauração de backup e confirmação explícita.
+Referencias: `backend/sql/072_project_slicing_jobs.sql`, `backend/app/slicing_pipeline.py`, `backend/app/routes/slicing.py`, `frontend/src/screens/PrintProjectsScreen.tsx`.
+
 ### DEC-20260617-01 - Impressão real alimenta ranking sem expor telemetria privada
 
 Status: aceita
