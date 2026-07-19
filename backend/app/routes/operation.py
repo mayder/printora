@@ -5,6 +5,7 @@ from fastapi import Depends, Header
 
 from app.agent_executor import AgentCommandExecutor, AgentJobFailedError
 from app.agent_moonraker import agent_preflight_payload, operation_payload
+from app.agent_pairing import AgentPairingRepository
 from app.auth import AuthRepository
 from app.operation import operation_action_blocks_when_printing, operation_action_requires_step_up
 from app.routes.auth import require_current_user_when_configured
@@ -37,9 +38,11 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
             operation["temperature_history"] = build_temperature_history(recent_snapshots)
             return {
                 "printer_id": printer.id,
+                "agent": _agent_operation_status(settings, printer.id),
                 **operation,
             }
-        return build_unreachable_operation(printer.moonraker_url, str(exc))
+        operation = build_unreachable_operation(printer.moonraker_url, str(exc))
+        return {"printer_id": printer.id, "agent": _agent_operation_status(settings, printer.id), **operation}
 
     operation = build_operation_status(
         printer_info=printer_info,
@@ -53,6 +56,7 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
     return {
         "printer_id": printer.id,
         "moonraker_url": "agent",
+        "agent": _agent_operation_status(settings, printer.id),
         **operation,
     }
 
@@ -196,6 +200,16 @@ def _require_step_up_when_authenticated(settings, authorization: str | None, ste
     current = require_current_user(authorization=authorization, repository=repository)
     if not step_up_token or not repository.consume_step_up(current.user.id, step_up_token, "destructive_action"):
         raise HTTPException(status_code=403, detail="autenticação reforçada obrigatória para ação crítica")
+
+
+def _agent_operation_status(settings, printer_id: int) -> dict[str, Any]:
+    install_status = AgentPairingRepository(settings.database_path).install_status(printer_id)
+    return {
+        "version": install_status.latest_version,
+        "expected_version": install_status.expected_agent_version,
+        "ready": install_status.ready,
+        "diagnostic": install_status.diagnostic,
+    }
 
 
 async def _build_agent_operation_action_preview(settings, printer, action_id: str, parameters: dict[str, Any]) -> dict[str, Any]:

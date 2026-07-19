@@ -606,6 +606,26 @@
   grid-column: 1 / -1;
 }
 
+.operation-misc-empty {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.operation-misc-empty.warning {
+  border-color: rgb(245 158 11 / 0.45);
+  color: var(--text);
+}
+
+.operation-misc-empty small {
+  color: var(--muted);
+}
+
 .operation-action-group {
   display: grid;
   gap: 10px;

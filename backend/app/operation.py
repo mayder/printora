@@ -78,7 +78,7 @@ def build_operation_status(
         "toolhead": _toolhead(status),
         "extruder": _extruder(status),
         "miscellaneous": {
-            **_miscellaneous(status),
+            **_miscellaneous(objects),
             "total_print_hours": _total_print_hours(history_totals),
         },
     }
@@ -716,17 +716,61 @@ def _extruder(status: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _miscellaneous(status: dict[str, Any]) -> dict[str, Any]:
+def _miscellaneous(objects: dict[str, Any]) -> dict[str, Any]:
+    status = _object_status(objects)
+    fans = _misc_fans(status)
+    outputs = _misc_outputs(status)
+    leds = _misc_leds(status)
+    detected_objects = _misc_object_names(objects)
+    missing_status_objects = [name for name in detected_objects if not _misc_object_has_reading(name, status)]
+    collection_state = _misc_collection_state(
+        has_readings=bool(fans or outputs or leds),
+        has_detected_objects=bool(detected_objects),
+        has_object_list=isinstance(objects.get("objects"), list),
+    )
+    display = _nested(status, ["display_status"]) or {}
+    virtual_sdcard = _nested(status, ["virtual_sdcard"]) or {}
+    print_stats = _nested(status, ["print_stats"]) or {}
+    layer_info = _print_layer_info(print_stats, display)
+    progress = _print_progress(display, virtual_sdcard)
+    return {
+        "fans": fans,
+        "outputs": outputs,
+        "leds": leds,
+        "collection_state": collection_state,
+        "detected_objects": detected_objects,
+        "missing_status_objects": missing_status_objects,
+        "progress": progress["value"],
+        "progress_source": progress["source"],
+        "message": print_stats.get("message") or display.get("message"),
+        "print_state": print_stats.get("state"),
+        "filename": print_stats.get("filename"),
+        "print_duration": print_stats.get("print_duration"),
+        "total_duration": print_stats.get("total_duration"),
+        "current_layer": layer_info["current_layer"],
+        "total_layers": layer_info["total_layers"],
+    }
+
+
+def _misc_fans(status: dict[str, Any]) -> list[dict[str, Any]]:
     fans = [
         {"name": _display_name(name), "object_name": name, "speed": payload.get("speed"), "rpm": payload.get("rpm"), "controllable": _is_controllable_fan(name)}
         for name, payload in status.items()
         if isinstance(payload, dict) and (name == "fan" or name.startswith(("fan ", "fan_generic ", "heater_fan ", "controller_fan "))) and ("speed" in payload or "rpm" in payload)
     ]
+    return sorted(fans, key=lambda row: str(row["name"]))
+
+
+def _misc_outputs(status: dict[str, Any]) -> list[dict[str, Any]]:
     outputs = [
         {"name": _display_name(name), "object_name": name, "value": _output_value(payload), "controllable": True}
         for name, payload in status.items()
         if isinstance(payload, dict) and name.startswith("output_pin ") and _output_value(payload) is not None
     ]
+    return sorted(outputs, key=lambda row: str(row["name"]))
+
+
+def _misc_leds(status: dict[str, Any]) -> list[dict[str, Any]]:
     leds = [
         {
             "name": _display_name(name),
@@ -738,25 +782,41 @@ def _miscellaneous(status: dict[str, Any]) -> dict[str, Any]:
         for name, payload in status.items()
         if isinstance(payload, dict) and name.startswith(LED_OBJECT_PREFIXES)
     ]
-    display = _nested(status, ["display_status"]) or {}
-    virtual_sdcard = _nested(status, ["virtual_sdcard"]) or {}
-    print_stats = _nested(status, ["print_stats"]) or {}
-    layer_info = _print_layer_info(print_stats, display)
-    progress = _print_progress(display, virtual_sdcard)
-    return {
-        "fans": fans,
-        "outputs": outputs,
-        "leds": leds,
-        "progress": progress["value"],
-        "progress_source": progress["source"],
-        "message": print_stats.get("message") or display.get("message"),
-        "print_state": print_stats.get("state"),
-        "filename": print_stats.get("filename"),
-        "print_duration": print_stats.get("print_duration"),
-        "total_duration": print_stats.get("total_duration"),
-        "current_layer": layer_info["current_layer"],
-        "total_layers": layer_info["total_layers"],
-    }
+    return sorted(leds, key=lambda row: str(row["name"]))
+
+
+def _misc_object_names(objects: dict[str, Any]) -> list[str]:
+    object_list = objects.get("objects")
+    if not isinstance(object_list, list):
+        return []
+    return sorted({str(name) for name in object_list if _is_misc_object_name(str(name))})
+
+
+def _is_misc_object_name(name: str) -> bool:
+    return name == "fan" or name.startswith(("fan ", "fan_generic ", "heater_fan ", "controller_fan ", "output_pin ", *LED_OBJECT_PREFIXES))
+
+
+def _misc_object_has_reading(name: str, status: dict[str, Any]) -> bool:
+    payload = status.get(name)
+    if not isinstance(payload, dict):
+        return False
+    if name == "fan" or name.startswith(("fan ", "fan_generic ", "heater_fan ", "controller_fan ")):
+        return "speed" in payload or "rpm" in payload
+    if name.startswith("output_pin "):
+        return _output_value(payload) is not None
+    if name.startswith(LED_OBJECT_PREFIXES):
+        return "color_data" in payload
+    return False
+
+
+def _misc_collection_state(*, has_readings: bool, has_detected_objects: bool, has_object_list: bool) -> str:
+    if has_readings:
+        return "loaded"
+    if has_detected_objects:
+        return "objects_detected_without_status"
+    if has_object_list:
+        return "none_detected"
+    return "objects_not_reported"
 
 
 def _print_progress(display: dict[str, Any], virtual_sdcard: dict[str, Any]) -> dict[str, Any]:

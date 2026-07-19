@@ -423,6 +423,7 @@ function MiscPanel({
   const outputs = status?.miscellaneous.outputs ?? [];
   const leds = status?.miscellaneous.leds ?? [];
   const hasDevices = fans.length > 0 || outputs.length > 0 || leds.length > 0;
+  const emptyState = miscellaneousEmptyState(status);
 
   return (
     <section className="operation-console-card misc">
@@ -487,10 +488,45 @@ function MiscPanel({
             <span>{percentFromFraction(item.brightness)} %</span>
           </div>
         ))}
-        {hasDevices ? null : <p className="muted operation-misc-wide">Nenhum fan, luz ou LED retornado pelo Moonraker.</p>}
+        {hasDevices ? null : (
+          <p className={`operation-misc-wide operation-misc-empty ${emptyState.kind}`}>
+            {emptyState.message}
+            {emptyState.detail ? <small>{emptyState.detail}</small> : null}
+          </p>
+        )}
       </div>
     </section>
   );
+}
+
+function miscellaneousEmptyState(status: OperationStatusResponse | null): { kind: string; message: string; detail?: string } {
+  const state = status?.miscellaneous.collection_state;
+  const agentVersion = status?.agent?.version;
+  const expectedVersion = status?.agent?.expected_version;
+  const missing = status?.miscellaneous.missing_status_objects ?? [];
+  if (state === "objects_detected_without_status") {
+    return {
+      kind: "warning",
+      message: "Moonraker detectou Miscellaneous, mas o agente não retornou os valores.",
+      detail: compactObjectList(missing),
+    };
+  }
+  if (state === "objects_not_reported") {
+    const versionText = agentVersion && expectedVersion && agentVersion !== expectedVersion ? `Agente v${agentVersion}; esperado v${expectedVersion}.` : undefined;
+    return {
+      kind: "warning",
+      message: "O agente não retornou a lista dinâmica do Moonraker para fans, luzes e LEDs.",
+      detail: versionText,
+    };
+  }
+  return { kind: "muted", message: "Nenhum fan, luz ou LED retornado pelo Moonraker." };
+}
+
+function compactObjectList(names: string[]) {
+  if (names.length === 0) return undefined;
+  const labels = names.slice(0, 4).map((name) => displayObjectName(name));
+  const suffix = names.length > labels.length ? ` +${names.length - labels.length}` : "";
+  return `${labels.join(", ")}${suffix}`;
 }
 
 function PositionField({
@@ -672,6 +708,12 @@ function fanActionKey(name: string) {
 
 function outputActionKey(name: string) {
   return `set_output_pin_${name.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+}
+
+function displayObjectName(name: string) {
+  const prefixes = ["fan_generic ", "heater_fan ", "controller_fan ", "fan ", "output_pin ", "led ", "neopixel ", "dotstar ", "pca9533 ", "pca9632 "];
+  const clean = prefixes.reduce((value, prefix) => (value.startsWith(prefix) ? value.slice(prefix.length) : value), name).replace(/_/g, " ");
+  return clean.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function percentFromFraction(value: unknown) {

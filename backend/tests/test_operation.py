@@ -35,6 +35,7 @@ def test_operation_status_enables_controlled_operations_and_groups_mainsail_like
         proc_stats={"cpu_temp": 44.5, "system_load": 0.42},
         history_totals={"job_totals": {"total_print_time": 44100}},
         objects={
+            "objects": ["fan", "fan_generic nevermore", "controller_fan controller_fan", "output_pin caselight", "neopixel display"],
             "status": {
                 "print_stats": {"state": "standby", "filename": "", "filament_used": 0, "print_duration": 123, "info": {"current_layer": 4, "total_layer": 80}},
                 "display_status": {"progress": 0.89},
@@ -69,6 +70,8 @@ def test_operation_status_enables_controlled_operations_and_groups_mainsail_like
     assert fans["controller_fan controller_fan"]["controllable"] is False
     assert result["miscellaneous"]["outputs"] == [{"name": "Caselight", "object_name": "output_pin caselight", "value": 0.25, "controllable": True}]
     assert result["miscellaneous"]["leds"] == [{"name": "Display", "object_name": "neopixel display", "brightness": 1.0, "color": "#ff0000", "controllable": True}]
+    assert result["miscellaneous"]["collection_state"] == "loaded"
+    assert result["miscellaneous"]["missing_status_objects"] == []
     assert result["miscellaneous"]["total_print_hours"] == 12.25
     assert result["miscellaneous"]["print_duration"] == 123
     assert result["miscellaneous"]["progress"] == 0.42
@@ -78,6 +81,57 @@ def test_operation_status_enables_controlled_operations_and_groups_mainsail_like
     assert result["actions"][0]["enabled"] is True
     assert result["actions"][0]["confirmation_required"] is True
     assert result["capabilities"]
+
+
+def test_operation_status_reports_detected_misc_objects_without_status() -> None:
+    result = build_operation_status(
+        printer_info={"state": "ready"},
+        server_info={"klippy_connected": True, "klippy_state": "ready"},
+        system_info={},
+        proc_stats={},
+        objects={
+            "objects": ["toolhead", "extruder", "output_pin caselight", "fan_generic nevermore", "controller_fan controller_fan", "neopixel sb_leds"],
+            "status": {
+                "print_stats": {"state": "standby"},
+                "toolhead": {},
+                "extruder": {},
+            },
+        },
+    )
+
+    assert result["miscellaneous"]["fans"] == []
+    assert result["miscellaneous"]["outputs"] == []
+    assert result["miscellaneous"]["leds"] == []
+    assert result["miscellaneous"]["collection_state"] == "objects_detected_without_status"
+    assert result["miscellaneous"]["detected_objects"] == [
+        "controller_fan controller_fan",
+        "fan_generic nevermore",
+        "neopixel sb_leds",
+        "output_pin caselight",
+    ]
+    assert result["miscellaneous"]["missing_status_objects"] == [
+        "controller_fan controller_fan",
+        "fan_generic nevermore",
+        "neopixel sb_leds",
+        "output_pin caselight",
+    ]
+    capabilities = {item["action_id"]: item["status"] for item in result["capabilities"]}
+    assert capabilities["set_output_pin"] == "supported"
+    assert capabilities["set_fan"] == "supported"
+    assert capabilities["set_led"] == "supported"
+
+
+def test_operation_status_reports_missing_dynamic_object_list() -> None:
+    result = build_operation_status(
+        printer_info={"state": "ready"},
+        server_info={"klippy_connected": True, "klippy_state": "ready"},
+        system_info={},
+        proc_stats={},
+        objects={"status": {"print_stats": {"state": "standby"}, "toolhead": {}, "extruder": {}}},
+    )
+
+    assert result["miscellaneous"]["collection_state"] == "objects_not_reported"
+    assert result["miscellaneous"]["detected_objects"] == []
 
 
 def test_unreachable_operation_blocks_actions() -> None:

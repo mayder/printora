@@ -143,6 +143,12 @@ export type OperationStatusResponse = {
     snapshot_type: string;
   };
   can_send_commands: boolean;
+  agent?: {
+    version?: string | null;
+    expected_version?: string | null;
+    ready?: boolean | null;
+    diagnostic?: string | null;
+  };
   system_loads: OperationMetric[];
   temperatures: OperationTemperature[];
   temperature_history: OperationTemperatureHistoryRow[];
@@ -154,6 +160,9 @@ export type OperationStatusResponse = {
     fans?: OperationFan[];
     outputs?: OperationOutputPin[];
     leds?: OperationLed[];
+    collection_state?: "loaded" | "objects_detected_without_status" | "objects_not_reported" | "none_detected" | string | null;
+    detected_objects?: string[];
+    missing_status_objects?: string[];
     progress?: number | null;
     progress_source?: string | null;
     message?: string | null;

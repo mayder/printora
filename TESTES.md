@@ -1267,6 +1267,7 @@ Critérios:
 - Confirmar que a execução aparece no histórico com comandos enviados ou motivo de bloqueio.
 - Confirmar que a tela de Calibração mostra cards por teste, ajuda expandida em modal e execução/registro em modais, sem tutorial técnico fixo na página.
 - Em Operação, validar preflight e execução controlada de ações como Home, QGL, movimento, temperatura, fan, LED, speed factor e extrusion factor somente com a impressora parada e operador presente.
+- Em Operação > Miscellaneous, validar que fans, output pins e LEDs aparecem quando os valores vierem do agente e que a tela mostra falha de coleta quando o Moonraker detectar objetos sem status dinamico.
 - Confirmar que o app mostra capacidade, bloqueadores, G-code planejado e histórico da tentativa; comandos são enviados somente quando Moonraker está online, Klipper/Klippy estão `ready`, não há impressão em andamento e a capacidade foi confirmada.
 
 ### UI

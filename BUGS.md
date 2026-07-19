@@ -6,6 +6,28 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Miscellaneous Ficava Vazio Quando O Agente Nao Entregava Status Dinamico
+
+Sintoma:
+
+- a aba Operacao mostrava `Nenhum fan, luz ou LED retornado pelo Moonraker`, mesmo com Caselight/fans visiveis no Mainsail.
+
+Causa:
+
+- o backend renderizava Miscellaneous apenas a partir de valores em `status`;
+- quando a lista dinamica de objetos nao vinha do agente, ou quando objetos eram detectados sem valores, a UI tratava como se nao existisse nada configurado.
+
+Correção:
+
+- o contrato de Operacao agora informa `collection_state`, objetos detectados e objetos sem leitura de status;
+- a UI mostra estado acionavel quando o agente nao entregou a lista dinamica ou quando detectou objetos sem valores.
+
+Validação:
+
+- `cd backend && uv run --extra dev pytest tests/test_operation.py -q`;
+- `npm --prefix frontend run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### KPIs Da Operacao Ficavam Encostados No Bloco De Baixo
 
 Sintoma:
