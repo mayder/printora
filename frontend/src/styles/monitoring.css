@@ -530,8 +530,12 @@
 
 .layer-scene-grid,
 .layer-scene-bed,
+.layer-scene-future-volume,
+.layer-scene-printed-body,
+.layer-scene-printed-skin,
 .layer-scene-future,
 .layer-scene-printed,
+.layer-scene-current-surface,
 .layer-scene-current {
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -557,56 +561,81 @@
   vector-effect: non-scaling-stroke;
 }
 
+.layer-scene-future-volume {
+  fill: rgb(20 184 166 / 0.12);
+  stroke: rgb(20 184 166 / 0.2);
+  stroke-width: 0.7;
+}
+
+.layer-scene-printed-body {
+  fill: rgb(249 115 22 / 0.46);
+  stroke: rgb(251 146 60 / 0.5);
+  stroke-width: 0.85;
+}
+
+.layer-scene-printed-skin {
+  fill: rgb(249 115 22 / 0.24);
+  stroke: rgb(250 204 21 / 0.62);
+  stroke-width: 0.8;
+}
+
 .layer-scene-future {
-  stroke: rgb(20 184 166 / 0.045);
+  stroke: rgb(20 184 166 / 0.028);
   stroke-dasharray: 2.4 4.8;
-  stroke-width: 0.55;
+  stroke-width: 0.42;
 }
 
 .layer-scene-printed {
-  stroke: rgb(20 184 166 / 0.18);
-  stroke-width: 0.72;
+  stroke: rgb(15 118 110 / 0.18);
+  stroke-width: 0.42;
 }
 
 .layer-scene-viewer.is-complete .layer-scene-printed {
-  stroke: rgb(20 184 166 / 0.34);
-  stroke-width: 0.82;
+  stroke: rgb(15 118 110 / 0.2);
+  stroke-width: 0.46;
+}
+
+.layer-scene-current-surface {
+  fill: rgb(239 68 68 / 0.34);
+  stroke: rgb(250 204 21 / 0.72);
+  stroke-width: 0.9;
+  filter: drop-shadow(0 0 3px rgb(250 204 21 / 0.22));
 }
 
 .layer-scene-current {
   stroke: #22d3ee;
-  stroke-width: 0.9;
-  filter: drop-shadow(0 0 2px rgb(34 211 238 / 0.42));
+  stroke-width: 0.76;
+  filter: drop-shadow(0 0 2px rgb(34 211 238 / 0.3));
 }
 
 .layer-scene-current.outer-wall {
   stroke: #facc15;
-  stroke-width: 1.15;
-  filter: drop-shadow(0 0 2px rgb(250 204 21 / 0.36));
+  stroke-width: 1.35;
+  filter: drop-shadow(0 0 3px rgb(250 204 21 / 0.42));
 }
 
 .layer-scene-current.inner-wall {
   stroke: #fb923c;
-  stroke-width: 1;
-  filter: drop-shadow(0 0 2px rgb(251 146 60 / 0.26));
+  stroke-width: 1.12;
+  filter: drop-shadow(0 0 2px rgb(251 146 60 / 0.32));
 }
 
 .layer-scene-current.sparse-infill {
-  stroke: #ef4444;
-  stroke-width: 0.72;
-  filter: drop-shadow(0 0 2px rgb(239 68 68 / 0.28));
+  stroke: #dc2626;
+  stroke-width: 0.86;
+  filter: drop-shadow(0 0 2px rgb(220 38 38 / 0.3));
 }
 
 .layer-scene-current.solid-infill {
-  stroke: #a78bfa;
-  stroke-width: 0.86;
-  filter: drop-shadow(0 0 2px rgb(167 139 250 / 0.3));
+  stroke: #ef4444;
+  stroke-width: 1.02;
+  filter: drop-shadow(0 0 3px rgb(239 68 68 / 0.32));
 }
 
 .layer-scene-current.top-surface {
-  stroke: #f472b6;
-  stroke-width: 0.86;
-  filter: drop-shadow(0 0 2px rgb(244 114 182 / 0.32));
+  stroke: #ef4444;
+  stroke-width: 1.02;
+  filter: drop-shadow(0 0 3px rgb(239 68 68 / 0.34));
 }
 
 .layer-scene-current.support {

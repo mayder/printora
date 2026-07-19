@@ -17,8 +17,12 @@ type Drawing = {
   viewBox: string;
   gridPath: string;
   bedPath: string;
+  futureVolumePath: string;
+  printedBodyPath: string;
+  printedSkinPath: string;
   futurePath: string;
   printedPath: string;
+  currentSurfacePath: string;
   currentPaths: Record<SceneLineType, string>;
   axis: Record<"x" | "y" | "z", { x1: number; y1: number; x2: number; y2: number }>;
 };
@@ -51,8 +55,12 @@ const EMPTY_DRAWING: Drawing = {
   viewBox: "-50 -50 100 100",
   gridPath: "",
   bedPath: "",
+  futureVolumePath: "",
+  printedBodyPath: "",
+  printedSkinPath: "",
   futurePath: "",
   printedPath: "",
+  currentSurfacePath: "",
   currentPaths: EMPTY_LINE_PATHS,
   axis: {
     x: { x1: 0, y1: 0, x2: 18, y2: 0 },
@@ -148,8 +156,12 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
       >
         <path className="layer-scene-grid" d={drawing.gridPath} />
         <path className="layer-scene-bed" d={drawing.bedPath} />
+        <path className="layer-scene-future-volume" d={drawing.futureVolumePath} />
+        <path className="layer-scene-printed-body" d={drawing.printedBodyPath} />
+        <path className="layer-scene-printed-skin" d={drawing.printedSkinPath} fillRule="evenodd" />
         <path className="layer-scene-future" d={drawing.futurePath} />
         <path className="layer-scene-printed" d={drawing.printedPath} />
+        <path className="layer-scene-current-surface" d={drawing.currentSurfacePath} fillRule="evenodd" />
         {SCENE_LINE_TYPES.map((type) =>
           drawing.currentPaths[type] ? <path key={type} className={`layer-scene-current ${type}`} d={drawing.currentPaths[type]} /> : null,
         )}
@@ -209,11 +221,15 @@ function buildDrawing(scene: OperationPrintScene, camera: Camera): Drawing {
   const printed = normalizeSegments(scene.printed);
   const current = normalizeSegments(scene.current);
   const future = normalizeSegments(scene.future);
+  const built = [...printed, ...current].filter(isModelSegment);
+  const currentSurface = current.filter(isSurfaceSegment);
+  const printedSkin = latestLayerSegments(built.filter(isWallSegment));
+  const futureShape = latestLayerSegments(future.filter(isModelSegment));
   const bed = expandBed(normalizeBed(scene.bed, [...printed, ...current]));
   const grid = gridSegments(bed);
   const center = { x: (bed[0] + bed[2]) / 2, y: (bed[1] + bed[3]) / 2 };
   const project = (x: number, y: number, z: number) => projectPoint(x - center.x, y - center.y, z, camera);
-  const projectedSegments = [...grid, ...bedBorderSegments(bed), ...printed, ...current].flatMap((segment) => [project(segment[0], segment[1], segment[2]), project(segment[3], segment[4], segment[5])]);
+  const projectedSegments = [...grid, ...bedBorderSegments(bed), ...printed, ...current, ...futureShape].flatMap((segment) => [project(segment[0], segment[1], segment[2]), project(segment[3], segment[4], segment[5])]);
   const bounds = drawingBounds(projectedSegments);
   const viewBox = zoomedViewBox(bounds, camera.zoom);
 
@@ -221,8 +237,12 @@ function buildDrawing(scene: OperationPrintScene, camera: Camera): Drawing {
     viewBox,
     gridPath: pathForSegments(grid, project),
     bedPath: pathForSegments(bedBorderSegments(bed), project),
+    futureVolumePath: closedContourPath(futureShape, project) || hullPathForSegments(futureShape, project),
+    printedBodyPath: hullPathForSegments(built, project),
+    printedSkinPath: closedContourPath(printedSkin, project) || hullPathForSegments(printedSkin, project),
     futurePath: pathForSegments(future, project),
     printedPath: pathForSegments(printed, project),
+    currentSurfacePath: closedContourPath(currentSurface, project) || hullPathForSegments(currentSurface, project),
     currentPaths: pathsByLineType(current, project),
     axis: axisLines(project, bed),
   };
@@ -289,6 +309,82 @@ function pathForSegments(segments: OperationPrintSceneSegment[], project: (x: nu
     .join("");
 }
 
+function hullPathForSegments(segments: OperationPrintSceneSegment[], project: (x: number, y: number, z: number) => ProjectedPoint) {
+  return pathForPolygon(convexHull(projectedPointsForSegments(segments, project)));
+}
+
+function projectedPointsForSegments(segments: OperationPrintSceneSegment[], project: (x: number, y: number, z: number) => ProjectedPoint) {
+  const unique = new Map<string, ProjectedPoint>();
+  segments.forEach((segment) => {
+    [project(segment[0], segment[1], segment[2]), project(segment[3], segment[4], segment[5])].forEach((point) => {
+      unique.set(`${point.x.toFixed(1)}:${point.y.toFixed(1)}`, point);
+    });
+  });
+  return Array.from(unique.values());
+}
+
+function latestLayerSegments(segments: OperationPrintSceneSegment[]) {
+  if (!segments.length) return [];
+  const maxZ = Math.max(...segments.map(segmentZ));
+  return segments.filter((segment) => Math.abs(segmentZ(segment) - maxZ) <= 0.06);
+}
+
+function segmentZ(segment: OperationPrintSceneSegment) {
+  return Math.max(segment[2], segment[5]);
+}
+
+function closedContourPath(segments: OperationPrintSceneSegment[], project: (x: number, y: number, z: number) => ProjectedPoint) {
+  const contours: OperationPrintSceneSegment[][] = [];
+  let contour: OperationPrintSceneSegment[] = [];
+  segments.forEach((segment) => {
+    const previous = contour[contour.length - 1];
+    if (previous && pointDistance(previous[3], previous[4], segment[0], segment[1]) > 1.2) {
+      contours.push(contour);
+      contour = [];
+    }
+    contour.push(segment);
+  });
+  if (contour.length) contours.push(contour);
+  return contours.map((item) => closedSegmentPath(item, project)).filter(Boolean).join("");
+}
+
+function closedSegmentPath(segments: OperationPrintSceneSegment[], project: (x: number, y: number, z: number) => ProjectedPoint) {
+  if (segments.length < 3) return "";
+  const first = segments[0];
+  const last = segments[segments.length - 1];
+  if (pointDistance(first[0], first[1], last[3], last[4]) > 1.4) return "";
+  const start = project(first[0], first[1], first[2]);
+  const points = segments.map((segment) => project(segment[3], segment[4], segment[5]));
+  return `M${formatCoord(start.x)} ${formatCoord(start.y)}${points.map((point) => `L${formatCoord(point.x)} ${formatCoord(point.y)}`).join("")}Z`;
+}
+
+function pathForPolygon(points: ProjectedPoint[]) {
+  if (points.length < 3) return "";
+  const [first, ...rest] = points;
+  return `M${formatCoord(first.x)} ${formatCoord(first.y)}${rest.map((point) => `L${formatCoord(point.x)} ${formatCoord(point.y)}`).join("")}Z`;
+}
+
+function convexHull(points: ProjectedPoint[]) {
+  if (points.length < 3) return [];
+  const sorted = [...points].sort((a, b) => (a.x === b.x ? a.y - b.y : a.x - b.x));
+  const lower: ProjectedPoint[] = [];
+  const upper: ProjectedPoint[] = [];
+  sorted.forEach((point) => pushHullPoint(lower, point));
+  [...sorted].reverse().forEach((point) => pushHullPoint(upper, point));
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
+}
+
+function pushHullPoint(hull: ProjectedPoint[], point: ProjectedPoint) {
+  while (hull.length >= 2 && cross(hull[hull.length - 2], hull[hull.length - 1], point) <= 0) {
+    hull.pop();
+  }
+  hull.push(point);
+}
+
+function cross(origin: ProjectedPoint, a: ProjectedPoint, b: ProjectedPoint) {
+  return (a.x - origin.x) * (b.y - origin.y) - (a.y - origin.y) * (b.x - origin.x);
+}
+
 function pathsByLineType(segments: OperationPrintSceneSegment[], project: (x: number, y: number, z: number) => ProjectedPoint) {
   const grouped = Object.fromEntries(SCENE_LINE_TYPES.map((type) => [type, [] as OperationPrintSceneSegment[]])) as Record<SceneLineType, OperationPrintSceneSegment[]>;
   segments.forEach((segment) => {
@@ -300,6 +396,25 @@ function pathsByLineType(segments: OperationPrintSceneSegment[], project: (x: nu
 function lineTypeForSegment(segment: OperationPrintSceneSegment): SceneLineType {
   const code = Math.round(segment[6] ?? 0);
   return SCENE_LINE_TYPE_BY_CODE[code] ?? "unknown";
+}
+
+function isModelSegment(segment: OperationPrintSceneSegment) {
+  const type = lineTypeForSegment(segment);
+  return type !== "support" && type !== "skirt" && type !== "unknown";
+}
+
+function isWallSegment(segment: OperationPrintSceneSegment) {
+  const type = lineTypeForSegment(segment);
+  return type === "outer-wall" || type === "inner-wall";
+}
+
+function isSurfaceSegment(segment: OperationPrintSceneSegment) {
+  const type = lineTypeForSegment(segment);
+  return type === "solid-infill" || type === "top-surface" || type === "bridge";
+}
+
+function pointDistance(x1: number, y1: number, x2: number, y2: number) {
+  return Math.hypot(x1 - x2, y1 - y2);
 }
 
 function drawingBounds(points: ProjectedPoint[]) {
