@@ -739,6 +739,7 @@ def _miscellaneous(objects: dict[str, Any], print_metadata: dict[str, Any] | Non
     file_progress = _progress_fraction(virtual_sdcard.get("progress"))
     estimated_time = _number_or_none(metadata.get("estimated_time"))
     remaining_time = _remaining_print_time(estimated_time, _number_or_none(print_stats.get("print_duration")), file_progress)
+    visuals = _dict(metadata.get("printora_visuals"))
     return {
         "fans": fans,
         "outputs": outputs,
@@ -760,6 +761,8 @@ def _miscellaneous(objects: dict[str, Any], print_metadata: dict[str, Any] | Non
         "current_layer": layer_info["current_layer"],
         "total_layers": layer_info["total_layers"],
         "layer_source": layer_info["source"],
+        "thumbnail": _dict(visuals.get("thumbnail")) or None,
+        "layer_preview": _dict(visuals.get("layer_preview")) or None,
         "slicer": metadata.get("slicer"),
         "slicer_version": metadata.get("slicer_version"),
         "filament_total": metadata.get("filament_total"),

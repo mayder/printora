@@ -17,6 +17,7 @@ import (
 type MoonrakerClient struct {
 	baseURL string
 	http    *http.Client
+	visuals operationVisualCache
 }
 
 const updateManagerActionTimeout = 55 * time.Second
@@ -153,6 +154,7 @@ func (c *MoonrakerClient) OperationStatus(ctx context.Context) map[string]any {
 	}
 	if filename := operationFilename(payload); filename != "" {
 		c.get(ctx, "/server/files/metadata?filename="+url.QueryEscape(filename), "file_metadata", payload)
+		c.enrichOperationVisuals(ctx, filename, payload)
 	}
 	c.get(ctx, "/server/history/totals", "history_totals", payload)
 	return payload

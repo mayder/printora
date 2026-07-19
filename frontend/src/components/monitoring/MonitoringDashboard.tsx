@@ -71,6 +71,8 @@ export function MonitoringDashboard({
   const capabilities = operationStatus?.capabilities ?? [];
   const progressLabel = progressSourceLabel(operationStatus?.miscellaneous.progress_source);
   const printFacts = buildPrintFacts(operationStatus);
+  const thumbnail = operationStatus?.miscellaneous.thumbnail ?? null;
+  const layerPreview = operationStatus?.miscellaneous.layer_preview ?? null;
   const selectedCapabilities = capabilityModalStatus ? capabilities.filter((capability) => capability.status === capabilityModalStatus) : [];
   const findAction = (actionId: string) => actions.find((action) => action.id === actionId) ?? null;
   const currentOperationValue = (actionId: string, parameterName: string, fallback: string | number) => operationActionParameters[actionId]?.[parameterName] ?? String(fallback);
@@ -151,6 +153,10 @@ export function MonitoringDashboard({
             <div className="monitor-card-title">
               <Gauge size={18} />
               <h3>Impressão</h3>
+            </div>
+            <div className="print-visual-grid">
+              <PrintVisual title="Peça" visual={thumbnail} emptyText="Sem thumbnail do G-code." />
+              <PrintVisual title="Camada" visual={layerPreview} emptyText="Sem prévia de camada nesta leitura." />
             </div>
             <div className="print-monitor-layout">
               <RadialProgress value={operationStatus?.miscellaneous.progress ?? 0} label={progressLabel} />
@@ -281,6 +287,25 @@ export function MonitoringDashboard({
         </div>
       ) : null}
     </article>
+  );
+}
+
+function PrintVisual({ title, visual, emptyText }: { title: string; visual: OperationStatusResponse["miscellaneous"]["thumbnail"]; emptyText: string }) {
+  const layerText =
+    typeof visual?.current_layer === "number"
+      ? `Camada ${formatLayer(visual.current_layer, visual.total_layers ?? null)}`
+      : visual?.source === "moonraker_thumbnail"
+        ? "Thumbnail"
+        : "";
+  return (
+    <div className="print-visual-tile">
+      <div className="print-visual-title">
+        <strong>{title}</strong>
+        {layerText ? <span>{layerText}</span> : null}
+      </div>
+      {visual?.data_uri ? <img src={visual.data_uri} alt="" loading="lazy" /> : <p>{emptyText}</p>}
+      {visual?.truncated ? <small>prévia parcial</small> : null}
+    </div>
   );
 }
 

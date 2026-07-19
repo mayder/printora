@@ -109,6 +109,10 @@ def test_operation_status_enriches_print_metadata_and_keeps_display_progress() -
             "filament_total": 1321,
             "filament_weight_total": 9.57,
             "filament_type": "PLA",
+            "printora_visuals": {
+                "thumbnail": {"data_uri": "data:image/jpeg;base64,abc", "source": "moonraker_thumbnail", "width": 160, "height": 120},
+                "layer_preview": {"data_uri": "data:image/svg+xml;base64,def", "source": "agent_gcode", "current_layer": 31, "total_layers": 194},
+            },
         },
     )
 
@@ -126,6 +130,8 @@ def test_operation_status_enriches_print_metadata_and_keeps_display_progress() -
     assert misc["filament_total"] == 1321
     assert misc["filament_weight_total"] == 9.57
     assert misc["filament_type"] == "PLA"
+    assert misc["thumbnail"]["data_uri"].startswith("data:image/jpeg")
+    assert misc["layer_preview"]["current_layer"] == 31
 
 
 def test_operation_status_reports_detected_misc_objects_without_status() -> None:

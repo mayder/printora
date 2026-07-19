@@ -129,7 +129,7 @@
 
 .monitor-primary-side {
   display: grid;
-  grid-template-rows: minmax(180px, 0.85fr) minmax(220px, 1fr);
+  grid-template-rows: auto minmax(220px, 1fr);
   gap: 14px;
   min-width: 0;
 }
@@ -179,7 +179,74 @@
 }
 
 .print-monitor-card {
+  align-content: start;
   min-height: 0;
+}
+
+.print-visual-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.print-visual-tile {
+  position: relative;
+  display: grid;
+  min-height: 126px;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.print-visual-tile img {
+  width: 100%;
+  height: 100%;
+  min-height: 126px;
+  object-fit: contain;
+}
+
+.print-visual-tile p {
+  place-self: center;
+  margin: 0;
+  padding: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  text-align: center;
+}
+
+.print-visual-title {
+  position: absolute;
+  z-index: 1;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.print-visual-title strong,
+.print-visual-title span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid rgb(15 23 42 / 0.55);
+  border-radius: 6px;
+  background: rgb(15 23 42 / 0.72);
+  padding: 4px 6px;
+}
+
+.print-visual-tile small {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  color: var(--warning);
+  font-weight: 800;
 }
 
 .print-monitor-layout {
@@ -551,7 +618,8 @@
 @media (max-width: 920px) {
   .monitor-primary-grid,
   .monitor-grid,
-  .print-monitor-layout {
+  .print-monitor-layout,
+  .print-visual-grid {
     grid-template-columns: 1fr;
   }
 

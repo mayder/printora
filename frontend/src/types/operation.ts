@@ -44,6 +44,16 @@ export type OperationTemperatureHistoryRow = {
   }>;
 };
 
+export type OperationPrintVisual = {
+  data_uri?: string | null;
+  width?: number | null;
+  height?: number | null;
+  source?: string | null;
+  current_layer?: number | null;
+  total_layers?: number | null;
+  truncated?: boolean | null;
+};
+
 export type OperationAction = {
   id: string;
   group: string;
@@ -177,6 +187,8 @@ export type OperationStatusResponse = {
     current_layer?: number | null;
     total_layers?: number | null;
     layer_source?: string | null;
+    thumbnail?: OperationPrintVisual | null;
+    layer_preview?: OperationPrintVisual | null;
     total_print_hours?: number | null;
     slicer?: string | null;
     slicer_version?: string | null;

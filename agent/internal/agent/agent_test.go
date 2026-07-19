@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -204,6 +205,100 @@ func TestOperationStatusFetchesCurrentFileMetadata(t *testing.T) {
 	if result["slicer"] != "OrcaSlicer" {
 		t.Fatalf("unexpected metadata payload: %#v", result)
 	}
+}
+
+func TestOperationStatusEmbedsCurrentPrintVisuals(t *testing.T) {
+	var gcodeDownloaded bool
+	var thumbnailDownloaded bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/printer/objects/list":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"objects": []string{
+				"print_stats",
+				"display_status",
+				"virtual_sdcard",
+				"gcode_move",
+			}}})
+		case r.URL.Path == "/printer/objects/query":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"status": map[string]any{
+				"print_stats": map[string]any{
+					"state":    "printing",
+					"filename": "printora/calicat PLA.gcode",
+					"info":     map[string]any{"current_layer": 2, "total_layer": 3},
+				},
+				"display_status": map[string]any{"progress": 0.2},
+				"virtual_sdcard": map[string]any{"progress": 0.18},
+				"gcode_move":     map[string]any{"gcode_position": []any{10.0, 20.0, 0.4, 0.0}},
+			}}})
+		case r.URL.Path == "/server/files/metadata":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{
+				"filename":           "printora/calicat PLA.gcode",
+				"layer_height":       0.2,
+				"first_layer_height": 0.2,
+				"object_height":      0.6,
+				"thumbnails": []any{
+					map[string]any{"width": 64, "height": 64, "size": 90, "relative_path": ".thumbs/calicat.png"},
+				},
+			}})
+		case r.URL.Path == "/server/files/thumbnails":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": []any{
+				map[string]any{"width": 64, "height": 64, "size": 90, "thumbnail_path": "printora/.thumbs/calicat.png"},
+			}})
+		case strings.HasSuffix(r.URL.Path, "/printora/.thumbs/calicat.png"):
+			thumbnailDownloaded = true
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write(tinyPNG(t))
+		case strings.HasSuffix(r.URL.Path, "/printora/calicat%20PLA.gcode") || strings.HasSuffix(r.URL.Path, "/printora/calicat PLA.gcode"):
+			gcodeDownloaded = true
+			w.Header().Set("Content-Type", "text/plain")
+			_, _ = w.Write([]byte(strings.Join([]string{
+				"G90",
+				"M83",
+				";LAYER_CHANGE",
+				";Z:0.2",
+				"G1 X0 Y0 F12000",
+				"G1 X10 Y0 E0.3",
+				"G1 X10 Y10 E0.3",
+				";LAYER_CHANGE",
+				";Z:0.4",
+				"G1 X1 Y1 F12000",
+				"G1 X11 Y1 E0.3",
+				"G1 X11 Y11 E0.3",
+			}, "\n")))
+		default:
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{}})
+		}
+	}))
+	defer server.Close()
+
+	client := NewMoonrakerClient(server.URL, time.Second)
+	payload := client.OperationStatus(context.Background())
+	metadata := mapValue(nestedAny(payload["file_metadata"], "result"))
+	visuals := mapValue(metadata["printora_visuals"])
+	thumbnail := mapValue(visuals["thumbnail"])
+	layerPreview := mapValue(visuals["layer_preview"])
+
+	if !thumbnailDownloaded || !gcodeDownloaded {
+		t.Fatalf("expected thumbnail and gcode downloads, thumbnail=%v gcode=%v", thumbnailDownloaded, gcodeDownloaded)
+	}
+	if !strings.HasPrefix(stringValue(thumbnail["data_uri"]), "data:image/") || len(stringValue(thumbnail["data_uri"])) > maxThumbnailDataURIBytes {
+		t.Fatalf("missing compact thumbnail: %#v", thumbnail)
+	}
+	if !strings.HasPrefix(stringValue(layerPreview["data_uri"]), "data:image/svg+xml;base64,") {
+		t.Fatalf("missing layer preview: %#v", layerPreview)
+	}
+	if layerPreview["current_layer"] != 2 {
+		t.Fatalf("unexpected layer preview metadata: %#v", layerPreview)
+	}
+}
+
+func tinyPNG(t *testing.T) []byte {
+	t.Helper()
+	data, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }
 
 func TestRemotePreflightAllowsLowRiskControlsWhilePrinting(t *testing.T) {
