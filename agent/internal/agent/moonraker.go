@@ -652,7 +652,7 @@ func operationQuery(objects []string) string {
 	parts := []string{}
 	for _, object := range objects {
 		if fields, ok := operationObjectFields(object); ok {
-			parts = append(parts, url.QueryEscape(object)+"="+fields)
+			parts = append(parts, moonrakerQueryEscape(object)+"="+fields)
 		}
 	}
 	sort.Strings(parts)
@@ -666,17 +666,17 @@ func operationObjectFields(object string) (string, bool) {
 	}
 	switch {
 	case strings.HasPrefix(object, "fan_generic "):
-		return "speed,rpm", true
+		return "", true
 	case strings.HasPrefix(object, "heater_fan "):
-		return "speed,rpm", true
+		return "", true
 	case strings.HasPrefix(object, "controller_fan "):
-		return "speed,rpm", true
+		return "", true
 	case strings.HasPrefix(object, "temperature_sensor "):
 		return "temperature,target,power", true
 	case strings.HasPrefix(object, "heater_generic "):
 		return "temperature,target,power", true
 	case strings.HasPrefix(object, "output_pin "):
-		return "value", true
+		return "", true
 	case strings.HasPrefix(object, "led "):
 		return "color_data", true
 	case strings.HasPrefix(object, "neopixel "):
@@ -690,6 +690,10 @@ func operationObjectFields(object string) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+func moonrakerQueryEscape(value string) string {
+	return strings.ReplaceAll(url.QueryEscape(value), "+", "%20")
 }
 
 func hasObject(objects []string, target string) bool {

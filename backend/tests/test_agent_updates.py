@@ -19,12 +19,12 @@ def test_agent_update_manifest_is_public_and_versioned(tmp_path: Path, monkeypat
             payload = response.json()
             assert payload["manifest_version"] == 1
             assert payload["minimum_version"] == "0.1.17"
-            assert payload["recommended_version"] == "0.1.22"
+            assert payload["recommended_version"] == "0.1.23"
             assert payload["protocol_min"] == 1
             assert payload["protocol_max"] == 1
             assert payload["releases"]
             linux_arm64 = next(release for release in payload["releases"] if release["platform"] == "linux/arm64")
-            assert linux_arm64["version"] == "0.1.22"
+            assert linux_arm64["version"] == "0.1.23"
             assert linux_arm64["url"].endswith("/api/agent/update/releases/linux-arm64")
 
             release = client.get("/api/agent/update/releases/linux-arm64")

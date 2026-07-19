@@ -6,6 +6,28 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Agente Nao Entregava Valores De Miscellaneous Com Objetos Dinamicos
+
+Sintoma:
+
+- a aba Operacao detectava objetos Miscellaneous como `T0 Partfan`, `Nevermore`, `Controller Fan` e `Caselight`, mas nao recebia os valores para renderizar controles/leitura.
+
+Causa:
+
+- a query dinamica do agente usava codificacao menos tolerante para nomes de objetos Klipper com espacos;
+- fans e output pins dinamicos eram consultados com campos especificos, o que deixava o coletor mais fragil contra variacoes de objeto/field retornadas pelo Moonraker.
+
+Correção:
+
+- agente 0.1.23 consulta objetos dinamicos com `%20` em nomes com espaco;
+- fans e output pins dinamicos passam a ser consultados sem restringir campos, preservando `speed`/`value` quando o Moonraker os retorna.
+
+Validação:
+
+- `cd agent && go test ./...`;
+- `cd backend && uv run --extra dev pytest tests/test_agent_updates.py tests/test_agent_install.py tests/test_agent_support.py tests/test_operation.py -q`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### Miscellaneous Ficava Vazio Quando O Agente Nao Entregava Status Dinamico
 
 Sintoma:

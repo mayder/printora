@@ -65,17 +65,92 @@ func TestOperationQueryIncludesMainsailMiscObjects(t *testing.T) {
 	})
 
 	for _, expected := range []string{
-		"controller_fan+controller_fan=speed,rpm",
-		"fan_generic+nevermore=speed,rpm",
-		"heater_fan+t0_hotend_fan=speed,rpm",
-		"neopixel+sb_leds=color_data",
-		"output_pin+caselight=value",
+		"controller_fan%20controller_fan=",
+		"fan_generic%20nevermore=",
+		"heater_fan%20t0_hotend_fan=",
+		"neopixel%20sb_leds=color_data",
+		"output_pin%20caselight=",
 		"print_stats=",
-		"temperature_sensor+raspberry_pi=temperature,target,power",
+		"temperature_sensor%20raspberry_pi=temperature,target,power",
 	} {
 		if !strings.Contains(query, expected) {
 			t.Fatalf("query %q missing %q", query, expected)
 		}
+	}
+}
+
+func TestOperationStatusReturnsMainsailMiscValues(t *testing.T) {
+	var rawQuery string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/printer/objects/list":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"objects": []string{
+				"print_stats",
+				"toolhead",
+				"extruder",
+				"output_pin caselight",
+				"fan_generic T0 Partfan",
+				"fan_generic Nevermore",
+				"heater_fan T0 Hotend Fan",
+				"controller_fan Controller Fan",
+				"neopixel sb_leds",
+			}}})
+		case "/printer/objects/query":
+			rawQuery = r.URL.RawQuery
+			query := r.URL.Query()
+			status := map[string]any{
+				"print_stats": map[string]any{"state": "standby"},
+				"toolhead":    map[string]any{"homed_axes": "xyz"},
+				"extruder":    map[string]any{"temperature": 215.0},
+			}
+			if _, ok := query["output_pin caselight"]; ok {
+				status["output_pin caselight"] = map[string]any{"value": 0.25}
+			}
+			if _, ok := query["fan_generic T0 Partfan"]; ok {
+				status["fan_generic T0 Partfan"] = map[string]any{"speed": 1.0}
+			}
+			if _, ok := query["fan_generic Nevermore"]; ok {
+				status["fan_generic Nevermore"] = map[string]any{"speed": 0.0}
+			}
+			if _, ok := query["heater_fan T0 Hotend Fan"]; ok {
+				status["heater_fan T0 Hotend Fan"] = map[string]any{"speed": 1.0}
+			}
+			if _, ok := query["controller_fan Controller Fan"]; ok {
+				status["controller_fan Controller Fan"] = map[string]any{"speed": 1.0}
+			}
+			if _, ok := query["neopixel sb_leds"]; ok {
+				status["neopixel sb_leds"] = map[string]any{"color_data": []any{[]any{1.0, 0.0, 0.0, 0.0}}}
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"status": status}})
+		default:
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{}})
+		}
+	}))
+	defer server.Close()
+
+	client := NewMoonrakerClient(server.URL, time.Second)
+	payload := client.OperationStatus(context.Background())
+	objects, ok := payload["operation_objects"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing operation_objects: %#v", payload)
+	}
+	result := objects["result"].(map[string]any)
+	status := result["status"].(map[string]any)
+
+	if !strings.Contains(rawQuery, "fan_generic%20T0%20Partfan=") {
+		t.Fatalf("query did not use percent-escaped dynamic objects: %s", rawQuery)
+	}
+	if status["output_pin caselight"].(map[string]any)["value"] != 0.25 {
+		t.Fatalf("missing caselight value: %#v", status)
+	}
+	if status["fan_generic T0 Partfan"].(map[string]any)["speed"] != 1.0 {
+		t.Fatalf("missing part fan speed: %#v", status)
+	}
+	if status["controller_fan Controller Fan"].(map[string]any)["speed"] != 1.0 {
+		t.Fatalf("missing controller fan speed: %#v", status)
+	}
+	if status["neopixel sb_leds"].(map[string]any)["color_data"] == nil {
+		t.Fatalf("missing led color data: %#v", status)
 	}
 }
 
