@@ -6,6 +6,31 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Grafico De Temperatura Da Operacao Ficava Sem Serie
+
+Sintoma:
+
+- durante impressao, a tabela da Operacao mostrava temperaturas corretas, mas o grafico permanecia sem linha;
+- o progresso podia seguir uma leitura adiantada de display em vez do progresso real do arquivo virtual.
+
+Causa:
+
+- a tela substituia o status ao vivo a cada refresh e nao acumulava historico local de temperatura;
+- quando havia apenas uma leitura, o SVG gerava `polyline` com um unico ponto, que nao desenha linha visivel;
+- o backend lia `display_status.progress` antes de considerar `virtual_sdcard.progress`.
+
+Correção:
+
+- a Operacao passa a manter historico local das leituras ao vivo durante a sessao aberta;
+- uma leitura isolada desenha linha horizontal para evitar grafico aparentemente vazio;
+- o progresso prioriza `virtual_sdcard.progress` e usa `display_status.progress` apenas como fallback.
+
+Validação:
+
+- `cd backend && uv run --extra dev pytest tests/test_operation.py -q`;
+- `npm --prefix frontend run build`;
+- `./check.sh`.
+
 ### Metrica De CPU Do Agente Inflava Consumo
 
 Sintoma:

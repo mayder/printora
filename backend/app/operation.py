@@ -5,6 +5,7 @@ OPERATION_OBJECTS: dict[str, list[str]] = {
     "webhooks": ["state", "state_message"],
     "print_stats": ["state", "filename", "total_duration", "print_duration", "filament_used", "message", "current_layer", "total_layer", "info"],
     "display_status": ["progress", "message"],
+    "virtual_sdcard": ["progress", "file_position", "is_active"],
     "toolhead": ["position", "homed_axes", "max_velocity", "max_accel", "estimated_print_time", "axis_minimum", "axis_maximum"],
     "gcode_move": ["gcode_position", "speed_factor", "extrude_factor"],
     "extruder": ["temperature", "target", "power", "pressure_advance", "smooth_time"],
@@ -661,11 +662,14 @@ def _miscellaneous(status: dict[str, Any]) -> dict[str, Any]:
         if isinstance(payload, dict) and "fan" in name and ("speed" in payload or "rpm" in payload)
     ]
     display = _nested(status, ["display_status"]) or {}
+    virtual_sdcard = _nested(status, ["virtual_sdcard"]) or {}
     print_stats = _nested(status, ["print_stats"]) or {}
     layer_info = _print_layer_info(print_stats, display)
+    progress = _print_progress(display, virtual_sdcard)
     return {
         "fans": fans,
-        "progress": display.get("progress"),
+        "progress": progress["value"],
+        "progress_source": progress["source"],
         "message": print_stats.get("message") or display.get("message"),
         "print_state": print_stats.get("state"),
         "filename": print_stats.get("filename"),
@@ -674,6 +678,27 @@ def _miscellaneous(status: dict[str, Any]) -> dict[str, Any]:
         "current_layer": layer_info["current_layer"],
         "total_layers": layer_info["total_layers"],
     }
+
+
+def _print_progress(display: dict[str, Any], virtual_sdcard: dict[str, Any]) -> dict[str, Any]:
+    for source, payload in (("virtual_sdcard", virtual_sdcard), ("display_status", display)):
+        value = _progress_fraction(payload.get("progress"))
+        if value is not None:
+            return {"value": value, "source": source}
+    return {"value": None, "source": None}
+
+
+def _progress_fraction(value: Any) -> float | None:
+    if not isinstance(value, int | float):
+        return None
+    clean_value = float(value)
+    if clean_value < 0:
+        return 0.0
+    if clean_value <= 1:
+        return clean_value
+    if clean_value <= 100:
+        return clean_value / 100.0
+    return 1.0
 
 
 def _print_layer_info(print_stats: dict[str, Any], display: dict[str, Any]) -> dict[str, int | None]:

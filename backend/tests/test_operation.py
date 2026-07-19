@@ -17,6 +17,7 @@ from app.snapshots import SnapshotDetail
 def test_operation_query_objects_adds_only_discovered_optional_objects() -> None:
     objects = build_operation_query_objects(["fan", "heater_fan hotend_fan", "temperature_sensor raspberry_pi"])
 
+    assert objects["virtual_sdcard"] == ["progress", "file_position", "is_active"]
     assert objects["fan"] == ["speed", "rpm"]
     assert objects["heater_fan hotend_fan"] == ["speed", "rpm"]
     assert objects["temperature_sensor raspberry_pi"] == ["temperature", "target", "power"]
@@ -32,6 +33,8 @@ def test_operation_status_enables_controlled_operations_and_groups_mainsail_like
         objects={
             "status": {
                 "print_stats": {"state": "standby", "filename": "", "filament_used": 0, "print_duration": 123, "info": {"current_layer": 4, "total_layer": 80}},
+                "display_status": {"progress": 0.89},
+                "virtual_sdcard": {"progress": 0.42, "file_position": 123456, "is_active": True},
                 "toolhead": {"position": [1, 2, 3, 0], "homed_axes": "xyz", "max_velocity": 300, "axis_minimum": [0, 0, 0], "axis_maximum": [300, 300, 250]},
                 "gcode_move": {"speed_factor": 1.0, "extrude_factor": 0.95},
                 "extruder": {"temperature": 210.5, "target": 215, "pressure_advance": 0.04},
@@ -52,6 +55,8 @@ def test_operation_status_enables_controlled_operations_and_groups_mainsail_like
     assert result["miscellaneous"]["fans"][0]["name"] == "Fan"
     assert result["miscellaneous"]["total_print_hours"] == 12.25
     assert result["miscellaneous"]["print_duration"] == 123
+    assert result["miscellaneous"]["progress"] == 0.42
+    assert result["miscellaneous"]["progress_source"] == "virtual_sdcard"
     assert result["miscellaneous"]["current_layer"] == 4
     assert result["miscellaneous"]["total_layers"] == 80
     assert result["actions"][0]["enabled"] is True

@@ -137,6 +137,7 @@ export type OperationStatusResponse = {
   miscellaneous: {
     fans?: OperationFan[];
     progress?: number | null;
+    progress_source?: string | null;
     message?: string | null;
     print_state?: string | null;
     filename?: string | null;

@@ -69,6 +69,7 @@ export function MonitoringDashboard({
   const bed = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("bed"));
   const actions = operationStatus?.actions ?? [];
   const capabilities = operationStatus?.capabilities ?? [];
+  const progressLabel = operationStatus?.miscellaneous.progress_source === "virtual_sdcard" ? "arquivo" : "progresso";
   const selectedCapabilities = capabilityModalStatus ? capabilities.filter((capability) => capability.status === capabilityModalStatus) : [];
   const findAction = (actionId: string) => actions.find((action) => action.id === actionId) ?? null;
   const currentOperationValue = (actionId: string, parameterName: string, fallback: string | number) => operationActionParameters[actionId]?.[parameterName] ?? String(fallback);
@@ -151,7 +152,7 @@ export function MonitoringDashboard({
               <h3>Impressão</h3>
             </div>
             <div className="print-monitor-layout">
-              <RadialProgress value={operationStatus?.miscellaneous.progress ?? 0} />
+              <RadialProgress value={operationStatus?.miscellaneous.progress ?? 0} label={progressLabel} />
               <div className="monitor-facts print-monitor-facts">
                 <span>Estado</span>
                 <strong>{operationStatus?.miscellaneous.print_state || "-"}</strong>

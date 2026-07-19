@@ -6,6 +6,7 @@ import type {
   OperationActionPreview,
   OperationActionPreviewRecord,
   OperationStatusResponse,
+  OperationTemperatureHistoryRow,
 } from "../../types";
 import { buildOperationActionPayload } from "../../utils/formatters";
 import type { SetActiveSection, SetError, SetLoading } from "./shared";
@@ -28,7 +29,8 @@ export function useOperation({ selectedPrinterId, setActiveSection, setError, se
   const [operationExecutionAttempt, setOperationExecutionAttempt] = React.useState<OperationActionExecutionAttempt | null>(null);
 
   async function loadOperationStatus(printerId: number, options?: { preserveData?: boolean }) {
-    if (!options?.preserveData) {
+    const preserveData = Boolean(options?.preserveData);
+    if (!preserveData) {
       setOperationStatus(null);
       setOperationActionPreview(null);
       setOperationExecutionPhrase("");
@@ -38,7 +40,8 @@ export function useOperation({ selectedPrinterId, setActiveSection, setError, se
     if (!response.ok) {
       return;
     }
-    setOperationStatus((await response.json()) as OperationStatusResponse);
+    const nextStatus = (await response.json()) as OperationStatusResponse;
+    setOperationStatus((current) => mergeLiveTemperatureHistory(preserveData ? current : null, nextStatus));
   }
 
   async function loadOperationActionHistory(printerId: number) {
@@ -228,4 +231,53 @@ export function useOperation({ selectedPrinterId, setActiveSection, setError, se
     updateOperationActionParameter,
     validateOperationExecutionGate,
   };
+}
+
+const MAX_LOCAL_TEMPERATURE_HISTORY_ROWS = 1440;
+
+function mergeLiveTemperatureHistory(previous: OperationStatusResponse | null, next: OperationStatusResponse): OperationStatusResponse {
+  const sameScope =
+    previous?.printer_id === next.printer_id &&
+    (previous.miscellaneous.filename || "") === (next.miscellaneous.filename || "");
+  const liveRow = liveTemperatureHistoryRow(next);
+  const rows = dedupeTemperatureHistoryRows([
+    ...(sameScope ? previous?.temperature_history ?? [] : []),
+    ...(next.temperature_history ?? []),
+    ...(liveRow ? [liveRow] : []),
+  ]);
+  return { ...next, temperature_history: rows.slice(-MAX_LOCAL_TEMPERATURE_HISTORY_ROWS) };
+}
+
+function liveTemperatureHistoryRow(status: OperationStatusResponse): OperationTemperatureHistoryRow | null {
+  const readings = status.temperatures
+    .filter((reading) => typeof reading.temperature === "number")
+    .map((reading) => ({
+      name: reading.name,
+      temperature: reading.temperature,
+      target: typeof reading.target === "number" ? reading.target : null,
+    }));
+  if (!readings.length) {
+    return null;
+  }
+  return {
+    snapshot_id: null,
+    created_at: new Date().toISOString(),
+    readings,
+  };
+}
+
+function dedupeTemperatureHistoryRows(rows: OperationTemperatureHistoryRow[]) {
+  const uniqueRows = new Map<string, OperationTemperatureHistoryRow>();
+  rows.forEach((row) => {
+    if (!row.readings.length) return;
+    const key = row.snapshot_id !== null ? `snapshot:${row.snapshot_id}` : `live:${row.created_at}:${temperatureReadingsKey(row)}`;
+    uniqueRows.set(key, row);
+  });
+  return Array.from(uniqueRows.values());
+}
+
+function temperatureReadingsKey(row: OperationTemperatureHistoryRow) {
+  return row.readings
+    .map((reading) => `${reading.name}:${reading.temperature ?? ""}:${reading.target ?? ""}`)
+    .join("|");
 }

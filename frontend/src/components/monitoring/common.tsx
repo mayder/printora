@@ -35,13 +35,13 @@ export function FactGrid({ items }: { items: Array<{ label: string; value: strin
   );
 }
 
-export function RadialProgress({ value }: { value: number }) {
+export function RadialProgress({ value, label = "progresso" }: { value: number; label?: string }) {
   const percent = Math.max(0, Math.min(100, Math.round(value * 100)));
   return (
     <div className="radial-progress" style={{ "--progress": `${percent}%` } as React.CSSProperties}>
       <div>
         <strong>{percent}%</strong>
-        <span>progresso</span>
+        <span>{label}</span>
       </div>
     </div>
   );

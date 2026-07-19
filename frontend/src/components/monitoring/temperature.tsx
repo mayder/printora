@@ -193,19 +193,25 @@ export function buildTemperatureSeries(history: OperationTemperatureHistoryRow[]
       series.set(reading.name, points);
     });
   });
-  current.forEach((reading) => {
-    if (typeof reading.temperature !== "number") return;
-    const points = series.get(reading.name) ?? [];
-    points.push({ snapshotId: null, createdAt: "agora", temperature: reading.temperature });
-    series.set(reading.name, points);
-  });
+  if (!historyHasCurrentReadings(history, current)) {
+    current.forEach((reading) => {
+      if (typeof reading.temperature !== "number") return;
+      const points = series.get(reading.name) ?? [];
+      points.push({ snapshotId: null, createdAt: "agora", temperature: reading.temperature });
+      series.set(reading.name, points);
+    });
+  }
   return Array.from(series.entries()).map(([name, points]) => {
     const temperatures = points.map((point) => point.temperature);
-    return { name, points: points.slice(-20), min: Math.min(...temperatures), max: Math.max(...temperatures) };
+    return { name, points, min: Math.min(...temperatures), max: Math.max(...temperatures) };
   });
 }
 
 export function temperatureChartPoints(points: TemperatureSeries["points"], yMax: number) {
+  if (points.length === 1) {
+    const y = temperatureChartY(points[0].temperature, yMax);
+    return `0,${y} 100,${y}`;
+  }
   return points
     .map((point, index) => {
       const x = points.length === 1 ? 100 : (index / (points.length - 1)) * 100;
@@ -213,6 +219,23 @@ export function temperatureChartPoints(points: TemperatureSeries["points"], yMax
       return `${x},${y}`;
     })
     .join(" ");
+}
+
+function historyHasCurrentReadings(history: OperationTemperatureHistoryRow[], current: OperationTemperature[]) {
+  const latest = history.at(-1);
+  if (!latest || latest.snapshot_id !== null) {
+    return false;
+  }
+  return current
+    .filter((reading) => typeof reading.temperature === "number")
+    .every((reading) =>
+      latest.readings.some(
+        (historyReading) =>
+          historyReading.name === reading.name &&
+          historyReading.temperature === reading.temperature &&
+          (historyReading.target ?? null) === (reading.target ?? null),
+      ),
+    );
 }
 
 export function temperatureChartY(value: number, yMax: number) {
