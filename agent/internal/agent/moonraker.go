@@ -234,7 +234,7 @@ func (c *MoonrakerClient) RemoteMutationPreflight(ctx context.Context, jobPayloa
 	c.get(ctx, "/printer/info", "printer_info", payload)
 	payload["objects_list"] = c.objectList(ctx)
 	c.get(ctx, "/printer/objects/query?print_stats&toolhead&gcode_move&extruder", "object_status", payload)
-	blockers := remotePreflightBlockers(payload)
+	blockers := remotePreflightBlockers(payload, stringValue(jobPayload["action_id"]))
 	if blockers == nil {
 		blockers = []string{}
 	}
@@ -296,7 +296,7 @@ func (c *MoonrakerClient) RemoteGcodePreflight(ctx context.Context, jobPayload m
 	c.get(ctx, "/printer/info", "printer_info", payload)
 	payload["objects_list"] = c.objectList(ctx)
 	c.get(ctx, "/printer/objects/query?print_stats&toolhead&gcode_move&extruder", "object_status", payload)
-	blockers := remotePreflightBlockers(payload)
+	blockers := remotePreflightBlockers(payload, stringValue(jobPayload["action_id"]))
 	if blockers == nil {
 		blockers = []string{}
 	}
@@ -649,25 +649,47 @@ func (c *MoonrakerClient) objectList(ctx context.Context) []string {
 }
 
 func operationQuery(objects []string) string {
-	fieldMap := map[string]string{
-		"print_stats":    "",
-		"toolhead":       "",
-		"gcode_move":     "",
-		"extruder":       "",
-		"heater_bed":     "",
-		"fan":            "",
-		"virtual_sdcard": "",
-		"display_status": "",
-		"webhooks":       "",
-	}
 	parts := []string{}
 	for _, object := range objects {
-		if fields, ok := fieldMap[object]; ok {
+		if fields, ok := operationObjectFields(object); ok {
 			parts = append(parts, url.QueryEscape(object)+"="+fields)
 		}
 	}
 	sort.Strings(parts)
 	return strings.Join(parts, "&")
+}
+
+func operationObjectFields(object string) (string, bool) {
+	switch object {
+	case "print_stats", "toolhead", "gcode_move", "extruder", "heater_bed", "fan", "virtual_sdcard", "display_status", "webhooks":
+		return "", true
+	}
+	switch {
+	case strings.HasPrefix(object, "fan_generic "):
+		return "speed,rpm", true
+	case strings.HasPrefix(object, "heater_fan "):
+		return "speed,rpm", true
+	case strings.HasPrefix(object, "controller_fan "):
+		return "speed,rpm", true
+	case strings.HasPrefix(object, "temperature_sensor "):
+		return "temperature,target,power", true
+	case strings.HasPrefix(object, "heater_generic "):
+		return "temperature,target,power", true
+	case strings.HasPrefix(object, "output_pin "):
+		return "value", true
+	case strings.HasPrefix(object, "led "):
+		return "color_data", true
+	case strings.HasPrefix(object, "neopixel "):
+		return "color_data", true
+	case strings.HasPrefix(object, "dotstar "):
+		return "color_data", true
+	case strings.HasPrefix(object, "pca9533 "):
+		return "color_data", true
+	case strings.HasPrefix(object, "pca9632 "):
+		return "color_data", true
+	default:
+		return "", false
+	}
 }
 
 func hasObject(objects []string, target string) bool {
@@ -739,7 +761,7 @@ func compactFirmwareObjectPayload(payload map[string]any) {
 	payload["object_payload"] = objectPayload
 }
 
-func remotePreflightBlockers(payload map[string]any) []string {
+func remotePreflightBlockers(payload map[string]any, actionID string) []string {
 	var blockers []string
 	if hasMoonrakerError(payload) {
 		blockers = append(blockers, "Moonraker indisponível no preflight remoto.")
@@ -753,10 +775,19 @@ func remotePreflightBlockers(payload map[string]any) []string {
 		blockers = append(blockers, fmt.Sprintf("Klippy não está ready (%s).", klippyState))
 	}
 	printState := remotePrintState(payload)
-	if printState != "" && !remotePrintIdle(printState) {
+	if actionBlocksWhilePrinting(actionID) && printState != "" && !remotePrintIdle(printState) {
 		blockers = append(blockers, fmt.Sprintf("Impressão em andamento (%s).", printState))
 	}
 	return blockers
+}
+
+func actionBlocksWhilePrinting(actionID string) bool {
+	switch actionID {
+	case "set_fan", "set_led", "set_output_pin":
+		return false
+	default:
+		return true
+	}
 }
 
 func hasMoonrakerError(payload map[string]any) bool {

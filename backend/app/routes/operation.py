@@ -6,6 +6,7 @@ from fastapi import Depends, Header
 from app.agent_executor import AgentCommandExecutor, AgentJobFailedError
 from app.agent_moonraker import agent_preflight_payload, operation_payload
 from app.auth import AuthRepository
+from app.operation import operation_action_blocks_when_printing, operation_action_requires_step_up
 from app.routes.auth import require_current_user_when_configured
 from app.routes.auth import require_current_user
 
@@ -147,7 +148,7 @@ async def execute_printer_operation_action(
     preview = history_repository.get_preview(payload.preview_id)
     if preview is None or preview.printer_id != printer.id:
         raise HTTPException(status_code=404, detail="preview not found")
-    _require_step_up_when_authenticated(settings, authorization, payload.step_up_token)
+    _require_step_up_when_authenticated(settings, authorization, payload.step_up_token, preview.action_id)
     return await _execute_operation_preview_via_agent(
         settings=settings,
         printer=printer,
@@ -169,7 +170,7 @@ async def execute_direct_printer_operation_action(
     printer = repository.get_printer(printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
-    _require_step_up_when_authenticated(settings, authorization, payload.step_up_token)
+    _require_step_up_when_authenticated(settings, authorization, payload.step_up_token, payload.action_id)
     preview = await _build_agent_operation_action_preview(settings, printer, payload.action_id, payload.parameters)
     history_repository = get_operation_action_history_repository(settings)
     record = history_repository.create_preview(printer.id, preview)
@@ -186,7 +187,9 @@ async def execute_direct_printer_operation_action(
     )
 
 
-def _require_step_up_when_authenticated(settings, authorization: str | None, step_up_token: str | None) -> None:
+def _require_step_up_when_authenticated(settings, authorization: str | None, step_up_token: str | None, action_id: str) -> None:
+    if not operation_action_requires_step_up(action_id):
+        return
     if not authorization:
         return
     repository = AuthRepository(settings.database_path)
@@ -251,7 +254,7 @@ async def _execute_operation_preview_via_agent(
     blockers = []
     if preflight.get("connected") is False:
         blockers.append("Bloqueado: preflight sem leitura ao vivo pelo agente.")
-    if preflight.get("printing") is True:
+    if operation_action_blocks_when_printing(preview.action_id) and preflight.get("printing") is True:
         blockers.append("Bloqueado: preflight detectou impressão em andamento.")
     if not preview.executable or not preview.would_send_gcode:
         blockers.append("Bloqueado: preview marcado como não executável.")

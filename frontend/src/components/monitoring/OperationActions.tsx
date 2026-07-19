@@ -122,7 +122,7 @@ export function OperationActions({
         <MiscPanel
           disabled={loading}
           fan={findAction("set_fan")}
-          led={findAction("set_led")}
+          outputPin={findAction("set_output_pin")}
           status={operationStatus}
           capabilityFor={capabilityFor}
           currentValue={currentValue}
@@ -403,7 +403,7 @@ export function MachinePanel({
 function MiscPanel({
   disabled,
   fan,
-  led,
+  outputPin,
   status,
   capabilityFor,
   currentValue,
@@ -412,23 +412,48 @@ function MiscPanel({
 }: {
   disabled: boolean;
   fan: OperationAction | null;
-  led: OperationAction | null;
+  outputPin: OperationAction | null;
   status: OperationStatusResponse | null;
   capabilityFor: (actionId: string) => OperationCapability | undefined;
   currentValue: (actionId: string, parameterName: string, fallback: string | number) => string;
   onChange: (actionId: string, parameterName: string, value: string) => void;
   onExecute: (actionId: string, parameters?: ActionParameters) => void;
 }) {
-  const ledName = currentValue("set_led", "led_name", "");
-  const ledBrightness = numericValue(currentValue("set_led", "brightness_percent", 0)) ?? 0;
+  const fans = status?.miscellaneous.fans ?? [];
+  const outputs = status?.miscellaneous.outputs ?? [];
+  const leds = status?.miscellaneous.leds ?? [];
+  const hasDevices = fans.length > 0 || outputs.length > 0 || leds.length > 0;
 
   return (
     <section className="operation-console-card misc">
-      <PanelTitle icon={Fan} title="Miscellaneous" detail="Fan e LED" capability={capabilityFor("set_fan") ?? capabilityFor("set_led")} />
+      <PanelTitle icon={Fan} title="Miscellaneous" detail="Fan, luz e LED" capability={capabilityFor("set_output_pin") ?? capabilityFor("set_fan") ?? capabilityFor("set_led")} />
       <div className="operation-misc-grid">
-        {(status?.miscellaneous.fans ?? []).map((item) => {
+        {outputs.map((item) => {
+          const outputKey = outputActionKey(item.object_name ?? item.name);
+          const currentPercent = percentFromFraction(item.value);
+          const value = numericValue(currentValue(outputKey, "value_percent", currentPercent)) ?? currentPercent;
+          return (
+            <div key={item.object_name ?? item.name} className="operation-fan-control operation-light-control">
+              <div>
+                <strong>{item.name}</strong>
+                <span>Output pin</span>
+              </div>
+              <MeterControl
+                label="Valor"
+                value={value}
+                unit="%"
+                minimum={0}
+                maximum={100}
+                disabled={disabled || !outputPin?.enabled || item.controllable === false}
+                onChange={(nextValue) => onChange(outputKey, "value_percent", String(nextValue))}
+                onSubmit={(nextValue) => onExecute("set_output_pin", { pin_name: item.object_name ?? item.name, value_percent: nextValue })}
+              />
+            </div>
+          );
+        })}
+        {fans.map((item) => {
           const fanKey = fanActionKey(item.object_name ?? item.name);
-          const currentPercent = numericValue(item.speed) !== null ? Math.round(numericValue(item.speed)! * 100) : 0;
+          const currentPercent = percentFromFraction(item.speed);
           const value = numericValue(currentValue(fanKey, "speed_percent", currentPercent)) ?? currentPercent;
           return (
             <div key={item.object_name ?? item.name} className="operation-fan-control">
@@ -436,33 +461,33 @@ function MiscPanel({
                 <strong>{item.name}</strong>
                 <span>RPM {item.rpm ?? "-"}</span>
               </div>
-              <MeterControl
-                label="Potência"
-                value={value}
-                unit="%"
-                minimum={0}
-                maximum={100}
-                disabled={disabled || !fan}
-                onChange={(nextValue) => onChange(fanKey, "speed_percent", String(nextValue))}
-                onSubmit={(nextValue) => onExecute("set_fan", { fan_name: item.object_name ?? item.name, speed_percent: nextValue })}
-              />
+              {item.controllable === false ? (
+                <ReadOnlyField label="Potência" value={String(currentPercent)} unit="%" />
+              ) : (
+                <MeterControl
+                  label="Potência"
+                  value={value}
+                  unit="%"
+                  minimum={0}
+                  maximum={100}
+                  disabled={disabled || !fan?.enabled}
+                  onChange={(nextValue) => onChange(fanKey, "speed_percent", String(nextValue))}
+                  onSubmit={(nextValue) => onExecute("set_fan", { fan_name: item.object_name ?? item.name, speed_percent: nextValue })}
+                />
+              )}
             </div>
           );
         })}
-        {status?.miscellaneous.fans?.length ? null : <p className="muted operation-misc-wide">Nenhum fan retornado pelo Moonraker.</p>}
-        <div className="operation-led-control">
-          <TextField label="LED" value={ledName} onChange={(value) => onChange("set_led", "led_name", value)} />
-          <MeterControl
-            label="Brilho"
-            value={ledBrightness}
-            unit="%"
-            minimum={0}
-            maximum={100}
-            disabled={disabled || !led}
-            onChange={(nextValue) => onChange("set_led", "brightness_percent", String(nextValue))}
-            onSubmit={(nextValue) => onExecute("set_led", { led_name: ledName, brightness_percent: nextValue })}
-          />
-        </div>
+        {leds.map((item) => (
+          <div key={item.object_name ?? item.name} className="operation-led-readout">
+            <div>
+              <span className="operation-led-swatch" style={{ backgroundColor: item.color ?? "#334155" }} />
+              <strong>{item.name}</strong>
+            </div>
+            <span>{percentFromFraction(item.brightness)} %</span>
+          </div>
+        ))}
+        {hasDevices ? null : <p className="muted operation-misc-wide">Nenhum fan, luz ou LED retornado pelo Moonraker.</p>}
       </div>
     </section>
   );
@@ -641,17 +666,18 @@ function NumberField({ label, value, unit, onChange, onEnter }: { label: string;
   );
 }
 
-function TextField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return (
-    <label className="operation-console-field">
-      <span>{label}</span>
-      <span className="operation-console-input">
-        <input value={value} onChange={(event) => onChange(event.target.value)} />
-      </span>
-    </label>
-  );
-}
-
 function fanActionKey(name: string) {
   return `set_fan_${name.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+}
+
+function outputActionKey(name: string) {
+  return `set_output_pin_${name.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+}
+
+function percentFromFraction(value: unknown) {
+  const numeric = numericValue(value);
+  if (numeric === null) {
+    return 0;
+  }
+  return Math.round(Math.max(0, Math.min(1, numeric)) * 100);
 }

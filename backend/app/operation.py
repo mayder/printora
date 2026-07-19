@@ -12,7 +12,26 @@ OPERATION_OBJECTS: dict[str, list[str]] = {
     "heater_bed": ["temperature", "target", "power"],
 }
 
-OPTIONAL_OPERATION_OBJECT_PREFIXES = ("fan", "fan_generic ", "heater_fan ", "controller_fan ", "temperature_sensor ", "heater_generic ")
+LED_OBJECT_PREFIXES = ("led ", "neopixel ", "dotstar ", "pca9533 ", "pca9632 ")
+OPTIONAL_OPERATION_OBJECT_PREFIXES = (
+    "fan",
+    "fan_generic ",
+    "heater_fan ",
+    "controller_fan ",
+    "temperature_sensor ",
+    "heater_generic ",
+    "output_pin ",
+    *LED_OBJECT_PREFIXES,
+)
+LOW_RISK_OPERATION_ACTIONS = {"set_fan", "set_led", "set_output_pin"}
+
+
+def operation_action_requires_step_up(action_id: str) -> bool:
+    return action_id not in LOW_RISK_OPERATION_ACTIONS
+
+
+def operation_action_blocks_when_printing(action_id: str) -> bool:
+    return action_id not in LOW_RISK_OPERATION_ACTIONS
 
 
 def build_operation_query_objects(available_objects: list[str]) -> dict[str, list[str]]:
@@ -24,6 +43,10 @@ def build_operation_query_objects(available_objects: list[str]) -> dict[str, lis
             objects[name] = ["temperature", "target", "power"]
         elif name == "fan" or name.startswith(("fan ", "fan_generic ", "heater_fan ", "controller_fan ")):
             objects[name] = ["speed", "rpm"]
+        elif name.startswith("output_pin "):
+            objects[name] = ["value"]
+        elif name.startswith(LED_OBJECT_PREFIXES):
+            objects[name] = ["color_data"]
     return objects
 
 
@@ -130,13 +153,14 @@ def build_operation_actions(*, connected: bool, print_state: str, objects: dict[
     capabilities = {item["action_id"]: item for item in build_operation_capabilities(objects or {})}
     rows: list[dict[str, Any]] = []
     for action in _operation_action_catalog():
+        blocked_by_printing = printing and operation_action_blocks_when_printing(str(action["id"]))
         rows.append(
             {
                 **action,
                 "capability": capabilities.get(action["id"], {"status": "unknown", "reason": "Sem dados de objetos Klipper."}),
-                "enabled": connected and not printing and capabilities.get(action["id"], {}).get("status") == "supported",
+                "enabled": connected and not blocked_by_printing and capabilities.get(action["id"], {}).get("status") == "supported",
                 "confirmation_required": True,
-                "block_reason": _operation_action_block_reason(connected, printing),
+                "block_reason": _operation_action_block_reason(connected, blocked_by_printing),
             }
         )
     return rows
@@ -187,8 +211,13 @@ def build_operation_capabilities(objects: dict[str, Any]) -> list[dict[str, str]
         ),
         _capability(
             "set_fan",
-            "supported" if any("fan" in name for name in names) else "unknown",
-            "Fan detectado." if any("fan" in name for name in names) else "Fan não detectado nos dados conhecidos.",
+            "supported" if any(_is_controllable_fan(name) for name in names) else "unknown",
+            "Fan controlável detectado." if any(_is_controllable_fan(name) for name in names) else "Fan controlável não detectado nos dados conhecidos.",
+        ),
+        _capability(
+            "set_output_pin",
+            "supported" if any(name.startswith("output_pin ") for name in names) else "unknown",
+            "Output pin detectado." if any(name.startswith("output_pin ") for name in names) else "Output pin controlável não detectado nos dados conhecidos.",
         ),
         _capability(
             "set_led",
@@ -233,7 +262,7 @@ def build_operation_action_preview(
     action = _operation_action(action_id)
     if action is None:
         raise ValueError("unknown operation action")
-    printing = print_state not in {"", "standby", "complete", "cancelled", "error"}
+    printing = operation_action_blocks_when_printing(action_id) and print_state not in {"", "standby", "complete", "cancelled", "error"}
     clean_parameters = _normalize_action_parameters(action_id, parameters or {})
     executable = connected and not printing
     return {
@@ -272,7 +301,7 @@ def build_operation_action_preflight(
     capability = capabilities.get(action_id, _capability(action_id, "unknown", "Sem dados de objetos Klipper."))
     klipper_state = _text(preflight.get("klipper_state"))
     klippy_state = _text(preflight.get("klippy_state"))
-    blockers = _operation_action_preflight_blockers(preflight, capability, klipper_state, klippy_state)
+    blockers = _operation_action_preflight_blockers(action_id, preflight, capability, klipper_state, klippy_state)
     axis_blocker = _axis_limit_blocker(action_id, preview["parameters"], preflight)
     if axis_blocker:
         blockers.append(axis_blocker)
@@ -352,6 +381,7 @@ def _operation_action_catalog() -> list[dict[str, Any]]:
         {"id": "set_hotend_temp", "group": "temperatura", "label": "Hotend", "command": "SET_HEATER_TEMPERATURE HEATER=extruder", "risk": "heat_toolhead", "compatibility": ["heater chamado extruder"]},
         {"id": "set_bed_temp", "group": "temperatura", "label": "Mesa", "command": "SET_HEATER_TEMPERATURE HEATER=heater_bed", "risk": "heat_bed", "compatibility": ["heater chamado heater_bed"]},
         {"id": "set_fan", "group": "fan", "label": "Fan", "command": "M106/M107", "risk": "change_fan", "compatibility": ["fan de peça padrão M106/M107"]},
+        {"id": "set_output_pin", "group": "led", "label": "Output pin", "command": "SET_PIN", "risk": "change_output_pin", "compatibility": ["output_pin PWM, como caselight"]},
         {"id": "set_led", "group": "led", "label": "LED", "command": "SET_LED", "risk": "change_led", "compatibility": ["requer LED Klipper informado no parâmetro led_name"]},
         {"id": "set_speed_factor", "group": "movimento", "label": "Speed factor", "command": "M220", "risk": "change_speed_factor", "compatibility": ["gcode_move disponível"]},
         {"id": "set_velocity_limit", "group": "movimento", "label": "Limites da máquina", "command": "SET_VELOCITY_LIMIT", "risk": "change_velocity_limit", "compatibility": ["toolhead disponível"]},
@@ -390,6 +420,10 @@ def _operation_action_parameters(action_id: str) -> list[dict[str, Any]]:
         "set_fan": [
             {"name": "fan_name", "type": "text", "default": ""},
             {"name": "speed_percent", "type": "number", "default": 0, "min": 0, "max": 100},
+        ],
+        "set_output_pin": [
+            {"name": "pin_name", "type": "text", "default": ""},
+            {"name": "value_percent", "type": "number", "default": 0, "min": 0, "max": 100},
         ],
         "set_led": [
             {"name": "led_name", "type": "text", "default": ""},
@@ -436,8 +470,11 @@ def _operation_action_commands(action_id: str, parameters: dict[str, Any]) -> li
         if not fan_name or fan_name == "fan":
             return [f"M106 S{round(speed_percent * 2.55)}"]
         return [f"SET_FAN_SPEED FAN={fan_name} SPEED={speed_percent / 100:.2f}"]
+    if action_id == "set_output_pin":
+        pin_name = _safe_gcode_identifier(_output_pin_config_name(str(parameters.get("pin_name") or "<pin_name>")))
+        return [f"SET_PIN PIN={pin_name} VALUE={_number(parameters.get('value_percent'), 0) / 100:.2f}"]
     if action_id == "set_led":
-        led_name = _safe_gcode_identifier(str(parameters.get("led_name") or "<led_name>"))
+        led_name = _safe_gcode_identifier(_led_config_name(str(parameters.get("led_name") or "<led_name>")))
         return [f"SET_LED LED={led_name} WHITE={_number(parameters.get('brightness_percent'), 0) / 100:.2f}"]
     if action_id == "set_speed_factor":
         return [f"M220 S{_number(parameters.get('speed_percent'), 100)}"]
@@ -479,6 +516,14 @@ def _normalize_action_parameters(action_id: str, parameters: dict[str, Any]) -> 
             if action_id == "set_fan" and name == "fan_name":
                 clean[name] = str(parameters.get(name, spec.get("default", "")))
                 continue
+            if action_id == "set_output_pin" and name == "pin_name":
+                raw = str(parameters.get(name, spec.get("default", "")))
+                clean[name] = raw if raw.startswith("output_pin ") else _safe_gcode_identifier(raw)
+                continue
+            if action_id == "set_led" and name == "led_name":
+                raw = str(parameters.get(name, spec.get("default", "")))
+                clean[name] = raw if raw.startswith(LED_OBJECT_PREFIXES) else _safe_gcode_identifier(raw)
+                continue
             clean[name] = _safe_gcode_identifier(str(parameters.get(name, spec.get("default", ""))))
     return clean
 
@@ -492,6 +537,7 @@ def _operation_action_block_reason(connected: bool, printing: bool) -> str:
 
 
 def _operation_action_preflight_blockers(
+    action_id: str,
     preflight: dict[str, Any],
     capability: dict[str, str],
     klipper_state: str,
@@ -500,7 +546,7 @@ def _operation_action_preflight_blockers(
     blockers: list[str] = []
     if preflight.get("connected") is False:
         blockers.append("Bloqueado: exige leitura ao vivo do Moonraker.")
-    if preflight.get("printing") is True:
+    if operation_action_blocks_when_printing(action_id) and preflight.get("printing") is True:
         blockers.append("Bloqueado: impressão em andamento.")
     if klipper_state != "ready":
         blockers.append(f"Bloqueado: Klipper não está ready ({klipper_state or '-'}).")
@@ -563,6 +609,21 @@ def _safe_gcode_identifier(value: str) -> str:
 
 def _fan_config_name(object_name: str) -> str:
     for prefix in ("fan_generic ", "heater_fan ", "controller_fan ", "fan "):
+        if object_name.startswith(prefix):
+            return object_name.removeprefix(prefix)
+    return object_name
+
+
+def _is_controllable_fan(object_name: str) -> bool:
+    return object_name == "fan" or object_name.startswith(("fan ", "fan_generic "))
+
+
+def _output_pin_config_name(object_name: str) -> str:
+    return object_name.removeprefix("output_pin ") if object_name.startswith("output_pin ") else object_name
+
+
+def _led_config_name(object_name: str) -> str:
+    for prefix in LED_OBJECT_PREFIXES:
         if object_name.startswith(prefix):
             return object_name.removeprefix(prefix)
     return object_name
@@ -657,9 +718,25 @@ def _extruder(status: dict[str, Any]) -> dict[str, Any]:
 
 def _miscellaneous(status: dict[str, Any]) -> dict[str, Any]:
     fans = [
-        {"name": _display_name(name), "object_name": name, "speed": payload.get("speed"), "rpm": payload.get("rpm")}
+        {"name": _display_name(name), "object_name": name, "speed": payload.get("speed"), "rpm": payload.get("rpm"), "controllable": _is_controllable_fan(name)}
         for name, payload in status.items()
-        if isinstance(payload, dict) and "fan" in name and ("speed" in payload or "rpm" in payload)
+        if isinstance(payload, dict) and (name == "fan" or name.startswith(("fan ", "fan_generic ", "heater_fan ", "controller_fan "))) and ("speed" in payload or "rpm" in payload)
+    ]
+    outputs = [
+        {"name": _display_name(name), "object_name": name, "value": _output_value(payload), "controllable": True}
+        for name, payload in status.items()
+        if isinstance(payload, dict) and name.startswith("output_pin ") and _output_value(payload) is not None
+    ]
+    leds = [
+        {
+            "name": _display_name(name),
+            "object_name": name,
+            "brightness": _led_brightness(payload),
+            "color": _led_color(payload),
+            "controllable": True,
+        }
+        for name, payload in status.items()
+        if isinstance(payload, dict) and name.startswith(LED_OBJECT_PREFIXES)
     ]
     display = _nested(status, ["display_status"]) or {}
     virtual_sdcard = _nested(status, ["virtual_sdcard"]) or {}
@@ -668,6 +745,8 @@ def _miscellaneous(status: dict[str, Any]) -> dict[str, Any]:
     progress = _print_progress(display, virtual_sdcard)
     return {
         "fans": fans,
+        "outputs": outputs,
+        "leds": leds,
         "progress": progress["value"],
         "progress_source": progress["source"],
         "message": print_stats.get("message") or display.get("message"),
@@ -688,7 +767,42 @@ def _print_progress(display: dict[str, Any], virtual_sdcard: dict[str, Any]) -> 
     return {"value": None, "source": None}
 
 
+def _output_value(payload: dict[str, Any]) -> float | None:
+    return _bounded_fraction(payload.get("value"))
+
+
+def _led_brightness(payload: dict[str, Any]) -> float | None:
+    channels = _led_channels(payload)
+    if not channels:
+        return None
+    return max(channels)
+
+
+def _led_color(payload: dict[str, Any]) -> str | None:
+    channels = _led_channels(payload)
+    if not channels:
+        return None
+    red = int(round(_bounded_fraction(channels[0]) * 255)) if len(channels) > 0 else 0
+    green = int(round(_bounded_fraction(channels[1]) * 255)) if len(channels) > 1 else 0
+    blue = int(round(_bounded_fraction(channels[2]) * 255)) if len(channels) > 2 else 0
+    return f"#{red:02x}{green:02x}{blue:02x}"
+
+
+def _led_channels(payload: dict[str, Any]) -> list[float] | None:
+    color_data = payload.get("color_data")
+    if not isinstance(color_data, list) or not color_data:
+        return None
+    first = color_data[0]
+    if not isinstance(first, list | tuple):
+        return None
+    return [_bounded_fraction(value) for value in first if isinstance(value, int | float)]
+
+
 def _progress_fraction(value: Any) -> float | None:
+    return _bounded_fraction(value, allow_percent=True)
+
+
+def _bounded_fraction(value: Any, *, allow_percent: bool = False) -> float | None:
     if not isinstance(value, int | float):
         return None
     clean_value = float(value)
@@ -696,7 +810,7 @@ def _progress_fraction(value: Any) -> float | None:
         return 0.0
     if clean_value <= 1:
         return clean_value
-    if clean_value <= 100:
+    if allow_percent and clean_value <= 100:
         return clean_value / 100.0
     return 1.0
 
@@ -765,7 +879,12 @@ def _text(value: Any) -> str:
 
 
 def _display_name(name: str) -> str:
-    return name.replace("_", " ").replace("heater generic ", "").title()
+    clean = name
+    for prefix in ("fan_generic ", "heater_fan ", "controller_fan ", "fan ", "output_pin ", "heater_generic ", *LED_OBJECT_PREFIXES):
+        if clean.startswith(prefix):
+            clean = clean.removeprefix(prefix)
+            break
+    return clean.replace("_", " ").title()
 
 
 def _axis_value(values: Any, axis: str) -> float | None:

@@ -53,6 +53,47 @@ func TestGcodeStoreDeltaKeepsOnlyNewConsoleMessages(t *testing.T) {
 	}
 }
 
+func TestOperationQueryIncludesMainsailMiscObjects(t *testing.T) {
+	query := operationQuery([]string{
+		"print_stats",
+		"output_pin caselight",
+		"fan_generic nevermore",
+		"controller_fan controller_fan",
+		"heater_fan t0_hotend_fan",
+		"neopixel sb_leds",
+		"temperature_sensor raspberry_pi",
+	})
+
+	for _, expected := range []string{
+		"controller_fan+controller_fan=speed,rpm",
+		"fan_generic+nevermore=speed,rpm",
+		"heater_fan+t0_hotend_fan=speed,rpm",
+		"neopixel+sb_leds=color_data",
+		"output_pin+caselight=value",
+		"print_stats=",
+		"temperature_sensor+raspberry_pi=temperature,target,power",
+	} {
+		if !strings.Contains(query, expected) {
+			t.Fatalf("query %q missing %q", query, expected)
+		}
+	}
+}
+
+func TestRemotePreflightAllowsLowRiskControlsWhilePrinting(t *testing.T) {
+	payload := map[string]any{
+		"printer_info":  map[string]any{"result": map[string]any{"state": "ready"}},
+		"server_info":   map[string]any{"result": map[string]any{"klippy_state": "ready"}},
+		"object_status": map[string]any{"result": map[string]any{"status": map[string]any{"print_stats": map[string]any{"state": "printing"}}}},
+	}
+
+	if blockers := remotePreflightBlockers(payload, "set_output_pin"); len(blockers) != 0 {
+		t.Fatalf("expected output pin during print to be allowed, blockers=%#v", blockers)
+	}
+	if blockers := remotePreflightBlockers(payload, "move_z"); len(blockers) == 0 {
+		t.Fatal("expected move_z during print to stay blocked")
+	}
+}
+
 func TestHostMetricsClassifiesKnownKlipperServices(t *testing.T) {
 	cases := map[string]string{
 		"/usr/local/bin/printora-agent -config /etc/printora-agent/config.json": "printora-agent",

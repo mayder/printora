@@ -6,6 +6,32 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Miscellaneous Da Operacao Nao Refletia Mainsail
+
+Sintoma:
+
+- Caselight aparecia no Printora como LED manual vazio/0%, enquanto no Mainsail estava ligado em 25%;
+- fans `fan_generic`, `heater_fan` e `controller_fan` nao apareciam no painel Miscellaneous;
+- acao leve de luz/fan podia pedir autenticacao reforcada ou parecer timeout logo apos o clique.
+
+Causa:
+
+- o agente consultava apenas objetos fixos e nao trazia `output_pin`, fans dinamicos e LEDs reais do Moonraker;
+- o frontend dependia de um campo manual de LED em vez de renderizar os objetos vivos;
+- o endpoint de execucao direta exigia step-up para qualquer acao autenticada.
+
+Correção:
+
+- agente 0.1.22 coleta objetos Mainsail-like de Miscellaneous: `output_pin`, `fan_generic`, `heater_fan`, `controller_fan` e LEDs;
+- Operacao classifica Caselight/output pins, fans controlaveis, fans somente leitura e indicadores LED;
+- acoes leves `set_fan`, `set_output_pin` e `set_led` nao exigem step-up e podem rodar durante impressao.
+
+Validação:
+
+- `cd backend && uv run --extra dev pytest tests/test_operation.py tests/test_agent_updates.py tests/test_agent_install.py tests/test_agent_support.py -q`;
+- `cd agent && go test ./...`;
+- `npm --prefix frontend run build`.
+
 ### Grafico De Temperatura Da Operacao Ficava Sem Serie
 
 Sintoma:

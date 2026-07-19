@@ -16,6 +16,22 @@ export type OperationFan = {
   object_name?: string | null;
   speed?: number | null;
   rpm?: number | null;
+  controllable?: boolean | null;
+};
+
+export type OperationOutputPin = {
+  name: string;
+  object_name?: string | null;
+  value?: number | null;
+  controllable?: boolean | null;
+};
+
+export type OperationLed = {
+  name: string;
+  object_name?: string | null;
+  brightness?: number | null;
+  color?: string | null;
+  controllable?: boolean | null;
 };
 
 export type OperationTemperatureHistoryRow = {
@@ -136,6 +152,8 @@ export type OperationStatusResponse = {
   extruder: Record<string, unknown>;
   miscellaneous: {
     fans?: OperationFan[];
+    outputs?: OperationOutputPin[];
+    leds?: OperationLed[];
     progress?: number | null;
     progress_source?: string | null;
     message?: string | null;

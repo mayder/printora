@@ -261,6 +261,7 @@ _ACTION_CRITICALITY: dict[str, RemoteOperationCriticality] = {
     "set_hotend_temp": "high",
     "set_bed_temp": "high",
     "set_fan": "low",
+    "set_output_pin": "low",
     "set_led": "low",
     "set_speed_factor": "high",
     "set_velocity_limit": "critical",
@@ -272,6 +273,7 @@ _ROLLBACK_BY_RISK: dict[str, list[str]] = {
     "heat_toolhead": ["Enviar TARGET=0 para o hotend.", "Usar Emergency Stop se houver aquecimento inesperado."],
     "heat_bed": ["Enviar TARGET=0 para a mesa.", "Usar Emergency Stop se houver aquecimento inesperado."],
     "change_fan": ["Enviar M107 ou SPEED=0 para o fan alterado."],
+    "change_output_pin": ["Enviar SET_PIN VALUE=0 para o output pin alterado."],
     "change_led": ["Enviar SET_LED com brilho 0 para o LED alterado."],
     "default": ["Usar Emergency Stop no Mainsail/Klipper se houver comportamento inesperado.", "Revalidar printer/info depois da ação."],
 }
