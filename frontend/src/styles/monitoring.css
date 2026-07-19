@@ -184,7 +184,7 @@
 
 .print-monitor-body {
   display: grid;
-  grid-template-columns: minmax(0, 2.2fr) minmax(300px, 0.78fr);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.34fr);
   gap: 14px;
   align-items: stretch;
 }
@@ -203,7 +203,7 @@
 
 .print-visual-grid {
   display: grid;
-  grid-template-columns: minmax(200px, 0.7fr) minmax(420px, 1.3fr);
+  grid-template-columns: minmax(190px, 320px) minmax(520px, 1fr);
   gap: 10px;
   align-items: stretch;
   min-width: 0;
@@ -223,6 +223,13 @@
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--surface-2);
+}
+
+.print-visual-tile.thumbnail-tile {
+  align-self: start;
+  aspect-ratio: 1 / 1;
+  min-height: 0;
+  max-height: 360px;
 }
 
 .print-compact-state {
@@ -254,7 +261,7 @@
 
 .layer-scene-tile {
   aspect-ratio: 16 / 9;
-  min-height: 300px;
+  min-height: 340px;
 }
 
 .print-visual-image {
@@ -402,8 +409,6 @@
 
 .layer-scene-grid,
 .layer-scene-bed,
-.layer-scene-printed-fill,
-.layer-scene-current-fill,
 .layer-scene-printed,
 .layer-scene-current {
   stroke-linecap: round;
@@ -419,7 +424,7 @@
 }
 
 .layer-scene-grid {
-  stroke: rgb(148 163 184 / 0.11);
+  stroke: rgb(148 163 184 / 0.13);
   stroke-width: 1;
 }
 
@@ -428,26 +433,14 @@
   stroke-width: 1.45;
 }
 
-.layer-scene-printed-fill {
-  fill: rgb(20 184 166 / 0.1);
-  stroke: rgb(20 184 166 / 0.12);
-  stroke-width: 0.8;
-}
-
-.layer-scene-current-fill {
-  fill: rgb(34 211 238 / 0.18);
-  stroke: rgb(34 211 238 / 0.22);
-  stroke-width: 0.9;
-}
-
 .layer-scene-printed {
-  stroke: rgb(20 184 166 / 0.24);
-  stroke-width: 0.85;
+  stroke: rgb(20 184 166 / 0.18);
+  stroke-width: 0.75;
 }
 
 .layer-scene-current {
   stroke: var(--accent);
-  stroke-width: 1.7;
+  stroke-width: 1.85;
   filter: drop-shadow(0 0 2px rgb(34 211 238 / 0.42));
 }
 
@@ -939,7 +932,7 @@
   }
 }
 
-@media (max-width: 1380px) {
+@media (max-width: 1700px) {
   .print-monitor-body {
     grid-template-columns: 1fr;
   }
@@ -955,10 +948,14 @@
   }
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 1280px) {
   .print-visual-grid,
   .print-side-stack {
     grid-template-columns: 1fr;
+  }
+
+  .print-visual-tile.thumbnail-tile {
+    max-height: 280px;
   }
 
   .print-visual-tile,

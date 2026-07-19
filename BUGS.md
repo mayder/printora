@@ -23,7 +23,7 @@ Causa:
 Correção:
 
 - controles, navegador e nota parcial passaram a ocupar áreas separadas;
-- o viewer adiciona massa translúcida para o material já impresso e reduz o peso das linhas antigas, destacando a camada atual;
+- o viewer reduz o peso das linhas antigas, mantém o material já impresso discreto e destaca a camada atual;
 - a grade de `Impressão` empilha fatos/Machine em larguras intermediárias e evita compressão/overlap.
 
 Validação:
