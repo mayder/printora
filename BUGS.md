@@ -6,6 +6,30 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Operacao Offline Mostrava Timeout Cru E Paineis Vazios Grandes
+
+Sintoma:
+
+- quando o agente demorava para responder, a aba Operacao exibia `504: timeout aguardando resposta do agente`;
+- sem thumbnail ou previsualizacao de camada, o card de Impressao mantinha dois blocos altos vazios e criava buracos na tela.
+
+Causa:
+
+- o backend propagava `str(HTTPException)`, incluindo o codigo HTTP na mensagem de produto;
+- o frontend sempre montava a grade visual de Impressao, mesmo quando nao havia dado renderizavel.
+
+Correção:
+
+- o backend sanitiza timeout do agente em mensagem operacional curta;
+- a aba Operacao mostra estado compacto quando nao recebe thumbnail/camada/cena do G-code;
+- o aviso offline usa estado informativo, sem alerta bruto de infraestrutura.
+
+Validação:
+
+- `cd backend && uv run --extra dev pytest tests/test_operation.py -q`;
+- `npm --prefix frontend run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### Progresso Da Operacao Perdeu Precisao Do Display E Faltava Metadata Da Peca
 
 Sintoma:

@@ -109,6 +109,13 @@
   color: var(--muted);
 }
 
+.monitor-live-unavailable {
+  border-color: color-mix(in srgb, var(--warning) 42%, transparent);
+  border-left-color: var(--warning);
+  background: var(--warning-soft);
+  color: var(--text);
+}
+
 .monitor-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -182,6 +189,11 @@
   align-items: stretch;
 }
 
+.print-monitor-body.is-compact {
+  grid-template-columns: minmax(320px, 0.8fr) minmax(360px, 1.2fr);
+  align-items: start;
+}
+
 .print-side-stack {
   display: grid;
   gap: 12px;
@@ -196,6 +208,10 @@
   align-items: stretch;
 }
 
+.print-visual-grid.count-1 {
+  grid-template-columns: 1fr;
+}
+
 .print-visual-tile {
   position: relative;
   display: grid;
@@ -205,6 +221,33 @@
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--surface-2);
+}
+
+.print-compact-state {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  min-height: 132px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--warning);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 14px;
+}
+
+.print-compact-state svg {
+  color: var(--warning);
+}
+
+.print-compact-state div {
+  display: grid;
+  gap: 4px;
+}
+
+.print-compact-state span {
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .layer-scene-tile {

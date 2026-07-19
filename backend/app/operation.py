@@ -93,7 +93,7 @@ def build_unreachable_operation(moonraker_url: str, error: str) -> dict[str, Any
         "connected": False,
         "moonraker_url": moonraker_url,
         "summary": "Impressora desligada ou Moonraker indisponível.",
-        "error": error,
+        "error": _unreachable_error_message(error),
         "can_send_commands": False,
         "system_loads": [],
         "temperatures": [],
@@ -104,6 +104,15 @@ def build_unreachable_operation(moonraker_url: str, error: str) -> dict[str, Any
         "extruder": {},
         "miscellaneous": {},
     }
+
+
+def _unreachable_error_message(error: str) -> str:
+    message = str(error or "").strip()
+    if message[:3].isdigit() and ":" in message[:5]:
+        message = message.split(":", 1)[1].strip()
+    if "timeout aguardando resposta do agente" in message.lower():
+        return "Agente sem resposta nesta leitura. Atualize novamente quando o serviço voltar a responder."
+    return message or "Sem leitura ao vivo do agente ou Moonraker."
 
 
 def build_last_known_operation(snapshot) -> dict[str, Any]:

@@ -202,6 +202,13 @@ def test_unreachable_operation_blocks_actions() -> None:
     assert result["actions"][0]["block_reason"] == "Bloqueado: exige leitura ao vivo do Moonraker."
 
 
+def test_unreachable_operation_sanitizes_agent_timeout() -> None:
+    result = build_unreachable_operation("agent", "504: timeout aguardando resposta do agente")
+
+    assert result["error"] == "Agente sem resposta nesta leitura. Atualize novamente quando o serviço voltar a responder."
+    assert "504" not in result["error"]
+
+
 def test_offline_fixture_populates_panels_without_enabling_commands() -> None:
     result = build_offline_fixture_operation()
 

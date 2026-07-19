@@ -74,6 +74,13 @@ export function MonitoringDashboard({
   const printFacts = buildPrintFacts(operationStatus);
   const thumbnail = operationStatus?.miscellaneous.thumbnail ?? null;
   const layerPreview = operationStatus?.miscellaneous.layer_preview ?? null;
+  const printVisualItems = [
+    { key: "thumbnail", title: "Peça", visual: thumbnail, emptyText: "Sem thumbnail do G-code." },
+    { key: "layer", title: "Camada", visual: layerPreview, emptyText: "Sem prévia de camada nesta leitura." },
+  ].filter((item) => hasPrintVisualData(item.visual));
+  const hasPrintVisuals = printVisualItems.length > 0;
+  const liveUnavailable = operationStatus?.data_state === "offline";
+  const operationNotice = liveUnavailable ? formatOperationNotice(operationStatus) : "";
   const selectedCapabilities = capabilityModalStatus ? capabilities.filter((capability) => capability.status === capabilityModalStatus) : [];
   const findAction = (actionId: string) => actions.find((action) => action.id === actionId) ?? null;
   const currentOperationValue = (actionId: string, parameterName: string, fallback: string | number) => operationActionParameters[actionId]?.[parameterName] ?? String(fallback);
@@ -112,10 +119,10 @@ export function MonitoringDashboard({
         <MonitorBadge icon={Database} label="Origem" value={formatDataState(operationStatus?.data_state)} />
       </div>
 
-      {operationStatus?.data_state === "offline" ? (
-        <div className="monitor-warning">
+      {liveUnavailable ? (
+        <div className="monitor-note monitor-live-unavailable">
           <AlertTriangle size={17} />
-          <span>{operationStatus.error ?? "Sem leitura ao vivo. Verifique se a impressora está ligada e na rede."}</span>
+          <span>{operationNotice}</span>
         </div>
       ) : null}
       {operationStatus?.data_state === "fixture" ? (
@@ -139,11 +146,22 @@ export function MonitoringDashboard({
             <Gauge size={18} />
             <h3>Impressão</h3>
           </div>
-          <div className="print-monitor-body">
-            <div className="print-visual-grid">
-              <PrintVisual title="Peça" visual={thumbnail} emptyText="Sem thumbnail do G-code." />
-              <PrintVisual title="Camada" visual={layerPreview} emptyText="Sem prévia de camada nesta leitura." />
-            </div>
+          <div className={`print-monitor-body${hasPrintVisuals ? "" : " is-compact"}`}>
+            {hasPrintVisuals ? (
+              <div className={`print-visual-grid count-${printVisualItems.length}`}>
+                {printVisualItems.map((item) => (
+                  <PrintVisual key={item.key} title={item.title} visual={item.visual} emptyText={item.emptyText} />
+                ))}
+              </div>
+            ) : (
+              <div className="print-compact-state">
+                <Database size={18} />
+                <div>
+                  <strong>{liveUnavailable ? "Sem leitura ao vivo" : "Sem prévia carregada"}</strong>
+                  <span>{liveUnavailable ? operationNotice : "A prévia aparece quando o agente entrega thumbnail, camada ou cena do G-code."}</span>
+                </div>
+              </div>
+            )}
             <div className="print-side-stack">
               <div className="print-monitor-layout">
                 <RadialProgress value={operationStatus?.miscellaneous.progress ?? 0} label={progressLabel} />
@@ -364,6 +382,10 @@ function formatLayer(current?: number | null, total?: number | null) {
   return "-";
 }
 
+function hasPrintVisualData(visual: OperationStatusResponse["miscellaneous"]["thumbnail"]) {
+  return Boolean(visual?.data_uri || visual?.scene?.kind === "gcode_layer_scene");
+}
+
 function buildPrintFacts(operationStatus: OperationStatusResponse | null) {
   const miscellaneous = operationStatus?.miscellaneous;
   return [
@@ -380,6 +402,14 @@ function buildPrintFacts(operationStatus: OperationStatusResponse | null) {
     { label: "G-code", value: miscellaneous?.filename || "-" },
     { label: "Mensagem", value: miscellaneous?.message || "-" },
   ];
+}
+
+function formatOperationNotice(operationStatus: OperationStatusResponse | null) {
+  const error = (operationStatus?.error ?? "").toLowerCase();
+  if (error.includes("timeout") || error.includes("sem resposta")) {
+    return "Agente sem resposta nesta leitura. A tela fica compacta até a próxima leitura ao vivo.";
+  }
+  return "Sem leitura ao vivo do agente ou Moonraker no momento. As ações reais permanecem bloqueadas até reconectar.";
 }
 
 function progressSourceLabel(source?: string | null) {
