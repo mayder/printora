@@ -256,14 +256,21 @@ func TestOperationStatusEmbedsCurrentPrintVisuals(t *testing.T) {
 				"M83",
 				";LAYER_CHANGE",
 				";Z:0.2",
+				";TYPE:WALL-OUTER",
 				"G1 X0 Y0 F12000",
 				"G1 X10 Y0 E0.3",
 				"G1 X10 Y10 E0.3",
 				";LAYER_CHANGE",
 				";Z:0.4",
+				";TYPE:Sparse infill",
 				"G1 X1 Y1 F12000",
 				"G1 X11 Y1 E0.3",
 				"G1 X11 Y11 E0.3",
+				";LAYER_CHANGE",
+				";Z:0.6",
+				";TYPE:Top surface",
+				"G1 X2 Y2 F12000",
+				"G1 X12 Y2 E0.3",
 			}, "\n")))
 		default:
 			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{}})
@@ -305,8 +312,37 @@ func TestOperationStatusEmbedsCurrentPrintVisuals(t *testing.T) {
 	if !ok || len(current) == 0 {
 		t.Fatalf("expected current layer segments in scene: %#v", scene)
 	}
+	if len(current[0]) != 7 || int(current[0][6]) != gcodeLineTypeSparseInfill {
+		t.Fatalf("expected typed current layer segments in scene: %#v", current[0])
+	}
+	future, ok := scene["future"].([][]float64)
+	if !ok || len(future) == 0 {
+		t.Fatalf("expected future upper layers in scene: %#v", scene)
+	}
+	if len(future[0]) != 7 || int(future[0][6]) != gcodeLineTypeTopSurface {
+		t.Fatalf("expected typed future layer segments in scene: %#v", future[0])
+	}
 	if scene["current_layer"] != 2 || scene["total_layers"] != 3 {
 		t.Fatalf("unexpected scene layer metadata: %#v", scene)
+	}
+}
+
+func TestClassifyGcodeLineTypeSupportsSlicerComments(t *testing.T) {
+	cases := map[string]int{
+		";TYPE:WALL-OUTER":               gcodeLineTypeOuterWall,
+		";TYPE:Outer wall":               gcodeLineTypeOuterWall,
+		";TYPE:WALL-INNER":               gcodeLineTypeInnerWall,
+		";FEATURE:Internal solid infill": gcodeLineTypeSolidInfill,
+		";TYPE:Sparse infill":            gcodeLineTypeSparseInfill,
+		";TYPE:SKIN":                     gcodeLineTypeSolidInfill,
+		";TYPE:Support interface":        gcodeLineTypeSupport,
+		";TYPE:Skirt":                    gcodeLineTypeSkirt,
+	}
+	for comment, expected := range cases {
+		got, ok := gcodeLineTypeFromComment(strings.ToUpper(comment))
+		if !ok || got != expected {
+			t.Fatalf("gcodeLineTypeFromComment(%q)=(%d,%v), expected %d,true", comment, got, ok, expected)
+		}
 	}
 }
 
@@ -327,7 +363,8 @@ func TestGcodeLayerSceneKeepsDensePreviewInsideResultBudget(t *testing.T) {
 	}
 	layer := preview.layerVisual(2, 2)
 	scene := mapValue(layer["scene"])
-	if intFromAny(scene["displayed_segment_count"]) != maxScenePrintedSegments+maxSceneCurrentSegments {
+	expectedDisplayed := maxScenePrintedSegments + maxSceneFutureSegments + 2000
+	if intFromAny(scene["displayed_segment_count"]) != expectedDisplayed {
 		t.Fatalf("unexpected displayed segment count: %#v", scene)
 	}
 	if scene["sampled"] != true {

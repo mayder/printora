@@ -30,8 +30,21 @@ const maxThumbnailDownloadBytes = 512 * 1024
 const maxThumbnailDataURIBytes = 32000
 const maxLayerSVGBytes = 12000
 const maxStoredGcodeSegments = 80000
-const maxScenePrintedSegments = 5600
-const maxSceneCurrentSegments = 1600
+const maxScenePrintedSegments = 4200
+const maxSceneCurrentSegments = 2400
+const maxSceneFutureSegments = 1400
+
+const (
+	gcodeLineTypeUnknown = iota
+	gcodeLineTypeOuterWall
+	gcodeLineTypeInnerWall
+	gcodeLineTypeSparseInfill
+	gcodeLineTypeSolidInfill
+	gcodeLineTypeTopSurface
+	gcodeLineTypeSupport
+	gcodeLineTypeSkirt
+	gcodeLineTypeBridge
+)
 
 type operationVisualCache struct {
 	mu        sync.Mutex
@@ -58,10 +71,11 @@ type gcodeLayer struct {
 }
 
 type gcodeSegment struct {
-	x1 float64
-	y1 float64
-	x2 float64
-	y2 float64
+	x1       float64
+	y1       float64
+	x2       float64
+	y2       float64
+	lineType int
 }
 
 func (c *MoonrakerClient) enrichOperationVisuals(ctx context.Context, filename string, payload map[string]any) {
@@ -355,6 +369,7 @@ type gcodeParser struct {
 	absoluteExtrusion bool
 	pendingLayer      bool
 	done              bool
+	lineType          int
 }
 
 func newGcodeParser(filename string, truncated bool) *gcodeParser {
@@ -410,6 +425,9 @@ func (p *gcodeParser) consume(line string) {
 
 func (p *gcodeParser) consumeComment(line string) {
 	upper := strings.ToUpper(strings.TrimSpace(line))
+	if lineType, ok := gcodeLineTypeFromComment(upper); ok {
+		p.lineType = lineType
+	}
 	switch {
 	case strings.HasPrefix(upper, ";LAYER:"):
 		if layer, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(upper, ";LAYER:"))); err == nil {
@@ -452,7 +470,7 @@ func (p *gcodeParser) consumeMove(params map[string]float64) {
 	}
 	extruding := extrusionDelta(oldE, newE, params, p.absoluteExtrusion) > 0.000001
 	if p.haveXY && extruding && (math.Abs(newX-oldX) > 0.0001 || math.Abs(newY-oldY) > 0.0001) {
-		p.addSegment(gcodeSegment{x1: oldX, y1: oldY, x2: newX, y2: newY})
+		p.addSegment(gcodeSegment{x1: oldX, y1: oldY, x2: newX, y2: newY, lineType: p.lineType})
 	}
 	if _, ok := params["X"]; ok {
 		p.haveXY = true
@@ -461,6 +479,49 @@ func (p *gcodeParser) consumeMove(params map[string]float64) {
 		p.haveXY = true
 	}
 	p.x, p.y, p.z, p.e = newX, newY, newZ, newE
+}
+
+func gcodeLineTypeFromComment(line string) (int, bool) {
+	comment := strings.TrimSpace(strings.TrimPrefix(line, ";"))
+	for _, prefix := range []string{"TYPE:", "FEATURE:"} {
+		if strings.HasPrefix(comment, prefix) {
+			return classifyGcodeLineType(strings.TrimSpace(strings.TrimPrefix(comment, prefix))), true
+		}
+	}
+	return gcodeLineTypeUnknown, false
+}
+
+func classifyGcodeLineType(value string) int {
+	normalized := strings.NewReplacer("_", " ", "-", " ", "/", " ").Replace(strings.ToUpper(value))
+	switch {
+	case containsAny(normalized, "OUTER WALL", "WALL OUTER", "EXTERNAL WALL", "EXTERNAL PERIMETER", "OUTER PERIMETER"):
+		return gcodeLineTypeOuterWall
+	case containsAny(normalized, "INNER WALL", "WALL INNER", "INNER PERIMETER", "PERIMETER"):
+		return gcodeLineTypeInnerWall
+	case containsAny(normalized, "TOP SURFACE", "TOP SOLID", "TOP INFILL"):
+		return gcodeLineTypeTopSurface
+	case containsAny(normalized, "INTERNAL SOLID", "SOLID INFILL", "BOTTOM SURFACE", "SKIN", "GAP FILL"):
+		return gcodeLineTypeSolidInfill
+	case containsAny(normalized, "SPARSE INFILL", "INTERNAL INFILL", "INFILL", "FILL"):
+		return gcodeLineTypeSparseInfill
+	case containsAny(normalized, "SUPPORT"):
+		return gcodeLineTypeSupport
+	case containsAny(normalized, "SKIRT", "BRIM", "PRIME TOWER", "CUSTOM"):
+		return gcodeLineTypeSkirt
+	case containsAny(normalized, "BRIDGE"):
+		return gcodeLineTypeBridge
+	default:
+		return gcodeLineTypeUnknown
+	}
+}
+
+func containsAny(value string, needles ...string) bool {
+	for _, needle := range needles {
+		if strings.Contains(value, needle) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *gcodeParser) startLayer(z float64) {
@@ -566,8 +627,19 @@ func (p *gcodePreview) layerScene(index int, currentLayer int, totalLayers int) 
 	if index < 0 || index >= len(p.layers) {
 		return nil
 	}
-	printed, printedTotal := sampleSceneSegments(p.layers[:index], maxScenePrintedSegments)
+	printedLimit := maxScenePrintedSegments
+	futureLimit := maxSceneFutureSegments
+	if totalLayers > 0 && currentLayer >= totalLayers {
+		printedLimit += maxSceneFutureSegments
+		futureLimit = 0
+	}
+	printed, printedTotal := sampleSceneSegments(p.layers[:index], printedLimit)
 	current, currentTotal := sampleSceneSegments(p.layers[index:index+1], maxSceneCurrentSegments)
+	var future []sceneSegment
+	futureTotal := 0
+	if futureLimit > 0 {
+		future, futureTotal = sampleSceneSegments(p.layers[min(index+1, len(p.layers)):], futureLimit)
+	}
 	if len(printed) == 0 && len(current) == 0 {
 		return nil
 	}
@@ -577,14 +649,16 @@ func (p *gcodePreview) layerScene(index int, currentLayer int, totalLayers int) 
 		"bed":                     []float64{roundSceneCoord(p.minX), roundSceneCoord(p.minY), roundSceneCoord(p.maxX), roundSceneCoord(p.maxY)},
 		"printed":                 encodeSceneSegments(printed),
 		"current":                 encodeSceneSegments(current),
+		"future":                  encodeSceneSegments(future),
 		"current_layer":           currentLayer,
 		"total_layers":            totalLayers,
 		"current_layer_z":         roundSceneCoord(p.layers[index].z),
 		"printed_segment_count":   printedTotal,
 		"current_segment_count":   currentTotal,
-		"displayed_segment_count": len(printed) + len(current),
+		"future_segment_count":    futureTotal,
+		"displayed_segment_count": len(printed) + len(current) + len(future),
 		"total_segment_count":     p.segmentCount,
-		"sampled":                 p.truncated || printedTotal > len(printed) || currentTotal > len(current),
+		"sampled":                 p.truncated || printedTotal > len(printed) || currentTotal > len(current) || futureTotal > len(future),
 	}
 }
 
@@ -721,11 +795,12 @@ func sampleProjectedSegments(segments []projectedSegment, limit int) []projected
 }
 
 type sceneSegment struct {
-	x1 float64
-	y1 float64
-	z  float64
-	x2 float64
-	y2 float64
+	x1       float64
+	y1       float64
+	z        float64
+	x2       float64
+	y2       float64
+	lineType int
 }
 
 func sampleSceneSegments(layers []gcodeLayer, limit int) ([]sceneSegment, int) {
@@ -750,7 +825,7 @@ func sceneSegments(layers []gcodeLayer) []sceneSegment {
 	segments := make([]sceneSegment, 0, count)
 	for _, layer := range layers {
 		for _, segment := range layer.segments {
-			segments = append(segments, sceneSegment{x1: segment.x1, y1: segment.y1, z: layer.z, x2: segment.x2, y2: segment.y2})
+			segments = append(segments, sceneSegment{x1: segment.x1, y1: segment.y1, z: layer.z, x2: segment.x2, y2: segment.y2, lineType: segment.lineType})
 		}
 	}
 	return segments
@@ -759,14 +834,18 @@ func sceneSegments(layers []gcodeLayer) []sceneSegment {
 func encodeSceneSegments(segments []sceneSegment) [][]float64 {
 	encoded := make([][]float64, 0, len(segments))
 	for _, segment := range segments {
-		encoded = append(encoded, []float64{
+		row := []float64{
 			roundSceneCoord(segment.x1),
 			roundSceneCoord(segment.y1),
 			roundSceneCoord(segment.z),
 			roundSceneCoord(segment.x2),
 			roundSceneCoord(segment.y2),
 			roundSceneCoord(segment.z),
-		})
+		}
+		if segment.lineType != gcodeLineTypeUnknown {
+			row = append(row, float64(segment.lineType))
+		}
+		encoded = append(encoded, row)
 	}
 	return encoded
 }

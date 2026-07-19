@@ -522,6 +522,7 @@
 
 .layer-scene-grid,
 .layer-scene-bed,
+.layer-scene-future,
 .layer-scene-printed,
 .layer-scene-current {
   stroke-linecap: round;
@@ -531,6 +532,7 @@
 
 .layer-scene-grid,
 .layer-scene-bed,
+.layer-scene-future,
 .layer-scene-printed,
 .layer-scene-current {
   fill: none;
@@ -546,20 +548,73 @@
   stroke-width: 1.45;
 }
 
+.layer-scene-future {
+  stroke: rgb(20 184 166 / 0.12);
+  stroke-dasharray: 2.4 4.8;
+  stroke-width: 0.78;
+}
+
 .layer-scene-printed {
-  stroke: rgb(20 184 166 / 0.26);
-  stroke-width: 0.86;
+  stroke: rgb(20 184 166 / 0.2);
+  stroke-width: 1.02;
 }
 
 .layer-scene-viewer.is-complete .layer-scene-printed {
-  stroke: rgb(20 184 166 / 0.36);
-  stroke-width: 0.95;
+  stroke: rgb(20 184 166 / 0.46);
+  stroke-width: 1.22;
 }
 
 .layer-scene-current {
-  stroke: var(--accent);
-  stroke-width: 1.85;
+  stroke: #22d3ee;
+  stroke-width: 2.2;
   filter: drop-shadow(0 0 2px rgb(34 211 238 / 0.42));
+}
+
+.layer-scene-current.outer-wall {
+  stroke: #facc15;
+  stroke-width: 3.15;
+  filter: drop-shadow(0 0 2px rgb(250 204 21 / 0.36));
+}
+
+.layer-scene-current.inner-wall {
+  stroke: #fb923c;
+  stroke-width: 2.75;
+  filter: drop-shadow(0 0 2px rgb(251 146 60 / 0.26));
+}
+
+.layer-scene-current.sparse-infill {
+  stroke: #ef4444;
+  stroke-width: 2.15;
+  filter: drop-shadow(0 0 2px rgb(239 68 68 / 0.28));
+}
+
+.layer-scene-current.solid-infill {
+  stroke: #a78bfa;
+  stroke-width: 2.25;
+  filter: drop-shadow(0 0 2px rgb(167 139 250 / 0.3));
+}
+
+.layer-scene-current.top-surface {
+  stroke: #f472b6;
+  stroke-width: 2.25;
+  filter: drop-shadow(0 0 2px rgb(244 114 182 / 0.32));
+}
+
+.layer-scene-current.support {
+  stroke: #60a5fa;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 2px rgb(96 165 250 / 0.28));
+}
+
+.layer-scene-current.skirt {
+  stroke: #14b8a6;
+  stroke-width: 2.35;
+}
+
+.layer-scene-current.bridge {
+  stroke: #f97316;
+  stroke-width: 2.35;
+  filter: drop-shadow(0 0 2px rgb(249 115 22 / 0.32));
 }
 
 .layer-scene-axis line {

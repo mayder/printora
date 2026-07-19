@@ -44,7 +44,7 @@ export type OperationTemperatureHistoryRow = {
   }>;
 };
 
-export type OperationPrintSceneSegment = [number, number, number, number, number, number];
+export type OperationPrintSceneSegment = [number, number, number, number, number, number, number?];
 
 export type OperationPrintScene = {
   kind?: string | null;
@@ -52,11 +52,13 @@ export type OperationPrintScene = {
   bed?: number[] | null;
   printed?: OperationPrintSceneSegment[] | null;
   current?: OperationPrintSceneSegment[] | null;
+  future?: OperationPrintSceneSegment[] | null;
   current_layer?: number | null;
   total_layers?: number | null;
   current_layer_z?: number | null;
   printed_segment_count?: number | null;
   current_segment_count?: number | null;
+  future_segment_count?: number | null;
   displayed_segment_count?: number | null;
   total_segment_count?: number | null;
   sampled?: boolean | null;

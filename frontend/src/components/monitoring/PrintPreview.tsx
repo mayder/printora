@@ -17,10 +17,28 @@ type Drawing = {
   viewBox: string;
   gridPath: string;
   bedPath: string;
+  futurePath: string;
   printedPath: string;
-  currentPath: string;
+  currentPaths: Record<SceneLineType, string>;
   axis: Record<"x" | "y" | "z", { x1: number; y1: number; x2: number; y2: number }>;
 };
+
+const SCENE_LINE_TYPES = ["unknown", "outer-wall", "inner-wall", "sparse-infill", "solid-infill", "top-surface", "support", "skirt", "bridge"] as const;
+
+type SceneLineType = (typeof SCENE_LINE_TYPES)[number];
+
+const SCENE_LINE_TYPE_BY_CODE: Record<number, SceneLineType> = {
+  1: "outer-wall",
+  2: "inner-wall",
+  3: "sparse-infill",
+  4: "solid-infill",
+  5: "top-surface",
+  6: "support",
+  7: "skirt",
+  8: "bridge",
+};
+
+const EMPTY_LINE_PATHS = Object.fromEntries(SCENE_LINE_TYPES.map((type) => [type, ""])) as Record<SceneLineType, string>;
 
 const CAMERA_PRESETS = {
   iso: { yaw: -42, pitch: 55, zoom: 1 },
@@ -33,8 +51,9 @@ const EMPTY_DRAWING: Drawing = {
   viewBox: "-50 -50 100 100",
   gridPath: "",
   bedPath: "",
+  futurePath: "",
   printedPath: "",
-  currentPath: "",
+  currentPaths: EMPTY_LINE_PATHS,
   axis: {
     x: { x1: 0, y1: 0, x2: 18, y2: 0 },
     y: { x1: 0, y1: 0, x2: 0, y2: 18 },
@@ -49,9 +68,7 @@ export function PrintVisual({ title, visual, emptyText }: { title: string; visua
   const layerText =
     typeof visual?.current_layer === "number"
       ? `Camada ${formatLayer(visual.current_layer, visual.total_layers ?? null)}`
-      : visual?.source === "moonraker_thumbnail"
-        ? "Thumbnail"
-        : "";
+      : "";
 
   const tileClass = ["print-visual-tile", scene ? "layer-scene-tile" : "", visual?.source === "moonraker_thumbnail" ? "thumbnail-tile" : ""].filter(Boolean).join(" ");
 
@@ -131,8 +148,11 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
       >
         <path className="layer-scene-grid" d={drawing.gridPath} />
         <path className="layer-scene-bed" d={drawing.bedPath} />
+        <path className="layer-scene-future" d={drawing.futurePath} />
         <path className="layer-scene-printed" d={drawing.printedPath} />
-        <path className="layer-scene-current" d={drawing.currentPath} />
+        {SCENE_LINE_TYPES.map((type) =>
+          drawing.currentPaths[type] ? <path key={type} className={`layer-scene-current ${type}`} d={drawing.currentPaths[type]} /> : null,
+        )}
         <g className="layer-scene-axis">
           <line className="x" x1={drawing.axis.x.x1} y1={drawing.axis.x.y1} x2={drawing.axis.x.x2} y2={drawing.axis.x.y2} />
           <line className="y" x1={drawing.axis.y.x1} y1={drawing.axis.y.y1} x2={drawing.axis.y.x2} y2={drawing.axis.y.y2} />
@@ -188,11 +208,12 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
 function buildDrawing(scene: OperationPrintScene, camera: Camera): Drawing {
   const printed = normalizeSegments(scene.printed);
   const current = normalizeSegments(scene.current);
-  const bed = expandBed(normalizeBed(scene.bed, [...printed, ...current]));
+  const future = normalizeSegments(scene.future);
+  const bed = expandBed(normalizeBed(scene.bed, [...printed, ...current, ...future]));
   const grid = gridSegments(bed);
   const center = { x: (bed[0] + bed[2]) / 2, y: (bed[1] + bed[3]) / 2 };
   const project = (x: number, y: number, z: number) => projectPoint(x - center.x, y - center.y, z, camera);
-  const projectedSegments = [...grid, ...bedBorderSegments(bed), ...printed, ...current].flatMap((segment) => [project(segment[0], segment[1], segment[2]), project(segment[3], segment[4], segment[5])]);
+  const projectedSegments = [...grid, ...bedBorderSegments(bed), ...printed, ...current, ...future].flatMap((segment) => [project(segment[0], segment[1], segment[2]), project(segment[3], segment[4], segment[5])]);
   const bounds = drawingBounds(projectedSegments);
   const viewBox = zoomedViewBox(bounds, camera.zoom);
 
@@ -200,8 +221,9 @@ function buildDrawing(scene: OperationPrintScene, camera: Camera): Drawing {
     viewBox,
     gridPath: pathForSegments(grid, project),
     bedPath: pathForSegments(bedBorderSegments(bed), project),
+    futurePath: pathForSegments(future, project),
     printedPath: pathForSegments(printed, project),
-    currentPath: pathForSegments(current, project),
+    currentPaths: pathsByLineType(current, project),
     axis: axisLines(project, bed),
   };
 }
@@ -265,6 +287,19 @@ function pathForSegments(segments: OperationPrintSceneSegment[], project: (x: nu
       return `M${formatCoord(start.x)} ${formatCoord(start.y)}L${formatCoord(end.x)} ${formatCoord(end.y)}`;
     })
     .join("");
+}
+
+function pathsByLineType(segments: OperationPrintSceneSegment[], project: (x: number, y: number, z: number) => ProjectedPoint) {
+  const grouped = Object.fromEntries(SCENE_LINE_TYPES.map((type) => [type, [] as OperationPrintSceneSegment[]])) as Record<SceneLineType, OperationPrintSceneSegment[]>;
+  segments.forEach((segment) => {
+    grouped[lineTypeForSegment(segment)].push(segment);
+  });
+  return Object.fromEntries(SCENE_LINE_TYPES.map((type) => [type, pathForSegments(grouped[type], project)])) as Record<SceneLineType, string>;
+}
+
+function lineTypeForSegment(segment: OperationPrintSceneSegment): SceneLineType {
+  const code = Math.round(segment[6] ?? 0);
+  return SCENE_LINE_TYPE_BY_CODE[code] ?? "unknown";
 }
 
 function drawingBounds(points: ProjectedPoint[]) {
