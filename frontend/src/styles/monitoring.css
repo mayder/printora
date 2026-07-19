@@ -220,7 +220,7 @@
 
 .print-side-overview {
   display: grid;
-  grid-template-columns: minmax(136px, 1fr) 146px;
+  grid-template-columns: minmax(160px, 220px) minmax(120px, 1fr);
   gap: 10px;
   align-items: stretch;
   min-width: 0;
@@ -262,15 +262,17 @@
 }
 
 .print-side-thumbnail .print-visual-tile.thumbnail-tile {
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 4 / 3;
+  height: 100%;
   min-height: 0;
-  max-height: none;
+  max-height: 184px;
 }
 
 .print-side-progress {
   display: grid;
   place-items: center;
-  min-height: 146px;
+  min-height: 0;
+  max-height: 184px;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--surface-2);
@@ -278,24 +280,24 @@
 }
 
 .print-side-progress .radial-progress {
-  width: 124px;
-  height: 124px;
+  width: 112px;
+  height: 112px;
 }
 
 .print-side-facts-card {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--surface-2);
-  padding: 10px;
+  padding: 8px;
 }
 
 .print-side-core-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 
 .print-side-core-fact,
@@ -308,9 +310,9 @@
 
 .print-side-core-fact {
   display: grid;
-  gap: 4px;
-  min-height: 54px;
-  padding: 8px;
+  gap: 3px;
+  min-height: 44px;
+  padding: 6px 7px;
 }
 
 .print-side-core-fact span,
@@ -335,16 +337,17 @@
 
 .print-side-meta-list {
   display: grid;
-  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
 }
 
 .print-side-meta-row {
   display: grid;
-  grid-template-columns: 78px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: minmax(54px, 0.7fr) minmax(0, 1.3fr);
+  gap: 6px;
   align-items: center;
-  min-height: 30px;
-  padding: 6px 8px;
+  min-height: 26px;
+  padding: 5px 7px;
 }
 
 .print-compact-state {
@@ -1224,5 +1227,15 @@
     bottom: 10px;
     transform: scale(0.86);
     transform-origin: left bottom;
+  }
+
+  .print-side-overview,
+  .print-side-meta-list {
+    grid-template-columns: 1fr;
+  }
+
+  .print-side-thumbnail .print-visual-tile.thumbnail-tile,
+  .print-side-progress {
+    max-height: none;
   }
 }
