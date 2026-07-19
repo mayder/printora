@@ -6,6 +6,31 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Preview 3D Da Operacao Sobrepunha Controles E Texto
+
+Sintoma:
+
+- no card `Impressão`, os controles de rotação/zoom ficavam sobre textos de estado da prévia;
+- o navegador 3D aparecia grudado em contador de segmentos;
+- em larguras intermediárias, thumbnail, cena de camada e dados da impressão ficavam comprimidos e a cena parecia um emaranhado de linhas.
+
+Causa:
+
+- a prévia usava a mesma área absoluta para botões, notas e contador;
+- a cena renderizava o material impresso e a camada atual só como linhas, com pouca diferença visual entre histórico e camada corrente;
+- o grid do card mantinha três blocos lado a lado mesmo quando a largura útil já estava reduzida.
+
+Correção:
+
+- controles, navegador e nota parcial passaram a ocupar áreas separadas;
+- o viewer adiciona massa translúcida para o material já impresso e reduz o peso das linhas antigas, destacando a camada atual;
+- a grade de `Impressão` empilha fatos/Machine em larguras intermediárias e evita compressão/overlap.
+
+Validação:
+
+- `npm --prefix frontend run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### Operacao Ficava Vazia Durante Impressao Com Preview Do G-code
 
 Sintoma:

@@ -17,6 +17,8 @@ type Drawing = {
   viewBox: string;
   gridPath: string;
   bedPath: string;
+  printedFillPath: string;
+  currentFillPath: string;
   printedPath: string;
   currentPath: string;
   axis: Record<"x" | "y" | "z", { x1: number; y1: number; x2: number; y2: number }>;
@@ -33,6 +35,8 @@ const EMPTY_DRAWING: Drawing = {
   viewBox: "-50 -50 100 100",
   gridPath: "",
   bedPath: "",
+  printedFillPath: "",
+  currentFillPath: "",
   printedPath: "",
   currentPath: "",
   axis: {
@@ -80,7 +84,7 @@ export function PrintVisual({ title, visual, emptyText }: { title: string; visua
           )}
         </>
       )}
-      {visual?.truncated || scene?.sampled ? <small>prévia parcial</small> : null}
+      {visual?.truncated || scene?.sampled ? <small className="print-visual-note">prévia parcial</small> : null}
     </div>
   );
 }
@@ -89,8 +93,6 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
   const [camera, setCamera] = React.useState<Camera>(CAMERA_PRESETS.iso);
   const pointerRef = React.useRef<{ x: number; y: number } | null>(null);
   const drawing = React.useMemo(() => buildDrawing(scene, camera), [scene, camera]);
-  const currentSegments = scene.current?.length ?? 0;
-  const printedSegments = scene.printed?.length ?? 0;
 
   const setPreset = (preset: keyof typeof CAMERA_PRESETS) => setCamera(CAMERA_PRESETS[preset]);
   const zoomBy = (delta: number) => setCamera((value) => ({ ...value, zoom: clamp(value.zoom + delta, 0.65, 3.2) }));
@@ -130,6 +132,8 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
       >
         <path className="layer-scene-grid" d={drawing.gridPath} />
         <path className="layer-scene-bed" d={drawing.bedPath} />
+        <path className="layer-scene-printed-fill" d={drawing.printedFillPath} />
+        <path className="layer-scene-current-fill" d={drawing.currentFillPath} />
         <path className="layer-scene-printed" d={drawing.printedPath} />
         <path className="layer-scene-current" d={drawing.currentPath} />
         <g className="layer-scene-axis">
@@ -180,9 +184,6 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
         <span className="cube-axis y">Y</span>
         <span className="cube-axis z">Z</span>
       </div>
-      <span className="layer-scene-count">
-        {printedSegments + currentSegments} seg.
-      </span>
     </div>
   );
 }
@@ -190,7 +191,7 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
 function buildDrawing(scene: OperationPrintScene, camera: Camera): Drawing {
   const printed = normalizeSegments(scene.printed);
   const current = normalizeSegments(scene.current);
-  const bed = normalizeBed(scene.bed, [...printed, ...current]);
+  const bed = expandBed(normalizeBed(scene.bed, [...printed, ...current]));
   const grid = gridSegments(bed);
   const center = { x: (bed[0] + bed[2]) / 2, y: (bed[1] + bed[3]) / 2 };
   const project = (x: number, y: number, z: number) => projectPoint(x - center.x, y - center.y, z, camera);
@@ -202,6 +203,8 @@ function buildDrawing(scene: OperationPrintScene, camera: Camera): Drawing {
     viewBox,
     gridPath: pathForSegments(grid, project),
     bedPath: pathForSegments(bedBorderSegments(bed), project),
+    printedFillPath: hullPathForSegments(printed, project),
+    currentFillPath: hullPathForSegments(current, project),
     printedPath: pathForSegments(printed, project),
     currentPath: pathForSegments(current, project),
     axis: axisLines(project, bed),
@@ -220,6 +223,13 @@ function normalizeBed(value: number[] | null | undefined, segments: OperationPri
   const xs = segments.flatMap((segment) => [segment[0], segment[3]]);
   const ys = segments.flatMap((segment) => [segment[1], segment[4]]);
   return [Math.min(...xs, 0), Math.min(...ys, 0), Math.max(...xs, 1), Math.max(...ys, 1)];
+}
+
+function expandBed(bed: [number, number, number, number]): [number, number, number, number] {
+  const width = Math.max(1, bed[2] - bed[0]);
+  const height = Math.max(1, bed[3] - bed[1]);
+  const pad = Math.max(18, Math.max(width, height) * 0.18);
+  return [bed[0] - pad, bed[1] - pad, bed[2] + pad, bed[3] + pad];
 }
 
 function gridSegments(bed: [number, number, number, number]): OperationPrintSceneSegment[] {
@@ -260,6 +270,35 @@ function pathForSegments(segments: OperationPrintSceneSegment[], project: (x: nu
       return `M${formatCoord(start.x)} ${formatCoord(start.y)}L${formatCoord(end.x)} ${formatCoord(end.y)}`;
     })
     .join("");
+}
+
+function hullPathForSegments(segments: OperationPrintSceneSegment[], project: (x: number, y: number, z: number) => ProjectedPoint) {
+  const points = segments.flatMap((segment) => [project(segment[0], segment[1], segment[2]), project(segment[3], segment[4], segment[5])]);
+  const hull = convexHull(points);
+  if (hull.length < 3) return "";
+  const [first, ...rest] = hull;
+  return `M${formatCoord(first.x)} ${formatCoord(first.y)}${rest.map((point) => `L${formatCoord(point.x)} ${formatCoord(point.y)}`).join("")}Z`;
+}
+
+function convexHull(points: ProjectedPoint[]) {
+  const unique = Array.from(new Map(points.map((point) => [`${formatCoord(point.x)},${formatCoord(point.y)}`, point])).values()).sort((left, right) => left.x - right.x || left.y - right.y);
+  if (unique.length <= 3) return unique;
+  const lower: ProjectedPoint[] = [];
+  for (const point of unique) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], point) <= 0) lower.pop();
+    lower.push(point);
+  }
+  const upper: ProjectedPoint[] = [];
+  for (let index = unique.length - 1; index >= 0; index -= 1) {
+    const point = unique[index];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], point) <= 0) upper.pop();
+    upper.push(point);
+  }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
+}
+
+function cross(origin: ProjectedPoint, left: ProjectedPoint, right: ProjectedPoint) {
+  return (left.x - origin.x) * (right.y - origin.y) - (left.y - origin.y) * (right.x - origin.x);
 }
 
 function drawingBounds(points: ProjectedPoint[]) {
