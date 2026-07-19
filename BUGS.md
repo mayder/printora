@@ -6,6 +6,28 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Lateral Do Preview De Impressao Ficava Vazia E Truncava Titulos
+
+Sintoma:
+
+- no card `Impressao`, o lado direito deixava area vazia ao lado/abaixo da imagem do modelo;
+- os titulos da previsualizacao apareciam abreviados como `T...` e `Ca...`, mesmo com espaco disponivel.
+
+Causa:
+
+- o thumbnail era renderizado como bloco isolado e competia mal com a lista de fatos;
+- os titulos do `PrintVisual` usavam limite percentual fixo, encolhendo textos curtos em larguras intermediarias.
+
+Correcao:
+
+- a lateral direita passou a combinar thumbnail, progresso, fatos principais, metadados e Machine em uma composicao mais densa;
+- os titulos do visual passaram a usar largura natural quando houver espaco.
+
+Validacao:
+
+- `cd frontend && npm run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### Preview 3D Em 100 Por Cento Continuava Parecendo Parcial
 
 Sintoma:

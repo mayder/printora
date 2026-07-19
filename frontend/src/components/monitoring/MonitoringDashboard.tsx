@@ -18,6 +18,8 @@ import type {
 
 type CapabilityStatus = OperationCapability["status"];
 
+const PRIMARY_PRINT_FACT_LABELS = new Set(["Estado", "Camada", "Tempo", "Restante"]);
+
 export function MonitoringDashboard({
   selectedPrinterName,
   operationStatus,
@@ -72,6 +74,8 @@ export function MonitoringDashboard({
   const capabilities = operationStatus?.capabilities ?? [];
   const progressLabel = progressSourceLabel(operationStatus?.miscellaneous.progress_source);
   const printFacts = buildPrintFacts(operationStatus);
+  const primaryPrintFacts = printFacts.filter((item) => PRIMARY_PRINT_FACT_LABELS.has(item.label));
+  const secondaryPrintFacts = printFacts.filter((item) => !PRIMARY_PRINT_FACT_LABELS.has(item.label));
   const thumbnail = operationStatus?.miscellaneous.thumbnail ?? null;
   const layerPreview = operationStatus?.miscellaneous.layer_preview ?? null;
   const hasThumbnail = hasPrintVisualData(thumbnail);
@@ -165,19 +169,31 @@ export function MonitoringDashboard({
               </div>
             )}
             <div className="print-side-stack">
-              {sideThumbnail ? (
-                <div className="print-side-thumbnail">
-                  <PrintVisual title={sideThumbnail.title} visual={sideThumbnail.visual} emptyText={sideThumbnail.emptyText} />
+              <div className={`print-side-overview${sideThumbnail ? "" : " no-thumbnail"}`}>
+                {sideThumbnail ? (
+                  <div className="print-side-thumbnail">
+                    <PrintVisual title={sideThumbnail.title} visual={sideThumbnail.visual} emptyText={sideThumbnail.emptyText} />
+                  </div>
+                ) : null}
+                <div className="print-side-progress">
+                  <RadialProgress value={operationStatus?.miscellaneous.progress ?? 0} label={progressLabel} />
                 </div>
-              ) : null}
-              <div className="print-monitor-layout">
-                <RadialProgress value={operationStatus?.miscellaneous.progress ?? 0} label={progressLabel} />
-                <div className="monitor-facts print-monitor-facts">
-                  {printFacts.map((item) => (
-                    <React.Fragment key={item.label}>
+              </div>
+              <div className="print-side-facts-card">
+                <div className="print-side-core-facts">
+                  {primaryPrintFacts.map((item) => (
+                    <div key={item.label} className="print-side-core-fact">
                       <span>{item.label}</span>
-                      <strong>{item.value}</strong>
-                    </React.Fragment>
+                      <strong title={item.value}>{item.value}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div className="print-side-meta-list">
+                  {secondaryPrintFacts.map((item) => (
+                    <div key={item.label} className="print-side-meta-row">
+                      <span>{item.label}</span>
+                      <strong title={item.value}>{item.value}</strong>
+                    </div>
                   ))}
                 </div>
               </div>
