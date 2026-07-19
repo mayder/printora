@@ -236,12 +236,24 @@ jobs:
       - name: Validate public endpoint
         run: |
           set -euo pipefail
+          EXPECTED_AGENT_VERSION="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(Path("backend/app/data/agent_update_manifest.json").read_text())
+          print(payload["recommended_version"])
+          PY
+          )"
           for attempt in $(seq 1 30); do
             if curl --max-time 5 -fsS https://print3dmaker.xyz/health >/dev/null \
-              && curl --max-time 5 -fsS https://print3dmaker.xyz/api/catalog >/dev/null; then
+              && curl --max-time 5 -fsS https://print3dmaker.xyz/api/catalog >/dev/null \
+              && MANIFEST_JSON="$(curl --max-time 5 -fsS "https://print3dmaker.xyz/api/agent/update/manifest?deploy_sha=$DEPLOY_SHA")" \
+              && python3 -c 'import json, sys; expected = sys.argv[1]; payload = json.loads(sys.stdin.read()); actual = payload.get("recommended_version"); raise SystemExit(0 if actual == expected else f"manifesto do agente ainda em {actual}, esperado {expected}")' "$EXPECTED_AGENT_VERSION" <<< "$MANIFEST_JSON"
+            then
               exit 0
             fi
             sleep 2
           done
           curl --max-time 5 -fsS https://print3dmaker.xyz/health
           curl --max-time 5 -fsS https://print3dmaker.xyz/api/catalog >/dev/null
+          curl --max-time 5 -fsS "https://print3dmaker.xyz/api/agent/update/manifest?deploy_sha=$DEPLOY_SHA"
+          exit 1
