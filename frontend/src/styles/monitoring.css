@@ -184,9 +184,9 @@
 
 .print-monitor-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.34fr);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.31fr);
   gap: 14px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .print-monitor-body.is-compact {
@@ -198,6 +198,18 @@
   display: grid;
   gap: 12px;
   align-content: start;
+  min-width: 0;
+}
+
+.print-primary-visual {
+  min-width: 0;
+}
+
+.print-primary-visual.is-thumbnail-only {
+  max-width: 520px;
+}
+
+.print-side-thumbnail {
   min-width: 0;
 }
 
@@ -227,9 +239,13 @@
 
 .print-visual-tile.thumbnail-tile {
   align-self: start;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 4 / 3;
   min-height: 0;
-  max-height: 360px;
+  max-height: 260px;
+}
+
+.print-side-thumbnail .print-visual-tile.thumbnail-tile {
+  max-height: 220px;
 }
 
 .print-compact-state {
@@ -261,7 +277,7 @@
 
 .layer-scene-tile {
   aspect-ratio: 16 / 9;
-  min-height: 340px;
+  min-height: 460px;
 }
 
 .print-visual-image {
@@ -434,8 +450,13 @@
 }
 
 .layer-scene-printed {
-  stroke: rgb(20 184 166 / 0.18);
-  stroke-width: 0.75;
+  stroke: rgb(20 184 166 / 0.26);
+  stroke-width: 0.86;
+}
+
+.layer-scene-viewer.is-complete .layer-scene-printed {
+  stroke: rgb(20 184 166 / 0.36);
+  stroke-width: 0.95;
 }
 
 .layer-scene-current {
@@ -932,19 +953,23 @@
   }
 }
 
-@media (max-width: 1700px) {
+@media (max-width: 1320px) {
   .print-monitor-body {
     grid-template-columns: 1fr;
   }
 
   .print-side-stack {
-    grid-template-columns: minmax(260px, 0.75fr) minmax(360px, 1.25fr);
-    align-items: stretch;
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+    align-items: start;
+  }
+
+  .print-side-thumbnail .print-visual-tile.thumbnail-tile {
+    max-height: 260px;
   }
 
   .print-monitor-layout,
   .print-side-stack .operation-console-card.machine {
-    height: 100%;
+    height: auto;
   }
 }
 

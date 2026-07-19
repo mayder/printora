@@ -310,6 +310,38 @@ func TestOperationStatusEmbedsCurrentPrintVisuals(t *testing.T) {
 	}
 }
 
+func TestGcodeLayerSceneKeepsDensePreviewInsideResultBudget(t *testing.T) {
+	var gcode strings.Builder
+	gcode.WriteString("G90\nM83\n;LAYER_CHANGE\n;Z:0.2\nG1 X0 Y0 F12000\n")
+	for index := 0; index < 6000; index++ {
+		fmt.Fprintf(&gcode, "G1 X%.2f Y%.2f E0.01\n", float64(index%120), float64(index/120))
+	}
+	gcode.WriteString(";LAYER_CHANGE\n;Z:0.4\n")
+	for index := 0; index < 2000; index++ {
+		fmt.Fprintf(&gcode, "G1 X%.2f Y%.2f E0.01\n", float64(index%100)+8, float64(index/100)+8)
+	}
+
+	preview := parseGcodePreview("dense.gcode", []byte(gcode.String()), false)
+	if preview == nil || preview.segmentCount == 0 {
+		t.Fatal("expected parsed preview")
+	}
+	layer := preview.layerVisual(2, 2)
+	scene := mapValue(layer["scene"])
+	if intFromAny(scene["displayed_segment_count"]) != maxScenePrintedSegments+maxSceneCurrentSegments {
+		t.Fatalf("unexpected displayed segment count: %#v", scene)
+	}
+	if scene["sampled"] != true {
+		t.Fatalf("expected sampled scene for dense gcode: %#v", scene)
+	}
+	encoded, err := json.Marshal(layer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(encoded) > 512*1024 {
+		t.Fatalf("preview payload too large: %d bytes", len(encoded))
+	}
+}
+
 func tinyPNG(t *testing.T) []byte {
 	t.Helper()
 	data, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=")

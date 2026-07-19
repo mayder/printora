@@ -91,12 +91,13 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
   const [camera, setCamera] = React.useState<Camera>(CAMERA_PRESETS.iso);
   const pointerRef = React.useRef<{ x: number; y: number } | null>(null);
   const drawing = React.useMemo(() => buildDrawing(scene, camera), [scene, camera]);
+  const isComplete = Boolean(scene.current_layer && scene.total_layers && scene.current_layer >= scene.total_layers);
 
   const setPreset = (preset: keyof typeof CAMERA_PRESETS) => setCamera(CAMERA_PRESETS[preset]);
   const zoomBy = (delta: number) => setCamera((value) => ({ ...value, zoom: clamp(value.zoom + delta, 0.65, 3.2) }));
 
   return (
-    <div className="layer-scene-viewer">
+    <div className={`layer-scene-viewer${isComplete ? " is-complete" : ""}`}>
       <svg
         viewBox={drawing.viewBox}
         role="img"

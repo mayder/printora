@@ -29,9 +29,9 @@ const maxPreviewGcodeBytes = 24 * 1024 * 1024
 const maxThumbnailDownloadBytes = 512 * 1024
 const maxThumbnailDataURIBytes = 32000
 const maxLayerSVGBytes = 12000
-const maxStoredGcodeSegments = 50000
-const maxScenePrintedSegments = 1400
-const maxSceneCurrentSegments = 900
+const maxStoredGcodeSegments = 80000
+const maxScenePrintedSegments = 5600
+const maxSceneCurrentSegments = 1600
 
 type operationVisualCache struct {
 	mu        sync.Mutex
@@ -772,7 +772,7 @@ func encodeSceneSegments(segments []sceneSegment) [][]float64 {
 }
 
 func roundSceneCoord(value float64) float64 {
-	return math.Round(value*100) / 100
+	return math.Round(value*10) / 10
 }
 
 func projectedSegmentsPath(segments []projectedSegment) string {

@@ -6,6 +6,30 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Preview 3D Em 100 Por Cento Continuava Parecendo Parcial
+
+Sintoma:
+
+- com a impressao concluida, o card `Impressao` ainda mostrava a cena 3D como poucas linhas;
+- thumbnail e cena competiam pela area principal, deixando a cena menor e criando buracos na composicao.
+
+Causa:
+
+- o agente limitava a previsualizacao interativa a uma amostra pequena do G-code;
+- o layout tratava thumbnail e cena como visuais equivalentes, em vez de usar a cena como area principal e o thumbnail como apoio.
+
+Correcao:
+
+- agente 0.1.28 aumenta o cache de segmentos do G-code e envia uma amostra interativa mais densa dentro do limite seguro de payload;
+- o card `Impressao` passa a renderizar a cena 3D como painel principal e move o thumbnail para a lateral direita com os dados da impressao;
+- em impressao completa, o material ja impresso ganha mais contraste para nao parecer apenas a camada atual.
+
+Validacao:
+
+- `cd agent && go test ./...`;
+- `cd frontend && npm run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### Preview 3D Da Operacao Sobrepunha Controles E Texto
 
 Sintoma:

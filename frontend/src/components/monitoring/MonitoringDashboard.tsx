@@ -74,11 +74,15 @@ export function MonitoringDashboard({
   const printFacts = buildPrintFacts(operationStatus);
   const thumbnail = operationStatus?.miscellaneous.thumbnail ?? null;
   const layerPreview = operationStatus?.miscellaneous.layer_preview ?? null;
-  const printVisualItems = [
-    { key: "thumbnail", title: "Peça", visual: thumbnail, emptyText: "Sem thumbnail do G-code." },
-    { key: "layer", title: "Camada", visual: layerPreview, emptyText: "Sem prévia de camada nesta leitura." },
-  ].filter((item) => hasPrintVisualData(item.visual));
-  const hasPrintVisuals = printVisualItems.length > 0;
+  const hasThumbnail = hasPrintVisualData(thumbnail);
+  const hasLayerPreview = hasPrintVisualData(layerPreview);
+  const primaryPrintVisual = hasLayerPreview
+    ? { key: "layer", title: "Camada", visual: layerPreview, emptyText: "Sem prévia de camada nesta leitura." }
+    : hasThumbnail
+      ? { key: "thumbnail", title: "Peça", visual: thumbnail, emptyText: "Sem thumbnail do G-code." }
+      : null;
+  const sideThumbnail = hasLayerPreview && hasThumbnail ? { title: "Peça", visual: thumbnail, emptyText: "Sem thumbnail do G-code." } : null;
+  const hasPrintVisuals = Boolean(primaryPrintVisual);
   const liveUnavailable = operationStatus?.data_state === "offline";
   const operationNotice = liveUnavailable ? formatOperationNotice(operationStatus) : "";
   const selectedCapabilities = capabilityModalStatus ? capabilities.filter((capability) => capability.status === capabilityModalStatus) : [];
@@ -147,11 +151,9 @@ export function MonitoringDashboard({
             <h3>Impressão</h3>
           </div>
           <div className={`print-monitor-body${hasPrintVisuals ? "" : " is-compact"}`}>
-            {hasPrintVisuals ? (
-              <div className={`print-visual-grid count-${printVisualItems.length}`}>
-                {printVisualItems.map((item) => (
-                  <PrintVisual key={item.key} title={item.title} visual={item.visual} emptyText={item.emptyText} />
-                ))}
+            {primaryPrintVisual ? (
+              <div className={`print-primary-visual ${primaryPrintVisual.key === "thumbnail" ? "is-thumbnail-only" : ""}`}>
+                <PrintVisual title={primaryPrintVisual.title} visual={primaryPrintVisual.visual} emptyText={primaryPrintVisual.emptyText} />
               </div>
             ) : (
               <div className="print-compact-state">
@@ -163,6 +165,11 @@ export function MonitoringDashboard({
               </div>
             )}
             <div className="print-side-stack">
+              {sideThumbnail ? (
+                <div className="print-side-thumbnail">
+                  <PrintVisual title={sideThumbnail.title} visual={sideThumbnail.visual} emptyText={sideThumbnail.emptyText} />
+                </div>
+              ) : null}
               <div className="print-monitor-layout">
                 <RadialProgress value={operationStatus?.miscellaneous.progress ?? 0} label={progressLabel} />
                 <div className="monitor-facts print-monitor-facts">
