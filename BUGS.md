@@ -6,6 +6,26 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### KPIs Da Operacao Ficavam Encostados No Bloco De Baixo
+
+Sintoma:
+
+- na aba Operacao do detalhe da impressora, a faixa de KPIs ao vivo ficava colada no card de Temperaturas/Impressao.
+
+Causa:
+
+- o `display:grid` e o `gap` do dashboard estavam escopados apenas para `.section-monitoring`;
+- quando o mesmo componente abria dentro de `.section-printer-detail`, esse espaçamento nao era aplicado.
+
+Correção:
+
+- o layout base de `.monitoring-dashboard` passou a ser independente da seção ativa.
+
+Validação:
+
+- `npm --prefix frontend run build`;
+- `./check.sh`.
+
 ### Lista De Impressoras Bloqueava Acoes Por Loading Global
 
 Sintoma:
