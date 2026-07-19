@@ -120,27 +120,15 @@
   margin-top: 18px;
 }
 
-.monitor-primary-grid {
+.monitor-operation-layout {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
   gap: 14px;
-  align-items: stretch;
+  align-items: start;
 }
 
-.monitor-primary-side {
-  display: grid;
-  grid-template-rows: auto minmax(220px, 1fr);
-  gap: 14px;
+.monitor-operation-layout > * {
   min-width: 0;
-}
-
-@media (max-width: 920px) {
-  .monitor-primary-side {
-    grid-template-rows: auto;
-  }
-}
-
-.monitor-primary-side > * {
   min-height: 0;
 }
 
@@ -181,6 +169,17 @@
 .print-monitor-card {
   align-content: start;
   min-height: 0;
+}
+
+.operation-print-card {
+  grid-column: 1 / -1;
+}
+
+.print-monitor-body {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.25fr) minmax(320px, 0.75fr);
+  gap: 14px;
+  align-items: center;
 }
 
 .print-visual-grid {
@@ -647,8 +646,9 @@
 }
 
 @media (max-width: 920px) {
-  .monitor-primary-grid,
+  .monitor-operation-layout,
   .monitor-grid,
+  .print-monitor-body,
   .print-monitor-layout,
   .print-visual-grid {
     grid-template-columns: 1fr;
@@ -656,7 +656,7 @@
 
   .monitor-card,
   .monitor-card-wide,
-  .monitor-primary-side,
+  .operation-print-card,
   .temperature-monitor-card,
   .temperature-monitor {
     grid-column: auto;

@@ -132,28 +132,13 @@ export function MonitoringDashboard({
         </div>
       ) : null}
 
-      <div className="monitor-primary-grid">
-        <section className="monitor-card temperature-monitor-card">
+      <div className="monitor-operation-layout">
+        <section className="monitor-card print-monitor-card operation-print-card">
           <div className="monitor-card-title">
-            <Thermometer size={18} />
-            <h3>Temperaturas</h3>
+            <Gauge size={18} />
+            <h3>Impressão</h3>
           </div>
-          <TemperatureMonitor
-            temperatures={operationStatus?.temperatures ?? []}
-            series={temperatureSeries}
-            actions={actions}
-            loading={loading}
-            onParameterChange={onActionParameterChange}
-            onExecute={onExecuteAction}
-          />
-        </section>
-
-        <div className="monitor-primary-side">
-          <section className="monitor-card print-monitor-card">
-            <div className="monitor-card-title">
-              <Gauge size={18} />
-              <h3>Impressão</h3>
-            </div>
+          <div className="print-monitor-body">
             <div className="print-visual-grid">
               <PrintVisual title="Peça" visual={thumbnail} emptyText="Sem thumbnail do G-code." />
               <PrintVisual title="Camada" visual={layerPreview} emptyText="Sem prévia de camada nesta leitura." />
@@ -169,17 +154,32 @@ export function MonitoringDashboard({
                 ))}
               </div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          <MachinePanel
-            disabled={loading}
-            status={operationStatus}
-            setVelocityLimit={findAction("set_velocity_limit")}
-            currentValue={currentOperationValue}
-            onChange={onActionParameterChange}
-            onExecute={executeActionById}
+        <section className="monitor-card temperature-monitor-card">
+          <div className="monitor-card-title">
+            <Thermometer size={18} />
+            <h3>Temperaturas</h3>
+          </div>
+          <TemperatureMonitor
+            temperatures={operationStatus?.temperatures ?? []}
+            series={temperatureSeries}
+            actions={actions}
+            loading={loading}
+            onParameterChange={onActionParameterChange}
+            onExecute={onExecuteAction}
           />
-        </div>
+        </section>
+
+        <MachinePanel
+          disabled={loading}
+          status={operationStatus}
+          setVelocityLimit={findAction("set_velocity_limit")}
+          currentValue={currentOperationValue}
+          onChange={onActionParameterChange}
+          onExecute={executeActionById}
+        />
       </div>
 
       <div className="monitor-grid">
