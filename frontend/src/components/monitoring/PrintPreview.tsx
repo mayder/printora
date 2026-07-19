@@ -6,6 +6,8 @@ type Camera = {
   yaw: number;
   pitch: number;
   zoom: number;
+  panX: number;
+  panY: number;
 };
 
 type ProjectedPoint = {
@@ -17,10 +19,8 @@ type Drawing = {
   viewBox: string;
   gridPath: string;
   bedPath: string;
-  futureVolumePath: string;
   printedBodyPath: string;
   printedSkinPath: string;
-  futurePath: string;
   printedPath: string;
   currentSurfacePath: string;
   currentPaths: Record<SceneLineType, string>;
@@ -45,20 +45,22 @@ const SCENE_LINE_TYPE_BY_CODE: Record<number, SceneLineType> = {
 const EMPTY_LINE_PATHS = Object.fromEntries(SCENE_LINE_TYPES.map((type) => [type, ""])) as Record<SceneLineType, string>;
 
 const CAMERA_PRESETS = {
-  iso: { yaw: -42, pitch: 55, zoom: 1 },
-  top: { yaw: 0, pitch: 90, zoom: 1 },
-  front: { yaw: 0, pitch: 10, zoom: 1 },
-  right: { yaw: 90, pitch: 10, zoom: 1 },
+  iso: { yaw: -42, pitch: 55, zoom: 1, panX: 0, panY: 0 },
+  top: { yaw: 0, pitch: 90, zoom: 1, panX: 0, panY: 0 },
+  front: { yaw: 0, pitch: 10, zoom: 1, panX: 0, panY: 0 },
+  right: { yaw: 90, pitch: 10, zoom: 1, panX: 0, panY: 0 },
+  frontRight: { yaw: -42, pitch: 55, zoom: 1, panX: 0, panY: 0 },
+  frontLeft: { yaw: 42, pitch: 55, zoom: 1, panX: 0, panY: 0 },
+  backRight: { yaw: -138, pitch: 55, zoom: 1, panX: 0, panY: 0 },
+  backLeft: { yaw: 138, pitch: 55, zoom: 1, panX: 0, panY: 0 },
 } satisfies Record<string, Camera>;
 
 const EMPTY_DRAWING: Drawing = {
   viewBox: "-50 -50 100 100",
   gridPath: "",
   bedPath: "",
-  futureVolumePath: "",
   printedBodyPath: "",
   printedSkinPath: "",
-  futurePath: "",
   printedPath: "",
   currentSurfacePath: "",
   currentPaths: EMPTY_LINE_PATHS,
@@ -120,6 +122,7 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
 
   const setPreset = (preset: keyof typeof CAMERA_PRESETS) => setCamera(CAMERA_PRESETS[preset]);
   const zoomBy = (delta: number) => setCamera((value) => ({ ...value, zoom: clamp(value.zoom + delta, 0.65, 3.2) }));
+  const panBy = (axis: "panX" | "panY", value: number) => setCamera((cameraValue) => ({ ...cameraValue, [axis]: value }));
 
   return (
     <div className={`layer-scene-viewer${isComplete ? " is-complete" : ""}`}>
@@ -156,10 +159,8 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
       >
         <path className="layer-scene-grid" d={drawing.gridPath} />
         <path className="layer-scene-bed" d={drawing.bedPath} />
-        <path className="layer-scene-future-volume" d={drawing.futureVolumePath} />
         <path className="layer-scene-printed-body" d={drawing.printedBodyPath} />
         <path className="layer-scene-printed-skin" d={drawing.printedSkinPath} fillRule="evenodd" />
-        <path className="layer-scene-future" d={drawing.futurePath} />
         <path className="layer-scene-printed" d={drawing.printedPath} />
         <path className="layer-scene-current-surface" d={drawing.currentSurfacePath} fillRule="evenodd" />
         {SCENE_LINE_TYPES.map((type) =>
@@ -188,18 +189,17 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
           <Home size={14} />
         </button>
       </div>
-      <div className="layer-scene-presets" aria-label="Vistas da prévia">
-        <button type="button" onClick={() => setPreset("top")}>
-          Top
-        </button>
-        <button type="button" onClick={() => setPreset("front")}>
-          Front
-        </button>
-        <button type="button" onClick={() => setPreset("right")}>
-          Right
-        </button>
+      <div className="layer-scene-pan layer-scene-pan-x">
+        <input type="range" min="-90" max="90" value={camera.panX} aria-label="Mover prévia na horizontal" onChange={(event) => panBy("panX", Number(event.target.value))} />
+      </div>
+      <div className="layer-scene-pan layer-scene-pan-y">
+        <input type="range" min="-90" max="90" value={camera.panY} aria-label="Mover prévia na vertical" onChange={(event) => panBy("panY", Number(event.target.value))} />
       </div>
       <div className="layer-nav-cube" aria-label="Navegador 3D">
+        <button type="button" className="cube-corner front-right" title="Vista canto frontal direito" aria-label="Vista canto frontal direito" onClick={() => setPreset("frontRight")} />
+        <button type="button" className="cube-corner front-left" title="Vista canto frontal esquerdo" aria-label="Vista canto frontal esquerdo" onClick={() => setPreset("frontLeft")} />
+        <button type="button" className="cube-corner back-right" title="Vista canto traseiro direito" aria-label="Vista canto traseiro direito" onClick={() => setPreset("backRight")} />
+        <button type="button" className="cube-corner back-left" title="Vista canto traseiro esquerdo" aria-label="Vista canto traseiro esquerdo" onClick={() => setPreset("backLeft")} />
         <button type="button" className="cube-face top" onClick={() => setPreset("top")}>
           Top
         </button>
@@ -220,29 +220,26 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
 function buildDrawing(scene: OperationPrintScene, camera: Camera): Drawing {
   const printed = normalizeSegments(scene.printed);
   const current = normalizeSegments(scene.current);
-  const future = normalizeSegments(scene.future);
   const built = [...printed, ...current].filter(isModelSegment);
+  const builtWalls = built.filter(isWallSegment);
   const currentSurface = current.filter(isSurfaceSegment);
-  const printedSkin = latestLayerSegments(built.filter(isWallSegment));
-  const futureShape = latestLayerSegments(future.filter(isModelSegment));
+  const printedSkin = latestLayerSegments(builtWalls);
   const bed = expandBed(normalizeBed(scene.bed, [...printed, ...current]));
   const grid = gridSegments(bed);
   const center = { x: (bed[0] + bed[2]) / 2, y: (bed[1] + bed[3]) / 2 };
   const project = (x: number, y: number, z: number) => projectPoint(x - center.x, y - center.y, z, camera);
-  const projectedSegments = [...grid, ...bedBorderSegments(bed), ...printed, ...current, ...futureShape].flatMap((segment) => [project(segment[0], segment[1], segment[2]), project(segment[3], segment[4], segment[5])]);
+  const projectedSegments = [...grid, ...bedBorderSegments(bed), ...printed, ...current].flatMap((segment) => [project(segment[0], segment[1], segment[2]), project(segment[3], segment[4], segment[5])]);
   const bounds = drawingBounds(projectedSegments);
-  const viewBox = zoomedViewBox(bounds, camera.zoom);
+  const viewBox = zoomedViewBox(bounds, camera);
 
   return {
     viewBox,
     gridPath: pathForSegments(grid, project),
     bedPath: pathForSegments(bedBorderSegments(bed), project),
-    futureVolumePath: closedContourPath(futureShape, project) || hullPathForSegments(futureShape, project),
-    printedBodyPath: hullPathForSegments(built, project),
-    printedSkinPath: closedContourPath(printedSkin, project) || hullPathForSegments(printedSkin, project),
-    futurePath: pathForSegments(future, project),
-    printedPath: pathForSegments(printed, project),
-    currentSurfacePath: closedContourPath(currentSurface, project) || hullPathForSegments(currentSurface, project),
+    printedBodyPath: layeredContourPath(builtWalls, project),
+    printedSkinPath: closedContourPath(printedSkin, project),
+    printedPath: pathForSegments(builtWalls, project),
+    currentSurfacePath: closedContourPath(currentSurface, project),
     currentPaths: pathsByLineType(current, project),
     axis: axisLines(project, bed),
   };
@@ -309,24 +306,34 @@ function pathForSegments(segments: OperationPrintSceneSegment[], project: (x: nu
     .join("");
 }
 
-function hullPathForSegments(segments: OperationPrintSceneSegment[], project: (x: number, y: number, z: number) => ProjectedPoint) {
-  return pathForPolygon(convexHull(projectedPointsForSegments(segments, project)));
-}
-
-function projectedPointsForSegments(segments: OperationPrintSceneSegment[], project: (x: number, y: number, z: number) => ProjectedPoint) {
-  const unique = new Map<string, ProjectedPoint>();
-  segments.forEach((segment) => {
-    [project(segment[0], segment[1], segment[2]), project(segment[3], segment[4], segment[5])].forEach((point) => {
-      unique.set(`${point.x.toFixed(1)}:${point.y.toFixed(1)}`, point);
-    });
-  });
-  return Array.from(unique.values());
-}
-
 function latestLayerSegments(segments: OperationPrintSceneSegment[]) {
   if (!segments.length) return [];
   const maxZ = Math.max(...segments.map(segmentZ));
   return segments.filter((segment) => Math.abs(segmentZ(segment) - maxZ) <= 0.06);
+}
+
+function layeredContourPath(segments: OperationPrintSceneSegment[], project: (x: number, y: number, z: number) => ProjectedPoint) {
+  const layers = groupSegmentsByLayer(segments);
+  if (!layers.length) return "";
+  const step = Math.max(1, Math.ceil(layers.length / 64));
+  return layers
+    .filter((_, index) => index % step === 0 || index === layers.length - 1)
+    .map((layer) => closedContourPath(layer, project))
+    .filter(Boolean)
+    .join("");
+}
+
+function groupSegmentsByLayer(segments: OperationPrintSceneSegment[]) {
+  const grouped = new Map<string, OperationPrintSceneSegment[]>();
+  segments.forEach((segment) => {
+    const key = segmentZ(segment).toFixed(2);
+    const layer = grouped.get(key) ?? [];
+    layer.push(segment);
+    grouped.set(key, layer);
+  });
+  return Array.from(grouped.entries())
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([, layer]) => layer);
 }
 
 function segmentZ(segment: OperationPrintSceneSegment) {
@@ -356,33 +363,6 @@ function closedSegmentPath(segments: OperationPrintSceneSegment[], project: (x: 
   const start = project(first[0], first[1], first[2]);
   const points = segments.map((segment) => project(segment[3], segment[4], segment[5]));
   return `M${formatCoord(start.x)} ${formatCoord(start.y)}${points.map((point) => `L${formatCoord(point.x)} ${formatCoord(point.y)}`).join("")}Z`;
-}
-
-function pathForPolygon(points: ProjectedPoint[]) {
-  if (points.length < 3) return "";
-  const [first, ...rest] = points;
-  return `M${formatCoord(first.x)} ${formatCoord(first.y)}${rest.map((point) => `L${formatCoord(point.x)} ${formatCoord(point.y)}`).join("")}Z`;
-}
-
-function convexHull(points: ProjectedPoint[]) {
-  if (points.length < 3) return [];
-  const sorted = [...points].sort((a, b) => (a.x === b.x ? a.y - b.y : a.x - b.x));
-  const lower: ProjectedPoint[] = [];
-  const upper: ProjectedPoint[] = [];
-  sorted.forEach((point) => pushHullPoint(lower, point));
-  [...sorted].reverse().forEach((point) => pushHullPoint(upper, point));
-  return lower.slice(0, -1).concat(upper.slice(0, -1));
-}
-
-function pushHullPoint(hull: ProjectedPoint[], point: ProjectedPoint) {
-  while (hull.length >= 2 && cross(hull[hull.length - 2], hull[hull.length - 1], point) <= 0) {
-    hull.pop();
-  }
-  hull.push(point);
-}
-
-function cross(origin: ProjectedPoint, a: ProjectedPoint, b: ProjectedPoint) {
-  return (a.x - origin.x) * (b.y - origin.y) - (a.y - origin.y) * (b.x - origin.x);
 }
 
 function pathsByLineType(segments: OperationPrintSceneSegment[], project: (x: number, y: number, z: number) => ProjectedPoint) {
@@ -430,14 +410,14 @@ function drawingBounds(points: ProjectedPoint[]) {
   );
 }
 
-function zoomedViewBox(bounds: { minX: number; minY: number; maxX: number; maxY: number }, zoom: number) {
+function zoomedViewBox(bounds: { minX: number; minY: number; maxX: number; maxY: number }, camera: Camera) {
   const rawWidth = Math.max(20, bounds.maxX - bounds.minX);
   const rawHeight = Math.max(20, bounds.maxY - bounds.minY);
   const padding = Math.max(8, Math.max(rawWidth, rawHeight) * 0.08);
-  const width = (rawWidth + padding * 2) / zoom;
-  const height = (rawHeight + padding * 2) / zoom;
-  const centerX = (bounds.minX + bounds.maxX) / 2;
-  const centerY = (bounds.minY + bounds.maxY) / 2;
+  const width = (rawWidth + padding * 2) / camera.zoom;
+  const height = (rawHeight + padding * 2) / camera.zoom;
+  const centerX = (bounds.minX + bounds.maxX) / 2 - camera.panX;
+  const centerY = (bounds.minY + bounds.maxY) / 2 - camera.panY;
   return `${formatCoord(centerX - width / 2)} ${formatCoord(centerY - height / 2)} ${formatCoord(width)} ${formatCoord(height)}`;
 }
 

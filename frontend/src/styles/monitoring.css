@@ -530,10 +530,8 @@
 
 .layer-scene-grid,
 .layer-scene-bed,
-.layer-scene-future-volume,
 .layer-scene-printed-body,
 .layer-scene-printed-skin,
-.layer-scene-future,
 .layer-scene-printed,
 .layer-scene-current-surface,
 .layer-scene-current {
@@ -543,7 +541,6 @@
 
 .layer-scene-grid,
 .layer-scene-bed,
-.layer-scene-future,
 .layer-scene-printed,
 .layer-scene-current {
   fill: none;
@@ -561,33 +558,21 @@
   vector-effect: non-scaling-stroke;
 }
 
-.layer-scene-future-volume {
-  fill: rgb(20 184 166 / 0.12);
-  stroke: rgb(20 184 166 / 0.2);
-  stroke-width: 0.7;
-}
-
 .layer-scene-printed-body {
-  fill: rgb(249 115 22 / 0.46);
-  stroke: rgb(251 146 60 / 0.5);
-  stroke-width: 0.85;
+  fill: rgb(249 115 22 / 0.12);
+  stroke: rgb(251 146 60 / 0.22);
+  stroke-width: 0.55;
 }
 
 .layer-scene-printed-skin {
-  fill: rgb(249 115 22 / 0.24);
-  stroke: rgb(250 204 21 / 0.62);
-  stroke-width: 0.8;
-}
-
-.layer-scene-future {
-  stroke: rgb(20 184 166 / 0.028);
-  stroke-dasharray: 2.4 4.8;
-  stroke-width: 0.42;
+  fill: rgb(249 115 22 / 0.18);
+  stroke: rgb(250 204 21 / 0.76);
+  stroke-width: 0.9;
 }
 
 .layer-scene-printed {
-  stroke: rgb(15 118 110 / 0.18);
-  stroke-width: 0.42;
+  stroke: rgb(249 115 22 / 0.2);
+  stroke-width: 0.5;
 }
 
 .layer-scene-viewer.is-complete .layer-scene-printed {
@@ -673,9 +658,12 @@
 }
 
 .layer-scene-toolbar,
-.layer-scene-presets {
+.layer-scene-pan {
   position: absolute;
   z-index: 2;
+}
+
+.layer-scene-toolbar {
   display: inline-flex;
   gap: 6px;
 }
@@ -702,22 +690,49 @@
   color: var(--accent);
 }
 
-.layer-scene-presets {
-  top: 42px;
-  right: 12px;
-  max-width: calc(100% - 24px);
-  flex-wrap: wrap;
-  justify-content: flex-end;
+.layer-scene-pan {
+  display: grid;
+  align-items: center;
+  border: 1px solid rgb(34 211 238 / 0.12);
+  border-radius: 999px;
+  background: rgb(15 23 42 / 0.42);
+  padding: 3px;
+  opacity: 0.72;
+  backdrop-filter: blur(5px);
 }
 
-.layer-scene-presets button {
-  border: 1px solid rgb(148 163 184 / 0.22);
-  border-radius: 6px;
-  background: rgb(15 23 42 / 0.72);
-  color: var(--text);
-  padding: 4px 7px;
-  font-size: 0.72rem;
-  font-weight: 800;
+.layer-scene-pan:focus-within,
+.layer-scene-pan:hover {
+  opacity: 1;
+}
+
+.layer-scene-pan input {
+  accent-color: var(--accent);
+}
+
+.layer-scene-pan-x {
+  left: 118px;
+  right: 222px;
+  bottom: 15px;
+}
+
+.layer-scene-pan-x input {
+  width: 100%;
+}
+
+.layer-scene-pan-y {
+  top: 58px;
+  right: 13px;
+  bottom: 64px;
+  width: 25px;
+  justify-items: center;
+}
+
+.layer-scene-pan-y input {
+  width: 22px;
+  height: 100%;
+  writing-mode: vertical-lr;
+  direction: rtl;
 }
 
 .layer-nav-cube {
@@ -725,8 +740,8 @@
   left: 16px;
   bottom: 16px;
   z-index: 2;
-  width: 86px;
-  height: 82px;
+  width: 92px;
+  height: 88px;
   color: var(--text);
 }
 
@@ -743,27 +758,65 @@
 }
 
 .cube-face.top {
-  left: 25px;
+  left: 28px;
   top: 4px;
-  width: 40px;
-  height: 33px;
-  transform: skewX(-32deg);
+  width: 42px;
+  height: 34px;
+  transform: skewX(-30deg);
 }
 
 .cube-face.front {
-  left: 18px;
-  top: 35px;
-  width: 36px;
-  height: 33px;
+  left: 19px;
+  top: 37px;
+  width: 38px;
+  height: 34px;
   transform: skewY(25deg);
 }
 
 .cube-face.right {
-  left: 52px;
-  top: 32px;
-  width: 32px;
-  height: 34px;
+  left: 55px;
+  top: 34px;
+  width: 34px;
+  height: 35px;
   transform: skewY(-25deg);
+}
+
+.cube-corner {
+  position: absolute;
+  z-index: 3;
+  width: 13px;
+  height: 13px;
+  border: 1px solid rgb(34 211 238 / 0.26);
+  border-radius: 999px;
+  background: rgb(34 211 238 / 0.18);
+  color: transparent;
+  padding: 0;
+}
+
+.cube-corner:hover,
+.cube-corner:focus-visible {
+  border-color: rgb(34 211 238 / 0.75);
+  background: rgb(34 211 238 / 0.44);
+}
+
+.cube-corner.front-right {
+  left: 63px;
+  top: 36px;
+}
+
+.cube-corner.front-left {
+  left: 25px;
+  top: 38px;
+}
+
+.cube-corner.back-right {
+  left: 69px;
+  top: 8px;
+}
+
+.cube-corner.back-left {
+  left: 31px;
+  top: 8px;
 }
 
 .cube-axis {
@@ -1183,6 +1236,15 @@
   .layer-scene-tile {
     height: clamp(320px, 48vh, 520px);
     max-height: 520px;
+  }
+
+  .layer-scene-pan-x {
+    right: 84px;
+    bottom: 52px;
+  }
+
+  .layer-scene-pan-y {
+    display: none;
   }
 }
 
