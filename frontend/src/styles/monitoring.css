@@ -379,9 +379,9 @@
 
 .layer-scene-tile {
   aspect-ratio: auto;
-  height: clamp(380px, 46vh, 620px);
-  min-height: 380px;
-  max-height: 620px;
+  height: clamp(420px, 58vh, 720px);
+  min-height: 420px;
+  max-height: 720px;
 }
 
 .print-visual-image {
