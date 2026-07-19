@@ -36,12 +36,14 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 3px 8px;
+  align-content: center;
   align-items: center;
+  min-height: 46px;
   border: 1px solid var(--border-soft);
   border-left: 3px solid var(--accent);
   border-radius: 8px;
   background: var(--surface-3);
-  padding: 10px;
+  padding: 11px 12px 12px;
 }
 
 .monitor-badge svg {
@@ -53,6 +55,7 @@
   color: var(--muted);
   font-size: 0.74rem;
   font-weight: 800;
+  line-height: 1;
   text-transform: uppercase;
 }
 
@@ -60,6 +63,7 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.15;
   white-space: nowrap;
 }
 
