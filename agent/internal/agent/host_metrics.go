@@ -12,12 +12,12 @@ import (
 )
 
 const hostMetricsInterval = 5 * time.Minute
-const hostMetricsCPUSampleWindow = 200 * time.Millisecond
 
 type hostMetricsCache struct {
 	collectedAt time.Time
 	payload     map[string]any
 	network     networkCounters
+	processes   map[int]processSample
 }
 
 type processSample struct {
@@ -31,13 +31,14 @@ type processSample struct {
 }
 
 type serviceMetric struct {
-	name        string
-	command     string
-	pids        int
-	cpuPercent  float64
-	rssBytes    uint64
-	vszBytes    uint64
-	networkNote string
+	name         string
+	command      string
+	pids         int
+	cpuPercent   float64
+	cpuAvailable bool
+	rssBytes     uint64
+	vszBytes     uint64
+	networkNote  string
 }
 
 type networkCounters struct {
@@ -56,20 +57,22 @@ func (r *Runner) CachedHostMetrics(ctx context.Context) map[string]any {
 	if r.metrics.payload != nil && time.Since(r.metrics.collectedAt) < hostMetricsInterval {
 		return r.metrics.payload
 	}
-	payload, network := collectHostMetrics(ctx, r.metrics.network, r.metrics.collectedAt)
+	payload, network, processes := collectHostMetrics(ctx, r.metrics.processes, r.metrics.network, r.metrics.collectedAt)
 	r.metrics.collectedAt = time.Now().UTC()
 	r.metrics.payload = payload
 	r.metrics.network = network
+	r.metrics.processes = processes
 	return payload
 }
 
-func collectHostMetrics(ctx context.Context, previousNetwork networkCounters, previousAt time.Time) (map[string]any, networkCounters) {
-	first := sampleProcesses()
-	select {
-	case <-ctx.Done():
-	case <-time.After(hostMetricsCPUSampleWindow):
+func collectHostMetrics(ctx context.Context, previousProcesses map[int]processSample, previousNetwork networkCounters, previousAt time.Time) (map[string]any, networkCounters, map[int]processSample) {
+	if ctx.Err() != nil {
+		return map[string]any{
+			"safe_mode": "host_metrics_current",
+			"status":    "cancelled",
+		}, previousNetwork, previousProcesses
 	}
-	second := sampleProcesses()
+	processes := sampleProcesses()
 	network := readNetworkCounters()
 	payload := map[string]any{
 		"safe_mode":        "host_metrics_current",
@@ -78,9 +81,9 @@ func collectHostMetrics(ctx context.Context, previousNetwork networkCounters, pr
 		"interval_seconds": int(hostMetricsInterval.Seconds()),
 		"host":             readHostMemory(),
 		"network":          networkPayload(network, previousNetwork, previousAt),
-		"services":         serviceMetricsPayload(first, second),
+		"services":         serviceMetricsPayload(previousProcesses, processes),
 	}
-	return sanitizeMap(payload), network
+	return sanitizeMap(payload), network, processes
 }
 
 func sampleProcesses() map[int]processSample {
@@ -139,6 +142,7 @@ func serviceMetricsPayload(first map[int]processSample, second map[int]processSa
 		cpuDelta := float64(current.cpuTicks - previous.cpuTicks)
 		totalDelta := float64(current.totalTick - previous.totalTick)
 		item.cpuPercent += (cpuDelta / totalDelta) * float64(runtime.NumCPU()) * 100
+		item.cpuAvailable = true
 	}
 	order := []string{"printora-agent", "moonraker", "klipper", "crowsnest", "mainsail/nginx", "spoolman", "klipperscreen"}
 	var services []any
@@ -158,15 +162,20 @@ func serviceMetricsPayload(first map[int]processSample, second map[int]processSa
 }
 
 func serviceMetricMap(item *serviceMetric) map[string]any {
-	return map[string]any{
+	payload := map[string]any{
 		"name":         item.name,
 		"command":      item.command,
 		"pid_count":    item.pids,
-		"cpu_percent":  roundMetric(item.cpuPercent),
 		"rss_bytes":    item.rssBytes,
 		"vsz_bytes":    item.vszBytes,
 		"network_note": item.networkNote,
 	}
+	if item.cpuAvailable {
+		payload["cpu_percent"] = roundMetric(item.cpuPercent)
+	} else {
+		payload["cpu_percent"] = nil
+	}
+	return payload
 }
 
 func classifyService(command string) string {

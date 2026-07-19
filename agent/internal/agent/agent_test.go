@@ -68,6 +68,51 @@ func TestHostMetricsClassifiesKnownKlipperServices(t *testing.T) {
 	}
 }
 
+func TestHostMetricsCPUUsesPreviousCachedSample(t *testing.T) {
+	previous := map[int]processSample{
+		100: {
+			pid:       100,
+			service:   "printora-agent",
+			command:   "/usr/local/bin/printora-agent -config /etc/printora-agent/config.json",
+			cpuTicks:  10,
+			totalTick: 1000,
+		},
+	}
+	current := map[int]processSample{
+		100: {
+			pid:       100,
+			service:   "printora-agent",
+			command:   "/usr/local/bin/printora-agent -config /etc/printora-agent/config.json",
+			cpuTicks:  20,
+			rssBytes:  12 * 1024 * 1024,
+			vszBytes:  1200 * 1024 * 1024,
+			totalTick: 1100,
+		},
+	}
+
+	services := serviceMetricsPayload(previous, current)
+	if len(services) != 1 {
+		t.Fatalf("expected one service metric, got %#v", services)
+	}
+	metric, ok := services[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected metric type: %#v", services[0])
+	}
+	expectedCPU := roundMetric((float64(20-10) / float64(1100-1000)) * float64(runtime.NumCPU()) * 100)
+	if metric["cpu_percent"] != expectedCPU {
+		t.Fatalf("unexpected cpu percent: %#v, expected %#v", metric["cpu_percent"], expectedCPU)
+	}
+	if metric["rss_bytes"] != uint64(12*1024*1024) {
+		t.Fatalf("unexpected rss: %#v", metric["rss_bytes"])
+	}
+
+	warmupServices := serviceMetricsPayload(nil, current)
+	warmupMetric := warmupServices[0].(map[string]any)
+	if warmupMetric["cpu_percent"] != nil {
+		t.Fatalf("warmup sample should not synthesize cpu usage: %#v", warmupMetric["cpu_percent"])
+	}
+}
+
 func TestRunnerCapabilitiesIncludeCachedHostMetrics(t *testing.T) {
 	runner := &Runner{Config: DefaultConfig(), startedAt: time.Now()}
 	capabilities := runner.capabilities(context.Background(), false)

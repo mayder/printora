@@ -6,6 +6,29 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Metrica De CPU Do Agente Inflava Consumo
+
+Sintoma:
+
+- a tela de detalhe do agente podia mostrar `printora-agent` consumindo CPU alto em idle, como ~9%, enquanto Moonraker/Klipper apareciam zerados.
+
+Causa:
+
+- o coletor calculava CPU com duas leituras de `/proc` em uma janela curta de 200 ms;
+- em Raspberry, o trabalho da própria coleta podia entrar nessa janela e inflar o percentual do processo `printora-agent`.
+
+Correção:
+
+- a coleta passa a guardar a amostra anterior de processos e calcular CPU pelo delta real entre snapshots cacheados;
+- a pausa artificial de 200 ms foi removida;
+- a primeira coleta não sintetiza percentual de CPU quando ainda não há amostra anterior.
+
+Validação:
+
+- `cd agent && go test ./...`;
+- `npm --prefix frontend run build`;
+- `./check.sh`.
+
 ### Social Travava E Sessao Piscava Login
 
 Sintoma:

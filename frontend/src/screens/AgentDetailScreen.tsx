@@ -569,7 +569,9 @@ function formatNetworkRate(value: number | null) {
 
 function sumServiceCpu(services: HostMetricsSnapshot["services"]) {
   if (!services.length) return null;
-  return services.reduce((total, service) => total + (service.cpuPercent ?? 0), 0);
+  const measured = services.filter((service) => service.cpuPercent != null);
+  if (!measured.length) return null;
+  return measured.reduce((total, service) => total + (service.cpuPercent ?? 0), 0);
 }
 
 function findPrintoraService(services: HostMetricsSnapshot["services"]) {
