@@ -186,7 +186,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 0.31fr);
   gap: 14px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .print-monitor-body.is-compact {
@@ -196,15 +196,18 @@
 
 .print-side-stack {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto;
   gap: 12px;
-  align-content: stretch;
-  height: 100%;
+  align-content: start;
+  align-self: start;
+  height: auto;
   min-width: 0;
 }
 
 .print-primary-visual {
   min-width: 0;
+  min-height: 0;
+  align-self: start;
 }
 
 .print-primary-visual.is-thumbnail-only {
@@ -373,8 +376,9 @@
 
 .layer-scene-tile {
   aspect-ratio: auto;
-  height: 100%;
-  min-height: 520px;
+  height: clamp(380px, 46vh, 620px);
+  min-height: 380px;
+  max-height: 620px;
 }
 
 .print-visual-image {
@@ -501,7 +505,8 @@
   position: relative;
   display: grid;
   min-width: 0;
-  min-height: 100%;
+  min-height: 0;
+  height: 100%;
   isolation: isolate;
   background:
     radial-gradient(circle at 50% 42%, rgb(34 211 238 / 0.08), transparent 34%),
@@ -511,7 +516,7 @@
 .layer-scene-viewer svg {
   width: 100%;
   height: 100%;
-  min-height: 300px;
+  min-height: 0;
   cursor: grab;
   touch-action: none;
 }
@@ -527,7 +532,6 @@
 .layer-scene-current {
   stroke-linecap: round;
   stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
 }
 
 .layer-scene-grid,
@@ -541,79 +545,81 @@
 .layer-scene-grid {
   stroke: rgb(148 163 184 / 0.13);
   stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
 
 .layer-scene-bed {
   stroke: rgb(148 163 184 / 0.42);
   stroke-width: 1.45;
+  vector-effect: non-scaling-stroke;
 }
 
 .layer-scene-future {
-  stroke: rgb(20 184 166 / 0.12);
+  stroke: rgb(20 184 166 / 0.045);
   stroke-dasharray: 2.4 4.8;
-  stroke-width: 0.78;
+  stroke-width: 0.55;
 }
 
 .layer-scene-printed {
-  stroke: rgb(20 184 166 / 0.2);
-  stroke-width: 1.02;
+  stroke: rgb(20 184 166 / 0.18);
+  stroke-width: 0.72;
 }
 
 .layer-scene-viewer.is-complete .layer-scene-printed {
-  stroke: rgb(20 184 166 / 0.46);
-  stroke-width: 1.22;
+  stroke: rgb(20 184 166 / 0.34);
+  stroke-width: 0.82;
 }
 
 .layer-scene-current {
   stroke: #22d3ee;
-  stroke-width: 2.2;
+  stroke-width: 0.9;
   filter: drop-shadow(0 0 2px rgb(34 211 238 / 0.42));
 }
 
 .layer-scene-current.outer-wall {
   stroke: #facc15;
-  stroke-width: 3.15;
+  stroke-width: 1.15;
   filter: drop-shadow(0 0 2px rgb(250 204 21 / 0.36));
 }
 
 .layer-scene-current.inner-wall {
   stroke: #fb923c;
-  stroke-width: 2.75;
+  stroke-width: 1;
   filter: drop-shadow(0 0 2px rgb(251 146 60 / 0.26));
 }
 
 .layer-scene-current.sparse-infill {
   stroke: #ef4444;
-  stroke-width: 2.15;
+  stroke-width: 0.72;
   filter: drop-shadow(0 0 2px rgb(239 68 68 / 0.28));
 }
 
 .layer-scene-current.solid-infill {
   stroke: #a78bfa;
-  stroke-width: 2.25;
+  stroke-width: 0.86;
   filter: drop-shadow(0 0 2px rgb(167 139 250 / 0.3));
 }
 
 .layer-scene-current.top-surface {
   stroke: #f472b6;
-  stroke-width: 2.25;
+  stroke-width: 0.86;
   filter: drop-shadow(0 0 2px rgb(244 114 182 / 0.32));
 }
 
 .layer-scene-current.support {
   stroke: #60a5fa;
-  stroke-width: 2;
+  stroke-width: 0.72;
   filter: drop-shadow(0 0 2px rgb(96 165 250 / 0.28));
 }
 
 .layer-scene-current.skirt {
   stroke: #14b8a6;
-  stroke-width: 2.35;
+  stroke-width: 0.95;
 }
 
 .layer-scene-current.bridge {
   stroke: #f97316;
-  stroke-width: 2.35;
+  stroke-width: 0.95;
   filter: drop-shadow(0 0 2px rgb(249 115 22 / 0.32));
 }
 
@@ -1112,6 +1118,7 @@
 
   .print-side-stack {
     grid-template-columns: repeat(2, minmax(260px, 1fr));
+    grid-template-rows: auto;
     align-items: start;
   }
 
@@ -1139,6 +1146,11 @@
   .layer-scene-tile,
   .layer-scene-viewer svg {
     min-height: 260px;
+  }
+
+  .layer-scene-tile {
+    height: clamp(320px, 48vh, 520px);
+    max-height: 520px;
   }
 }
 
@@ -1193,5 +1205,24 @@
     width: 100%;
     min-width: 0;
     justify-self: stretch;
+  }
+
+  .layer-scene-tile {
+    height: min(420px, 62vh);
+    min-height: 280px;
+    max-height: 420px;
+  }
+
+  .layer-scene-toolbar {
+    right: 8px;
+    bottom: 8px;
+    max-width: 150px;
+  }
+
+  .layer-nav-cube {
+    left: 10px;
+    bottom: 10px;
+    transform: scale(0.86);
+    transform-origin: left bottom;
   }
 }

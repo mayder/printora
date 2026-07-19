@@ -209,11 +209,11 @@ function buildDrawing(scene: OperationPrintScene, camera: Camera): Drawing {
   const printed = normalizeSegments(scene.printed);
   const current = normalizeSegments(scene.current);
   const future = normalizeSegments(scene.future);
-  const bed = expandBed(normalizeBed(scene.bed, [...printed, ...current, ...future]));
+  const bed = expandBed(normalizeBed(scene.bed, [...printed, ...current]));
   const grid = gridSegments(bed);
   const center = { x: (bed[0] + bed[2]) / 2, y: (bed[1] + bed[3]) / 2 };
   const project = (x: number, y: number, z: number) => projectPoint(x - center.x, y - center.y, z, camera);
-  const projectedSegments = [...grid, ...bedBorderSegments(bed), ...printed, ...current, ...future].flatMap((segment) => [project(segment[0], segment[1], segment[2]), project(segment[3], segment[4], segment[5])]);
+  const projectedSegments = [...grid, ...bedBorderSegments(bed), ...printed, ...current].flatMap((segment) => [project(segment[0], segment[1], segment[2]), project(segment[3], segment[4], segment[5])]);
   const bounds = drawingBounds(projectedSegments);
   const viewBox = zoomedViewBox(bounds, camera.zoom);
 
