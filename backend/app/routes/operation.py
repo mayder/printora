@@ -13,6 +13,9 @@ from app.routes.auth import require_current_user
 
 router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
 
+OPERATION_STATUS_TIMEOUT_SECONDS = 25.0
+OPERATION_PREFLIGHT_TIMEOUT_SECONDS = 12.0
+
 
 @router.get("/api/printers/{printer_id}/operation/status")
 async def printer_operation_status(printer_id: int) -> dict[str, Any]:
@@ -28,7 +31,7 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
         job = await AgentCommandExecutor(settings.database_path).run(
             printer,
             job_type="remote_operation_status",
-            timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+            timeout_seconds=_operation_status_timeout(settings),
         )
         printer_info, server_info, system_info, proc_stats, objects, history_totals, file_metadata = operation_payload(job.result)
     except HTTPException as exc:
@@ -41,7 +44,7 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
                 "agent": _agent_operation_status(settings, printer.id),
                 **operation,
             }
-        operation = build_unreachable_operation(printer.moonraker_url, str(exc))
+        operation = build_unreachable_operation(printer.moonraker_url, _http_exception_detail(exc))
         return {"printer_id": printer.id, "agent": _agent_operation_status(settings, printer.id), **operation}
 
     operation = build_operation_status(
@@ -219,12 +222,12 @@ async def _build_agent_operation_action_preview(settings, printer, action_id: st
         printer,
         job_type="remote_gcode_preflight",
         payload={"action_id": action_id, "parameters": parameters, "criticality": "preview"},
-        timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        timeout_seconds=max(settings.request_timeout_seconds, OPERATION_PREFLIGHT_TIMEOUT_SECONDS),
     )
     status_job = await executor.run(
         printer,
         job_type="remote_operation_status",
-        timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        timeout_seconds=_operation_status_timeout(settings),
     )
     _printer_info, _server_info, _system_info, _proc_stats, objects, _history, _file_metadata = operation_payload(status_job.result)
     try:
@@ -255,7 +258,7 @@ async def _execute_operation_preview_via_agent(
             "criticality": "operation",
             "command_preview": preview.command_preview,
         },
-        timeout_seconds=max(settings.request_timeout_seconds, 10.0),
+        timeout_seconds=max(settings.request_timeout_seconds, OPERATION_PREFLIGHT_TIMEOUT_SECONDS),
     )
     preflight = agent_preflight_payload(preflight_job.result)
     confirmation_matched = confirmation_phrase.strip() == str(preview.payload.get("confirmation_phrase") or "")
@@ -362,6 +365,17 @@ def _string_value(value) -> str:
         if isinstance(error, str) and error.strip():
             return error.strip()
     return str(value).strip()
+
+
+def _operation_status_timeout(settings) -> float:
+    return max(settings.request_timeout_seconds, OPERATION_STATUS_TIMEOUT_SECONDS)
+
+
+def _http_exception_detail(exc: HTTPException) -> str:
+    detail = exc.detail
+    if isinstance(detail, str):
+        return detail
+    return str(detail)
 
 
 def _nested_string(value, *keys: str) -> str:

@@ -6,6 +6,31 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Timeout Da Operacao Parecia Instantaneo
+
+Sintoma:
+
+- a aba Operacao podia mostrar indisponibilidade/timeout muito rapido depois de atualizar;
+- quando o WebSocket do agente nao confirmava entrega, a leitura ficava dependente do polling de 10s do agente e podia estourar a janela de 10s da rota;
+- falhas rapidas do job do agente ficavam visualmente parecidas com timeout real.
+
+Causa:
+
+- o executor do agente ignorava se o job foi entregue por WebSocket ou ficou apenas enfileirado para polling;
+- a rota de Operacao usava a mesma janela curta de leituras simples, mesmo depois de incluir metadata e previsualizacao de G-code;
+- a tela recebia mensagens derivadas de `HTTPException` sem contexto suficiente do estado do job.
+
+Correção:
+
+- o executor agora diferencia timeout com job pendente, polling sem entrega via WebSocket e job em andamento;
+- a rota de Operacao usa janela maior para `remote_operation_status`, cobrindo polling + leitura pesada;
+- mensagens de indisponibilidade foram sanitizadas para explicar o estado sem expor `504` bruto.
+
+Validação:
+
+- `cd backend && uv run --extra dev pytest tests/test_operation.py -q`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### Operacao Offline Mostrava Timeout Cru E Paineis Vazios Grandes
 
 Sintoma:

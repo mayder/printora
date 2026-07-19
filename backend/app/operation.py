@@ -110,7 +110,14 @@ def _unreachable_error_message(error: str) -> str:
     message = str(error or "").strip()
     if message[:3].isdigit() and ":" in message[:5]:
         message = message.split(":", 1)[1].strip()
-    if "timeout aguardando resposta do agente" in message.lower():
+    lower = message.lower()
+    if "ficou enfileirado para polling" in lower:
+        return "Agente online por heartbeat, mas sem confirmação do canal remoto nesta leitura. O job ficou enfileirado para polling."
+    if "aguardando o agente iniciar" in lower:
+        return "Agente sem confirmação de início nesta leitura. Atualize novamente quando o canal remoto responder."
+    if "aguardando o agente concluir" in lower:
+        return "Agente iniciou a leitura, mas não concluiu dentro da janela desta atualização."
+    if "timeout aguardando resposta do agente" in lower:
         return "Agente sem resposta nesta leitura. Atualize novamente quando o serviço voltar a responder."
     return message or "Sem leitura ao vivo do agente ou Moonraker."
 

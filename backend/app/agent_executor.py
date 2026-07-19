@@ -48,10 +48,10 @@ class AgentCommandExecutor:
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        await agent_ws_manager.push_job(job)
-        return await self._wait(printer.id, job.id, timeout_seconds)
+        websocket_delivered = await agent_ws_manager.push_job(job)
+        return await self._wait(printer.id, job.id, timeout_seconds, websocket_delivered=websocket_delivered)
 
-    async def _wait(self, printer_id: int, job_id: int, timeout_seconds: float) -> AgentJobRecord:
+    async def _wait(self, printer_id: int, job_id: int, timeout_seconds: float, *, websocket_delivered: bool = True) -> AgentJobRecord:
         deadline = asyncio.get_running_loop().time() + max(1.0, timeout_seconds)
         interval = 0.15
         while True:
@@ -63,7 +63,7 @@ class AgentCommandExecutor:
             if job.status in {"failed", "canceled"}:
                 raise AgentJobFailedError(job)
             if asyncio.get_running_loop().time() >= deadline:
-                raise HTTPException(status_code=504, detail="timeout aguardando resposta do agente")
+                raise HTTPException(status_code=504, detail=_timeout_detail(job.status, websocket_delivered))
             await asyncio.sleep(interval)
             interval = min(0.5, interval * 1.5)
 
@@ -78,6 +78,16 @@ class AgentJobFailedError(HTTPException):
     def __init__(self, job: AgentJobRecord) -> None:
         self.job = job
         super().__init__(status_code=502, detail=job.error_message or "job do agente falhou")
+
+
+def _timeout_detail(job_status: str, websocket_delivered: bool) -> str:
+    if job_status == "pending" and not websocket_delivered:
+        return "timeout aguardando resposta do agente; job ficou enfileirado para polling porque o WebSocket não confirmou entrega"
+    if job_status == "pending":
+        return "timeout aguardando o agente iniciar o job"
+    if job_status == "in_progress":
+        return "timeout aguardando o agente concluir o job"
+    return "timeout aguardando resposta do agente"
 
 
 def unwrap_moonraker_list(value: Any, key: str) -> list[str]:

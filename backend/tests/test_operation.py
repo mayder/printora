@@ -12,7 +12,7 @@ from app.operation import (
     operation_action_blocks_when_printing,
     operation_action_requires_step_up,
 )
-from app.routes.operation import _remote_gcode_failure_detail
+from app.routes.operation import _operation_status_timeout, _remote_gcode_failure_detail
 from app.snapshots import SnapshotDetail
 
 
@@ -207,6 +207,22 @@ def test_unreachable_operation_sanitizes_agent_timeout() -> None:
 
     assert result["error"] == "Agente sem resposta nesta leitura. Atualize novamente quando o serviço voltar a responder."
     assert "504" not in result["error"]
+
+
+def test_unreachable_operation_explains_polling_queue_timeout() -> None:
+    result = build_unreachable_operation(
+        "agent",
+        "timeout aguardando resposta do agente; job ficou enfileirado para polling porque o WebSocket não confirmou entrega",
+    )
+
+    assert result["error"] == "Agente online por heartbeat, mas sem confirmação do canal remoto nesta leitura. O job ficou enfileirado para polling."
+    assert "timeout" not in result["error"].lower()
+
+
+def test_operation_status_timeout_covers_agent_polling_window() -> None:
+    settings = type("Settings", (), {"request_timeout_seconds": 5.0})()
+
+    assert _operation_status_timeout(settings) == 25.0
 
 
 def test_offline_fixture_populates_panels_without_enabling_commands() -> None:
