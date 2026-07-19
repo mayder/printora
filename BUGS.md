@@ -6,6 +6,28 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Lista De Impressoras Bloqueava Acoes Por Loading Global
+
+Sintoma:
+
+- ao abrir Impressoras com uma Voron offline validando agente, os botoes de `Detalhar` da Voron offline e da Voron online ficavam desabilitados;
+- o loading exibido no refresh do badge `Agente offline` segurava a lista inteira.
+
+Causa:
+
+- a tela usava o `loading` global da aplicacao para todos os botoes de todos os cards.
+
+Correção:
+
+- acoes de card usam busy local por `printer.id` e tipo de acao;
+- `Detalhar`, `Editar` e `Contexto rapido` nao dependem mais do loading de outra impressora;
+- refresh de agente, leitura de status e snapshot mostram busy apenas no card acionado.
+
+Validação:
+
+- `npm --prefix frontend run build`;
+- `./check.sh`.
+
 ### Miscellaneous Da Operacao Nao Refletia Mainsail
 
 Sintoma:

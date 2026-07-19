@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Badge, Metric } from "../components/common";
 import { formatDateTime } from "../utils/formatters";
 import type { PrinterRecord } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
+
+type PrinterCardAction = "agent-status" | "status" | "snapshot";
 
 type PrintersScreenProps = ScreenPropsFor<
   | "Camera"
@@ -20,7 +23,6 @@ type PrintersScreenProps = ScreenPropsFor<
   | "loadPrinterPairing"
   | "loadPrinters"
   | "loadPrinterStatus"
-  | "loading"
   | "openCreatePrinterModal"
   | "openEditPrinterModal"
   | "openPrinterDetail"
@@ -49,7 +51,6 @@ export function PrintersScreen(props: PrintersScreenProps) {
     loadPrinterPairing,
     loadPrinters,
     loadPrinterStatus,
-    loading,
     openCreatePrinterModal,
     openEditPrinterModal,
     openPrinterDetail,
@@ -59,6 +60,7 @@ export function PrintersScreen(props: PrintersScreenProps) {
     selectedPrinterId,
     snapshots,
   } = props;
+  const [busyPrinterActions, setBusyPrinterActions] = useState<Set<string>>(() => new Set());
 
   async function refreshPrinterAgentStatus(printer: PrinterRecord) {
     await Promise.allSettled([
@@ -66,6 +68,28 @@ export function PrintersScreen(props: PrintersScreenProps) {
       loadFleetAgentPairings([printer.id]),
       loadPrinterPairing(printer.id),
     ]);
+  }
+
+  async function runPrinterAction(printerId: number, action: PrinterCardAction, task: () => Promise<void>) {
+    const key = printerActionKey(printerId, action);
+    setBusyPrinterActions((current) => {
+      const next = new Set(current);
+      next.add(key);
+      return next;
+    });
+    try {
+      await task();
+    } finally {
+      setBusyPrinterActions((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    }
+  }
+
+  function isPrinterActionBusy(printerId: number, action: PrinterCardAction) {
+    return busyPrinterActions.has(printerActionKey(printerId, action));
   }
 
   return (
@@ -88,77 +112,96 @@ export function PrintersScreen(props: PrintersScreenProps) {
       </div>
       <div className="printer-dashboard">
         {printers.length === 0 ? <p className="muted">Nenhuma impressora cadastrada.</p> : null}
-        {printers.map((printer: PrinterRecord) => (
-          <div key={printer.id} className={`printer-card ${printer.id === selectedPrinterId ? "active" : ""}`}>
-            <div className="printer-card-header">
-              <div>
-                <strong>{printer.name}</strong>
-                <span>{printer.cloud_model || "Modelo não informado"} · {printer.location || "sem localização"}</span>
+        {printers.map((printer: PrinterRecord) => {
+          const agentStatusBusy = isPrinterActionBusy(printer.id, "agent-status");
+          const statusBusy = isPrinterActionBusy(printer.id, "status");
+          const snapshotBusy = isPrinterActionBusy(printer.id, "snapshot");
+          return (
+            <div key={printer.id} className={`printer-card ${printer.id === selectedPrinterId ? "active" : ""}`}>
+              <div className="printer-card-header">
+                <div>
+                  <strong>{printer.name}</strong>
+                  <span>{printer.cloud_model || "Modelo não informado"} · {printer.location || "sem localização"}</span>
+                </div>
+                <div className="status-inline-actions">
+                  <span className={`status-pill ${agentStatusTone(printer)}`}>
+                    <Radio size={13} />
+                    {formatAgentStatus(printer)}
+                  </span>
+                  {shouldShowAgentRefresh(printer) ? (
+                    <button
+                      type="button"
+                      className="icon-button status-refresh-button"
+                      onClick={() => void runPrinterAction(printer.id, "agent-status", () => refreshPrinterAgentStatus(printer))}
+                      disabled={agentStatusBusy}
+                      title="Atualizar status do agente"
+                      aria-label={`Atualizar status do agente ${printer.name}`}
+                    >
+                      <RefreshCw className={agentStatusBusy ? "button-busy-icon" : undefined} size={14} />
+                    </button>
+                  ) : null}
+                </div>
               </div>
-              <div className="status-inline-actions">
-                <span className={`status-pill ${agentStatusTone(printer)}`}>
-                  <Radio size={13} />
-                  {formatAgentStatus(printer)}
-                </span>
-                {shouldShowAgentRefresh(printer) ? (
-                  <button
-                    type="button"
-                    className="icon-button status-refresh-button"
-                    onClick={() => void refreshPrinterAgentStatus(printer)}
-                    disabled={loading}
-                    title="Atualizar status do agente"
-                    aria-label={`Atualizar status do agente ${printer.name}`}
-                  >
-                    <RefreshCw className={loading ? "button-busy-icon" : undefined} size={14} />
-                  </button>
-                ) : null}
+              <div className="printer-card-grid">
+                <Metric label="Organização" value={printer.organization_id ? `org #${printer.organization_id}` : "individual"} />
+                <Metric label="Agente" value={formatAgentSummary(printer)} />
+                <Metric label="Último snapshot" value={formatDateTime(printer.latest_snapshot_at)} />
+                <Metric label="Último agente" value={formatDateTime(printer.latest_agent_last_seen_at)} />
+                <Metric label="Host audit" value={printer.host_audit_mode} />
+                <Metric label="SSH" value={formatSshStatus(printer)} />
+                <Metric label="Status cloud" value={formatAgentStatus(printer)} />
+                <Metric label="URL Moonraker" value={printer.moonraker_url} />
+              </div>
+              {printer.cloud_tags?.length ? (
+                <div className="auth-list">
+                  {printer.cloud_tags.map((tag: string) => (
+                    <span key={tag}>{tag}</span>
+                  ))}
+                </div>
+              ) : null}
+              {printer.notes ? <p className="muted">{printer.notes}</p> : null}
+              <div className="printer-card-actions">
+                <button type="button" className="secondary-button" onClick={() => openEditPrinterModal(printer)}>
+                  <Settings size={15} />
+                  Editar
+                </button>
+                <button type="button" className="primary-button" onClick={() => openPrinterDetail(printer.id, "summary")}>
+                  <Printer size={15} />
+                  Detalhar
+                </button>
+                <button type="button" className="secondary-button" onClick={() => selectPrinter(printer.id)} disabled={printer.id === selectedPrinterId}>
+                  <CheckCircle2 size={15} />
+                  Contexto rápido
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => void runPrinterAction(printer.id, "status", () => loadPrinterStatus(printer.id))}
+                  disabled={statusBusy}
+                >
+                  <Radio className={statusBusy ? "button-busy-icon" : undefined} size={15} />
+                  {statusBusy ? "Lendo" : "Ler status"}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => void runPrinterAction(printer.id, "snapshot", () => captureSnapshotForPrinter(printer.id))}
+                  disabled={snapshotBusy}
+                >
+                  <Camera className={snapshotBusy ? "button-busy-icon" : undefined} size={15} />
+                  {snapshotBusy ? "Capturando" : "Snapshot"}
+                </button>
               </div>
             </div>
-            <div className="printer-card-grid">
-              <Metric label="Organização" value={printer.organization_id ? `org #${printer.organization_id}` : "individual"} />
-              <Metric label="Agente" value={formatAgentSummary(printer)} />
-              <Metric label="Último snapshot" value={formatDateTime(printer.latest_snapshot_at)} />
-              <Metric label="Último agente" value={formatDateTime(printer.latest_agent_last_seen_at)} />
-              <Metric label="Host audit" value={printer.host_audit_mode} />
-              <Metric label="SSH" value={formatSshStatus(printer)} />
-              <Metric label="Status cloud" value={formatAgentStatus(printer)} />
-              <Metric label="URL Moonraker" value={printer.moonraker_url} />
-            </div>
-            {printer.cloud_tags?.length ? (
-              <div className="auth-list">
-                {printer.cloud_tags.map((tag: string) => (
-                  <span key={tag}>{tag}</span>
-                ))}
-              </div>
-            ) : null}
-            {printer.notes ? <p className="muted">{printer.notes}</p> : null}
-            <div className="printer-card-actions">
-              <button type="button" className="secondary-button" onClick={() => openEditPrinterModal(printer)} disabled={loading}>
-                <Settings size={15} />
-                Editar
-              </button>
-              <button type="button" className="primary-button" onClick={() => openPrinterDetail(printer.id, "summary")} disabled={loading}>
-                <Printer size={15} />
-                Detalhar
-              </button>
-              <button type="button" className="secondary-button" onClick={() => selectPrinter(printer.id)} disabled={loading || printer.id === selectedPrinterId}>
-                <CheckCircle2 size={15} />
-                Contexto rápido
-              </button>
-              <button type="button" className="secondary-button" onClick={() => void loadPrinterStatus(printer.id)} disabled={loading}>
-                <Radio size={15} />
-                Ler status
-              </button>
-              <button type="button" className="secondary-button" onClick={() => void captureSnapshotForPrinter(printer.id)} disabled={loading}>
-                <Camera size={15} />
-                Snapshot
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </article>
   );
+}
+
+function printerActionKey(printerId: number, action: PrinterCardAction) {
+  return `${printerId}:${action}`;
 }
 
 function formatAgentStatus(printer: PrinterRecord) {
