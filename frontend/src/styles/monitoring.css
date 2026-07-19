@@ -1,4 +1,4 @@
-.monitoring-dashboard {
+:is(.section-monitoring, .section-printer-detail) .monitoring-dashboard {
   display: grid;
   gap: 16px;
 }

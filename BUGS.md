@@ -15,11 +15,11 @@ Sintoma:
 Causa:
 
 - o `display:grid` e o `gap` do dashboard estavam escopados apenas para `.section-monitoring`;
-- quando o mesmo componente abria dentro de `.section-printer-detail`, esse espaçamento nao era aplicado.
+- quando o mesmo componente abria dentro de `.section-printer-detail`, a regra global `.section-printer-detail .panel-section` tinha mais especificidade e mantinha o painel como bloco sem `gap`.
 
 Correção:
 
-- o layout base de `.monitoring-dashboard` passou a ser independente da seção ativa.
+- o layout base de `.monitoring-dashboard` passou a ter seletor especifico tambem para `.section-printer-detail`.
 
 Validação:
 
