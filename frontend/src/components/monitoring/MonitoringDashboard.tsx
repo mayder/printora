@@ -1,5 +1,5 @@
 import React from "react";
-import { Activity, AlertTriangle, Database, Gauge, Radio, RefreshCw, ShieldCheck, Thermometer, Zap } from "lucide-react";
+import { Activity, AlertTriangle, Database, Gauge, Radio, RefreshCw, RotateCcw, RotateCw, ShieldCheck, Thermometer, Zap } from "lucide-react";
 import { LoadMeter, MonitorBadge, RadialProgress } from "./common";
 import { MachinePanel, OperationActions } from "./OperationActions";
 import { TemperatureMonitor, buildTemperatureSeries } from "./temperature";
@@ -291,6 +291,8 @@ export function MonitoringDashboard({
 }
 
 function PrintVisual({ title, visual, emptyText }: { title: string; visual: OperationStatusResponse["miscellaneous"]["thumbnail"]; emptyText: string }) {
+  const [rotation, setRotation] = React.useState(0);
+  const canRotate = visual?.source === "agent_gcode";
   const layerText =
     typeof visual?.current_layer === "number"
       ? `Camada ${formatLayer(visual.current_layer, visual.total_layers ?? null)}`
@@ -303,7 +305,17 @@ function PrintVisual({ title, visual, emptyText }: { title: string; visual: Oper
         <strong>{title}</strong>
         {layerText ? <span>{layerText}</span> : null}
       </div>
-      {visual?.data_uri ? <img src={visual.data_uri} alt="" loading="lazy" /> : <p>{emptyText}</p>}
+      {canRotate ? (
+        <div className="print-visual-tools" aria-label="Rotação da prévia de camada">
+          <button type="button" className="icon-button" title="Girar para a esquerda" aria-label="Girar prévia para a esquerda" onClick={() => setRotation((value) => value - 90)}>
+            <RotateCcw size={13} />
+          </button>
+          <button type="button" className="icon-button" title="Girar para a direita" aria-label="Girar prévia para a direita" onClick={() => setRotation((value) => value + 90)}>
+            <RotateCw size={13} />
+          </button>
+        </div>
+      ) : null}
+      {visual?.data_uri ? <img className={canRotate ? "print-visual-image is-rotatable" : "print-visual-image"} src={visual.data_uri} alt="" loading="lazy" style={canRotate ? { transform: `rotate(${rotation}deg)` } : undefined} /> : <p>{emptyText}</p>}
       {visual?.truncated ? <small>prévia parcial</small> : null}
     </div>
   );

@@ -49,6 +49,7 @@ export type OperationPrintVisual = {
   width?: number | null;
   height?: number | null;
   source?: string | null;
+  projection?: string | null;
   current_layer?: number | null;
   total_layers?: number | null;
   truncated?: boolean | null;

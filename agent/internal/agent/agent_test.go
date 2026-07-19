@@ -287,6 +287,9 @@ func TestOperationStatusEmbedsCurrentPrintVisuals(t *testing.T) {
 	if !strings.HasPrefix(stringValue(layerPreview["data_uri"]), "data:image/svg+xml;base64,") {
 		t.Fatalf("missing layer preview: %#v", layerPreview)
 	}
+	if layerPreview["projection"] != "isometric" {
+		t.Fatalf("unexpected layer projection: %#v", layerPreview)
+	}
 	if layerPreview["current_layer"] != 2 {
 		t.Fatalf("unexpected layer preview metadata: %#v", layerPreview)
 	}

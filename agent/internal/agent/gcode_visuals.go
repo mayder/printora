@@ -27,8 +27,8 @@ import (
 
 const maxPreviewGcodeBytes = 24 * 1024 * 1024
 const maxThumbnailDownloadBytes = 512 * 1024
-const maxThumbnailDataURIBytes = 18000
-const maxLayerSVGBytes = 15000
+const maxThumbnailDataURIBytes = 32000
+const maxLayerSVGBytes = 12000
 const maxStoredGcodeSegments = 50000
 
 type operationVisualCache struct {
@@ -225,9 +225,10 @@ func compactImageDataURI(data []byte) (string, int, int) {
 		maxDim  int
 		quality int
 	}{
-		{220, 70},
-		{160, 62},
-		{128, 55},
+		{360, 78},
+		{320, 74},
+		{280, 70},
+		{220, 68},
 	} {
 		resized := resizeImageNearest(img, option.maxDim)
 		var out bytes.Buffer
@@ -552,74 +553,137 @@ func (p *gcodePreview) layerVisual(currentLayer int, totalLayers int) map[string
 		"data_uri":      "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(svg)),
 		"current_layer": currentLayer,
 		"total_layers":  total,
+		"projection":    "isometric",
 		"source":        "agent_gcode",
 		"truncated":     p.truncated,
 	}
 }
 
 func (p *gcodePreview) layerSVG(index int) string {
-	width := math.Max(1, p.maxX-p.minX)
-	height := math.Max(1, p.maxY-p.minY)
-	padding := math.Max(3, math.Max(width, height)*0.05)
-	viewX := p.minX - padding
-	viewY := p.minY - padding
-	viewW := width + padding*2
-	viewH := height + padding*2
-	previous := sampleSegments(flattenLayers(p.layers[:index]), 120)
-	current := sampleSegments(p.layers[index].segments, 360)
+	previous := sampleProjectedSegments(projectLayerSegments(p.layers[:index]), 90)
+	current := sampleProjectedSegments(projectLayerSegments(p.layers[index:index+1]), 300)
 	if len(previous) == 0 && len(current) == 0 {
 		return ""
 	}
+	bed := projectedBed(p.minX, p.minY, p.maxX, p.maxY)
+	bounds := projectedBounds(append(append([]projectedSegment{}, previous...), append(current, bed...)...))
+	width := math.Max(1, bounds.maxX-bounds.minX)
+	height := math.Max(1, bounds.maxY-bounds.minY)
+	padding := math.Max(8, math.Max(width, height)*0.06)
+	viewX := bounds.minX - padding
+	viewY := bounds.minY - padding
+	viewW := width + padding*2
+	viewH := height + padding*2
 	svg := fmt.Sprintf(
-		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="%.2f %.2f %.2f %.2f"><rect x="%.2f" y="%.2f" width="%.2f" height="%.2f" rx="2" fill="#0f1720"/><g transform="translate(0 %.2f) scale(1 -1)" fill="none" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke">`,
-		viewX, viewY, viewW, viewH, viewX, viewY, viewW, viewH, p.minY+p.maxY,
+		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="%.2f %.2f %.2f %.2f"><rect x="%.2f" y="%.2f" width="%.2f" height="%.2f" rx="2" fill="#0f1720"/><g fill="none" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke">`,
+		viewX, viewY, viewW, viewH, viewX, viewY, viewW, viewH,
 	)
+	if len(bed) > 0 {
+		svg += `<path d="` + projectedSegmentsPath(bed) + `" stroke="#334155" stroke-width="1.2" opacity="0.55"/>`
+	}
 	if len(previous) > 0 {
-		svg += `<path d="` + segmentsPath(previous) + `" stroke="#64748b" stroke-width="1.1" opacity="0.38"/>`
+		svg += `<path d="` + projectedSegmentsPath(previous) + `" stroke="#64748b" stroke-width="1.1" opacity="0.34"/>`
 	}
 	if len(current) > 0 {
-		svg += `<path d="` + segmentsPath(current) + `" stroke="#22d3ee" stroke-width="1.8" opacity="0.95"/>`
+		svg += `<path d="` + projectedSegmentsPath(current) + `" stroke="#22d3ee" stroke-width="1.9" opacity="0.98"/>`
 	}
 	svg += `</g></svg>`
 	if len(svg) > maxLayerSVGBytes {
-		current = sampleSegments(current, 220)
-		previous = sampleSegments(previous, 70)
-		return p.compactLayerSVG(viewX, viewY, viewW, viewH, previous, current)
+		current = sampleProjectedSegments(current, 200)
+		previous = sampleProjectedSegments(previous, 50)
+		return compactLayerSVG(viewX, viewY, viewW, viewH, bed, previous, current)
 	}
 	return svg
 }
 
-func (p *gcodePreview) compactLayerSVG(viewX float64, viewY float64, viewW float64, viewH float64, previous []gcodeSegment, current []gcodeSegment) string {
+func compactLayerSVG(viewX float64, viewY float64, viewW float64, viewH float64, bed []projectedSegment, previous []projectedSegment, current []projectedSegment) string {
 	svg := fmt.Sprintf(
-		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="%.1f %.1f %.1f %.1f"><rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#0f1720"/><g transform="translate(0 %.1f) scale(1 -1)" fill="none" stroke-linecap="round" vector-effect="non-scaling-stroke">`,
-		viewX, viewY, viewW, viewH, viewX, viewY, viewW, viewH, p.minY+p.maxY,
+		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="%.1f %.1f %.1f %.1f"><rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#0f1720"/><g fill="none" stroke-linecap="round" vector-effect="non-scaling-stroke">`,
+		viewX, viewY, viewW, viewH, viewX, viewY, viewW, viewH,
 	)
+	if len(bed) > 0 {
+		svg += `<path d="` + projectedSegmentsPath(bed) + `" stroke="#334155" stroke-width="1" opacity=".5"/>`
+	}
 	if len(previous) > 0 {
-		svg += `<path d="` + segmentsPath(previous) + `" stroke="#64748b" stroke-width="1" opacity=".35"/>`
+		svg += `<path d="` + projectedSegmentsPath(previous) + `" stroke="#64748b" stroke-width="1" opacity=".32"/>`
 	}
 	if len(current) > 0 {
-		svg += `<path d="` + segmentsPath(current) + `" stroke="#22d3ee" stroke-width="1.8"/>`
+		svg += `<path d="` + projectedSegmentsPath(current) + `" stroke="#22d3ee" stroke-width="1.8"/>`
 	}
 	return svg + `</g></svg>`
 }
 
-func flattenLayers(layers []gcodeLayer) []gcodeSegment {
+type projectedSegment struct {
+	x1 float64
+	y1 float64
+	x2 float64
+	y2 float64
+}
+
+type projectedBoundsBox struct {
+	minX float64
+	minY float64
+	maxX float64
+	maxY float64
+}
+
+func projectLayerSegments(layers []gcodeLayer) []projectedSegment {
 	count := 0
 	for _, layer := range layers {
 		count += len(layer.segments)
 	}
-	segments := make([]gcodeSegment, 0, count)
+	segments := make([]projectedSegment, 0, count)
 	for _, layer := range layers {
-		segments = append(segments, layer.segments...)
+		for _, segment := range layer.segments {
+			segments = append(segments, projectSegment(segment, layer.z))
+		}
 	}
 	return segments
 }
 
-func sampleSegments(segments []gcodeSegment, limit int) []gcodeSegment {
+func projectSegment(segment gcodeSegment, z float64) projectedSegment {
+	x1, y1 := projectPoint(segment.x1, segment.y1, z)
+	x2, y2 := projectPoint(segment.x2, segment.y2, z)
+	return projectedSegment{x1: x1, y1: y1, x2: x2, y2: y2}
+}
+
+func projectPoint(x float64, y float64, z float64) (float64, float64) {
+	return (x - y) * 0.866, (x+y)*0.5 - z*2.2
+}
+
+func projectedBed(minX float64, minY float64, maxX float64, maxY float64) []projectedSegment {
+	if math.IsInf(minX, 0) || math.IsInf(minY, 0) || math.IsInf(maxX, 0) || math.IsInf(maxY, 0) {
+		return nil
+	}
+	corners := [][2]float64{{minX, minY}, {maxX, minY}, {maxX, maxY}, {minX, maxY}, {minX, minY}}
+	segments := make([]projectedSegment, 0, 4)
+	for index := 0; index+1 < len(corners); index++ {
+		x1, y1 := projectPoint(corners[index][0], corners[index][1], 0)
+		x2, y2 := projectPoint(corners[index+1][0], corners[index+1][1], 0)
+		segments = append(segments, projectedSegment{x1: x1, y1: y1, x2: x2, y2: y2})
+	}
+	return segments
+}
+
+func projectedBounds(segments []projectedSegment) projectedBoundsBox {
+	bounds := projectedBoundsBox{minX: math.Inf(1), minY: math.Inf(1), maxX: math.Inf(-1), maxY: math.Inf(-1)}
+	for _, segment := range segments {
+		bounds.minX = math.Min(bounds.minX, math.Min(segment.x1, segment.x2))
+		bounds.minY = math.Min(bounds.minY, math.Min(segment.y1, segment.y2))
+		bounds.maxX = math.Max(bounds.maxX, math.Max(segment.x1, segment.x2))
+		bounds.maxY = math.Max(bounds.maxY, math.Max(segment.y1, segment.y2))
+	}
+	if math.IsInf(bounds.minX, 0) {
+		return projectedBoundsBox{minX: -1, minY: -1, maxX: 1, maxY: 1}
+	}
+	return bounds
+}
+
+func sampleProjectedSegments(segments []projectedSegment, limit int) []projectedSegment {
 	if len(segments) <= limit || limit <= 0 {
 		return segments
 	}
-	sampled := make([]gcodeSegment, 0, limit)
+	sampled := make([]projectedSegment, 0, limit)
 	step := float64(len(segments)) / float64(limit)
 	for index := 0; index < limit; index++ {
 		sampled = append(sampled, segments[min(len(segments)-1, int(float64(index)*step))])
@@ -627,7 +691,7 @@ func sampleSegments(segments []gcodeSegment, limit int) []gcodeSegment {
 	return sampled
 }
 
-func segmentsPath(segments []gcodeSegment) string {
+func projectedSegmentsPath(segments []projectedSegment) string {
 	var builder strings.Builder
 	for _, segment := range segments {
 		builder.WriteString("M")
