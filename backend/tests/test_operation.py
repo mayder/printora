@@ -111,7 +111,13 @@ def test_operation_status_enriches_print_metadata_and_keeps_display_progress() -
             "filament_type": "PLA",
             "printora_visuals": {
                 "thumbnail": {"data_uri": "data:image/jpeg;base64,abc", "source": "moonraker_thumbnail", "width": 160, "height": 120},
-                "layer_preview": {"data_uri": "data:image/svg+xml;base64,def", "source": "agent_gcode", "current_layer": 31, "total_layers": 194},
+                "layer_preview": {
+                    "data_uri": "data:image/svg+xml;base64,def",
+                    "source": "agent_gcode",
+                    "current_layer": 31,
+                    "total_layers": 194,
+                    "scene": {"kind": "gcode_layer_scene", "printed": [[0, 0, 0.2, 10, 0, 0.2]], "current": [[0, 0, 6.2, 10, 10, 6.2]]},
+                },
             },
         },
     )
@@ -132,6 +138,7 @@ def test_operation_status_enriches_print_metadata_and_keeps_display_progress() -
     assert misc["filament_type"] == "PLA"
     assert misc["thumbnail"]["data_uri"].startswith("data:image/jpeg")
     assert misc["layer_preview"]["current_layer"] == 31
+    assert misc["layer_preview"]["scene"]["printed"]
 
 
 def test_operation_status_reports_detected_misc_objects_without_status() -> None:

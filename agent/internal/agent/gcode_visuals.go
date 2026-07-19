@@ -30,6 +30,8 @@ const maxThumbnailDownloadBytes = 512 * 1024
 const maxThumbnailDataURIBytes = 32000
 const maxLayerSVGBytes = 12000
 const maxStoredGcodeSegments = 50000
+const maxScenePrintedSegments = 1400
+const maxSceneCurrentSegments = 900
 
 type operationVisualCache struct {
 	mu        sync.Mutex
@@ -554,8 +556,35 @@ func (p *gcodePreview) layerVisual(currentLayer int, totalLayers int) map[string
 		"current_layer": currentLayer,
 		"total_layers":  total,
 		"projection":    "isometric",
+		"scene":         p.layerScene(index, currentLayer, total),
 		"source":        "agent_gcode",
 		"truncated":     p.truncated,
+	}
+}
+
+func (p *gcodePreview) layerScene(index int, currentLayer int, totalLayers int) map[string]any {
+	if index < 0 || index >= len(p.layers) {
+		return nil
+	}
+	printed, printedTotal := sampleSceneSegments(p.layers[:index], maxScenePrintedSegments)
+	current, currentTotal := sampleSceneSegments(p.layers[index:index+1], maxSceneCurrentSegments)
+	if len(printed) == 0 && len(current) == 0 {
+		return nil
+	}
+	return map[string]any{
+		"kind":                    "gcode_layer_scene",
+		"units":                   "mm",
+		"bed":                     []float64{roundSceneCoord(p.minX), roundSceneCoord(p.minY), roundSceneCoord(p.maxX), roundSceneCoord(p.maxY)},
+		"printed":                 encodeSceneSegments(printed),
+		"current":                 encodeSceneSegments(current),
+		"current_layer":           currentLayer,
+		"total_layers":            totalLayers,
+		"current_layer_z":         roundSceneCoord(p.layers[index].z),
+		"printed_segment_count":   printedTotal,
+		"current_segment_count":   currentTotal,
+		"displayed_segment_count": len(printed) + len(current),
+		"total_segment_count":     p.segmentCount,
+		"sampled":                 p.truncated || printedTotal > len(printed) || currentTotal > len(current),
 	}
 }
 
@@ -689,6 +718,61 @@ func sampleProjectedSegments(segments []projectedSegment, limit int) []projected
 		sampled = append(sampled, segments[min(len(segments)-1, int(float64(index)*step))])
 	}
 	return sampled
+}
+
+type sceneSegment struct {
+	x1 float64
+	y1 float64
+	z  float64
+	x2 float64
+	y2 float64
+}
+
+func sampleSceneSegments(layers []gcodeLayer, limit int) ([]sceneSegment, int) {
+	segments := sceneSegments(layers)
+	total := len(segments)
+	if total <= limit || limit <= 0 {
+		return segments, total
+	}
+	sampled := make([]sceneSegment, 0, limit)
+	step := float64(total) / float64(limit)
+	for index := 0; index < limit; index++ {
+		sampled = append(sampled, segments[min(total-1, int(float64(index)*step))])
+	}
+	return sampled, total
+}
+
+func sceneSegments(layers []gcodeLayer) []sceneSegment {
+	count := 0
+	for _, layer := range layers {
+		count += len(layer.segments)
+	}
+	segments := make([]sceneSegment, 0, count)
+	for _, layer := range layers {
+		for _, segment := range layer.segments {
+			segments = append(segments, sceneSegment{x1: segment.x1, y1: segment.y1, z: layer.z, x2: segment.x2, y2: segment.y2})
+		}
+	}
+	return segments
+}
+
+func encodeSceneSegments(segments []sceneSegment) [][]float64 {
+	encoded := make([][]float64, 0, len(segments))
+	for _, segment := range segments {
+		encoded = append(encoded, []float64{
+			roundSceneCoord(segment.x1),
+			roundSceneCoord(segment.y1),
+			roundSceneCoord(segment.z),
+			roundSceneCoord(segment.x2),
+			roundSceneCoord(segment.y2),
+			roundSceneCoord(segment.z),
+		})
+	}
+	return encoded
+}
+
+func roundSceneCoord(value float64) float64 {
+	return math.Round(value*100) / 100
 }
 
 func projectedSegmentsPath(segments []projectedSegment) string {

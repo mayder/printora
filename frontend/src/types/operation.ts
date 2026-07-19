@@ -44,12 +44,31 @@ export type OperationTemperatureHistoryRow = {
   }>;
 };
 
+export type OperationPrintSceneSegment = [number, number, number, number, number, number];
+
+export type OperationPrintScene = {
+  kind?: string | null;
+  units?: string | null;
+  bed?: number[] | null;
+  printed?: OperationPrintSceneSegment[] | null;
+  current?: OperationPrintSceneSegment[] | null;
+  current_layer?: number | null;
+  total_layers?: number | null;
+  current_layer_z?: number | null;
+  printed_segment_count?: number | null;
+  current_segment_count?: number | null;
+  displayed_segment_count?: number | null;
+  total_segment_count?: number | null;
+  sampled?: boolean | null;
+};
+
 export type OperationPrintVisual = {
   data_uri?: string | null;
   width?: number | null;
   height?: number | null;
   source?: string | null;
   projection?: string | null;
+  scene?: OperationPrintScene | null;
   current_layer?: number | null;
   total_layers?: number | null;
   truncated?: boolean | null;

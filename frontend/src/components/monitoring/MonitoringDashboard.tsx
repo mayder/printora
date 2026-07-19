@@ -1,7 +1,8 @@
 import React from "react";
-import { Activity, AlertTriangle, Database, Gauge, Radio, RefreshCw, RotateCcw, RotateCw, ShieldCheck, Thermometer, Zap } from "lucide-react";
+import { Activity, AlertTriangle, Database, Gauge, Radio, RefreshCw, ShieldCheck, Thermometer, Zap } from "lucide-react";
 import { LoadMeter, MonitorBadge, RadialProgress } from "./common";
 import { MachinePanel, OperationActions } from "./OperationActions";
+import { PrintVisual } from "./PrintPreview";
 import { TemperatureMonitor, buildTemperatureSeries } from "./temperature";
 import { canTone, formatCanAlert, formatDataState, formatDecision, formatOperationValue, formatOptional, formatPercent, formatTemperature, healthTone } from "./formatters";
 import { formatDateTime } from "../../utils/formatters";
@@ -143,16 +144,26 @@ export function MonitoringDashboard({
               <PrintVisual title="Peça" visual={thumbnail} emptyText="Sem thumbnail do G-code." />
               <PrintVisual title="Camada" visual={layerPreview} emptyText="Sem prévia de camada nesta leitura." />
             </div>
-            <div className="print-monitor-layout">
-              <RadialProgress value={operationStatus?.miscellaneous.progress ?? 0} label={progressLabel} />
-              <div className="monitor-facts print-monitor-facts">
-                {printFacts.map((item) => (
-                  <React.Fragment key={item.label}>
-                    <span>{item.label}</span>
-                    <strong>{item.value}</strong>
-                  </React.Fragment>
-                ))}
+            <div className="print-side-stack">
+              <div className="print-monitor-layout">
+                <RadialProgress value={operationStatus?.miscellaneous.progress ?? 0} label={progressLabel} />
+                <div className="monitor-facts print-monitor-facts">
+                  {printFacts.map((item) => (
+                    <React.Fragment key={item.label}>
+                      <span>{item.label}</span>
+                      <strong>{item.value}</strong>
+                    </React.Fragment>
+                  ))}
+                </div>
               </div>
+              <MachinePanel
+                disabled={loading}
+                status={operationStatus}
+                setVelocityLimit={findAction("set_velocity_limit")}
+                currentValue={currentOperationValue}
+                onChange={onActionParameterChange}
+                onExecute={executeActionById}
+              />
             </div>
           </div>
         </section>
@@ -171,15 +182,6 @@ export function MonitoringDashboard({
             onExecute={onExecuteAction}
           />
         </section>
-
-        <MachinePanel
-          disabled={loading}
-          status={operationStatus}
-          setVelocityLimit={findAction("set_velocity_limit")}
-          currentValue={currentOperationValue}
-          onChange={onActionParameterChange}
-          onExecute={executeActionById}
-        />
       </div>
 
       <div className="monitor-grid">
@@ -287,37 +289,6 @@ export function MonitoringDashboard({
         </div>
       ) : null}
     </article>
-  );
-}
-
-function PrintVisual({ title, visual, emptyText }: { title: string; visual: OperationStatusResponse["miscellaneous"]["thumbnail"]; emptyText: string }) {
-  const [rotation, setRotation] = React.useState(0);
-  const canRotate = visual?.source === "agent_gcode";
-  const layerText =
-    typeof visual?.current_layer === "number"
-      ? `Camada ${formatLayer(visual.current_layer, visual.total_layers ?? null)}`
-      : visual?.source === "moonraker_thumbnail"
-        ? "Thumbnail"
-        : "";
-  return (
-    <div className="print-visual-tile">
-      <div className="print-visual-title">
-        <strong>{title}</strong>
-        {layerText ? <span>{layerText}</span> : null}
-      </div>
-      {canRotate ? (
-        <div className="print-visual-tools" aria-label="Rotação da prévia de camada">
-          <button type="button" className="icon-button" title="Girar para a esquerda" aria-label="Girar prévia para a esquerda" onClick={() => setRotation((value) => value - 90)}>
-            <RotateCcw size={13} />
-          </button>
-          <button type="button" className="icon-button" title="Girar para a direita" aria-label="Girar prévia para a direita" onClick={() => setRotation((value) => value + 90)}>
-            <RotateCw size={13} />
-          </button>
-        </div>
-      ) : null}
-      {visual?.data_uri ? <img className={canRotate ? "print-visual-image is-rotatable" : "print-visual-image"} src={visual.data_uri} alt="" loading="lazy" style={canRotate ? { transform: `rotate(${rotation}deg)` } : undefined} /> : <p>{emptyText}</p>}
-      {visual?.truncated ? <small>prévia parcial</small> : null}
-    </div>
   );
 }
 

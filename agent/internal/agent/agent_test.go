@@ -293,6 +293,21 @@ func TestOperationStatusEmbedsCurrentPrintVisuals(t *testing.T) {
 	if layerPreview["current_layer"] != 2 {
 		t.Fatalf("unexpected layer preview metadata: %#v", layerPreview)
 	}
+	scene := mapValue(layerPreview["scene"])
+	if scene["kind"] != "gcode_layer_scene" {
+		t.Fatalf("missing interactive layer scene: %#v", layerPreview)
+	}
+	printed, ok := scene["printed"].([][]float64)
+	if !ok || len(printed) == 0 {
+		t.Fatalf("expected printed lower layers in scene: %#v", scene)
+	}
+	current, ok := scene["current"].([][]float64)
+	if !ok || len(current) == 0 {
+		t.Fatalf("expected current layer segments in scene: %#v", scene)
+	}
+	if scene["current_layer"] != 2 || scene["total_layers"] != 3 {
+		t.Fatalf("unexpected scene layer metadata: %#v", scene)
+	}
 }
 
 func tinyPNG(t *testing.T) []byte {

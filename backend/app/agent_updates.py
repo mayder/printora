@@ -13,7 +13,7 @@ from app.database import connect_database
 
 AGENT_UPDATE_MANIFEST_VERSION = 1
 AGENT_UPDATE_PROTOCOL_VERSION = 1
-AGENT_CURRENT_VERSION = "0.1.26"
+AGENT_CURRENT_VERSION = "0.1.27"
 AGENT_MANIFEST_PATH = Path(__file__).resolve().parent / "data" / "agent_update_manifest.json"
 
 AgentUpdateStatus = Literal["available", "blocked", "downloaded", "applied", "rolled_back", "failed", "skipped"]
