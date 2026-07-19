@@ -51,6 +51,48 @@ def test_agent_jobs_are_isolated_by_printer_and_idempotent(tmp_path: Path, monke
         get_settings.cache_clear()
 
 
+def test_agent_job_result_accepts_visual_payload_above_command_limit(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner_token = _register(client, "owner-channel-visual@example.com")
+            printer = _create_printer(client, owner_token, "Voron Visual")
+            credential = _pair_agent(client, owner_token, printer["id"], "agent-channel-visual")
+            job = client.post(
+                f"/api/printers/{printer['id']}/agent/jobs",
+                json={"job_type": "remote_operation_status", "payload": {}, "correlation_id": "job-visual-001"},
+                headers=_auth(owner_token),
+            ).json()
+
+            assert client.post(f"/api/agent/jobs/{job['id']}/ack", headers=_auth(credential)).status_code == 200
+            visual_result = {
+                "safe_mode": "read_only",
+                "kind": "operation_status",
+                "file_metadata": {
+                    "result": {
+                        "printora_visuals": {
+                            "layer_preview": {
+                                "source": "agent_gcode",
+                                "scene": {"kind": "gcode_layer_scene", "printed": "x" * (96 * 1024)},
+                            }
+                        }
+                    }
+                },
+            }
+            response = client.post(
+                f"/api/agent/jobs/{job['id']}/result",
+                json={"correlation_id": "job-visual-001", "result": visual_result},
+                headers=_auth(credential),
+            )
+
+            assert response.status_code == 200
+            assert response.json()["status"] == "succeeded"
+    finally:
+        get_settings.cache_clear()
+
+
 def test_agent_websocket_contract_version_and_job_flow(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     get_settings.cache_clear()

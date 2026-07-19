@@ -6,6 +6,29 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Operacao Ficava Vazia Durante Impressao Com Preview Do G-code
+
+Sintoma:
+
+- durante uma impressao ativa, a aba Operacao mostrava agente online no topo, mas o painel em tempo real ficava como Moonraker offline/sem leitura;
+- requests de status podiam ficar pendentes e terminar sem restaurar temperaturas, progresso, thumbnail e Miscellaneous.
+
+Causa:
+
+- `remote_operation_status` passou a incluir thumbnail, camada e cena derivada do G-code;
+- respostas de job com dados visuais podiam ultrapassar 64 KB;
+- o backend aplicava o mesmo limite de payload de comando ao resultado do job do agente e rejeitava a resposta com 413.
+
+Correção:
+
+- o limite de comando/snapshot permanece em 64 KB;
+- resultados de job do agente passam a aceitar ate 512 KB, suficiente para respostas operacionais com preview visual controlado.
+
+Validação:
+
+- `cd backend && uv run --extra dev pytest tests/test_agent_channel.py tests/test_operation.py tests/test_agent_executor.py -q`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### Timeout Da Operacao Parecia Instantaneo
 
 Sintoma:

@@ -18,6 +18,7 @@ AGENT_JOB_TTL = timedelta(minutes=2)
 AGENT_JOB_IN_PROGRESS_TIMEOUT = timedelta(minutes=5)
 AGENT_PROTOCOL_VERSION = 1
 AGENT_MAX_PAYLOAD_BYTES = 64 * 1024
+AGENT_MAX_RESULT_BYTES = 512 * 1024
 EXPECTED_AGENT_VERSION = "0.1.27"
 AgentStatus = Literal["active", "revoked", "removed"]
 AgentJobStatus = Literal["pending", "in_progress", "succeeded", "failed", "canceled"]
@@ -735,7 +736,7 @@ class AgentPairingRepository:
         return _job_from_row(updated)
 
     def finish_job(self, agent: AgentRecord, job_id: int, request: AgentJobResultRequest) -> AgentJobRecord | None:
-        _ensure_payload_size(request.result)
+        _ensure_result_size(request.result)
         with connect_database(self.database_path) as connection:
             row = self._job_for_agent(connection, agent, job_id, request.correlation_id)
             if row is None:
@@ -755,7 +756,7 @@ class AgentPairingRepository:
         return _job_from_row(updated)
 
     def fail_job(self, agent: AgentRecord, job_id: int, request: AgentJobErrorRequest) -> AgentJobRecord | None:
-        _ensure_payload_size(request.result)
+        _ensure_result_size(request.result)
         with connect_database(self.database_path) as connection:
             row = self._job_for_agent(connection, agent, job_id, request.correlation_id)
             if row is None:
@@ -973,6 +974,11 @@ def _job_from_row(row) -> AgentJobRecord:
 def _ensure_payload_size(payload: dict[str, Any]) -> None:
     if len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) > AGENT_MAX_PAYLOAD_BYTES:
         raise ValueError("payload excede o limite do protocolo do agente")
+
+
+def _ensure_result_size(payload: dict[str, Any]) -> None:
+    if len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) > AGENT_MAX_RESULT_BYTES:
+        raise ValueError("resultado excede o limite do protocolo do agente")
 
 
 def _last_seen_age_seconds(value: str | None) -> int | None:
