@@ -33,7 +33,7 @@ async def create_moonraker_snapshot(printer_id: int) -> SnapshotDetail:
     except HTTPException as exc:
         raise HTTPException(status_code=502, detail=f"agent read failed: {exc.detail}") from exc
     printer_info, server_info, system_info, proc_stats, update_status = status_payload(status_job.result)
-    _p, _s, _sys, _proc, operation_objects, _history = operation_payload(operation_job.result)
+    _p, _s, _sys, _proc, operation_objects, _history, _file_metadata = operation_payload(operation_job.result)
 
     payload = build_moonraker_snapshot_payload(
         printer_id=printer.id,

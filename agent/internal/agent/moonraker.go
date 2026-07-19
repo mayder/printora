@@ -151,6 +151,9 @@ func (c *MoonrakerClient) OperationStatus(ctx context.Context) map[string]any {
 	if query != "" {
 		c.get(ctx, "/printer/objects/query?"+query, "operation_objects", payload)
 	}
+	if filename := operationFilename(payload); filename != "" {
+		c.get(ctx, "/server/files/metadata?filename="+url.QueryEscape(filename), "file_metadata", payload)
+	}
 	c.get(ctx, "/server/history/totals", "history_totals", payload)
 	return payload
 }
@@ -694,6 +697,10 @@ func operationObjectFields(object string) (string, bool) {
 
 func moonrakerQueryEscape(value string) string {
 	return strings.ReplaceAll(url.QueryEscape(value), "+", "%20")
+}
+
+func operationFilename(payload map[string]any) string {
+	return strings.TrimSpace(nestedString(payload["operation_objects"], "result", "status", "print_stats", "filename"))
 }
 
 func hasObject(objects []string, target string) bool {

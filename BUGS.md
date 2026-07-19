@@ -6,6 +6,31 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Progresso Da Operacao Perdeu Precisao Do Display E Faltava Metadata Da Peca
+
+Sintoma:
+
+- a aba Operacao passou a mostrar o percentual igual ao Mainsail, adiantado em relacao ao display da impressora;
+- o card de Impressao mostrava poucos detalhes da peca em andamento, sem estimativa, restante, camada total/current quando o `print_stats` nao entregava esses campos.
+
+Causa:
+
+- o progresso principal estava priorizando `virtual_sdcard.progress`;
+- o agente nao buscava a metadata do G-code atual via `print_stats.filename`, entao o backend nao tinha `estimated_time`, slicer, filamento, altura/camada e dados para fallback de camada.
+
+Correção:
+
+- agente 0.1.24 busca `/server/files/metadata?filename=<arquivo>` quando ha impressao carregada;
+- Operacao voltou a priorizar `display_status.progress` como percentual principal e manteve `virtual_sdcard.progress` como progresso de arquivo;
+- card de Impressao exibe tempo restante, conclusao estimada, estimativa, progresso de arquivo, filamento, slicer, material e camada derivada de metadata/Z quando necessario.
+
+Validação:
+
+- `cd agent && go test ./...`;
+- `cd backend && uv run --extra dev pytest tests/test_operation.py tests/test_agent_updates.py tests/test_agent_install.py tests/test_agent_support.py -q`;
+- `npm --prefix frontend run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### Agente Nao Entregava Valores De Miscellaneous Com Objetos Dinamicos
 
 Sintoma:

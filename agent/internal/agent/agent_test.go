@@ -154,6 +154,58 @@ func TestOperationStatusReturnsMainsailMiscValues(t *testing.T) {
 	}
 }
 
+func TestOperationStatusFetchesCurrentFileMetadata(t *testing.T) {
+	var metadataFilename string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/printer/objects/list":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"objects": []string{
+				"print_stats",
+				"display_status",
+				"virtual_sdcard",
+				"gcode_move",
+			}}})
+		case "/printer/objects/query":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"status": map[string]any{
+				"print_stats":    map[string]any{"state": "printing", "filename": "printora/calicat PLA.gcode"},
+				"display_status": map[string]any{"progress": 0.31},
+				"virtual_sdcard": map[string]any{"progress": 0.29},
+				"gcode_move":     map[string]any{"gcode_position": []any{10.0, 20.0, 6.18, 0.0}},
+			}}})
+		case "/server/files/metadata":
+			metadataFilename = r.URL.Query().Get("filename")
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{
+				"filename":              "printora/calicat PLA.gcode",
+				"estimated_time":        3600,
+				"slicer":                "OrcaSlicer",
+				"layer_height":          0.2,
+				"first_layer_height":    0.2,
+				"object_height":         20.0,
+				"filament_total":        1200.5,
+				"filament_weight_total": 3.2,
+			}})
+		default:
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{}})
+		}
+	}))
+	defer server.Close()
+
+	client := NewMoonrakerClient(server.URL, time.Second)
+	payload := client.OperationStatus(context.Background())
+	metadata, ok := payload["file_metadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing file metadata: %#v", payload)
+	}
+	result := metadata["result"].(map[string]any)
+
+	if metadataFilename != "printora/calicat PLA.gcode" {
+		t.Fatalf("unexpected metadata filename: %s", metadataFilename)
+	}
+	if result["slicer"] != "OrcaSlicer" {
+		t.Fatalf("unexpected metadata payload: %#v", result)
+	}
+}
+
 func TestRemotePreflightAllowsLowRiskControlsWhilePrinting(t *testing.T) {
 	payload := map[string]any{
 		"printer_info":  map[string]any{"result": map[string]any{"state": "ready"}},

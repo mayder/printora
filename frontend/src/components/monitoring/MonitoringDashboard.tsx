@@ -3,7 +3,7 @@ import { Activity, AlertTriangle, Database, Gauge, Radio, RefreshCw, ShieldCheck
 import { LoadMeter, MonitorBadge, RadialProgress } from "./common";
 import { MachinePanel, OperationActions } from "./OperationActions";
 import { TemperatureMonitor, buildTemperatureSeries } from "./temperature";
-import { canTone, formatCanAlert, formatDataState, formatDecision, formatOptional, formatTemperature, healthTone } from "./formatters";
+import { canTone, formatCanAlert, formatDataState, formatDecision, formatOperationValue, formatOptional, formatPercent, formatTemperature, healthTone } from "./formatters";
 import { formatDateTime } from "../../utils/formatters";
 import type { CanBusRecord, CanBusRecordComparison, CanBusSummary, HealthResponse } from "./types";
 import type {
@@ -69,7 +69,8 @@ export function MonitoringDashboard({
   const bed = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("bed"));
   const actions = operationStatus?.actions ?? [];
   const capabilities = operationStatus?.capabilities ?? [];
-  const progressLabel = operationStatus?.miscellaneous.progress_source === "virtual_sdcard" ? "arquivo" : "progresso";
+  const progressLabel = progressSourceLabel(operationStatus?.miscellaneous.progress_source);
+  const printFacts = buildPrintFacts(operationStatus);
   const selectedCapabilities = capabilityModalStatus ? capabilities.filter((capability) => capability.status === capabilityModalStatus) : [];
   const findAction = (actionId: string) => actions.find((action) => action.id === actionId) ?? null;
   const currentOperationValue = (actionId: string, parameterName: string, fallback: string | number) => operationActionParameters[actionId]?.[parameterName] ?? String(fallback);
@@ -154,16 +155,12 @@ export function MonitoringDashboard({
             <div className="print-monitor-layout">
               <RadialProgress value={operationStatus?.miscellaneous.progress ?? 0} label={progressLabel} />
               <div className="monitor-facts print-monitor-facts">
-                <span>Estado</span>
-                <strong>{operationStatus?.miscellaneous.print_state || "-"}</strong>
-                <span>Camada</span>
-                <strong>{formatLayer(operationStatus?.miscellaneous.current_layer, operationStatus?.miscellaneous.total_layers)}</strong>
-                <span>Tempo</span>
-                <strong>{formatDuration(operationStatus?.miscellaneous.print_duration)}</strong>
-                <span>Arquivo</span>
-                <strong>{operationStatus?.miscellaneous.filename || "-"}</strong>
-                <span>Mensagem</span>
-                <strong>{operationStatus?.miscellaneous.message || "-"}</strong>
+                {printFacts.map((item) => (
+                  <React.Fragment key={item.label}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </React.Fragment>
+                ))}
               </div>
             </div>
           </section>
@@ -357,6 +354,50 @@ function formatLayer(current?: number | null, total?: number | null) {
   if (typeof current === "number") return `${current} / -`;
   if (typeof total === "number") return `- / ${total}`;
   return "-";
+}
+
+function buildPrintFacts(operationStatus: OperationStatusResponse | null) {
+  const miscellaneous = operationStatus?.miscellaneous;
+  return [
+    { label: "Estado", value: miscellaneous?.print_state || "-" },
+    { label: "Camada", value: formatLayer(miscellaneous?.current_layer, miscellaneous?.total_layers) },
+    { label: "Tempo", value: formatDuration(miscellaneous?.print_duration) },
+    { label: "Restante", value: formatDuration(miscellaneous?.remaining_time) },
+    { label: "Conclusão", value: formatEta(miscellaneous?.remaining_time) },
+    { label: "Estimativa", value: formatDuration(miscellaneous?.estimated_time) },
+    { label: "Arquivo", value: formatPercent(miscellaneous?.file_progress) },
+    { label: "Filamento", value: formatFilament(operationStatus) },
+    { label: "Slicer", value: formatSlicer(miscellaneous?.slicer, miscellaneous?.slicer_version) },
+    { label: "Material", value: miscellaneous?.filament_type || miscellaneous?.filament_name || "-" },
+    { label: "G-code", value: miscellaneous?.filename || "-" },
+    { label: "Mensagem", value: miscellaneous?.message || "-" },
+  ];
+}
+
+function progressSourceLabel(source?: string | null) {
+  if (source === "display_status") return "display";
+  if (source === "virtual_sdcard") return "arquivo";
+  return "progresso";
+}
+
+function formatFilament(operationStatus: OperationStatusResponse | null) {
+  const used = operationStatus?.extruder?.filament_used;
+  const total = operationStatus?.miscellaneous.filament_total;
+  if (typeof used === "number" && typeof total === "number") return `${formatOperationValue(used, "mm")} / ${formatOperationValue(total, "mm")}`;
+  if (typeof used === "number") return formatOperationValue(used, "mm");
+  if (typeof total === "number") return formatOperationValue(total, "mm");
+  const weight = operationStatus?.miscellaneous.filament_weight_total;
+  return typeof weight === "number" ? formatOperationValue(weight, "g") : "-";
+}
+
+function formatSlicer(slicer?: string | null, version?: string | null) {
+  if (!slicer && !version) return "-";
+  return [slicer, version].filter(Boolean).join(" ");
+}
+
+function formatEta(seconds?: number | null) {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds < 0) return "-";
+  return new Date(Date.now() + seconds * 1000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
 function formatDuration(seconds?: number | null) {

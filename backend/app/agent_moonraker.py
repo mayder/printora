@@ -23,13 +23,15 @@ def operation_payload(result: dict[str, Any] | None) -> tuple[
     dict[str, Any],
     dict[str, Any],
     dict[str, Any] | None,
+    dict[str, Any] | None,
 ]:
     payload = result or {}
     printer_info, server_info, system_info, proc_stats, _update_status = status_payload(payload)
     objects = unwrap_moonraker_result(payload.get("operation_objects"))
     objects["objects"] = unwrap_moonraker_list({"result": {"objects": payload.get("objects_list") or []}}, "objects")
     history_totals = unwrap_moonraker_result(payload.get("history_totals")) if payload.get("history_totals") else None
-    return printer_info, server_info, system_info, proc_stats, objects, history_totals
+    file_metadata = unwrap_moonraker_result(payload.get("file_metadata")) if payload.get("file_metadata") else None
+    return printer_info, server_info, system_info, proc_stats, objects, history_totals, file_metadata
 
 
 def calibration_capabilities_payload(result: dict[str, Any] | None) -> tuple[list[str], dict[str, Any], bool]:

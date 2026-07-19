@@ -1,3 +1,4 @@
+import math
 from typing import Any
 
 
@@ -58,6 +59,7 @@ def build_operation_status(
     proc_stats: dict[str, Any],
     objects: dict[str, Any],
     history_totals: dict[str, Any] | None = None,
+    print_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     status = _object_status(objects)
     print_state = _text(_nested(status, ["print_stats", "state"]))
@@ -78,7 +80,7 @@ def build_operation_status(
         "toolhead": _toolhead(status),
         "extruder": _extruder(status),
         "miscellaneous": {
-            **_miscellaneous(objects),
+            **_miscellaneous(objects, print_metadata),
             "total_print_hours": _total_print_hours(history_totals),
         },
     }
@@ -716,8 +718,9 @@ def _extruder(status: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _miscellaneous(objects: dict[str, Any]) -> dict[str, Any]:
+def _miscellaneous(objects: dict[str, Any], print_metadata: dict[str, Any] | None = None) -> dict[str, Any]:
     status = _object_status(objects)
+    metadata = _dict(print_metadata)
     fans = _misc_fans(status)
     outputs = _misc_outputs(status)
     leds = _misc_leds(status)
@@ -731,8 +734,11 @@ def _miscellaneous(objects: dict[str, Any]) -> dict[str, Any]:
     display = _nested(status, ["display_status"]) or {}
     virtual_sdcard = _nested(status, ["virtual_sdcard"]) or {}
     print_stats = _nested(status, ["print_stats"]) or {}
-    layer_info = _print_layer_info(print_stats, display)
+    layer_info = _print_layer_info(print_stats, display, status, metadata)
     progress = _print_progress(display, virtual_sdcard)
+    file_progress = _progress_fraction(virtual_sdcard.get("progress"))
+    estimated_time = _number_or_none(metadata.get("estimated_time"))
+    remaining_time = _remaining_print_time(estimated_time, _number_or_none(print_stats.get("print_duration")), file_progress)
     return {
         "fans": fans,
         "outputs": outputs,
@@ -742,13 +748,28 @@ def _miscellaneous(objects: dict[str, Any]) -> dict[str, Any]:
         "missing_status_objects": missing_status_objects,
         "progress": progress["value"],
         "progress_source": progress["source"],
+        "file_progress": file_progress,
+        "file_position": virtual_sdcard.get("file_position"),
         "message": print_stats.get("message") or display.get("message"),
         "print_state": print_stats.get("state"),
         "filename": print_stats.get("filename"),
         "print_duration": print_stats.get("print_duration"),
         "total_duration": print_stats.get("total_duration"),
+        "estimated_time": estimated_time,
+        "remaining_time": remaining_time,
         "current_layer": layer_info["current_layer"],
         "total_layers": layer_info["total_layers"],
+        "layer_source": layer_info["source"],
+        "slicer": metadata.get("slicer"),
+        "slicer_version": metadata.get("slicer_version"),
+        "filament_total": metadata.get("filament_total"),
+        "filament_weight_total": metadata.get("filament_weight_total"),
+        "object_height": metadata.get("object_height"),
+        "layer_height": metadata.get("layer_height"),
+        "first_layer_height": metadata.get("first_layer_height"),
+        "nozzle_diameter": metadata.get("nozzle_diameter"),
+        "filament_type": metadata.get("filament_type"),
+        "filament_name": metadata.get("filament_name"),
     }
 
 
@@ -820,7 +841,7 @@ def _misc_collection_state(*, has_readings: bool, has_detected_objects: bool, ha
 
 
 def _print_progress(display: dict[str, Any], virtual_sdcard: dict[str, Any]) -> dict[str, Any]:
-    for source, payload in (("virtual_sdcard", virtual_sdcard), ("display_status", display)):
+    for source, payload in (("display_status", display), ("virtual_sdcard", virtual_sdcard)):
         value = _progress_fraction(payload.get("progress"))
         if value is not None:
             return {"value": value, "source": source}
@@ -875,14 +896,19 @@ def _bounded_fraction(value: Any, *, allow_percent: bool = False) -> float | Non
     return 1.0
 
 
-def _print_layer_info(print_stats: dict[str, Any], display: dict[str, Any]) -> dict[str, int | None]:
+def _print_layer_info(print_stats: dict[str, Any], display: dict[str, Any], status: dict[str, Any], metadata: dict[str, Any]) -> dict[str, int | str | None]:
     info = _dict(print_stats.get("info"))
     current_layer = _int_or_none(print_stats.get("current_layer") or info.get("current_layer"))
-    total_layers = _int_or_none(print_stats.get("total_layer") or info.get("total_layer") or info.get("total_layers"))
-    if current_layer is not None or total_layers is not None:
-        return {"current_layer": current_layer, "total_layers": total_layers}
+    direct_total_layers = _int_or_none(print_stats.get("total_layer") or info.get("total_layer") or info.get("total_layers"))
+    if current_layer is not None or direct_total_layers is not None:
+        return {"current_layer": current_layer, "total_layers": direct_total_layers or _metadata_total_layers(metadata), "source": "print_stats"}
     message = str(print_stats.get("message") or display.get("message") or "")
-    return _parse_layer_message(message)
+    parsed = _parse_layer_message(message)
+    if parsed["current_layer"] is not None or parsed["total_layers"] is not None:
+        return {**parsed, "source": "message"}
+    estimated_current = _estimated_current_layer(status, metadata)
+    total_layers = _metadata_total_layers(metadata)
+    return {"current_layer": estimated_current, "total_layers": total_layers, "source": "metadata" if estimated_current is not None or total_layers is not None else None}
 
 
 def _parse_layer_message(message: str) -> dict[str, int | None]:
@@ -898,6 +924,62 @@ def _parse_layer_message(message: str) -> dict[str, int | None]:
         if current is not None or total is not None:
             return {"current_layer": current, "total_layers": total}
     return {"current_layer": None, "total_layers": None}
+
+
+def _metadata_total_layers(metadata: dict[str, Any]) -> int | None:
+    for key in ("layer_count", "total_layer", "total_layers", "layers"):
+        total = _int_or_none(metadata.get(key))
+        if total is not None and total > 0:
+            return total
+    object_height = _number_or_none(metadata.get("object_height"))
+    layer_height = _number_or_none(metadata.get("layer_height"))
+    first_layer_height = _number_or_none(metadata.get("first_layer_height")) or layer_height
+    if object_height is None or layer_height is None or object_height <= 0 or layer_height <= 0:
+        return None
+    if first_layer_height is None or first_layer_height <= 0:
+        return max(1, math.ceil(object_height / layer_height))
+    remaining_height = max(0.0, object_height - first_layer_height)
+    return max(1, 1 + math.ceil(remaining_height / layer_height))
+
+
+def _estimated_current_layer(status: dict[str, Any], metadata: dict[str, Any]) -> int | None:
+    current_z = _current_z(status)
+    layer_height = _number_or_none(metadata.get("layer_height"))
+    first_layer_height = _number_or_none(metadata.get("first_layer_height")) or layer_height
+    if current_z is None or layer_height is None or layer_height <= 0 or current_z <= 0:
+        return None
+    if first_layer_height is None or first_layer_height <= 0:
+        current = math.ceil(current_z / layer_height)
+    elif current_z <= first_layer_height + layer_height * 0.25:
+        current = 1
+    else:
+        current = 1 + math.ceil(max(0.0, current_z - first_layer_height) / layer_height)
+    total = _metadata_total_layers(metadata)
+    return min(max(1, current), total) if total is not None else max(1, current)
+
+
+def _current_z(status: dict[str, Any]) -> float | None:
+    for object_name, field in (("gcode_move", "gcode_position"), ("toolhead", "position")):
+        position = _nested(status, [object_name, field])
+        if isinstance(position, list | tuple) and len(position) > 2:
+            return _number_or_none(position[2])
+    return None
+
+
+def _remaining_print_time(estimated_time: float | None, print_duration: float | None, file_progress: float | None) -> float | None:
+    if estimated_time is not None and estimated_time > 0:
+        if file_progress is not None and file_progress > 0:
+            return max(0.0, estimated_time - estimated_time * file_progress)
+        if print_duration is not None:
+            return max(0.0, estimated_time - print_duration)
+    if print_duration is not None and file_progress is not None and file_progress > 0:
+        total_time = print_duration / file_progress
+        return max(0.0, total_time - print_duration)
+    return None
+
+
+def _number_or_none(value: Any) -> float | None:
+    return float(value) if isinstance(value, int | float) and math.isfinite(float(value)) else None
 
 
 def _total_print_hours(history_totals: dict[str, Any] | None) -> float | None:

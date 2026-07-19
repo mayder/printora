@@ -74,13 +74,58 @@ def test_operation_status_enables_controlled_operations_and_groups_mainsail_like
     assert result["miscellaneous"]["missing_status_objects"] == []
     assert result["miscellaneous"]["total_print_hours"] == 12.25
     assert result["miscellaneous"]["print_duration"] == 123
-    assert result["miscellaneous"]["progress"] == 0.42
-    assert result["miscellaneous"]["progress_source"] == "virtual_sdcard"
+    assert result["miscellaneous"]["progress"] == 0.89
+    assert result["miscellaneous"]["progress_source"] == "display_status"
+    assert result["miscellaneous"]["file_progress"] == 0.42
     assert result["miscellaneous"]["current_layer"] == 4
     assert result["miscellaneous"]["total_layers"] == 80
     assert result["actions"][0]["enabled"] is True
     assert result["actions"][0]["confirmation_required"] is True
     assert result["capabilities"]
+
+
+def test_operation_status_enriches_print_metadata_and_keeps_display_progress() -> None:
+    result = build_operation_status(
+        printer_info={"state": "ready"},
+        server_info={"klippy_connected": True, "klippy_state": "ready"},
+        system_info={},
+        proc_stats={},
+        objects={
+            "objects": ["print_stats", "display_status", "virtual_sdcard", "gcode_move"],
+            "status": {
+                "print_stats": {"state": "printing", "filename": "printora/calicat_PLA_31m5s.gcode", "print_duration": 600},
+                "display_status": {"progress": 0.31},
+                "virtual_sdcard": {"progress": 0.29, "file_position": 123456},
+                "gcode_move": {"gcode_position": [187.89, 180.28, 6.18, 0]},
+            },
+        },
+        print_metadata={
+            "estimated_time": 3600,
+            "slicer": "OrcaSlicer",
+            "slicer_version": "2.3.0",
+            "layer_height": 0.2,
+            "first_layer_height": 0.2,
+            "object_height": 38.8,
+            "filament_total": 1321,
+            "filament_weight_total": 9.57,
+            "filament_type": "PLA",
+        },
+    )
+
+    misc = result["miscellaneous"]
+    assert misc["progress"] == 0.31
+    assert misc["progress_source"] == "display_status"
+    assert misc["file_progress"] == 0.29
+    assert misc["file_position"] == 123456
+    assert misc["estimated_time"] == 3600
+    assert misc["remaining_time"] == 2556
+    assert misc["current_layer"] == 31
+    assert misc["total_layers"] == 194
+    assert misc["layer_source"] == "metadata"
+    assert misc["slicer"] == "OrcaSlicer"
+    assert misc["filament_total"] == 1321
+    assert misc["filament_weight_total"] == 9.57
+    assert misc["filament_type"] == "PLA"
 
 
 def test_operation_status_reports_detected_misc_objects_without_status() -> None:
