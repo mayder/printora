@@ -31,6 +31,7 @@ import { usePrintoraApp } from "./hooks/usePrintoraApp";
 import "./styles.css";
 import "./styles/overview.css";
 import "./styles/monitoring.css";
+import "./styles/gcode-files.css";
 import "./styles/operation.css";
 import "./styles/printers.css";
 import "./styles/modals.css";

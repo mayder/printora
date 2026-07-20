@@ -15,9 +15,10 @@ import (
 )
 
 type MoonrakerClient struct {
-	baseURL string
-	http    *http.Client
-	visuals operationVisualCache
+	baseURL    string
+	http       *http.Client
+	visuals    operationVisualCache
+	gcodeFiles gcodeFilesListCache
 }
 
 const updateManagerActionTimeout = 55 * time.Second
@@ -55,6 +56,8 @@ func (c *MoonrakerClient) RemotePayload(ctx context.Context, jobType string) map
 		return sanitizeMap(c.Status(ctx))
 	case "remote_operation_status":
 		return sanitizeMap(c.OperationStatus(ctx))
+	case "remote_gcode_files_list":
+		return sanitizeMap(c.GcodeFiles(ctx, nil))
 	case "remote_calibration_capabilities":
 		return sanitizeMap(c.CalibrationCapabilities(ctx))
 	case "remote_firmware_inventory":

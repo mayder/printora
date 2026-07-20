@@ -1664,6 +1664,7 @@ Critérios:
 - Validar thumbnails sem distorção e fallback quando ausentes.
 - Validar estados online, offline, sem permissão, agente antigo e timeout sem dados antigos apresentados como atuais.
 - Validar responsividade em desktop grande, notebook, mobile, tema claro, tema escuro e navegador embutido.
+- Testes automatizados focados: `cd backend && uv run --extra dev pytest ../backend/tests/test_gcode_files.py ../backend/tests/test_operation.py -q`; `cd agent && go test ./...`.
 - Validação frontend focada: `npm --prefix frontend run build`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 

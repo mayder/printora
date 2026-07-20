@@ -78,6 +78,7 @@ import type { ConfirmActionOptions, ConfirmDialogState, PrinterRecord, ShowToast
 export type PrinterDetailTab =
   | "summary"
   | "operation"
+  | "gcode-files"
   | "updates"
   | "tests"
   | "firmware"

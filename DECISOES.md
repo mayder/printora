@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260720-02 - Arquivos G-code usam listagem remota leve e cache curto
+
+Status: aceita
+Data: 2026-07-20
+Contexto: a aba `Arquivos G-code` precisa listar arquivos, diretórios, metadados e thumbnails do Moonraker sem transformar a aba `Operacao` em gerenciador de arquivos e sem baixar G-code completo em polling.
+Decisao: criar o job read-only `remote_gcode_files_list` no agente para consultar `/server/files/list?root=gcodes`, metadados por `/server/files/metadata`, espaço por `/server/files/directory` e thumbnails pequenas sob limite. O agente mantém cache curto de 20 segundos e o backend expõe `/api/printers/{printer_id}/gcode-files`; download/cache do G-code completo continua sob demanda pelo contrato existente de preview.
+Alternativas consideradas: continuar usando `operation/status` como fonte completa; baixar G-code completo para extrair metadados; consultar Moonraker diretamente do frontend; persistir cache em SQLite já no primeiro pacote.
+Consequencias: a lista completa fica separada da Operação, reduz polling na Raspberry e preserva caminho seguro para agentes antigos. Metadados indisponíveis aparecem como ausência real, e a tela pode evoluir para detalhe/ações sem acoplar UI a Moonraker direto.
+Impacto em testes: testes backend do normalizador/contrato, testes Go do agente e build frontend.
+Impacto em rollback: baixo; remover a aba/rota nova volta a Operação ociosa ao atalho compacto e mantém o job remoto inerte até agente antigo/novo convergir.
+Como reverter: ocultar a aba `gcode-files`, remover chamada ao endpoint novo no frontend e manter o backend retornando `unsupported` para clientes antigos; o agente pode preservar o job como compatibilidade read-only.
+Referencias: `backend/app/gcode_files.py`, `backend/app/routes/operation.py`, `agent/internal/agent/gcode_files.go`, `frontend/src/screens/GcodeFilesScreen.tsx`, `TELAS.md`.
+
 ### DEC-20260720-01 - Preview operacional renderiza G-code completo no navegador
 
 Status: aceita

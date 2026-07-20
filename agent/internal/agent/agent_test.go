@@ -272,6 +272,69 @@ func TestOperationStatusFetchesIdleGcodeFiles(t *testing.T) {
 	}
 }
 
+func TestGcodeFilesListFetchesMetadataAndUsesShortCache(t *testing.T) {
+	var listRequests int
+	var metadataRequests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/server/files/list":
+			listRequests++
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": []any{
+				map[string]any{"path": "printora/deck.gcode", "filename": "deck.gcode", "size": 2048, "modified": 20.0},
+				map[string]any{"path": "printora/readme.txt", "filename": "readme.txt", "size": 256, "modified": 30.0},
+			}})
+		case "/server/files/metadata":
+			metadataRequests++
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{
+				"slicer":                "OrcaSlicer",
+				"slicer_version":        "2.4.0",
+				"object_height":         66.89,
+				"layer_height":          0.18,
+				"layer_count":           370,
+				"nozzle_diameter":       0.6,
+				"filament_total":        23145.18,
+				"filament_weight_total": 67.4,
+				"first_layer_bed_temp":  75.0,
+				"first_layer_extr_temp": 220.0,
+			}})
+		case "/server/files/directory":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{
+				"disk_usage": map[string]any{"total": 1000.0, "used": 400.0, "free": 600.0},
+			}})
+		default:
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{}})
+		}
+	}))
+	defer server.Close()
+
+	client := NewMoonrakerClient(server.URL, time.Second)
+	payload := client.GcodeFiles(context.Background(), map[string]any{"limit": 10.0, "include_metadata": true, "include_thumbnails": false})
+
+	files, ok := payload["files"].([]map[string]any)
+	if !ok || len(files) != 1 {
+		t.Fatalf("unexpected files payload: %#v", payload["files"])
+	}
+	if files[0]["filename"] != "printora/deck.gcode" || files[0]["slicer"] != "OrcaSlicer" || files[0]["metadata_available"] != true {
+		t.Fatalf("unexpected file metadata: %#v", files[0])
+	}
+	directories, ok := payload["directories"].([]any)
+	if !ok || len(directories) != 1 {
+		t.Fatalf("unexpected directories: %#v", payload["directories"])
+	}
+	storage := mapValue(payload["storage"])
+	if storage["free"] != 600.0 {
+		t.Fatalf("unexpected storage: %#v", storage)
+	}
+
+	cached := client.GcodeFiles(context.Background(), map[string]any{"limit": 10.0})
+	if cached["cache_state"] != "hit" {
+		t.Fatalf("expected cache hit: %#v", cached)
+	}
+	if listRequests != 1 || metadataRequests != 1 {
+		t.Fatalf("expected one list and metadata request, got list=%d metadata=%d", listRequests, metadataRequests)
+	}
+}
+
 func TestOperationStatusEmbedsCurrentPrintVisuals(t *testing.T) {
 	var gcodeDownloaded bool
 	var thumbnailDownloaded bool

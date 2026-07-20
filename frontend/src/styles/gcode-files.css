@@ -1,0 +1,337 @@
+.gcode-files-screen {
+  display: grid;
+  gap: 16px;
+}
+
+.gcode-files-topbar,
+.gcode-files-controls,
+.gcode-files-metrics {
+  display: grid;
+  gap: 12px;
+}
+
+.gcode-files-topbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.gcode-files-topbar h2 {
+  margin: 0;
+}
+
+.gcode-files-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.gcode-files-metric {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 8px;
+  align-content: center;
+  min-height: 70px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 12px;
+}
+
+.gcode-files-metric svg {
+  grid-row: span 3;
+  color: var(--accent);
+}
+
+.gcode-files-metric span,
+.gcode-files-metric small {
+  min-width: 0;
+  color: var(--muted);
+}
+
+.gcode-files-metric span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.gcode-files-metric strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 1.15rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gcode-files-metric small {
+  overflow: hidden;
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gcode-files-controls {
+  grid-template-columns: minmax(240px, 1fr) minmax(160px, 0.45fr) minmax(150px, 0.35fr) minmax(150px, 0.35fr);
+}
+
+.gcode-search-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 0 11px;
+}
+
+.gcode-search-field svg {
+  color: var(--muted);
+}
+
+.gcode-search-field input,
+.gcode-files-controls select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.gcode-search-field input {
+  border: 0;
+  background: transparent;
+  padding: 10px 0;
+}
+
+.gcode-files-controls select {
+  min-height: 42px;
+  padding: 0 10px;
+}
+
+.gcode-files-state {
+  margin: 0;
+}
+
+.gcode-files-empty-state {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 88px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 16px;
+}
+
+.gcode-files-empty-state svg {
+  color: var(--accent);
+}
+
+.gcode-files-empty-state strong,
+.gcode-files-empty-state span {
+  display: block;
+  min-width: 0;
+}
+
+.gcode-files-empty-state span {
+  color: var(--muted);
+}
+
+.gcode-files-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.gcode-files-full-table {
+  width: 100%;
+  min-width: 1180px;
+  border-collapse: collapse;
+}
+
+.gcode-files-full-table th,
+.gcode-files-full-table td {
+  border-bottom: 1px solid var(--border-soft);
+  padding: 10px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.gcode-files-full-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.gcode-files-full-table td {
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.gcode-files-full-table tbody tr:hover,
+.gcode-files-full-table tbody tr.is-selected {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.gcode-file-name-cell {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 260px;
+}
+
+.gcode-file-name-cell strong,
+.gcode-file-name-cell span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gcode-file-name-cell span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.gcode-file-thumbnail {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 32px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface-3);
+  object-fit: contain;
+}
+
+.gcode-file-thumbnail-fallback {
+  color: var(--muted);
+}
+
+@media (max-width: 1120px) {
+  .gcode-files-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gcode-files-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .gcode-files-topbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gcode-files-metrics,
+  .gcode-files-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gcode-files-table-wrap {
+    border: 0;
+    background: transparent;
+  }
+
+  .gcode-files-full-table {
+    display: grid;
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .gcode-files-full-table thead {
+    display: none;
+  }
+
+  .gcode-files-full-table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .gcode-files-full-table tr,
+  .gcode-files-full-table td {
+    display: block;
+  }
+
+  .gcode-files-full-table tr {
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    background: var(--surface-2);
+    padding: 10px;
+  }
+
+  .gcode-files-full-table td {
+    border: 0;
+    padding: 7px 0;
+  }
+
+  .gcode-files-full-table td:not(:first-child)::before {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .gcode-files-full-table td:nth-child(2)::before {
+    content: "Arquivo";
+  }
+
+  .gcode-files-full-table td:nth-child(3)::before {
+    content: "Atualizado";
+  }
+
+  .gcode-files-full-table td:nth-child(4)::before {
+    content: "Tamanho";
+  }
+
+  .gcode-files-full-table td:nth-child(5)::before {
+    content: "Objeto";
+  }
+
+  .gcode-files-full-table td:nth-child(6)::before {
+    content: "Camada";
+  }
+
+  .gcode-files-full-table td:nth-child(7)::before {
+    content: "Bico";
+  }
+
+  .gcode-files-full-table td:nth-child(8)::before {
+    content: "Filamento";
+  }
+
+  .gcode-files-full-table td:nth-child(9)::before {
+    content: "Tempo";
+  }
+
+  .gcode-files-full-table td:nth-child(10)::before {
+    content: "Temperaturas";
+  }
+
+  .gcode-files-full-table td:nth-child(11)::before {
+    content: "Slicer";
+  }
+
+  .gcode-files-full-table td:nth-child(12)::before {
+    content: "Última impressão";
+  }
+
+  .gcode-file-name-cell {
+    min-width: 0;
+  }
+}

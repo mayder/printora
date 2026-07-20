@@ -19,7 +19,7 @@ AGENT_JOB_IN_PROGRESS_TIMEOUT = timedelta(minutes=5)
 AGENT_PROTOCOL_VERSION = 1
 AGENT_MAX_PAYLOAD_BYTES = 64 * 1024
 AGENT_MAX_RESULT_BYTES = 512 * 1024
-EXPECTED_AGENT_VERSION = "0.1.31"
+EXPECTED_AGENT_VERSION = "0.1.32"
 AgentStatus = Literal["active", "revoked", "removed"]
 AgentJobStatus = Literal["pending", "in_progress", "succeeded", "failed", "canceled"]
 AgentMessageType = Literal["hello", "heartbeat", "snapshot", "job", "ack", "nack", "result", "error", "backpressure"]

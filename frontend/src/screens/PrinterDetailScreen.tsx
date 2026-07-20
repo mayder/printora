@@ -3,6 +3,7 @@ import { Pencil, Printer as PrinterIcon, SlidersHorizontal, Trash2, X } from "lu
 import { Badge, Metric } from "../components/common";
 import { AgentsScreen } from "./AgentsScreen";
 import { FirmwareScreen } from "./FirmwareScreen";
+import { GcodeFilesScreen } from "./GcodeFilesScreen";
 import { MaintenanceScreen } from "./MaintenanceScreen";
 import { MonitoringScreen } from "./MonitoringScreen";
 import { ReportsScreen } from "./ReportsScreen";
@@ -17,6 +18,7 @@ type PrinterDetailScreenProps = PrintoraScreenProps;
 const printerTabs: Array<{ key: PrinterDetailTab; label: string }> = [
   { key: "summary", label: "Resumo" },
   { key: "operation", label: "Operação" },
+  { key: "gcode-files", label: "Arquivos G-code" },
   { key: "updates", label: "Atualizações" },
   { key: "tests", label: "Calibração" },
   { key: "firmware", label: "Firmware" },
@@ -103,6 +105,8 @@ export function PrinterDetailScreen(props: PrinterDetailScreenProps) {
     switch (printerDetailTab) {
       case "operation":
         return <MonitoringScreen {...props} />;
+      case "gcode-files":
+        return <GcodeFilesScreen {...props} />;
       case "updates":
         return <UpdatesScreen {...props} />;
       case "tests":

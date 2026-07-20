@@ -1,4 +1,5 @@
 import { apiRequest, apiResponse, getStoredStepUpToken, readApiError } from "./http";
+import type { GcodeFilesResponse } from "../types";
 
 export type GcodeCacheEntry = {
   status: "cached";
@@ -20,6 +21,13 @@ function withStepUp(body: unknown): unknown {
 
 export const operationApi = {
   status: (printerId: number) => apiResponse(`/api/printers/${printerId}/operation/status`),
+  gcodeFiles: (printerId: number, options?: { refresh?: boolean; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (options?.refresh) params.set("refresh", "true");
+    if (options?.limit) params.set("limit", String(options.limit));
+    const query = params.toString();
+    return apiRequest<GcodeFilesResponse>(`/api/printers/${printerId}/gcode-files${query ? `?${query}` : ""}`);
+  },
   actionHistory: (printerId: number) => apiResponse(`/api/printers/${printerId}/operation/actions/history`),
   executionHistory: (printerId: number) => apiResponse(`/api/printers/${printerId}/operation/actions/executions`),
   offlineFixture: () => apiResponse("/api/operation/fixtures/voron-offline"),

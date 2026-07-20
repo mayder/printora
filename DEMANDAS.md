@@ -5090,7 +5090,11 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado.
+- Contrato backend/agente novo lista `/gcodes` por impressora via job read-only `remote_gcode_files_list`, com cache curto, diretórios derivados, metadados técnicos e thumbnails pequenos quando disponíveis, sem baixar G-code completo.
+- Frontend adicionou aba `Arquivos G-code` no detalhe da impressora, com busca, filtros por pasta/metadados, ordenação, seleção múltipla, refresh, espaço livre, thumbnails/fallback e tabela responsiva.
+- Versão esperada do agente atualizada para `0.1.32`, com binário Linux arm64 e manifesto público atualizados.
+- Validação focada executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_gcode_files.py ../backend/tests/test_operation.py -q`; `cd agent && go test ./...`; `npm --prefix frontend run build`.
 
 ## PKG-83: Detalhe E Ações De Arquivo G-code
 

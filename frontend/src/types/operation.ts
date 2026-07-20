@@ -79,6 +79,8 @@ export type OperationPrintVisual = {
 export type OperationGcodeFile = {
   filename: string;
   path?: string | null;
+  name?: string | null;
+  directory?: string | null;
   size?: number | null;
   modified?: number | null;
   estimated_time?: number | null;
@@ -87,13 +89,54 @@ export type OperationGcodeFile = {
   object_height?: number | null;
   layer_height?: number | null;
   first_layer_height?: number | null;
+  layer_count?: number | null;
   nozzle_diameter?: number | null;
   filament_total?: number | null;
   filament_weight_total?: number | null;
   filament_type?: string | null;
   filament_name?: string | null;
+  first_layer_bed_temp?: number | null;
+  first_layer_extr_temp?: number | null;
   print_start_time?: number | null;
+  print_end_time?: number | null;
   last_print_duration?: number | null;
+  metadata_available?: boolean | null;
+  thumbnail?: OperationPrintVisual | null;
+};
+
+export type OperationGcodeDirectory = {
+  path: string;
+  name: string;
+  parent?: string | null;
+  file_count: number;
+  total_size?: number | null;
+  modified?: number | null;
+};
+
+export type OperationGcodeStorage = {
+  total?: number | null;
+  used?: number | null;
+  free?: number | null;
+};
+
+export type GcodeFilesResponse = {
+  printer_id: number;
+  safe_mode: string;
+  data_state: "live" | "cached" | "offline" | "error" | "unsupported";
+  root: string;
+  summary: string;
+  files: OperationGcodeFile[];
+  directories: OperationGcodeDirectory[];
+  storage?: OperationGcodeStorage | null;
+  fetched_at?: string | null;
+  cache_ttl_seconds?: number | null;
+  error?: string | null;
+  agent?: {
+    version?: string | null;
+    expected_version?: string | null;
+    ready?: boolean | null;
+    diagnostic?: string | null;
+  } | null;
 };
 
 export type OperationAction = {

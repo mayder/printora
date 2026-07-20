@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from app.routes.support import *
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Query
 
 from app.agent_executor import AgentCommandExecutor, AgentJobFailedError
 from app.agent_moonraker import agent_preflight_payload, operation_payload
 from app.agent_pairing import EXPECTED_AGENT_VERSION, AgentPairingRepository, printer_for_user
 from app.auth import AuthRepository, CurrentUser
+from app.gcode_files import build_gcode_files_response, build_gcode_files_unavailable_response
 from app.gcode_cache import (
     GcodeCacheEntry,
     GcodeCachePrepareRequest,
@@ -25,6 +26,7 @@ router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
 OPERATION_STATUS_TIMEOUT_SECONDS = 25.0
 OPERATION_PREFLIGHT_TIMEOUT_SECONDS = 12.0
 OPERATION_GCODE_CACHE_TIMEOUT_SECONDS = 120.0
+GCODE_FILES_TIMEOUT_SECONDS = 35.0
 
 
 @router.get("/api/printers/{printer_id}/operation/status")
@@ -74,6 +76,54 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
         "agent": _agent_operation_status(settings, printer.id),
         **operation,
     }
+
+
+@router.get("/api/printers/{printer_id}/gcode-files")
+async def list_printer_gcode_files(
+    printer_id: int,
+    refresh: bool = False,
+    limit: int = Query(default=300, ge=1, le=500),
+    current: CurrentUser = Depends(require_current_user),
+) -> dict[str, Any]:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    agent_status = _agent_operation_status(settings, printer.id)
+    if not agent_status["ready"]:
+        response = build_gcode_files_unavailable_response(
+            printer.id,
+            agent_status["diagnostic"] or f"agente {EXPECTED_AGENT_VERSION} ou superior é necessário para listar G-code",
+            agent=agent_status,
+            data_state="unsupported",
+        )
+        return response.model_dump()
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_gcode_files_list",
+            payload={"refresh": refresh, "limit": limit, "include_metadata": True, "include_thumbnails": True},
+            timeout_seconds=max(settings.request_timeout_seconds, GCODE_FILES_TIMEOUT_SECONDS),
+        )
+    except AgentJobFailedError as exc:
+        response = build_gcode_files_unavailable_response(
+            printer.id,
+            _remote_gcode_failure_detail(exc.job.result or {}) or exc.detail,
+            agent=agent_status,
+            data_state="error",
+        )
+        return response.model_dump()
+    except HTTPException as exc:
+        response = build_gcode_files_unavailable_response(
+            printer.id,
+            _http_exception_detail(exc),
+            agent=agent_status,
+            data_state="offline" if exc.status_code in {409, 504} else "error",
+        )
+        return response.model_dump()
+
+    response = build_gcode_files_response(printer.id, job.result, agent=agent_status)
+    return response.model_dump()
 
 
 @router.post("/api/printers/{printer_id}/operation/gcode-cache", response_model=GcodeCacheEntry)

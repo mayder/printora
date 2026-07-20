@@ -225,6 +225,9 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 	case "remote_audit", "remote_snapshot", "remote_health", "remote_temperatures", "remote_update_status", "remote_can_status", "remote_final_validation", "remote_report_sanitized", "remote_backup_preview", "remote_operation_preview", "remote_firmware_preview", "remote_moonraker_status", "remote_operation_status", "remote_calibration_capabilities", "remote_firmware_inventory":
 		payload := r.Moonraker.RemotePayload(ctx, job.JobType)
 		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+	case "remote_gcode_files_list":
+		payload := r.Moonraker.GcodeFiles(ctx, job.Payload)
+		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
 	case "remote_update_action":
 		payload := r.Moonraker.RemoteUpdateAction(ctx, job.Payload)
 		if payload["status"] == "accepted" {
@@ -341,6 +344,7 @@ func (r *Runner) channelCapabilities(ctx context.Context) map[string]any {
 	capabilities["updates"] = true
 	capabilities["gcode_jobs"] = true
 	capabilities["gcode_cache"] = true
+	capabilities["gcode_files"] = true
 	capabilities["host_script"] = true
 	capabilities["jobs"] = true
 	capabilities["websocket"] = true
