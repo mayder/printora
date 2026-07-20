@@ -108,6 +108,10 @@
 - PKG-79: Publicação, venda e vitrine de projetos
 - PKG-80: Fatiamento a partir de projeto salvo
 - PKG-81: Envio para impressora e histórico por projeto
+- PKG-82: Arquivos G-code por impressora
+- PKG-83: Detalhe e ações de arquivo G-code
+- PKG-84: Preview e simulação de G-code reutilizáveis
+- PKG-85: Operação ociosa enxuta e ponte para arquivos
 
 ## Política De Backlog
 
@@ -5031,3 +5035,214 @@ Notas de implementação:
 - Commit de implementação: `437b0dd`.
 - Publicação executada na branch `cloud` via GitHub Actions `Deploy Printora Cloud`, run `27775315210`.
 - Smoke pós-publicação: `/health` ok, `/api/print-projects/contract` ok, `/api/slicing/projects/1/jobs`, `/api/slicing/deliveries` e `/api/slicing/history` retornam `401` sem autenticação, `/api/print-projects?limit=1` ok.
+
+## PKG-82: Arquivos G-code Por Impressora
+
+Objetivo:
+
+Criar uma aba própria no detalhe da impressora para navegar e inspecionar os arquivos G-code existentes no Moonraker, com nível de completude comparável ao `G-Code Files` do Mainsail e sem ocupar a aba `Operação`.
+
+Contexto inicial:
+
+- a lista compacta exibida hoje em `Operação` quando a impressora está ociosa é útil como atalho, mas não resolve gerenciamento real de arquivos;
+- o usuário precisa ver arquivos, pastas, metadados técnicos, thumbnails, uso de filamento, tempos estimados e históricos sem depender de uma impressão ativa;
+- a consulta deve ser leve para a Raspberry: listagem e metadados primeiro, download/cache de G-code completo apenas sob demanda;
+- a aba deve funcionar tanto em tema claro quanto escuro, em desktop grande, notebook e mobile.
+
+Dependências:
+
+- PKG-19.
+- PKG-42.
+- PKG-43.
+- PKG-47.
+- PKG-73.
+- PKG-74.
+
+Entregáveis:
+
+- aba `Arquivos G-code` dentro do detalhe da impressora;
+- contrato backend/agente para listar `/gcodes` do Moonraker, incluindo diretórios;
+- tabela com busca, ordenação, filtros, seleção múltipla, refresh e indicação de espaço livre;
+- colunas mínimas: nome, tamanho, atualizado em, altura do objeto, altura de camada, bico, filamento, uso de filamento, tempo estimado, última duração, slicer, temperaturas e último início/fim;
+- thumbnails quando disponíveis, sem distorção e com fallback consistente;
+- estado vazio/offline/erro sem reservar bloco gigante nem mostrar dados antigos como atuais;
+- cache controlado de metadados para evitar polling caro;
+- responsividade sem texto cortado indevidamente, coluna inútil ou buraco visual.
+
+Lotes:
+
+1. Definir contrato de listagem e normalização de metadados de arquivos Moonraker.
+2. Implementar leitura via agente com cache leve e tratamento de diretórios.
+3. Criar aba `Arquivos G-code` no detalhe da impressora.
+4. Construir tabela rica com busca, ordenação, filtros, refresh e espaço livre.
+5. Exibir thumbnails e fallbacks.
+6. Validar tema claro/escuro, desktop, notebook, mobile e navegador embutido.
+
+Critério de aceite:
+
+- usuário não precisa abrir Mainsail para ver a lista completa de G-codes da impressora;
+- a aba `Operação` não é usada como gerenciador de arquivos;
+- arquivos e diretórios aparecem com metadados equivalentes aos retornados pelo Moonraker quando disponíveis;
+- ausência de metadado aparece como ausência real, não como erro genérico;
+- listagem não baixa o G-code completo de todos os arquivos;
+- tema claro e escuro ficam legíveis e coerentes;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-83: Detalhe E Ações De Arquivo G-code
+
+Objetivo:
+
+Permitir que o clique em um arquivo G-code abra um detalhe completo com ações seguras, histórico e contexto técnico, superando o modal operacional do Mainsail sem reduzir segurança.
+
+Contexto inicial:
+
+- no Mainsail, clicar em um item abre opções úteis; no Printora, a lista atual é apenas leitura parcial;
+- ações mutáveis precisam respeitar a política de operação segura, impressão ativa, step-up e confirmação;
+- o detalhe deve ser útil para decidir se imprimir, repetir, baixar, renomear, mover, excluir ou vincular o G-code a projeto/histórico.
+
+Dependências:
+
+- PKG-82.
+- PKG-47.
+- PKG-73.
+- PKG-74.
+- PKG-81.
+
+Entregáveis:
+
+- modal/drawer de detalhe de arquivo com thumbnail, metadados, histórico e ações;
+- ações: imprimir, salvar/enviar conforme política, baixar, copiar caminho, renomear, mover, duplicar e excluir;
+- preflight antes de impressão quando a política exigir;
+- bloqueio de ações destrutivas durante impressão ou quando Moonraker/agente estiverem indisponíveis;
+- confirmação forte para excluir, sobrescrever, mover e iniciar impressão;
+- auditoria segura sem registrar token, IP, path sensível ou G-code bruto em logs persistidos;
+- integração opcional com projeto/histórico quando o arquivo tiver origem conhecida.
+
+Lotes:
+
+1. Definir matriz de ações por estado da impressora, arquivo e permissão.
+2. Criar modal/drawer de detalhe.
+3. Implementar ações read-only: baixar, copiar caminho, abrir prévia e ver histórico.
+4. Implementar ações mutáveis protegidas: imprimir, renomear, mover, duplicar e excluir.
+5. Integrar preflight, confirmação e auditoria.
+6. Validar falhas, rollback possível e UX em tema claro/escuro.
+
+Critério de aceite:
+
+- clicar em arquivo abre detalhe acionável e completo;
+- ação perigosa não fica disponível sem precondições claras;
+- impressão ativa bloqueia ações que possam afetar a peça em andamento;
+- excluir/mover/renomear nunca ocorre sem confirmação explícita;
+- o usuário distingue `baixar`, `salvar`, `enviar` e `imprimir`;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-84: Preview E Simulação De G-code Reutilizáveis
+
+Objetivo:
+
+Consolidar a renderização de G-code como componente reutilizável para aba `Arquivos G-code`, aba `Operação`, projetos e futuro fatiamento web, com qualidade visual próxima de slicer e sem depender de polling pesado do agente.
+
+Contexto inicial:
+
+- a prévia 3D atual melhorou, mas ainda precisa representar melhor perímetros, preenchimento, paredes, camada atual, material impresso e navegação;
+- OrcaSlicer/Mainsail são referências visuais, mas o Printora precisa ter identidade própria e evitar blocos bugados ou controles duplicados;
+- o agente deve buscar/cachear o arquivo quando necessário, enquanto rotação, zoom, pan, corte por camada e desenho ficam no frontend;
+- a mesma base técnica deve servir ao acompanhamento da impressão e ao explorador de arquivos.
+
+Dependências:
+
+- PKG-82.
+- PKG-19.
+- PKG-73.
+- PKG-80.
+
+Entregáveis:
+
+- componente reutilizável de preview/simulação de G-code;
+- uso do G-code completo cacheado sob demanda, não no snapshot periódico do agente;
+- renderização por tipo de linha quando disponível: perímetro, superfície, preenchimento, suporte, saia/brim, deslocamento e retração;
+- modos: arquivo completo, até camada selecionada, camada atual e progresso por `file_position`;
+- controles de câmera com mouse/touch, zoom, pan, barras de deslocamento e navegador 3D no canto inferior esquerdo;
+- tema claro/escuro com fundo, grade, peça, linhas e controles coerentes;
+- limites de performance para arquivos grandes, com fallback progressivo e sem travar a UI.
+
+Lotes:
+
+1. Isolar contrato de preview e cache de G-code completo.
+2. Substituir renderização parcial frágil por viewer reutilizável.
+3. Implementar modos completo, até camada, camada atual e progresso por posição.
+4. Ajustar navegador 3D, mouse/touch, zoom, pan e barras de deslocamento.
+5. Normalizar cores/tema e estados de carregamento/falha.
+6. Validar com G-codes reais da Voron 2.4 e fixtures controladas.
+
+Critério de aceite:
+
+- preview final não inventa teto, parede ou volume que não exista no G-code;
+- peça 100% renderizada aparece completa;
+- camada atual mostra o material já impresso abaixo e destaque claro da camada;
+- navegação 3D é usável sem controles sobrepostos ou labels quebrados;
+- tema claro não mantém painel escuro incoerente;
+- arquivo grande não trava a tela nem aumenta carga do agente por polling;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.
+
+## PKG-85: Operação Ociosa Enxuta E Ponte Para Arquivos
+
+Objetivo:
+
+Reorganizar a aba `Operação` para que ela seja excelente durante impressão e objetiva quando a impressora estiver ociosa, encaminhando gerenciamento completo para a aba `Arquivos G-code`.
+
+Contexto inicial:
+
+- quando não há impressão ativa, o card `Impressão` não deve mostrar preview vazio, progresso antigo, fatos nulos ou tabela grande de arquivos;
+- o usuário ainda precisa de atalhos úteis: último trabalho, arquivos recentes e chamada para abrir a aba completa;
+- `Temperaturas`, `Ações protegidas`, `Miscellaneous`, `Machine`, sistema e CAN não devem ficar com buracos por causa do estado da impressão.
+
+Dependências:
+
+- PKG-82.
+- PKG-83.
+- PKG-84.
+- PKG-19.
+
+Entregáveis:
+
+- estado ocioso compacto na aba `Operação`;
+- resumo do último trabalho conhecido quando confiável;
+- lista curta de G-codes recentes apenas como atalho;
+- CTA para abrir `Arquivos G-code`;
+- remoção de preview/progresso/fatos antigos quando não houver impressão ativa;
+- reorganização de grid para não deixar vazios em desktop grande, notebook, mobile, tema claro e tema escuro;
+- integração limpa com `Machine`, `Temperaturas` e ações protegidas.
+
+Lotes:
+
+1. Definir estados `printing`, `paused`, `standby`, `offline`, `sem leitura` e `erro`.
+2. Redesenhar `Impressão` ociosa como resumo compacto.
+3. Mover lista completa para aba `Arquivos G-code`.
+4. Ajustar grids de operação para eliminar buracos.
+5. Validar com impressora imprimindo, ociosa, offline e agente antigo.
+
+Critério de aceite:
+
+- sem impressão ativa, a aba `Operação` não parece quebrada nem vazia;
+- a lista completa de arquivos fica apenas na aba própria;
+- a operação ao vivo continua priorizando preview, temperaturas, limites e ações seguras;
+- estados de erro/timeout explicam o impacto sem assustar com erro bruto;
+- layout não cria buracos grandes em monitor grande nem em tela menor;
+- `./check.sh` passa no fechamento do pacote.
+
+Estado atual:
+
+- Planejado.

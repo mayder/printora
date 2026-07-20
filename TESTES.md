@@ -1655,6 +1655,58 @@ Critérios:
 - Validação frontend focada: `npm --prefix frontend run build`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-82 - Arquivos G-code Por Impressora
+
+- Validar contrato backend/agente para listagem de `/gcodes` com arquivos, diretórios, tamanhos, datas e metadados quando o Moonraker retornar.
+- Validar que a listagem não baixa o G-code completo de todos os arquivos.
+- Validar tabela da aba `Arquivos G-code` com busca, ordenação, filtros, refresh, seleção e espaço livre.
+- Validar colunas de altura, camada, bico, filamento, uso, tempo estimado, última duração, slicer, temperaturas e último início/fim.
+- Validar thumbnails sem distorção e fallback quando ausentes.
+- Validar estados online, offline, sem permissão, agente antigo e timeout sem dados antigos apresentados como atuais.
+- Validar responsividade em desktop grande, notebook, mobile, tema claro, tema escuro e navegador embutido.
+- Validação frontend focada: `npm --prefix frontend run build`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### PKG-83 - Detalhe E Ações De Arquivo G-code
+
+- Validar que clique em arquivo abre modal/drawer com thumbnail, metadados, histórico e ações.
+- Validar ações read-only: baixar, copiar caminho, abrir prévia e ver histórico.
+- Validar ações mutáveis protegidas: imprimir, renomear, mover, duplicar e excluir.
+- Validar que excluir, mover, renomear, sobrescrever e iniciar impressão exigem confirmação explícita.
+- Validar que impressão ativa bloqueia ações incompatíveis.
+- Validar preflight antes de impressão quando a política exigir.
+- Validar auditoria segura sem token, IP, path sensível ou G-code bruto em logs persistidos.
+- Validar falhas de Moonraker/agente com mensagem acionável e sem ação parcialmente aplicada.
+- Testes automatizados focados: backend de arquivos/ações e permissões do contrato novo.
+- Validação frontend focada: `npm --prefix frontend run build`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### PKG-84 - Preview E Simulação De G-code Reutilizáveis
+
+- Validar preview com G-codes reais e fixtures controladas, incluindo arquivo completo, até camada selecionada, camada atual e progresso por `file_position`.
+- Validar que a cena não inventa teto, parede, fechamento ou volume que não exista no G-code.
+- Validar peça 100% renderizada completa.
+- Validar camada atual com material já impresso abaixo e destaque visual sem esconder geometria real.
+- Validar classificação de linhas quando disponível: perímetro, superfície, preenchimento, suporte, saia/brim, deslocamento e retração.
+- Validar navegação com mouse/touch, zoom, pan, barras de deslocamento e navegador 3D sem sobreposição.
+- Validar tema claro/escuro com fundo, grade, peça, linhas e controles coerentes.
+- Validar limites de performance em arquivo grande sem travar UI nem aumentar polling do agente.
+- Testes automatizados focados: parser/normalizador de G-code e fixtures de renderização quando aplicável.
+- Validação frontend focada: `npm --prefix frontend run build`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### PKG-85 - Operação Ociosa Enxuta E Ponte Para Arquivos
+
+- Validar estados `printing`, `paused`, `standby`, `offline`, `sem leitura` e `erro`.
+- Validar que `Operação` ociosa não mostra preview vazio, progresso antigo, fatos nulos ou tabela completa de arquivos.
+- Validar estado compacto com último trabalho confiável, poucos arquivos recentes e CTA para `Arquivos G-code`.
+- Validar que `Temperaturas`, `Machine`, `Ações protegidas`, `Miscellaneous`, sistema e CAN não criam buracos por causa do estado da impressão.
+- Validar que operação ao vivo continua priorizando preview, temperaturas, limites e ações seguras.
+- Validar mensagens de timeout/agente offline sem erro bruto de infraestrutura.
+- Validar layout em monitor grande, notebook, mobile, tema claro, tema escuro e navegador embutido.
+- Validação frontend focada: `npm --prefix frontend run build`.
+- Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:
