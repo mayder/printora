@@ -5149,7 +5149,7 @@ Estado atual:
 - Implementado.
 - Backend expõe detalhe autenticado por arquivo em `/api/printers/{printer_id}/gcode-files/detail` e ação protegida em `/api/printers/{printer_id}/gcode-files/actions`, com confirmação textual, step-up para mutações e histórico recente por `agent_jobs`.
 - Agente adiciona job `remote_gcode_file_action` para imprimir, renomear, mover, duplicar e excluir usando endpoints Moonraker específicos, sempre com preflight remoto e bloqueio quando `print_stats` indica impressão ativa.
-- Frontend abre drawer pelo clique no arquivo, mostra thumbnail, metadados, histórico, ações somente leitura, prévia textual/download sob demanda e ações protegidas com destino e frase exata.
+- Frontend abre drawer pelo clique no arquivo, mostra thumbnail, metadados, histórico, ações somente leitura, download sob demanda e ações protegidas com destino e frase exata.
 - Versão esperada do agente atualizada para `0.1.33`, com binário Linux arm64 e manifesto público atualizados.
 - Validação focada executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_gcode_files.py ../backend/tests/test_operation.py ../backend/tests/test_agent_install.py ../backend/tests/test_agent_updates.py ../backend/tests/test_agent_support.py -q`; `cd agent && go test ./...`; `npm --prefix frontend run build`.
 
@@ -5204,7 +5204,14 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado em 2026-07-20.
+- `GcodePrintViewer` foi consolidado como componente reutilizavel em `frontend/src/components/monitoring/GcodePrintViewer.tsx`, compartilhado entre `Operacao` e o drawer de `Arquivos G-code`.
+- A logica pura de camada/posicao fica em `frontend/src/components/monitoring/gcodePreview.ts`, com teste deterministico em `frontend/tests/gcodePreview.test.mjs`.
+- O preview usa G-code completo cacheado sob demanda pelo contrato existente, sem colocar conteudo bruto no snapshot periodico do agente.
+- O drawer de `Arquivos G-code` passou de previa textual para preview 3D sob demanda, com modos `Completo`, `Ate camada` e `Camada`.
+- Tema claro/escuro, controles de camera, pan, barras e viewbox nativo foram reaproveitados no componente comum.
+- Validação focada executada sem acao mutavel na impressora ativa: `npm --prefix frontend run test:gcode-preview`; `npm --prefix frontend run build`.
+- Validação live com arquivo real da Voron 2.4 nao executou cache pesado ou acao remota durante impressao ativa; fechamento usa fixture controlada e smoke publico read-only.
 
 ## PKG-85: Operação Ociosa Enxuta E Ponte Para Arquivos
 

@@ -23,6 +23,8 @@ import {
 import { operationApi } from "../services/operationApi";
 import type { GcodeFileActionName, GcodeFileActionState, GcodeFileDetailResponse, GcodeFilesResponse, OperationGcodeFile } from "../types";
 import type { PrintoraScreenProps } from "../hooks/usePrintoraApp";
+import { GcodePrintViewer } from "../components/monitoring/GcodePrintViewer";
+import type { GcodePreviewMode } from "../components/monitoring/gcodePreview";
 
 type SortKey = "modified" | "name" | "size" | "estimated_time" | "slicer";
 type MetadataFilter = "all" | "with_metadata" | "without_metadata";
@@ -35,7 +37,9 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
   const [actionBusy, setActionBusy] = React.useState<GcodeFileActionName | null>(null);
   const [confirmationDraft, setConfirmationDraft] = React.useState("");
   const [targetDraft, setTargetDraft] = React.useState("");
-  const [previewText, setPreviewText] = React.useState("");
+  const [previewOpen, setPreviewOpen] = React.useState(false);
+  const [previewMode, setPreviewMode] = React.useState<GcodePreviewMode>("full");
+  const [previewLayer, setPreviewLayer] = React.useState(1);
   const [query, setQuery] = React.useState("");
   const [directory, setDirectory] = React.useState("all");
   const [metadataFilter, setMetadataFilter] = React.useState<MetadataFilter>("all");
@@ -102,9 +106,11 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
     if (!selectedPrinterId) return;
     const filename = file.path ?? file.filename;
     setDetailLoading(true);
-    setPreviewText("");
+    setPreviewOpen(false);
     setConfirmationDraft("");
     setTargetDraft(defaultCopyName(filename));
+    setPreviewMode("full");
+    setPreviewLayer(Math.max(1, Math.min(20, file.layer_count ?? 1)));
     try {
       setDetail(await operationApi.gcodeFileDetail(selectedPrinterId, filename));
     } catch (err) {
@@ -126,16 +132,17 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
       showToast({ tone: "info", title: "Histórico carregado", detail: detail.history.length ? `${detail.history.length} evento(s) recente(s).` : "Nenhum evento recente para este arquivo." });
       return;
     }
+    if (action === "preview") {
+      setPreviewOpen(true);
+      setPreviewMode("full");
+      return;
+    }
     setActionBusy(action);
     try {
       const cached = await operationApi.ensureGcodeCache(selectedPrinterId, filename);
       const text = await operationApi.gcodeCacheText(selectedPrinterId, cached.cache_key);
-      if (action === "download") {
-        downloadTextFile(displayGcodeFileName(filename), text);
-        showToast({ tone: "success", title: "Download preparado", detail: displayGcodeFileName(filename) });
-      } else {
-        setPreviewText(text.split(/\r?\n/).slice(0, 160).join("\n"));
-      }
+      downloadTextFile(displayGcodeFileName(filename), text);
+      showToast({ tone: "success", title: "Download preparado", detail: displayGcodeFileName(filename) });
     } catch (err) {
       showToast({ tone: "danger", title: action === "download" ? "Falha ao baixar" : "Falha ao abrir prévia", detail: err instanceof Error ? err.message : "Ação indisponível" });
     } finally {
@@ -173,7 +180,7 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
         await loadFiles(true);
         if (action.action === "delete") {
           setDetail(null);
-          setPreviewText("");
+          setPreviewOpen(false);
           setConfirmationDraft("");
           return;
         }
@@ -323,14 +330,18 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
           detailLoading={detailLoading}
           onClose={() => {
             setDetail(null);
-            setPreviewText("");
+            setPreviewOpen(false);
             setConfirmationDraft("");
           }}
           onConfirmationChange={setConfirmationDraft}
           onMutableAction={(action) => void runMutableAction(action)}
           onReadOnlyAction={(action) => void runReadOnlyAction(action)}
+          onPreviewLayerChange={setPreviewLayer}
+          onPreviewModeChange={setPreviewMode}
           onTargetChange={setTargetDraft}
-          previewText={previewText}
+          previewLayer={previewLayer}
+          previewMode={previewMode}
+          previewOpen={previewOpen}
           targetDraft={targetDraft}
         />
       ) : null}
@@ -381,9 +392,13 @@ function GcodeFileDetailDrawer({
   onClose,
   onConfirmationChange,
   onMutableAction,
+  onPreviewLayerChange,
+  onPreviewModeChange,
   onReadOnlyAction,
   onTargetChange,
-  previewText,
+  previewLayer,
+  previewMode,
+  previewOpen,
   targetDraft,
 }: {
   actionBusy: GcodeFileActionName | null;
@@ -393,9 +408,13 @@ function GcodeFileDetailDrawer({
   onClose: () => void;
   onConfirmationChange: (value: string) => void;
   onMutableAction: (action: GcodeFileActionState) => void;
+  onPreviewLayerChange: (value: number) => void;
+  onPreviewModeChange: (value: GcodePreviewMode) => void;
   onReadOnlyAction: (action: GcodeFileActionName) => void;
   onTargetChange: (value: string) => void;
-  previewText: string;
+  previewLayer: number;
+  previewMode: GcodePreviewMode;
+  previewOpen: boolean;
   targetDraft: string;
 }) {
   const file = detail?.file;
@@ -450,10 +469,39 @@ function GcodeFileDetailDrawer({
               </div>
             </section>
 
-            {previewText ? (
-              <section className="gcode-file-preview">
-                <h4>Prévia textual</h4>
-                <pre>{previewText}</pre>
+            {previewOpen ? (
+              <section className="gcode-file-preview gcode-file-preview-3d">
+                <div className="gcode-file-preview-controls">
+                  <h4>Prévia 3D</h4>
+                  <div className="gcode-file-preview-modes" role="group" aria-label="Modo de prévia">
+                    {(["full", "until_layer", "current_layer"] as const).map((mode) => (
+                      <button key={mode} type="button" className={previewMode === mode ? "segmented-button active" : "segmented-button"} onClick={() => onPreviewModeChange(mode)}>
+                        {previewModeLabel(mode)}
+                      </button>
+                    ))}
+                  </div>
+                  <label>
+                    <span>Camada</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={Math.max(1, file.layer_count ?? 9999)}
+                      value={previewLayer}
+                      onChange={(event) => onPreviewLayerChange(normalizePreviewLayer(event.target.value, file.layer_count))}
+                      disabled={previewMode === "full"}
+                    />
+                  </label>
+                </div>
+                <GcodePrintViewer
+                  printerId={detail.printer_id}
+                  filename={sourceName}
+                  mode={previewMode}
+                  selectedLayer={previewLayer}
+                  currentLayer={previewLayer}
+                  totalLayers={file.layer_count}
+                  progress={previewMode === "full" ? 1 : null}
+                  nozzleDiameter={file.nozzle_diameter}
+                />
               </section>
             ) : null}
 
@@ -674,4 +722,18 @@ function formatHistoryDate(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function previewModeLabel(mode: GcodePreviewMode) {
+  if (mode === "full") return "Completo";
+  if (mode === "until_layer") return "Até camada";
+  if (mode === "current_layer") return "Camada";
+  return "Progresso";
+}
+
+function normalizePreviewLayer(value: string, total?: number | null) {
+  const parsed = Number.parseInt(value, 10);
+  const max = Math.max(1, total ?? 9999);
+  if (!Number.isFinite(parsed)) return 1;
+  return Math.max(1, Math.min(max, parsed));
 }

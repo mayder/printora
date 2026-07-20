@@ -2,6 +2,7 @@ import React from "react";
 import { Home, RotateCcw, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
 import type GCodeViewerClass from "@sindarius/gcodeviewer";
 import { operationApi } from "../../services/operationApi";
+import { buildLayerOffsets, previewTargetPosition, type GcodePreviewMode } from "./gcodePreview";
 
 type GCodeViewerInstance = InstanceType<typeof GCodeViewerClass>;
 
@@ -14,7 +15,6 @@ type CameraPreset = "iso" | "top" | "front" | "right" | "frontRight" | "frontLef
 
 const MAINSAIL_EXTRUDER_COLORS = ["#E76F51", "#F4A261", "#E9C46A", "#2A9D8F", "#264653"] as const;
 const MAX_RENDER_QUALITY_BYTES = 42 * 1024 * 1024;
-const LIVE_TRACKING_OFFSET_BYTES = 350;
 
 type ViewerVector = {
   x: number;
@@ -75,6 +75,8 @@ type ViewerProcessorRuntime = GCodeViewerInstance["gcodeProcessor"] & {
 export function GcodePrintViewer({
   printerId,
   filename,
+  mode = "progress",
+  selectedLayer,
   filePosition,
   currentLayer,
   totalLayers,
@@ -85,6 +87,8 @@ export function GcodePrintViewer({
 }: {
   printerId: number;
   filename: string;
+  mode?: GcodePreviewMode;
+  selectedLayer?: number | null;
   filePosition?: number | null;
   currentLayer?: number | null;
   totalLayers?: number | null;
@@ -101,7 +105,7 @@ export function GcodePrintViewer({
   const renderedTargetRef = React.useRef<number | null>(null);
   const renderBusyRef = React.useRef(false);
   const queuedRenderTargetRef = React.useRef<number | null>(null);
-  const liveRef = React.useRef({ filePosition, printState, progress, currentLayer, totalLayers });
+  const liveRef = React.useRef({ filePosition, printState, progress, currentLayer, totalLayers, mode, selectedLayer });
   const boundsSignature = buildVolumeSignature(buildVolume);
   const bounds = React.useMemo(() => buildVolumeBounds(buildVolume), [boundsSignature]);
   const [state, setState] = React.useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -110,8 +114,8 @@ export function GcodePrintViewer({
   const [panOffset, setPanOffset] = React.useState({ x: 0, y: 0 });
 
   React.useEffect(() => {
-    liveRef.current = { filePosition, printState, progress, currentLayer, totalLayers };
-  }, [currentLayer, filePosition, printState, progress, totalLayers]);
+    liveRef.current = { filePosition, printState, progress, currentLayer, totalLayers, mode, selectedLayer };
+  }, [currentLayer, filePosition, mode, printState, progress, selectedLayer, totalLayers]);
 
   React.useEffect(() => {
     let disposed = false;
@@ -151,6 +155,8 @@ export function GcodePrintViewer({
         const target = previewTargetPosition(
           parsedFileSize,
           layerOffsets,
+          liveRef.current.mode,
+          liveRef.current.selectedLayer,
           liveRef.current.filePosition,
           liveRef.current.printState,
           liveRef.current.progress,
@@ -195,10 +201,10 @@ export function GcodePrintViewer({
     const viewer = viewerRef.current;
     const fullGcode = fullGcodeRef.current;
     if (!viewer || !fileSizeRef.current || !fullGcode || state !== "ready") return;
-    const target = previewTargetPosition(fileSizeRef.current, layerOffsetsRef.current, filePosition, printState, progress, currentLayer, totalLayers);
+    const target = previewTargetPosition(fileSizeRef.current, layerOffsetsRef.current, mode, selectedLayer, filePosition, printState, progress, currentLayer, totalLayers);
     if (renderedTargetRef.current === target) return;
     queuePreviewRender(target);
-  }, [currentLayer, filePosition, printState, progress, state, totalLayers]);
+  }, [currentLayer, filePosition, mode, printState, progress, selectedLayer, state, totalLayers]);
 
   React.useEffect(() => {
     const viewer = viewerRef.current;
@@ -276,7 +282,7 @@ export function GcodePrintViewer({
     });
   };
 
-  const layerText = typeof currentLayer === "number" ? `Camada ${formatLayer(currentLayer, totalLayers)}` : "Camada";
+  const layerText = viewerTitle(mode, selectedLayer, currentLayer, totalLayers);
 
   return (
     <div className={`gcode-viewer-tile${state === "error" ? " is-error" : ""}`}>
@@ -388,62 +394,6 @@ function currentDocumentTheme() {
 function updatePreviewPosition(viewer: GCodeViewerInstance, target: number) {
   viewer.gcodeProcessor.updateFilePosition(target);
   viewer.forceRender();
-}
-
-function previewTargetPosition(
-  fileSize: number,
-  layerOffsets: number[],
-  filePosition?: number | null,
-  printState?: string | null,
-  progress?: number | null,
-  currentLayer?: number | null,
-  totalLayers?: number | null,
-) {
-  const completed = ["complete", "cancelled", "error"].includes((printState ?? "").toLowerCase());
-  return completed
-    ? fileSize
-    : layerTargetPosition(layerOffsets, fileSize, currentLayer, totalLayers) ?? fileTargetPosition(fileSize, filePosition) ?? progressTargetPosition(fileSize, progress);
-}
-
-function layerTargetPosition(layerOffsets: number[], fileSize: number, currentLayer?: number | null, totalLayers?: number | null) {
-  if (!Array.isArray(layerOffsets) || layerOffsets.length < 3) return null;
-  if (typeof currentLayer !== "number" || !Number.isFinite(currentLayer) || currentLayer <= 0) return null;
-  if (typeof totalLayers === "number" && Number.isFinite(totalLayers) && currentLayer >= totalLayers) return fileSize;
-  const index = Math.max(1, Math.min(layerOffsets.length - 1, Math.floor(currentLayer) + 1));
-  return Math.max(0, Math.min(fileSize, layerOffsets[index] ?? fileSize));
-}
-
-function fileTargetPosition(fileSize: number, filePosition?: number | null) {
-  if (typeof filePosition !== "number" || !Number.isFinite(filePosition)) return null;
-  return Math.max(0, Math.min(fileSize, filePosition - LIVE_TRACKING_OFFSET_BYTES));
-}
-
-function progressTargetPosition(fileSize: number, progress?: number | null) {
-  if (typeof progress !== "number" || !Number.isFinite(progress)) return 0;
-  const ratio = progress <= 1 ? progress : progress / 100;
-  return Math.max(0, Math.min(fileSize, fileSize * ratio));
-}
-
-function buildLayerOffsets(text: string) {
-  const offsets = [0];
-  const preferAfterLayerChange = /^;AFTER_LAYER_CHANGE\b/im.test(text);
-  let lineStart = 0;
-  while (lineStart < text.length) {
-    const lineEnd = text.indexOf("\n", lineStart);
-    const nextStart = lineEnd === -1 ? text.length : lineEnd + 1;
-    const rawLine = text.slice(lineStart, lineEnd === -1 ? text.length : lineEnd).trim();
-    if (isLayerMarker(rawLine, preferAfterLayerChange) && lineStart - offsets[offsets.length - 1] > 64) {
-      offsets.push(lineStart);
-    }
-    lineStart = nextStart;
-  }
-  if (offsets[offsets.length - 1] !== text.length) offsets.push(text.length);
-  return offsets;
-}
-
-function isLayerMarker(line: string, preferAfterLayerChange: boolean) {
-  if (preferAfterLayerChange) return /^;AFTER_LAYER_CHANGE\b/i.test(line);
-  return /^;LAYER:\s*\d+/i.test(line) || /^;LAYER_CHANGE\b/i.test(line);
 }
 
 function setCameraPreset(viewer: GCodeViewerInstance, preset: CameraPreset) {
@@ -712,4 +662,12 @@ function clampPan(value: number) {
 function formatLayer(current: number, total?: number | null) {
   if (typeof total === "number" && Number.isFinite(total)) return `${current} / ${total}`;
   return `${current} / -`;
+}
+
+function viewerTitle(mode: GcodePreviewMode, selectedLayer?: number | null, currentLayer?: number | null, totalLayers?: number | null) {
+  if (mode === "full") return "Arquivo completo";
+  if (mode === "until_layer") return `Até camada ${formatLayer(selectedLayer ?? currentLayer ?? 0, totalLayers)}`;
+  if (mode === "current_layer") return `Camada ${formatLayer(selectedLayer ?? currentLayer ?? 0, totalLayers)}`;
+  if (typeof currentLayer === "number") return `Camada ${formatLayer(currentLayer, totalLayers)}`;
+  return "Progresso";
 }

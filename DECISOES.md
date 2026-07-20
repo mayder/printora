@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260720-04 - Preview G-code usa módulo reutilizável com modos explícitos
+
+Status: aceita
+Data: 2026-07-20
+Contexto: `Operacao`, `Arquivos G-code`, projetos e futuro fatiamento precisam compartilhar a mesma prévia 3D sem duplicar parser, baixar G-code em polling ou acoplar UI de arquivo ao estado live da impressão.
+Decisao: manter o `GcodePrintViewer` como componente visual reutilizável e extrair a lógica pura de offsets de camada e alvo de renderização para `frontend/src/components/monitoring/gcodePreview.ts`. O viewer aceita modos explícitos (`progress`, `full`, `until_layer`, `current_layer`) e continua carregando G-code completo apenas sob demanda pelo cache existente.
+Alternativas consideradas: manter prévia textual no drawer; duplicar viewer em `Arquivos G-code`; buscar G-code completo junto da listagem; criar nova renderização própria em canvas antes de estabilizar o contrato atual.
+Consequencias: a prévia passa a ser consistente entre Operação e gerenciador de arquivos, com menor risco de divergência visual e teste determinístico para seleção de camada/progresso. O custo de renderização continua no navegador quando o usuário abre a prévia, não no agente nem no polling.
+Impacto em testes: `frontend/tests/gcodePreview.test.mjs`, build frontend e `RUN_FRONTEND_CHECKS=1 ./check.sh`.
+Impacto em rollback: baixo a médio; remover o uso no drawer preserva a prévia operacional, mas os modos do componente comum podem permanecer para progresso live.
+Como reverter: ocultar o botão de prévia 3D em `GcodeFilesScreen`, restaurar download/preview textual sob demanda e manter `GcodePrintViewer` apenas em `Operacao`.
+Referencias: `frontend/src/components/monitoring/GcodePrintViewer.tsx`, `frontend/src/components/monitoring/gcodePreview.ts`, `frontend/src/screens/GcodeFilesScreen.tsx`, `frontend/tests/gcodePreview.test.mjs`, `TELAS.md`.
+
 ### DEC-20260720-03 - Ações de arquivo G-code usam job remoto com preflight
 
 Status: aceita

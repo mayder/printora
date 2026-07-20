@@ -1695,6 +1695,7 @@ Critérios:
 - Validar limites de performance em arquivo grande sem travar UI nem aumentar polling do agente.
 - Testes automatizados focados: parser/normalizador de G-code e fixtures de renderização quando aplicável.
 - Validação frontend focada: `npm --prefix frontend run build`.
+- Validação focada executada em 2026-07-20: `npm --prefix frontend run test:gcode-preview`; `npm --prefix frontend run build`. Não foi executada ação live ou mutável na impressora porque ela estava imprimindo.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
 ### PKG-85 - Operação Ociosa Enxuta E Ponte Para Arquivos
