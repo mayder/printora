@@ -214,6 +214,22 @@ export function GcodePrintViewer({
     return () => observer.disconnect();
   }, [state]);
 
+  React.useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || typeof document === "undefined" || typeof MutationObserver === "undefined") return;
+    const syncTheme = () => {
+      applyViewerTheme(viewer);
+      positionNativeViewbox(viewer);
+      viewer.forceRender();
+    };
+    syncTheme();
+    const observer = new MutationObserver((records) => {
+      if (records.some((record) => record.attributeName === "data-theme")) syncTheme();
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, [state]);
+
   const setPreset = (preset: CameraPreset) => {
     const viewer = viewerRef.current;
     if (!viewer) return;
@@ -322,8 +338,7 @@ export function GcodePrintViewer({
 }
 
 function configureViewer(viewer: GCodeViewerInstance, bounds: BuildVolumeBounds, fileBytes: number, extrusionWidth?: number | null) {
-  viewer.setBackgroundColor("#111820");
-  viewer.bed.setBedColor("#334155");
+  applyViewerTheme(viewer);
   viewer.setCursorVisiblity(false);
   viewer.setZClipPlane(1000000, -1000000);
   viewer.axes.show(true);
@@ -357,6 +372,17 @@ function configureViewer(viewer: GCodeViewerInstance, bounds: BuildVolumeBounds,
   viewer.updateRenderQuality(fileBytes <= MAX_RENDER_QUALITY_BYTES ? 4 : 3);
   disablePreviewFade(viewer);
   showNativeViewbox(viewer, true);
+}
+
+function applyViewerTheme(viewer: GCodeViewerInstance) {
+  const isLight = currentDocumentTheme() === "light";
+  viewer.setBackgroundColor(isLight ? "#f4f9fc" : "#111820");
+  viewer.bed.setBedColor(isLight ? "#d4e0ea" : "#334155");
+}
+
+function currentDocumentTheme() {
+  if (typeof document === "undefined") return "dark";
+  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
 }
 
 function updatePreviewPosition(viewer: GCodeViewerInstance, target: number) {

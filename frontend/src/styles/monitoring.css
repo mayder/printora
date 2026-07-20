@@ -191,23 +191,11 @@
 }
 
 [data-theme="light"] .operation-print-card .print-monitor-body {
-  --surface-1: #0f1720;
-  --surface-2: #121c26;
-  --surface-3: #0b121a;
-  --surface-hover: #182636;
-  --secondary-bg: #132231;
-  --border: #2d4354;
-  --border-soft: #223545;
-  --text: #edf8fb;
-  --muted: #a8b8c7;
-  --shadow: rgb(8 18 28 / 0.34);
-  color: var(--text);
-  color-scheme: dark;
   border: 1px solid #d4e1ea;
   border-radius: 8px;
   background:
-    radial-gradient(circle at 45% 42%, rgb(7 141 156 / 0.12), transparent 38%),
-    linear-gradient(180deg, #101923, #0c141d);
+    radial-gradient(circle at 45% 42%, rgb(7 141 156 / 0.09), transparent 38%),
+    linear-gradient(180deg, #f8fbfd, #eef4f8);
   padding: 10px;
 }
 
@@ -286,11 +274,11 @@
 }
 
 [data-theme="light"] .operation-print-card .print-visual-tile.thumbnail-tile {
-  border-color: rgb(34 211 238 / 0.16);
+  border-color: #d7e3ec;
   background:
-    radial-gradient(circle at 50% 44%, rgb(18 200 212 / 0.13), transparent 54%),
-    #0e1822;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.02);
+    radial-gradient(circle at 50% 44%, rgb(7 141 156 / 0.09), transparent 54%),
+    linear-gradient(180deg, #f8fbfd, #edf4f8);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.76);
 }
 
 .print-side-thumbnail .print-visual-tile.thumbnail-tile {
@@ -431,12 +419,11 @@
 }
 
 [data-theme="light"] .operation-print-card .gcode-viewer-tile {
-  border-color: rgb(34 211 238 / 0.18);
+  border-color: #d7e3ec;
   background:
-    radial-gradient(circle at 48% 44%, rgb(34 211 238 / 0.1), transparent 36%),
-    linear-gradient(180deg, rgb(15 23 42 / 0.5), rgb(15 23 42 / 0.16)),
-    #101923;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.02);
+    radial-gradient(circle at 48% 44%, rgb(7 141 156 / 0.09), transparent 36%),
+    linear-gradient(180deg, #f9fcfe, #edf4f8);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.76);
 }
 
 .gcode-viewer-tile.is-error {
@@ -486,6 +473,16 @@
   white-space: nowrap;
 }
 
+[data-theme="light"] .operation-print-card .gcode-viewer-title strong,
+[data-theme="light"] .operation-print-card .gcode-viewer-title span,
+[data-theme="light"] .operation-print-card .print-visual-title strong,
+[data-theme="light"] .operation-print-card .print-visual-title span {
+  border-color: rgb(197 210 222 / 0.9);
+  background: rgb(255 255 255 / 0.88);
+  color: #1d2733;
+  box-shadow: 0 8px 22px rgb(31 42 55 / 0.08);
+}
+
 .gcode-viewer-status {
   position: absolute;
   z-index: 4;
@@ -500,6 +497,13 @@
   color: var(--text);
   padding: 10px 12px;
   box-shadow: 0 12px 30px rgb(0 0 0 / 0.22);
+}
+
+[data-theme="light"] .operation-print-card .gcode-viewer-status {
+  border-color: rgb(7 141 156 / 0.28);
+  background: rgb(255 255 255 / 0.9);
+  color: #1d2733;
+  box-shadow: 0 12px 30px rgb(31 42 55 / 0.1);
 }
 
 .gcode-viewer-status span {
@@ -609,6 +613,18 @@
   border-radius: 6px;
   background: rgb(15 23 42 / 0.78);
   color: var(--accent);
+}
+
+[data-theme="light"] .operation-print-card .gcode-viewer-toolbar {
+  border-color: rgb(7 141 156 / 0.18);
+  background: rgb(255 255 255 / 0.76);
+  box-shadow: 0 10px 28px rgb(31 42 55 / 0.12);
+}
+
+[data-theme="light"] .operation-print-card .gcode-viewer-toolbar .icon-button {
+  border-color: rgb(7 141 156 / 0.28);
+  background: rgb(255 255 255 / 0.9);
+  color: var(--accent-strong);
 }
 
 .layer-scene-tile {
