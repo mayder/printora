@@ -280,27 +280,6 @@ export function GcodePrintViewer({
         aria-label="Mover preview para cima ou baixo"
         onChange={(event) => panTo("y", event.target.value)}
       />
-      <div className="gcode-viewer-orientation" aria-label="Orientação do preview 3D">
-        <span className="gcode-viewer-axis z">Z</span>
-        <span className="gcode-viewer-axis y">Y</span>
-        <span className="gcode-viewer-axis x">X</span>
-        <div className="gcode-viewer-cube" aria-hidden="true">
-          <span>Top</span>
-          <span>Front</span>
-          <span>Right</span>
-        </div>
-        <div className="gcode-viewer-orientation-actions">
-          <button type="button" title="Vista superior" aria-label="Vista superior" onClick={() => setPreset("top")}>
-            Top
-          </button>
-          <button type="button" title="Vista frontal" aria-label="Vista frontal" onClick={() => setPreset("front")}>
-            Front
-          </button>
-          <button type="button" title="Vista direita" aria-label="Vista direita" onClick={() => setPreset("right")}>
-            Right
-          </button>
-        </div>
-      </div>
       <div className="gcode-viewer-toolbar" aria-label="Controles do preview 3D">
         <button type="button" className="icon-button" title="Girar para a esquerda" aria-label="Girar para a esquerda" onClick={() => setPreset("frontLeft")}>
           <RotateCcw size={14} />
@@ -370,7 +349,7 @@ function configureViewer(viewer: GCodeViewerInstance, bounds: BuildVolumeBounds,
   viewer.toggleTravels(false);
   viewer.updateRenderQuality(fileBytes <= MAX_RENDER_QUALITY_BYTES ? 4 : 3);
   disablePreviewFade(viewer);
-  showNativeViewbox(viewer, false);
+  showNativeViewbox(viewer, true);
 }
 
 function updatePreviewPosition(viewer: GCodeViewerInstance, target: number) {
