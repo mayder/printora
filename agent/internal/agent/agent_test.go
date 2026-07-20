@@ -335,6 +335,79 @@ func TestGcodeFilesListFetchesMetadataAndUsesShortCache(t *testing.T) {
 	}
 }
 
+func TestGcodeFileActionBlocksPrintWhilePrinting(t *testing.T) {
+	var printStartRequested bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/server/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"klippy_state": "ready"}})
+		case "/printer/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"state": "ready"}})
+		case "/printer/objects/list":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"objects": []string{"print_stats"}}})
+		case "/printer/objects/query":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"status": map[string]any{"print_stats": map[string]any{"state": "printing", "filename": "active.gcode"}}}})
+		case "/printer/print/start":
+			printStartRequested = true
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": "ok"})
+		default:
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{}})
+		}
+	}))
+	defer server.Close()
+
+	client := NewMoonrakerClient(server.URL, time.Second)
+	payload := client.RemoteGcodeFileAction(context.Background(), map[string]any{"action": "print", "filename": "folder/deck.gcode"})
+
+	if payload["status"] != "blocked" {
+		t.Fatalf("expected blocked print action: %#v", payload)
+	}
+	if printStartRequested {
+		t.Fatal("print start must not be requested while printing")
+	}
+}
+
+func TestGcodeFileActionDeletesNestedFileWithEscapedSegments(t *testing.T) {
+	var deletePath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/server/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"klippy_state": "ready"}})
+		case "/printer/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"state": "ready"}})
+		case "/printer/objects/list":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"objects": []string{"print_stats"}}})
+		case "/printer/objects/query":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"status": map[string]any{"print_stats": map[string]any{"state": "standby"}}}})
+		case "/server/files/gcodes/folder/deck plate.gcode":
+			deletePath = r.URL.EscapedPath()
+			if r.Method != http.MethodDelete {
+				t.Fatalf("unexpected method %s", r.Method)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": "deleted"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewMoonrakerClient(server.URL, time.Second)
+	payload := client.RemoteGcodeFileAction(context.Background(), map[string]any{"action": "delete", "filename": "folder/deck plate.gcode"})
+
+	if payload["status"] != "deleted" {
+		t.Fatalf("expected deleted action: %#v", payload)
+	}
+	if deletePath != "/server/files/gcodes/folder/deck%20plate.gcode" {
+		t.Fatalf("delete path did not preserve nested segments: %s", deletePath)
+	}
+}
+
+func TestGcodeFileActionRejectsTraversalPath(t *testing.T) {
+	if clean := cleanRelativeGcodeFilePath("folder/../secret.gcode"); clean != "" {
+		t.Fatalf("expected traversal path to be rejected, got %q", clean)
+	}
+}
+
 func TestOperationStatusEmbedsCurrentPrintVisuals(t *testing.T) {
 	var gcodeDownloaded bool
 	var thumbnailDownloaded bool

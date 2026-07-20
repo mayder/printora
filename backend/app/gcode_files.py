@@ -70,7 +70,97 @@ class GcodeFilesResponse(BaseModel):
     agent: dict[str, Any] | None = None
 
 
+GcodeFileActionName = Literal[
+    "preview",
+    "download",
+    "copy_path",
+    "history",
+    "print",
+    "rename",
+    "move",
+    "duplicate",
+    "delete",
+]
+
+
+class GcodeFileActionState(BaseModel):
+    action: GcodeFileActionName
+    label: str
+    enabled: bool
+    read_only: bool
+    destructive: bool
+    requires_target: bool = False
+    requires_confirmation: bool = False
+    requires_step_up: bool = False
+    confirmation_phrase: str = ""
+    block_reason: str = ""
+    blockers: list[str] = Field(default_factory=list)
+
+
+class GcodeFileHistoryEntry(BaseModel):
+    id: int
+    created_at: str | None = None
+    finished_at: str | None = None
+    job_type: str
+    action: str = ""
+    status: str
+    summary: str
+    filename: str = ""
+    target_filename: str = ""
+
+
+class GcodeFileDetailResponse(BaseModel):
+    printer_id: int
+    safe_mode: str = "gcode_file_detail"
+    data_state: Literal["live", "cached", "offline", "error", "unsupported"] = "live"
+    summary: str
+    file: GcodeFileEntry
+    actions: list[GcodeFileActionState]
+    history: list[GcodeFileHistoryEntry] = Field(default_factory=list)
+    current_print: dict[str, Any] = Field(default_factory=dict)
+    preview_available: bool = True
+    download_available: bool = True
+    agent: dict[str, Any] | None = None
+
+
+class GcodeFileActionRequest(BaseModel):
+    action: GcodeFileActionName
+    filename: str = Field(min_length=1, max_length=300)
+    target_filename: str | None = Field(default=None, max_length=300)
+    confirmation_phrase: str = Field(default="", max_length=500)
+    step_up_token: str | None = Field(default=None, max_length=240)
+
+
+class GcodeFileActionResponse(BaseModel):
+    printer_id: int
+    safe_mode: str = "gcode_file_action"
+    action: GcodeFileActionName
+    status: Literal["ready", "blocked", "executed", "failed"]
+    filename: str
+    target_filename: str = ""
+    confirmation_phrase: str = ""
+    confirmation_matched: bool = False
+    blockers: list[str] = Field(default_factory=list)
+    summary: str
+    job_id: int | None = None
+    result: dict[str, Any] = Field(default_factory=dict)
+
+
 GCODE_FILE_EXTENSIONS = (".gcode", ".gcode.gz", ".gco", ".g", ".gc", ".nc", ".ngc", ".tap")
+MUTABLE_GCODE_FILE_ACTIONS = {"print", "rename", "move", "duplicate", "delete"}
+DESTRUCTIVE_GCODE_FILE_ACTIONS = {"print", "rename", "move", "delete"}
+
+GCODE_FILE_ACTION_LABELS: dict[str, str] = {
+    "preview": "Abrir prévia",
+    "download": "Baixar",
+    "copy_path": "Copiar caminho",
+    "history": "Ver histórico",
+    "print": "Imprimir",
+    "rename": "Renomear",
+    "move": "Mover",
+    "duplicate": "Duplicar",
+    "delete": "Excluir",
+}
 
 
 def build_gcode_files_response(
@@ -117,6 +207,183 @@ def build_gcode_files_unavailable_response(
         error=detail,
         agent=agent,
     )
+
+
+def build_gcode_file_detail_response(
+    printer_id: int,
+    file: GcodeFileEntry,
+    *,
+    current_print: dict[str, Any] | None = None,
+    history: list[GcodeFileHistoryEntry] | None = None,
+    agent: dict[str, Any] | None = None,
+    data_state: Literal["live", "cached", "offline", "error", "unsupported"] = "live",
+) -> GcodeFileDetailResponse:
+    context = current_print or {}
+    return GcodeFileDetailResponse(
+        printer_id=printer_id,
+        data_state=data_state,
+        summary=f"Detalhe de {file.name or file.filename}.",
+        file=file,
+        actions=build_gcode_file_action_states(file, context, agent=agent),
+        history=history or [],
+        current_print=context,
+        preview_available=True,
+        download_available=agent is None or agent.get("ready") is not False,
+        agent=agent,
+    )
+
+
+def build_gcode_file_action_states(
+    file: GcodeFileEntry,
+    current_print: dict[str, Any] | None = None,
+    *,
+    agent: dict[str, Any] | None = None,
+) -> list[GcodeFileActionState]:
+    context = current_print or {}
+    printing = context.get("printing") is True
+    connected = context.get("connected") is not False
+    current_filename = normalize_gcode_file_path(str(context.get("filename") or ""))
+    file_path = normalize_gcode_file_path(file.path or file.filename)
+    loaded_current_file = bool(current_filename and current_filename == file_path)
+    agent_ready = agent is None or agent.get("ready") is not False
+    states: list[GcodeFileActionState] = []
+    for action, label in GCODE_FILE_ACTION_LABELS.items():
+        blockers: list[str] = []
+        read_only = action not in MUTABLE_GCODE_FILE_ACTIONS
+        destructive = action in DESTRUCTIVE_GCODE_FILE_ACTIONS
+        if not agent_ready:
+            blockers.append("Agente atualizado é necessário para agir sobre arquivos.")
+        if action in MUTABLE_GCODE_FILE_ACTIONS and not connected:
+            blockers.append("Exige leitura ao vivo do Moonraker pelo agente.")
+        if action in MUTABLE_GCODE_FILE_ACTIONS and printing:
+            blockers.append("Bloqueado: impressão em andamento.")
+        if action in {"rename", "move", "delete"} and loaded_current_file:
+            blockers.append("Arquivo carregado na impressão atual não pode ser alterado.")
+        if action == "print" and not file_path:
+            blockers.append("Arquivo G-code inválido.")
+        requires_target = action in {"rename", "move", "duplicate"}
+        requires_confirmation = action in MUTABLE_GCODE_FILE_ACTIONS
+        states.append(
+            GcodeFileActionState(
+                action=action,  # type: ignore[arg-type]
+                label=label,
+                enabled=not blockers,
+                read_only=read_only,
+                destructive=destructive,
+                requires_target=requires_target,
+                requires_confirmation=requires_confirmation,
+                requires_step_up=action in MUTABLE_GCODE_FILE_ACTIONS,
+                confirmation_phrase=gcode_file_confirmation_phrase(action, file_path) if requires_confirmation else "",
+                block_reason=blockers[0] if blockers else "",
+                blockers=blockers,
+            )
+        )
+    return states
+
+
+def build_gcode_file_action_response(
+    printer_id: int,
+    request: GcodeFileActionRequest,
+    *,
+    status: Literal["ready", "blocked", "executed", "failed"],
+    summary: str,
+    blockers: list[str] | None = None,
+    job_id: int | None = None,
+    result: dict[str, Any] | None = None,
+) -> GcodeFileActionResponse:
+    filename = normalize_gcode_file_path(request.filename)
+    target = normalize_gcode_file_path(request.target_filename or "")
+    confirmation_phrase = gcode_file_confirmation_phrase(request.action, filename, target)
+    return GcodeFileActionResponse(
+        printer_id=printer_id,
+        action=request.action,
+        status=status,
+        filename=filename,
+        target_filename=target,
+        confirmation_phrase=confirmation_phrase,
+        confirmation_matched=request.confirmation_phrase.strip() == confirmation_phrase if confirmation_phrase else True,
+        blockers=blockers or [],
+        summary=summary,
+        job_id=job_id,
+        result=sanitize_gcode_file_action_result(result or {}),
+    )
+
+
+def gcode_file_confirmation_phrase(action: str, filename: str, target_filename: str = "") -> str:
+    filename = normalize_gcode_file_path(filename)
+    target_filename = normalize_gcode_file_path(target_filename)
+    if action == "print":
+        return f"IMPRIMIR {filename}"
+    if action == "delete":
+        return f"EXCLUIR {filename}"
+    if action == "rename":
+        return f"RENOMEAR {filename} -> {target_filename or '<novo-nome>'}"
+    if action == "move":
+        return f"MOVER {filename} -> {target_filename or '<destino>'}"
+    if action == "duplicate":
+        return f"DUPLICAR {filename} -> {target_filename or '<copia>'}"
+    return ""
+
+
+def normalize_gcode_file_path(value: str) -> str:
+    normalized = _normalize_path(value)
+    if normalized.startswith("gcodes/"):
+        normalized = normalized.removeprefix("gcodes/")
+    return normalized
+
+
+def require_valid_gcode_file_path(value: str) -> str:
+    if _contains_path_traversal(value):
+        raise ValueError("arquivo G-code inválido")
+    normalized = normalize_gcode_file_path(value)
+    if not normalized or not _is_gcode_filename(normalized):
+        raise ValueError("arquivo G-code inválido")
+    return normalized
+
+
+def gcode_file_action_requires_step_up(action: str) -> bool:
+    return action in MUTABLE_GCODE_FILE_ACTIONS
+
+
+def gcode_file_action_is_mutable(action: str) -> bool:
+    return action in MUTABLE_GCODE_FILE_ACTIONS
+
+
+def sanitize_gcode_file_action_result(result: dict[str, Any]) -> dict[str, Any]:
+    allowed = {
+        "safe_mode",
+        "kind",
+        "status",
+        "detail",
+        "action",
+        "filename",
+        "target_filename",
+        "remote_filename",
+        "started",
+        "preflight",
+        "moonraker_response",
+    }
+    sanitized = {key: value for key, value in result.items() if key in allowed}
+    if isinstance(sanitized.get("preflight"), dict):
+        preflight = sanitized["preflight"]
+        sanitized["preflight"] = {
+            key: preflight.get(key)
+            for key in ("connected", "printing", "print_state", "klipper_state", "klippy_state", "blockers", "can_execute")
+            if key in preflight
+        }
+    return sanitized
+
+
+def gcode_file_action_payload(request: GcodeFileActionRequest) -> dict[str, Any]:
+    filename = require_valid_gcode_file_path(request.filename)
+    target = normalize_gcode_file_path(request.target_filename or "")
+    return {
+        "action": request.action,
+        "filename": filename,
+        "target_filename": target,
+        "confirmation_present": bool(request.confirmation_phrase.strip()),
+        "safe_mode": "gcode_file_action",
+    }
 
 
 def _normalize_files(value: Any) -> list[GcodeFileEntry]:
@@ -233,6 +500,10 @@ def _data_state(value: Any) -> Literal["live", "cached", "offline", "error", "un
 
 def _normalize_path(value: str) -> str:
     return "/".join(part for part in value.strip().replace("\\", "/").split("/") if part and part != ".")
+
+
+def _contains_path_traversal(value: str) -> bool:
+    return any(part.strip() == ".." for part in str(value).replace("\\", "/").split("/"))
 
 
 def _basename(value: str) -> str:

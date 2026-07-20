@@ -5146,7 +5146,12 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado.
+- Backend expõe detalhe autenticado por arquivo em `/api/printers/{printer_id}/gcode-files/detail` e ação protegida em `/api/printers/{printer_id}/gcode-files/actions`, com confirmação textual, step-up para mutações e histórico recente por `agent_jobs`.
+- Agente adiciona job `remote_gcode_file_action` para imprimir, renomear, mover, duplicar e excluir usando endpoints Moonraker específicos, sempre com preflight remoto e bloqueio quando `print_stats` indica impressão ativa.
+- Frontend abre drawer pelo clique no arquivo, mostra thumbnail, metadados, histórico, ações somente leitura, prévia textual/download sob demanda e ações protegidas com destino e frase exata.
+- Versão esperada do agente atualizada para `0.1.33`, com binário Linux arm64 e manifesto público atualizados.
+- Validação focada executada: `cd backend && uv run --extra dev pytest ../backend/tests/test_gcode_files.py ../backend/tests/test_operation.py ../backend/tests/test_agent_install.py ../backend/tests/test_agent_updates.py ../backend/tests/test_agent_support.py -q`; `cd agent && go test ./...`; `npm --prefix frontend run build`.
 
 ## PKG-84: Preview E Simulação De G-code Reutilizáveis
 

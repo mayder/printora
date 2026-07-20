@@ -139,6 +139,80 @@ export type GcodeFilesResponse = {
   } | null;
 };
 
+export type GcodeFileActionName =
+  | "preview"
+  | "download"
+  | "copy_path"
+  | "history"
+  | "print"
+  | "rename"
+  | "move"
+  | "duplicate"
+  | "delete";
+
+export type GcodeFileActionState = {
+  action: GcodeFileActionName;
+  label: string;
+  enabled: boolean;
+  read_only: boolean;
+  destructive: boolean;
+  requires_target: boolean;
+  requires_confirmation: boolean;
+  requires_step_up: boolean;
+  confirmation_phrase: string;
+  block_reason: string;
+  blockers: string[];
+};
+
+export type GcodeFileHistoryEntry = {
+  id: number;
+  created_at?: string | null;
+  finished_at?: string | null;
+  job_type: string;
+  action: string;
+  status: string;
+  summary: string;
+  filename: string;
+  target_filename: string;
+};
+
+export type GcodeFileDetailResponse = {
+  printer_id: number;
+  safe_mode: string;
+  data_state: "live" | "cached" | "offline" | "error" | "unsupported";
+  summary: string;
+  file: OperationGcodeFile;
+  actions: GcodeFileActionState[];
+  history: GcodeFileHistoryEntry[];
+  current_print: {
+    connected?: boolean | null;
+    printing?: boolean | null;
+    print_state?: string | null;
+    filename?: string | null;
+    klipper_state?: string | null;
+    klippy_state?: string | null;
+    error?: string | null;
+  };
+  preview_available: boolean;
+  download_available: boolean;
+  agent?: GcodeFilesResponse["agent"];
+};
+
+export type GcodeFileActionResponse = {
+  printer_id: number;
+  safe_mode: string;
+  action: GcodeFileActionName;
+  status: "ready" | "blocked" | "executed" | "failed";
+  filename: string;
+  target_filename: string;
+  confirmation_phrase: string;
+  confirmation_matched: boolean;
+  blockers: string[];
+  summary: string;
+  job_id?: number | null;
+  result: Record<string, unknown>;
+};
+
 export type OperationAction = {
   id: string;
   group: string;

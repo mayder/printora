@@ -228,6 +228,13 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 	case "remote_gcode_files_list":
 		payload := r.Moonraker.GcodeFiles(ctx, job.Payload)
 		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+	case "remote_gcode_file_action":
+		payload := r.Moonraker.RemoteGcodeFileAction(ctx, job.Payload)
+		if payload["status"] == "executed" || payload["status"] == "printed" || payload["status"] == "renamed" || payload["status"] == "moved" || payload["status"] == "duplicated" || payload["status"] == "deleted" {
+			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+		} else {
+			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
+		}
 	case "remote_update_action":
 		payload := r.Moonraker.RemoteUpdateAction(ctx, job.Payload)
 		if payload["status"] == "accepted" {
@@ -345,6 +352,7 @@ func (r *Runner) channelCapabilities(ctx context.Context) map[string]any {
 	capabilities["gcode_jobs"] = true
 	capabilities["gcode_cache"] = true
 	capabilities["gcode_files"] = true
+	capabilities["gcode_file_actions"] = true
 	capabilities["host_script"] = true
 	capabilities["jobs"] = true
 	capabilities["websocket"] = true

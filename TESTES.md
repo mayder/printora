@@ -1680,6 +1680,7 @@ Critérios:
 - Validar falhas de Moonraker/agente com mensagem acionável e sem ação parcialmente aplicada.
 - Testes automatizados focados: backend de arquivos/ações e permissões do contrato novo.
 - Validação frontend focada: `npm --prefix frontend run build`.
+- Validação focada executada em 2026-07-20: `cd backend && uv run --extra dev pytest ../backend/tests/test_gcode_files.py ../backend/tests/test_operation.py ../backend/tests/test_agent_install.py ../backend/tests/test_agent_updates.py ../backend/tests/test_agent_support.py -q`; `cd agent && go test ./...`; `npm --prefix frontend run build`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
 ### PKG-84 - Preview E Simulação De G-code Reutilizáveis

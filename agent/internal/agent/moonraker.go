@@ -468,7 +468,7 @@ func (c *MoonrakerClient) RemoteGcodeDelete(ctx context.Context, jobPayload map[
 		result["detail"] = "arquivo remoto inválido"
 		return sanitizeMap(result)
 	}
-	if err := c.delete(ctx, "/server/files/gcodes/"+url.PathEscape(remoteName), "moonraker_response", result); err != nil {
+	if err := c.delete(ctx, "/server/files/gcodes/"+escapePathSegments(remoteName), "moonraker_response", result); err != nil {
 		result["status"] = "failed"
 		result["detail"] = err.Error()
 	}

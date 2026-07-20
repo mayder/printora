@@ -193,12 +193,29 @@
 }
 
 .gcode-file-name-cell strong,
+.gcode-file-open-button,
 .gcode-file-name-cell span {
   display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.gcode-file-open-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 0;
+  text-align: left;
+}
+
+.gcode-file-open-button:hover {
+  color: var(--accent);
 }
 
 .gcode-file-name-cell span {
@@ -221,12 +238,180 @@
   color: var(--muted);
 }
 
+.gcode-file-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  justify-items: end;
+  background: rgb(0 0 0 / 0.38);
+}
+
+.gcode-file-drawer {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  width: min(680px, 100vw);
+  height: 100vh;
+  overflow-y: auto;
+  border-left: 1px solid var(--border-soft);
+  background: var(--surface);
+  box-shadow: -16px 0 40px rgb(0 0 0 / 0.22);
+  padding: 18px;
+}
+
+.gcode-file-drawer-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.gcode-file-drawer-header h3,
+.gcode-file-actions h4,
+.gcode-file-protected-actions h4,
+.gcode-file-preview h4,
+.gcode-file-history h4 {
+  margin: 0;
+}
+
+.gcode-file-detail-hero {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.gcode-file-detail-hero .gcode-file-thumbnail {
+  width: 120px;
+  height: 96px;
+}
+
+.gcode-file-detail-facts,
+.gcode-file-detail-grid,
+.gcode-file-actions,
+.gcode-file-protected-actions,
+.gcode-file-preview,
+.gcode-file-history {
+  display: grid;
+  gap: 10px;
+}
+
+.gcode-file-detail-facts {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gcode-file-detail-facts .gcode-files-metric {
+  min-height: 64px;
+}
+
+.gcode-file-detail-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gcode-file-detail-item,
+.gcode-file-action-card,
+.gcode-file-history li {
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 10px;
+}
+
+.gcode-file-detail-item span,
+.gcode-file-history span,
+.gcode-file-history small,
+.gcode-file-action-card span {
+  display: block;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.gcode-file-detail-item strong,
+.gcode-file-action-card strong {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.gcode-file-action-row,
+.gcode-file-action-cards {
+  display: grid;
+  gap: 8px;
+}
+
+.gcode-file-action-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.gcode-file-action-row button,
+.gcode-file-action-card button {
+  justify-content: center;
+}
+
+.gcode-file-action-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, auto);
+  gap: 10px;
+  align-items: center;
+}
+
+.gcode-file-action-card.danger {
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border-soft));
+}
+
+.gcode-file-protected-actions label {
+  display: grid;
+  gap: 5px;
+}
+
+.gcode-file-protected-actions input {
+  min-height: 40px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 0 10px;
+}
+
+.gcode-file-preview pre {
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin: 0;
+  padding: 12px;
+  white-space: pre-wrap;
+}
+
+.gcode-file-history ul {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 @media (max-width: 1120px) {
   .gcode-files-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .gcode-files-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gcode-file-detail-hero,
+  .gcode-file-detail-grid,
+  .gcode-file-detail-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -317,6 +502,25 @@
 
   .gcode-files-full-table td:nth-child(9)::before {
     content: "Tempo";
+  }
+
+  .gcode-file-drawer {
+    width: 100vw;
+    padding: 14px;
+  }
+
+  .gcode-file-drawer-header,
+  .gcode-file-detail-hero,
+  .gcode-file-detail-grid,
+  .gcode-file-detail-facts,
+  .gcode-file-action-row,
+  .gcode-file-action-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gcode-file-detail-hero .gcode-file-thumbnail {
+    width: 100%;
+    height: 120px;
   }
 
   .gcode-files-full-table td:nth-child(10)::before {

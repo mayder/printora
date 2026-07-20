@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260720-03 - Ações de arquivo G-code usam job remoto com preflight
+
+Status: aceita
+Data: 2026-07-20
+Contexto: a aba `Arquivos G-code` precisa permitir imprimir, renomear, mover, duplicar, excluir, baixar e inspecionar histórico sem expor Moonraker direto ao navegador e sem arriscar a peça em andamento.
+Decisao: manter ações somente leitura no navegador/backend sob demanda e criar o job `remote_gcode_file_action` no agente para operações mutáveis. O backend exige usuário autenticado, confirmação textual e step-up para mutações; o agente reexecuta preflight remoto e usa endpoints Moonraker específicos (`/printer/print/start`, `/server/files/move`, `/server/files/copy` e `DELETE /server/files/gcodes/...`) com caminhos relativos sanitizados.
+Alternativas consideradas: enviar `SDCARD_PRINT_FILE` por G-code manual; chamar Moonraker direto do frontend; persistir uma nova tabela de auditoria; liberar ações mutáveis apenas pela UI sem preflight no agente.
+Consequencias: ações de arquivo ficam rastreáveis em `agent_jobs`, sem G-code bruto em logs persistidos e sem token/IP/caminho absoluto. Durante impressão ativa, o backend bloqueia a UI e o agente bloqueia novamente antes de chamar Moonraker. Agentes antigos ficam marcados como desatualizados até `0.1.33`.
+Impacto em testes: testes backend da matriz/contrato de ações, testes Go de bloqueio durante impressão e path de delete em subpasta, build frontend e `./check.sh`.
+Impacto em rollback: médio; reverter remove os botões/drawer de ação e o job remoto novo, mantendo a listagem read-only do PKG-82.
+Como reverter: ocultar ações protegidas no drawer, remover endpoints `/gcode-files/detail` e `/gcode-files/actions`, remover `remote_gcode_file_action` do agente e publicar agente anterior. Arquivos já alterados pelo Moonraker não devem ser revertidos por automação sem confirmação explícita.
+Referencias: `backend/app/gcode_files.py`, `backend/app/routes/operation.py`, `agent/internal/agent/gcode_file_actions.go`, `frontend/src/screens/GcodeFilesScreen.tsx`, `TELAS.md`.
+
 ### DEC-20260720-02 - Arquivos G-code usam listagem remota leve e cache curto
 
 Status: aceita

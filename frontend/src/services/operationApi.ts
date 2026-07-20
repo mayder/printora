@@ -1,5 +1,5 @@
 import { apiRequest, apiResponse, getStoredStepUpToken, readApiError } from "./http";
-import type { GcodeFilesResponse } from "../types";
+import type { GcodeFileActionName, GcodeFileActionResponse, GcodeFileDetailResponse, GcodeFilesResponse } from "../types";
 
 export type GcodeCacheEntry = {
   status: "cached";
@@ -28,6 +28,25 @@ export const operationApi = {
     const query = params.toString();
     return apiRequest<GcodeFilesResponse>(`/api/printers/${printerId}/gcode-files${query ? `?${query}` : ""}`);
   },
+  gcodeFileDetail: (printerId: number, filename: string) => {
+    const params = new URLSearchParams({ filename });
+    return apiRequest<GcodeFileDetailResponse>(`/api/printers/${printerId}/gcode-files/detail?${params.toString()}`);
+  },
+  gcodeFileAction: (
+    printerId: number,
+    body: {
+      action: GcodeFileActionName;
+      filename: string;
+      target_filename?: string | null;
+      confirmation_phrase?: string;
+      step_up_token?: string | null;
+    },
+  ) =>
+    apiRequest<GcodeFileActionResponse>(`/api/printers/${printerId}/gcode-files/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(withStepUp(body)),
+    }),
   actionHistory: (printerId: number) => apiResponse(`/api/printers/${printerId}/operation/actions/history`),
   executionHistory: (printerId: number) => apiResponse(`/api/printers/${printerId}/operation/actions/executions`),
   offlineFixture: () => apiResponse("/api/operation/fixtures/voron-offline"),
