@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260720-05 - Operação ociosa mostra atalhos, não gerenciador de arquivos
+
+Status: aceita
+Data: 2026-07-20
+Contexto: depois da criação de `Arquivos G-code`, a aba `Operacao` não deve competir com o gerenciador completo quando a impressora está ociosa. A mesma área precisa continuar densa e útil durante impressão ativa, sem preservar preview ou progresso antigo.
+Decisao: em estado ocioso, `Operacao` mostra somente estado compacto, último trabalho confiável quando houver metadado e poucos atalhos recentes. A tabela completa, filtros, detalhe, preview e ações por arquivo ficam na aba `Arquivos G-code`, aberta por CTA a partir da Operação.
+Alternativas consideradas: manter tabela completa na Operação; ocultar todo G-code quando ociosa; duplicar filtros e drawer na Operação; manter preview do job anterior como fallback visual.
+Consequencias: a aba Operação fica mais objetiva em standby/offline/erro e reduz risco de acionar gestão de arquivo no lugar errado. O usuário ainda chega rápido aos arquivos, mas o fluxo completo fica no módulo dedicado.
+Impacto em testes: build frontend e `RUN_FRONTEND_CHECKS=1 ./check.sh`; validação live/mutável foi evitada durante impressão ativa.
+Impacto em rollback: baixo; restaurar a tabela antiga na Operação ou esconder os atalhos não altera backend/agente.
+Como reverter: remover o CTA/atalhos compactos de `MonitoringDashboard` e voltar `IdleGcodeFilesPanel` para tabela local ou estado vazio.
+Referencias: `frontend/src/components/monitoring/MonitoringDashboard.tsx`, `frontend/src/screens/MonitoringScreen.tsx`, `frontend/src/styles/monitoring.css`, `TELAS.md`.
+
 ### DEC-20260720-04 - Preview G-code usa módulo reutilizável com modos explícitos
 
 Status: aceita

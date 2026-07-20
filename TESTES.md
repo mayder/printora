@@ -1708,6 +1708,7 @@ Critérios:
 - Validar mensagens de timeout/agente offline sem erro bruto de infraestrutura.
 - Validar layout em monitor grande, notebook, mobile, tema claro, tema escuro e navegador embutido.
 - Validação frontend focada: `npm --prefix frontend run build`.
+- Validação focada executada em 2026-07-20: `npm --prefix frontend run build`. Não foi executada ação live ou mutável na impressora porque ela estava imprimindo.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
 ### PKG-20 Validado Em 2026-05-22

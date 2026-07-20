@@ -22,6 +22,7 @@ type MonitoringScreenProps = ScreenPropsFor<
   | "selectedPrinter"
   | "selectedPrinterId"
   | "setOperationExecutionPhrase"
+  | "setPrinterDetailTab"
   | "updateOperationActionParameter"
   | "validateOperationExecutionGate"
 >;
@@ -48,6 +49,7 @@ export function MonitoringScreen(props: MonitoringScreenProps) {
     selectedPrinter,
     selectedPrinterId,
     setOperationExecutionPhrase,
+    setPrinterDetailTab,
     updateOperationActionParameter,
     validateOperationExecutionGate,
   } = props;
@@ -76,6 +78,7 @@ export function MonitoringScreen(props: MonitoringScreenProps) {
           onActionParameterChange={updateOperationActionParameter}
           onExecutionPhraseChange={setOperationExecutionPhrase}
           onValidateExecutionGate={validateOperationExecutionGate}
+          onOpenGcodeFiles={() => setPrinterDetailTab("gcode-files")}
         />
 
 

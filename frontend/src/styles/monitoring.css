@@ -217,140 +217,186 @@
   min-width: 0;
 }
 
-.gcode-files-panel {
+.print-idle-panel {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--surface-2);
-  padding: 10px;
+  padding: 12px;
 }
 
-.gcode-files-heading {
+.print-idle-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
 }
 
-.gcode-files-heading > div {
+.print-idle-header > div {
   display: grid;
   gap: 3px;
   min-width: 0;
 }
 
-.gcode-files-heading strong {
+.print-idle-header strong {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   color: var(--text);
 }
 
-.gcode-files-heading svg {
+.print-idle-header svg {
   color: var(--accent);
 }
 
-.gcode-files-heading span {
+.print-idle-header span {
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1.4;
 }
 
-.gcode-files-table-wrap {
-  overflow: auto;
-  max-height: 420px;
+.print-idle-last-job,
+.print-idle-empty,
+.print-idle-file-card {
   border: 1px solid var(--border-soft);
   border-radius: 8px;
   background: var(--surface-1);
 }
 
-.gcode-files-table {
-  width: 100%;
-  min-width: 880px;
-  border-collapse: collapse;
-  font-size: 0.82rem;
+.print-idle-last-job {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
 }
 
-.gcode-files-table th,
-.gcode-files-table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border-soft);
-  text-align: left;
-  vertical-align: middle;
-  white-space: nowrap;
+.print-idle-last-job > div:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
-.gcode-files-table th {
-  background: var(--surface-3);
+.print-idle-last-job > strong {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.print-idle-last-job dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.print-idle-last-job dl div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+  background: var(--surface-2);
+  padding: 7px;
+}
+
+.print-idle-last-job dt {
   color: var(--muted);
   font-size: 0.7rem;
   font-weight: 900;
   text-transform: uppercase;
 }
 
-.gcode-files-table tr:last-child td {
-  border-bottom: 0;
-}
-
-.gcode-files-table td:first-child {
-  max-width: 300px;
-  white-space: normal;
-}
-
-.gcode-files-table td:first-child strong,
-.gcode-files-table td:first-child span {
-  display: block;
+.print-idle-last-job dd {
+  margin: 0;
   overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
-.gcode-files-table td:first-child span {
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 0.72rem;
-}
-
-.gcode-files-empty {
+.print-idle-empty {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
   gap: 10px;
   align-items: start;
-  min-height: 112px;
-  border: 1px solid var(--border-soft);
   border-left: 3px solid var(--warning);
-  border-radius: 8px;
-  background: var(--surface-1);
   padding: 14px;
 }
 
-.gcode-files-empty svg {
+.print-idle-empty svg {
   color: var(--warning);
 }
 
-.gcode-files-empty div {
+.print-idle-empty div {
   display: grid;
   gap: 4px;
 }
 
-.gcode-files-empty span {
+.print-idle-empty span {
   color: var(--muted);
   line-height: 1.45;
 }
 
-[data-theme="light"] .operation-print-card .gcode-files-panel,
+.print-idle-file-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.print-idle-file-card {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 2px 8px;
+  align-items: start;
+  min-height: 66px;
+  padding: 10px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.print-idle-file-card:hover {
+  background: var(--surface-hover);
+}
+
+.print-idle-file-card svg {
+  grid-row: span 2;
+  color: var(--accent);
+}
+
+.print-idle-file-card strong,
+.print-idle-file-card span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.print-idle-file-card strong {
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.print-idle-file-card span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+[data-theme="light"] .operation-print-card .print-idle-panel,
 [data-theme="light"] .operation-print-card .print-idle-side .operation-console-card.machine {
   border-color: #d7e3ec;
   background: #ffffff;
 }
 
-[data-theme="light"] .operation-print-card .gcode-files-table-wrap,
-[data-theme="light"] .operation-print-card .gcode-files-empty {
+[data-theme="light"] .operation-print-card .print-idle-last-job,
+[data-theme="light"] .operation-print-card .print-idle-empty,
+[data-theme="light"] .operation-print-card .print-idle-file-card {
   border-color: #d7e3ec;
   background: #f8fbfd;
-}
-
-[data-theme="light"] .operation-print-card .gcode-files-table th {
-  background: #eef4f8;
 }
 
 .print-side-stack {
@@ -1544,8 +1590,18 @@
     overflow: visible;
   }
 
-  .gcode-files-table {
-    min-width: 720px;
+  .print-idle-last-job dl,
+  .print-idle-file-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .print-idle-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .print-idle-header .secondary-button {
+    justify-content: center;
   }
 
   .temperature-table-head {

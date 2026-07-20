@@ -1,5 +1,5 @@
 import React from "react";
-import { Activity, AlertTriangle, Database, FileText, Gauge, Radio, RefreshCw, ShieldCheck, Thermometer, Zap } from "lucide-react";
+import { Activity, AlertTriangle, Database, FileText, FolderOpen, Gauge, History, Radio, RefreshCw, ShieldCheck, Thermometer, Zap } from "lucide-react";
 import { LoadMeter, MonitorBadge, RadialProgress } from "./common";
 import { MachinePanel, OperationActions } from "./OperationActions";
 import { GcodePrintViewer } from "./GcodePrintViewer";
@@ -46,6 +46,7 @@ export function MonitoringDashboard({
   onActionParameterChange,
   onExecutionPhraseChange,
   onValidateExecutionGate,
+  onOpenGcodeFiles,
 }: {
   selectedPrinterName: string;
   operationStatus: OperationStatusResponse | null;
@@ -68,6 +69,7 @@ export function MonitoringDashboard({
   onActionParameterChange: (actionId: string, parameterName: string, value: string) => void;
   onExecutionPhraseChange: (value: string) => void;
   onValidateExecutionGate: () => void | Promise<void>;
+  onOpenGcodeFiles: () => void;
 }) {
   const [capabilityModalStatus, setCapabilityModalStatus] = React.useState<CapabilityStatus | null>(null);
   const printBodyRef = React.useRef<HTMLDivElement | null>(null);
@@ -272,7 +274,13 @@ export function MonitoringDashboard({
               </>
             ) : (
               <>
-                <IdleGcodeFilesPanel files={idleGcodeFiles} liveUnavailable={liveUnavailable} agentSupportsFiles={canUseIdleGcodeFiles} />
+                <IdleGcodeFilesPanel
+                  files={idleGcodeFiles}
+                  operationStatus={operationStatus}
+                  liveUnavailable={liveUnavailable}
+                  agentSupportsFiles={canUseIdleGcodeFiles}
+                  onOpenGcodeFiles={onOpenGcodeFiles}
+                />
                 <div className="print-idle-side">
                   <MachinePanel
                     disabled={loading}
@@ -469,78 +477,119 @@ function CapabilityChip({
 
 function IdleGcodeFilesPanel({
   files,
+  operationStatus,
   liveUnavailable,
   agentSupportsFiles,
+  onOpenGcodeFiles,
 }: {
   files: OperationGcodeFile[];
+  operationStatus: OperationStatusResponse | null;
   liveUnavailable: boolean;
   agentSupportsFiles: boolean;
+  onOpenGcodeFiles: () => void;
 }) {
-  const visibleFiles = files.slice(0, 20);
+  const visibleFiles = recentGcodeFiles(files).slice(0, 4);
+  const lastJob = lastReliablePrintFile(files);
+  const state = idleOperationState(operationStatus, liveUnavailable);
   return (
-    <div className="gcode-files-panel">
-      <div className="gcode-files-heading">
+    <div className="print-idle-panel">
+      <div className="print-idle-header">
         <div>
           <strong>
-            <FileText size={17} />
-            Arquivos G-code
+            <state.icon size={17} />
+            {state.title}
           </strong>
-          <span>{visibleFiles.length ? `${visibleFiles.length} arquivo(s) recentes no Moonraker` : "Aguardando lista de arquivos do Moonraker"}</span>
+          <span>{state.detail}</span>
         </div>
+        <button type="button" className="secondary-button compact" onClick={onOpenGcodeFiles}>
+          <FolderOpen size={15} />
+          Abrir arquivos
+        </button>
       </div>
-      {visibleFiles.length ? (
-        <div className="gcode-files-table-wrap">
-          <table className="gcode-files-table">
-            <thead>
-              <tr>
-                <th>Arquivo</th>
-                <th>Atualizado</th>
-                <th>Tamanho</th>
-                <th>Altura</th>
-                <th>Camada</th>
-                <th>Bico</th>
-                <th>Filamento</th>
-                <th>Tempo</th>
-                <th>Slicer</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleFiles.map((file) => (
-                <tr key={`${file.path ?? file.filename}-${file.modified ?? ""}`}>
-                  <td>
-                    <strong title={file.path ?? file.filename}>{displayGcodeFileName(file.filename)}</strong>
-                    {file.path && file.path !== file.filename ? <span title={file.path}>{file.path}</span> : null}
-                  </td>
-                  <td>{formatUnixDate(file.modified)}</td>
-                  <td>{formatBytes(file.size)}</td>
-                  <td>{formatMillimeters(file.object_height)}</td>
-                  <td>{formatMillimeters(file.layer_height)}</td>
-                  <td>{formatMillimeters(file.nozzle_diameter)}</td>
-                  <td>{formatGcodeFileFilament(file)}</td>
-                  <td>{formatDuration(file.estimated_time ?? file.last_print_duration)}</td>
-                  <td>{formatSlicer(file.slicer, file.slicer_version)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+      {lastJob ? (
+        <div className="print-idle-last-job">
+          <div>
+            <History size={16} />
+            <span>Último trabalho confiável</span>
+          </div>
+          <strong title={lastJob.path ?? lastJob.filename}>{displayGcodeFileName(lastJob.filename)}</strong>
+          <dl>
+            <div>
+              <dt>Final</dt>
+              <dd>{formatUnixDate(lastJob.print_end_time ?? lastJob.modified)}</dd>
+            </div>
+            <div>
+              <dt>Duração</dt>
+              <dd>{formatDuration(lastJob.last_print_duration ?? lastJob.estimated_time)}</dd>
+            </div>
+            <div>
+              <dt>Slicer</dt>
+              <dd>{formatSlicer(lastJob.slicer, lastJob.slicer_version)}</dd>
+            </div>
+          </dl>
         </div>
       ) : (
-        <div className="gcode-files-empty">
+        <div className="print-idle-empty">
           <Database size={18} />
           <div>
-            <strong>{liveUnavailable ? "Sem leitura ao vivo" : agentSupportsFiles ? "Nenhum G-code retornado" : "Agente precisa atualizar"}</strong>
+            <strong>{liveUnavailable ? "Sem leitura ao vivo" : agentSupportsFiles ? "Sem histórico confiável" : "Agente precisa atualizar"}</strong>
             <span>
               {liveUnavailable
                 ? "A lista aparece quando o agente reconectar ao Moonraker."
                 : agentSupportsFiles
-                  ? "O Moonraker não retornou arquivos G-code nesta leitura."
+                  ? "A Operação não encontrou um trabalho recente com fim ou duração confiável."
                   : "A lista de arquivos na Operação depende do agente 0.1.31 ou superior."}
             </span>
           </div>
         </div>
       )}
+
+      {visibleFiles.length ? (
+        <div className="print-idle-file-strip" aria-label="Arquivos G-code recentes">
+          {visibleFiles.map((file) => (
+            <button key={`${file.path ?? file.filename}-${file.modified ?? ""}`} type="button" className="print-idle-file-card" title={file.path ?? file.filename} onClick={onOpenGcodeFiles}>
+              <FileText size={16} />
+              <strong>{displayGcodeFileName(file.filename)}</strong>
+              <span>{[formatUnixDate(file.modified), formatBytes(file.size), formatDuration(file.estimated_time)].filter((item) => item !== "-").join(" · ") || "Metadados pendentes"}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
+}
+
+function recentGcodeFiles(files: OperationGcodeFile[]) {
+  return [...files].sort((left, right) => gcodeFileSortTimestamp(right) - gcodeFileSortTimestamp(left));
+}
+
+function lastReliablePrintFile(files: OperationGcodeFile[]) {
+  return recentGcodeFiles(files).find((file) => Boolean(file.print_end_time || file.print_start_time || file.last_print_duration)) ?? null;
+}
+
+function gcodeFileSortTimestamp(file: OperationGcodeFile) {
+  return numericValue(file.print_end_time) ?? numericValue(file.print_start_time) ?? numericValue(file.modified) ?? 0;
+}
+
+function idleOperationState(operationStatus: OperationStatusResponse | null, liveUnavailable: boolean) {
+  const state = (operationStatus?.miscellaneous.print_state ?? "").trim().toLowerCase();
+  if (!operationStatus) {
+    return { icon: Database, title: "Sem leitura", detail: "Aguardando a primeira leitura operacional da impressora." };
+  }
+  if (liveUnavailable) {
+    return { icon: AlertTriangle, title: "Sem leitura ao vivo", detail: "A tela mantém apenas atalhos seguros até o agente reconectar." };
+  }
+  if (state === "error") {
+    return { icon: AlertTriangle, title: "Impressão com erro", detail: operationStatus.miscellaneous.message || "Verifique Moonraker/Klipper antes de iniciar outro trabalho." };
+  }
+  if (state === "complete") {
+    return { icon: ShieldCheck, title: "Impressão concluída", detail: "Operação em espera, sem preview antigo ou progresso retido." };
+  }
+  if (state === "cancelled" || state === "canceled") {
+    return { icon: AlertTriangle, title: "Impressão cancelada", detail: "Operação em espera; confira o arquivo antes de repetir a impressão." };
+  }
+  return { icon: ShieldCheck, title: "Impressora em espera", detail: "Sem impressão ativa. Gerenciamento completo fica em Arquivos G-code." };
 }
 
 function capabilityStatusLabel(status: CapabilityStatus) {

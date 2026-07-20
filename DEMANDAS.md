@@ -5261,4 +5261,9 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado.
+- Implementado em 2026-07-20.
+- A aba `Operacao` diferencia impressão ativa de estados ociosos, offline, sem leitura, erro, concluído e cancelado sem manter preview/progresso antigos.
+- O card `Impressão` ocioso foi reduzido para estado compacto, último trabalho confiável quando houver metadado de impressão e até quatro atalhos recentes de G-code.
+- A lista completa e ações de arquivo permanecem apenas em `Arquivos G-code`; a Operação abre essa aba por CTA e por clique nos atalhos.
+- `Machine` permanece no card de impressão, enquanto `Temperaturas` e ações protegidas continuam em blocos próprios, evitando buracos grandes no grid.
+- Validação focada executada sem ação mutável na impressora ativa: `npm --prefix frontend run build`.
