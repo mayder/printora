@@ -369,7 +369,7 @@ function previewTargetPosition(
   const completed = ["complete", "cancelled", "error"].includes((printState ?? "").toLowerCase());
   return completed
     ? fileSize
-    : fileTargetPosition(fileSize, filePosition) ?? layerTargetPosition(layerOffsets, fileSize, currentLayer, totalLayers) ?? progressTargetPosition(fileSize, progress);
+    : layerTargetPosition(layerOffsets, fileSize, currentLayer, totalLayers) ?? fileTargetPosition(fileSize, filePosition) ?? progressTargetPosition(fileSize, progress);
 }
 
 function layerTargetPosition(layerOffsets: number[], fileSize: number, currentLayer?: number | null, totalLayers?: number | null) {
