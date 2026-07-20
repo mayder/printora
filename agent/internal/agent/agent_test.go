@@ -207,6 +207,71 @@ func TestOperationStatusFetchesCurrentFileMetadata(t *testing.T) {
 	}
 }
 
+func TestOperationStatusFetchesIdleGcodeFiles(t *testing.T) {
+	var metadataRequested bool
+	var filesRequested bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/printer/objects/list":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"objects": []string{
+				"print_stats",
+				"display_status",
+				"virtual_sdcard",
+			}}})
+		case "/printer/objects/query":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"status": map[string]any{
+				"print_stats":    map[string]any{"state": "standby", "filename": "printora/last_print.gcode"},
+				"display_status": map[string]any{"progress": 0.0},
+				"virtual_sdcard": map[string]any{"progress": 0.0},
+			}}})
+		case "/server/files/list":
+			filesRequested = true
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": []any{
+				map[string]any{
+					"path": "printora",
+					"children": []any{
+						map[string]any{"path": "printora/old.gcode", "filename": "old.gcode", "size": 1024, "modified": 10.0},
+						map[string]any{"path": "printora/new.gcode", "filename": "new.gcode", "size": 2048, "modified": 20.0, "estimated_time": 300.0, "slicer": "OrcaSlicer"},
+						map[string]any{"path": "printora/readme.txt", "filename": "readme.txt", "size": 256, "modified": 30.0},
+					},
+				},
+			}})
+		case "/server/files/metadata":
+			metadataRequested = true
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{}})
+		default:
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{}})
+		}
+	}))
+	defer server.Close()
+
+	client := NewMoonrakerClient(server.URL, time.Second)
+	payload := client.OperationStatus(context.Background())
+
+	if !filesRequested {
+		t.Fatal("expected idle operation status to request G-code file list")
+	}
+	if metadataRequested {
+		t.Fatal("idle operation status must not fetch current file metadata")
+	}
+	filesPayload, ok := payload["gcode_files"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing gcode_files payload: %#v", payload)
+	}
+	files, ok := filesPayload["result"].([]any)
+	if !ok || len(files) != 2 {
+		t.Fatalf("unexpected files payload: %#v", filesPayload)
+	}
+	first := mapValue(files[0])
+	if first["filename"] != "new.gcode" || first["path"] != "printora/new.gcode" || first["slicer"] != "OrcaSlicer" {
+		t.Fatalf("unexpected first file: %#v", first)
+	}
+	second := mapValue(files[1])
+	if second["filename"] != "old.gcode" {
+		t.Fatalf("unexpected second file: %#v", second)
+	}
+}
+
 func TestOperationStatusEmbedsCurrentPrintVisuals(t *testing.T) {
 	var gcodeDownloaded bool
 	var thumbnailDownloaded bool

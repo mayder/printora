@@ -25,6 +25,8 @@ OPTIONAL_OPERATION_OBJECT_PREFIXES = (
     *LED_OBJECT_PREFIXES,
 )
 LOW_RISK_OPERATION_ACTIONS = {"set_fan", "set_led", "set_output_pin"}
+MAX_OPERATION_GCODE_FILES = 20
+GCODE_FILE_EXTENSIONS = (".gcode", ".gcode.gz", ".gco", ".g", ".gc", ".nc", ".ngc", ".tap")
 
 
 def operation_action_requires_step_up(action_id: str) -> bool:
@@ -60,6 +62,7 @@ def build_operation_status(
     objects: dict[str, Any],
     history_totals: dict[str, Any] | None = None,
     print_metadata: dict[str, Any] | None = None,
+    gcode_files: list[Any] | None = None,
 ) -> dict[str, Any]:
     status = _object_status(objects)
     print_state = _text(_nested(status, ["print_stats", "state"]))
@@ -80,7 +83,7 @@ def build_operation_status(
         "toolhead": _toolhead(status),
         "extruder": _extruder(status),
         "miscellaneous": {
-            **_miscellaneous(objects, print_metadata),
+            **_miscellaneous(objects, print_metadata, gcode_files),
             "total_print_hours": _total_print_hours(history_totals),
         },
     }
@@ -734,7 +737,7 @@ def _extruder(status: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _miscellaneous(objects: dict[str, Any], print_metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+def _miscellaneous(objects: dict[str, Any], print_metadata: dict[str, Any] | None = None, gcode_files: list[Any] | None = None) -> dict[str, Any]:
     status = _object_status(objects)
     metadata = _dict(print_metadata)
     fans = _misc_fans(status)
@@ -789,7 +792,53 @@ def _miscellaneous(objects: dict[str, Any], print_metadata: dict[str, Any] | Non
         "nozzle_diameter": metadata.get("nozzle_diameter"),
         "filament_type": metadata.get("filament_type"),
         "filament_name": metadata.get("filament_name"),
+        "gcode_files": _gcode_files(gcode_files),
     }
+
+
+def _gcode_files(value: list[Any] | None) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for item in value or []:
+        mapped = _dict(item)
+        filename = _gcode_file_text(mapped.get("filename") or mapped.get("path") or mapped.get("name"))
+        if not filename or not _is_gcode_filename(filename):
+            continue
+        rows.append(
+            {
+                "filename": filename,
+                "path": _gcode_file_text(mapped.get("path") or filename),
+                "size": _number_or_none(mapped.get("size")),
+                "modified": _number_or_none(mapped.get("modified")),
+                "estimated_time": _number_or_none(mapped.get("estimated_time")),
+                "slicer": _gcode_file_text(mapped.get("slicer")),
+                "slicer_version": _gcode_file_text(mapped.get("slicer_version")),
+                "object_height": _number_or_none(mapped.get("object_height")),
+                "layer_height": _number_or_none(mapped.get("layer_height")),
+                "first_layer_height": _number_or_none(mapped.get("first_layer_height")),
+                "nozzle_diameter": _number_or_none(mapped.get("nozzle_diameter")),
+                "filament_total": _number_or_none(mapped.get("filament_total")),
+                "filament_weight_total": _number_or_none(mapped.get("filament_weight_total")),
+                "filament_type": _gcode_file_text(mapped.get("filament_type")),
+                "filament_name": _gcode_file_text(mapped.get("filament_name")),
+                "print_start_time": _number_or_none(mapped.get("print_start_time")),
+                "last_print_duration": _number_or_none(mapped.get("last_print_duration")),
+            }
+        )
+    rows.sort(key=lambda row: row["modified"] if isinstance(row.get("modified"), int | float) else 0, reverse=True)
+    return rows[:MAX_OPERATION_GCODE_FILES]
+
+
+def _gcode_file_text(value: Any) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, list | tuple):
+        return ", ".join(str(item).strip() for item in value if str(item).strip())
+    return ""
+
+
+def _is_gcode_filename(value: str) -> bool:
+    lowered = value.strip().lower()
+    return any(lowered.endswith(extension) for extension in GCODE_FILE_EXTENSIONS)
 
 
 def _misc_fans(status: dict[str, Any]) -> list[dict[str, Any]]:

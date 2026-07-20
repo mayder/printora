@@ -262,7 +262,37 @@ const LAST_KNOWN_MISCELLANEOUS_KEYS = [
   "nozzle_diameter",
   "filament_type",
   "filament_name",
+  "gcode_files",
 ] satisfies Array<keyof OperationStatusResponse["miscellaneous"]>;
+
+const PRINT_SESSION_MISCELLANEOUS_KEYS = [
+  "progress",
+  "progress_source",
+  "file_progress",
+  "file_position",
+  "message",
+  "filename",
+  "print_duration",
+  "total_duration",
+  "estimated_time",
+  "remaining_time",
+  "current_layer",
+  "total_layers",
+  "layer_source",
+  "thumbnail",
+  "layer_preview",
+  "slicer",
+  "slicer_version",
+  "filament_total",
+  "filament_weight_total",
+  "object_height",
+  "layer_height",
+  "first_layer_height",
+  "nozzle_diameter",
+  "filament_type",
+  "filament_name",
+] satisfies Array<keyof OperationStatusResponse["miscellaneous"]>;
+const PRINT_SESSION_MISCELLANEOUS_KEY_SET = new Set<keyof OperationStatusResponse["miscellaneous"]>(PRINT_SESSION_MISCELLANEOUS_KEYS);
 
 function mergeOperationStatus(previous: OperationStatusResponse | null, next: OperationStatusResponse): OperationStatusResponse {
   const merged = preserveLastKnownOperationData(previous, next);
@@ -289,7 +319,16 @@ function preserveLastKnownOperationData(previous: OperationStatusResponse | null
   }
 
   const miscellaneous: Record<string, unknown> = { ...previous.miscellaneous, ...next.miscellaneous };
+  const nextPrintIdle = isIdlePrintState(next.miscellaneous.print_state);
+  if (nextPrintIdle) {
+    PRINT_SESSION_MISCELLANEOUS_KEYS.forEach((key) => {
+      miscellaneous[key] = next.miscellaneous[key] ?? null;
+    });
+  }
   LAST_KNOWN_MISCELLANEOUS_KEYS.forEach((key) => {
+    if (nextPrintIdle && PRINT_SESSION_MISCELLANEOUS_KEY_SET.has(key)) {
+      return;
+    }
     const previousValue = previous.miscellaneous[key];
     const nextValue = next.miscellaneous[key];
     if (isMissingOperationValue(nextValue) && !isMissingOperationValue(previousValue)) {
@@ -310,6 +349,11 @@ function preserveLastKnownOperationData(previous: OperationStatusResponse | null
 
 function isMissingOperationValue(value: unknown) {
   return value === null || typeof value === "undefined" || value === "" || (Array.isArray(value) && value.length === 0);
+}
+
+function isIdlePrintState(value?: string | null) {
+  const state = (value ?? "").trim().toLowerCase();
+  return state === "standby" || state === "complete" || state === "cancelled" || state === "canceled" || state === "error";
 }
 
 function hasOperationObject(value: Record<string, unknown>) {

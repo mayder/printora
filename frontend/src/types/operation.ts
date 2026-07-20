@@ -76,6 +76,26 @@ export type OperationPrintVisual = {
   truncated?: boolean | null;
 };
 
+export type OperationGcodeFile = {
+  filename: string;
+  path?: string | null;
+  size?: number | null;
+  modified?: number | null;
+  estimated_time?: number | null;
+  slicer?: string | null;
+  slicer_version?: string | null;
+  object_height?: number | null;
+  layer_height?: number | null;
+  first_layer_height?: number | null;
+  nozzle_diameter?: number | null;
+  filament_total?: number | null;
+  filament_weight_total?: number | null;
+  filament_type?: string | null;
+  filament_name?: string | null;
+  print_start_time?: number | null;
+  last_print_duration?: number | null;
+};
+
 export type OperationAction = {
   id: string;
   group: string;
@@ -222,5 +242,6 @@ export type OperationStatusResponse = {
     nozzle_diameter?: number | null;
     filament_type?: string | null;
     filament_name?: string | null;
+    gcode_files?: OperationGcodeFile[];
   };
 };

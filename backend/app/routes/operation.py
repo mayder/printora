@@ -43,7 +43,7 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
             job_type="remote_operation_status",
             timeout_seconds=_operation_status_timeout(settings),
         )
-        printer_info, server_info, system_info, proc_stats, objects, history_totals, file_metadata = operation_payload(job.result)
+        printer_info, server_info, system_info, proc_stats, objects, history_totals, file_metadata, gcode_files = operation_payload(job.result)
     except HTTPException as exc:
         latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
         if latest_snapshot is not None:
@@ -65,6 +65,7 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
         objects=objects,
         history_totals=history_totals,
         print_metadata=file_metadata,
+        gcode_files=gcode_files,
     )
     operation["temperature_history"] = build_temperature_history(recent_snapshots)
     return {
@@ -296,7 +297,7 @@ async def _build_agent_operation_action_preview(settings, printer, action_id: st
         job_type="remote_operation_status",
         timeout_seconds=_operation_status_timeout(settings),
     )
-    _printer_info, _server_info, _system_info, _proc_stats, objects, _history, _file_metadata = operation_payload(status_job.result)
+    _printer_info, _server_info, _system_info, _proc_stats, objects, _history, _file_metadata, _gcode_files = operation_payload(status_job.result)
     try:
         return build_operation_action_preflight(
             action_id=action_id,

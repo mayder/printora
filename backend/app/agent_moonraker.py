@@ -24,6 +24,7 @@ def operation_payload(result: dict[str, Any] | None) -> tuple[
     dict[str, Any],
     dict[str, Any] | None,
     dict[str, Any] | None,
+    list[Any],
 ]:
     payload = result or {}
     printer_info, server_info, system_info, proc_stats, _update_status = status_payload(payload)
@@ -31,7 +32,8 @@ def operation_payload(result: dict[str, Any] | None) -> tuple[
     objects["objects"] = unwrap_moonraker_list({"result": {"objects": payload.get("objects_list") or []}}, "objects")
     history_totals = unwrap_moonraker_result(payload.get("history_totals")) if payload.get("history_totals") else None
     file_metadata = unwrap_moonraker_result(payload.get("file_metadata")) if payload.get("file_metadata") else None
-    return printer_info, server_info, system_info, proc_stats, objects, history_totals, file_metadata
+    gcode_files = _unwrap_moonraker_items(payload.get("gcode_files"))
+    return printer_info, server_info, system_info, proc_stats, objects, history_totals, file_metadata, gcode_files
 
 
 def calibration_capabilities_payload(result: dict[str, Any] | None) -> tuple[list[str], dict[str, Any], bool]:
@@ -80,3 +82,30 @@ def _has_error(payload: dict[str, Any]) -> bool:
 
 def _has_capability_connection_error(payload: dict[str, Any]) -> bool:
     return any(str(key).endswith("_error") and key != "toolhead_error" for key in payload)
+
+
+def _unwrap_moonraker_items(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        items: list[Any] = []
+        for item in value:
+            if isinstance(item, dict):
+                items.extend(_unwrap_moonraker_items(item.get("children")))
+            items.append(item)
+        return items
+    if isinstance(value, dict):
+        result = value.get("result")
+        if isinstance(result, list):
+            return _unwrap_moonraker_items(result)
+        if isinstance(result, dict):
+            for key in ("files", "items"):
+                items = result.get(key)
+                if isinstance(items, list):
+                    return _unwrap_moonraker_items(items)
+        for key in ("files", "items"):
+            items = value.get(key)
+            if isinstance(items, list):
+                return _unwrap_moonraker_items(items)
+        children = _unwrap_moonraker_items(value.get("children"))
+        if children:
+            return children
+    return []

@@ -1,5 +1,5 @@
 import React from "react";
-import { Activity, AlertTriangle, Database, Gauge, Radio, RefreshCw, ShieldCheck, Thermometer, Zap } from "lucide-react";
+import { Activity, AlertTriangle, Database, FileText, Gauge, Radio, RefreshCw, ShieldCheck, Thermometer, Zap } from "lucide-react";
 import { LoadMeter, MonitorBadge, RadialProgress } from "./common";
 import { MachinePanel, OperationActions } from "./OperationActions";
 import { GcodePrintViewer } from "./GcodePrintViewer";
@@ -14,6 +14,7 @@ import type {
   OperationActionPreview,
   OperationActionPreviewRecord,
   OperationCapability,
+  OperationGcodeFile,
   OperationStatusResponse,
 } from "../../types";
 
@@ -21,6 +22,7 @@ type CapabilityStatus = OperationCapability["status"];
 
 const PRIMARY_PRINT_FACT_LABELS = new Set(["Estado", "Camada", "Tempo", "Restante"]);
 const MIN_GCODE_VIEWER_AGENT_VERSION = "0.1.30";
+const MIN_GCODE_FILES_AGENT_VERSION = "0.1.31";
 
 export function MonitoringDashboard({
   selectedPrinterName,
@@ -76,6 +78,7 @@ export function MonitoringDashboard({
   const actions = operationStatus?.actions ?? [];
   const capabilities = operationStatus?.capabilities ?? [];
   const progressLabel = progressSourceLabel(operationStatus?.miscellaneous.progress_source);
+  const printActive = isActivePrintState(operationStatus?.miscellaneous.print_state);
   const printFacts = buildPrintFacts(operationStatus);
   const primaryPrintFacts = printFacts.filter((item) => PRIMARY_PRINT_FACT_LABELS.has(item.label));
   const secondaryPrintFacts = printFacts.filter((item) => !PRIMARY_PRINT_FACT_LABELS.has(item.label));
@@ -96,6 +99,8 @@ export function MonitoringDashboard({
       : null;
   const sideThumbnail = hasThumbnail && (canUseGcodeViewer || hasLayerPreview) ? { title: "Peça", visual: thumbnail, emptyText: "Sem thumbnail do G-code." } : null;
   const hasPrintVisuals = Boolean(canUseGcodeViewer || primaryPrintVisual);
+  const idleGcodeFiles = operationStatus?.miscellaneous.gcode_files ?? [];
+  const canUseIdleGcodeFiles = supportsGcodeFiles(operationStatus?.agent?.version);
   const liveUnavailable = operationStatus?.data_state === "offline";
   const operationNotice = liveUnavailable ? formatOperationNotice(operationStatus) : "";
   const selectedCapabilities = capabilityModalStatus ? capabilities.filter((capability) => capability.status === capabilityModalStatus) : [];
@@ -110,6 +115,10 @@ export function MonitoringDashboard({
 
   React.useEffect(() => {
     const printBody = printBodyRef.current;
+    if (!printActive) {
+      printBody?.style.removeProperty("--print-viewer-target-height");
+      return undefined;
+    }
     if (!printBody || typeof ResizeObserver === "undefined") return undefined;
     const sideStack = printBody.querySelector<HTMLElement>(".print-side-stack");
     if (!sideStack) return undefined;
@@ -134,7 +143,7 @@ export function MonitoringDashboard({
       sideBySideQuery.removeEventListener("change", syncViewerHeight);
       printBody.style.removeProperty("--print-viewer-target-height");
     };
-  }, []);
+  }, [printActive]);
 
   return (
     <article className="panel wide panel-section panel-monitoring monitoring-dashboard">
@@ -191,72 +200,90 @@ export function MonitoringDashboard({
             <Gauge size={18} />
             <h3>Impressão</h3>
           </div>
-          <div ref={printBodyRef} className={`print-monitor-body${hasPrintVisuals ? "" : " is-compact"}`}>
-            {canUseGcodeViewer ? (
-              <div className="print-primary-visual">
-                <GcodePrintViewer
-                  printerId={operationStatus!.printer_id}
-                  filename={gcodeFilename}
-                  filePosition={operationStatus?.miscellaneous.file_position}
-                  currentLayer={operationStatus?.miscellaneous.current_layer}
-                  totalLayers={operationStatus?.miscellaneous.total_layers}
-                  printState={operationStatus?.miscellaneous.print_state}
-                  progress={operationStatus?.miscellaneous.progress}
-                  buildVolume={operationStatus?.toolhead}
-                  nozzleDiameter={operationStatus?.miscellaneous.nozzle_diameter}
-                />
-              </div>
-            ) : primaryPrintVisual ? (
-              <div className={`print-primary-visual ${primaryPrintVisual.key === "thumbnail" ? "is-thumbnail-only" : ""}`}>
-                <PrintVisual title={primaryPrintVisual.title} visual={primaryPrintVisual.visual} emptyText={primaryPrintVisual.emptyText} />
-              </div>
-            ) : (
-              <div className="print-compact-state">
-                <Database size={18} />
-                <div>
-                  <strong>{liveUnavailable ? "Sem leitura ao vivo" : "Sem prévia carregada"}</strong>
-                  <span>{liveUnavailable ? operationNotice : "A prévia aparece quando o agente entrega thumbnail, camada ou cena do G-code."}</span>
-                </div>
-              </div>
-            )}
-            <div className="print-side-stack">
-              <div className={`print-side-overview${sideThumbnail ? "" : " no-thumbnail"}`}>
-                {sideThumbnail ? (
-                  <div className="print-side-thumbnail">
-                    <PrintVisual title={sideThumbnail.title} visual={sideThumbnail.visual} emptyText={sideThumbnail.emptyText} />
+          <div ref={printBodyRef} className={printActive ? `print-monitor-body${hasPrintVisuals ? "" : " is-compact"}` : "print-monitor-body is-idle-files"}>
+            {printActive ? (
+              <>
+                {canUseGcodeViewer ? (
+                  <div className="print-primary-visual">
+                    <GcodePrintViewer
+                      printerId={operationStatus!.printer_id}
+                      filename={gcodeFilename}
+                      filePosition={operationStatus?.miscellaneous.file_position}
+                      currentLayer={operationStatus?.miscellaneous.current_layer}
+                      totalLayers={operationStatus?.miscellaneous.total_layers}
+                      printState={operationStatus?.miscellaneous.print_state}
+                      progress={operationStatus?.miscellaneous.progress}
+                      buildVolume={operationStatus?.toolhead}
+                      nozzleDiameter={operationStatus?.miscellaneous.nozzle_diameter}
+                    />
                   </div>
-                ) : null}
-                <div className="print-side-progress">
-                  <RadialProgress value={operationStatus?.miscellaneous.progress ?? 0} label={progressLabel} />
-                </div>
-              </div>
-              <div className="print-side-facts-card">
-                <div className="print-side-core-facts">
-                  {primaryPrintFacts.map((item) => (
-                    <div key={item.label} className="print-side-core-fact">
-                      <span>{item.label}</span>
-                      <strong title={item.value}>{item.value}</strong>
+                ) : primaryPrintVisual ? (
+                  <div className={`print-primary-visual ${primaryPrintVisual.key === "thumbnail" ? "is-thumbnail-only" : ""}`}>
+                    <PrintVisual title={primaryPrintVisual.title} visual={primaryPrintVisual.visual} emptyText={primaryPrintVisual.emptyText} />
+                  </div>
+                ) : (
+                  <div className="print-compact-state">
+                    <Database size={18} />
+                    <div>
+                      <strong>{liveUnavailable ? "Sem leitura ao vivo" : "Sem prévia carregada"}</strong>
+                      <span>{liveUnavailable ? operationNotice : "A prévia aparece quando o agente entrega thumbnail, camada ou cena do G-code."}</span>
                     </div>
-                  ))}
-                </div>
-                <div className="print-side-meta-list">
-                  {secondaryPrintFacts.map((item) => (
-                    <div key={item.label} className="print-side-meta-row">
-                      <span>{item.label}</span>
-                      <strong title={item.value}>{item.value}</strong>
+                  </div>
+                )}
+                <div className="print-side-stack">
+                  <div className={`print-side-overview${sideThumbnail ? "" : " no-thumbnail"}`}>
+                    {sideThumbnail ? (
+                      <div className="print-side-thumbnail">
+                        <PrintVisual title={sideThumbnail.title} visual={sideThumbnail.visual} emptyText={sideThumbnail.emptyText} />
+                      </div>
+                    ) : null}
+                    <div className="print-side-progress">
+                      <RadialProgress value={operationStatus?.miscellaneous.progress ?? 0} label={progressLabel} />
                     </div>
-                  ))}
+                  </div>
+                  <div className="print-side-facts-card">
+                    <div className="print-side-core-facts">
+                      {primaryPrintFacts.map((item) => (
+                        <div key={item.label} className="print-side-core-fact">
+                          <span>{item.label}</span>
+                          <strong title={item.value}>{item.value}</strong>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="print-side-meta-list">
+                      {secondaryPrintFacts.map((item) => (
+                        <div key={item.label} className="print-side-meta-row">
+                          <span>{item.label}</span>
+                          <strong title={item.value}>{item.value}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <MachinePanel
+                    disabled={loading}
+                    status={operationStatus}
+                    setVelocityLimit={findAction("set_velocity_limit")}
+                    currentValue={currentOperationValue}
+                    onChange={onActionParameterChange}
+                    onExecute={executeActionById}
+                  />
                 </div>
-              </div>
-              <MachinePanel
-                disabled={loading}
-                status={operationStatus}
-                setVelocityLimit={findAction("set_velocity_limit")}
-                currentValue={currentOperationValue}
-                onChange={onActionParameterChange}
-                onExecute={executeActionById}
-              />
-            </div>
+              </>
+            ) : (
+              <>
+                <IdleGcodeFilesPanel files={idleGcodeFiles} liveUnavailable={liveUnavailable} agentSupportsFiles={canUseIdleGcodeFiles} />
+                <div className="print-idle-side">
+                  <MachinePanel
+                    disabled={loading}
+                    status={operationStatus}
+                    setVelocityLimit={findAction("set_velocity_limit")}
+                    currentValue={currentOperationValue}
+                    onChange={onActionParameterChange}
+                    onExecute={executeActionById}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </section>
 
@@ -439,6 +466,82 @@ function CapabilityChip({
   );
 }
 
+function IdleGcodeFilesPanel({
+  files,
+  liveUnavailable,
+  agentSupportsFiles,
+}: {
+  files: OperationGcodeFile[];
+  liveUnavailable: boolean;
+  agentSupportsFiles: boolean;
+}) {
+  const visibleFiles = files.slice(0, 20);
+  return (
+    <div className="gcode-files-panel">
+      <div className="gcode-files-heading">
+        <div>
+          <strong>
+            <FileText size={17} />
+            Arquivos G-code
+          </strong>
+          <span>{visibleFiles.length ? `${visibleFiles.length} arquivo(s) recentes no Moonraker` : "Aguardando lista de arquivos do Moonraker"}</span>
+        </div>
+      </div>
+      {visibleFiles.length ? (
+        <div className="gcode-files-table-wrap">
+          <table className="gcode-files-table">
+            <thead>
+              <tr>
+                <th>Arquivo</th>
+                <th>Atualizado</th>
+                <th>Tamanho</th>
+                <th>Altura</th>
+                <th>Camada</th>
+                <th>Bico</th>
+                <th>Filamento</th>
+                <th>Tempo</th>
+                <th>Slicer</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleFiles.map((file) => (
+                <tr key={`${file.path ?? file.filename}-${file.modified ?? ""}`}>
+                  <td>
+                    <strong title={file.path ?? file.filename}>{displayGcodeFileName(file.filename)}</strong>
+                    {file.path && file.path !== file.filename ? <span title={file.path}>{file.path}</span> : null}
+                  </td>
+                  <td>{formatUnixDate(file.modified)}</td>
+                  <td>{formatBytes(file.size)}</td>
+                  <td>{formatMillimeters(file.object_height)}</td>
+                  <td>{formatMillimeters(file.layer_height)}</td>
+                  <td>{formatMillimeters(file.nozzle_diameter)}</td>
+                  <td>{formatGcodeFileFilament(file)}</td>
+                  <td>{formatDuration(file.estimated_time ?? file.last_print_duration)}</td>
+                  <td>{formatSlicer(file.slicer, file.slicer_version)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="gcode-files-empty">
+          <Database size={18} />
+          <div>
+            <strong>{liveUnavailable ? "Sem leitura ao vivo" : agentSupportsFiles ? "Nenhum G-code retornado" : "Agente precisa atualizar"}</strong>
+            <span>
+              {liveUnavailable
+                ? "A lista aparece quando o agente reconectar ao Moonraker."
+                : agentSupportsFiles
+                  ? "O Moonraker não retornou arquivos G-code nesta leitura."
+                  : "A lista de arquivos na Operação depende do agente 0.1.31 ou superior."}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function capabilityStatusLabel(status: CapabilityStatus) {
   if (status === "supported") return "suportados";
   if (status === "blocked") return "bloqueados";
@@ -458,6 +561,11 @@ function formatLayer(current?: number | null, total?: number | null) {
 
 function hasPrintVisualData(visual: OperationStatusResponse["miscellaneous"]["thumbnail"]) {
   return Boolean(visual?.data_uri || visual?.scene?.kind === "gcode_layer_scene");
+}
+
+function isActivePrintState(state?: string | null) {
+  const normalized = (state ?? "").trim().toLowerCase();
+  return Boolean(normalized && !["standby", "complete", "cancelled", "canceled", "error"].includes(normalized));
 }
 
 function buildPrintFacts(operationStatus: OperationStatusResponse | null) {
@@ -496,6 +604,10 @@ function supportsGcodeCache(version?: string | null) {
   return compareVersion(version, MIN_GCODE_VIEWER_AGENT_VERSION) >= 0;
 }
 
+function supportsGcodeFiles(version?: string | null) {
+  return compareVersion(version, MIN_GCODE_FILES_AGENT_VERSION) >= 0;
+}
+
 function compareVersion(current?: string | null, minimum?: string | null) {
   const left = parseVersion(current);
   const right = parseVersion(minimum);
@@ -528,6 +640,48 @@ function formatFilament(operationStatus: OperationStatusResponse | null) {
 function formatSlicer(slicer?: string | null, version?: string | null) {
   if (!slicer && !version) return "-";
   return [slicer, version].filter(Boolean).join(" ");
+}
+
+function displayGcodeFileName(filename?: string | null) {
+  const clean = (filename ?? "").trim();
+  if (!clean) return "-";
+  return clean.split("/").filter(Boolean).pop() ?? clean;
+}
+
+function formatUnixDate(value?: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return "-";
+  const timestamp = value > 1000000000000 ? value : value * 1000;
+  return new Date(timestamp).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatBytes(value?: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return "-";
+  if (value < 1024) return `${Math.round(value)} B`;
+  const units = ["KB", "MB", "GB"];
+  let size = value / 1024;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  return `${size >= 10 ? size.toFixed(1) : size.toFixed(2)} ${units[unitIndex]}`;
+}
+
+function formatMillimeters(value?: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return "-";
+  return `${value >= 10 ? value.toFixed(1) : value.toFixed(2)} mm`;
+}
+
+function formatGcodeFileFilament(file: OperationGcodeFile) {
+  const material = file.filament_type || file.filament_name || "";
+  const weight = typeof file.filament_weight_total === "number" ? formatOperationValue(file.filament_weight_total, "g") : "";
+  const length = typeof file.filament_total === "number" ? formatOperationValue(file.filament_total, "mm") : "";
+  return [material, weight || length].filter(Boolean).join(" · ") || "-";
 }
 
 function formatEta(seconds?: number | null) {

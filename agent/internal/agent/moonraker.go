@@ -21,6 +21,7 @@ type MoonrakerClient struct {
 }
 
 const updateManagerActionTimeout = 55 * time.Second
+const operationGcodeFileLimit = 20
 
 func NewMoonrakerClient(baseURL string, timeout time.Duration) *MoonrakerClient {
 	return &MoonrakerClient{
@@ -152,7 +153,10 @@ func (c *MoonrakerClient) OperationStatus(ctx context.Context) map[string]any {
 	if query != "" {
 		c.get(ctx, "/printer/objects/query?"+query, "operation_objects", payload)
 	}
-	if filename := operationFilename(payload); filename != "" {
+	filename := operationFilename(payload)
+	if operationPrintIdle(payload) {
+		c.enrichOperationGcodeFiles(ctx, payload)
+	} else if filename != "" {
 		c.get(ctx, "/server/files/metadata?filename="+url.QueryEscape(filename), "file_metadata", payload)
 		c.enrichOperationVisuals(ctx, filename, payload)
 	}
@@ -703,6 +707,137 @@ func moonrakerQueryEscape(value string) string {
 
 func operationFilename(payload map[string]any) string {
 	return strings.TrimSpace(nestedString(payload["operation_objects"], "result", "status", "print_stats", "filename"))
+}
+
+func operationPrintIdle(payload map[string]any) bool {
+	return remotePrintIdle(nestedString(payload["operation_objects"], "result", "status", "print_stats", "state"))
+}
+
+func (c *MoonrakerClient) enrichOperationGcodeFiles(ctx context.Context, payload map[string]any) {
+	if err := c.get(ctx, "/server/files/list?root=gcodes", "gcode_files", payload); err != nil {
+		return
+	}
+	payload["gcode_files"] = map[string]any{"result": compactGcodeFiles(payload["gcode_files"], operationGcodeFileLimit)}
+}
+
+func compactGcodeFiles(value any, limit int) []any {
+	items := unwrapGcodeFileItems(value)
+	files := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		file := compactGcodeFile(item)
+		filename := stringValue(file["filename"])
+		if filename == "" || !isGcodeFileName(filename) {
+			continue
+		}
+		files = append(files, file)
+	}
+	sort.SliceStable(files, func(i, j int) bool {
+		left, _ := numberFromAny(files[i]["modified"])
+		right, _ := numberFromAny(files[j]["modified"])
+		return left > right
+	})
+	if limit > 0 && len(files) > limit {
+		files = files[:limit]
+	}
+	result := make([]any, 0, len(files))
+	for _, file := range files {
+		result = append(result, file)
+	}
+	return result
+}
+
+func unwrapGcodeFileItems(value any) []any {
+	switch typed := value.(type) {
+	case []any:
+		items := make([]any, 0, len(typed))
+		for _, item := range typed {
+			if mapped := mapValue(item); len(mapped) > 0 {
+				if children := unwrapGcodeFileItems(mapped["children"]); len(children) > 0 {
+					items = append(items, children...)
+				}
+			}
+			items = append(items, item)
+		}
+		return items
+	case []map[string]any:
+		items := make([]any, 0, len(typed))
+		for _, item := range typed {
+			if children := unwrapGcodeFileItems(item["children"]); len(children) > 0 {
+				items = append(items, children...)
+			}
+			items = append(items, item)
+		}
+		return items
+	case map[string]any:
+		for _, key := range []string{"result", "files", "items"} {
+			if items := unwrapGcodeFileItems(typed[key]); len(items) > 0 {
+				return items
+			}
+		}
+		children := unwrapGcodeFileItems(typed["children"])
+		if len(children) > 0 {
+			return children
+		}
+		return []any{typed}
+	default:
+		return nil
+	}
+}
+
+func compactGcodeFile(value any) map[string]any {
+	item := mapValue(value)
+	filename := firstString(item, "filename", "path", "name")
+	path := firstString(item, "path", "filename", "name")
+	return map[string]any{
+		"filename":              filename,
+		"path":                  path,
+		"size":                  firstNumber(item, "size"),
+		"modified":              firstNumber(item, "modified"),
+		"estimated_time":        firstNumber(item, "estimated_time"),
+		"slicer":                firstString(item, "slicer"),
+		"slicer_version":        firstString(item, "slicer_version"),
+		"object_height":         firstNumber(item, "object_height"),
+		"layer_height":          firstNumber(item, "layer_height"),
+		"first_layer_height":    firstNumber(item, "first_layer_height"),
+		"nozzle_diameter":       firstNumber(item, "nozzle_diameter"),
+		"filament_total":        firstNumber(item, "filament_total"),
+		"filament_weight_total": firstNumber(item, "filament_weight_total"),
+		"filament_type":         firstString(item, "filament_type"),
+		"filament_name":         firstString(item, "filament_name"),
+		"print_start_time":      firstNumber(item, "print_start_time"),
+		"last_print_duration":   firstNumber(item, "last_print_duration"),
+	}
+}
+
+func firstString(item map[string]any, keys ...string) string {
+	for _, key := range keys {
+		value := strings.TrimSpace(stringValue(item[key]))
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func firstNumber(item map[string]any, keys ...string) any {
+	for _, key := range keys {
+		if value, ok := numberFromAny(item[key]); ok {
+			return value
+		}
+	}
+	return nil
+}
+
+func isGcodeFileName(value string) bool {
+	lowered := strings.ToLower(strings.TrimSpace(value))
+	return strings.HasSuffix(lowered, ".gcode") ||
+		strings.HasSuffix(lowered, ".gcode.gz") ||
+		strings.HasSuffix(lowered, ".gco") ||
+		strings.HasSuffix(lowered, ".g") ||
+		strings.HasSuffix(lowered, ".gc") ||
+		strings.HasSuffix(lowered, ".nc") ||
+		strings.HasSuffix(lowered, ".ngc") ||
+		strings.HasSuffix(lowered, ".tap")
 }
 
 func hasObject(objects []string, target string) bool {

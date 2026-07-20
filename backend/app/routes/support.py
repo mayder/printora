@@ -269,7 +269,7 @@ async def _read_printer_print_hours_via_agent(settings: Settings, printer: Print
         )
     except Exception:
         return None
-    *_status, history_totals, _file_metadata = operation_payload(job.result if isinstance(job.result, dict) else {})
+    *_status, history_totals, _file_metadata, _gcode_files = operation_payload(job.result if isinstance(job.result, dict) else {})
     return _total_print_hours_from_history(history_totals)
 
 

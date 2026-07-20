@@ -141,6 +141,51 @@ def test_operation_status_enriches_print_metadata_and_keeps_display_progress() -
     assert misc["layer_preview"]["scene"]["printed"]
 
 
+def test_operation_status_lists_idle_gcode_files_sorted_and_filtered() -> None:
+    result = build_operation_status(
+        printer_info={"state": "ready"},
+        server_info={"klippy_connected": True, "klippy_state": "ready"},
+        system_info={},
+        proc_stats={},
+        objects={
+            "objects": ["print_stats", "display_status", "virtual_sdcard"],
+            "status": {
+                "print_stats": {"state": "standby", "filename": "", "filament_used": 0},
+                "display_status": {"progress": 0},
+                "virtual_sdcard": {"progress": 0, "file_position": 0},
+            },
+        },
+        gcode_files=[
+            {"filename": "old.gcode", "path": "folder/old.gcode", "size": 1024, "modified": 10, "layer_height": 0.2},
+            {"filename": "notes.txt", "path": "folder/notes.txt", "size": 10, "modified": 30},
+            {
+                "filename": "new.gcode",
+                "path": "folder/new.gcode",
+                "size": 2048,
+                "modified": 20,
+                "estimated_time": 3600,
+                "slicer": "OrcaSlicer",
+                "slicer_version": "2.4.2",
+                "object_height": 66.89,
+                "nozzle_diameter": 0.6,
+                "filament_total": 23145.18,
+                "filament_type": ["PLA", "PLA"],
+            },
+        ],
+    )
+
+    files = result["miscellaneous"]["gcode_files"]
+    assert [file["filename"] for file in files] == ["new.gcode", "old.gcode"]
+    assert files[0]["path"] == "folder/new.gcode"
+    assert files[0]["estimated_time"] == 3600
+    assert files[0]["slicer"] == "OrcaSlicer"
+    assert files[0]["slicer_version"] == "2.4.2"
+    assert files[0]["object_height"] == 66.89
+    assert files[0]["nozzle_diameter"] == 0.6
+    assert files[0]["filament_total"] == 23145.18
+    assert files[0]["filament_type"] == "PLA, PLA"
+
+
 def test_operation_status_reports_detected_misc_objects_without_status() -> None:
     result = build_operation_status(
         printer_info={"state": "ready"},
