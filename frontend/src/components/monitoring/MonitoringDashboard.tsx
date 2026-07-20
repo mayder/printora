@@ -20,6 +20,7 @@ import type {
 type CapabilityStatus = OperationCapability["status"];
 
 const PRIMARY_PRINT_FACT_LABELS = new Set(["Estado", "Camada", "Tempo", "Restante"]);
+const MIN_GCODE_VIEWER_AGENT_VERSION = "0.1.30";
 
 export function MonitoringDashboard({
   selectedPrinterName,
@@ -80,7 +81,12 @@ export function MonitoringDashboard({
   const thumbnail = operationStatus?.miscellaneous.thumbnail ?? null;
   const layerPreview = operationStatus?.miscellaneous.layer_preview ?? null;
   const gcodeFilename = (operationStatus?.miscellaneous.filename ?? "").trim();
-  const canUseGcodeViewer = Boolean(operationStatus?.connected && operationStatus?.printer_id && gcodeFilename);
+  const canUseGcodeViewer = Boolean(
+    operationStatus?.connected &&
+      operationStatus?.printer_id &&
+      gcodeFilename &&
+      supportsGcodeCache(operationStatus?.agent?.version),
+  );
   const hasThumbnail = hasPrintVisualData(thumbnail);
   const hasLayerPreview = hasPrintVisualData(layerPreview);
   const primaryPrintVisual = hasLayerPreview
@@ -456,6 +462,29 @@ function progressSourceLabel(source?: string | null) {
   if (source === "display_status") return "display";
   if (source === "virtual_sdcard") return "arquivo";
   return "progresso";
+}
+
+function supportsGcodeCache(version?: string | null) {
+  return compareVersion(version, MIN_GCODE_VIEWER_AGENT_VERSION) >= 0;
+}
+
+function compareVersion(current?: string | null, minimum?: string | null) {
+  const left = parseVersion(current);
+  const right = parseVersion(minimum);
+  if (!left || !right) return -1;
+  const length = Math.max(left.length, right.length);
+  for (let index = 0; index < length; index += 1) {
+    const diff = (left[index] ?? 0) - (right[index] ?? 0);
+    if (diff !== 0) return diff > 0 ? 1 : -1;
+  }
+  return 0;
+}
+
+function parseVersion(value?: string | null) {
+  const cleaned = (value ?? "").trim().replace(/^v/i, "");
+  if (!cleaned) return null;
+  const parts = cleaned.split(".").map((part) => Number.parseInt(part, 10));
+  return parts.every((part) => Number.isFinite(part)) ? parts : null;
 }
 
 function formatFilament(operationStatus: OperationStatusResponse | null) {

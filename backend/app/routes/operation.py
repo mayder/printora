@@ -5,7 +5,7 @@ from fastapi import Depends, Header
 
 from app.agent_executor import AgentCommandExecutor, AgentJobFailedError
 from app.agent_moonraker import agent_preflight_payload, operation_payload
-from app.agent_pairing import AgentPairingRepository, printer_for_user
+from app.agent_pairing import EXPECTED_AGENT_VERSION, AgentPairingRepository, printer_for_user
 from app.auth import AuthRepository, CurrentUser
 from app.gcode_cache import (
     GcodeCacheEntry,
@@ -90,6 +90,12 @@ async def prepare_printer_operation_gcode_cache(
     cached = read_gcode_cache_entry(settings, printer.id, cache_key)
     if cached is not None:
         return cached
+    install_status = AgentPairingRepository(settings.database_path).install_status(printer.id)
+    if not install_status.ready:
+        raise HTTPException(
+            status_code=409,
+            detail=f"agente {EXPECTED_AGENT_VERSION} ou superior é necessário para cache de G-code",
+        )
 
     job = await AgentCommandExecutor(settings.database_path).run(
         printer,
