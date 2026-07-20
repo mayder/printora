@@ -41,7 +41,7 @@ export function useOperation({ selectedPrinterId, setActiveSection, setError, se
       return;
     }
     const nextStatus = (await response.json()) as OperationStatusResponse;
-    setOperationStatus((current) => mergeLiveTemperatureHistory(preserveData ? current : null, nextStatus));
+    setOperationStatus((current) => mergeOperationStatus(preserveData ? current : null, nextStatus));
   }
 
   async function loadOperationActionHistory(printerId: number) {
@@ -235,17 +235,85 @@ export function useOperation({ selectedPrinterId, setActiveSection, setError, se
 
 const MAX_LOCAL_TEMPERATURE_HISTORY_ROWS = 1440;
 
-function mergeLiveTemperatureHistory(previous: OperationStatusResponse | null, next: OperationStatusResponse): OperationStatusResponse {
+const LAST_KNOWN_MISCELLANEOUS_KEYS = [
+  "progress",
+  "progress_source",
+  "file_progress",
+  "file_position",
+  "message",
+  "print_state",
+  "filename",
+  "print_duration",
+  "total_duration",
+  "estimated_time",
+  "remaining_time",
+  "current_layer",
+  "total_layers",
+  "layer_source",
+  "thumbnail",
+  "layer_preview",
+  "slicer",
+  "slicer_version",
+  "filament_total",
+  "filament_weight_total",
+  "object_height",
+  "layer_height",
+  "first_layer_height",
+  "nozzle_diameter",
+  "filament_type",
+  "filament_name",
+] satisfies Array<keyof OperationStatusResponse["miscellaneous"]>;
+
+function mergeOperationStatus(previous: OperationStatusResponse | null, next: OperationStatusResponse): OperationStatusResponse {
+  const merged = preserveLastKnownOperationData(previous, next);
   const sameScope =
-    previous?.printer_id === next.printer_id &&
-    (previous.miscellaneous.filename || "") === (next.miscellaneous.filename || "");
-  const liveRow = liveTemperatureHistoryRow(next);
+    previous?.printer_id === merged.printer_id &&
+    (previous.miscellaneous.filename || "") === (merged.miscellaneous.filename || "");
+  const liveRow = liveTemperatureHistoryRow(merged);
   const rows = dedupeTemperatureHistoryRows([
     ...(sameScope ? previous?.temperature_history ?? [] : []),
-    ...(next.temperature_history ?? []),
+    ...(merged.temperature_history ?? []),
     ...(liveRow ? [liveRow] : []),
   ]);
-  return { ...next, temperature_history: rows.slice(-MAX_LOCAL_TEMPERATURE_HISTORY_ROWS) };
+  return { ...merged, temperature_history: rows.slice(-MAX_LOCAL_TEMPERATURE_HISTORY_ROWS) };
+}
+
+function preserveLastKnownOperationData(previous: OperationStatusResponse | null, next: OperationStatusResponse): OperationStatusResponse {
+  if (!previous || previous.printer_id !== next.printer_id) {
+    return next;
+  }
+  const previousFilename = (previous.miscellaneous.filename ?? "").trim();
+  const nextFilename = (next.miscellaneous.filename ?? "").trim();
+  if (previousFilename && nextFilename && previousFilename !== nextFilename) {
+    return next;
+  }
+
+  const miscellaneous: Record<string, unknown> = { ...previous.miscellaneous, ...next.miscellaneous };
+  LAST_KNOWN_MISCELLANEOUS_KEYS.forEach((key) => {
+    const previousValue = previous.miscellaneous[key];
+    const nextValue = next.miscellaneous[key];
+    if (isMissingOperationValue(nextValue) && !isMissingOperationValue(previousValue)) {
+      miscellaneous[key] = previousValue;
+    }
+  });
+
+  return {
+    ...next,
+    agent: next.agent?.version || next.agent?.expected_version ? next.agent : previous.agent,
+    system_loads: next.system_loads.length ? next.system_loads : previous.system_loads,
+    temperatures: next.temperatures.length ? next.temperatures : previous.temperatures,
+    toolhead: hasOperationObject(next.toolhead) ? next.toolhead : previous.toolhead,
+    extruder: hasOperationObject(next.extruder) ? next.extruder : previous.extruder,
+    miscellaneous: miscellaneous as OperationStatusResponse["miscellaneous"],
+  };
+}
+
+function isMissingOperationValue(value: unknown) {
+  return value === null || typeof value === "undefined" || value === "" || (Array.isArray(value) && value.length === 0);
+}
+
+function hasOperationObject(value: Record<string, unknown>) {
+  return Object.keys(value).length > 0;
 }
 
 function liveTemperatureHistoryRow(status: OperationStatusResponse): OperationTemperatureHistoryRow | null {

@@ -82,8 +82,7 @@ export function MonitoringDashboard({
   const layerPreview = operationStatus?.miscellaneous.layer_preview ?? null;
   const gcodeFilename = (operationStatus?.miscellaneous.filename ?? "").trim();
   const canUseGcodeViewer = Boolean(
-    operationStatus?.connected &&
-      operationStatus?.printer_id &&
+    operationStatus?.printer_id &&
       gcodeFilename &&
       supportsGcodeCache(operationStatus?.agent?.version),
   );

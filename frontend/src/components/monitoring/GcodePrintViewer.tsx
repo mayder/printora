@@ -10,7 +10,7 @@ type BuildVolumeBounds = {
   max: [number, number, number];
 };
 
-type CameraPreset = "iso" | "frontRight" | "frontLeft";
+type CameraPreset = "iso" | "top" | "front" | "right" | "frontRight" | "frontLeft";
 
 const MAINSAIL_EXTRUDER_COLORS = ["#E76F51", "#F4A261", "#E9C46A", "#2A9D8F", "#264653"] as const;
 const MAX_RENDER_QUALITY_BYTES = 42 * 1024 * 1024;
@@ -25,6 +25,7 @@ type ViewerVector = {
 
 type ViewerCamera = {
   alpha?: number;
+  beta?: number;
   radius?: number;
   position?: ViewerVector;
   target?: ViewerVector;
@@ -279,6 +280,27 @@ export function GcodePrintViewer({
         aria-label="Mover preview para cima ou baixo"
         onChange={(event) => panTo("y", event.target.value)}
       />
+      <div className="gcode-viewer-orientation" aria-label="Orientação do preview 3D">
+        <span className="gcode-viewer-axis z">Z</span>
+        <span className="gcode-viewer-axis y">Y</span>
+        <span className="gcode-viewer-axis x">X</span>
+        <div className="gcode-viewer-cube" aria-hidden="true">
+          <span>Top</span>
+          <span>Front</span>
+          <span>Right</span>
+        </div>
+        <div className="gcode-viewer-orientation-actions">
+          <button type="button" title="Vista superior" aria-label="Vista superior" onClick={() => setPreset("top")}>
+            Top
+          </button>
+          <button type="button" title="Vista frontal" aria-label="Vista frontal" onClick={() => setPreset("front")}>
+            Front
+          </button>
+          <button type="button" title="Vista direita" aria-label="Vista direita" onClick={() => setPreset("right")}>
+            Right
+          </button>
+        </div>
+      </div>
       <div className="gcode-viewer-toolbar" aria-label="Controles do preview 3D">
         <button type="button" className="icon-button" title="Girar para a esquerda" aria-label="Girar para a esquerda" onClick={() => setPreset("frontLeft")}>
           <RotateCcw size={14} />
@@ -346,9 +368,9 @@ function configureViewer(viewer: GCodeViewerInstance, bounds: BuildVolumeBounds,
   MAINSAIL_EXTRUDER_COLORS.forEach((color) => viewer.gcodeProcessor.addTool(color, validExtrusionWidth(extrusionWidth)));
   viewer.setProgressColor("#ECECEC");
   viewer.toggleTravels(false);
-  viewer.updateRenderQuality(fileBytes <= MAX_RENDER_QUALITY_BYTES ? 6 : 5);
+  viewer.updateRenderQuality(fileBytes <= MAX_RENDER_QUALITY_BYTES ? 4 : 3);
   disablePreviewFade(viewer);
-  showNativeViewbox(viewer, true);
+  showNativeViewbox(viewer, false);
 }
 
 function updatePreviewPosition(viewer: GCodeViewerInstance, target: number) {
@@ -415,6 +437,29 @@ function setCameraPreset(viewer: GCodeViewerInstance, preset: CameraPreset) {
   if (preset === "iso") {
     viewer.resetCamera();
     zoomCamera(viewer, 0.86);
+    viewer.forceRender();
+    return;
+  }
+  if (preset === "top" || preset === "front" || preset === "right") {
+    viewer.resetCamera();
+    const camera = cameraFromViewer(viewer);
+    if (camera) {
+      if (preset === "top") {
+        camera.alpha = -Math.PI / 2;
+        camera.beta = 0.08;
+        zoomCamera(viewer, 0.74);
+      }
+      if (preset === "front") {
+        camera.alpha = -Math.PI / 2;
+        camera.beta = Math.PI / 2.45;
+        zoomCamera(viewer, 0.86);
+      }
+      if (preset === "right") {
+        camera.alpha = 0;
+        camera.beta = Math.PI / 2.45;
+        zoomCamera(viewer, 0.86);
+      }
+    }
     viewer.forceRender();
     return;
   }
