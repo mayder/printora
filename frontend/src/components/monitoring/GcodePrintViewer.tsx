@@ -281,15 +281,12 @@ export function GcodePrintViewer({
             Top
           </button>
           <button type="button" className="gcode-viewer-face face-front" onClick={() => setPreset("front")} aria-label="Vista frontal">
-            Frente
+            Front
           </button>
           <button type="button" className="gcode-viewer-face face-right" onClick={() => setPreset("right")} aria-label="Vista direita">
-            Direita
+            Right
           </button>
         </div>
-        <button type="button" className="gcode-viewer-orientation-home" onClick={() => setPreset("iso")} aria-label="Vista inicial">
-          ISO
-        </button>
       </div>
       <div className="gcode-viewer-toolbar" aria-label="Controles do preview 3D">
         <button type="button" className="icon-button" title="Girar para a esquerda" aria-label="Girar para a esquerda" onClick={() => setPreset("frontLeft")}>
