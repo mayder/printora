@@ -39,6 +39,11 @@ type ViewerRuntime = GCodeViewerInstance & {
   displayViewBox?: (enabled: boolean) => void;
 };
 
+type ViewerProcessorRuntime = GCodeViewerInstance["gcodeProcessor"] & {
+  renderAnimation?: boolean;
+  setRenderAnimation?: (enabled: boolean) => void;
+};
+
 export function GcodePrintViewer({
   printerId,
   filename,
@@ -113,6 +118,7 @@ export function GcodePrintViewer({
         };
         const layerOffsets = buildLayerOffsets(text);
         await viewer.processFile(text);
+        disablePreviewFade(viewer);
         const parsedFileSize = validFileSize(viewer.fileSize) ? viewer.fileSize : text.length;
         const target = previewTargetPosition(
           parsedFileSize,
@@ -341,6 +347,7 @@ function configureViewer(viewer: GCodeViewerInstance, bounds: BuildVolumeBounds,
   viewer.setProgressColor("#ECECEC");
   viewer.toggleTravels(false);
   viewer.updateRenderQuality(fileBytes <= MAX_RENDER_QUALITY_BYTES ? 6 : 5);
+  disablePreviewFade(viewer);
   showNativeViewbox(viewer, true);
 }
 
@@ -407,10 +414,17 @@ function isLayerMarker(line: string, preferAfterLayerChange: boolean) {
 function setCameraPreset(viewer: GCodeViewerInstance, preset: CameraPreset) {
   if (preset === "iso") {
     viewer.resetCamera();
+    zoomCamera(viewer, 0.86);
     viewer.forceRender();
     return;
   }
   rotateCamera(viewer, preset === "frontLeft" ? -Math.PI / 2 : Math.PI / 2);
+}
+
+function disablePreviewFade(viewer: GCodeViewerInstance) {
+  const processor = viewer.gcodeProcessor as ViewerProcessorRuntime;
+  processor.renderAnimation = false;
+  processor.setRenderAnimation?.(false);
 }
 
 function buildVolumeBounds(toolhead?: Record<string, unknown> | null): BuildVolumeBounds {
