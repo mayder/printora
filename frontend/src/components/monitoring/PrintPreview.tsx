@@ -1,5 +1,5 @@
 import React from "react";
-import { Home, RotateCcw, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Home, RotateCcw, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
 import type { OperationPrintScene, OperationPrintSceneSegment, OperationPrintVisual } from "../../types";
 
 type Camera = {
@@ -19,10 +19,7 @@ type Drawing = {
   viewBox: string;
   gridPath: string;
   bedPath: string;
-  printedBodyPath: string;
-  printedSkinPath: string;
-  printedPath: string;
-  currentSurfacePath: string;
+  printedPaths: Record<SceneLineType, string>;
   currentPaths: Record<SceneLineType, string>;
   axis: Record<"x" | "y" | "z", { x1: number; y1: number; x2: number; y2: number }>;
 };
@@ -59,10 +56,7 @@ const EMPTY_DRAWING: Drawing = {
   viewBox: "-50 -50 100 100",
   gridPath: "",
   bedPath: "",
-  printedBodyPath: "",
-  printedSkinPath: "",
-  printedPath: "",
-  currentSurfacePath: "",
+  printedPaths: EMPTY_LINE_PATHS,
   currentPaths: EMPTY_LINE_PATHS,
   axis: {
     x: { x1: 0, y1: 0, x2: 18, y2: 0 },
@@ -122,7 +116,12 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
 
   const setPreset = (preset: keyof typeof CAMERA_PRESETS) => setCamera(CAMERA_PRESETS[preset]);
   const zoomBy = (delta: number) => setCamera((value) => ({ ...value, zoom: clamp(value.zoom + delta, 0.65, 3.2) }));
-  const panBy = (axis: "panX" | "panY", value: number) => setCamera((cameraValue) => ({ ...cameraValue, [axis]: value }));
+  const moveBy = (panX: number, panY: number) =>
+    setCamera((value) => ({
+      ...value,
+      panX: clamp(value.panX + panX, -140, 140),
+      panY: clamp(value.panY + panY, -140, 140),
+    }));
 
   return (
     <div className={`layer-scene-viewer${isComplete ? " is-complete" : ""}`}>
@@ -159,12 +158,11 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
       >
         <path className="layer-scene-grid" d={drawing.gridPath} />
         <path className="layer-scene-bed" d={drawing.bedPath} />
-        <path className="layer-scene-printed-body" d={drawing.printedBodyPath} />
-        <path className="layer-scene-printed-skin" d={drawing.printedSkinPath} fillRule="evenodd" />
-        <path className="layer-scene-printed" d={drawing.printedPath} />
-        <path className="layer-scene-current-surface" d={drawing.currentSurfacePath} fillRule="evenodd" />
         {SCENE_LINE_TYPES.map((type) =>
-          drawing.currentPaths[type] ? <path key={type} className={`layer-scene-current ${type}`} d={drawing.currentPaths[type]} /> : null,
+          drawing.printedPaths[type] ? <path key={`printed-${type}`} className={`layer-scene-printed ${type}`} d={drawing.printedPaths[type]} /> : null,
+        )}
+        {SCENE_LINE_TYPES.map((type) =>
+          drawing.currentPaths[type] ? <path key={`current-${type}`} className={`layer-scene-current ${type}`} d={drawing.currentPaths[type]} /> : null,
         )}
         <g className="layer-scene-axis">
           <line className="x" x1={drawing.axis.x.x1} y1={drawing.axis.x.y1} x2={drawing.axis.x.x2} y2={drawing.axis.x.y2} />
@@ -188,12 +186,19 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
         <button type="button" className="icon-button" title="Vista inicial" aria-label="Restaurar vista isométrica" onClick={() => setPreset("iso")}>
           <Home size={14} />
         </button>
-      </div>
-      <div className="layer-scene-pan layer-scene-pan-x">
-        <input type="range" min="-90" max="90" value={camera.panX} aria-label="Mover prévia na horizontal" onChange={(event) => panBy("panX", Number(event.target.value))} />
-      </div>
-      <div className="layer-scene-pan layer-scene-pan-y">
-        <input type="range" min="-90" max="90" value={camera.panY} aria-label="Mover prévia na vertical" onChange={(event) => panBy("panY", Number(event.target.value))} />
+        <span className="layer-scene-toolbar-separator" aria-hidden="true" />
+        <button type="button" className="icon-button" title="Mover para cima" aria-label="Mover prévia para cima" onClick={() => moveBy(0, -18)}>
+          <ArrowUp size={14} />
+        </button>
+        <button type="button" className="icon-button" title="Mover para a esquerda" aria-label="Mover prévia para a esquerda" onClick={() => moveBy(-18, 0)}>
+          <ArrowLeft size={14} />
+        </button>
+        <button type="button" className="icon-button" title="Mover para a direita" aria-label="Mover prévia para a direita" onClick={() => moveBy(18, 0)}>
+          <ArrowRight size={14} />
+        </button>
+        <button type="button" className="icon-button" title="Mover para baixo" aria-label="Mover prévia para baixo" onClick={() => moveBy(0, 18)}>
+          <ArrowDown size={14} />
+        </button>
       </div>
       <div className="layer-nav-cube" aria-label="Navegador 3D">
         <button type="button" className="cube-corner front-right" title="Vista canto frontal direito" aria-label="Vista canto frontal direito" onClick={() => setPreset("frontRight")} />
@@ -218,12 +223,8 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
 }
 
 function buildDrawing(scene: OperationPrintScene, camera: Camera): Drawing {
-  const printed = normalizeSegments(scene.printed);
-  const current = normalizeSegments(scene.current);
-  const built = [...printed, ...current].filter(isModelSegment);
-  const builtWalls = built.filter(isWallSegment);
-  const currentSurface = current.filter(isSurfaceSegment);
-  const printedSkin = latestLayerSegments(builtWalls);
+  const printed = drawableSegments(normalizeSegments(scene.printed));
+  const current = drawableSegments(normalizeSegments(scene.current));
   const bed = expandBed(normalizeBed(scene.bed, [...printed, ...current]));
   const grid = gridSegments(bed);
   const center = { x: (bed[0] + bed[2]) / 2, y: (bed[1] + bed[3]) / 2 };
@@ -236,10 +237,7 @@ function buildDrawing(scene: OperationPrintScene, camera: Camera): Drawing {
     viewBox,
     gridPath: pathForSegments(grid, project),
     bedPath: pathForSegments(bedBorderSegments(bed), project),
-    printedBodyPath: layeredContourPath(builtWalls, project),
-    printedSkinPath: closedContourPath(printedSkin, project),
-    printedPath: pathForSegments(builtWalls, project),
-    currentSurfacePath: closedContourPath(currentSurface, project),
+    printedPaths: pathsByLineType(printed, project),
     currentPaths: pathsByLineType(current, project),
     axis: axisLines(project, bed),
   };
@@ -248,6 +246,10 @@ function buildDrawing(scene: OperationPrintScene, camera: Camera): Drawing {
 function normalizeSegments(value: OperationPrintSceneSegment[] | null | undefined): OperationPrintSceneSegment[] {
   if (!Array.isArray(value)) return [];
   return value.filter((segment): segment is OperationPrintSceneSegment => Array.isArray(segment) && segment.length >= 6 && segment.every((item) => Number.isFinite(item)));
+}
+
+function drawableSegments(segments: OperationPrintSceneSegment[]) {
+  return segments.filter((segment) => Math.hypot(segment[3] - segment[0], segment[4] - segment[1]) > 0.01 || Math.abs(segment[5] - segment[2]) > 0.01);
 }
 
 function normalizeBed(value: number[] | null | undefined, segments: OperationPrintSceneSegment[]): [number, number, number, number] {
@@ -306,65 +308,6 @@ function pathForSegments(segments: OperationPrintSceneSegment[], project: (x: nu
     .join("");
 }
 
-function latestLayerSegments(segments: OperationPrintSceneSegment[]) {
-  if (!segments.length) return [];
-  const maxZ = Math.max(...segments.map(segmentZ));
-  return segments.filter((segment) => Math.abs(segmentZ(segment) - maxZ) <= 0.06);
-}
-
-function layeredContourPath(segments: OperationPrintSceneSegment[], project: (x: number, y: number, z: number) => ProjectedPoint) {
-  const layers = groupSegmentsByLayer(segments);
-  if (!layers.length) return "";
-  const step = Math.max(1, Math.ceil(layers.length / 64));
-  return layers
-    .filter((_, index) => index % step === 0 || index === layers.length - 1)
-    .map((layer) => closedContourPath(layer, project))
-    .filter(Boolean)
-    .join("");
-}
-
-function groupSegmentsByLayer(segments: OperationPrintSceneSegment[]) {
-  const grouped = new Map<string, OperationPrintSceneSegment[]>();
-  segments.forEach((segment) => {
-    const key = segmentZ(segment).toFixed(2);
-    const layer = grouped.get(key) ?? [];
-    layer.push(segment);
-    grouped.set(key, layer);
-  });
-  return Array.from(grouped.entries())
-    .sort(([a], [b]) => Number(a) - Number(b))
-    .map(([, layer]) => layer);
-}
-
-function segmentZ(segment: OperationPrintSceneSegment) {
-  return Math.max(segment[2], segment[5]);
-}
-
-function closedContourPath(segments: OperationPrintSceneSegment[], project: (x: number, y: number, z: number) => ProjectedPoint) {
-  const contours: OperationPrintSceneSegment[][] = [];
-  let contour: OperationPrintSceneSegment[] = [];
-  segments.forEach((segment) => {
-    const previous = contour[contour.length - 1];
-    if (previous && pointDistance(previous[3], previous[4], segment[0], segment[1]) > 1.2) {
-      contours.push(contour);
-      contour = [];
-    }
-    contour.push(segment);
-  });
-  if (contour.length) contours.push(contour);
-  return contours.map((item) => closedSegmentPath(item, project)).filter(Boolean).join("");
-}
-
-function closedSegmentPath(segments: OperationPrintSceneSegment[], project: (x: number, y: number, z: number) => ProjectedPoint) {
-  if (segments.length < 3) return "";
-  const first = segments[0];
-  const last = segments[segments.length - 1];
-  if (pointDistance(first[0], first[1], last[3], last[4]) > 1.4) return "";
-  const start = project(first[0], first[1], first[2]);
-  const points = segments.map((segment) => project(segment[3], segment[4], segment[5]));
-  return `M${formatCoord(start.x)} ${formatCoord(start.y)}${points.map((point) => `L${formatCoord(point.x)} ${formatCoord(point.y)}`).join("")}Z`;
-}
-
 function pathsByLineType(segments: OperationPrintSceneSegment[], project: (x: number, y: number, z: number) => ProjectedPoint) {
   const grouped = Object.fromEntries(SCENE_LINE_TYPES.map((type) => [type, [] as OperationPrintSceneSegment[]])) as Record<SceneLineType, OperationPrintSceneSegment[]>;
   segments.forEach((segment) => {
@@ -376,25 +319,6 @@ function pathsByLineType(segments: OperationPrintSceneSegment[], project: (x: nu
 function lineTypeForSegment(segment: OperationPrintSceneSegment): SceneLineType {
   const code = Math.round(segment[6] ?? 0);
   return SCENE_LINE_TYPE_BY_CODE[code] ?? "unknown";
-}
-
-function isModelSegment(segment: OperationPrintSceneSegment) {
-  const type = lineTypeForSegment(segment);
-  return type !== "support" && type !== "skirt" && type !== "unknown";
-}
-
-function isWallSegment(segment: OperationPrintSceneSegment) {
-  const type = lineTypeForSegment(segment);
-  return type === "outer-wall" || type === "inner-wall";
-}
-
-function isSurfaceSegment(segment: OperationPrintSceneSegment) {
-  const type = lineTypeForSegment(segment);
-  return type === "solid-infill" || type === "top-surface" || type === "bridge";
-}
-
-function pointDistance(x1: number, y1: number, x2: number, y2: number) {
-  return Math.hypot(x1 - x2, y1 - y2);
 }
 
 function drawingBounds(points: ProjectedPoint[]) {

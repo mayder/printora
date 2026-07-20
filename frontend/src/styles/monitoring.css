@@ -379,9 +379,9 @@
 
 .layer-scene-tile {
   aspect-ratio: auto;
-  height: clamp(420px, 58vh, 720px);
-  min-height: 420px;
-  max-height: 720px;
+  height: clamp(360px, 50vh, 620px);
+  min-height: 360px;
+  max-height: 620px;
 }
 
 .print-visual-image {
@@ -530,20 +530,11 @@
 
 .layer-scene-grid,
 .layer-scene-bed,
-.layer-scene-printed-body,
-.layer-scene-printed-skin,
-.layer-scene-printed,
-.layer-scene-current-surface,
-.layer-scene-current {
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.layer-scene-grid,
-.layer-scene-bed,
 .layer-scene-printed,
 .layer-scene-current {
   fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .layer-scene-grid {
@@ -558,39 +549,53 @@
   vector-effect: non-scaling-stroke;
 }
 
-.layer-scene-printed-body {
-  fill: rgb(249 115 22 / 0.12);
-  stroke: rgb(251 146 60 / 0.22);
-  stroke-width: 0.55;
-}
-
-.layer-scene-printed-skin {
-  fill: rgb(249 115 22 / 0.18);
-  stroke: rgb(250 204 21 / 0.76);
-  stroke-width: 0.9;
-}
-
 .layer-scene-printed {
-  stroke: rgb(249 115 22 / 0.2);
-  stroke-width: 0.5;
+  stroke: rgb(20 184 166 / 0.24);
+  stroke-width: 0.44;
+  vector-effect: non-scaling-stroke;
 }
 
 .layer-scene-viewer.is-complete .layer-scene-printed {
-  stroke: rgb(15 118 110 / 0.2);
-  stroke-width: 0.46;
-}
-
-.layer-scene-current-surface {
-  fill: rgb(239 68 68 / 0.34);
-  stroke: rgb(250 204 21 / 0.72);
-  stroke-width: 0.9;
-  filter: drop-shadow(0 0 3px rgb(250 204 21 / 0.22));
+  stroke: rgb(20 184 166 / 0.32);
 }
 
 .layer-scene-current {
   stroke: #22d3ee;
   stroke-width: 0.76;
   filter: drop-shadow(0 0 2px rgb(34 211 238 / 0.3));
+  vector-effect: non-scaling-stroke;
+}
+
+.layer-scene-printed.outer-wall {
+  stroke: rgb(251 146 60 / 0.48);
+  stroke-width: 0.72;
+}
+
+.layer-scene-printed.inner-wall {
+  stroke: rgb(249 115 22 / 0.38);
+  stroke-width: 0.58;
+}
+
+.layer-scene-printed.sparse-infill {
+  stroke: rgb(20 184 166 / 0.18);
+  stroke-width: 0.34;
+}
+
+.layer-scene-printed.solid-infill,
+.layer-scene-printed.top-surface,
+.layer-scene-printed.bridge {
+  stroke: rgb(14 165 233 / 0.24);
+  stroke-width: 0.4;
+}
+
+.layer-scene-printed.support {
+  stroke: rgb(96 165 250 / 0.18);
+  stroke-width: 0.34;
+}
+
+.layer-scene-printed.skirt {
+  stroke: rgb(45 212 191 / 0.26);
+  stroke-width: 0.46;
 }
 
 .layer-scene-current.outer-wall {
@@ -657,8 +662,7 @@
   stroke: #38bdf8;
 }
 
-.layer-scene-toolbar,
-.layer-scene-pan {
+.layer-scene-toolbar {
   position: absolute;
   z-index: 2;
 }
@@ -673,7 +677,7 @@
   bottom: 12px;
   flex-wrap: wrap;
   justify-content: flex-end;
-  max-width: 190px;
+  max-width: 304px;
   border: 1px solid rgb(34 211 238 / 0.16);
   border-radius: 8px;
   background: rgb(15 23 42 / 0.62);
@@ -690,49 +694,12 @@
   color: var(--accent);
 }
 
-.layer-scene-pan {
-  display: grid;
-  align-items: center;
-  border: 1px solid rgb(34 211 238 / 0.12);
-  border-radius: 999px;
-  background: rgb(15 23 42 / 0.42);
-  padding: 3px;
-  opacity: 0.72;
-  backdrop-filter: blur(5px);
-}
-
-.layer-scene-pan:focus-within,
-.layer-scene-pan:hover {
-  opacity: 1;
-}
-
-.layer-scene-pan input {
-  accent-color: var(--accent);
-}
-
-.layer-scene-pan-x {
-  left: 118px;
-  right: 222px;
-  bottom: 15px;
-}
-
-.layer-scene-pan-x input {
-  width: 100%;
-}
-
-.layer-scene-pan-y {
-  top: 58px;
-  right: 13px;
-  bottom: 64px;
-  width: 25px;
-  justify-items: center;
-}
-
-.layer-scene-pan-y input {
-  width: 22px;
-  height: 100%;
-  writing-mode: vertical-lr;
-  direction: rtl;
+.layer-scene-toolbar-separator {
+  align-self: stretch;
+  width: 1px;
+  min-height: 24px;
+  margin: 2px;
+  background: rgb(148 163 184 / 0.18);
 }
 
 .layer-nav-cube {
@@ -740,8 +707,8 @@
   left: 16px;
   bottom: 16px;
   z-index: 2;
-  width: 92px;
-  height: 88px;
+  width: 106px;
+  height: 98px;
   color: var(--text);
 }
 
@@ -752,71 +719,86 @@
   border: 1px solid rgb(148 163 184 / 0.2);
   background: rgb(71 85 105 / 0.5);
   color: var(--text);
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   font-weight: 800;
+  line-height: 1;
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
 }
 
 .cube-face.top {
-  left: 28px;
-  top: 4px;
+  left: 38px;
+  top: 7px;
   width: 42px;
-  height: 34px;
-  transform: skewX(-30deg);
+  height: 30px;
+  clip-path: polygon(18% 0, 100% 14%, 78% 100%, 0 82%);
 }
 
 .cube-face.front {
-  left: 19px;
-  top: 37px;
-  width: 38px;
-  height: 34px;
-  transform: skewY(25deg);
+  left: 24px;
+  top: 39px;
+  width: 43px;
+  height: 38px;
+  clip-path: polygon(0 0, 100% 18%, 100% 100%, 0 80%);
 }
 
 .cube-face.right {
-  left: 55px;
-  top: 34px;
+  left: 64px;
+  top: 36px;
   width: 34px;
-  height: 35px;
-  transform: skewY(-25deg);
+  height: 39px;
+  clip-path: polygon(0 18%, 100% 0, 100% 78%, 0 100%);
 }
 
 .cube-corner {
   position: absolute;
   z-index: 3;
-  width: 13px;
-  height: 13px;
-  border: 1px solid rgb(34 211 238 / 0.26);
+  width: 19px;
+  height: 19px;
+  border: 0;
   border-radius: 999px;
-  background: rgb(34 211 238 / 0.18);
+  background: transparent;
   color: transparent;
   padding: 0;
 }
 
+.cube-corner::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgb(34 211 238 / 0.34);
+  border-radius: 999px;
+  background: rgb(34 211 238 / 0.18);
+}
+
 .cube-corner:hover,
 .cube-corner:focus-visible {
+  outline: 0;
+}
+
+.cube-corner:hover::after,
+.cube-corner:focus-visible::after {
   border-color: rgb(34 211 238 / 0.75);
   background: rgb(34 211 238 / 0.44);
 }
 
 .cube-corner.front-right {
-  left: 63px;
+  left: 80px;
   top: 36px;
 }
 
 .cube-corner.front-left {
-  left: 25px;
-  top: 38px;
+  left: 22px;
+  top: 39px;
 }
 
 .cube-corner.back-right {
-  left: 69px;
-  top: 8px;
+  left: 75px;
+  top: 7px;
 }
 
 .cube-corner.back-left {
-  left: 31px;
-  top: 8px;
+  left: 33px;
+  top: 7px;
 }
 
 .cube-axis {
@@ -826,7 +808,7 @@
 }
 
 .cube-axis.x {
-  right: -5px;
+  right: -1px;
   bottom: 1px;
   color: #ff3158;
 }
@@ -845,7 +827,7 @@
 
 .layer-scene-tile .print-visual-note {
   right: auto;
-  left: 112px;
+  left: 124px;
   bottom: 18px;
 }
 
@@ -1238,14 +1220,6 @@
     max-height: 520px;
   }
 
-  .layer-scene-pan-x {
-    right: 84px;
-    bottom: 52px;
-  }
-
-  .layer-scene-pan-y {
-    display: none;
-  }
 }
 
 @media (max-width: 920px) {
@@ -1310,7 +1284,7 @@
   .layer-scene-toolbar {
     right: 8px;
     bottom: 8px;
-    max-width: 150px;
+    max-width: 174px;
   }
 
   .layer-nav-cube {
