@@ -69,7 +69,8 @@ export function GcodePrintViewer({
   const renderBusyRef = React.useRef(false);
   const queuedRenderTargetRef = React.useRef<number | null>(null);
   const liveRef = React.useRef({ filePosition, printState, progress, currentLayer, totalLayers });
-  const bounds = React.useMemo(() => buildVolumeBounds(buildVolume), [buildVolume]);
+  const boundsSignature = buildVolumeSignature(buildVolume);
+  const bounds = React.useMemo(() => buildVolumeBounds(buildVolume), [boundsSignature]);
   const [state, setState] = React.useState<"idle" | "loading" | "ready" | "error">("idle");
   const [loadPercent, setLoadPercent] = React.useState(0);
   const [error, setError] = React.useState("");
@@ -419,6 +420,11 @@ function buildVolumeBounds(toolhead?: Record<string, unknown> | null): BuildVolu
     min: [min[0], min[1], Math.min(min[2], 0)],
     max: [Math.max(max[0], min[0] + 180), Math.max(max[1], min[1] + 180), Math.max(max[2], min[2] + 120)],
   };
+}
+
+function buildVolumeSignature(toolhead?: Record<string, unknown> | null) {
+  const bounds = buildVolumeBounds(toolhead);
+  return `${bounds.min.join(":")}|${bounds.max.join(":")}`;
 }
 
 function vectorFromUnknown(value: unknown): [number, number, number] | null {
