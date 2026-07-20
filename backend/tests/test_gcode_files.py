@@ -36,6 +36,7 @@ def test_gcode_files_response_normalizes_files_directories_and_metadata() -> Non
                     "filament_type": ["PLA", "PLA"],
                     "first_layer_bed_temp": 75,
                     "first_layer_extr_temp": 220,
+                    "print_end_time": 1784492400,
                     "last_print_duration": 3800,
                     "metadata_available": True,
                     "thumbnail": {"data_uri": "data:image/png;base64,abc", "width": 160, "height": 120},
@@ -56,6 +57,7 @@ def test_gcode_files_response_normalizes_files_directories_and_metadata() -> Non
     assert first.directory == "folder"
     assert first.layer_count == 370
     assert first.filament_type == "PLA, PLA"
+    assert first.print_end_time == 1784492400
     assert first.thumbnail and first.thumbnail.width == 160
     assert response.directories[0].path == "folder"
     assert response.directories[0].file_count == 1

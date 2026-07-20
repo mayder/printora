@@ -79,20 +79,31 @@ export function MonitoringDashboard({
   const bed = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("bed"));
   const actions = operationStatus?.actions ?? [];
   const capabilities = operationStatus?.capabilities ?? [];
+  const printState = operationStatus?.miscellaneous.print_state;
   const progressLabel = progressSourceLabel(operationStatus?.miscellaneous.progress_source);
-  const printActive = isActivePrintState(operationStatus?.miscellaneous.print_state);
+  const printActive = isActivePrintState(printState);
   const hasMaterialProgress = hasPrintMaterialProgress(operationStatus);
-  const printFacts = buildPrintFacts(operationStatus, hasMaterialProgress);
-  const primaryPrintFacts = printFacts.filter((item) => PRIMARY_PRINT_FACT_LABELS.has(item.label));
-  const secondaryPrintFacts = printFacts.filter((item) => !PRIMARY_PRINT_FACT_LABELS.has(item.label));
-  const thumbnail = operationStatus?.miscellaneous.thumbnail ?? null;
-  const layerPreview = operationStatus?.miscellaneous.layer_preview ?? null;
-  const gcodeFilename = (operationStatus?.miscellaneous.filename ?? "").trim();
+  const idleGcodeFiles = operationStatus?.miscellaneous.gcode_files ?? [];
+  const completedPrintFile = completedPrintPreviewFile(operationStatus, idleGcodeFiles);
+  const completedPreview = Boolean(!printActive && completedPrintFile);
+  const gcodeFilename = printActive
+    ? (operationStatus?.miscellaneous.filename ?? "").trim()
+    : ((operationStatus?.miscellaneous.filename ?? "").trim() || operationGcodeFilePath(completedPrintFile));
   const canUseGcodeViewer = Boolean(
     operationStatus?.printer_id &&
       gcodeFilename &&
       supportsGcodeCache(operationStatus?.agent?.version),
   );
+  const showPrintPreview = printActive || (completedPreview && canUseGcodeViewer);
+  const viewerTotalLayers = operationStatus?.miscellaneous.total_layers ?? completedPrintFile?.layer_count ?? null;
+  const viewerCurrentLayer = completedPreview ? viewerTotalLayers : hasMaterialProgress ? operationStatus?.miscellaneous.current_layer : null;
+  const viewerProgress = completedPreview ? 1 : hasMaterialProgress ? operationStatus?.miscellaneous.progress ?? 0 : 0;
+  const viewerFilePosition = completedPreview ? null : hasMaterialProgress ? operationStatus?.miscellaneous.file_position : null;
+  const printFacts = buildPrintFacts(operationStatus, hasMaterialProgress, completedPrintFile, gcodeFilename, completedPreview);
+  const primaryPrintFacts = printFacts.filter((item) => PRIMARY_PRINT_FACT_LABELS.has(item.label));
+  const secondaryPrintFacts = printFacts.filter((item) => !PRIMARY_PRINT_FACT_LABELS.has(item.label));
+  const thumbnail = operationStatus?.miscellaneous.thumbnail ?? null;
+  const layerPreview = operationStatus?.miscellaneous.layer_preview ?? null;
   const hasThumbnail = hasPrintVisualData(thumbnail);
   const hasLayerPreview = hasPrintVisualData(layerPreview);
   const primaryPrintVisual = hasLayerPreview
@@ -102,7 +113,6 @@ export function MonitoringDashboard({
       : null;
   const sideThumbnail = hasThumbnail && (canUseGcodeViewer || hasLayerPreview) ? { title: "Peça", visual: thumbnail, emptyText: "Sem thumbnail do G-code." } : null;
   const hasPrintVisuals = Boolean(canUseGcodeViewer || primaryPrintVisual);
-  const idleGcodeFiles = operationStatus?.miscellaneous.gcode_files ?? [];
   const canUseIdleGcodeFiles = supportsGcodeFiles(operationStatus?.agent?.version);
   const liveUnavailable = operationStatus?.data_state === "offline";
   const operationNotice = liveUnavailable ? formatOperationNotice(operationStatus) : "";
@@ -118,7 +128,7 @@ export function MonitoringDashboard({
 
   React.useEffect(() => {
     const printBody = printBodyRef.current;
-    if (!printActive) {
+    if (!showPrintPreview) {
       printBody?.style.removeProperty("--print-viewer-target-height");
       return undefined;
     }
@@ -146,7 +156,7 @@ export function MonitoringDashboard({
       sideBySideQuery.removeEventListener("change", syncViewerHeight);
       printBody.style.removeProperty("--print-viewer-target-height");
     };
-  }, [printActive]);
+  }, [showPrintPreview]);
 
   return (
     <article className="panel wide panel-section panel-monitoring monitoring-dashboard">
@@ -203,19 +213,19 @@ export function MonitoringDashboard({
             <Gauge size={18} />
             <h3>Impressão</h3>
           </div>
-          <div ref={printBodyRef} className={printActive ? `print-monitor-body${hasPrintVisuals ? "" : " is-compact"}` : "print-monitor-body is-idle-files"}>
-            {printActive ? (
+          <div ref={printBodyRef} className={showPrintPreview ? `print-monitor-body${hasPrintVisuals ? "" : " is-compact"}` : "print-monitor-body is-idle-files"}>
+            {showPrintPreview ? (
               <>
                 {canUseGcodeViewer ? (
                   <div className="print-primary-visual">
                     <GcodePrintViewer
                       printerId={operationStatus!.printer_id}
                       filename={gcodeFilename}
-                      filePosition={hasMaterialProgress ? operationStatus?.miscellaneous.file_position : null}
-                      currentLayer={hasMaterialProgress ? operationStatus?.miscellaneous.current_layer : null}
-                      totalLayers={operationStatus?.miscellaneous.total_layers}
-                      printState={operationStatus?.miscellaneous.print_state}
-                      progress={hasMaterialProgress ? operationStatus?.miscellaneous.progress : 0}
+                      filePosition={viewerFilePosition}
+                      currentLayer={viewerCurrentLayer}
+                      totalLayers={viewerTotalLayers}
+                      printState={completedPreview ? "complete" : printState}
+                      progress={viewerProgress}
                       buildVolume={operationStatus?.toolhead}
                       nozzleDiameter={operationStatus?.miscellaneous.nozzle_diameter}
                     />
@@ -241,7 +251,7 @@ export function MonitoringDashboard({
                       </div>
                     ) : null}
                     <div className="print-side-progress">
-                      <RadialProgress value={operationStatus?.miscellaneous.progress ?? 0} label={progressLabel} />
+                      <RadialProgress value={viewerProgress} label={completedPreview ? "display" : progressLabel} />
                     </div>
                   </div>
                   <div className="print-side-facts-card">
@@ -489,7 +499,8 @@ function IdleGcodeFilesPanel({
   onOpenGcodeFiles: () => void;
 }) {
   const visibleFiles = recentGcodeFiles(files).slice(0, 4);
-  const lastJob = lastReliablePrintFile(files);
+  const reliableLastJob = lastReliablePrintFile(files);
+  const lastJob = reliableLastJob ?? (isCompletedPrintState(operationStatus?.miscellaneous.print_state) ? recentGcodeFiles(files)[0] ?? null : null);
   const state = idleOperationState(operationStatus, liveUnavailable);
   return (
     <div className="print-idle-panel">
@@ -511,7 +522,7 @@ function IdleGcodeFilesPanel({
         <div className="print-idle-last-job">
           <div>
             <History size={16} />
-            <span>Último trabalho confiável</span>
+            <span>{reliableLastJob ? "Último trabalho confiável" : "Última impressão detectada"}</span>
           </div>
           <strong title={lastJob.path ?? lastJob.filename}>{displayGcodeFileName(lastJob.filename)}</strong>
           <dl>
@@ -568,6 +579,38 @@ function lastReliablePrintFile(files: OperationGcodeFile[]) {
   return recentGcodeFiles(files).find((file) => Boolean(file.print_end_time || file.print_start_time || file.last_print_duration)) ?? null;
 }
 
+function completedPrintPreviewFile(operationStatus: OperationStatusResponse | null, files: OperationGcodeFile[]): OperationGcodeFile | null {
+  if (!isCompletedPrintState(operationStatus?.miscellaneous.print_state)) return null;
+  const filename = (operationStatus?.miscellaneous.filename ?? "").trim();
+  if (filename) {
+    return files.find((file) => sameGcodeFile(file, filename)) ?? { filename, path: filename };
+  }
+  return lastReliablePrintFile(files) ?? recentGcodeFiles(files)[0] ?? null;
+}
+
+function operationGcodeFilePath(file?: OperationGcodeFile | null) {
+  return (file?.path ?? file?.filename ?? "").trim();
+}
+
+function sameGcodeFile(file: OperationGcodeFile, requested: string) {
+  const candidates = [file.path, file.filename].filter((value): value is string => Boolean(value));
+  return candidates.some((candidate) => sameGcodePath(candidate, requested));
+}
+
+function sameGcodePath(left: string, right: string) {
+  const normalizedLeft = normalizeGcodePath(left);
+  const normalizedRight = normalizeGcodePath(right);
+  return normalizedLeft === normalizedRight || gcodeBasename(normalizedLeft) === gcodeBasename(normalizedRight);
+}
+
+function normalizeGcodePath(value: string) {
+  return value.trim().replace(/^\/+/, "").toLowerCase();
+}
+
+function gcodeBasename(value: string) {
+  return value.split("/").filter(Boolean).at(-1) ?? value;
+}
+
 function gcodeFileSortTimestamp(file: OperationGcodeFile) {
   return numericValue(file.print_end_time) ?? numericValue(file.print_start_time) ?? numericValue(file.modified) ?? 0;
 }
@@ -584,7 +627,7 @@ function idleOperationState(operationStatus: OperationStatusResponse | null, liv
     return { icon: AlertTriangle, title: "Impressão com erro", detail: operationStatus.miscellaneous.message || "Verifique Moonraker/Klipper antes de iniciar outro trabalho." };
   }
   if (state === "complete") {
-    return { icon: ShieldCheck, title: "Impressão concluída", detail: "Operação em espera, sem preview antigo ou progresso retido." };
+    return { icon: ShieldCheck, title: "Impressão concluída", detail: "Operação em espera, mantendo a última impressão quando disponível." };
   }
   if (state === "cancelled" || state === "canceled") {
     return { icon: AlertTriangle, title: "Impressão cancelada", detail: "Operação em espera; confira o arquivo antes de repetir a impressão." };
@@ -616,6 +659,10 @@ function hasPrintVisualData(visual: OperationStatusResponse["miscellaneous"]["th
 function isActivePrintState(state?: string | null) {
   const normalized = (state ?? "").trim().toLowerCase();
   return Boolean(normalized && !["standby", "complete", "cancelled", "canceled", "error"].includes(normalized));
+}
+
+function isCompletedPrintState(state?: string | null) {
+  return (state ?? "").trim().toLowerCase() === "complete";
 }
 
 function hasPrintMaterialProgress(operationStatus: OperationStatusResponse | null) {
@@ -650,21 +697,31 @@ function looksLikePreprintMessage(value?: string | null) {
   return ["qgl", "quad_gantry_level", "bed_mesh", "homing", "g28", "z_tilt", "calibrate_z"].some((token) => normalized.includes(token));
 }
 
-function buildPrintFacts(operationStatus: OperationStatusResponse | null, hasMaterialProgress = true) {
+function buildPrintFacts(
+  operationStatus: OperationStatusResponse | null,
+  hasMaterialProgress = true,
+  completedFile: OperationGcodeFile | null = null,
+  filenameOverride = "",
+  completedPreview = false,
+) {
   const miscellaneous = operationStatus?.miscellaneous;
-  const currentLayer = hasMaterialProgress ? miscellaneous?.current_layer : null;
+  const totalLayers = miscellaneous?.total_layers ?? completedFile?.layer_count;
+  const currentLayer = completedPreview ? totalLayers ?? null : hasMaterialProgress ? miscellaneous?.current_layer : null;
+  const printDuration = miscellaneous?.print_duration ?? completedFile?.last_print_duration;
+  const estimatedTime = miscellaneous?.estimated_time ?? completedFile?.estimated_time;
+  const remainingTime = completedPreview ? null : miscellaneous?.remaining_time;
   return [
     { label: "Estado", value: miscellaneous?.print_state || "-" },
-    { label: "Camada", value: formatLayer(currentLayer, miscellaneous?.total_layers) },
-    { label: "Tempo", value: formatDuration(miscellaneous?.print_duration) },
-    { label: "Restante", value: formatDuration(miscellaneous?.remaining_time) },
-    { label: "Conclusão", value: formatEta(miscellaneous?.remaining_time) },
-    { label: "Estimativa", value: formatDuration(miscellaneous?.estimated_time) },
-    { label: "Arquivo", value: formatPercent(miscellaneous?.file_progress) },
-    { label: "Filamento", value: formatFilament(operationStatus) },
-    { label: "Slicer", value: formatSlicer(miscellaneous?.slicer, miscellaneous?.slicer_version) },
-    { label: "Material", value: miscellaneous?.filament_type || miscellaneous?.filament_name || "-" },
-    { label: "G-code", value: miscellaneous?.filename || "-" },
+    { label: "Camada", value: formatLayer(currentLayer, totalLayers) },
+    { label: "Tempo", value: formatDuration(printDuration) },
+    { label: "Restante", value: formatDuration(remainingTime) },
+    { label: "Conclusão", value: completedPreview ? formatUnixDate(completedFile?.print_end_time) : formatEta(remainingTime) },
+    { label: "Estimativa", value: formatDuration(estimatedTime) },
+    { label: "Arquivo", value: completedPreview ? "100%" : formatPercent(miscellaneous?.file_progress) },
+    { label: "Filamento", value: formatFilament(operationStatus, completedFile, completedPreview) },
+    { label: "Slicer", value: formatSlicer(miscellaneous?.slicer ?? completedFile?.slicer, miscellaneous?.slicer_version ?? completedFile?.slicer_version) },
+    { label: "Material", value: miscellaneous?.filament_type || miscellaneous?.filament_name || completedFile?.filament_type || completedFile?.filament_name || "-" },
+    { label: "G-code", value: filenameOverride || miscellaneous?.filename || completedFile?.path || completedFile?.filename || "-" },
     { label: "Mensagem", value: miscellaneous?.message || "-" },
   ];
 }
@@ -710,13 +767,13 @@ function parseVersion(value?: string | null) {
   return parts.every((part) => Number.isFinite(part)) ? parts : null;
 }
 
-function formatFilament(operationStatus: OperationStatusResponse | null) {
-  const used = operationStatus?.extruder?.filament_used;
-  const total = operationStatus?.miscellaneous.filament_total;
+function formatFilament(operationStatus: OperationStatusResponse | null, completedFile: OperationGcodeFile | null = null, completedPreview = false) {
+  const used = completedPreview ? null : operationStatus?.extruder?.filament_used;
+  const total = operationStatus?.miscellaneous.filament_total ?? completedFile?.filament_total;
   if (typeof used === "number" && typeof total === "number") return `${formatOperationValue(used, "mm")} / ${formatOperationValue(total, "mm")}`;
   if (typeof used === "number") return formatOperationValue(used, "mm");
   if (typeof total === "number") return formatOperationValue(total, "mm");
-  const weight = operationStatus?.miscellaneous.filament_weight_total;
+  const weight = operationStatus?.miscellaneous.filament_weight_total ?? completedFile?.filament_weight_total;
   return typeof weight === "number" ? formatOperationValue(weight, "g") : "-";
 }
 

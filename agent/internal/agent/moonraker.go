@@ -808,6 +808,7 @@ func compactGcodeFile(value any) map[string]any {
 		"filament_type":         firstString(item, "filament_type"),
 		"filament_name":         firstString(item, "filament_name"),
 		"print_start_time":      firstNumber(item, "print_start_time"),
+		"print_end_time":        firstNumber(item, "print_end_time"),
 		"last_print_duration":   firstNumber(item, "last_print_duration"),
 	}
 }

@@ -231,7 +231,7 @@ func TestOperationStatusFetchesIdleGcodeFiles(t *testing.T) {
 					"path": "printora",
 					"children": []any{
 						map[string]any{"path": "printora/old.gcode", "filename": "old.gcode", "size": 1024, "modified": 10.0},
-						map[string]any{"path": "printora/new.gcode", "filename": "new.gcode", "size": 2048, "modified": 20.0, "estimated_time": 300.0, "slicer": "OrcaSlicer"},
+						map[string]any{"path": "printora/new.gcode", "filename": "new.gcode", "size": 2048, "modified": 20.0, "estimated_time": 300.0, "slicer": "OrcaSlicer", "print_end_time": 1784492400.0},
 						map[string]any{"path": "printora/readme.txt", "filename": "readme.txt", "size": 256, "modified": 30.0},
 					},
 				},
@@ -265,6 +265,9 @@ func TestOperationStatusFetchesIdleGcodeFiles(t *testing.T) {
 	first := mapValue(files[0])
 	if first["filename"] != "new.gcode" || first["path"] != "printora/new.gcode" || first["slicer"] != "OrcaSlicer" {
 		t.Fatalf("unexpected first file: %#v", first)
+	}
+	if first["print_end_time"] != 1784492400.0 {
+		t.Fatalf("missing print_end_time: %#v", first)
 	}
 	second := mapValue(files[1])
 	if second["filename"] != "old.gcode" {

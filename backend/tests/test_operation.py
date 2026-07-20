@@ -210,6 +210,7 @@ def test_operation_status_lists_idle_gcode_files_sorted_and_filtered() -> None:
                 "nozzle_diameter": 0.6,
                 "filament_total": 23145.18,
                 "filament_type": ["PLA", "PLA"],
+                "print_end_time": 1784492400,
             },
         ],
     )
@@ -224,6 +225,7 @@ def test_operation_status_lists_idle_gcode_files_sorted_and_filtered() -> None:
     assert files[0]["nozzle_diameter"] == 0.6
     assert files[0]["filament_total"] == 23145.18
     assert files[0]["filament_type"] == "PLA, PLA"
+    assert files[0]["print_end_time"] == 1784492400
 
 
 def test_operation_status_reports_detected_misc_objects_without_status() -> None:

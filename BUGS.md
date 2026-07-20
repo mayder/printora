@@ -6,6 +6,31 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Operacao Concluida Nao Mostrava A Ultima Impressao
+
+Sintoma:
+
+- ao terminar uma impressao, a aba Operacao passava para `complete`, mas o card `Impressao` exibia apenas estado generico/lista curta de G-codes;
+- o operador perdia o preview 3D e os dados finais da peca recem-impressa.
+
+Causa:
+
+- o frontend tratava `complete` como estado ocioso comum;
+- o contrato de G-code usado na lista curta nao preservava `print_end_time`, reduzindo a confiabilidade para escolher o ultimo trabalho concluido.
+
+Correcao:
+
+- `complete` agora seleciona o G-code da operacao finalizada, ou o ultimo arquivo confiavel quando o nome ativo nao estiver disponivel;
+- o preview usa o viewer 3D em modo completo e apresenta camada/progresso finais;
+- backend e agente preservam `print_end_time` na lista compacta de G-codes.
+
+Validacao:
+
+- `cd backend && uv run --extra dev pytest tests/test_operation.py tests/test_gcode_files.py -q`;
+- `cd agent && go test ./internal/agent`;
+- `npm --prefix frontend run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### Preview De Impressao Avancava Durante QGL Sem Material
 
 Sintoma:

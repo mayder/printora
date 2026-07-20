@@ -828,6 +828,7 @@ def _gcode_files(value: list[Any] | None) -> list[dict[str, Any]]:
                 "filament_type": _gcode_file_text(mapped.get("filament_type")),
                 "filament_name": _gcode_file_text(mapped.get("filament_name")),
                 "print_start_time": _number_or_none(mapped.get("print_start_time")),
+                "print_end_time": _number_or_none(mapped.get("print_end_time")),
                 "last_print_duration": _number_or_none(mapped.get("last_print_duration")),
             }
         )
