@@ -183,10 +183,11 @@
 }
 
 .print-monitor-body {
+  --print-viewer-target-height: clamp(380px, 48vh, 600px);
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(286px, 340px);
   gap: 14px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .print-monitor-body.is-compact {
@@ -205,9 +206,11 @@
 }
 
 .print-primary-visual {
+  display: grid;
+  height: var(--print-viewer-target-height);
   min-width: 0;
   min-height: 0;
-  align-self: start;
+  align-self: stretch;
 }
 
 .print-primary-visual.is-thumbnail-only {
@@ -386,8 +389,8 @@
 .gcode-viewer-tile {
   position: relative;
   min-width: 0;
-  height: clamp(380px, 48vh, 600px);
-  min-height: 380px;
+  height: var(--print-viewer-target-height);
+  min-height: min(380px, var(--print-viewer-target-height));
   overflow: hidden;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
@@ -1207,7 +1210,14 @@
 
 @media (max-width: 1320px) {
   .print-monitor-body {
+    --print-viewer-target-height: clamp(340px, 48vh, 520px);
     grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .print-primary-visual {
+    height: var(--print-viewer-target-height);
+    align-self: start;
   }
 
   .print-side-stack {

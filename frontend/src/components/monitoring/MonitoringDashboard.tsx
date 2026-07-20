@@ -68,6 +68,7 @@ export function MonitoringDashboard({
   onValidateExecutionGate: () => void | Promise<void>;
 }) {
   const [capabilityModalStatus, setCapabilityModalStatus] = React.useState<CapabilityStatus | null>(null);
+  const printBodyRef = React.useRef<HTMLDivElement | null>(null);
   const temperatureSeries = buildTemperatureSeries(operationStatus?.temperature_history ?? [], operationStatus?.temperatures ?? []);
   const latestCanRecords = canRecords.slice(0, 4);
   const hotend = operationStatus?.temperatures.find((item) => item.name.toLowerCase().includes("extruder"));
@@ -106,6 +107,34 @@ export function MonitoringDashboard({
     Object.entries(parameters).forEach(([name, value]) => onActionParameterChange(actionId, name, String(value)));
     void onExecuteAction(action, parameters);
   };
+
+  React.useEffect(() => {
+    const printBody = printBodyRef.current;
+    if (!printBody || typeof ResizeObserver === "undefined") return undefined;
+    const sideStack = printBody.querySelector<HTMLElement>(".print-side-stack");
+    if (!sideStack) return undefined;
+    const sideBySideQuery = window.matchMedia("(min-width: 1321px)");
+    const syncViewerHeight = () => {
+      if (!sideBySideQuery.matches) {
+        printBody.style.removeProperty("--print-viewer-target-height");
+        return;
+      }
+      const measuredHeight = Math.ceil(sideStack.getBoundingClientRect().height);
+      if (measuredHeight > 0) {
+        printBody.style.setProperty("--print-viewer-target-height", `${measuredHeight}px`);
+      }
+    };
+    const observer = new ResizeObserver(syncViewerHeight);
+    observer.observe(sideStack);
+    observer.observe(printBody);
+    sideBySideQuery.addEventListener("change", syncViewerHeight);
+    window.requestAnimationFrame(syncViewerHeight);
+    return () => {
+      observer.disconnect();
+      sideBySideQuery.removeEventListener("change", syncViewerHeight);
+      printBody.style.removeProperty("--print-viewer-target-height");
+    };
+  }, []);
 
   return (
     <article className="panel wide panel-section panel-monitoring monitoring-dashboard">
@@ -162,7 +191,7 @@ export function MonitoringDashboard({
             <Gauge size={18} />
             <h3>Impressão</h3>
           </div>
-          <div className={`print-monitor-body${hasPrintVisuals ? "" : " is-compact"}`}>
+          <div ref={printBodyRef} className={`print-monitor-body${hasPrintVisuals ? "" : " is-compact"}`}>
             {canUseGcodeViewer ? (
               <div className="print-primary-visual">
                 <GcodePrintViewer
