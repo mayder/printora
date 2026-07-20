@@ -193,6 +193,12 @@ export function GcodePrintViewer({
     setCameraPreset(viewer, preset);
   };
 
+  const setPresetFromKeyboard = (event: React.KeyboardEvent<SVGGElement>, preset: CameraPreset) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    setPreset(preset);
+  };
+
   const zoom = (scale: number) => {
     const viewer = viewerRef.current;
     if (!viewer) return;
@@ -276,17 +282,26 @@ export function GcodePrintViewer({
         <span className="gcode-viewer-axis axis-x">X</span>
         <span className="gcode-viewer-axis axis-y">Y</span>
         <span className="gcode-viewer-axis axis-z">Z</span>
-        <div className="gcode-viewer-orientation-cube">
-          <button type="button" className="gcode-viewer-face face-top" onClick={() => setPreset("top")} aria-label="Vista superior">
-            Top
-          </button>
-          <button type="button" className="gcode-viewer-face face-front" onClick={() => setPreset("front")} aria-label="Vista frontal">
-            Front
-          </button>
-          <button type="button" className="gcode-viewer-face face-right" onClick={() => setPreset("right")} aria-label="Vista direita">
-            Right
-          </button>
-        </div>
+        <svg className="gcode-viewer-orientation-cube" viewBox="0 0 92 82" role="img" aria-label="Cubo de orientação">
+          <g className="gcode-viewer-face face-top" role="button" tabIndex={0} aria-label="Vista superior" onClick={() => setPreset("top")} onKeyDown={(event) => setPresetFromKeyboard(event, "top")}>
+            <polygon points="24,25 46,9 74,24 51,41" />
+            <text x="49" y="24" transform="rotate(-5 49 24)">
+              Top
+            </text>
+          </g>
+          <g className="gcode-viewer-face face-front" role="button" tabIndex={0} aria-label="Vista frontal" onClick={() => setPreset("front")} onKeyDown={(event) => setPresetFromKeyboard(event, "front")}>
+            <polygon points="24,25 51,41 51,70 24,54" />
+            <text x="37" y="48" transform="rotate(24 37 48)">
+              Front
+            </text>
+          </g>
+          <g className="gcode-viewer-face face-right" role="button" tabIndex={0} aria-label="Vista direita" onClick={() => setPreset("right")} onKeyDown={(event) => setPresetFromKeyboard(event, "right")}>
+            <polygon points="51,41 74,24 74,53 51,70" />
+            <text x="63" y="47" transform="rotate(-27 63 47)">
+              Right
+            </text>
+          </g>
+        </svg>
       </div>
       <div className="gcode-viewer-toolbar" aria-label="Controles do preview 3D">
         <button type="button" className="icon-button" title="Girar para a esquerda" aria-label="Girar para a esquerda" onClick={() => setPreset("frontLeft")}>

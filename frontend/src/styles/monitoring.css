@@ -505,12 +505,11 @@
   z-index: 4;
   left: 18px;
   bottom: 58px;
-  width: 104px;
+  width: 108px;
   height: 96px;
   border-radius: 9px;
   background: rgb(15 23 42 / 0.34);
   pointer-events: auto;
-  perspective: 220px;
 }
 
 .gcode-viewer-axis {
@@ -576,62 +575,72 @@
 
 .gcode-viewer-orientation-cube {
   position: absolute;
-  left: 34px;
-  bottom: 24px;
-  width: 44px;
-  height: 44px;
-  transform: rotateX(-24deg) rotateY(34deg) rotateZ(-5deg);
-  transform-style: preserve-3d;
-  filter: drop-shadow(0 10px 16px rgb(0 0 0 / 0.35));
+  left: 26px;
+  bottom: 12px;
+  width: 78px;
+  height: 72px;
+  overflow: visible;
+  filter: drop-shadow(0 10px 14px rgb(0 0 0 / 0.32));
 }
 
 .gcode-viewer-face {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 1px solid rgb(34 211 238 / 0.3);
-  background: rgb(51 65 85 / 0.72);
-  color: var(--text);
-  font-size: 9px;
-  font-weight: 900;
-  line-height: 1;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
   cursor: pointer;
-  backface-visibility: hidden;
-  transition:
-    background 120ms ease,
-    border-color 120ms ease,
-    color 120ms ease,
-    box-shadow 120ms ease;
-}
-
-.gcode-viewer-face:hover,
-.gcode-viewer-face:focus-visible {
-  border-color: rgb(34 211 238 / 0.68);
-  background: rgb(14 116 144 / 0.62);
-  box-shadow: inset 0 0 18px rgb(34 211 238 / 0.18);
-  color: #ecfeff;
   outline: none;
 }
 
-.gcode-viewer-face.face-top {
-  transform: rotateX(90deg) translateZ(22px);
-  background: linear-gradient(135deg, rgb(51 65 85 / 0.86), rgb(17 94 89 / 0.58));
-  border-radius: 6px;
+.gcode-viewer-face polygon {
+  stroke: rgb(34 211 238 / 0.34);
+  stroke-width: 1.4;
+  transition:
+    fill 120ms ease,
+    stroke 120ms ease,
+    filter 120ms ease;
 }
 
-.gcode-viewer-face.face-front {
-  transform: translateZ(22px);
-  background: linear-gradient(145deg, rgb(71 85 105 / 0.88), rgb(15 23 42 / 0.62));
-  border-radius: 6px;
+.gcode-viewer-face text {
+  fill: #f8fafc;
+  font-size: 8.4px;
+  font-weight: 900;
+  letter-spacing: 0;
+  pointer-events: none;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: rgb(15 23 42 / 0.76);
+  stroke-width: 2px;
 }
 
-.gcode-viewer-face.face-right {
-  transform: rotateY(90deg) translateZ(22px);
-  background: linear-gradient(145deg, rgb(30 64 175 / 0.42), rgb(34 211 238 / 0.18));
-  border-radius: 6px;
+.gcode-viewer-face:hover polygon,
+.gcode-viewer-face:focus-visible polygon {
+  stroke: rgb(34 211 238 / 0.82);
+  filter: drop-shadow(0 0 6px rgb(34 211 238 / 0.28));
+}
+
+.gcode-viewer-face.face-top polygon {
+  fill: rgb(71 85 105 / 0.74);
+}
+
+.gcode-viewer-face.face-front polygon {
+  fill: rgb(51 65 85 / 0.82);
+}
+
+.gcode-viewer-face.face-right polygon {
+  fill: rgb(14 116 144 / 0.54);
+}
+
+.gcode-viewer-face.face-top:hover polygon,
+.gcode-viewer-face.face-top:focus-visible polygon {
+  fill: rgb(71 85 105 / 0.9);
+}
+
+.gcode-viewer-face.face-front:hover polygon,
+.gcode-viewer-face.face-front:focus-visible polygon {
+  fill: rgb(51 65 85 / 0.94);
+}
+
+.gcode-viewer-face.face-right:hover polygon,
+.gcode-viewer-face.face-right:focus-visible polygon {
+  fill: rgb(14 116 144 / 0.72);
 }
 
 .gcode-viewer-toolbar {
