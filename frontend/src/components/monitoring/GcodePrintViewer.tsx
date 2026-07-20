@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Home, RotateCcw, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
+import { Home, RotateCcw, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
 import type GCodeViewerClass from "@sindarius/gcodeviewer";
 import { operationApi } from "../../services/operationApi";
 
@@ -205,14 +205,6 @@ export function GcodePrintViewer({
     panCamera(viewer, deltaX, deltaY);
   };
 
-  const panRelative = (deltaX: number, deltaY: number) => {
-    pan(deltaX, deltaY);
-    setPanOffset((current) => ({
-      x: clampPan(current.x + deltaX),
-      y: clampPan(current.y + deltaY),
-    }));
-  };
-
   const panTo = (axis: "x" | "y", rawValue: string) => {
     const value = Number(rawValue);
     if (!Number.isFinite(value)) return;
@@ -280,6 +272,25 @@ export function GcodePrintViewer({
         aria-label="Mover preview para cima ou baixo"
         onChange={(event) => panTo("y", event.target.value)}
       />
+      <div className="gcode-viewer-orientation" aria-label="Orientação do preview 3D">
+        <span className="gcode-viewer-axis axis-x">X</span>
+        <span className="gcode-viewer-axis axis-y">Y</span>
+        <span className="gcode-viewer-axis axis-z">Z</span>
+        <div className="gcode-viewer-orientation-cube">
+          <button type="button" className="gcode-viewer-face face-top" onClick={() => setPreset("top")} aria-label="Vista superior">
+            Top
+          </button>
+          <button type="button" className="gcode-viewer-face face-front" onClick={() => setPreset("front")} aria-label="Vista frontal">
+            Frente
+          </button>
+          <button type="button" className="gcode-viewer-face face-right" onClick={() => setPreset("right")} aria-label="Vista direita">
+            Direita
+          </button>
+        </div>
+        <button type="button" className="gcode-viewer-orientation-home" onClick={() => setPreset("iso")} aria-label="Vista inicial">
+          ISO
+        </button>
+      </div>
       <div className="gcode-viewer-toolbar" aria-label="Controles do preview 3D">
         <button type="button" className="icon-button" title="Girar para a esquerda" aria-label="Girar para a esquerda" onClick={() => setPreset("frontLeft")}>
           <RotateCcw size={14} />
@@ -295,19 +306,6 @@ export function GcodePrintViewer({
         </button>
         <button type="button" className="icon-button" title="Vista inicial" aria-label="Vista inicial" onClick={() => setPreset("iso")}>
           <Home size={14} />
-        </button>
-        <span className="gcode-viewer-toolbar-separator" aria-hidden="true" />
-        <button type="button" className="icon-button" title="Mover para cima" aria-label="Mover preview para cima" onClick={() => panRelative(0, -22)}>
-          <ArrowUp size={14} />
-        </button>
-        <button type="button" className="icon-button" title="Mover para a esquerda" aria-label="Mover preview para a esquerda" onClick={() => panRelative(-22, 0)}>
-          <ArrowLeft size={14} />
-        </button>
-        <button type="button" className="icon-button" title="Mover para a direita" aria-label="Mover preview para a direita" onClick={() => panRelative(22, 0)}>
-          <ArrowRight size={14} />
-        </button>
-        <button type="button" className="icon-button" title="Mover para baixo" aria-label="Mover preview para baixo" onClick={() => panRelative(0, 22)}>
-          <ArrowDown size={14} />
         </button>
       </div>
     </div>
@@ -349,7 +347,7 @@ function configureViewer(viewer: GCodeViewerInstance, bounds: BuildVolumeBounds,
   viewer.toggleTravels(false);
   viewer.updateRenderQuality(fileBytes <= MAX_RENDER_QUALITY_BYTES ? 4 : 3);
   disablePreviewFade(viewer);
-  showNativeViewbox(viewer, true);
+  showNativeViewbox(viewer, false);
 }
 
 function updatePreviewPosition(viewer: GCodeViewerInstance, target: number) {
@@ -509,9 +507,36 @@ function zoomCamera(viewer: GCodeViewerInstance, scale: number) {
 function panCamera(viewer: GCodeViewerInstance, deltaX: number, deltaY: number) {
   const camera = cameraFromViewer(viewer);
   if (!camera?.position || !camera.target) return;
-  setVector(camera.target, camera.target.x + deltaX, camera.target.y, camera.target.z + deltaY);
-  setVector(camera.position, camera.position.x + deltaX, camera.position.y, camera.position.z + deltaY);
+  const forward =
+    normalizeVector({
+      x: camera.target.x - camera.position.x,
+      y: camera.target.y - camera.position.y,
+      z: camera.target.z - camera.position.z,
+    }) ?? { x: 0, y: 0, z: -1 };
+  const right = normalizeVector(crossVector(forward, { x: 0, y: 1, z: 0 })) ?? { x: 1, y: 0, z: 0 };
+  const up = normalizeVector(crossVector(right, forward)) ?? { x: 0, y: 1, z: 0 };
+  const move = {
+    x: right.x * -deltaX + up.x * deltaY,
+    y: right.y * -deltaX + up.y * deltaY,
+    z: right.z * -deltaX + up.z * deltaY,
+  };
+  setVector(camera.target, camera.target.x + move.x, camera.target.y + move.y, camera.target.z + move.z);
+  setVector(camera.position, camera.position.x + move.x, camera.position.y + move.y, camera.position.z + move.z);
   renderViewer(viewer);
+}
+
+function crossVector(left: ViewerVector, right: ViewerVector) {
+  return {
+    x: left.y * right.z - left.z * right.y,
+    y: left.z * right.x - left.x * right.z,
+    z: left.x * right.y - left.y * right.x,
+  };
+}
+
+function normalizeVector(vector: ViewerVector) {
+  const length = Math.hypot(vector.x, vector.y, vector.z);
+  if (!Number.isFinite(length) || length < 0.0001) return null;
+  return { x: vector.x / length, y: vector.y / length, z: vector.z / length };
 }
 
 function setVector(vector: ViewerVector, x: number, y: number, z: number) {
