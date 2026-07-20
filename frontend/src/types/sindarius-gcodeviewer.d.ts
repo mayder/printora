@@ -91,6 +91,7 @@ declare module "@sindarius/gcodeviewer" {
     setCursorVisiblity(visible: boolean): void;
     setZClipPlane(max: number, min: number): void;
     updateRenderQuality(quality: number): void;
+    displayViewBox(enabled: boolean): void;
     lastLoadFailed(): boolean;
     clearLoadFlag(): void;
     setProgressColor(color: string): void;

@@ -24,19 +24,46 @@ type ViewerVector = {
 };
 
 type ViewerCamera = {
+  name?: string;
   alpha?: number;
   beta?: number;
   radius?: number;
   position?: ViewerVector;
   target?: ViewerVector;
+  viewport?: ViewerViewport;
+};
+
+type ViewerViewport = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+type ViewerSceneRuntime = {
+  activeCamera?: ViewerCamera;
+  cameras?: ViewerCamera[];
+  meshes?: Array<{
+    name?: string;
+    material?: {
+      name?: string;
+      diffuseColor?: {
+        r: number;
+        g: number;
+        b: number;
+      };
+    };
+  }>;
+  render?: (force?: boolean) => void;
 };
 
 type ViewerRuntime = GCodeViewerInstance & {
-  orbitCamera?: ViewerCamera;
-  scene?: {
-    activeCamera?: ViewerCamera;
-    render?: () => void;
+  canvas?: HTMLCanvasElement;
+  engine?: {
+    scenes?: ViewerSceneRuntime[];
   };
+  orbitCamera?: ViewerCamera;
+  scene?: ViewerSceneRuntime;
   displayViewBox?: (enabled: boolean) => void;
 };
 
@@ -180,6 +207,7 @@ export function GcodePrintViewer({
     if (!viewer || !container || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
       viewer.resize();
+      positionNativeViewbox(viewer);
       viewer.forceRender();
     });
     observer.observe(container);
@@ -191,12 +219,6 @@ export function GcodePrintViewer({
     if (!viewer) return;
     setPanOffset({ x: 0, y: 0 });
     setCameraPreset(viewer, preset);
-  };
-
-  const setPresetFromKeyboard = (event: React.KeyboardEvent<SVGGElement>, preset: CameraPreset) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    setPreset(preset);
   };
 
   const zoom = (scale: number) => {
@@ -278,43 +300,6 @@ export function GcodePrintViewer({
         aria-label="Mover preview para cima ou baixo"
         onChange={(event) => panTo("y", event.target.value)}
       />
-      <div className="gcode-viewer-orientation" aria-label="Orientação do preview 3D">
-        <svg className="gcode-viewer-orientation-cube" viewBox="0 0 116 104" role="img" aria-label="Cubo de orientação">
-          <g className="gcode-viewer-axis-map" aria-hidden="true">
-            <line className="axis-line axis-y" x1="30" y1="78" x2="7" y2="62" />
-            <line className="axis-line axis-z" x1="30" y1="78" x2="30" y2="29" />
-            <line className="axis-line axis-x" x1="30" y1="78" x2="78" y2="96" />
-            <text className="axis-label axis-y" x="3" y="62">
-              Y
-            </text>
-            <text className="axis-label axis-z" x="26" y="22">
-              Z
-            </text>
-            <text className="axis-label axis-x" x="84" y="101">
-              X
-            </text>
-          </g>
-          <polygon className="gcode-viewer-cube-shadow" points="38,68 64,84 91,66 65,50" />
-          <g className="gcode-viewer-face face-top" role="button" tabIndex={0} aria-label="Vista superior" onClick={() => setPreset("top")} onKeyDown={(event) => setPresetFromKeyboard(event, "top")}>
-            <polygon points="38,35 64,19 91,36 64,54" />
-            <text x="64" y="36" transform="rotate(-7 64 36)">
-              Top
-            </text>
-          </g>
-          <g className="gcode-viewer-face face-front" role="button" tabIndex={0} aria-label="Vista frontal" onClick={() => setPreset("front")} onKeyDown={(event) => setPresetFromKeyboard(event, "front")}>
-            <polygon points="38,35 64,54 64,84 38,66" />
-            <text x="51" y="61" transform="rotate(25 51 61)">
-              Front
-            </text>
-          </g>
-          <g className="gcode-viewer-face face-right" role="button" tabIndex={0} aria-label="Vista direita" onClick={() => setPreset("right")} onKeyDown={(event) => setPresetFromKeyboard(event, "right")}>
-            <polygon points="64,54 91,36 91,67 64,84" />
-            <text x="78" y="61" transform="rotate(-29 78 61)">
-              Right
-            </text>
-          </g>
-        </svg>
-      </div>
       <div className="gcode-viewer-toolbar" aria-label="Controles do preview 3D">
         <button type="button" className="icon-button" title="Girar para a esquerda" aria-label="Girar para a esquerda" onClick={() => setPreset("frontLeft")}>
           <RotateCcw size={14} />
@@ -371,7 +356,7 @@ function configureViewer(viewer: GCodeViewerInstance, bounds: BuildVolumeBounds,
   viewer.toggleTravels(false);
   viewer.updateRenderQuality(fileBytes <= MAX_RENDER_QUALITY_BYTES ? 4 : 3);
   disablePreviewFade(viewer);
-  showNativeViewbox(viewer, false);
+  showNativeViewbox(viewer, true);
 }
 
 function updatePreviewPosition(viewer: GCodeViewerInstance, target: number) {
@@ -582,6 +567,47 @@ function renderViewer(viewer: GCodeViewerInstance) {
 function showNativeViewbox(viewer: GCodeViewerInstance, enabled: boolean) {
   const runtime = viewer as ViewerRuntime;
   runtime.displayViewBox?.(enabled);
+  if (enabled) positionNativeViewbox(viewer);
+}
+
+function positionNativeViewbox(viewer: GCodeViewerInstance) {
+  const runtime = viewer as ViewerRuntime;
+  const viewboxScene = findNativeViewboxScene(runtime);
+  if (!viewboxScene) return;
+  const viewboxCamera = viewboxScene?.cameras?.find((camera) => camera.viewport);
+  const viewport = viewboxCamera?.viewport;
+  if (!viewport) return;
+  const canvas = runtime.canvas;
+  const canvasWidth = Math.max(1, canvas?.clientWidth ?? 0);
+  const canvasHeight = Math.max(1, canvas?.clientHeight ?? 0);
+  const side = Math.max(74, Math.min(112, Math.min(canvasWidth, canvasHeight) * 0.19));
+  viewport.x = 14 / canvasWidth;
+  viewport.y = 56 / canvasHeight;
+  viewport.width = side / canvasWidth;
+  viewport.height = side / canvasHeight;
+  tintNativeViewbox(viewboxScene);
+  viewboxScene.render?.(true);
+}
+
+function findNativeViewboxScene(runtime: ViewerRuntime) {
+  const scenes = runtime.engine?.scenes ?? [];
+  return (
+    scenes.find((scene) => {
+      const hasViewboxCamera = scene.cameras?.some((camera) => camera.name === "camera1" && camera.viewport);
+      const hasViewboxMeshes = scene.meshes?.some((mesh) => mesh.name === "Top" || mesh.name === "Front" || mesh.name === "Right");
+      return scene !== runtime.scene && Boolean(hasViewboxCamera && hasViewboxMeshes);
+    }) ?? null
+  );
+}
+
+function tintNativeViewbox(scene: ViewerSceneRuntime) {
+  scene.meshes?.forEach((mesh) => {
+    const material = mesh.material;
+    if (material?.name !== "edgematerial" || !material.diffuseColor) return;
+    material.diffuseColor.r = 0.18;
+    material.diffuseColor.g = 0.33;
+    material.diffuseColor.b = 0.38;
+  });
 }
 
 function detectExtrusionWidth(text: string, nozzleDiameter?: number | null) {
