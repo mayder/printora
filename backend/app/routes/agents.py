@@ -50,6 +50,7 @@ from app.agent_updates import (
 )
 from app.auth import CurrentUser
 from app.config import Settings, get_settings
+from app.gcode_cache import GcodeCacheEntry, store_gcode_cache_upload
 from app.routes.auth import require_current_user
 from app.remote_operations import (
     RemoteOperationCancelResponse,
@@ -492,6 +493,17 @@ async def agent_snapshot(
         return repository.store_snapshot(agent, payload)
     except ValueError as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
+
+
+@router.put("/api/agent/gcode-cache/{cache_key}", response_model=GcodeCacheEntry)
+async def upload_agent_gcode_cache(
+    cache_key: str,
+    request: Request,
+    filename: str | None = Header(default=None, alias="X-Printora-Filename"),
+    agent: AgentRecord = Depends(require_agent),
+    settings: Settings = Depends(get_settings),
+) -> GcodeCacheEntry:
+    return await store_gcode_cache_upload(settings, agent, cache_key, filename or "", request)
 
 
 @router.get("/api/agent/jobs/next", response_model=AgentJobResponse)

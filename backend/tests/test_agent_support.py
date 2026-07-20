@@ -136,7 +136,7 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
             assert current_created.json()["websocket_delivered"] is False
             assert current_created.json()["job"]["job_type"] == "remote_agent_update_check"
             assert current_created.json()["job"]["payload"]["safe_mode"] == "agent_self_update"
-            assert current_created.json()["job"]["payload"]["target_version"] == "0.1.29"
+            assert current_created.json()["job"]["payload"]["target_version"] == "0.1.30"
     finally:
         get_settings.cache_clear()
 
@@ -162,7 +162,7 @@ def test_agent_update_job_is_reconciled_after_restart_heartbeat(tmp_path: Path, 
             assert ack.status_code == 200
             heartbeat = client.post(
                 "/api/agent/heartbeat",
-                json={"agent_version": "0.1.29", "platform": "linux/arm64", "capabilities": {"websocket": True}},
+                json={"agent_version": "0.1.30", "platform": "linux/arm64", "capabilities": {"websocket": True}},
                 headers=_auth(credential),
             )
             assert heartbeat.status_code == 200

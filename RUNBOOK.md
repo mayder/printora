@@ -27,6 +27,44 @@ curl -fsS https://print3dmaker.xyz/api/catalog >/dev/null
 curl -fsS "https://print3dmaker.xyz/api/social/communities/variant-voron-design-voron-2-4-voron-2-4-r2-350/feed?page_size=1" >/dev/null
 ```
 
+## Preview operacional de G-code
+
+A aba `Operacao` do detalhe da impressora usa cache sob demanda do G-code para
+renderizar a prévia 3D no navegador. O agente atua como ponte leve para buscar o
+arquivo local no Moonraker/Raspberry; ele não recalcula a cena em todo snapshot
+de status.
+
+Validação local:
+
+```bash
+npm --prefix frontend run build
+cd agent && go test ./...
+python3 -m compileall backend/app
+./check.sh
+RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Validação manual publicada:
+
+- atualizar o agente quando o card indicar versão esperada nova;
+- abrir `https://print3dmaker.xyz`, entrar em `Impressoras > <impressora> > Operacao`;
+- durante impressão, confirmar que o card `Impressão` carrega thumbnail, camada, progresso e preview 3D;
+- confirmar que o preview usa o G-code cacheado e não baixa o arquivo completo repetidamente a cada status;
+- girar, aproximar, afastar, mover e enquadrar a peça com mouse, toolbar e viewbox nativo;
+- se o cache ou agente falhar, a tela deve cair para estado compacto, sem erro bruto e sem reservar área vazia grande.
+
+Impacto operacional:
+
+- atualização do agente reinicia apenas `printora-agent`;
+- não reinicia Klipper, Moonraker ou firmware;
+- pode interromper leituras do Printora por alguns segundos, mas não deve interromper a impressão em andamento.
+
+Rollback:
+
+- publicar a versão anterior da branch `cloud`;
+- se necessário, ocultar `GcodePrintViewer` e voltar a prévia amostrada como fallback principal;
+- manter o endpoint/cache como legado inerte até remoção posterior, sem apagar arquivos remotos manualmente.
+
 Feed técnico por comunidade:
 
 ```bash

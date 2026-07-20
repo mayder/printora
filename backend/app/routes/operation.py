@@ -5,8 +5,17 @@ from fastapi import Depends, Header
 
 from app.agent_executor import AgentCommandExecutor, AgentJobFailedError
 from app.agent_moonraker import agent_preflight_payload, operation_payload
-from app.agent_pairing import AgentPairingRepository
-from app.auth import AuthRepository
+from app.agent_pairing import AgentPairingRepository, printer_for_user
+from app.auth import AuthRepository, CurrentUser
+from app.gcode_cache import (
+    GcodeCacheEntry,
+    GcodeCachePrepareRequest,
+    MAX_GCODE_CACHE_BYTES,
+    gcode_cache_file_response,
+    gcode_cache_key,
+    normalize_gcode_filename,
+    read_gcode_cache_entry,
+)
 from app.operation import operation_action_blocks_when_printing, operation_action_requires_step_up
 from app.routes.auth import require_current_user_when_configured
 from app.routes.auth import require_current_user
@@ -15,6 +24,7 @@ router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
 
 OPERATION_STATUS_TIMEOUT_SECONDS = 25.0
 OPERATION_PREFLIGHT_TIMEOUT_SECONDS = 12.0
+OPERATION_GCODE_CACHE_TIMEOUT_SECONDS = 120.0
 
 
 @router.get("/api/printers/{printer_id}/operation/status")
@@ -63,6 +73,57 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
         "agent": _agent_operation_status(settings, printer.id),
         **operation,
     }
+
+
+@router.post("/api/printers/{printer_id}/operation/gcode-cache", response_model=GcodeCacheEntry)
+async def prepare_printer_operation_gcode_cache(
+    printer_id: int,
+    payload: GcodeCachePrepareRequest,
+    current: CurrentUser = Depends(require_current_user),
+) -> GcodeCacheEntry:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    filename = normalize_gcode_filename(payload.filename)
+    cache_key = gcode_cache_key(printer.id, filename)
+    cached = read_gcode_cache_entry(settings, printer.id, cache_key)
+    if cached is not None:
+        return cached
+
+    job = await AgentCommandExecutor(settings.database_path).run(
+        printer,
+        job_type="remote_gcode_cache",
+        payload={
+            "filename": filename,
+            "cache_key": cache_key,
+            "max_bytes": MAX_GCODE_CACHE_BYTES,
+        },
+        timeout_seconds=max(settings.request_timeout_seconds, OPERATION_GCODE_CACHE_TIMEOUT_SECONDS),
+    )
+    cached = read_gcode_cache_entry(settings, printer.id, cache_key)
+    if cached is not None:
+        return cached
+    result = job.result or {}
+    if result.get("status") == "cached" and result.get("cache_key") == cache_key:
+        try:
+            return GcodeCacheEntry.model_validate(result)
+        except ValueError:
+            pass
+    raise HTTPException(status_code=502, detail="agente não confirmou o cache do G-code")
+
+
+@router.get("/api/printers/{printer_id}/operation/gcode-cache/{cache_key}")
+async def get_printer_operation_gcode_cache(
+    printer_id: int,
+    cache_key: str,
+    current: CurrentUser = Depends(require_current_user),
+):
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    return gcode_cache_file_response(settings, printer.id, cache_key)
 
 
 

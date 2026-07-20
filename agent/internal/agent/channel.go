@@ -259,6 +259,13 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 		} else {
 			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
 		}
+	case "remote_gcode_cache":
+		payload := r.RemoteGcodeCache(ctx, job.Payload)
+		if payload["status"] == "cached" {
+			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+		} else {
+			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
+		}
 	case "remote_gcode_delete":
 		payload := r.Moonraker.RemoteGcodeDelete(ctx, job.Payload)
 		if payload["status"] == "deleted" {
@@ -333,6 +340,7 @@ func (r *Runner) channelCapabilities(ctx context.Context) map[string]any {
 	capabilities["parity"] = true
 	capabilities["updates"] = true
 	capabilities["gcode_jobs"] = true
+	capabilities["gcode_cache"] = true
 	capabilities["host_script"] = true
 	capabilities["jobs"] = true
 	capabilities["websocket"] = true

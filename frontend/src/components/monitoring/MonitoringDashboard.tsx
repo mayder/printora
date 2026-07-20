@@ -2,6 +2,7 @@ import React from "react";
 import { Activity, AlertTriangle, Database, Gauge, Radio, RefreshCw, ShieldCheck, Thermometer, Zap } from "lucide-react";
 import { LoadMeter, MonitorBadge, RadialProgress } from "./common";
 import { MachinePanel, OperationActions } from "./OperationActions";
+import { GcodePrintViewer } from "./GcodePrintViewer";
 import { PrintVisual } from "./PrintPreview";
 import { TemperatureMonitor, buildTemperatureSeries } from "./temperature";
 import { canTone, formatCanAlert, formatDataState, formatDecision, formatOperationValue, formatOptional, formatPercent, formatTemperature, healthTone } from "./formatters";
@@ -78,6 +79,8 @@ export function MonitoringDashboard({
   const secondaryPrintFacts = printFacts.filter((item) => !PRIMARY_PRINT_FACT_LABELS.has(item.label));
   const thumbnail = operationStatus?.miscellaneous.thumbnail ?? null;
   const layerPreview = operationStatus?.miscellaneous.layer_preview ?? null;
+  const gcodeFilename = (operationStatus?.miscellaneous.filename ?? "").trim();
+  const canUseGcodeViewer = Boolean(operationStatus?.connected && operationStatus?.printer_id && gcodeFilename);
   const hasThumbnail = hasPrintVisualData(thumbnail);
   const hasLayerPreview = hasPrintVisualData(layerPreview);
   const primaryPrintVisual = hasLayerPreview
@@ -85,8 +88,8 @@ export function MonitoringDashboard({
     : hasThumbnail
       ? { key: "thumbnail", title: "Peça", visual: thumbnail, emptyText: "Sem thumbnail do G-code." }
       : null;
-  const sideThumbnail = hasLayerPreview && hasThumbnail ? { title: "Peça", visual: thumbnail, emptyText: "Sem thumbnail do G-code." } : null;
-  const hasPrintVisuals = Boolean(primaryPrintVisual);
+  const sideThumbnail = hasThumbnail && (canUseGcodeViewer || hasLayerPreview) ? { title: "Peça", visual: thumbnail, emptyText: "Sem thumbnail do G-code." } : null;
+  const hasPrintVisuals = Boolean(canUseGcodeViewer || primaryPrintVisual);
   const liveUnavailable = operationStatus?.data_state === "offline";
   const operationNotice = liveUnavailable ? formatOperationNotice(operationStatus) : "";
   const selectedCapabilities = capabilityModalStatus ? capabilities.filter((capability) => capability.status === capabilityModalStatus) : [];
@@ -155,7 +158,21 @@ export function MonitoringDashboard({
             <h3>Impressão</h3>
           </div>
           <div className={`print-monitor-body${hasPrintVisuals ? "" : " is-compact"}`}>
-            {primaryPrintVisual ? (
+            {canUseGcodeViewer ? (
+              <div className="print-primary-visual">
+                <GcodePrintViewer
+                  printerId={operationStatus!.printer_id}
+                  filename={gcodeFilename}
+                  filePosition={operationStatus?.miscellaneous.file_position}
+                  currentLayer={operationStatus?.miscellaneous.current_layer}
+                  totalLayers={operationStatus?.miscellaneous.total_layers}
+                  printState={operationStatus?.miscellaneous.print_state}
+                  progress={operationStatus?.miscellaneous.progress}
+                  buildVolume={operationStatus?.toolhead}
+                  nozzleDiameter={operationStatus?.miscellaneous.nozzle_diameter}
+                />
+              </div>
+            ) : primaryPrintVisual ? (
               <div className={`print-primary-visual ${primaryPrintVisual.key === "thumbnail" ? "is-thumbnail-only" : ""}`}>
                 <PrintVisual title={primaryPrintVisual.title} visual={primaryPrintVisual.visual} emptyText={primaryPrintVisual.emptyText} />
               </div>

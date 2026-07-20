@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const Version = "0.1.29"
+const Version = "0.1.30"
 const ProtocolVersion = 1
 
 type Config struct {

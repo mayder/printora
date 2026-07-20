@@ -200,24 +200,6 @@ function LayerSceneViewer({ scene }: { scene: OperationPrintScene }) {
           <ArrowDown size={14} />
         </button>
       </div>
-      <div className="layer-nav-cube" aria-label="Navegador 3D">
-        <button type="button" className="cube-corner front-right" title="Vista canto frontal direito" aria-label="Vista canto frontal direito" onClick={() => setPreset("frontRight")} />
-        <button type="button" className="cube-corner front-left" title="Vista canto frontal esquerdo" aria-label="Vista canto frontal esquerdo" onClick={() => setPreset("frontLeft")} />
-        <button type="button" className="cube-corner back-right" title="Vista canto traseiro direito" aria-label="Vista canto traseiro direito" onClick={() => setPreset("backRight")} />
-        <button type="button" className="cube-corner back-left" title="Vista canto traseiro esquerdo" aria-label="Vista canto traseiro esquerdo" onClick={() => setPreset("backLeft")} />
-        <button type="button" className="cube-face top" onClick={() => setPreset("top")}>
-          Top
-        </button>
-        <button type="button" className="cube-face front" onClick={() => setPreset("front")}>
-          Front
-        </button>
-        <button type="button" className="cube-face right" onClick={() => setPreset("right")}>
-          Right
-        </button>
-        <span className="cube-axis x">X</span>
-        <span className="cube-axis y">Y</span>
-        <span className="cube-axis z">Z</span>
-      </div>
     </div>
   );
 }

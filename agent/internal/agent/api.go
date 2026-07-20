@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -117,6 +118,38 @@ func (c *APIClient) ErrorJob(ctx context.Context, jobID int, payload AgentJobErr
 
 func (c *APIClient) UpdateReport(ctx context.Context, payload AgentUpdateReportPayload) error {
 	return c.post(ctx, "/api/agent/update/reports", payload)
+}
+
+func (c *APIClient) UploadGcodeCache(ctx context.Context, cacheKey string, filename string, body io.Reader) (map[string]any, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, c.baseURL+"/api/agent/gcode-cache/"+url.PathEscape(cacheKey), body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.credential)
+	req.Header.Set("Content-Type", "text/plain; charset=utf-8")
+	req.Header.Set("X-Printora-Filename", filename)
+	client := *c.http
+	client.Timeout = 2 * time.Minute
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("api gcode cache upload: status %d: %s", resp.StatusCode, strings.TrimSpace(string(data)))
+	}
+	if len(data) == 0 {
+		return map[string]any{}, nil
+	}
+	var result map[string]any
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (c *APIClient) post(ctx context.Context, path string, payload any) error {

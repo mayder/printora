@@ -29,6 +29,19 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260720-01 - Preview operacional renderiza G-code completo no navegador
+
+Status: aceita
+Data: 2026-07-20
+Contexto: a aba `Operacao` precisa mostrar a peça impressa com paridade visual próxima ao G-code Viewer do Mainsail sem aumentar CPU do agente. A amostragem compacta do agente servia como fallback, mas gerava buracos/volumes falsos e controles customizados de navegação podiam sobrepor texto e miniaturas.
+Decisao: cachear/servir o G-code completo sob demanda via agente/backend e renderizar no frontend com `@sindarius/gcodeviewer`, carregando o arquivo uma vez e movendo o progresso por `file_position` com fallback por camada/progresso. O agente fica como ponte de arquivo e não recalcula a cena a cada snapshot. O navegador usa o viewbox nativo da biblioteca; a prévia SVG amostrada fica apenas como fallback compacto.
+Alternativas consideradas: reprocessar G-code a cada snapshot; manter parser SVG amostrado como principal; delegar renderização ao agente; construir sólido sintético a partir de linhas parciais.
+Consequencias: reduz CPU no agente e melhora paridade com Mainsail, com custo de renderização concentrado no navegador durante o carregamento inicial. Arquivos grandes podem demorar para carregar, mas não bloqueiam comandos protegidos. A precisão visual fica limitada pelo viewer de G-code; reconstrução de malha exatamente igual ao Orca exigiria futuro pipeline com STL/3MF/slicer.
+Impacto em testes: build frontend, testes Go do agente, compile backend, `./check.sh` e `RUN_FRONTEND_CHECKS=1 ./check.sh`.
+Impacto em rollback: médio; exige rebaixar a UI para fallback amostrado e desativar cache remoto de G-code.
+Como reverter: ocultar `GcodePrintViewer`, voltar `PrintPreview` como única prévia operacional e manter endpoint/cache como legado inerte até remover em pacote posterior.
+Referencias: `frontend/src/components/monitoring/GcodePrintViewer.tsx`, `backend/app/gcode_cache.py`, `agent/internal/agent/gcode_cache.go`, `TELAS.md`.
+
 ### DEC-20260618-01 - Projeto de impressão é a entidade raiz de conteúdo imprimível
 
 Status: aceita
