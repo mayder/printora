@@ -6,6 +6,31 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Preview De Impressao Avancava Durante QGL Sem Material
+
+Sintoma:
+
+- ao iniciar uma impressao, durante QGL/preparo, o card `Impressao` podia mostrar camadas futuras como ja impressas;
+- o problema aparecia mesmo com `display` em 0% e `filamento` em 0 mm.
+
+Causa:
+
+- backend, frontend e agente aceitavam camada informada/estimada quando `print_stats.state=printing`, mesmo antes de qualquer extrusao real;
+- o viewer tambem podia tratar progresso ausente como arquivo completo.
+
+Correcao:
+
+- camada e posicao do G-code agora so movimentam a previa quando existe progresso material por filamento ou progresso real do display;
+- mensagens de preparo como QGL, homing e bed mesh preservam total de camadas/thumbnail, mas bloqueiam `layer_preview` ate a primeira extrusao;
+- o viewer passa a iniciar em zero quando nao ha progresso valido.
+
+Validacao:
+
+- `cd backend && uv run --extra dev pytest tests/test_operation.py -q`;
+- `cd agent && go test ./...`;
+- `npm --prefix frontend run build`;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
 ### Lateral Do Preview De Impressao Ficava Vazia E Truncava Titulos
 
 Sintoma:

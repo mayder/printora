@@ -79,7 +79,8 @@ export function MonitoringDashboard({
   const capabilities = operationStatus?.capabilities ?? [];
   const progressLabel = progressSourceLabel(operationStatus?.miscellaneous.progress_source);
   const printActive = isActivePrintState(operationStatus?.miscellaneous.print_state);
-  const printFacts = buildPrintFacts(operationStatus);
+  const hasMaterialProgress = hasPrintMaterialProgress(operationStatus);
+  const printFacts = buildPrintFacts(operationStatus, hasMaterialProgress);
   const primaryPrintFacts = printFacts.filter((item) => PRIMARY_PRINT_FACT_LABELS.has(item.label));
   const secondaryPrintFacts = printFacts.filter((item) => !PRIMARY_PRINT_FACT_LABELS.has(item.label));
   const thumbnail = operationStatus?.miscellaneous.thumbnail ?? null;
@@ -208,11 +209,11 @@ export function MonitoringDashboard({
                     <GcodePrintViewer
                       printerId={operationStatus!.printer_id}
                       filename={gcodeFilename}
-                      filePosition={operationStatus?.miscellaneous.file_position}
-                      currentLayer={operationStatus?.miscellaneous.current_layer}
+                      filePosition={hasMaterialProgress ? operationStatus?.miscellaneous.file_position : null}
+                      currentLayer={hasMaterialProgress ? operationStatus?.miscellaneous.current_layer : null}
                       totalLayers={operationStatus?.miscellaneous.total_layers}
                       printState={operationStatus?.miscellaneous.print_state}
-                      progress={operationStatus?.miscellaneous.progress}
+                      progress={hasMaterialProgress ? operationStatus?.miscellaneous.progress : 0}
                       buildVolume={operationStatus?.toolhead}
                       nozzleDiameter={operationStatus?.miscellaneous.nozzle_diameter}
                     />
@@ -568,11 +569,44 @@ function isActivePrintState(state?: string | null) {
   return Boolean(normalized && !["standby", "complete", "cancelled", "canceled", "error"].includes(normalized));
 }
 
-function buildPrintFacts(operationStatus: OperationStatusResponse | null) {
+function hasPrintMaterialProgress(operationStatus: OperationStatusResponse | null) {
+  if (!isActivePrintState(operationStatus?.miscellaneous.print_state)) return true;
+  const filamentUsed = numericValue(operationStatus?.extruder?.filament_used);
+  const displayProgress = normalizedProgressValue(operationStatus?.miscellaneous.progress);
+  const fileProgress = normalizedProgressValue(operationStatus?.miscellaneous.file_progress);
+  if (filamentUsed !== null) {
+    if (filamentUsed > 0.01) return true;
+    return Boolean(displayProgress !== null && displayProgress > 0.001);
+  }
+  if (displayProgress !== null && displayProgress > 0.001) return true;
+  if (fileProgress !== null && fileProgress > 0.02) return !looksLikePreprintMessage(operationStatus?.miscellaneous.message);
+  return false;
+}
+
+function numericValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizedProgressValue(value: unknown) {
+  const number = numericValue(value);
+  if (number === null) return null;
+  if (number < 0) return 0;
+  if (number <= 1) return number;
+  if (number <= 100) return number / 100;
+  return 1;
+}
+
+function looksLikePreprintMessage(value?: string | null) {
+  const normalized = (value ?? "").trim().toLowerCase().replaceAll("-", "_").replaceAll(" ", "_");
+  return ["qgl", "quad_gantry_level", "bed_mesh", "homing", "g28", "z_tilt", "calibrate_z"].some((token) => normalized.includes(token));
+}
+
+function buildPrintFacts(operationStatus: OperationStatusResponse | null, hasMaterialProgress = true) {
   const miscellaneous = operationStatus?.miscellaneous;
+  const currentLayer = hasMaterialProgress ? miscellaneous?.current_layer : null;
   return [
     { label: "Estado", value: miscellaneous?.print_state || "-" },
-    { label: "Camada", value: formatLayer(miscellaneous?.current_layer, miscellaneous?.total_layers) },
+    { label: "Camada", value: formatLayer(currentLayer, miscellaneous?.total_layers) },
     { label: "Tempo", value: formatDuration(miscellaneous?.print_duration) },
     { label: "Restante", value: formatDuration(miscellaneous?.remaining_time) },
     { label: "Conclusão", value: formatEta(miscellaneous?.remaining_time) },

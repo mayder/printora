@@ -419,8 +419,9 @@ function fileTargetPosition(fileSize: number, filePosition?: number | null) {
 }
 
 function progressTargetPosition(fileSize: number, progress?: number | null) {
-  if (typeof progress !== "number" || !Number.isFinite(progress)) return fileSize;
-  return Math.max(0, Math.min(fileSize, fileSize * (progress / 100)));
+  if (typeof progress !== "number" || !Number.isFinite(progress)) return 0;
+  const ratio = progress <= 1 ? progress : progress / 100;
+  return Math.max(0, Math.min(fileSize, fileSize * ratio));
 }
 
 function buildLayerOffsets(text: string) {

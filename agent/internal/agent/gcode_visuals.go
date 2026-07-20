@@ -877,15 +877,65 @@ func operationLayerNumbers(payload map[string]any, metadata map[string]any) (int
 	status := mapValue(nestedAny(payload["operation_objects"], "result", "status"))
 	printStats := mapValue(status["print_stats"])
 	info := mapValue(printStats["info"])
-	current := firstPositiveInt(printStats["current_layer"], info["current_layer"])
 	total := firstPositiveInt(printStats["total_layer"], info["total_layer"], info["total_layers"], metadata["layer_count"], metadata["total_layer"], metadata["total_layers"], metadata["layers"])
-	if current <= 0 {
-		current = estimatedLayerFromZ(status, metadata, total)
-	}
 	if total <= 0 {
 		total = estimatedTotalLayers(metadata)
 	}
+	if !operationHasMaterialProgress(status) {
+		return 0, total
+	}
+	current := firstPositiveInt(printStats["current_layer"], info["current_layer"])
+	if current <= 0 {
+		current = estimatedLayerFromZ(status, metadata, total)
+	}
 	return current, total
+}
+
+func operationHasMaterialProgress(status map[string]any) bool {
+	printStats := mapValue(status["print_stats"])
+	display := mapValue(status["display_status"])
+	virtualSD := mapValue(status["virtual_sdcard"])
+	if filament, ok := numberFromAny(printStats["filament_used"]); ok {
+		if filament > 0.01 {
+			return true
+		}
+		if progress, ok := numberFromAny(display["progress"]); ok && normalizedOperationProgress(progress) > 0.001 {
+			return true
+		}
+		return false
+	}
+	if progress, ok := numberFromAny(display["progress"]); ok && normalizedOperationProgress(progress) > 0.001 {
+		return true
+	}
+	if progress, ok := numberFromAny(virtualSD["progress"]); ok && normalizedOperationProgress(progress) > 0.02 && !operationPrePrintMessage(status) {
+		return true
+	}
+	return false
+}
+
+func normalizedOperationProgress(value float64) float64 {
+	if value < 0 {
+		return 0
+	}
+	if value <= 1 {
+		return value
+	}
+	if value <= 100 {
+		return value / 100
+	}
+	return 1
+}
+
+func operationPrePrintMessage(status map[string]any) bool {
+	printStats := mapValue(status["print_stats"])
+	display := mapValue(status["display_status"])
+	normalized := strings.NewReplacer("-", "_", " ", "_").Replace(strings.ToLower(strings.TrimSpace(stringValue(printStats["message"]) + " " + stringValue(display["message"]))))
+	for _, token := range []string{"qgl", "quad_gantry_level", "bed_mesh", "homing", "g28", "z_tilt", "calibrate_z"} {
+		if strings.Contains(normalized, token) {
+			return true
+		}
+	}
+	return false
 }
 
 func estimatedLayerFromZ(status map[string]any, metadata map[string]any, total int) int {

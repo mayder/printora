@@ -392,6 +392,61 @@ func TestOperationStatusEmbedsCurrentPrintVisuals(t *testing.T) {
 	}
 }
 
+func TestOperationStatusDefersLayerVisualUntilMaterialProgress(t *testing.T) {
+	var gcodeDownloaded bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/printer/objects/list":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"objects": []string{
+				"print_stats",
+				"display_status",
+				"virtual_sdcard",
+				"gcode_move",
+			}}})
+		case r.URL.Path == "/printer/objects/query":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"status": map[string]any{
+				"print_stats": map[string]any{
+					"state":         "printing",
+					"filename":      "printora/deck.gcode",
+					"filament_used": 0.0,
+					"message":       "QGL",
+					"info":          map[string]any{"current_layer": 55, "total_layer": 369},
+				},
+				"display_status": map[string]any{"progress": 0.0},
+				"virtual_sdcard": map[string]any{"progress": 0.003, "file_position": 4200},
+				"gcode_move":     map[string]any{"gcode_position": []any{10.0, 20.0, 9.9, 0.0}},
+			}}})
+		case r.URL.Path == "/server/files/metadata":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{
+				"filename":           "printora/deck.gcode",
+				"layer_height":       0.18,
+				"first_layer_height": 0.3,
+				"object_height":      66.89,
+				"layer_count":        369,
+			}})
+		case strings.HasSuffix(r.URL.Path, "/printora/deck.gcode"):
+			gcodeDownloaded = true
+			_, _ = w.Write([]byte("G1 X0 Y0 E1\n"))
+		default:
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{}})
+		}
+	}))
+	defer server.Close()
+
+	client := NewMoonrakerClient(server.URL, time.Second)
+	payload := client.OperationStatus(context.Background())
+	metadata := mapValue(nestedAny(payload["file_metadata"], "result"))
+	visuals := mapValue(metadata["printora_visuals"])
+	layerPreview := mapValue(visuals["layer_preview"])
+
+	if gcodeDownloaded {
+		t.Fatal("pre-print operation status must not fetch G-code layer preview")
+	}
+	if len(layerPreview) > 0 {
+		t.Fatalf("unexpected layer preview before material progress: %#v", layerPreview)
+	}
+}
+
 func TestClassifyGcodeLineTypeSupportsSlicerComments(t *testing.T) {
 	cases := map[string]int{
 		";TYPE:WALL-OUTER":               gcodeLineTypeOuterWall,

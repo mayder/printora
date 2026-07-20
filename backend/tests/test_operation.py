@@ -141,6 +141,46 @@ def test_operation_status_enriches_print_metadata_and_keeps_display_progress() -
     assert misc["layer_preview"]["scene"]["printed"]
 
 
+def test_operation_status_defers_layer_preview_until_material_progress() -> None:
+    result = build_operation_status(
+        printer_info={"state": "ready"},
+        server_info={"klippy_connected": True, "klippy_state": "ready"},
+        system_info={},
+        proc_stats={},
+        objects={
+            "objects": ["print_stats", "display_status", "virtual_sdcard", "gcode_move"],
+            "status": {
+                "print_stats": {
+                    "state": "printing",
+                    "filename": "printora/deck.gcode",
+                    "filament_used": 0,
+                    "message": "QGL",
+                    "info": {"current_layer": 55, "total_layer": 369},
+                },
+                "display_status": {"progress": 0},
+                "virtual_sdcard": {"progress": 0.003, "file_position": 4200},
+                "gcode_move": {"gcode_position": [187.89, 180.28, 9.9, 0]},
+            },
+        },
+        print_metadata={
+            "layer_height": 0.18,
+            "first_layer_height": 0.3,
+            "object_height": 66.89,
+            "printora_visuals": {
+                "thumbnail": {"data_uri": "data:image/jpeg;base64,abc", "source": "moonraker_thumbnail", "width": 160, "height": 120},
+                "layer_preview": {"source": "agent_gcode", "current_layer": 55, "total_layers": 369},
+            },
+        },
+    )
+
+    misc = result["miscellaneous"]
+    assert misc["current_layer"] is None
+    assert misc["total_layers"] == 369
+    assert misc["layer_source"] == "pre_print"
+    assert misc["thumbnail"]["data_uri"].startswith("data:image/jpeg")
+    assert misc["layer_preview"] is None
+
+
 def test_operation_status_lists_idle_gcode_files_sorted_and_filtered() -> None:
     result = build_operation_status(
         printer_info={"state": "ready"},

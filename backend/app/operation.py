@@ -753,9 +753,16 @@ def _miscellaneous(objects: dict[str, Any], print_metadata: dict[str, Any] | Non
     display = _nested(status, ["display_status"]) or {}
     virtual_sdcard = _nested(status, ["virtual_sdcard"]) or {}
     print_stats = _nested(status, ["print_stats"]) or {}
-    layer_info = _print_layer_info(print_stats, display, status, metadata)
     progress = _print_progress(display, virtual_sdcard)
     file_progress = _progress_fraction(virtual_sdcard.get("progress"))
+    layer_info = _print_layer_info(print_stats, display, status, metadata)
+    defer_layer_preview = _defer_print_layer_until_material(print_stats, display, virtual_sdcard)
+    if defer_layer_preview:
+        layer_info = {
+            "current_layer": None,
+            "total_layers": layer_info["total_layers"] or _metadata_total_layers(metadata),
+            "source": "pre_print",
+        }
     estimated_time = _number_or_none(metadata.get("estimated_time"))
     remaining_time = _remaining_print_time(estimated_time, _number_or_none(print_stats.get("print_duration")), file_progress)
     visuals = _dict(metadata.get("printora_visuals"))
@@ -781,7 +788,7 @@ def _miscellaneous(objects: dict[str, Any], print_metadata: dict[str, Any] | Non
         "total_layers": layer_info["total_layers"],
         "layer_source": layer_info["source"],
         "thumbnail": _dict(visuals.get("thumbnail")) or None,
-        "layer_preview": _dict(visuals.get("layer_preview")) or None,
+        "layer_preview": None if defer_layer_preview else _dict(visuals.get("layer_preview")) or None,
         "slicer": metadata.get("slicer"),
         "slicer_version": metadata.get("slicer_version"),
         "filament_total": metadata.get("filament_total"),
@@ -914,6 +921,46 @@ def _print_progress(display: dict[str, Any], virtual_sdcard: dict[str, Any]) -> 
         if value is not None:
             return {"value": value, "source": source}
     return {"value": None, "source": None}
+
+
+def _defer_print_layer_until_material(print_stats: dict[str, Any], display: dict[str, Any], virtual_sdcard: dict[str, Any]) -> bool:
+    state = str(print_stats.get("state") or "").strip().lower()
+    if state != "printing":
+        return False
+    return not _has_print_material_progress(print_stats, display, virtual_sdcard)
+
+
+def _has_print_material_progress(print_stats: dict[str, Any], display: dict[str, Any], virtual_sdcard: dict[str, Any]) -> bool:
+    filament_used = _number_or_none(print_stats.get("filament_used"))
+    display_progress = _progress_fraction(display.get("progress"))
+    file_progress = _progress_fraction(virtual_sdcard.get("progress"))
+    if filament_used is not None:
+        if filament_used > 0.01:
+            return True
+        return bool(display_progress is not None and display_progress > 0.001)
+    if display_progress is not None and display_progress > 0.001:
+        return True
+    if file_progress is not None and file_progress > 0.02:
+        return not _looks_like_preprint_message(print_stats.get("message") or display.get("message"))
+    return False
+
+
+def _looks_like_preprint_message(value: Any) -> bool:
+    normalized = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if not normalized:
+        return False
+    return any(
+        token in normalized
+        for token in (
+            "qgl",
+            "quad_gantry_level",
+            "bed_mesh",
+            "homing",
+            "g28",
+            "z_tilt",
+            "calibrate_z",
+        )
+    )
 
 
 def _output_value(payload: dict[str, Any]) -> float | None:
