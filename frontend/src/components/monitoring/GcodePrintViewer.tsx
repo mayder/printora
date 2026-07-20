@@ -81,7 +81,7 @@ export function GcodePrintViewer({
         const viewer = new GCodeViewer(canvasElement);
         viewerRef.current = viewer;
         await viewer.init();
-        configureViewer(viewer, bounds, nozzleDiameter);
+        configureViewer(viewer, bounds, detectExtrusionWidth(text, nozzleDiameter));
         viewer.gcodeProcessor.loadingProgressCallback = (value) => {
           if (!disposed) setLoadPercent(Math.max(0, Math.min(100, Math.ceil(value * 100))));
         };
@@ -292,7 +292,7 @@ export function GcodePrintViewer({
   );
 }
 
-function configureViewer(viewer: GCodeViewerInstance, bounds: BuildVolumeBounds, nozzleDiameter?: number | null) {
+function configureViewer(viewer: GCodeViewerInstance, bounds: BuildVolumeBounds, extrusionWidth?: number | null) {
   viewer.setBackgroundColor("#111820");
   viewer.bed.setBedColor("#334155");
   viewer.setCursorVisiblity(false);
@@ -325,17 +325,34 @@ function configureViewer(viewer: GCodeViewerInstance, bounds: BuildVolumeBounds,
   viewer.gcodeProcessor.g1AsExtrusion = false;
   viewer.gcodeProcessor.setColorMode(2);
   viewer.gcodeProcessor.resetTools();
-  MAINSAIL_EXTRUDER_COLORS.forEach((color) => viewer.gcodeProcessor.addTool(color, validNozzleDiameter(nozzleDiameter)));
+  MAINSAIL_EXTRUDER_COLORS.forEach((color) => viewer.gcodeProcessor.addTool(color, validExtrusionWidth(extrusionWidth)));
   viewer.setProgressColor("#ECECEC");
   viewer.toggleTravels(false);
-  viewer.updateRenderQuality(4);
+  viewer.updateRenderQuality(5);
   viewer.displayViewBox(true);
 }
 
 function updatePreviewPosition(viewer: GCodeViewerInstance, target: number) {
   viewer.gcodeProcessor.updateFilePosition(target);
-  viewer.gcodeProcessor.forceRedraw();
+  requestProcessorRedraw(viewer.gcodeProcessor);
   viewer.forceRender();
+}
+
+function requestProcessorRedraw(processor: GCodeViewerInstance["gcodeProcessor"]) {
+  const runtimeProcessor = processor as unknown as {
+    doUpdate?: () => void;
+    forceRedraw?: () => void;
+    renderInstances?: Array<{ forceDraw?: () => void; forceRedraw?: boolean }>;
+  };
+  if (typeof runtimeProcessor.forceRedraw === "function") {
+    runtimeProcessor.forceRedraw();
+  } else {
+    runtimeProcessor.renderInstances?.forEach((instance) => {
+      instance.forceRedraw = true;
+      instance.forceDraw?.();
+    });
+  }
+  runtimeProcessor.doUpdate?.();
 }
 
 function previewTargetPosition(
@@ -350,7 +367,7 @@ function previewTargetPosition(
   const completed = ["complete", "cancelled", "error"].includes((printState ?? "").toLowerCase());
   return completed
     ? fileSize
-    : fileTargetPosition(fileSize, filePosition) ?? layerTargetPosition(layerOffsets, fileSize, currentLayer, totalLayers) ?? progressTargetPosition(fileSize, progress);
+    : layerTargetPosition(layerOffsets, fileSize, currentLayer, totalLayers) ?? fileTargetPosition(fileSize, filePosition) ?? progressTargetPosition(fileSize, progress);
 }
 
 function layerTargetPosition(layerOffsets: number[], fileSize: number, currentLayer?: number | null, totalLayers?: number | null) {
@@ -439,7 +456,52 @@ function vectorLike(value: unknown): [number, number, number] | null {
   return [x, z, y];
 }
 
-function validNozzleDiameter(value?: number | null) {
+function detectExtrusionWidth(text: string, nozzleDiameter?: number | null) {
+  const detectedNozzle = firstSlicerSettingNumber(text, ["nozzle_diameter", "nozzle_diameter_mm"]);
+  const fallback = validExtrusionWidth(nozzleDiameter ?? detectedNozzle);
+  const widths = slicerSettingNumbers(text, [
+    "line_width",
+    "perimeter_extrusion_width",
+    "external_perimeter_extrusion_width",
+    "infill_extrusion_width",
+    "solid_infill_extrusion_width",
+    "top_infill_extrusion_width",
+    "first_layer_extrusion_width",
+    "support_material_extrusion_width",
+  ]).filter((value) => value >= 0.2 && value <= 2);
+  if (!widths.length) return fallback;
+  const sorted = [...widths].sort((left, right) => left - right);
+  const representative = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.75))];
+  return validExtrusionWidth(Math.max(fallback, representative));
+}
+
+function firstSlicerSettingNumber(text: string, keys: string[]) {
+  return slicerSettingNumbers(text, keys)[0] ?? null;
+}
+
+function slicerSettingNumbers(text: string, keys: string[]) {
+  const sample = text.length <= 440_000 ? text : `${text.slice(0, 220_000)}\n${text.slice(-220_000)}`;
+  const values: number[] = [];
+  keys.forEach((key) => {
+    const expression = new RegExp(`^;\\s*${escapeRegExp(key)}\\s*=\\s*([^\\r\\n]+)`, "gim");
+    let match: RegExpExecArray | null;
+    while ((match = expression.exec(sample)) !== null) {
+      const rawValue = match[1].split(";")[0];
+      const numbers = rawValue.match(/[+-]?(?:\d+(?:[.,]\d+)?|[.,]\d+)/g) ?? [];
+      numbers.forEach((numberText) => {
+        const value = Number(numberText.replace(",", "."));
+        if (Number.isFinite(value)) values.push(value);
+      });
+    }
+  });
+  return values;
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function validExtrusionWidth(value?: number | null) {
   if (typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 2) return value;
   return 0.4;
 }

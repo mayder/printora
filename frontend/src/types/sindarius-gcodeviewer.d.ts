@@ -50,7 +50,6 @@ declare module "@sindarius/gcodeviewer" {
     voxelHeight: number;
     g1AsExtrusion: boolean;
     colorMode: number;
-
     useHighQualityExtrusion(enabled: boolean): void;
     updateForceWireMode(enabled: boolean): void;
     setAlpha(enabled: boolean): void;
@@ -68,6 +67,7 @@ declare module "@sindarius/gcodeviewer" {
     updateMinFeedColor(color: string): void;
     updateMaxFeedColor(color: string): void;
     forceRedraw(): void;
+    doUpdate(): void;
   }
 
   export default class GCodeViewer {
