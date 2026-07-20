@@ -56,18 +56,13 @@ declare module "@sindarius/gcodeviewer" {
     setVoxelMode(enabled: boolean): void;
     useSpecularColor(enabled: boolean): void;
     setLiveTracking(enabled: boolean): void;
-    setLiveTrackingShowSolid(enabled: boolean): void;
     updateFilePosition(position: number): void;
-    setRenderAnimation(enabled: boolean): void;
-    setTransparencyValue(value: number): void;
     resetTools(): void;
     addTool(color: string, nozzleDiameter: number): void;
     setColorMode(mode: number): void;
     updateColorRate(min: number, max: number): void;
     updateMinFeedColor(color: string): void;
     updateMaxFeedColor(color: string): void;
-    forceRedraw(): void;
-    doUpdate(): void;
   }
 
   export default class GCodeViewer {
@@ -99,11 +94,5 @@ declare module "@sindarius/gcodeviewer" {
     lastLoadFailed(): boolean;
     clearLoadFlag(): void;
     setProgressColor(color: string): void;
-    setCameraPosition(x: number, y: number, z: number): void;
-    setCameraTarget(x: number, y: number, z: number): void;
-    getCameraPosition(): unknown;
-    getCameraTarget(): unknown;
-    displayViewBox(enabled: boolean): void;
-    createScreenshot(width?: number, height?: number): Promise<string>;
   }
 }

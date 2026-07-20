@@ -13,6 +13,31 @@ type BuildVolumeBounds = {
 type CameraPreset = "iso" | "frontRight" | "frontLeft";
 
 const MAINSAIL_EXTRUDER_COLORS = ["#E76F51", "#F4A261", "#E9C46A", "#2A9D8F", "#264653"] as const;
+const MAX_RENDER_QUALITY_BYTES = 42 * 1024 * 1024;
+const LIVE_TRACKING_OFFSET_BYTES = 350;
+
+type ViewerVector = {
+  x: number;
+  y: number;
+  z: number;
+  copyFromFloats?: (x: number, y: number, z: number) => void;
+};
+
+type ViewerCamera = {
+  alpha?: number;
+  radius?: number;
+  position?: ViewerVector;
+  target?: ViewerVector;
+};
+
+type ViewerRuntime = GCodeViewerInstance & {
+  orbitCamera?: ViewerCamera;
+  scene?: {
+    activeCamera?: ViewerCamera;
+    render?: () => void;
+  };
+  displayViewBox?: (enabled: boolean) => void;
+};
 
 export function GcodePrintViewer({
   printerId,
@@ -81,7 +106,7 @@ export function GcodePrintViewer({
         const viewer = new GCodeViewer(canvasElement);
         viewerRef.current = viewer;
         await viewer.init();
-        configureViewer(viewer, bounds, detectExtrusionWidth(text, nozzleDiameter));
+        configureViewer(viewer, bounds, text.length, detectExtrusionWidth(text, nozzleDiameter));
         viewer.gcodeProcessor.loadingProgressCallback = (value) => {
           if (!disposed) setLoadPercent(Math.max(0, Math.min(100, Math.ceil(value * 100))));
         };
@@ -103,7 +128,7 @@ export function GcodePrintViewer({
         fileSizeRef.current = parsedFileSize;
         layerOffsetsRef.current = layerOffsets;
         renderedTargetRef.current = target;
-        setCameraPreset(viewer, bounds, "iso");
+        setCameraPreset(viewer, "iso");
         viewer.forceRender();
         setState("ready");
       } catch (err) {
@@ -157,30 +182,19 @@ export function GcodePrintViewer({
     const viewer = viewerRef.current;
     if (!viewer) return;
     setPanOffset({ x: 0, y: 0 });
-    setCameraPreset(viewer, bounds, preset);
+    setCameraPreset(viewer, preset);
   };
 
   const zoom = (scale: number) => {
     const viewer = viewerRef.current;
     if (!viewer) return;
-    const position = vectorLike(viewer.getCameraPosition());
-    const target = vectorLike(viewer.getCameraTarget());
-    if (!position || !target) return;
-    viewer.setCameraPosition(
-      target[0] + (position[0] - target[0]) * scale,
-      target[1] + (position[1] - target[1]) * scale,
-      target[2] + (position[2] - target[2]) * scale,
-    );
+    zoomCamera(viewer, scale);
   };
 
   const pan = (deltaX: number, deltaY: number) => {
     const viewer = viewerRef.current;
     if (!viewer) return;
-    const position = vectorLike(viewer.getCameraPosition());
-    const target = vectorLike(viewer.getCameraTarget());
-    if (!position || !target) return;
-    viewer.setCameraTarget(target[0] + deltaX, target[1] + deltaY, target[2]);
-    viewer.setCameraPosition(position[0] + deltaX, position[1] + deltaY, position[2]);
+    panCamera(viewer, deltaX, deltaY);
   };
 
   const panRelative = (deltaX: number, deltaY: number) => {
@@ -292,7 +306,7 @@ export function GcodePrintViewer({
   );
 }
 
-function configureViewer(viewer: GCodeViewerInstance, bounds: BuildVolumeBounds, extrusionWidth?: number | null) {
+function configureViewer(viewer: GCodeViewerInstance, bounds: BuildVolumeBounds, fileBytes: number, extrusionWidth?: number | null) {
   viewer.setBackgroundColor("#111820");
   viewer.bed.setBedColor("#334155");
   viewer.setCursorVisiblity(false);
@@ -311,7 +325,6 @@ function configureViewer(viewer: GCodeViewerInstance, bounds: BuildVolumeBounds,
   viewer.gcodeProcessor.setVoxelMode(false);
   viewer.gcodeProcessor.useSpecularColor(false);
   viewer.gcodeProcessor.setLiveTracking(false);
-  viewer.gcodeProcessor.setLiveTrackingShowSolid(false);
   const processorSettings = viewer.gcodeProcessor as unknown as {
     progressMode?: boolean;
     keepProgressColor?: boolean;
@@ -320,39 +333,19 @@ function configureViewer(viewer: GCodeViewerInstance, bounds: BuildVolumeBounds,
   processorSettings.progressMode = false;
   processorSettings.keepProgressColor = false;
   processorSettings.perimeterOnly = false;
-  viewer.gcodeProcessor.setRenderAnimation(false);
-  viewer.gcodeProcessor.setTransparencyValue(0);
   viewer.gcodeProcessor.g1AsExtrusion = false;
   viewer.gcodeProcessor.setColorMode(2);
   viewer.gcodeProcessor.resetTools();
   MAINSAIL_EXTRUDER_COLORS.forEach((color) => viewer.gcodeProcessor.addTool(color, validExtrusionWidth(extrusionWidth)));
   viewer.setProgressColor("#ECECEC");
   viewer.toggleTravels(false);
-  viewer.updateRenderQuality(5);
-  viewer.displayViewBox(true);
+  viewer.updateRenderQuality(fileBytes <= MAX_RENDER_QUALITY_BYTES ? 6 : 5);
+  showNativeViewbox(viewer, true);
 }
 
 function updatePreviewPosition(viewer: GCodeViewerInstance, target: number) {
   viewer.gcodeProcessor.updateFilePosition(target);
-  requestProcessorRedraw(viewer.gcodeProcessor);
   viewer.forceRender();
-}
-
-function requestProcessorRedraw(processor: GCodeViewerInstance["gcodeProcessor"]) {
-  const runtimeProcessor = processor as unknown as {
-    doUpdate?: () => void;
-    forceRedraw?: () => void;
-    renderInstances?: Array<{ forceDraw?: () => void; forceRedraw?: boolean }>;
-  };
-  if (typeof runtimeProcessor.forceRedraw === "function") {
-    runtimeProcessor.forceRedraw();
-  } else {
-    runtimeProcessor.renderInstances?.forEach((instance) => {
-      instance.forceRedraw = true;
-      instance.forceDraw?.();
-    });
-  }
-  runtimeProcessor.doUpdate?.();
 }
 
 function previewTargetPosition(
@@ -367,7 +360,7 @@ function previewTargetPosition(
   const completed = ["complete", "cancelled", "error"].includes((printState ?? "").toLowerCase());
   return completed
     ? fileSize
-    : layerTargetPosition(layerOffsets, fileSize, currentLayer, totalLayers) ?? fileTargetPosition(fileSize, filePosition) ?? progressTargetPosition(fileSize, progress);
+    : fileTargetPosition(fileSize, filePosition) ?? layerTargetPosition(layerOffsets, fileSize, currentLayer, totalLayers) ?? progressTargetPosition(fileSize, progress);
 }
 
 function layerTargetPosition(layerOffsets: number[], fileSize: number, currentLayer?: number | null, totalLayers?: number | null) {
@@ -380,7 +373,7 @@ function layerTargetPosition(layerOffsets: number[], fileSize: number, currentLa
 
 function fileTargetPosition(fileSize: number, filePosition?: number | null) {
   if (typeof filePosition !== "number" || !Number.isFinite(filePosition)) return null;
-  return Math.max(0, Math.min(fileSize, filePosition - 350));
+  return Math.max(0, Math.min(fileSize, filePosition - LIVE_TRACKING_OFFSET_BYTES));
 }
 
 function progressTargetPosition(fileSize: number, progress?: number | null) {
@@ -410,24 +403,13 @@ function isLayerMarker(line: string, preferAfterLayerChange: boolean) {
   return /^;LAYER:\s*\d+/i.test(line) || /^;LAYER_CHANGE\b/i.test(line);
 }
 
-function setCameraPreset(viewer: GCodeViewerInstance, bounds: BuildVolumeBounds, preset: CameraPreset) {
-  const center = [
-    (bounds.min[0] + bounds.max[0]) / 2,
-    (bounds.min[1] + bounds.max[1]) / 2,
-    (bounds.min[2] + bounds.max[2]) / 2,
-  ] as const;
-  const size = Math.max(bounds.max[0] - bounds.min[0], bounds.max[1] - bounds.min[1], bounds.max[2] - bounds.min[2], 180);
-  const distance = size * 1.75;
-  const presets: Record<CameraPreset, [number, number, number]> = {
-    iso: [center[0] + distance, center[1] - distance, center[2] + distance * 0.75],
-    frontRight: [bounds.max[0] + distance, bounds.min[1] - distance, center[2] + distance * 0.65],
-    frontLeft: [bounds.min[0] - distance, bounds.min[1] - distance, center[2] + distance * 0.65],
-  };
-  const position = presets[preset];
-  const targetZ = Math.max(bounds.min[2], Math.min(center[2], 55));
-  viewer.setCameraTarget(center[0], center[1], targetZ);
-  viewer.setCameraPosition(position[0], position[1], position[2]);
-  viewer.forceRender();
+function setCameraPreset(viewer: GCodeViewerInstance, preset: CameraPreset) {
+  if (preset === "iso") {
+    viewer.resetCamera();
+    viewer.forceRender();
+    return;
+  }
+  rotateCamera(viewer, preset === "frontLeft" ? -Math.PI / 2 : Math.PI / 2);
 }
 
 function buildVolumeBounds(toolhead?: Record<string, unknown> | null): BuildVolumeBounds {
@@ -446,33 +428,100 @@ function vectorFromUnknown(value: unknown): [number, number, number] | null {
   return [numbers[0], numbers[1], numbers[2]];
 }
 
-function vectorLike(value: unknown): [number, number, number] | null {
-  if (!value || typeof value !== "object") return null;
-  const object = value as { x?: unknown; y?: unknown; z?: unknown };
-  const x = Number(object.x);
-  const y = Number(object.y);
-  const z = Number(object.z);
-  if (![x, y, z].every(Number.isFinite)) return null;
-  return [x, z, y];
+function cameraFromViewer(viewer: GCodeViewerInstance): ViewerCamera | null {
+  const runtime = viewer as ViewerRuntime;
+  return runtime.orbitCamera ?? runtime.scene?.activeCamera ?? null;
+}
+
+function rotateCamera(viewer: GCodeViewerInstance, radians: number) {
+  const camera = cameraFromViewer(viewer);
+  if (!camera || typeof camera.alpha !== "number") {
+    viewer.resetCamera();
+    viewer.forceRender();
+    return;
+  }
+  camera.alpha += radians;
+  renderViewer(viewer);
+}
+
+function zoomCamera(viewer: GCodeViewerInstance, scale: number) {
+  const camera = cameraFromViewer(viewer);
+  if (!camera) return;
+  if (typeof camera.radius === "number" && Number.isFinite(camera.radius)) {
+    camera.radius = Math.max(24, Math.min(2400, camera.radius * scale));
+    renderViewer(viewer);
+    return;
+  }
+  if (!camera.position || !camera.target) return;
+  const next = {
+    x: camera.target.x + (camera.position.x - camera.target.x) * scale,
+    y: camera.target.y + (camera.position.y - camera.target.y) * scale,
+    z: camera.target.z + (camera.position.z - camera.target.z) * scale,
+  };
+  setVector(camera.position, next.x, next.y, next.z);
+  renderViewer(viewer);
+}
+
+function panCamera(viewer: GCodeViewerInstance, deltaX: number, deltaY: number) {
+  const camera = cameraFromViewer(viewer);
+  if (!camera?.position || !camera.target) return;
+  setVector(camera.target, camera.target.x + deltaX, camera.target.y, camera.target.z + deltaY);
+  setVector(camera.position, camera.position.x + deltaX, camera.position.y, camera.position.z + deltaY);
+  renderViewer(viewer);
+}
+
+function setVector(vector: ViewerVector, x: number, y: number, z: number) {
+  if (typeof vector.copyFromFloats === "function") {
+    vector.copyFromFloats(x, y, z);
+    return;
+  }
+  vector.x = x;
+  vector.y = y;
+  vector.z = z;
+}
+
+function renderViewer(viewer: GCodeViewerInstance) {
+  const runtime = viewer as ViewerRuntime;
+  runtime.scene?.render?.();
+  viewer.forceRender();
+}
+
+function showNativeViewbox(viewer: GCodeViewerInstance, enabled: boolean) {
+  const runtime = viewer as ViewerRuntime;
+  runtime.displayViewBox?.(enabled);
 }
 
 function detectExtrusionWidth(text: string, nozzleDiameter?: number | null) {
   const detectedNozzle = firstSlicerSettingNumber(text, ["nozzle_diameter", "nozzle_diameter_mm"]);
-  const fallback = validExtrusionWidth(nozzleDiameter ?? detectedNozzle);
+  const fallback = validExtrusionWidth(preferredNozzleWidth(nozzleDiameter ?? detectedNozzle));
   const widths = slicerSettingNumbers(text, [
     "line_width",
+    "wall_line_width",
+    "outer_wall_line_width",
+    "inner_wall_line_width",
     "perimeter_extrusion_width",
     "external_perimeter_extrusion_width",
     "infill_extrusion_width",
+    "sparse_infill_line_width",
     "solid_infill_extrusion_width",
+    "internal_solid_infill_line_width",
     "top_infill_extrusion_width",
+    "top_surface_line_width",
     "first_layer_extrusion_width",
+    "first_layer_line_width",
     "support_material_extrusion_width",
+    "support_line_width",
+    "skirt_brim_line_width",
   ]).filter((value) => value >= 0.2 && value <= 2);
   if (!widths.length) return fallback;
   const sorted = [...widths].sort((left, right) => left - right);
   const representative = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.75))];
   return validExtrusionWidth(Math.max(fallback, representative));
+}
+
+function preferredNozzleWidth(value?: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || value > 2) return null;
+  return Math.min(2, value * 1.08);
 }
 
 function firstSlicerSettingNumber(text: string, keys: string[]) {
