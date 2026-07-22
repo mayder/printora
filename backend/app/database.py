@@ -1,5 +1,4 @@
 import sqlite3
-import shutil
 import hashlib
 import json
 import time
@@ -76,7 +75,7 @@ def initialize_database(database_path: Path) -> None:
     except Exception as exc:
         connection.rollback()
         if backup_path is not None:
-            shutil.copy2(backup_path, database_path)
+            _restore_database_backup(backup_path, database_path)
         if isinstance(exc, DatabaseSchemaError):
             raise
         raise DatabaseSchemaError(f"Falha ao aplicar schema SQLite: {exc}") from exc
@@ -122,6 +121,10 @@ def _initialize_postgresql() -> None:
             if not baseline.is_file():
                 raise DatabaseSchemaError(f"Baseline PostgreSQL obrigatório não encontrado: {baseline.name}")
             connection.execute_script(baseline.read_text(encoding="utf-8"))
+        for postgresql_script in sorted(POSTGRESQL_SQL_DIR.glob("[0-9]*.sql")):
+            if postgresql_script.name == "001_baseline.sql":
+                continue
+            connection.execute_script(postgresql_script.read_text(encoding="utf-8"))
         for execution_order, sql_file in enumerate(sql_files, start=1):
             connection.execute(
                 """
@@ -321,8 +324,24 @@ def _applied_scripts(connection: sqlite3.Connection | PostgreSQLConnection) -> d
 def _backup_database(database_path: Path) -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     backup_path = database_path.parent / f"{database_path.stem}.{timestamp}.before-schema{database_path.suffix}"
-    shutil.copy2(database_path, backup_path)
+    source = _connect_sqlite(f"file:{database_path}?mode=ro", uri=True)
+    target = sqlite3.connect(backup_path)
+    try:
+        source.backup(target, pages=4096, sleep=0.02)
+    finally:
+        target.close()
+        source.close()
     return backup_path
+
+
+def _restore_database_backup(backup_path: Path, database_path: Path) -> None:
+    source = _connect_sqlite(f"file:{backup_path}?mode=ro", uri=True)
+    target = sqlite3.connect(database_path)
+    try:
+        source.backup(target)
+    finally:
+        target.close()
+        source.close()
 
 
 def _repair_optional_materialization_state(database_path: Path) -> None:
