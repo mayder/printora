@@ -994,7 +994,7 @@
     {
       "module": "modules.platform.database_target",
       "owner": "shared",
-      "lines": 23,
+      "lines": 30,
       "imports": [],
       "routes": [],
       "contracts": []

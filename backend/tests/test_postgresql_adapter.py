@@ -1,4 +1,29 @@
+import pytest
+
+from app.modules.platform.database_target import uses_postgresql
 from app.modules.platform.postgresql import translate_sql
+
+
+def test_local_profile_keeps_sqlite_without_database_url(monkeypatch) -> None:
+    monkeypatch.delenv("PRINTORA_DATABASE_URL", raising=False)
+    monkeypatch.delenv("PRINTORA_RUNTIME_PROFILE", raising=False)
+
+    assert uses_postgresql() is False
+
+
+def test_cloud_profile_rejects_sqlite_fallback(monkeypatch) -> None:
+    monkeypatch.delenv("PRINTORA_DATABASE_URL", raising=False)
+    monkeypatch.setenv("PRINTORA_RUNTIME_PROFILE", "cloud")
+
+    with pytest.raises(RuntimeError, match="Perfil cloud exige"):
+        uses_postgresql()
+
+
+def test_invalid_database_url_never_falls_back_to_sqlite(monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATABASE_URL", "sqlite:///unsafe.db")
+
+    with pytest.raises(RuntimeError, match="deve usar PostgreSQL"):
+        uses_postgresql()
 
 
 def test_postgresql_adapter_rewrites_parameters_without_touching_literals() -> None:

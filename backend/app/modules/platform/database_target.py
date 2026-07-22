@@ -4,6 +4,7 @@ import os
 
 
 POSTGRESQL_PREFIXES = ("postgresql://", "postgresql+psycopg://")
+CLOUD_RUNTIME_PROFILE = "cloud"
 
 
 def configured_database_url() -> str | None:
@@ -13,7 +14,13 @@ def configured_database_url() -> str | None:
 
 def uses_postgresql() -> bool:
     value = configured_database_url()
-    return bool(value and value.startswith(POSTGRESQL_PREFIXES))
+    if value:
+        if not value.startswith(POSTGRESQL_PREFIXES):
+            raise RuntimeError("PRINTORA_DATABASE_URL deve usar PostgreSQL")
+        return True
+    if os.environ.get("PRINTORA_RUNTIME_PROFILE", "").strip().lower() == CLOUD_RUNTIME_PROFILE:
+        raise RuntimeError("Perfil cloud exige PRINTORA_DATABASE_URL PostgreSQL")
+    return False
 
 
 def require_postgresql_url() -> str:
