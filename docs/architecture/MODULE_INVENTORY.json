@@ -82,7 +82,7 @@
     }
   ],
   "summary": {
-    "modules": 117,
+    "modules": 118,
     "routes": 322,
     "contracts": 330,
     "tables": 100,
@@ -90,7 +90,7 @@
     "modules_by_owner": {
       "administration": 23,
       "community": 22,
-      "identity": 6,
+      "identity": 7,
       "integrations": 6,
       "operations": 52,
       "shared": 8
@@ -248,37 +248,13 @@
     {
       "module": "auth",
       "owner": "identity",
-      "lines": 1219,
+      "lines": 991,
       "imports": [
-        "database"
+        "database",
+        "modules.identity.contracts"
       ],
       "routes": [],
-      "contracts": [
-        "UserContactLinks",
-        "UserRegisterRequest",
-        "UserProfileUpdateRequest",
-        "UserPasswordUpdateRequest",
-        "LoginRequest",
-        "MfaLoginRequest",
-        "OrganizationCreateRequest",
-        "OrganizationMemberAddRequest",
-        "OrganizationInviteCreateRequest",
-        "OrganizationPrinterLinkRequest",
-        "MfaCodeRequest",
-        "StepUpRequest",
-        "AgentCredentialCreateRequest",
-        "AuthOrganization",
-        "AuthOrganizationMember",
-        "AuthOrganizationPrinter",
-        "AuthOrganizationInvite",
-        "AuthUser",
-        "AuthSessionResponse",
-        "LoginResponse",
-        "MfaSetupResponse",
-        "StepUpResponse",
-        "AgentCredentialResponse",
-        "AgentCredentialRecord"
-      ]
+      "contracts": []
     },
     {
       "module": "backups",
@@ -721,6 +697,39 @@
       ],
       "routes": [],
       "contracts": []
+    },
+    {
+      "module": "modules.identity.contracts",
+      "owner": "identity",
+      "lines": 266,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "UserContactLinks",
+        "UserRegisterRequest",
+        "UserProfileUpdateRequest",
+        "UserPasswordUpdateRequest",
+        "LoginRequest",
+        "MfaLoginRequest",
+        "OrganizationCreateRequest",
+        "OrganizationMemberAddRequest",
+        "OrganizationInviteCreateRequest",
+        "OrganizationPrinterLinkRequest",
+        "MfaCodeRequest",
+        "StepUpRequest",
+        "AgentCredentialCreateRequest",
+        "AuthOrganization",
+        "AuthOrganizationMember",
+        "AuthOrganizationPrinter",
+        "AuthOrganizationInvite",
+        "AuthUser",
+        "AuthSessionResponse",
+        "LoginResponse",
+        "MfaSetupResponse",
+        "StepUpResponse",
+        "AgentCredentialResponse",
+        "AgentCredentialRecord"
+      ]
     },
     {
       "module": "modules.integrations.__init__",
@@ -1225,11 +1234,12 @@
     {
       "module": "routes.auth",
       "owner": "identity",
-      "lines": 390,
+      "lines": 392,
       "imports": [
         "auth",
         "config",
-        "database"
+        "database",
+        "modules.identity.contracts"
       ],
       "routes": [
         {
