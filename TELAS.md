@@ -362,3 +362,10 @@ e só entram quando o respectivo backend estiver operacional:
 
 Todas exigem desktop/mobile, teclado, leitor de tela, estados vazio/loading/
 erro/degradado, permissão por ação, confirmação forte e auditoria sanitizada.
+
+## Boundary De Preferências Locais
+
+Tema e progresso do guia de setup preservam o comportamento visual atual, mas
+pages/components não acessam mais `localStorage` diretamente. Leitura, escrita,
+parse inválido e limpeza ficam no client de preferências locais; o gate de
+layering React impede regressão para acesso direto de HTTP/storage na UI.

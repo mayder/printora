@@ -1050,3 +1050,39 @@ o rollback é forward-fix ou restore completo validado, não retorno ao legado.
 Referência: `docs/architecture/EVOLUCAO_ARQUITETURAL.md`.
 
 Revisão de cobertura: `docs/architecture/REVISAO_PACOTES.md`.
+
+### DEC-20260722-03 - Monólito modular usa registry, contratos e ports canônicas
+
+Status: aceita
+Data: 2026-07-22
+Contexto: routers, modelos Pydantic, repositories SQLite, aplicação e adapters
+estavam organizados por arquivo, mas não possuíam owner ou fronteira executável.
+Isso impedia trocar persistência e processamento sem importar detalhes internos.
+
+Decisão: adotar cinco módulos — identidade, comunidade, operações,
+administração e integrações — registrados por uma composição central ordenada.
+Contratos HTTP/realtime v1 e DTOs ficam separados dos repositories; application
+services dependem de Protocol ports; FastAPI traduz erros somente no adapter. O
+frontend acessa HTTP/storage por clients. Inventário, ciclos, pureza de camada e
+snapshots de contrato viram gates do check.
+
+Alternativas consideradas: mover todos os arquivos de uma vez; criar
+microsserviços; manter apenas convenção documental; duplicar casos de uso durante
+a extração.
+
+Consequências: a API e os eventos preservam compatibilidade N/N-1 e cada nova
+tecnologia entra por adapter. Repositories SQLite grandes permanecem adapters
+canônicos até o PKG-88, com divisão/remoção limite em 2026-08-31 e gate absoluto
+no PKG-95. Não podem nascer facades ou bridges paralelas.
+
+Impacto em testes: inventário modular e snapshots OpenAPI/realtime rodam em todo
+`./check.sh`; testes de arquitetura bloqueiam ciclo, framework/driver em camada
+pura, owner ausente e acesso HTTP/storage direto na UI.
+
+Impacto em rollback: baixo para composição, pois os routers e contratos públicos
+não mudaram. Reverter exige restaurar o registro explícito anterior e os imports,
+sem alterar schema ou dados.
+
+Como reverter: reverter os arquivos em `backend/app/modules`, o registry em
+`main.py`, os snapshots/gates e o boundary de preferências no frontend como um
+conjunto; não restaurar banco nem remover dados.

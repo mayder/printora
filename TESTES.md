@@ -1760,6 +1760,17 @@ Evidência de fechamento em 2026-07-22:
 - verificar limites de arquivo/função e remoção de bridges antigas;
 - fechamento: suíte completa, contratos N/N-1 e smoke publicado.
 
+Evidência de fechamento em 2026-07-22:
+
+- inventário reproduzível: 133 módulos, 322 endpoints, 337 contratos e 100
+  tabelas, todos com owner, sem ciclo de import;
+- snapshots OpenAPI/realtime v1 permaneceram idênticos após as extrações;
+- contratos e ports puros não importam FastAPI nem drivers de persistência;
+- application service de jobs foi testado isoladamente de HTTP e banco;
+- layering React estrito passou e ficou habilitado por padrão;
+- regressões direcionadas de identidade, comunidade, agentes, backup e frontend
+  passaram; evidência em `docs/audits/MODULAR_ARCHITECTURE_2026-07-22.md`.
+
 ### PKG-88 - PostgreSQL Cloud Sem Perda De Dados
 
 - comparar contagem, min/max, sequences, checksum por lote, FK, órfãos e consultas semânticas;

@@ -5422,7 +5422,11 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado; implementação não iniciada.
+- Concluído em 2026-07-22.
+- Cinco fronteiras com owner/contrato versionado, registry de routers, ports
+  explícitas, application service sem FastAPI, snapshots HTTP/realtime e gates
+  de ciclo/layering foram implementados sem alterar o contrato público.
+- Evidência completa em `docs/audits/MODULAR_ARCHITECTURE_2026-07-22.md`.
 
 ## PKG-88: PostgreSQL Cloud Sem Perda De Dados
 
