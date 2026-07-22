@@ -422,12 +422,23 @@ def _upsert_app_version(
         VALUES (1, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             app_name = excluded.app_name,
-            version = excluded.version,
-            schema_revision = excluded.schema_revision,
+            version = CASE
+                WHEN excluded.schema_revision >= app_version.schema_revision
+                THEN excluded.version
+                ELSE app_version.version
+            END,
+            schema_revision = CASE
+                WHEN excluded.schema_revision > app_version.schema_revision
+                THEN excluded.schema_revision
+                ELSE app_version.schema_revision
+            END,
             updated_at = CASE
                 WHEN app_version.app_name != excluded.app_name
-                  OR app_version.version != excluded.version
-                  OR app_version.schema_revision != excluded.schema_revision
+                  OR (
+                      excluded.schema_revision >= app_version.schema_revision
+                      AND app_version.version != excluded.version
+                  )
+                  OR excluded.schema_revision > app_version.schema_revision
                 THEN ?
                 ELSE app_version.updated_at
             END

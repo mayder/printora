@@ -117,6 +117,29 @@ def test_initialize_database_does_not_create_backup_for_new_database(tmp_path: P
     assert _schema_backups(tmp_path) == []
 
 
+def test_older_release_cannot_lower_shared_schema_revision(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        current = connection.execute(
+            "SELECT schema_revision FROM app_version WHERE id = 1"
+        ).fetchone()[0]
+        connection.execute(
+            "UPDATE app_version SET schema_revision = ?, version = ? WHERE id = 1",
+            (current + 1, "future-release"),
+        )
+        connection.commit()
+
+    initialize_database(database_path)
+
+    with sqlite3.connect(database_path) as connection:
+        version, revision = connection.execute(
+            "SELECT version, schema_revision FROM app_version WHERE id = 1"
+        ).fetchone()
+    assert revision == current + 1
+    assert version == "future-release"
+
+
 def test_initialize_database_restores_original_database_when_sql_application_fails(
     tmp_path: Path,
     monkeypatch,
