@@ -49,8 +49,16 @@ def test_postgresql_adapter_rewrites_sqlite_datetime_modifiers() -> None:
         "SELECT * FROM jobs WHERE updated_at >= datetime('now', '-24 hours')"
     )
 
-    assert dynamic.endswith("updated_at >= (CURRENT_TIMESTAMP + (%s)::interval)")
-    assert static.endswith("updated_at >= (CURRENT_TIMESTAMP + INTERVAL '-24 hours')")
+    assert dynamic.endswith("updated_at >= CAST(CURRENT_TIMESTAMP + (%s)::interval AS TEXT)")
+    assert static.endswith(
+        "updated_at >= CAST(CURRENT_TIMESTAMP + INTERVAL '-24 hours' AS TEXT)"
+    )
+
+
+def test_postgresql_adapter_compares_text_timestamps_with_text(monkeypatch) -> None:
+    translated = translate_sql("SELECT * FROM sessions WHERE expires_at > CURRENT_TIMESTAMP")
+
+    assert translated.endswith("expires_at > CAST(CURRENT_TIMESTAMP AS TEXT)")
 
 
 def test_postgresql_adapter_rewrites_group_concat() -> None:

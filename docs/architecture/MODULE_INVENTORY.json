@@ -1002,7 +1002,7 @@
     {
       "module": "modules.platform.postgresql",
       "owner": "shared",
-      "lines": 152,
+      "lines": 159,
       "imports": [],
       "routes": [],
       "contracts": []

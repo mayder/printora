@@ -19,6 +19,8 @@ DATETIME_WITH_MODIFIER = re.compile(
 )
 DATETIME_NOW = re.compile(r"datetime\(\s*'now'\s*\)", re.IGNORECASE)
 GROUP_CONCAT_DISTINCT = re.compile(r"GROUP_CONCAT\(DISTINCT\s+([^\)]+)\)", re.IGNORECASE)
+CURRENT_TIMESTAMP_TOKEN = re.compile(r"\bCURRENT_TIMESTAMP\b", re.IGNORECASE)
+CURRENT_TIMESTAMP_SENTINEL = "__PRINTORA_POSTGRESQL_CURRENT_TIMESTAMP__"
 
 
 class PostgreSQLCursor:
@@ -108,7 +110,12 @@ def translate_sql(statement: str) -> str:
     if ignore_conflicts:
         translated = INSERT_OR_IGNORE.sub("INSERT INTO ", translated, count=1)
     translated = DATETIME_WITH_MODIFIER.sub(_postgresql_datetime, translated)
-    translated = DATETIME_NOW.sub("CURRENT_TIMESTAMP", translated)
+    translated = DATETIME_NOW.sub(
+        f"CAST({CURRENT_TIMESTAMP_SENTINEL} AS TEXT)",
+        translated,
+    )
+    translated = CURRENT_TIMESTAMP_TOKEN.sub("CAST(CURRENT_TIMESTAMP AS TEXT)", translated)
+    translated = translated.replace(CURRENT_TIMESTAMP_SENTINEL, "CURRENT_TIMESTAMP")
     translated = GROUP_CONCAT_DISTINCT.sub(r"STRING_AGG(DISTINCT \1, ',')", translated)
     if ignore_conflicts:
         translated = translated.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING"
@@ -118,8 +125,8 @@ def translate_sql(statement: str) -> str:
 def _postgresql_datetime(match: re.Match[str]) -> str:
     modifier = match.group(1)
     if modifier == "%s":
-        return "(CURRENT_TIMESTAMP + (%s)::interval)"
-    return f"(CURRENT_TIMESTAMP + INTERVAL {modifier})"
+        return f"CAST({CURRENT_TIMESTAMP_SENTINEL} + (%s)::interval AS TEXT)"
+    return f"CAST({CURRENT_TIMESTAMP_SENTINEL} + INTERVAL {modifier} AS TEXT)"
 
 
 def _replace_qmark_placeholders(statement: str) -> str:
