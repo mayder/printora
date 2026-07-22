@@ -16,6 +16,8 @@ Data: 2026-07-22.
 - carga HTTP reproduzível com erro zero e limite p95 configurável.
 - threat model repository-wide persistido em `SECURITY.md`, cobrindo ativos,
   fronteiras, invariantes, supply chain, agente/impressora e severidade.
+- SBOM CycloneDX reproduzível para backend, frontend e agente, com checksums e
+  gate de vulnerabilidades antes de empacotar a release.
 
 ## Evidência Local
 

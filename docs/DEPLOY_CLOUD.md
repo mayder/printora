@@ -76,14 +76,16 @@ restore usa diretório temporário isolado e não inicia a aplicação. Retenç�
 O workflow `Deploy Printora Cloud`:
 
 1. faz checkout de `cloud`;
-2. instala dependências frontend e roda o gate completo;
-3. gera bundle e SHA-256;
-4. exige preflight privilegiado verde;
-5. cria release e venv independentes usando `uv.lock` congelado;
-6. inicia o slot inativo e exige `/ready`, `/health` e catálogo;
-7. executa `nginx -t`, troca upstream e recarrega Nginx;
-8. drena por 30 segundos e encerra o slot anterior;
-9. valida endpoints públicos.
+2. instala dependências frontend e roda o gate completo em modo estrito;
+3. audita dependências Python, Node e Go;
+4. gera SBOM CycloneDX reproduzível e checksums em `.artifacts/sbom`;
+5. gera bundle e SHA-256 incluindo o SBOM;
+6. exige preflight privilegiado verde;
+7. cria release e venv independentes usando `uv.lock` congelado;
+8. inicia o slot inativo e exige `/ready`, `/health` e catálogo;
+9. executa `nginx -t`, troca upstream e recarrega Nginx;
+10. drena por 30 segundos e encerra o slot anterior;
+11. valida endpoints públicos.
 
 Candidato inválido é parado antes da troca e não recebe tráfego público.
 

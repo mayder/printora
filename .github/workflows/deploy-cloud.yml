@@ -22,9 +22,29 @@ jobs:
 
     steps:
       - name: Checkout cloud branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ env.DEFAULT_DEPLOY_BRANCH }}
+
+      - name: Configure Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Configure Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.25.12
+          cache-dependency-path: agent/go.sum
+
+      - name: Configure uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: 0.11.0
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
 
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
@@ -33,7 +53,21 @@ jobs:
         env:
           RUN_PYTHON_TESTS: "1"
           RUN_FRONTEND_CHECKS: "1"
+          CHECK_STRICT_SECRETS: "1"
+          CHECK_STRICT_RUNTIME_NAMES: "1"
         run: ./check.sh
+
+      - name: Audit production dependencies
+        run: |
+          set -euo pipefail
+          npm --prefix frontend audit --omit=dev --audit-level=high
+          cd backend
+          uv run --with pip-audit==2.10.1 pip-audit --local
+          cd ../agent
+          go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
+
+      - name: Generate reproducible SBOM
+        run: scripts/generate-sbom.sh
 
       - name: Package immutable release
         run: |
