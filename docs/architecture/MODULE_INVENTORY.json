@@ -82,7 +82,7 @@
     }
   ],
   "summary": {
-    "modules": 133,
+    "modules": 136,
     "routes": 322,
     "contracts": 337,
     "tables": 100,
@@ -93,7 +93,7 @@
       "identity": 10,
       "integrations": 7,
       "operations": 55,
-      "shared": 8
+      "shared": 11
     }
   },
   "cycles": [],
@@ -323,8 +323,11 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 398,
-      "imports": [],
+      "lines": 466,
+      "imports": [
+        "modules.platform.database_target",
+        "modules.platform.postgresql"
+      ],
       "routes": [],
       "contracts": []
     },
@@ -980,6 +983,30 @@
       ]
     },
     {
+      "module": "modules.platform.__init__",
+      "owner": "shared",
+      "lines": 1,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.platform.database_target",
+      "owner": "shared",
+      "lines": 23,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.platform.postgresql",
+      "owner": "shared",
+      "lines": 152,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "modules.registry",
       "owner": "shared",
       "lines": 34,
@@ -1036,9 +1063,10 @@
     {
       "module": "operational",
       "owner": "operations",
-      "lines": 130,
+      "lines": 127,
       "imports": [
-        "config"
+        "config",
+        "database"
       ],
       "routes": [],
       "contracts": []
@@ -3345,9 +3373,10 @@
     {
       "module": "self_update",
       "owner": "administration",
-      "lines": 1002,
+      "lines": 1001,
       "imports": [
         "auth",
+        "database",
         "releases"
       ],
       "routes": [],

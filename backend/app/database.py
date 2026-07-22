@@ -10,7 +10,11 @@ from pathlib import Path
 from datetime import datetime, timezone
 from importlib import metadata
 
+from app.modules.platform.database_target import require_postgresql_url, uses_postgresql
+from app.modules.platform.postgresql import PostgreSQLConnection
+
 SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
+POSTGRESQL_SQL_DIR = SQL_DIR / "postgresql"
 APP_NAME = "Printora"
 VERSIONING_SCRIPT = "000_schema_versioning.sql"
 SQLITE_TIMEOUT_SECONDS = 60.0
@@ -22,6 +26,9 @@ class DatabaseSchemaError(RuntimeError):
 
 
 def initialize_database(database_path: Path) -> None:
+    if uses_postgresql():
+        _initialize_postgresql()
+        return
     database_path.parent.mkdir(parents=True, exist_ok=True)
     sql_files = sorted(SQL_DIR.glob("[0-9]*.sql"))
     _repair_optional_materialization_state(database_path)
@@ -72,7 +79,18 @@ def initialize_database(database_path: Path) -> None:
 
 
 @contextmanager
-def connect_database(database_path: Path) -> Iterator[sqlite3.Connection]:
+def connect_database(database_path: Path) -> Iterator[sqlite3.Connection | PostgreSQLConnection]:
+    if uses_postgresql():
+        connection = PostgreSQLConnection(require_postgresql_url())
+        try:
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+        return
     connection = _connect_sqlite(database_path)
     try:
         connection.row_factory = sqlite3.Row
@@ -82,6 +100,48 @@ def connect_database(database_path: Path) -> Iterator[sqlite3.Connection]:
     except Exception:
         connection.rollback()
         raise
+    finally:
+        connection.close()
+
+
+def _initialize_postgresql() -> None:
+    sql_files = sorted(SQL_DIR.glob("[0-9]*.sql"))
+    connection = PostgreSQLConnection(require_postgresql_url())
+    try:
+        app_version_table = connection.execute(
+            "SELECT to_regclass('public.app_version') AS table_name"
+        ).fetchone()
+        if app_version_table is None or app_version_table["table_name"] is None:
+            baseline = POSTGRESQL_SQL_DIR / "001_baseline.sql"
+            if not baseline.is_file():
+                raise DatabaseSchemaError(f"Baseline PostgreSQL obrigatório não encontrado: {baseline.name}")
+            connection.execute_script(baseline.read_text(encoding="utf-8"))
+        for execution_order, sql_file in enumerate(sql_files, start=1):
+            connection.execute(
+                """
+                INSERT INTO schema_versions (script_name, checksum_sha256, execution_order)
+                VALUES (?, ?, ?)
+                ON CONFLICT (script_name) DO NOTHING
+                """,
+                (sql_file.name, _sql_checksum(sql_file), execution_order),
+            )
+        applied_scripts = _applied_scripts(connection)
+        for sql_file in sql_files:
+            applied_checksum = applied_scripts.get(sql_file.name)
+            expected_checksum = _sql_checksum(sql_file)
+            if applied_checksum != expected_checksum:
+                raise DatabaseSchemaError(
+                    f"Schema PostgreSQL divergente em {sql_file.name}: "
+                    f"esperado {expected_checksum}, recebido {applied_checksum or 'ausente'}"
+                )
+        _upsert_app_version(connection, len(sql_files))
+        connection.execute("SELECT 1 FROM app_version WHERE id = 1").fetchone()
+        connection.commit()
+    except Exception as exc:
+        connection.rollback()
+        if isinstance(exc, DatabaseSchemaError):
+            raise
+        raise DatabaseSchemaError(f"Falha ao validar schema PostgreSQL: {exc}") from exc
     finally:
         connection.close()
 
@@ -240,11 +300,16 @@ def _pending_sql_files(database_path: Path, sql_files: list[Path]) -> list[Path]
             connection.close()
 
 
-def _applied_scripts(connection: sqlite3.Connection) -> dict[str, str]:
+def _applied_scripts(connection: sqlite3.Connection | PostgreSQLConnection) -> dict[str, str]:
     if not _table_exists(connection, "schema_versions"):
         return {}
     rows = connection.execute("SELECT script_name, checksum_sha256 FROM schema_versions").fetchall()
-    return {str(row[0]): str(row[1]) for row in rows}
+    return {
+        str(row["script_name"] if hasattr(row, "keys") else row[0]): str(
+            row["checksum_sha256"] if hasattr(row, "keys") else row[1]
+        )
+        for row in rows
+    }
 
 
 def _backup_database(database_path: Path) -> Path:
@@ -314,7 +379,10 @@ def _connect_sqlite(database_path: Path | str, *, uri: bool = False) -> sqlite3.
     return connection
 
 
-def _upsert_app_version(connection: sqlite3.Connection, schema_revision: int) -> None:
+def _upsert_app_version(
+    connection: sqlite3.Connection | PostgreSQLConnection,
+    schema_revision: int,
+) -> None:
     version = _installed_app_version()
     connection.execute(
         """

@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import sqlite3
 import sys
 import time
 from collections import defaultdict
@@ -13,6 +12,7 @@ from uuid import uuid4
 from fastapi import Request, Response
 
 from app.config import Settings
+from app.database import connect_database
 
 
 LOGGER = logging.getLogger("printora.http")
@@ -98,19 +98,16 @@ def readiness(settings: Settings) -> tuple[bool, dict[str, object]]:
     if not settings.data_dir.is_dir() or not os.access(settings.data_dir, os.W_OK):
         return False, {"status": "not_ready", "database": "data_dir_not_writable"}
     try:
-        connection = sqlite3.connect(f"file:{settings.database_path}?mode=ro", uri=True, timeout=2)
-        try:
+        with connect_database(settings.database_path) as connection:
             connection.execute("SELECT 1").fetchone()
             schema = connection.execute(
                 "SELECT schema_revision FROM app_version WHERE id = 1"
             ).fetchone()
-        finally:
-            connection.close()
-    except (OSError, sqlite3.Error) as exc:
+    except Exception as exc:
         return False, {"status": "not_ready", "database": "unavailable", "reason": type(exc).__name__}
     if schema is None:
         return False, {"status": "not_ready", "database": "schema_missing"}
-    return True, {"status": "ready", "database": "ok", "schema_revision": int(schema[0])}
+    return True, {"status": "ready", "database": "ok", "schema_revision": int(schema["schema_revision"])}
 
 
 def _request_id(candidate: str | None) -> str:

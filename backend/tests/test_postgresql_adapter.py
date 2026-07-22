@@ -1,0 +1,34 @@
+from app.modules.platform.postgresql import translate_sql
+
+
+def test_postgresql_adapter_rewrites_parameters_without_touching_literals() -> None:
+    translated = translate_sql("SELECT '?' AS literal, name FROM users WHERE id = ?")
+
+    assert translated == "SELECT '?' AS literal, name FROM users WHERE id = %s"
+
+
+def test_postgresql_adapter_rewrites_insert_or_ignore() -> None:
+    translated = translate_sql(
+        "INSERT OR IGNORE INTO social_favorites (user_id, item_id) VALUES (?, ?);"
+    )
+
+    assert translated == (
+        "INSERT INTO social_favorites (user_id, item_id) VALUES (%s, %s) "
+        "ON CONFLICT DO NOTHING"
+    )
+
+
+def test_postgresql_adapter_rewrites_sqlite_datetime_modifiers() -> None:
+    dynamic = translate_sql("SELECT * FROM jobs WHERE updated_at >= datetime('now', ?)")
+    static = translate_sql(
+        "SELECT * FROM jobs WHERE updated_at >= datetime('now', '-24 hours')"
+    )
+
+    assert dynamic.endswith("updated_at >= (CURRENT_TIMESTAMP + (%s)::interval)")
+    assert static.endswith("updated_at >= (CURRENT_TIMESTAMP + INTERVAL '-24 hours')")
+
+
+def test_postgresql_adapter_rewrites_group_concat() -> None:
+    translated = translate_sql("SELECT GROUP_CONCAT(DISTINCT c.name) FROM communities c")
+
+    assert "STRING_AGG(DISTINCT c.name, ',')" in translated

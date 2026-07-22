@@ -4,7 +4,7 @@
 
 ## Resumo
 
-- módulos Python: 133;
+- módulos Python: 136;
 - endpoints HTTP/WebSocket: 322;
 - contratos tipados: 337;
 - tabelas declaradas em SQL: 100;
@@ -19,7 +19,7 @@
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 55 | 32 |
 | `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 25 | 15 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 7 | 0 |
-| `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 8 | 0 |
+| `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 11 | 0 |
 
 ## Arquivos Críticos
 
@@ -30,7 +30,7 @@
 | `maintenance` | `operations` | 1147 | 0 | 8 |
 | `routes.social_catalog` | `community` | 1108 | 59 | 0 |
 | `print_projects` | `community` | 1037 | 0 | 14 |
-| `self_update` | `administration` | 1002 | 0 | 10 |
+| `self_update` | `administration` | 1001 | 0 | 10 |
 | `auth` | `identity` | 911 | 0 | 0 |
 | `calibration` | `operations` | 910 | 0 | 12 |
 | `agent_pairing` | `operations` | 886 | 0 | 0 |
@@ -50,6 +50,7 @@
 | `firmware.repository` | `operations` | 489 | 0 | 0 |
 | `agent_support` | `operations` | 486 | 0 | 5 |
 | `firmware_catalog` | `operations` | 478 | 0 | 14 |
+| `database` | `shared` | 466 | 0 | 0 |
 | `updates` | `administration` | 465 | 0 | 8 |
 | `backups` | `administration` | 431 | 0 | 0 |
 | `install_diagnostics` | `administration` | 403 | 0 | 2 |

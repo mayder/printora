@@ -133,7 +133,7 @@ def basename(module: str) -> str:
 
 
 def boundary_for(module: str) -> str:
-    if module in {"modules", "modules.assembly", "modules.registry"}:
+    if module in {"modules", "modules.assembly", "modules.registry"} or module.startswith("modules.platform"):
         return "shared"
     if module.startswith("modules."):
         module_boundary = module.split(".", maxsplit=2)[1]

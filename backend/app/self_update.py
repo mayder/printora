@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import platform
 import re
-import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -9,6 +10,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from app.auth import scoped_where_clause
+from app.database import connect_database
 
 
 UpdateEnvironment = Literal["android_termux", "unix", "windows", "unknown"]
@@ -179,10 +181,10 @@ class SelfUpdateRepository:
         with self._connect() as connection:
             scope_sql, params = self._scope_sql("app_update_runs", prefix="AND")
             row = connection.execute(
-                f"SELECT COUNT(*) FROM app_update_runs WHERE status = 'running' {scope_sql}",
+                f"SELECT COUNT(*) AS total FROM app_update_runs WHERE status = 'running' {scope_sql}",
                 params,
             ).fetchone()
-        return int(row[0])
+        return int(row["total"])
 
     def reconcile_interrupted_updates(self, *, installed_version: str, stale_after_minutes: int = 30) -> int:
         clean_installed_version = _normalize_version(installed_version)
@@ -358,11 +360,8 @@ class SelfUpdateRepository:
             result.setdefault(step.run_id, []).append(step)
         return result
 
-    def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.database_path)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        return connection
+    def _connect(self):
+        return connect_database(self.database_path)
 
     def _scope_sql(self, table_alias: str, *, prefix: str) -> tuple[str, tuple[object, ...]]:
         if self.user_id is None:
