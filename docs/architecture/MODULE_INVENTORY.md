@@ -47,10 +47,10 @@
 | `health` | `administration` | 513 | 0 | 0 |
 | `setup_firmware` | `operations` | 513 | 0 | 5 |
 | `setup_final_validation` | `operations` | 509 | 0 | 4 |
+| `database` | `shared` | 491 | 0 | 0 |
 | `firmware.repository` | `operations` | 489 | 0 | 0 |
 | `agent_support` | `operations` | 486 | 0 | 5 |
 | `firmware_catalog` | `operations` | 478 | 0 | 14 |
-| `database` | `shared` | 472 | 0 | 0 |
 | `updates` | `administration` | 465 | 0 | 8 |
 | `backups` | `administration` | 431 | 0 | 0 |
 | `install_diagnostics` | `administration` | 403 | 0 | 2 |
