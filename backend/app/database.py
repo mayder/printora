@@ -20,6 +20,9 @@ SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
 POSTGRESQL_SQL_DIR = SQL_DIR / "postgresql"
 APP_NAME = "Printora"
 VERSIONING_SCRIPT = "000_schema_versioning.sql"
+POSTGRESQL_BOOTSTRAP_OBJECTS = {
+    "002_transition_replication_state.sql": "public.printora_transition_replication_state",
+}
 SQLITE_TIMEOUT_SECONDS = 60.0
 SQLITE_BUSY_TIMEOUT_MS = int(SQLITE_TIMEOUT_SECONDS * 1000)
 
@@ -123,6 +126,9 @@ def _initialize_postgresql() -> None:
             connection.execute_script(baseline.read_text(encoding="utf-8"))
         for postgresql_script in sorted(POSTGRESQL_SQL_DIR.glob("[0-9]*.sql")):
             if postgresql_script.name == "001_baseline.sql":
+                continue
+            expected_object = POSTGRESQL_BOOTSTRAP_OBJECTS.get(postgresql_script.name)
+            if expected_object and _postgresql_relation_exists(connection, expected_object):
                 continue
             connection.execute_script(postgresql_script.read_text(encoding="utf-8"))
         for execution_order, sql_file in enumerate(sql_files, start=1):
@@ -494,6 +500,17 @@ def _table_exists(
         (table_name,),
     ).fetchone()
     return row is not None
+
+
+def _postgresql_relation_exists(
+    connection: PostgreSQLConnection,
+    relation_name: str,
+) -> bool:
+    row = connection.execute(
+        "SELECT to_regclass(?) AS relation_name",
+        (relation_name,),
+    ).fetchone()
+    return row is not None and row["relation_name"] is not None
 
 
 def _column_exists(connection: sqlite3.Connection, table_name: str, column_name: str) -> bool:
