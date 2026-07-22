@@ -40,9 +40,8 @@ específica para PostgreSQL; não apague banco ou backup sem confirmação human
 ## Bootstrap Privilegiado
 
 Antes de executar, salvar configuração Nginx e confirmar uma janela operacional.
-O script mantém a instância legada em `8069`, instala units, upstreams, logrotate
-e sudoers limitado, valida `visudo` e `nginx -t`, e recarrega o Nginx sem trocar
-o backend ativo.
+O script instala units, upstreams, logrotate e sudoers limitado, valida `visudo`
+e `nginx -t`, e recarrega o Nginx sem trocar o backend ativo.
 
 ```bash
 sudo PRINTORA_BASE_PATH=/var/www/print3dmaker.xyz \
@@ -50,9 +49,10 @@ sudo PRINTORA_BASE_PATH=/var/www/print3dmaker.xyz \
 sudo /usr/local/sbin/printora-cloud-preflight
 ```
 
-O primeiro deploy sobe green em `8070`, valida em loopback, troca o upstream e
-só então encerra a instância legada. O segundo ciclo popula blue com release
-imutável e torna rollback entre os dois slots comprovável.
+O primeiro deploy sobe green em `8070` e valida em loopback antes da troca. O
+segundo ciclo popula blue com release imutável e torna rollback entre os dois
+slots comprovável. Depois da migração inicial, unit e venv compartilhados são
+removidos; apenas `printora-cloud@blue` e `printora-cloud@green` são válidos.
 
 ## Backup Externo
 

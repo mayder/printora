@@ -43,9 +43,6 @@ mv -Tf "$PRINTORA_BASE_PATH/current.next" "$PRINTORA_BASE_PATH/current"
 drain_seconds="${PRINTORA_DRAIN_SECONDS:-30}"
 sleep "$drain_seconds"
 systemctl stop "printora-cloud@$current_slot.service" || true
-if systemctl is-active --quiet printora-cloud.service; then
-  systemctl stop printora-cloud.service
-fi
 standby_status="ready"
 if ! start_standby "$current_slot"; then standby_status="degraded"; fi
 echo "[printora-cloud] release=$release_sha active_slot=$candidate_slot standby_slot=$current_slot standby_status=$standby_status status=deployed"
