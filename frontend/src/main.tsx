@@ -48,6 +48,7 @@ import "./styles/about.css";
 import "./styles/print-projects.css";
 import "./styles/social.css";
 import "./styles/catalog-admin.css";
+import { readDocumentTheme } from "./services/localPreferences";
 
 type AccountTab = "profile" | "organizations";
 
@@ -61,8 +62,7 @@ function openAccountTab(tab: AccountTab, setActiveSection: (section: AppSection)
 
 function useStoredDocumentTheme() {
   useEffect(() => {
-    const storedTheme = window.localStorage.getItem("printora-theme");
-    document.documentElement.dataset.theme = storedTheme === "light" ? "light" : "dark";
+    document.documentElement.dataset.theme = readDocumentTheme();
   }, []);
 }
 

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { Metric } from "../components/common";
+import { readSetupRecipe, writeSetupRecipe } from "../services/localPreferences";
 import { formatDateTime } from "../utils/formatters";
 import type { SetupCanPlanStep, SetupFinalValidationStatus, SetupFirmwarePlanStep, SetupFlashPlanStep, SetupPlanStep, SetupRunStatus } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 
-const SETUP_RECIPE_STORAGE_KEY = "printora.setup.recipe.v1";
 const manualRecipeKeys = ["os_image", "network", "ssh_enabled", "physical_ready", "printer_registered"] as const;
 type ManualRecipeKey = typeof manualRecipeKeys[number];
 type SetupGuide = {
@@ -480,18 +480,14 @@ export function SetupScreen(props: SetupScreenProps) {
   });
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(SETUP_RECIPE_STORAGE_KEY);
-      if (!saved) return;
-      const parsed = JSON.parse(saved) as Partial<Record<ManualRecipeKey, boolean>>;
+    const parsed = readSetupRecipe<Record<ManualRecipeKey, boolean>>();
+    if (parsed) {
       setManualRecipeDone((current) => ({ ...current, ...parsed }));
-    } catch {
-      window.localStorage.removeItem(SETUP_RECIPE_STORAGE_KEY);
     }
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(SETUP_RECIPE_STORAGE_KEY, JSON.stringify(manualRecipeDone));
+    writeSetupRecipe(manualRecipeDone);
   }, [manualRecipeDone]);
 
   const recipeSteps = useMemo(
