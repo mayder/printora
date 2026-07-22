@@ -12,6 +12,7 @@ from importlib import metadata
 from app.modules.platform.database_target import require_postgresql_url, uses_postgresql
 from app.modules.platform.postgresql import PostgreSQLConnection
 from app.modules.platform.transition_outbox import (
+    OUTBOX_TABLE,
     ensure_transition_outbox,
     transition_outbox_enabled,
 )
@@ -204,6 +205,7 @@ def get_database_version_info(database_path: Path, data_dir: Path | None = None)
             if latest_integrity
             else None
         )
+        transition = _database_transition_status(connection)
         return {
             "app_name": app_version["app_name"] if app_version else APP_NAME,
             "version": app_version["version"] if app_version else _installed_app_version(),
@@ -231,6 +233,7 @@ def get_database_version_info(database_path: Path, data_dir: Path | None = None)
             "latest_integrity_result": json.loads(latest_integrity["result_json"]) if latest_integrity else None,
             "latest_integrity_checked_at": latest_integrity["checked_at"] if latest_integrity else None,
             "latest_validation": latest_validation,
+            "database_transition": transition,
         }
 
 
@@ -522,6 +525,45 @@ def _postgresql_relation_exists(
         (relation_name,),
     ).fetchone()
     return row is not None and row["relation_name"] is not None
+
+
+def _database_transition_status(
+    connection: sqlite3.Connection | PostgreSQLConnection,
+) -> dict[str, object]:
+    if isinstance(connection, PostgreSQLConnection):
+        relation = "public.printora_transition_replication_state"
+        if not _postgresql_relation_exists(connection, relation):
+            return {"backend": "postgresql", "state": "not_initialized"}
+        row = connection.execute(
+            """
+            SELECT watermark, updated_at
+            FROM printora_transition_replication_state
+            WHERE id = 1
+            """
+        ).fetchone()
+        return {
+            "backend": "postgresql",
+            "state": "active",
+            "watermark": int(row["watermark"]) if row else 0,
+            "updated_at": row["updated_at"] if row else None,
+        }
+    if not _table_exists(connection, OUTBOX_TABLE):
+        return {"backend": "sqlite", "state": "not_initialized"}
+    row = connection.execute(
+        f"""
+        SELECT COUNT(*) AS events,
+               COALESCE(MAX(id), 0) AS watermark,
+               COUNT(DISTINCT table_name) AS changed_tables
+        FROM {OUTBOX_TABLE}
+        """
+    ).fetchone()
+    return {
+        "backend": "sqlite",
+        "state": "capturing" if transition_outbox_enabled() else "available",
+        "events": int(row["events"]),
+        "watermark": int(row["watermark"]),
+        "changed_tables": int(row["changed_tables"]),
+    }
 
 
 def _column_exists(connection: sqlite3.Connection, table_name: str, column_name: str) -> bool:
