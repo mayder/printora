@@ -2,7 +2,7 @@ import React from "react";
 import { Home, RotateCcw, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
 import type GCodeViewerClass from "@sindarius/gcodeviewer";
 import { operationApi } from "../../services/operationApi";
-import { buildLayerOffsets, previewTargetPosition, type GcodePreviewMode } from "./gcodePreview";
+import { buildLayerOffsets, previewTargetPosition, sliceGcodeTextForPreview, type GcodePreviewMode } from "./gcodePreview";
 
 type GCodeViewerInstance = InstanceType<typeof GCodeViewerClass>;
 
@@ -15,6 +15,7 @@ type CameraPreset = "iso" | "top" | "front" | "right" | "frontRight" | "frontLef
 
 const MAINSAIL_EXTRUDER_COLORS = ["#E76F51", "#F4A261", "#E9C46A", "#2A9D8F", "#264653"] as const;
 const MAX_RENDER_QUALITY_BYTES = 42 * 1024 * 1024;
+const PREVIEW_EXPANSION_MARGIN_BYTES = 512 * 1024;
 
 type ViewerVector = {
   x: number;
@@ -103,13 +104,16 @@ export function GcodePrintViewer({
   const fileSizeRef = React.useRef(0);
   const layerOffsetsRef = React.useRef<number[]>([]);
   const renderedTargetRef = React.useRef<number | null>(null);
+  const renderedSourceLimitRef = React.useRef(0);
   const renderBusyRef = React.useRef(false);
   const queuedRenderTargetRef = React.useRef<number | null>(null);
+  const disposedRef = React.useRef(false);
   const liveRef = React.useRef({ filePosition, printState, progress, currentLayer, totalLayers, mode, selectedLayer });
   const boundsSignature = buildVolumeSignature(buildVolume);
   const bounds = React.useMemo(() => buildVolumeBounds(buildVolume), [boundsSignature]);
   const [state, setState] = React.useState<"idle" | "loading" | "ready" | "error">("idle");
   const [loadPercent, setLoadPercent] = React.useState(0);
+  const [loadLabel, setLoadLabel] = React.useState("Renderizando G-code");
   const [error, setError] = React.useState("");
   const [panOffset, setPanOffset] = React.useState({ x: 0, y: 0 });
 
@@ -119,6 +123,7 @@ export function GcodePrintViewer({
 
   React.useEffect(() => {
     let disposed = false;
+    disposedRef.current = false;
     const canvas = canvasRef.current;
     if (!canvas || !filename) return undefined;
     const canvasElement = canvas;
@@ -126,6 +131,7 @@ export function GcodePrintViewer({
     async function loadViewer() {
       setState("loading");
       setLoadPercent(0);
+      setLoadLabel("Preparando G-code");
       setError("");
       setPanOffset({ x: 0, y: 0 });
       const previous = viewerRef.current;
@@ -139,21 +145,20 @@ export function GcodePrintViewer({
           import("@sindarius/gcodeviewer"),
           operationApi.ensureGcodeCache(printerId, filename),
         ]);
+        if (disposed) return;
+        setLoadLabel("Baixando G-code");
         const text = await operationApi.gcodeCacheText(printerId, cache.cache_key);
         if (disposed) return;
+        const layerOffsets = buildLayerOffsets(text);
+        const sourceFileSize = text.length;
+        fullGcodeRef.current = text;
+        fileSizeRef.current = sourceFileSize;
+        layerOffsetsRef.current = layerOffsets;
         const viewer = new GCodeViewer(canvasElement);
         viewerRef.current = viewer;
         await viewer.init();
-        configureViewer(viewer, bounds, text.length, detectExtrusionWidth(text, nozzleDiameter));
-        viewer.gcodeProcessor.loadingProgressCallback = (value) => {
-          if (!disposed) setLoadPercent(Math.max(0, Math.min(100, Math.ceil(value * 100))));
-        };
-        const layerOffsets = buildLayerOffsets(text);
-        await viewer.processFile(text);
-        disablePreviewFade(viewer);
-        const parsedFileSize = validFileSize(viewer.fileSize) ? viewer.fileSize : text.length;
         const target = previewTargetPosition(
-          parsedFileSize,
+          sourceFileSize,
           layerOffsets,
           liveRef.current.mode,
           liveRef.current.selectedLayer,
@@ -163,15 +168,7 @@ export function GcodePrintViewer({
           liveRef.current.currentLayer,
           liveRef.current.totalLayers,
         );
-        updatePreviewPosition(viewer, target);
-        if (disposed) return;
-        fullGcodeRef.current = text;
-        fileSizeRef.current = parsedFileSize;
-        layerOffsetsRef.current = layerOffsets;
-        renderedTargetRef.current = target;
-        setCameraPreset(viewer, "iso");
-        viewer.forceRender();
-        setState("ready");
+        await processSourceGcodePreview(viewer, target, { resetCamera: true, isDisposed: () => disposed || disposedRef.current });
       } catch (err) {
         if (disposed) return;
         setState("error");
@@ -182,6 +179,7 @@ export function GcodePrintViewer({
     void loadViewer();
     return () => {
       disposed = true;
+      disposedRef.current = true;
       const viewer = viewerRef.current;
       if (viewer) {
         viewer.gcodeProcessor.cancelLoad = true;
@@ -193,7 +191,9 @@ export function GcodePrintViewer({
       renderBusyRef.current = false;
       queuedRenderTargetRef.current = null;
       fullGcodeRef.current = "";
+      fileSizeRef.current = 0;
       layerOffsetsRef.current = [];
+      renderedSourceLimitRef.current = 0;
     };
   }, [bounds, filename, nozzleDiameter, printerId]);
 
@@ -271,16 +271,77 @@ export function GcodePrintViewer({
     if (renderBusyRef.current) return;
     renderBusyRef.current = true;
     window.requestAnimationFrame(() => {
-      const nextTarget = queuedRenderTargetRef.current;
-      queuedRenderTargetRef.current = null;
-      const viewer = viewerRef.current;
-      if (viewer && nextTarget !== null) {
-        updatePreviewPosition(viewer, nextTarget);
-        renderedTargetRef.current = nextTarget;
-      }
-      renderBusyRef.current = false;
+      void flushQueuedPreviewRender();
     });
   };
+
+  async function flushQueuedPreviewRender() {
+    const nextTarget = queuedRenderTargetRef.current;
+    queuedRenderTargetRef.current = null;
+    const viewer = viewerRef.current;
+    try {
+      if (viewer && nextTarget !== null) {
+        if (needsRenderExpansion(nextTarget)) {
+          await processSourceGcodePreview(viewer, nextTarget, { resetCamera: false, isDisposed: () => disposedRef.current || viewerRef.current !== viewer });
+        } else {
+          updatePreviewPosition(viewer, nextTarget);
+          renderedTargetRef.current = nextTarget;
+        }
+      }
+    } catch (err) {
+      if (disposedRef.current) return;
+      setState("error");
+      setError(err instanceof Error ? err.message : "Não foi possível atualizar a prévia do G-code.");
+    } finally {
+      renderBusyRef.current = false;
+      if (queuedRenderTargetRef.current !== null) {
+        const pendingTarget = queuedRenderTargetRef.current;
+        queuedRenderTargetRef.current = null;
+        queuePreviewRender(pendingTarget);
+      }
+    }
+  }
+
+  async function processSourceGcodePreview(
+    viewer: GCodeViewerInstance,
+    sourceTarget: number,
+    options: { resetCamera: boolean; isDisposed: () => boolean },
+  ) {
+    const sourceText = fullGcodeRef.current;
+    if (!sourceText) return;
+    const renderSlice = sliceGcodeTextForPreview(sourceText, sourceTarget);
+    if (options.isDisposed()) return;
+    setState("loading");
+    setLoadPercent(0);
+    setLoadLabel(renderSlice.partial ? "Renderizando trecho do G-code" : "Renderizando G-code");
+    configureViewer(viewer, bounds, renderSlice.text.length, detectExtrusionWidth(sourceText, nozzleDiameter));
+    viewer.gcodeProcessor.cancelLoad = false;
+    viewer.gcodeProcessor.loadingProgressCallback = (value) => {
+      if (!options.isDisposed()) setLoadPercent(Math.max(0, Math.min(100, Math.ceil(value * 100))));
+    };
+    await viewer.processFile(renderSlice.text);
+    if (options.isDisposed()) return;
+    viewer.gcodeProcessor.loadingProgressCallback = null;
+    disablePreviewFade(viewer);
+    applyViewerTheme(viewer);
+    positionNativeViewbox(viewer);
+    renderedSourceLimitRef.current = renderSlice.sourceLimit;
+    const renderTarget = Math.min(sourceTarget, renderSlice.sourceLimit);
+    updatePreviewPosition(viewer, renderTarget);
+    renderedTargetRef.current = renderTarget;
+    if (options.resetCamera) {
+      setCameraPreset(viewer, "iso");
+    }
+    viewer.forceRender();
+    setState("ready");
+  }
+
+  function needsRenderExpansion(sourceTarget: number) {
+    const sourceFileSize = fileSizeRef.current;
+    const renderedLimit = renderedSourceLimitRef.current;
+    if (!sourceFileSize || !renderedLimit || renderedLimit >= sourceFileSize) return false;
+    return sourceTarget >= renderedLimit - PREVIEW_EXPANSION_MARGIN_BYTES;
+  }
 
   const layerText = viewerTitle(mode, selectedLayer, currentLayer, totalLayers);
 
@@ -292,7 +353,7 @@ export function GcodePrintViewer({
       </div>
       {state === "loading" ? (
         <div className="gcode-viewer-status">
-          <strong>Renderizando G-code</strong>
+          <strong>{loadLabel}</strong>
           <span>{loadPercent}%</span>
         </div>
       ) : null}
@@ -649,10 +710,6 @@ function escapeRegExp(value: string) {
 function validExtrusionWidth(value?: number | null) {
   if (typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 2) return value;
   return 0.4;
-}
-
-function validFileSize(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
 function clampPan(value: number) {

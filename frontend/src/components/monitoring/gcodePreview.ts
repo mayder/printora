@@ -1,6 +1,15 @@
 export type GcodePreviewMode = "progress" | "full" | "until_layer" | "current_layer";
 
 const LIVE_TRACKING_OFFSET_BYTES = 350;
+const LARGE_GCODE_MIN_RENDER_BYTES = 8 * 1024 * 1024;
+const LARGE_GCODE_LOOKAHEAD_BYTES = 2 * 1024 * 1024;
+
+export type GcodePreviewRenderSlice = {
+  text: string;
+  sourceLimit: number;
+  sourceBytes: number;
+  partial: boolean;
+};
 
 export function previewTargetPosition(
   fileSize: number,
@@ -20,7 +29,7 @@ export function previewTargetPosition(
   const completed = ["complete", "cancelled", "error"].includes((printState ?? "").toLowerCase());
   return completed
     ? fileSize
-    : layerTargetPosition(layerOffsets, fileSize, currentLayer, totalLayers) ?? fileTargetPosition(fileSize, filePosition) ?? progressTargetPosition(fileSize, progress);
+    : fileTargetPosition(fileSize, filePosition) ?? layerTargetPosition(layerOffsets, fileSize, currentLayer, totalLayers) ?? progressTargetPosition(fileSize, progress);
 }
 
 export function buildLayerOffsets(text: string) {
@@ -40,6 +49,25 @@ export function buildLayerOffsets(text: string) {
   return offsets;
 }
 
+export function sliceGcodeTextForPreview(text: string, target: number): GcodePreviewRenderSlice {
+  const sourceBytes = text.length;
+  if (!sourceBytes) {
+    return { text: "", sourceLimit: 0, sourceBytes: 0, partial: false };
+  }
+  const safeTarget = Math.max(0, Math.min(sourceBytes, Number.isFinite(target) ? target : 0));
+  const desiredLimit = Math.min(sourceBytes, Math.max(LARGE_GCODE_MIN_RENDER_BYTES, safeTarget + LARGE_GCODE_LOOKAHEAD_BYTES));
+  const sourceLimit = nextLineBoundary(text, desiredLimit);
+  if (sourceLimit >= sourceBytes) {
+    return { text, sourceLimit: sourceBytes, sourceBytes, partial: false };
+  }
+  return {
+    text: text.slice(0, sourceLimit),
+    sourceLimit,
+    sourceBytes,
+    partial: true,
+  };
+}
+
 function layerTargetPosition(layerOffsets: number[], fileSize: number, currentLayer?: number | null, totalLayers?: number | null) {
   if (!Array.isArray(layerOffsets) || layerOffsets.length < 3) return null;
   if (typeof currentLayer !== "number" || !Number.isFinite(currentLayer) || currentLayer <= 0) return null;
@@ -57,6 +85,13 @@ function progressTargetPosition(fileSize: number, progress?: number | null) {
   if (typeof progress !== "number" || !Number.isFinite(progress)) return 0;
   const ratio = progress <= 1 ? progress : progress / 100;
   return Math.max(0, Math.min(fileSize, fileSize * ratio));
+}
+
+function nextLineBoundary(text: string, desiredLimit: number) {
+  const safeLimit = Math.max(0, Math.min(text.length, Math.ceil(desiredLimit)));
+  if (safeLimit >= text.length) return text.length;
+  const nextNewline = text.indexOf("\n", safeLimit);
+  return nextNewline === -1 ? text.length : nextNewline + 1;
 }
 
 function isLayerMarker(line: string, preferAfterLayerChange: boolean) {

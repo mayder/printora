@@ -15,7 +15,7 @@ const transpiled = ts.transpileModule(source, {
   },
 });
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(transpiled.outputText).toString("base64")}`;
-const { buildLayerOffsets, previewTargetPosition } = await import(moduleUrl);
+const { buildLayerOffsets, previewTargetPosition, sliceGcodeTextForPreview } = await import(moduleUrl);
 
 const moves = Array.from({ length: 12 }, (_, index) => `G1 X${index} Y${index} E${(index + 1) / 10}`).join("\n");
 const gcode = [
@@ -38,5 +38,18 @@ assert.equal(previewTargetPosition(fileSize, offsets, "current_layer", 2, null, 
 assert.equal(previewTargetPosition(fileSize, offsets, "progress", null, null, "complete", 0.25, 1, 3), fileSize);
 assert.equal(previewTargetPosition(1000, [], "progress", null, 800, "printing", null, null, null), 450);
 assert.equal(previewTargetPosition(1000, [], "progress", null, null, "printing", 25, null, null), 250);
+assert.equal(previewTargetPosition(1000, [0, 400, 800, 1000], "progress", null, 900, "printing", null, 2, 3), 550);
+
+const largeGcode = "G1 X1 Y1 E0.1\n".repeat(720000);
+const partialSlice = sliceGcodeTextForPreview(largeGcode, 1024);
+assert.equal(partialSlice.partial, true);
+assert.ok(partialSlice.sourceLimit >= 8 * 1024 * 1024);
+assert.ok(partialSlice.sourceLimit < largeGcode.length);
+assert.equal(partialSlice.text, largeGcode.slice(0, partialSlice.sourceLimit));
+assert.equal(partialSlice.text.endsWith("\n"), true);
+
+const finalSlice = sliceGcodeTextForPreview(largeGcode, largeGcode.length - 512);
+assert.equal(finalSlice.partial, false);
+assert.equal(finalSlice.sourceLimit, largeGcode.length);
 
 console.log("G-code preview tests passed.");
