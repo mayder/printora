@@ -1,0 +1,69 @@
+# Inventário De Módulos E Contratos
+
+> Gerado por `scripts/audit_module_boundaries.py`; não editar manualmente.
+
+## Resumo
+
+- módulos Python: 104;
+- endpoints HTTP/WebSocket: 322;
+- contratos tipados: 330;
+- tabelas declaradas em SQL: 100;
+- ciclos de import detectados: 0.
+
+## Fronteiras E Owners
+
+| Fronteira | Owner | Responsabilidade | Módulos | Tabelas |
+|---|---|---|---:|---:|
+| `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 4 | 8 |
+| `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 20 | 45 |
+| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 50 | 32 |
+| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 21 | 15 |
+| `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 4 | 0 |
+| `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 5 | 0 |
+
+## Arquivos Críticos
+
+| Módulo | Owner | Linhas | Rotas | Contratos |
+|---|---|---:|---:|---:|
+| `social_catalog` | `community` | 4033 | 0 | 45 |
+| `auth` | `identity` | 1219 | 0 | 24 |
+| `operation` | `operations` | 1153 | 0 | 0 |
+| `maintenance` | `operations` | 1147 | 0 | 8 |
+| `routes.social_catalog` | `community` | 1107 | 59 | 0 |
+| `print_projects` | `community` | 1036 | 0 | 14 |
+| `agent_pairing` | `operations` | 1008 | 0 | 19 |
+| `self_update` | `administration` | 1002 | 0 | 10 |
+| `calibration` | `operations` | 910 | 0 | 12 |
+| `routes.operation` | `operations` | 776 | 13 | 0 |
+| `setup_flash` | `operations` | 753 | 0 | 7 |
+| `setup_can` | `operations` | 699 | 0 | 7 |
+| `routes.agents` | `operations` | 697 | 35 | 0 |
+| `routes.calibration` | `operations` | 674 | 15 | 0 |
+| `setup_wizard` | `operations` | 643 | 0 | 7 |
+| `printers` | `operations` | 635 | 0 | 3 |
+| `search_discovery` | `community` | 629 | 0 | 5 |
+| `slicing_pipeline` | `operations` | 625 | 0 | 5 |
+| `gcode_files` | `operations` | 543 | 0 | 10 |
+| `health` | `administration` | 513 | 0 | 0 |
+| `setup_firmware` | `operations` | 513 | 0 | 5 |
+| `setup_final_validation` | `operations` | 509 | 0 | 4 |
+| `backups` | `administration` | 508 | 0 | 8 |
+| `firmware.repository` | `operations` | 489 | 0 | 0 |
+| `agent_support` | `operations` | 486 | 0 | 5 |
+| `firmware_catalog` | `operations` | 478 | 0 | 14 |
+| `updates` | `administration` | 465 | 0 | 8 |
+| `install_diagnostics` | `administration` | 403 | 0 | 2 |
+| `print_profiles` | `community` | 400 | 0 | 5 |
+
+## Ciclos De Import
+
+Nenhum ciclo entre módulos Python foi detectado.
+
+## Contrato De Evolução
+
+- cada módulo possui um único owner;
+- API importa application/contract, nunca infrastructure interna de outro módulo;
+- domínio e contratos não importam FastAPI, SQLite, PostgreSQL, Redis, storage ou UI;
+- adapters cloud e local implementam ports compartilhadas, sem fallback cruzado;
+- toda alteração pública preserva compatibilidade N/N-1 ou versiona o contrato;
+- arquivos críticos acima do limite devem ser divididos ao serem alterados.

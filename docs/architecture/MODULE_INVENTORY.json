@@ -1,0 +1,3851 @@
+{
+  "schema_version": 1,
+  "boundaries": [
+    {
+      "key": "identity",
+      "owner": "Identidade e permissões",
+      "description": "Autenticação, sessão, organizações, autorização e auditoria de acesso.",
+      "prefixes": [
+        "auth",
+        "audit"
+      ]
+    },
+    {
+      "key": "community",
+      "owner": "Comunidade e projetos",
+      "description": "Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos.",
+      "prefixes": [
+        "social_",
+        "print_projects",
+        "print_profiles",
+        "external_library",
+        "search_discovery"
+      ]
+    },
+    {
+      "key": "operations",
+      "owner": "Operação e agentes",
+      "description": "Impressoras, agentes, impressão, calibração, manutenção, setup e firmware.",
+      "prefixes": [
+        "agent_",
+        "agents",
+        "operation",
+        "operational",
+        "printer",
+        "print_delivery",
+        "print_history",
+        "print_preflight",
+        "calibration",
+        "maintenance",
+        "checklists",
+        "gcode_",
+        "slicing",
+        "setup_",
+        "setup",
+        "can_monitor",
+        "z_offset",
+        "firmware"
+      ]
+    },
+    {
+      "key": "administration",
+      "owner": "Administração",
+      "description": "Saúde, configuração, backup, relatórios, releases, suporte e operação do produto.",
+      "prefixes": [
+        "backups",
+        "reports",
+        "health",
+        "config",
+        "releases",
+        "updates",
+        "self_update",
+        "snapshots",
+        "host_audit",
+        "install_diagnostics",
+        "network_diagnostics",
+        "remote_operations",
+        "support",
+        "system",
+        "technical_profiles",
+        "frontend"
+      ]
+    },
+    {
+      "key": "integrations",
+      "owner": "Integrações",
+      "description": "Adapters de Moonraker, descoberta, plugins e dependências externas.",
+      "prefixes": [
+        "moonraker",
+        "discovery",
+        "plugins"
+      ]
+    }
+  ],
+  "summary": {
+    "modules": 104,
+    "routes": 322,
+    "contracts": 330,
+    "tables": 100,
+    "cycles": 0,
+    "modules_by_owner": {
+      "administration": 21,
+      "community": 20,
+      "identity": 4,
+      "integrations": 4,
+      "operations": 50,
+      "shared": 5
+    }
+  },
+  "cycles": [],
+  "modules": [
+    {
+      "module": "__init__",
+      "owner": "shared",
+      "lines": 1,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "agent_channel",
+      "owner": "operations",
+      "lines": 92,
+      "imports": [
+        "agent_pairing"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "agent_executor",
+      "owner": "operations",
+      "lines": 96,
+      "imports": [
+        "agent_channel",
+        "agent_pairing",
+        "auth",
+        "printers"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "agent_host",
+      "owner": "operations",
+      "lines": 87,
+      "imports": [
+        "agent_executor",
+        "auth",
+        "config",
+        "printers"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "agent_moonraker",
+      "owner": "operations",
+      "lines": 111,
+      "imports": [
+        "agent_executor"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "agent_pairing",
+      "owner": "operations",
+      "lines": 1008,
+      "imports": [
+        "auth",
+        "database",
+        "printers"
+      ],
+      "routes": [],
+      "contracts": [
+        "PairingTokenCreateRequest",
+        "PairingTokenResponse",
+        "AgentInstallPlanResponse",
+        "PairingTokenRecord",
+        "AgentExchangeRequest",
+        "AgentCredentialExchangeResponse",
+        "AgentRecord",
+        "AgentPairingOverview",
+        "AgentInstallStatusResponse",
+        "AgentHeartbeatRequest",
+        "AgentHeartbeatResponse",
+        "AgentSnapshotRequest",
+        "AgentProtocolMessage",
+        "AgentJobCreateRequest",
+        "AgentJobRecord",
+        "AgentJobResponse",
+        "AgentJobResultRequest",
+        "AgentJobErrorRequest",
+        "AgentEventRecord"
+      ]
+    },
+    {
+      "module": "agent_parity",
+      "owner": "operations",
+      "lines": 208,
+      "imports": [
+        "agent_pairing",
+        "database",
+        "printers"
+      ],
+      "routes": [],
+      "contracts": [
+        "RemoteParityFeature",
+        "RemoteParityOverview",
+        "RemoteParityRunRequest"
+      ]
+    },
+    {
+      "module": "agent_support",
+      "owner": "operations",
+      "lines": 486,
+      "imports": [
+        "agent_pairing",
+        "agent_updates",
+        "database",
+        "printers"
+      ],
+      "routes": [],
+      "contracts": [
+        "AgentHealthSummary",
+        "AgentSupportAlert",
+        "AgentSupportOverview",
+        "AgentSupportBundle",
+        "AgentUpdateRequestResponse"
+      ]
+    },
+    {
+      "module": "agent_updates",
+      "owner": "operations",
+      "lines": 175,
+      "imports": [
+        "agent_pairing",
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "AgentReleaseAsset",
+        "AgentUpdateManifest",
+        "AgentUpdateReportRequest",
+        "AgentUpdateHistoryRecord"
+      ]
+    },
+    {
+      "module": "audit",
+      "owner": "identity",
+      "lines": 275,
+      "imports": [
+        "updates"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "auth",
+      "owner": "identity",
+      "lines": 1219,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "UserContactLinks",
+        "UserRegisterRequest",
+        "UserProfileUpdateRequest",
+        "UserPasswordUpdateRequest",
+        "LoginRequest",
+        "MfaLoginRequest",
+        "OrganizationCreateRequest",
+        "OrganizationMemberAddRequest",
+        "OrganizationInviteCreateRequest",
+        "OrganizationPrinterLinkRequest",
+        "MfaCodeRequest",
+        "StepUpRequest",
+        "AgentCredentialCreateRequest",
+        "AuthOrganization",
+        "AuthOrganizationMember",
+        "AuthOrganizationPrinter",
+        "AuthOrganizationInvite",
+        "AuthUser",
+        "AuthSessionResponse",
+        "LoginResponse",
+        "MfaSetupResponse",
+        "StepUpResponse",
+        "AgentCredentialResponse",
+        "AgentCredentialRecord"
+      ]
+    },
+    {
+      "module": "backups",
+      "owner": "administration",
+      "lines": 508,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "BackupPolicyCreate",
+        "BackupPolicyRecord",
+        "BackupRunRecord",
+        "BackupArchiveCompareRequest",
+        "BackupArchiveCompareResponse",
+        "BackupRestorePlanRequest",
+        "BackupRestorePlanResponse",
+        "BackupRestoreGateResponse"
+      ]
+    },
+    {
+      "module": "calibration",
+      "owner": "operations",
+      "lines": 910,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "CalibrationTestRecord",
+        "CalibrationRunCreate",
+        "CalibrationRunRecord",
+        "CalibrationSummary",
+        "HiddenCalibrationTest",
+        "CalibrationAvailableTestsResponse",
+        "CalibrationSequenceStep",
+        "CalibrationSequencePlan",
+        "CalibrationPreflight",
+        "CalibrationExecutionRequest",
+        "CalibrationExecutionGate",
+        "CalibrationExecutionRecord"
+      ]
+    },
+    {
+      "module": "can_monitor",
+      "owner": "operations",
+      "lines": 381,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "CanBusRecordCreate",
+        "CanBusParseRequest",
+        "CanBusRecord",
+        "CanInterfaceSummary",
+        "CanBusSummary",
+        "CanBusRecordComparison"
+      ]
+    },
+    {
+      "module": "checklists",
+      "owner": "operations",
+      "lines": 162,
+      "imports": [
+        "updates"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "config",
+      "owner": "administration",
+      "lines": 63,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "config_remediation",
+      "owner": "administration",
+      "lines": 312,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "ConfigOptionPatch",
+        "ConfigRemediationRequest"
+      ]
+    },
+    {
+      "module": "database",
+      "owner": "shared",
+      "lines": 398,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "discovery",
+      "owner": "integrations",
+      "lines": 163,
+      "imports": [
+        "printers"
+      ],
+      "routes": [],
+      "contracts": [
+        "DiscoveredPrinter",
+        "PrinterDiscoveryResponse"
+      ]
+    },
+    {
+      "module": "external_library",
+      "owner": "community",
+      "lines": 284,
+      "imports": [
+        "database",
+        "social_catalog"
+      ],
+      "routes": [],
+      "contracts": [
+        "ExternalSourceCreate",
+        "ExternalSourceRecord",
+        "ExternalReferenceCreate",
+        "ExternalReferenceRecord",
+        "ExternalImportPreview"
+      ]
+    },
+    {
+      "module": "firmware.__init__",
+      "owner": "shared",
+      "lines": 47,
+      "imports": [
+        "firmware.models",
+        "firmware.presets",
+        "firmware.repository"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "firmware.build_service",
+      "owner": "operations",
+      "lines": 312,
+      "imports": [
+        "firmware.config_generator",
+        "firmware.models",
+        "firmware.utils"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "firmware.config_generator",
+      "owner": "operations",
+      "lines": 66,
+      "imports": [
+        "firmware.models"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "firmware.flash_service",
+      "owner": "operations",
+      "lines": 176,
+      "imports": [
+        "firmware.models",
+        "firmware.utils"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "firmware.models",
+      "owner": "operations",
+      "lines": 321,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "FirmwareBuildConfig",
+        "FirmwareBuildConfigValidation",
+        "FirmwareConfigPreview",
+        "BoardPreset",
+        "FirmwareBoardCreate",
+        "FirmwareBoardRecord",
+        "FirmwareBuildDryRunCreate",
+        "FirmwareBuildRunRecord",
+        "FirmwareBuildPreflightCheck",
+        "FirmwareBuildPreflight",
+        "FirmwareFlashDryRunCreate",
+        "FirmwareFlashRunRecord",
+        "FirmwareFlashPreflightCheck",
+        "FirmwareFlashPreflight",
+        "FirmwareRecoveryPlan"
+      ]
+    },
+    {
+      "module": "firmware.presets",
+      "owner": "operations",
+      "lines": 350,
+      "imports": [
+        "firmware.models"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "firmware.recovery_service",
+      "owner": "operations",
+      "lines": 58,
+      "imports": [
+        "firmware.models"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "firmware.repository",
+      "owner": "operations",
+      "lines": 489,
+      "imports": [
+        "database",
+        "firmware.build_service",
+        "firmware.config_generator",
+        "firmware.flash_service",
+        "firmware.models",
+        "firmware.presets",
+        "firmware.recovery_service",
+        "firmware.utils"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "firmware.utils",
+      "owner": "operations",
+      "lines": 20,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "firmware_catalog",
+      "owner": "operations",
+      "lines": 478,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "FirmwareCatalogManifestPage",
+        "FirmwareCatalogManifest",
+        "FirmwareCatalogSource",
+        "FirmwareCatalogWorkflow",
+        "FirmwareCatalogHardware",
+        "FirmwareCatalogReference",
+        "FirmwareCatalogGuide",
+        "FirmwareCatalogKatapult",
+        "FirmwareCatalogCanSpeed",
+        "FirmwareCatalogGenerationMetadata",
+        "FirmwareCatalog",
+        "FirmwareCatalogSummary",
+        "FirmwareHardwareItem",
+        "FirmwareHardwareInventory"
+      ]
+    },
+    {
+      "module": "gcode_cache",
+      "owner": "operations",
+      "lines": 175,
+      "imports": [
+        "agent_pairing",
+        "config"
+      ],
+      "routes": [],
+      "contracts": [
+        "GcodeCachePrepareRequest",
+        "GcodeCacheEntry"
+      ]
+    },
+    {
+      "module": "gcode_files",
+      "owner": "operations",
+      "lines": 543,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "GcodeFileThumbnail",
+        "GcodeFileEntry",
+        "GcodeDirectoryEntry",
+        "GcodeStorage",
+        "GcodeFilesResponse",
+        "GcodeFileActionState",
+        "GcodeFileHistoryEntry",
+        "GcodeFileDetailResponse",
+        "GcodeFileActionRequest",
+        "GcodeFileActionResponse"
+      ]
+    },
+    {
+      "module": "health",
+      "owner": "administration",
+      "lines": 513,
+      "imports": [
+        "audit",
+        "snapshots",
+        "updates"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "host_audit",
+      "owner": "administration",
+      "lines": 310,
+      "imports": [
+        "audit"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "install_diagnostics",
+      "owner": "administration",
+      "lines": 403,
+      "imports": [
+        "config",
+        "releases",
+        "self_update"
+      ],
+      "routes": [],
+      "contracts": [
+        "InstallDiagnosticItem",
+        "InstallationDiagnosticsResponse"
+      ]
+    },
+    {
+      "module": "main",
+      "owner": "shared",
+      "lines": 121,
+      "imports": [
+        "auth",
+        "config",
+        "database",
+        "operational",
+        "routes",
+        "social_catalog"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "maintenance",
+      "owner": "operations",
+      "lines": 1147,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "MaintenanceEventCreate",
+        "MaintenanceEventRecord",
+        "MaintenanceTaskCreate",
+        "MaintenanceTaskComplete",
+        "MaintenanceTaskApplicabilityUpdate",
+        "MaintenanceTaskHelp",
+        "MaintenanceTaskRecord",
+        "MaintenanceSummary"
+      ]
+    },
+    {
+      "module": "moonraker",
+      "owner": "integrations",
+      "lines": 157,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "network_diagnostics",
+      "owner": "administration",
+      "lines": 367,
+      "imports": [
+        "printers"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "operation",
+      "owner": "operations",
+      "lines": 1153,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "operation_history",
+      "owner": "operations",
+      "lines": 304,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "OperationActionPreviewRecord",
+        "OperationActionExecutionAttemptRecord"
+      ]
+    },
+    {
+      "module": "operational",
+      "owner": "operations",
+      "lines": 130,
+      "imports": [
+        "config"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "plugins",
+      "owner": "integrations",
+      "lines": 242,
+      "imports": [
+        "snapshots"
+      ],
+      "routes": [],
+      "contracts": [
+        "PluginAuditItem",
+        "PluginAuditResponse"
+      ]
+    },
+    {
+      "module": "print_delivery",
+      "owner": "operations",
+      "lines": 394,
+      "imports": [
+        "database",
+        "print_preflight",
+        "slicing_pipeline"
+      ],
+      "routes": [],
+      "contracts": [
+        "PrintDeliveryCreate",
+        "PrintDeliveryRecord",
+        "PreparedGcodeDelivery"
+      ]
+    },
+    {
+      "module": "print_history",
+      "owner": "operations",
+      "lines": 317,
+      "imports": [
+        "database",
+        "print_delivery",
+        "slicing_pipeline"
+      ],
+      "routes": [],
+      "contracts": [
+        "PrintFeedbackCreate",
+        "PrintJobHistoryEvent",
+        "PrintJobFeedback",
+        "PrintJobHistoryRecord"
+      ]
+    },
+    {
+      "module": "print_preflight",
+      "owner": "operations",
+      "lines": 350,
+      "imports": [
+        "agent_pairing",
+        "auth",
+        "config",
+        "database",
+        "printers",
+        "slicing_pipeline"
+      ],
+      "routes": [],
+      "contracts": [
+        "GcodeMetadata",
+        "PrintPreflightRecord"
+      ]
+    },
+    {
+      "module": "print_profiles",
+      "owner": "community",
+      "lines": 400,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "SlicingProfilePayload",
+        "MaterialProfilePayload",
+        "SlicingProfile",
+        "MaterialProfile",
+        "MaterialProfileExport"
+      ]
+    },
+    {
+      "module": "print_projects",
+      "owner": "community",
+      "lines": 1036,
+      "imports": [
+        "database",
+        "social_catalog",
+        "social_storage"
+      ],
+      "routes": [],
+      "contracts": [
+        "PrintProjectContract",
+        "PrintProjectFile",
+        "PrintProjectSummary",
+        "PrintProjectVersion",
+        "PrintProjectPublicationReview",
+        "PrintProjectSaveRequest",
+        "PrintProjectCommunityShare",
+        "PrintProjectShareRequest",
+        "PrintProjectCreateRequest",
+        "PrintProjectUpdateRequest",
+        "PrintProjectExternalLinkRequest",
+        "PrintProjectStorageReport",
+        "PrintProjectPublicationRequest",
+        "PrintProjectPublicationReviewRequest"
+      ]
+    },
+    {
+      "module": "printers",
+      "owner": "operations",
+      "lines": 635,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "PrinterCreate",
+        "PrinterUpdate",
+        "PrinterRecord"
+      ]
+    },
+    {
+      "module": "releases",
+      "owner": "administration",
+      "lines": 242,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "ReleaseRecord",
+        "ReleasesResponse"
+      ]
+    },
+    {
+      "module": "remote_operations",
+      "owner": "administration",
+      "lines": 279,
+      "imports": [
+        "agent_pairing",
+        "auth",
+        "database",
+        "operation",
+        "printers"
+      ],
+      "routes": [],
+      "contracts": [
+        "RemoteOperationAction",
+        "RemoteOperationOverview",
+        "RemoteOperationPreflightRequest",
+        "RemoteOperationExecuteRequest",
+        "RemoteOperationCancelResponse"
+      ]
+    },
+    {
+      "module": "reports",
+      "owner": "administration",
+      "lines": 170,
+      "imports": [
+        "backups",
+        "printers",
+        "snapshots"
+      ],
+      "routes": [],
+      "contracts": [
+        "SanitizedReport"
+      ]
+    },
+    {
+      "module": "routes.__init__",
+      "owner": "shared",
+      "lines": 0,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "routes.agents",
+      "owner": "operations",
+      "lines": 697,
+      "imports": [
+        "agent_channel",
+        "agent_pairing",
+        "agent_parity",
+        "agent_support",
+        "agent_updates",
+        "auth",
+        "config",
+        "gcode_cache",
+        "remote_operations",
+        "routes.auth"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/pairing",
+          "handler": "printer_pairing_overview"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/pairing/tokens",
+          "handler": "create_printer_pairing_token"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/pairing/tokens/{token_id}/revoke",
+          "handler": "revoke_printer_pairing_token"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/printers/{printer_id}/pairing/tokens/{token_id}",
+          "handler": "remove_printer_pairing_token"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/agents/{agent_id}/rotate",
+          "handler": "rotate_printer_agent_credential"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/agents/{agent_id}/revoke",
+          "handler": "revoke_printer_agent"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/printers/{printer_id}/agents/{agent_id}",
+          "handler": "remove_printer_agent"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/agent/install-plan",
+          "handler": "create_agent_install_plan"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/agent/install-status",
+          "handler": "agent_install_status"
+        },
+        {
+          "method": "GET",
+          "path": "/api/agent/install/linux.sh",
+          "handler": "agent_linux_installer"
+        },
+        {
+          "method": "GET",
+          "path": "/api/agent/update/manifest",
+          "handler": "agent_update_manifest"
+        },
+        {
+          "method": "GET",
+          "path": "/api/agent/update/releases/{platform}",
+          "handler": "agent_update_release"
+        },
+        {
+          "method": "POST",
+          "path": "/api/agent/update/reports",
+          "handler": "agent_update_report"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/agent/update-history",
+          "handler": "printer_agent_update_history"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/remote/parity",
+          "handler": "printer_remote_parity"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/remote/parity/jobs",
+          "handler": "create_printer_remote_parity_job"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/agent/support",
+          "handler": "printer_agent_support"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/agent/support/doctor",
+          "handler": "create_printer_agent_doctor_job"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/agents/{agent_id}/update-check",
+          "handler": "create_printer_agent_update_job"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/agent/support/bundle",
+          "handler": "printer_agent_support_bundle"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/remote/operations",
+          "handler": "printer_remote_operations"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/remote/operations/preflight",
+          "handler": "create_printer_remote_operation_preflight"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/remote/operations/execute",
+          "handler": "create_printer_remote_operation_execution"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/remote/operations/jobs/{job_id}/cancel",
+          "handler": "cancel_printer_remote_operation_job"
+        },
+        {
+          "method": "POST",
+          "path": "/api/agent/pairing/exchange",
+          "handler": "exchange_agent_pairing_token"
+        },
+        {
+          "method": "POST",
+          "path": "/api/agent/heartbeat",
+          "handler": "agent_heartbeat"
+        },
+        {
+          "method": "POST",
+          "path": "/api/agent/snapshots",
+          "handler": "agent_snapshot"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/agent/gcode-cache/{cache_key}",
+          "handler": "upload_agent_gcode_cache"
+        },
+        {
+          "method": "GET",
+          "path": "/api/agent/jobs/next",
+          "handler": "agent_next_jobs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/agent/jobs",
+          "handler": "create_printer_agent_job"
+        },
+        {
+          "method": "POST",
+          "path": "/api/agent/jobs/{job_id}/ack",
+          "handler": "agent_ack_job"
+        },
+        {
+          "method": "POST",
+          "path": "/api/agent/jobs/{job_id}/nack",
+          "handler": "agent_nack_job"
+        },
+        {
+          "method": "POST",
+          "path": "/api/agent/jobs/{job_id}/result",
+          "handler": "agent_job_result"
+        },
+        {
+          "method": "POST",
+          "path": "/api/agent/jobs/{job_id}/error",
+          "handler": "agent_job_error"
+        },
+        {
+          "method": "WEBSOCKET",
+          "path": "/api/agent/ws",
+          "handler": "agent_websocket"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.audit",
+      "owner": "identity",
+      "lines": 143,
+      "imports": [
+        "agent_executor",
+        "agent_moonraker",
+        "routes.auth",
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/audit/read-only",
+          "handler": "read_only_audit"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/audit/read-only",
+          "handler": "printer_read_only_audit"
+        },
+        {
+          "method": "GET",
+          "path": "/api/audit/host-read-only",
+          "handler": "host_read_only_audit"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.auth",
+      "owner": "identity",
+      "lines": 390,
+      "imports": [
+        "auth",
+        "config",
+        "database"
+      ],
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/register",
+          "handler": "register_user"
+        },
+        {
+          "method": "POST",
+          "path": "/login",
+          "handler": "login_user"
+        },
+        {
+          "method": "POST",
+          "path": "/login/mfa",
+          "handler": "login_mfa"
+        },
+        {
+          "method": "POST",
+          "path": "/logout",
+          "handler": "logout_user"
+        },
+        {
+          "method": "GET",
+          "path": "/me",
+          "handler": "auth_me"
+        },
+        {
+          "method": "PATCH",
+          "path": "/me",
+          "handler": "update_auth_profile"
+        },
+        {
+          "method": "PATCH",
+          "path": "/password",
+          "handler": "update_auth_password"
+        },
+        {
+          "method": "POST",
+          "path": "/organizations",
+          "handler": "create_organization"
+        },
+        {
+          "method": "GET",
+          "path": "/organizations",
+          "handler": "list_organizations"
+        },
+        {
+          "method": "PATCH",
+          "path": "/organizations/{organization_id}",
+          "handler": "update_organization"
+        },
+        {
+          "method": "DELETE",
+          "path": "/organizations/{organization_id}",
+          "handler": "delete_organization"
+        },
+        {
+          "method": "POST",
+          "path": "/organizations/{organization_id}/members",
+          "handler": "add_organization_member"
+        },
+        {
+          "method": "GET",
+          "path": "/organizations/{organization_id}",
+          "handler": "organization_detail"
+        },
+        {
+          "method": "POST",
+          "path": "/organizations/{organization_id}/invites",
+          "handler": "create_organization_invite"
+        },
+        {
+          "method": "DELETE",
+          "path": "/organizations/{organization_id}/invites/{invite_id}",
+          "handler": "revoke_organization_invite"
+        },
+        {
+          "method": "POST",
+          "path": "/organization-invites/{token}/accept",
+          "handler": "accept_organization_invite"
+        },
+        {
+          "method": "DELETE",
+          "path": "/organizations/{organization_id}/members/{user_id}",
+          "handler": "remove_organization_member"
+        },
+        {
+          "method": "POST",
+          "path": "/organizations/{organization_id}/printers",
+          "handler": "link_organization_printer"
+        },
+        {
+          "method": "DELETE",
+          "path": "/organizations/{organization_id}/printers/{printer_id}",
+          "handler": "unlink_organization_printer"
+        },
+        {
+          "method": "POST",
+          "path": "/mfa/setup",
+          "handler": "prepare_mfa"
+        },
+        {
+          "method": "POST",
+          "path": "/mfa/enable",
+          "handler": "enable_mfa"
+        },
+        {
+          "method": "POST",
+          "path": "/mfa/disable",
+          "handler": "disable_mfa"
+        },
+        {
+          "method": "POST",
+          "path": "/step-up",
+          "handler": "create_step_up_token"
+        },
+        {
+          "method": "POST",
+          "path": "/agent-credentials",
+          "handler": "create_agent_credential"
+        },
+        {
+          "method": "GET",
+          "path": "/agent-credentials",
+          "handler": "list_agent_credentials"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.backups",
+      "owner": "administration",
+      "lines": 191,
+      "imports": [
+        "routes.auth",
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/backup/policies",
+          "handler": "list_backup_policies"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/backup/policies",
+          "handler": "create_backup_policy"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/backup/runs",
+          "handler": "list_backup_runs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/backup/policies/{policy_id}/dry-run",
+          "handler": "create_backup_dry_run"
+        },
+        {
+          "method": "POST",
+          "path": "/api/backup/policies/{policy_id}/execute-local",
+          "handler": "execute_local_backup"
+        },
+        {
+          "method": "POST",
+          "path": "/api/backup/archives/compare",
+          "handler": "compare_backup_archives_endpoint"
+        },
+        {
+          "method": "POST",
+          "path": "/api/backup/restore-plan",
+          "handler": "backup_restore_plan"
+        },
+        {
+          "method": "POST",
+          "path": "/api/backup/restore-gate",
+          "handler": "backup_restore_gate"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.calibration",
+      "owner": "operations",
+      "lines": 674,
+      "imports": [
+        "agent_executor",
+        "agent_moonraker",
+        "auth",
+        "config_remediation",
+        "routes.auth",
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/calibration/tests",
+          "handler": "list_calibration_tests"
+        },
+        {
+          "method": "GET",
+          "path": "/api/calibration/tests/{test_key}",
+          "handler": "get_calibration_test"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/calibration/available-tests",
+          "handler": "list_available_calibration_tests"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/calibration/runs",
+          "handler": "list_calibration_runs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/calibration/executions",
+          "handler": "list_calibration_executions"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/calibration/console",
+          "handler": "get_calibration_console"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/printers/{printer_id}/calibration/executions/{attempt_id}",
+          "handler": "delete_calibration_execution"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/printers/{printer_id}/calibration/runs/{run_id}",
+          "handler": "delete_calibration_run"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/calibration/config-remediation/preview",
+          "handler": "preview_calibration_config_remediation"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/calibration/config-remediation/apply",
+          "handler": "apply_calibration_config_remediation"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/calibration/summary",
+          "handler": "calibration_summary"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/calibration/sequence",
+          "handler": "calibration_sequence"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/calibration/tests/{test_key}/preflight",
+          "handler": "calibration_test_preflight"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/calibration/runs",
+          "handler": "create_calibration_run"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/calibration/execute",
+          "handler": "execute_calibration_test"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.can_monitor",
+      "owner": "operations",
+      "lines": 76,
+      "imports": [
+        "routes.auth",
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/can/records",
+          "handler": "list_can_bus_records"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/can/summary",
+          "handler": "can_bus_summary"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/can/compare",
+          "handler": "compare_can_bus_records"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/can/parse",
+          "handler": "parse_can_bus_output"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/can/records",
+          "handler": "create_can_bus_record"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.checklists",
+      "owner": "operations",
+      "lines": 89,
+      "imports": [
+        "agent_executor",
+        "agent_moonraker",
+        "routes.auth",
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/checklist/post-update",
+          "handler": "post_update_checklist"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/checklist/post-update",
+          "handler": "printer_post_update_checklist"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.external_library",
+      "owner": "community",
+      "lines": 71,
+      "imports": [
+        "config",
+        "external_library",
+        "routes.auth"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/sources",
+          "handler": "list_external_sources"
+        },
+        {
+          "method": "POST",
+          "path": "/sources",
+          "handler": "create_external_source"
+        },
+        {
+          "method": "GET",
+          "path": "/preview",
+          "handler": "preview_external_import"
+        },
+        {
+          "method": "GET",
+          "path": "/references",
+          "handler": "list_external_references"
+        },
+        {
+          "method": "POST",
+          "path": "/references",
+          "handler": "create_external_reference"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.firmware",
+      "owner": "operations",
+      "lines": 355,
+      "imports": [
+        "agent_executor",
+        "agent_moonraker",
+        "firmware.config_generator",
+        "firmware_catalog",
+        "routes.auth",
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/firmware/board-presets",
+          "handler": "list_firmware_board_presets"
+        },
+        {
+          "method": "GET",
+          "path": "/api/firmware/board-presets/{preset_id}/config-preview",
+          "handler": "firmware_preset_config_preview"
+        },
+        {
+          "method": "GET",
+          "path": "/api/firmware/catalog",
+          "handler": "read_firmware_catalog_summary"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/firmware/boards",
+          "handler": "list_firmware_boards"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/firmware/hardware-inventory",
+          "handler": "firmware_hardware_inventory"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/firmware/boards",
+          "handler": "create_firmware_board"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/firmware/build-runs",
+          "handler": "list_firmware_build_runs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/firmware/boards/{board_id}/build-runs/dry-run",
+          "handler": "create_firmware_build_dry_run"
+        },
+        {
+          "method": "POST",
+          "path": "/api/firmware/boards/{board_id}/build-runs/preflight",
+          "handler": "firmware_build_preflight"
+        },
+        {
+          "method": "POST",
+          "path": "/api/firmware/boards/{board_id}/build-runs/execute-local",
+          "handler": "execute_firmware_build_local"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/firmware/flash-runs",
+          "handler": "list_firmware_flash_runs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/firmware/boards/{board_id}/flash-runs/dry-run",
+          "handler": "create_firmware_flash_dry_run"
+        },
+        {
+          "method": "POST",
+          "path": "/api/firmware/boards/{board_id}/flash-runs/preflight",
+          "handler": "firmware_flash_preflight"
+        },
+        {
+          "method": "POST",
+          "path": "/api/firmware/boards/{board_id}/flash-runs/execute",
+          "handler": "execute_firmware_flash_blocked"
+        },
+        {
+          "method": "GET",
+          "path": "/api/firmware/boards/{board_id}/recovery-plan",
+          "handler": "firmware_recovery_plan"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.frontend",
+      "owner": "administration",
+      "lines": 52,
+      "imports": [
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/",
+          "handler": "frontend_index"
+        },
+        {
+          "method": "GET",
+          "path": "/favicon.png",
+          "handler": "frontend_favicon"
+        },
+        {
+          "method": "GET",
+          "path": "/apple-touch-icon.png",
+          "handler": "frontend_apple_touch_icon"
+        },
+        {
+          "method": "GET",
+          "path": "/{frontend_path:path}",
+          "handler": "frontend_fallback"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.maintenance",
+      "owner": "operations",
+      "lines": 194,
+      "imports": [
+        "routes.auth",
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/maintenance/events",
+          "handler": "list_maintenance_events"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/maintenance/events",
+          "handler": "create_maintenance_event"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/maintenance/events/{event_id}",
+          "handler": "delete_maintenance_event"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/maintenance/tasks",
+          "handler": "list_maintenance_tasks"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/maintenance/summary",
+          "handler": "maintenance_summary"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/maintenance/tasks",
+          "handler": "create_maintenance_task"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/maintenance/tasks/defaults",
+          "handler": "create_default_maintenance_tasks"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/maintenance/print-hours",
+          "handler": "refresh_maintenance_print_hours"
+        },
+        {
+          "method": "POST",
+          "path": "/api/maintenance/tasks/{task_id}/complete",
+          "handler": "complete_maintenance_task"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/maintenance/tasks/{task_id}/applicability",
+          "handler": "update_maintenance_task_applicability"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/maintenance/tasks/{task_id}/latest-event",
+          "handler": "delete_latest_maintenance_task_event"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.operation",
+      "owner": "operations",
+      "lines": 776,
+      "imports": [
+        "agent_executor",
+        "agent_moonraker",
+        "agent_pairing",
+        "auth",
+        "database",
+        "gcode_cache",
+        "gcode_files",
+        "operation",
+        "routes.auth",
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/operation/status",
+          "handler": "printer_operation_status"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/gcode-files",
+          "handler": "list_printer_gcode_files"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/gcode-files/detail",
+          "handler": "get_printer_gcode_file_detail"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/gcode-files/actions",
+          "handler": "execute_printer_gcode_file_action"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/operation/gcode-cache",
+          "handler": "prepare_printer_operation_gcode_cache"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/operation/gcode-cache/{cache_key}",
+          "handler": "get_printer_operation_gcode_cache"
+        },
+        {
+          "method": "GET",
+          "path": "/api/operation/fixtures/voron-offline",
+          "handler": "operation_voron_offline_fixture"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/operation/actions/history",
+          "handler": "list_printer_operation_action_history"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/operation/actions/executions",
+          "handler": "list_printer_operation_action_executions"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/operation/actions/preview",
+          "handler": "preview_printer_operation_action"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/operation/actions/preflight",
+          "handler": "preflight_printer_operation_action"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/operation/actions/execute",
+          "handler": "execute_printer_operation_action"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/operation/actions/execute-direct",
+          "handler": "execute_direct_printer_operation_action"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.plugins",
+      "owner": "integrations",
+      "lines": 21,
+      "imports": [
+        "routes.auth",
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/plugins/audit",
+          "handler": "plugin_audit"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.print_profiles",
+      "owner": "community",
+      "lines": 102,
+      "imports": [
+        "auth",
+        "config",
+        "print_profiles",
+        "routes.auth"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/social/me/material-profiles",
+          "handler": "list_my_material_profiles"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/material-profiles",
+          "handler": "create_material_profile"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/social/material-profiles/{profile_id}",
+          "handler": "update_material_profile"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/social/material-profiles/{profile_id}",
+          "handler": "archive_material_profile"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/material-profiles/{profile_id}/export",
+          "handler": "export_material_profile"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/material-profiles/import",
+          "handler": "import_material_profile"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/communities/{slug}/material-profiles",
+          "handler": "list_community_material_profiles"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.print_projects",
+      "owner": "community",
+      "lines": 228,
+      "imports": [
+        "auth",
+        "config",
+        "print_projects",
+        "routes.auth",
+        "routes.social_catalog"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/print-projects/contract",
+          "handler": "print_projects_contract"
+        },
+        {
+          "method": "GET",
+          "path": "/api/print-projects",
+          "handler": "explore_print_projects"
+        },
+        {
+          "method": "GET",
+          "path": "/api/print-projects/me",
+          "handler": "my_print_projects"
+        },
+        {
+          "method": "GET",
+          "path": "/api/print-projects/me/storage",
+          "handler": "my_print_project_storage"
+        },
+        {
+          "method": "POST",
+          "path": "/api/print-projects",
+          "handler": "create_print_project"
+        },
+        {
+          "method": "GET",
+          "path": "/api/print-projects/{slug}",
+          "handler": "print_project_detail"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/print-projects/{project_id}",
+          "handler": "update_print_project"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/print-projects/{project_id}",
+          "handler": "archive_print_project"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/print-projects/{project_id}/publication",
+          "handler": "update_print_project_publication"
+        },
+        {
+          "method": "POST",
+          "path": "/api/print-projects/{project_id}/publication-review",
+          "handler": "review_print_project_publication"
+        },
+        {
+          "method": "POST",
+          "path": "/api/print-projects/{project_id}/save",
+          "handler": "save_print_project"
+        },
+        {
+          "method": "POST",
+          "path": "/api/print-projects/{project_id}/files/upload",
+          "handler": "upload_print_project_file"
+        },
+        {
+          "method": "POST",
+          "path": "/api/print-projects/{project_id}/external-links",
+          "handler": "add_print_project_external_link"
+        },
+        {
+          "method": "POST",
+          "path": "/api/print-projects/{project_id}/communities",
+          "handler": "share_print_project_with_community"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/communities/{slug}/projects",
+          "handler": "community_print_projects"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.printer_updates",
+      "owner": "operations",
+      "lines": 209,
+      "imports": [
+        "agent_executor",
+        "agent_moonraker",
+        "routes.auth",
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/updates/refresh",
+          "handler": "refresh_printer_update_status"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/updates/silences",
+          "handler": "silence_printer_update_alert"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/updates/silences/clear",
+          "handler": "clear_printer_update_alert_silence"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/updates/run",
+          "handler": "run_printer_update"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/updates/rollback",
+          "handler": "rollback_printer_update"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.printers",
+      "owner": "operations",
+      "lines": 323,
+      "imports": [
+        "agent_executor",
+        "agent_moonraker",
+        "discovery",
+        "routes.auth",
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/moonraker/status",
+          "handler": "moonraker_status"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers",
+          "handler": "list_printers"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers",
+          "handler": "create_printer"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/discover",
+          "handler": "discover_printers"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/test-connection",
+          "handler": "test_printer_connection"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}",
+          "handler": "get_printer"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/printers/{printer_id}",
+          "handler": "update_printer"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/moonraker/status",
+          "handler": "printer_moonraker_status"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/health",
+          "handler": "printer_health"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/network-diagnostics",
+          "handler": "printer_network_diagnostics"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/updates/status",
+          "handler": "printer_update_status"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.reports",
+      "owner": "administration",
+      "lines": 90,
+      "imports": [
+        "agent_executor",
+        "agent_moonraker",
+        "routes.auth",
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/reports/sanitized",
+          "handler": "sanitized_report"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.search_discovery",
+      "owner": "community",
+      "lines": 71,
+      "imports": [
+        "auth",
+        "config",
+        "routes.auth",
+        "search_discovery"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/social/search",
+          "handler": "search_social_content"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/tags",
+          "handler": "list_social_tags"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/social/tags/{slug}",
+          "handler": "curate_social_tag"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.setup",
+      "owner": "operations",
+      "lines": 229,
+      "imports": [
+        "auth",
+        "routes.auth",
+        "routes.support",
+        "setup_can",
+        "setup_final_validation",
+        "setup_firmware",
+        "setup_flash",
+        "setup_wizard"
+      ],
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/api/setup/ssh/preflight",
+          "handler": "setup_ssh_preflight"
+        },
+        {
+          "method": "POST",
+          "path": "/api/setup/ssh/plan",
+          "handler": "setup_ssh_plan"
+        },
+        {
+          "method": "GET",
+          "path": "/api/setup/ssh/history",
+          "handler": "setup_ssh_history"
+        },
+        {
+          "method": "POST",
+          "path": "/api/setup/can/preflight",
+          "handler": "setup_can_preflight"
+        },
+        {
+          "method": "POST",
+          "path": "/api/setup/can/plan",
+          "handler": "setup_can_plan"
+        },
+        {
+          "method": "POST",
+          "path": "/api/setup/can/apply",
+          "handler": "setup_can_apply"
+        },
+        {
+          "method": "GET",
+          "path": "/api/setup/can/history",
+          "handler": "setup_can_history"
+        },
+        {
+          "method": "POST",
+          "path": "/api/setup/firmware/plan",
+          "handler": "setup_firmware_plan"
+        },
+        {
+          "method": "POST",
+          "path": "/api/setup/firmware/build",
+          "handler": "setup_firmware_build"
+        },
+        {
+          "method": "GET",
+          "path": "/api/setup/firmware/history",
+          "handler": "setup_firmware_history"
+        },
+        {
+          "method": "POST",
+          "path": "/api/setup/flash/preflight",
+          "handler": "setup_flash_preflight"
+        },
+        {
+          "method": "POST",
+          "path": "/api/setup/flash/plan",
+          "handler": "setup_flash_plan"
+        },
+        {
+          "method": "POST",
+          "path": "/api/setup/flash/execute",
+          "handler": "setup_flash_execute"
+        },
+        {
+          "method": "GET",
+          "path": "/api/setup/flash/history",
+          "handler": "setup_flash_history"
+        },
+        {
+          "method": "POST",
+          "path": "/api/setup/final-validation/run",
+          "handler": "setup_final_validation_run"
+        },
+        {
+          "method": "GET",
+          "path": "/api/setup/final-validation/history",
+          "handler": "setup_final_validation_history"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.slicing",
+      "owner": "operations",
+      "lines": 316,
+      "imports": [
+        "agent_executor",
+        "agent_pairing",
+        "auth",
+        "config",
+        "print_delivery",
+        "print_history",
+        "print_preflight",
+        "routes.auth",
+        "slicing",
+        "slicing_pipeline"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/engine",
+          "handler": "get_slicing_engine"
+        },
+        {
+          "method": "POST",
+          "path": "/dry-run",
+          "handler": "create_slicing_dry_run"
+        },
+        {
+          "method": "GET",
+          "path": "/jobs",
+          "handler": "list_slicing_jobs"
+        },
+        {
+          "method": "POST",
+          "path": "/jobs",
+          "handler": "create_slicing_job"
+        },
+        {
+          "method": "GET",
+          "path": "/projects/{project_id}/jobs",
+          "handler": "list_project_slicing_jobs"
+        },
+        {
+          "method": "POST",
+          "path": "/projects/{project_id}/jobs",
+          "handler": "create_project_slicing_job"
+        },
+        {
+          "method": "POST",
+          "path": "/jobs/{job_id}/run",
+          "handler": "run_slicing_job"
+        },
+        {
+          "method": "POST",
+          "path": "/jobs/{job_id}/cancel",
+          "handler": "cancel_slicing_job"
+        },
+        {
+          "method": "GET",
+          "path": "/preflights",
+          "handler": "list_print_preflights"
+        },
+        {
+          "method": "POST",
+          "path": "/jobs/{job_id}/preflight",
+          "handler": "create_print_preflight"
+        },
+        {
+          "method": "POST",
+          "path": "/preflights/{preflight_id}/refresh",
+          "handler": "refresh_print_preflight"
+        },
+        {
+          "method": "GET",
+          "path": "/deliveries",
+          "handler": "list_print_deliveries"
+        },
+        {
+          "method": "POST",
+          "path": "/deliveries",
+          "handler": "create_print_delivery"
+        },
+        {
+          "method": "POST",
+          "path": "/deliveries/{delivery_id}/cancel",
+          "handler": "cancel_print_delivery"
+        },
+        {
+          "method": "POST",
+          "path": "/deliveries/{delivery_id}/rollback",
+          "handler": "rollback_print_delivery"
+        },
+        {
+          "method": "GET",
+          "path": "/history",
+          "handler": "list_print_history"
+        },
+        {
+          "method": "POST",
+          "path": "/history/{history_id}/events",
+          "handler": "record_print_history_event"
+        },
+        {
+          "method": "POST",
+          "path": "/history/{history_id}/feedback",
+          "handler": "add_print_history_feedback"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.snapshots",
+      "owner": "administration",
+      "lines": 88,
+      "imports": [
+        "agent_executor",
+        "agent_moonraker",
+        "routes.auth",
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/snapshots/moonraker",
+          "handler": "create_moonraker_snapshot"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/snapshots",
+          "handler": "list_snapshots"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/snapshots/diff",
+          "handler": "diff_snapshots"
+        },
+        {
+          "method": "GET",
+          "path": "/api/snapshots/{snapshot_id}",
+          "handler": "get_snapshot"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.social_catalog",
+      "owner": "community",
+      "lines": 1107,
+      "imports": [
+        "auth",
+        "config",
+        "routes.auth",
+        "social_catalog",
+        "social_notifications",
+        "social_safety"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/catalog",
+          "handler": "list_catalog"
+        },
+        {
+          "method": "GET",
+          "path": "/api/catalog/admin",
+          "handler": "search_catalog_admin"
+        },
+        {
+          "method": "POST",
+          "path": "/api/catalog/manufacturers",
+          "handler": "create_catalog_manufacturer"
+        },
+        {
+          "method": "POST",
+          "path": "/api/catalog/models",
+          "handler": "create_catalog_model"
+        },
+        {
+          "method": "POST",
+          "path": "/api/catalog/variants",
+          "handler": "create_catalog_variant"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/catalog/variants/{variant_id}",
+          "handler": "update_catalog_variant"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/me/profile",
+          "handler": "get_my_social_profile"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/social/me/profile",
+          "handler": "update_my_social_profile"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/profiles/{slug}",
+          "handler": "get_public_profile"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/profiles",
+          "handler": "search_public_profiles"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/profiles/{slug}/printers",
+          "handler": "list_profile_public_printers"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/printers",
+          "handler": "search_public_printers"
+        },
+        {
+          "method": "GET",
+          "path": "/api/public/printers/{printer_id}",
+          "handler": "get_public_printer"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/printers/{printer_id}/public-profile",
+          "handler": "update_printer_public_profile"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/communities",
+          "handler": "list_social_communities"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/communities/{slug}",
+          "handler": "get_social_community"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/communities/{slug}/feed",
+          "handler": "get_social_community_feed"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/communities/{slug}/library",
+          "handler": "list_community_library"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/profiles/{slug}/library",
+          "handler": "list_profile_library"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/me/library/organizer",
+          "handler": "get_library_organizer"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/library/collections",
+          "handler": "create_library_collection"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/library/collections/{collection_id}/items",
+          "handler": "add_library_collection_item"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/print-lists",
+          "handler": "create_print_list"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/print-lists/{print_list_id}/items",
+          "handler": "add_print_list_item"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/social/print-list-items/{print_list_item_id}",
+          "handler": "update_print_list_item"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/library",
+          "handler": "create_library_item"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/library/{item_id}",
+          "handler": "get_library_item"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/library/{item_id}/favorite",
+          "handler": "favorite_library_item"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/social/library/{item_id}/favorite",
+          "handler": "unfavorite_library_item"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/social/library/{item_id}",
+          "handler": "update_library_item"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/library/{item_id}/commercial-review",
+          "handler": "review_library_commercial_status"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/social/library/{item_id}",
+          "handler": "archive_library_item"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/library/{item_id}/downloads",
+          "handler": "register_library_download"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/library/{item_id}/versions",
+          "handler": "create_library_version"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/library/{item_id}/versions/{version_id}/current",
+          "handler": "promote_library_version"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/library/{item_id}/versions/{version_id}/downloads",
+          "handler": "register_library_version_download"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/library/{item_id}/files/upload",
+          "handler": "upload_library_file"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/library/files/{file_id}/analysis",
+          "handler": "analyze_library_file"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/communities/{slug}/posts",
+          "handler": "create_community_post"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/posts/{post_id}/discussion",
+          "handler": "get_discussion_detail"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/social/posts/{post_id}",
+          "handler": "update_post"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/social/posts/{post_id}",
+          "handler": "delete_post"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/posts/{post_id}/comments",
+          "handler": "create_post_comment"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/social/comments/{comment_id}",
+          "handler": "update_comment"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/social/comments/{comment_id}",
+          "handler": "delete_comment"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/posts/{post_id}/reactions",
+          "handler": "react_to_post"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/social/posts/{post_id}/reactions/{reaction_type}",
+          "handler": "remove_post_reaction"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/comments/{comment_id}/reactions",
+          "handler": "react_to_comment"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/posts/{post_id}/solution",
+          "handler": "mark_post_solution"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/me/relationships",
+          "handler": "my_relationships"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/relationships/{target_user_id}/follow",
+          "handler": "follow_user"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/social/relationships/{target_user_id}/follow",
+          "handler": "unfollow_user"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/relationships/{target_user_id}/friend-request",
+          "handler": "request_friendship"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/relationships/{requester_user_id}/friend-accept",
+          "handler": "accept_friendship"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/social/relationships/{target_user_id}/friend-request",
+          "handler": "cancel_friendship_request"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/relationships/{requester_user_id}/friend-reject",
+          "handler": "reject_friendship"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/social/relationships/{target_user_id}/friend",
+          "handler": "unfriend_user"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/relationships/{target_user_id}/block",
+          "handler": "block_user"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/social/relationships/{target_user_id}/block",
+          "handler": "unblock_user"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.social_moderation",
+      "owner": "community",
+      "lines": 77,
+      "imports": [
+        "auth",
+        "config",
+        "routes.auth",
+        "social_moderation",
+        "social_safety"
+      ],
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/api/social/reports",
+          "handler": "report_social_content"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/moderation/queue",
+          "handler": "moderation_queue"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/moderation/reports/{report_id}/actions",
+          "handler": "apply_moderation_action"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.social_notifications",
+      "owner": "community",
+      "lines": 85,
+      "imports": [
+        "auth",
+        "config",
+        "routes.auth",
+        "social_notifications"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/social/notifications",
+          "handler": "notification_center"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/social/notifications/preferences",
+          "handler": "update_notification_preference"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/notifications/{notification_id}/read",
+          "handler": "mark_notification_read"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/notifications/read-all",
+          "handler": "mark_all_notifications_read"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/content-follows",
+          "handler": "follow_content"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/social/content-follows/{entity_type}/{entity_id}",
+          "handler": "unfollow_content"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.social_ranking",
+      "owner": "community",
+      "lines": 53,
+      "imports": [
+        "config",
+        "search_discovery",
+        "social_ranking"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/social/recommendations",
+          "handler": "social_recommendations"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/reputation",
+          "handler": "social_reputation_leaderboard"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/profiles/{slug}/reputation",
+          "handler": "social_profile_reputation"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.social_safety",
+      "owner": "community",
+      "lines": 57,
+      "imports": [
+        "auth",
+        "config",
+        "routes.auth",
+        "social_safety"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/social/me/safety",
+          "handler": "get_my_social_safety"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/social/me/safety",
+          "handler": "update_my_social_safety"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/moderation/abuse-signals",
+          "handler": "list_social_abuse_signals"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.social_storage",
+      "owner": "community",
+      "lines": 31,
+      "imports": [
+        "auth",
+        "config",
+        "routes.auth",
+        "social_storage"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/social/me/library/storage",
+          "handler": "library_storage_report"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/me/library/storage/retention-reviews",
+          "handler": "create_library_retention_review"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.support",
+      "owner": "administration",
+      "lines": 386,
+      "imports": [
+        "agent_executor",
+        "agent_moonraker",
+        "audit",
+        "auth",
+        "backups",
+        "calibration",
+        "can_monitor",
+        "checklists",
+        "config",
+        "database",
+        "firmware",
+        "firmware_catalog",
+        "health",
+        "host_audit",
+        "maintenance",
+        "operation",
+        "operation_history",
+        "plugins",
+        "printers",
+        "releases",
+        "reports",
+        "self_update",
+        "snapshots",
+        "updates",
+        "z_offset"
+      ],
+      "routes": [],
+      "contracts": [
+        "PrinterConnectionTestRequest",
+        "ConnectionCheckResult",
+        "PrinterConnectionTestResponse",
+        "OperationActionPreviewRequest",
+        "OperationActionExecuteRequest",
+        "OperationActionDirectExecuteRequest"
+      ]
+    },
+    {
+      "module": "routes.system",
+      "owner": "administration",
+      "lines": 245,
+      "imports": [
+        "database",
+        "install_diagnostics",
+        "operational",
+        "routes.auth",
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/health",
+          "handler": "health"
+        },
+        {
+          "method": "GET",
+          "path": "/ready",
+          "handler": "ready"
+        },
+        {
+          "method": "GET",
+          "path": "/metrics",
+          "handler": "metrics"
+        },
+        {
+          "method": "GET",
+          "path": "/api/system/version",
+          "handler": "system_version"
+        },
+        {
+          "method": "GET",
+          "path": "/api/system/version/internal",
+          "handler": "system_version_internal"
+        },
+        {
+          "method": "GET",
+          "path": "/api/system/install-diagnostics",
+          "handler": "system_install_diagnostics"
+        },
+        {
+          "method": "GET",
+          "path": "/api/system/releases",
+          "handler": "system_releases"
+        },
+        {
+          "method": "GET",
+          "path": "/api/system/update/status",
+          "handler": "system_update_status"
+        },
+        {
+          "method": "POST",
+          "path": "/api/system/update/plan",
+          "handler": "system_update_plan"
+        },
+        {
+          "method": "GET",
+          "path": "/api/system/update/history",
+          "handler": "system_update_history"
+        },
+        {
+          "method": "POST",
+          "path": "/api/system/update/reconcile",
+          "handler": "system_update_reconcile"
+        },
+        {
+          "method": "POST",
+          "path": "/api/system/update/apply",
+          "handler": "system_update_apply"
+        },
+        {
+          "method": "POST",
+          "path": "/api/system/update/rollback",
+          "handler": "system_update_rollback"
+        },
+        {
+          "method": "GET",
+          "path": "/api/system/update/runs/{run_id}",
+          "handler": "system_update_run"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.technical_profiles",
+      "owner": "administration",
+      "lines": 104,
+      "imports": [
+        "auth",
+        "config",
+        "routes.auth",
+        "technical_profiles"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/social/me/technical-configs",
+          "handler": "list_my_technical_configs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/technical-configs",
+          "handler": "create_technical_config"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/social/technical-configs/{config_id}",
+          "handler": "update_technical_config"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/social/technical-configs/{config_id}",
+          "handler": "archive_technical_config"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/communities/{slug}/technical-configs",
+          "handler": "list_community_technical_configs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/communities/{slug}/technical-configs/comparison",
+          "handler": "compare_community_technical_configs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/profiles/{slug}/technical-configs",
+          "handler": "list_profile_technical_configs"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.z_offset",
+      "owner": "operations",
+      "lines": 59,
+      "imports": [
+        "routes.auth",
+        "routes.support"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/z-offsets",
+          "handler": "list_z_offset_records"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/z-offsets",
+          "handler": "create_z_offset_record"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/z-offsets/wizard-plan",
+          "handler": "z_offset_wizard_plan"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "search_discovery",
+      "owner": "community",
+      "lines": 629,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "SearchResult",
+        "SearchFacetOption",
+        "SearchFacets",
+        "SearchResponse",
+        "TagRecord"
+      ]
+    },
+    {
+      "module": "self_update",
+      "owner": "administration",
+      "lines": 1002,
+      "imports": [
+        "auth",
+        "releases"
+      ],
+      "routes": [],
+      "contracts": [
+        "UpdatePlanRequest",
+        "UpdateApplyRequest",
+        "UpdateRollbackRequest",
+        "UpdateStepRecord",
+        "UpdateRunRecord",
+        "UpdatePlanResponse",
+        "UpdateHistoryResponse",
+        "UpdateReconcileResponse",
+        "UpdateApplyResponse",
+        "UpdateRollbackResponse"
+      ]
+    },
+    {
+      "module": "setup_can",
+      "owner": "operations",
+      "lines": 699,
+      "imports": [
+        "agent_host",
+        "auth",
+        "database",
+        "setup_wizard"
+      ],
+      "routes": [],
+      "contracts": [
+        "SetupCanRequest",
+        "SetupCanFinding",
+        "SetupCanPreflightResponse",
+        "SetupCanPlanStep",
+        "SetupCanPlanResponse",
+        "SetupCanApplyResponse",
+        "SetupCanRunRecord"
+      ]
+    },
+    {
+      "module": "setup_final_validation",
+      "owner": "operations",
+      "lines": 509,
+      "imports": [
+        "agent_host",
+        "auth",
+        "database",
+        "reports",
+        "setup_firmware",
+        "setup_wizard"
+      ],
+      "routes": [],
+      "contracts": [
+        "SetupFinalValidationRequest",
+        "SetupFinalValidationCheck",
+        "SetupFinalValidationResponse",
+        "SetupFinalValidationRunRecord"
+      ]
+    },
+    {
+      "module": "setup_firmware",
+      "owner": "operations",
+      "lines": 513,
+      "imports": [
+        "agent_host",
+        "auth",
+        "database",
+        "firmware.config_generator",
+        "firmware.presets",
+        "setup_wizard"
+      ],
+      "routes": [],
+      "contracts": [
+        "SetupFirmwareRequest",
+        "SetupFirmwarePlanStep",
+        "SetupFirmwarePlanResponse",
+        "SetupFirmwareBuildResponse",
+        "SetupFirmwareRunRecord"
+      ]
+    },
+    {
+      "module": "setup_flash",
+      "owner": "operations",
+      "lines": 753,
+      "imports": [
+        "agent_host",
+        "auth",
+        "database",
+        "setup_firmware",
+        "setup_wizard"
+      ],
+      "routes": [],
+      "contracts": [
+        "SetupFlashRequest",
+        "SetupFlashFinding",
+        "SetupFlashPreflightResponse",
+        "SetupFlashPlanStep",
+        "SetupFlashPlanResponse",
+        "SetupFlashExecuteResponse",
+        "SetupFlashRunRecord"
+      ]
+    },
+    {
+      "module": "setup_wizard",
+      "owner": "operations",
+      "lines": 643,
+      "imports": [
+        "agent_host",
+        "auth",
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "SetupSshTarget",
+        "SetupCheckItem",
+        "SetupCommandPlan",
+        "SetupPlanStep",
+        "SetupSshPreflightResponse",
+        "SetupSshPlanResponse",
+        "SetupSshRunRecord"
+      ]
+    },
+    {
+      "module": "slicing",
+      "owner": "operations",
+      "lines": 250,
+      "imports": [
+        "config",
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "SlicingEngineInfo",
+        "SlicingRequest",
+        "SlicingDryRunResult"
+      ]
+    },
+    {
+      "module": "slicing_pipeline",
+      "owner": "operations",
+      "lines": 625,
+      "imports": [
+        "config",
+        "database",
+        "slicing"
+      ],
+      "routes": [],
+      "contracts": [
+        "ModelDimensions",
+        "SlicingJobCreate",
+        "ProjectSlicingJobCreate",
+        "SlicingArtifact",
+        "SlicingJob"
+      ]
+    },
+    {
+      "module": "snapshots",
+      "owner": "administration",
+      "lines": 346,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "SnapshotRecord",
+        "SnapshotDiffItem",
+        "SnapshotDiff"
+      ]
+    },
+    {
+      "module": "social_catalog",
+      "owner": "community",
+      "lines": 4033,
+      "imports": [
+        "database",
+        "social_storage"
+      ],
+      "routes": [],
+      "contracts": [
+        "CatalogVariant",
+        "CatalogModelAdmin",
+        "CatalogModel",
+        "CatalogManufacturer",
+        "CatalogSummary",
+        "CatalogAdminSummary",
+        "CatalogVariantUpdate",
+        "CatalogManufacturerCreate",
+        "CatalogModelCreate",
+        "CatalogVariantCreate",
+        "PublicProfileUpdate",
+        "PublicProfile",
+        "PrinterPublicUpdate",
+        "PublicPrinter",
+        "Community",
+        "CommunityFeedItem",
+        "CommunityFeedSummary",
+        "CommunityFeedCreate",
+        "CommunityPostCreate",
+        "CommunityPostUpdate",
+        "DiscussionComment",
+        "DiscussionCommentCreate",
+        "DiscussionCommentUpdate",
+        "DiscussionReactionCount",
+        "DiscussionReactionPayload",
+        "DiscussionDetail",
+        "LibraryFileMetadata",
+        "LibraryItemBase",
+        "LibraryItemUpdate",
+        "LibraryVersionCreate",
+        "LibraryVersion",
+        "LibraryCollectionCreate",
+        "LibraryCollectionItemCreate",
+        "LibraryCollection",
+        "PrintListCreate",
+        "PrintListItemCreate",
+        "PrintListItemUpdate",
+        "PrintListItem",
+        "PrintList",
+        "LibraryDownloadHistoryItem",
+        "LibraryOrganizerSummary",
+        "LibraryItem",
+        "LibraryCommercialReviewCreate",
+        "RelationshipRecord",
+        "RelationshipSummary"
+      ]
+    },
+    {
+      "module": "social_moderation",
+      "owner": "community",
+      "lines": 322,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "ModerationReportCreate",
+        "ModerationActionPayload",
+        "ModerationReportRecord",
+        "ModerationActionRecord",
+        "ModerationQueueResponse"
+      ]
+    },
+    {
+      "module": "social_notifications",
+      "owner": "community",
+      "lines": 383,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "NotificationPreference",
+        "NotificationPreferenceUpdate",
+        "ContentFollowPayload",
+        "ContentFollowRecord",
+        "SocialNotificationRecord",
+        "NotificationCenterResponse"
+      ]
+    },
+    {
+      "module": "social_ranking",
+      "owner": "community",
+      "lines": 394,
+      "imports": [
+        "database",
+        "search_discovery"
+      ],
+      "routes": [],
+      "contracts": [
+        "RecommendationItem",
+        "RecommendationResponse",
+        "ReputationRecord",
+        "ReputationResponse"
+      ]
+    },
+    {
+      "module": "social_safety",
+      "owner": "community",
+      "lines": 301,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "SocialSafetySettings",
+        "SocialSafetySettingsUpdate",
+        "RateLimitResult",
+        "AbuseSignalRecord",
+        "SocialSafetyStatus"
+      ]
+    },
+    {
+      "module": "social_storage",
+      "owner": "community",
+      "lines": 280,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "StoragePolicy",
+        "StorageUsageSummary",
+        "StorageRetentionCandidate",
+        "StorageRetentionPlan",
+        "StorageReport"
+      ]
+    },
+    {
+      "module": "technical_profiles",
+      "owner": "administration",
+      "lines": 332,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "TechnicalPrinterConfigPayload",
+        "TechnicalConfigComparison"
+      ]
+    },
+    {
+      "module": "updates",
+      "owner": "administration",
+      "lines": 465,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "UpdateComponent",
+        "UpdateStatusResponse",
+        "UpdateRunRequest",
+        "PrinterUpdateRollbackRequest",
+        "UpdateRefreshRequest",
+        "UpdateSilenceRequest",
+        "UpdateSilenceResponse",
+        "UpdateActionResponse"
+      ]
+    },
+    {
+      "module": "z_offset",
+      "owner": "operations",
+      "lines": 248,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "ZOffsetRecordCreate",
+        "ZOffsetRecord",
+        "ZOffsetWizardStep",
+        "ZOffsetWizardPlan"
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "table": "schema_versions",
+      "owner": "administration",
+      "script": "000_schema_versioning.sql"
+    },
+    {
+      "table": "app_version",
+      "owner": "administration",
+      "script": "000_schema_versioning.sql"
+    },
+    {
+      "table": "printers",
+      "owner": "operations",
+      "script": "001_initial_schema.sql"
+    },
+    {
+      "table": "app_events",
+      "owner": "administration",
+      "script": "001_initial_schema.sql"
+    },
+    {
+      "table": "printer_snapshots",
+      "owner": "operations",
+      "script": "001_initial_schema.sql"
+    },
+    {
+      "table": "backup_policies",
+      "owner": "administration",
+      "script": "002_backup_manager.sql"
+    },
+    {
+      "table": "backup_runs",
+      "owner": "administration",
+      "script": "002_backup_manager.sql"
+    },
+    {
+      "table": "maintenance_events",
+      "owner": "operations",
+      "script": "003_maintenance.sql"
+    },
+    {
+      "table": "maintenance_tasks",
+      "owner": "operations",
+      "script": "003_maintenance.sql"
+    },
+    {
+      "table": "z_offset_records",
+      "owner": "operations",
+      "script": "004_z_offset.sql"
+    },
+    {
+      "table": "can_bus_records",
+      "owner": "administration",
+      "script": "005_can_monitor.sql"
+    },
+    {
+      "table": "firmware_boards",
+      "owner": "operations",
+      "script": "006_firmware_boards.sql"
+    },
+    {
+      "table": "firmware_build_runs",
+      "owner": "operations",
+      "script": "007_firmware_build_runs.sql"
+    },
+    {
+      "table": "firmware_flash_runs",
+      "owner": "operations",
+      "script": "008_firmware_flash_runs.sql"
+    },
+    {
+      "table": "calibration_tests",
+      "owner": "operations",
+      "script": "009_calibration_catalog.sql"
+    },
+    {
+      "table": "calibration_test_runs",
+      "owner": "operations",
+      "script": "010_calibration_runs.sql"
+    },
+    {
+      "table": "printer_ssh_access",
+      "owner": "operations",
+      "script": "011_printer_ssh_access.sql"
+    },
+    {
+      "table": "operation_action_previews",
+      "owner": "operations",
+      "script": "012_operation_action_history.sql"
+    },
+    {
+      "table": "operation_action_execution_attempts",
+      "owner": "operations",
+      "script": "013_operation_execution_gate.sql"
+    },
+    {
+      "table": "calibration_execution_attempts",
+      "owner": "operations",
+      "script": "014_calibration_execution_attempts.sql"
+    },
+    {
+      "table": "schema_integrity_checks",
+      "owner": "administration",
+      "script": "015_schema_integrity_checks.sql"
+    },
+    {
+      "table": "app_update_runs",
+      "owner": "administration",
+      "script": "018_app_update_runs.sql"
+    },
+    {
+      "table": "app_update_steps",
+      "owner": "administration",
+      "script": "018_app_update_runs.sql"
+    },
+    {
+      "table": "update_alert_silences",
+      "owner": "administration",
+      "script": "019_update_alert_silences.sql"
+    },
+    {
+      "table": "setup_ssh_runs",
+      "owner": "operations",
+      "script": "021_setup_ssh_runs.sql"
+    },
+    {
+      "table": "setup_can_runs",
+      "owner": "operations",
+      "script": "022_setup_can_runs.sql"
+    },
+    {
+      "table": "setup_firmware_runs",
+      "owner": "operations",
+      "script": "023_setup_firmware_runs.sql"
+    },
+    {
+      "table": "setup_flash_runs",
+      "owner": "operations",
+      "script": "024_setup_flash_runs.sql"
+    },
+    {
+      "table": "setup_final_validation_runs",
+      "owner": "operations",
+      "script": "025_setup_final_validation_runs.sql"
+    },
+    {
+      "table": "auth_users",
+      "owner": "identity",
+      "script": "026_auth_identity.sql"
+    },
+    {
+      "table": "auth_organizations",
+      "owner": "identity",
+      "script": "026_auth_identity.sql"
+    },
+    {
+      "table": "auth_organization_members",
+      "owner": "identity",
+      "script": "026_auth_identity.sql"
+    },
+    {
+      "table": "auth_sessions",
+      "owner": "identity",
+      "script": "026_auth_identity.sql"
+    },
+    {
+      "table": "auth_mfa_challenges",
+      "owner": "identity",
+      "script": "026_auth_identity.sql"
+    },
+    {
+      "table": "auth_step_up_tokens",
+      "owner": "identity",
+      "script": "026_auth_identity.sql"
+    },
+    {
+      "table": "agent_credentials",
+      "owner": "operations",
+      "script": "026_auth_identity.sql"
+    },
+    {
+      "table": "printer_pairing_tokens",
+      "owner": "operations",
+      "script": "029_agent_pairing.sql"
+    },
+    {
+      "table": "printer_agents",
+      "owner": "operations",
+      "script": "029_agent_pairing.sql"
+    },
+    {
+      "table": "printer_agent_events",
+      "owner": "operations",
+      "script": "029_agent_pairing.sql"
+    },
+    {
+      "table": "agent_jobs",
+      "owner": "operations",
+      "script": "030_agent_channel.sql"
+    },
+    {
+      "table": "auth_organization_invites",
+      "owner": "identity",
+      "script": "033_organization_crud.sql"
+    },
+    {
+      "table": "auth_organization_printers",
+      "owner": "identity",
+      "script": "033_organization_crud.sql"
+    },
+    {
+      "table": "catalog_manufacturers",
+      "owner": "administration",
+      "script": "035_social_catalog.sql"
+    },
+    {
+      "table": "catalog_printer_models",
+      "owner": "administration",
+      "script": "035_social_catalog.sql"
+    },
+    {
+      "table": "catalog_printer_variants",
+      "owner": "administration",
+      "script": "035_social_catalog.sql"
+    },
+    {
+      "table": "catalog_audit_events",
+      "owner": "administration",
+      "script": "035_social_catalog.sql"
+    },
+    {
+      "table": "social_profiles",
+      "owner": "community",
+      "script": "035_social_catalog.sql"
+    },
+    {
+      "table": "social_profile_slug_history",
+      "owner": "community",
+      "script": "035_social_catalog.sql"
+    },
+    {
+      "table": "social_communities",
+      "owner": "community",
+      "script": "035_social_catalog.sql"
+    },
+    {
+      "table": "social_community_members",
+      "owner": "community",
+      "script": "035_social_catalog.sql"
+    },
+    {
+      "table": "social_relationships",
+      "owner": "community",
+      "script": "035_social_catalog.sql"
+    },
+    {
+      "table": "social_feed_items",
+      "owner": "community",
+      "script": "044_social_community_feed.sql"
+    },
+    {
+      "table": "social_discussion_comments",
+      "owner": "community",
+      "script": "045_social_discussions.sql"
+    },
+    {
+      "table": "social_discussion_reactions",
+      "owner": "community",
+      "script": "045_social_discussions.sql"
+    },
+    {
+      "table": "social_discussion_edit_history",
+      "owner": "community",
+      "script": "045_social_discussions.sql"
+    },
+    {
+      "table": "social_library_items",
+      "owner": "community",
+      "script": "046_social_library_items.sql"
+    },
+    {
+      "table": "social_library_files",
+      "owner": "community",
+      "script": "046_social_library_items.sql"
+    },
+    {
+      "table": "social_library_downloads",
+      "owner": "community",
+      "script": "046_social_library_items.sql"
+    },
+    {
+      "table": "social_library_versions",
+      "owner": "community",
+      "script": "050_social_library_versions.sql"
+    },
+    {
+      "table": "social_library_favorites",
+      "owner": "community",
+      "script": "051_social_library_organizer.sql"
+    },
+    {
+      "table": "social_library_collections",
+      "owner": "community",
+      "script": "051_social_library_organizer.sql"
+    },
+    {
+      "table": "social_library_collection_items",
+      "owner": "community",
+      "script": "051_social_library_organizer.sql"
+    },
+    {
+      "table": "social_print_lists",
+      "owner": "community",
+      "script": "051_social_library_organizer.sql"
+    },
+    {
+      "table": "social_print_list_items",
+      "owner": "community",
+      "script": "051_social_library_organizer.sql"
+    },
+    {
+      "table": "social_technical_printer_configs",
+      "owner": "community",
+      "script": "052_social_technical_printer_configs.sql"
+    },
+    {
+      "table": "social_material_profiles",
+      "owner": "community",
+      "script": "053_social_material_slicing_profiles.sql"
+    },
+    {
+      "table": "social_slicing_profiles",
+      "owner": "community",
+      "script": "053_social_material_slicing_profiles.sql"
+    },
+    {
+      "table": "social_content_tags",
+      "owner": "community",
+      "script": "054_social_search_discovery.sql"
+    },
+    {
+      "table": "social_content_tag_links",
+      "owner": "community",
+      "script": "054_social_search_discovery.sql"
+    },
+    {
+      "table": "social_search_index",
+      "owner": "community",
+      "script": "054_social_search_discovery.sql"
+    },
+    {
+      "table": "social_quality_signals",
+      "owner": "community",
+      "script": "055_social_ranking_reputation.sql"
+    },
+    {
+      "table": "social_user_reputation_snapshots",
+      "owner": "community",
+      "script": "055_social_ranking_reputation.sql"
+    },
+    {
+      "table": "social_materialization_state",
+      "owner": "community",
+      "script": "056_social_materialization_state.sql"
+    },
+    {
+      "table": "social_moderation_reports",
+      "owner": "community",
+      "script": "057_social_moderation.sql"
+    },
+    {
+      "table": "social_moderation_actions",
+      "owner": "community",
+      "script": "057_social_moderation.sql"
+    },
+    {
+      "table": "social_notifications",
+      "owner": "community",
+      "script": "058_social_notifications.sql"
+    },
+    {
+      "table": "social_notification_preferences",
+      "owner": "community",
+      "script": "058_social_notifications.sql"
+    },
+    {
+      "table": "social_content_follows",
+      "owner": "community",
+      "script": "058_social_notifications.sql"
+    },
+    {
+      "table": "social_user_safety_settings",
+      "owner": "community",
+      "script": "059_social_safety_antiabuse.sql"
+    },
+    {
+      "table": "social_rate_limit_events",
+      "owner": "community",
+      "script": "059_social_safety_antiabuse.sql"
+    },
+    {
+      "table": "social_abuse_signals",
+      "owner": "community",
+      "script": "059_social_safety_antiabuse.sql"
+    },
+    {
+      "table": "social_file_storage_policies",
+      "owner": "community",
+      "script": "060_social_file_storage.sql"
+    },
+    {
+      "table": "social_file_retention_reviews",
+      "owner": "community",
+      "script": "060_social_file_storage.sql"
+    },
+    {
+      "table": "slicing_engine_checks",
+      "owner": "operations",
+      "script": "061_slicing_engine_bridge.sql"
+    },
+    {
+      "table": "slicing_dry_run_logs",
+      "owner": "operations",
+      "script": "061_slicing_engine_bridge.sql"
+    },
+    {
+      "table": "slicing_jobs",
+      "owner": "operations",
+      "script": "062_slicing_jobs.sql"
+    },
+    {
+      "table": "slicing_job_artifacts",
+      "owner": "operations",
+      "script": "062_slicing_jobs.sql"
+    },
+    {
+      "table": "print_preflight_checks",
+      "owner": "operations",
+      "script": "063_print_preflight_checks.sql"
+    },
+    {
+      "table": "print_gcode_deliveries",
+      "owner": "operations",
+      "script": "064_print_gcode_deliveries.sql"
+    },
+    {
+      "table": "print_job_history",
+      "owner": "operations",
+      "script": "065_print_job_history.sql"
+    },
+    {
+      "table": "print_job_feedback",
+      "owner": "operations",
+      "script": "065_print_job_history.sql"
+    },
+    {
+      "table": "social_library_commercial_reviews",
+      "owner": "community",
+      "script": "066_social_library_commercial_curation.sql"
+    },
+    {
+      "table": "external_content_sources",
+      "owner": "administration",
+      "script": "067_external_library_imports.sql"
+    },
+    {
+      "table": "external_library_references",
+      "owner": "community",
+      "script": "067_external_library_imports.sql"
+    },
+    {
+      "table": "print_projects",
+      "owner": "community",
+      "script": "068_print_projects_core.sql"
+    },
+    {
+      "table": "print_project_files",
+      "owner": "community",
+      "script": "068_print_projects_core.sql"
+    },
+    {
+      "table": "print_project_versions",
+      "owner": "community",
+      "script": "068_print_projects_core.sql"
+    },
+    {
+      "table": "print_project_community_shares",
+      "owner": "community",
+      "script": "068_print_projects_core.sql"
+    },
+    {
+      "table": "print_project_saves",
+      "owner": "community",
+      "script": "069_print_project_experience.sql"
+    },
+    {
+      "table": "print_project_publication_reviews",
+      "owner": "community",
+      "script": "071_print_project_publication.sql"
+    }
+  ]
+}

@@ -55,6 +55,9 @@ done
 
 run_model_validations
 
+log "validando inventário modular"
+python3 scripts/audit_module_boundaries.py --check >/dev/null
+
 log "python compileall"
 python3 -m compileall -q backend/app backend/tests
 
