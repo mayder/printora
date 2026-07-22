@@ -13,10 +13,17 @@ import urllib.request
 def request_once(url: str, timeout: float) -> tuple[bool, float, str | None]:
     started_at = time.monotonic()
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
+        request = urllib.request.Request(
+            url,
+            headers={"Accept": "application/json", "User-Agent": "Printora-Load-Smoke/1.0"},
+        )
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             response.read(4096)
             ok = 200 <= response.status < 400
             error = None if ok else f"http_{response.status}"
+    except urllib.error.HTTPError as exc:
+        ok = False
+        error = f"http_{exc.code}"
     except (OSError, urllib.error.URLError) as exc:
         ok = False
         error = type(exc).__name__
