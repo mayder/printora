@@ -4,7 +4,7 @@
 
 ## Resumo
 
-- módulos Python: 104;
+- módulos Python: 117;
 - endpoints HTTP/WebSocket: 322;
 - contratos tipados: 330;
 - tabelas declaradas em SQL: 100;
@@ -14,12 +14,12 @@
 
 | Fronteira | Owner | Responsabilidade | Módulos | Tabelas |
 |---|---|---|---:|---:|
-| `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 4 | 8 |
-| `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 20 | 45 |
-| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 50 | 32 |
-| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 21 | 15 |
-| `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 4 | 0 |
-| `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 5 | 0 |
+| `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 6 | 8 |
+| `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 22 | 45 |
+| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 52 | 32 |
+| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 23 | 15 |
+| `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 6 | 0 |
+| `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 8 | 0 |
 
 ## Arquivos Críticos
 

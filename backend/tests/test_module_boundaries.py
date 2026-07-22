@@ -66,3 +66,21 @@ def test_pure_module_layers_do_not_import_framework_or_database_drivers() -> Non
     for path in pure_files:
         forbidden = imported_roots(path) & FORBIDDEN_PURE_IMPORTS
         assert not forbidden, f"{path.relative_to(ROOT)} importa {sorted(forbidden)}"
+
+
+def test_module_registry_has_unique_versioned_owners_and_router_order() -> None:
+    from app.modules import module_definitions
+
+    definitions = module_definitions()
+    assert {definition.key for definition in definitions} == {
+        "identity",
+        "community",
+        "operations",
+        "administration",
+        "integrations",
+    }
+    assert all(definition.owner for definition in definitions)
+    assert all(definition.contract_version == "1.0.0" for definition in definitions)
+    orders = [registration.order for definition in definitions for registration in definition.routers]
+    assert len(orders) == 31
+    assert len(orders) == len(set(orders))

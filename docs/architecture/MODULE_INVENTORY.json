@@ -82,18 +82,18 @@
     }
   ],
   "summary": {
-    "modules": 104,
+    "modules": 117,
     "routes": 322,
     "contracts": 330,
     "tables": 100,
     "cycles": 0,
     "modules_by_owner": {
-      "administration": 21,
-      "community": 20,
-      "identity": 4,
-      "integrations": 4,
-      "operations": 50,
-      "shared": 5
+      "administration": 23,
+      "community": 22,
+      "identity": 6,
+      "integrations": 6,
+      "operations": 52,
+      "shared": 8
     }
   },
   "cycles": [],
@@ -616,13 +616,13 @@
     {
       "module": "main",
       "owner": "shared",
-      "lines": 121,
+      "lines": 60,
       "imports": [
         "auth",
         "config",
         "database",
+        "modules",
         "operational",
-        "routes",
         "social_catalog"
       ],
       "routes": [],
@@ -646,6 +646,134 @@
         "MaintenanceTaskRecord",
         "MaintenanceSummary"
       ]
+    },
+    {
+      "module": "modules.__init__",
+      "owner": "shared",
+      "lines": 5,
+      "imports": [
+        "modules.registry"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.administration.__init__",
+      "owner": "administration",
+      "lines": 1,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.administration.api",
+      "owner": "administration",
+      "lines": 17,
+      "imports": [
+        "modules.assembly",
+        "routes"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.assembly",
+      "owner": "shared",
+      "lines": 19,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.community.__init__",
+      "owner": "community",
+      "lines": 1,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.community.api",
+      "owner": "community",
+      "lines": 32,
+      "imports": [
+        "modules.assembly",
+        "routes"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.identity.__init__",
+      "owner": "identity",
+      "lines": 1,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.identity.api",
+      "owner": "identity",
+      "lines": 13,
+      "imports": [
+        "modules.assembly",
+        "routes"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.integrations.__init__",
+      "owner": "integrations",
+      "lines": 1,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.integrations.api",
+      "owner": "integrations",
+      "lines": 10,
+      "imports": [
+        "modules.assembly",
+        "routes"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.operations.__init__",
+      "owner": "operations",
+      "lines": 1,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.operations.api",
+      "owner": "operations",
+      "lines": 36,
+      "imports": [
+        "modules.assembly",
+        "routes"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.registry",
+      "owner": "shared",
+      "lines": 34,
+      "imports": [
+        "modules.administration.api",
+        "modules.assembly",
+        "modules.community.api",
+        "modules.identity.api",
+        "modules.integrations.api",
+        "modules.operations.api"
+      ],
+      "routes": [],
+      "contracts": []
     },
     {
       "module": "moonraker",
