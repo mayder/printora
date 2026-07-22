@@ -44,15 +44,6 @@ O agente fixa `toolchain go1.25.12`: a auditoria inicial com Go 1.25.4 encontrou
 14 vulnerabilidades alcançáveis na biblioteca padrão; a reexecução com a versão
 corrigida não encontrou vulnerabilidades.
 
-## Evidência Remota Obrigatória Pendente
-
-- executar primeiro deploy para green e segundo para blue;
-- medir requests falhos, p95, reconnect, duplicidade e tempo de drenagem sob carga;
-- matar candidato antes da troca e ativo depois da troca;
-- executar rollback e provar preservação de escrita posterior;
-- observar logs/métricas pelo período definido e executar smoke público P0/P1;
-- somente depois remover unit, venv e procedimento legados.
-
 ## Evidência Remota Coletada
 
 - host: 48 CPUs, 32 GB de RAM total e 25 GB disponíveis;
@@ -63,6 +54,38 @@ corrigida não encontrou vulnerabilidades.
   413,8 MiB armazenados;
 - restore isolado: 4,04 GiB restaurados, `integrity=ok`, 100 tabelas e 73 scripts
   de schema; nenhuma aplicação foi iniciada sobre a cópia restaurada.
+- backup limitado por systemd a 8 GiB de memória, 200% de CPU e 128 tarefas; o
+  timer persistente ficou habilitado e ativo, com destino fora do host primário;
+- primeiro ciclo publicado no slot green pelo run `29944639803` e segundo ciclo
+  no slot blue pelo run `29945127924`, ambos com checks completos;
+- rollback de código reativou green sem restaurar snapshot: durante a prova, os
+  jobs avançaram de 68.034 para 68.040 e o heartbeat do agente continuou;
+- release inválido falhou readiness, reiniciou somente o candidato e nunca foi
+  ligado ao upstream; 1.000 requests públicos passaram sem erro;
+- morte controlada do processo cloud ativo recuperou em aproximadamente seis
+  segundos pelo slot N-1 aquecido; 2.000 requests passaram sem erro;
+- o agente realmente online permaneceu conectado; não foram observados ACKs ou
+  correlation IDs duplicados (`duplicate_recent_acks=0` e
+  `duplicate_correlations=0`);
+- cargas de 1.000 requests durante deploy, rollback e candidato inválido tiveram
+  zero erro; p95 medido entre 210,66 ms e 2.119 ms, abaixo do gate de 3 s;
+- carga final de 1.000 requests teve zero erro e p95 de 234,42 ms;
+- o deploy `ac44608c227c4aa9fc9ead9a51dce44d91649174` concluiu no run
+  `29946500234`, mantendo green ativo e blue N-1 pronto;
+- o fechamento `41f5a88e3d74b8308d7560a6c7ad6cf12de739b4` concluiu no run
+  `29947381195`, com blue ativo, green N-1 pronto e timer de backup ativo;
+- `/ready` retornou banco e schema 73 prontos; `/health` permaneceu saudável;
+- nenhum warning ou erro da aplicação foi encontrado na observação final;
+- a unit de instância única ficou `not-found` e o venv compartilhado foi
+  removido somente após a prova dos dois slots; dados, backups e releases foram
+  preservados;
+- nenhum serviço da impressora, Moonraker, Klipper, MCU ou agente local foi
+  reiniciado durante as provas.
 
-Até essa evidência existir, a publicação sem indisponibilidade não está aceita e
-o pacote arquitetural inicial permanece aberto.
+## Resultado
+
+O PKG-86 está aceito. O host atual possui folga para os dois slots e rollback,
+o backup externo possui restore isolado comprovado e o caminho legado de
+publicação foi eliminado. A solução remove indisponibilidade por publicação e
+por falha isolada do processo; indisponibilidade física do host permanece risco
+conhecido e será tratada no PKG-93.

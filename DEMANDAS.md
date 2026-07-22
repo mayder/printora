@@ -5366,11 +5366,11 @@ Critério de aceite:
 
 Estado atual:
 
-- Em andamento. Base local de observabilidade, readiness, releases imutáveis,
-  blue/green, rollback, backup externo e reconnect implementada e validada.
-- Fechamento bloqueado até bootstrap privilegiado, medição de capacidade,
-  configuração/restauração do backup externo, dois ciclos publicados,
-  carga/falha/rollback e observação no servidor atual.
+- Concluído em 2026-07-22.
+- Dois slots independentes publicados, N-1 aquecido, candidato inválido isolado,
+  falha do ativo recuperada, rollback sem restauração de dados, carga sem erros,
+  backup externo com restore isolado e runtime legado removido.
+- Evidência completa em `docs/audits/CLOUD_BLUE_GREEN_READINESS_2026-07-22.md`.
 
 ## PKG-87: Monólito Modular, Contratos E Fronteiras
 

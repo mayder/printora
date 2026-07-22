@@ -1737,6 +1737,18 @@ Gates transversais para todos os pacotes:
 - testar disco/log/WAL próximo da quota e alerta antes de indisponibilidade;
 - fechamento: carga/soak, deploy controlado, rollback e smoke público P0/P1.
 
+Evidência de fechamento em 2026-07-22:
+
+- suíte completa, scans de dependência/segredo e SBOM passaram no workflow;
+- dois ciclos blue/green e rollback passaram com zero request falho sob carga;
+- candidato sem readiness não recebeu tráfego e o ativo morto recuperou pelo N-1;
+- escrita posterior ao deploy foi preservada e não houve duplicidade de ACK/job;
+- backup externo criptografado restaurou 4,04 GiB em isolamento com
+  `integrity=ok`;
+- smoke público de `/health` e `/ready` passou após a remoção do runtime legado;
+- evidência operacional detalhada em
+  `docs/audits/CLOUD_BLUE_GREEN_READINESS_2026-07-22.md`.
+
 ### PKG-87 - Monólito Modular, Contratos E Fronteiras
 
 - congelar contratos HTTP/WebSocket/evento dos fluxos P0/P1;
