@@ -124,6 +124,7 @@ def test_cloud_rollback_never_restores_database_snapshot() -> None:
 
 def test_cloud_backup_has_external_restore_test_without_automatic_deletion() -> None:
     backup = (ROOT_DIR / "scripts/cloud/backup-sqlite.sh").read_text()
+    bootstrap = (ROOT_DIR / "scripts/cloud/bootstrap-blue-green.sh").read_text()
     restore = (ROOT_DIR / "scripts/cloud/restore-backup-test.sh").read_text()
     timer = (ROOT_DIR / "packaging/systemd/printora-cloud-backup.timer").read_text()
 
@@ -134,6 +135,7 @@ def test_cloud_backup_has_external_restore_test_without_automatic_deletion() -> 
     assert "forget" not in backup
     assert "prune" not in backup
     assert "Persistent=true" in timer
+    assert "systemctl enable --now printora-cloud-backup.timer" in bootstrap
 
 
 def test_cloud_load_smoke_reports_zero_errors() -> None:

@@ -42,7 +42,7 @@ chown "$DEPLOY_USER:$DEPLOY_USER" "$BASE_PATH/shared/active-slot"
 install -o root -g root -m 0440 "$ROOT_DIR/packaging/sudoers/printora-cloud-deploy" /etc/sudoers.d/printora-cloud-deploy
 visudo -cf /etc/sudoers.d/printora-cloud-deploy
 systemctl daemon-reload
-systemctl enable printora-cloud-backup.timer
+systemctl enable --now printora-cloud-backup.timer
 nginx -t
 systemctl reload nginx
 echo "Bootstrap instalado sem interromper a instância legada em 8069."
