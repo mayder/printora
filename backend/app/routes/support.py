@@ -15,19 +15,21 @@ from app.agent_executor import AgentCommandExecutor
 from app.agent_moonraker import operation_payload
 from app.auth import current_auth_scope
 from app.backups import (
+    BackupRepository,
+    build_backup_restore_gate,
+    build_backup_restore_plan,
+    compare_backup_archives,
+)
+from app.modules.administration.contracts import (
     BackupArchiveCompareRequest,
     BackupArchiveCompareResponse,
     BackupPolicyCreate,
     BackupPolicyRecord,
-    BackupRepository,
     BackupRestorePlanRequest,
     BackupRestorePlanResponse,
     BackupRestoreExecuteRequest,
     BackupRestoreGateResponse,
     BackupRunRecord,
-    build_backup_restore_gate,
-    build_backup_restore_plan,
-    compare_backup_archives,
 )
 from app.calibration import (
     CalibrationAvailableTestsResponse,

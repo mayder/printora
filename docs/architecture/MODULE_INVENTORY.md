@@ -4,7 +4,7 @@
 
 ## Resumo
 
-- módulos Python: 127;
+- módulos Python: 128;
 - endpoints HTTP/WebSocket: 322;
 - contratos tipados: 331;
 - tabelas declaradas em SQL: 100;
@@ -17,7 +17,7 @@
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 10 | 8 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 27 | 45 |
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 53 | 32 |
-| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 23 | 15 |
+| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 24 | 15 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 6 | 0 |
 | `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 8 | 0 |
 
@@ -47,11 +47,11 @@
 | `health` | `administration` | 513 | 0 | 0 |
 | `setup_firmware` | `operations` | 513 | 0 | 5 |
 | `setup_final_validation` | `operations` | 509 | 0 | 4 |
-| `backups` | `administration` | 508 | 0 | 8 |
 | `firmware.repository` | `operations` | 489 | 0 | 0 |
 | `agent_support` | `operations` | 486 | 0 | 5 |
 | `firmware_catalog` | `operations` | 478 | 0 | 14 |
 | `updates` | `administration` | 465 | 0 | 8 |
+| `backups` | `administration` | 431 | 0 | 0 |
 | `install_diagnostics` | `administration` | 403 | 0 | 2 |
 | `print_profiles` | `community` | 400 | 0 | 5 |
 

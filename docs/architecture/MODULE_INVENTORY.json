@@ -82,13 +82,13 @@
     }
   ],
   "summary": {
-    "modules": 127,
+    "modules": 128,
     "routes": 322,
     "contracts": 331,
     "tables": 100,
     "cycles": 0,
     "modules_by_owner": {
-      "administration": 23,
+      "administration": 24,
       "community": 27,
       "identity": 10,
       "integrations": 6,
@@ -242,21 +242,13 @@
     {
       "module": "backups",
       "owner": "administration",
-      "lines": 508,
+      "lines": 431,
       "imports": [
-        "database"
+        "database",
+        "modules.administration.contracts"
       ],
       "routes": [],
-      "contracts": [
-        "BackupPolicyCreate",
-        "BackupPolicyRecord",
-        "BackupRunRecord",
-        "BackupArchiveCompareRequest",
-        "BackupArchiveCompareResponse",
-        "BackupRestorePlanRequest",
-        "BackupRestorePlanResponse",
-        "BackupRestoreGateResponse"
-      ]
+      "contracts": []
     },
     {
       "module": "calibration",
@@ -634,6 +626,23 @@
       ],
       "routes": [],
       "contracts": []
+    },
+    {
+      "module": "modules.administration.contracts",
+      "owner": "administration",
+      "lines": 113,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "BackupPolicyCreate",
+        "BackupPolicyRecord",
+        "BackupRunRecord",
+        "BackupArchiveCompareRequest",
+        "BackupArchiveCompareResponse",
+        "BackupRestorePlanRequest",
+        "BackupRestorePlanResponse",
+        "BackupRestoreGateResponse"
+      ]
     },
     {
       "module": "modules.assembly",
@@ -3056,7 +3065,7 @@
     {
       "module": "routes.support",
       "owner": "administration",
-      "lines": 386,
+      "lines": 388,
       "imports": [
         "agent_executor",
         "agent_moonraker",
@@ -3073,6 +3082,7 @@
         "health",
         "host_audit",
         "maintenance",
+        "modules.administration.contracts",
         "operation",
         "operation_history",
         "plugins",
