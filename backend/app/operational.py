@@ -101,7 +101,6 @@ def readiness(settings: Settings) -> tuple[bool, dict[str, object]]:
         connection = sqlite3.connect(f"file:{settings.database_path}?mode=ro", uri=True, timeout=2)
         try:
             connection.execute("SELECT 1").fetchone()
-            integrity = connection.execute("PRAGMA quick_check(1)").fetchone()
             schema = connection.execute(
                 "SELECT schema_revision FROM app_version WHERE id = 1"
             ).fetchone()
@@ -111,8 +110,6 @@ def readiness(settings: Settings) -> tuple[bool, dict[str, object]]:
         return False, {"status": "not_ready", "database": "unavailable", "reason": type(exc).__name__}
     if schema is None:
         return False, {"status": "not_ready", "database": "schema_missing"}
-    if integrity is None or integrity[0] != "ok":
-        return False, {"status": "not_ready", "database": "integrity_failed"}
     return True, {"status": "ready", "database": "ok", "schema_revision": int(schema[0])}
 
 

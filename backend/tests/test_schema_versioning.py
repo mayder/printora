@@ -273,6 +273,24 @@ def test_initialize_database_blocks_completion_when_integrity_check_fails(
         assert record == (_sql_script_count(), "failed", '["simulated corruption"]')
 
 
+def test_initialize_database_does_not_repeat_full_integrity_check_without_schema_change(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+
+    def unexpected_integrity_check(connection: sqlite3.Connection) -> list[str]:
+        raise AssertionError("integrity_check não deve rodar em restart sem mudança de schema")
+
+    monkeypatch.setattr(database_module, "_run_integrity_check", unexpected_integrity_check)
+    initialize_database(database_path)
+
+    with sqlite3.connect(database_path) as connection:
+        count = connection.execute("SELECT COUNT(*) FROM schema_integrity_checks").fetchone()[0]
+    assert count == 1
+
+
 def test_initialize_database_repairs_corrupt_materialization_cache(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)

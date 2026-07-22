@@ -18,6 +18,8 @@ Data: 2026-07-22.
   fronteiras, invariantes, supply chain, agente/impressora e severidade.
 - SBOM CycloneDX reproduzível para backend, frontend e agente, com checksums e
   gate de vulnerabilidades antes de empacotar a release.
+- probes e restarts não executam varredura integral do SQLite; `integrity_check`
+  permanece no gate de schema e nos fluxos isolados de backup/restore.
 
 ## Evidência Local
 
