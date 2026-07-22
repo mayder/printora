@@ -10,10 +10,14 @@ import json
 import os
 from pathlib import Path
 import secrets
-import struct
-import time
 
 from app.database import connect_database
+from app.modules.identity.application import (
+    complete_mfa_login,
+    login,
+    setup_mfa,
+    validate_step_up,
+)
 from app.modules.identity.contracts import (
     AgentCredentialCreateRequest,
     AgentCredentialRecord,
@@ -45,13 +49,12 @@ from app.modules.identity.contracts import (
     clean_optional_text,
     clean_timezone,
 )
+from app.modules.identity.security import hash_password, totp_code, verify_password, verify_totp
 
 
 SESSION_TTL = timedelta(hours=12)
 MFA_CHALLENGE_TTL = timedelta(minutes=5)
 STEP_UP_TTL = timedelta(minutes=15)
-PBKDF2_ITERATIONS = 210_000
-
 CURRENT_AUTH_USER_ID: ContextVar[int | None] = ContextVar("current_auth_user_id", default=None)
 CURRENT_AUTH_ORGANIZATION_IDS: ContextVar[tuple[int, ...]] = ContextVar(
     "current_auth_organization_ids",
@@ -762,78 +765,16 @@ class AuthRepository:
         return row is not None
 
 
-def login(repository: AuthRepository, payload: LoginRequest) -> LoginResponse:
-    user = repository.get_user_by_email(payload.email)
-    if user is None or not user.is_active:
-        raise ValueError("email ou senha inválidos")
-    password_hash = repository.get_password_hash(user.id)
-    if password_hash is None or not verify_password(payload.password, password_hash):
-        raise ValueError("email ou senha inválidos")
-    if user.mfa_enabled:
-        return LoginResponse(mfa_required=True, challenge_token=repository.create_mfa_challenge(user.id))
-    token, expires_at = repository.create_session(user.id)
-    return LoginResponse(access_token=token, expires_at=expires_at, user=user)
 
 
-def complete_mfa_login(repository: AuthRepository, payload: MfaLoginRequest) -> AuthSessionResponse:
-    user = repository.consume_mfa_challenge(payload.challenge_token)
-    if user is None:
-        raise ValueError("desafio 2FA inválido ou expirado")
-    secret = repository.get_mfa_secret(user.id)
-    if secret is None or not verify_totp(secret, payload.code):
-        raise ValueError("código 2FA inválido")
-    token, expires_at = repository.create_session(user.id)
-    return AuthSessionResponse(access_token=token, expires_at=expires_at, user=user)
 
 
-def setup_mfa(user: AuthUser) -> MfaSetupResponse:
-    secret = base64.b32encode(os.urandom(20)).decode().rstrip("=")
-    issuer = "Printora"
-    label = f"{issuer}:{user.email}"
-    uri = f"otpauth://totp/{label}?secret={secret}&issuer={issuer}&digits=6&period=30"
-    return MfaSetupResponse(secret=secret, otpauth_uri=uri)
 
 
-def validate_step_up(repository: AuthRepository, user: AuthUser, payload: StepUpRequest) -> StepUpResponse:
-    if user.mfa_enabled:
-        secret = repository.get_mfa_secret(user.id)
-        if payload.code is None:
-            raise ValueError("código 2FA obrigatório para ação crítica")
-        if secret is None or not verify_totp(secret, payload.code):
-            raise ValueError("código 2FA inválido")
-    else:
-        password_hash = repository.get_password_hash(user.id)
-        if payload.password is None:
-            raise ValueError("senha obrigatória para ação crítica")
-        if password_hash is None or not verify_password(payload.password, password_hash):
-            raise ValueError("senha atual inválida para ação crítica")
-    token, expires_at = repository.create_step_up(user.id, payload.purpose)
-    return StepUpResponse(step_up_token=token, expires_at=expires_at)
 
 
-def hash_password(password: str) -> str:
-    salt = os.urandom(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, PBKDF2_ITERATIONS)
-    return "pbkdf2_sha256:" + ":".join(
-        [
-            str(PBKDF2_ITERATIONS),
-            base64.urlsafe_b64encode(salt).decode(),
-            base64.urlsafe_b64encode(digest).decode(),
-        ]
-    )
 
 
-def verify_password(password: str, password_hash: str) -> bool:
-    try:
-        algorithm, iterations_text, salt_text, digest_text = password_hash.split(":", 3)
-        if algorithm != "pbkdf2_sha256":
-            return False
-        salt = base64.urlsafe_b64decode(salt_text.encode())
-        expected = base64.urlsafe_b64decode(digest_text.encode())
-        actual = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, int(iterations_text))
-        return hmac.compare_digest(actual, expected)
-    except Exception:
-        return False
 
 
 def hash_token(token: str) -> str:
@@ -844,25 +785,8 @@ def new_secret(prefix: str) -> str:
     return f"{prefix}_{secrets.token_urlsafe(32)}"
 
 
-def verify_totp(secret: str, code: str, now: int | None = None) -> bool:
-    cleaned = "".join(character for character in code if character.isdigit())
-    if len(cleaned) != 6:
-        return False
-    timestamp = int(time.time()) if now is None else now
-    for offset in (-1, 0, 1):
-        if hmac.compare_digest(totp_code(secret, timestamp + offset * 30), cleaned):
-            return True
-    return False
 
 
-def totp_code(secret: str, timestamp: int | None = None) -> str:
-    current = int(time.time()) if timestamp is None else timestamp
-    counter = current // 30
-    key = _base32_decode(secret)
-    digest = hmac.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
-    offset = digest[-1] & 0x0F
-    value = struct.unpack(">I", digest[offset : offset + 4])[0] & 0x7FFFFFFF
-    return f"{value % 1_000_000:06d}"
 
 
 def protect_secret(database_path: Path, value: str) -> str:
@@ -962,10 +886,6 @@ def _organization_invite_url(base_url: str, token: str) -> str:
     return f"{base_url.rstrip('/')}/?section=account&org_invite={token}"
 
 
-def _base32_decode(secret: str) -> bytes:
-    normalized = secret.strip().replace(" ", "").upper()
-    padding = "=" * ((8 - len(normalized) % 8) % 8)
-    return base64.b32decode((normalized + padding).encode())
 
 
 def _load_or_create_auth_key(database_path: Path) -> bytes:

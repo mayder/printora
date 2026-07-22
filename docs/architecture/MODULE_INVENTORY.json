@@ -82,15 +82,15 @@
     }
   ],
   "summary": {
-    "modules": 118,
+    "modules": 121,
     "routes": 322,
-    "contracts": 330,
+    "contracts": 331,
     "tables": 100,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 23,
       "community": 22,
-      "identity": 7,
+      "identity": 10,
       "integrations": 6,
       "operations": 52,
       "shared": 8
@@ -248,10 +248,12 @@
     {
       "module": "auth",
       "owner": "identity",
-      "lines": 991,
+      "lines": 911,
       "imports": [
         "database",
-        "modules.identity.contracts"
+        "modules.identity.application",
+        "modules.identity.contracts",
+        "modules.identity.security"
       ],
       "routes": [],
       "contracts": []
@@ -699,6 +701,18 @@
       "contracts": []
     },
     {
+      "module": "modules.identity.application",
+      "owner": "identity",
+      "lines": 70,
+      "imports": [
+        "modules.identity.contracts",
+        "modules.identity.ports",
+        "modules.identity.security"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "modules.identity.contracts",
       "owner": "identity",
       "lines": 266,
@@ -730,6 +744,26 @@
         "AgentCredentialResponse",
         "AgentCredentialRecord"
       ]
+    },
+    {
+      "module": "modules.identity.ports",
+      "owner": "identity",
+      "lines": 21,
+      "imports": [
+        "modules.identity.contracts"
+      ],
+      "routes": [],
+      "contracts": [
+        "IdentityRepository"
+      ]
+    },
+    {
+      "module": "modules.identity.security",
+      "owner": "identity",
+      "lines": 67,
+      "imports": [],
+      "routes": [],
+      "contracts": []
     },
     {
       "module": "modules.integrations.__init__",
@@ -1239,7 +1273,9 @@
         "auth",
         "config",
         "database",
-        "modules.identity.contracts"
+        "modules.identity.application",
+        "modules.identity.contracts",
+        "modules.identity.security"
       ],
       "routes": [
         {

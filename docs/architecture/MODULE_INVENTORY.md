@@ -4,9 +4,9 @@
 
 ## Resumo
 
-- módulos Python: 118;
+- módulos Python: 121;
 - endpoints HTTP/WebSocket: 322;
-- contratos tipados: 330;
+- contratos tipados: 331;
 - tabelas declaradas em SQL: 100;
 - ciclos de import detectados: 0.
 
@@ -14,7 +14,7 @@
 
 | Fronteira | Owner | Responsabilidade | Módulos | Tabelas |
 |---|---|---|---:|---:|
-| `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 7 | 8 |
+| `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 10 | 8 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 22 | 45 |
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 52 | 32 |
 | `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 23 | 15 |
@@ -32,7 +32,7 @@
 | `print_projects` | `community` | 1036 | 0 | 14 |
 | `agent_pairing` | `operations` | 1008 | 0 | 19 |
 | `self_update` | `administration` | 1002 | 0 | 10 |
-| `auth` | `identity` | 991 | 0 | 0 |
+| `auth` | `identity` | 911 | 0 | 0 |
 | `calibration` | `operations` | 910 | 0 | 12 |
 | `routes.operation` | `operations` | 776 | 13 | 0 |
 | `setup_flash` | `operations` | 753 | 0 | 7 |

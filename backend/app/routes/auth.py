@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
-from app.auth import (
-    AuthRepository,
+from app.auth import AuthRepository
+from app.modules.identity.application import (
     complete_mfa_login,
     login,
     setup_mfa,
     validate_step_up,
-    verify_totp,
 )
 from app.modules.identity.contracts import (
     AgentCredentialCreateRequest,
@@ -36,6 +35,7 @@ from app.modules.identity.contracts import (
     UserPasswordUpdateRequest,
     UserProfileUpdateRequest,
 )
+from app.modules.identity.security import verify_totp
 from app.config import get_settings
 
 

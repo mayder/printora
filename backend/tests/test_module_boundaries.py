@@ -18,7 +18,7 @@ FORBIDDEN_PURE_IMPORTS = {
     "sqlalchemy",
     "starlette",
 }
-PURE_FILENAMES = {"domain.py", "contracts.py", "ports.py"}
+PURE_FILENAMES = {"application.py", "contracts.py", "domain.py", "ports.py", "security.py"}
 
 
 def imported_roots(path: Path) -> set[str]:
