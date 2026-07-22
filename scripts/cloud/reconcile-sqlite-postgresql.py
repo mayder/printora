@@ -211,11 +211,16 @@ def table_report(
     sqlite_cursor = sqlite_connection.execute(
         f"SELECT {projection} FROM {quote(table)} ORDER BY {ordering}"
     )
-    postgresql_cursor = postgresql_connection.execute(
-        f"SELECT {projection} FROM {quote(table)} ORDER BY {ordering}"
-    )
     sqlite_count, sqlite_digest = digest_rows(sqlite_cursor, common_columns)
-    postgresql_count, postgresql_digest = digest_rows(postgresql_cursor, common_columns)
+    cursor_name = "reconcile_" + hashlib.sha256(table.encode()).hexdigest()[:16]
+    with postgresql_connection.cursor(name=cursor_name, row_factory=dict_row) as postgresql_cursor:
+        postgresql_cursor.execute(
+            f"SELECT {projection} FROM {quote(table)} ORDER BY {ordering}"
+        )
+        postgresql_count, postgresql_digest = digest_rows(
+            postgresql_cursor,
+            common_columns,
+        )
     identifier = "id" if "id" in common_columns else None
     sqlite_range = _range(sqlite_connection, table, identifier)
     postgresql_range = _range(postgresql_connection, table, identifier)
