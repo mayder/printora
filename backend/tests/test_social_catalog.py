@@ -36,6 +36,46 @@ def test_catalog_seed_has_voron_models_and_variants(tmp_path: Path) -> None:
     assert "Voron 2.4 R2 350mm" in variant_names
 
 
+def test_startup_materialization_does_not_rewrite_unchanged_rows(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = SocialCatalogRepository(database_path)
+    sentinel = "2020-01-02 03:04:05"
+    with connect_database(database_path) as connection:
+        repository.sync_all_communities(connection)
+        repository.sync_default_feed_items(connection)
+    with connect_database(database_path) as connection:
+        community_id = connection.execute(
+            "SELECT id FROM social_communities ORDER BY id LIMIT 1"
+        ).fetchone()["id"]
+        feed_id = connection.execute(
+            "SELECT id FROM social_feed_items ORDER BY id LIMIT 1"
+        ).fetchone()["id"]
+        connection.execute(
+            "UPDATE social_communities SET updated_at = ? WHERE id = ?",
+            (sentinel, community_id),
+        )
+        connection.execute(
+            "UPDATE social_feed_items SET updated_at = ? WHERE id = ?",
+            (sentinel, feed_id),
+        )
+    with connect_database(database_path) as connection:
+        repository.sync_all_communities(connection)
+        repository.sync_default_feed_items(connection)
+    with connect_database(database_path) as connection:
+        community_updated_at = connection.execute(
+            "SELECT updated_at FROM social_communities WHERE id = ?",
+            (community_id,),
+        ).fetchone()["updated_at"]
+        feed_updated_at = connection.execute(
+            "SELECT updated_at FROM social_feed_items WHERE id = ?",
+            (feed_id,),
+        ).fetchone()["updated_at"]
+
+    assert community_updated_at == sentinel
+    assert feed_updated_at == sentinel
+
+
 def test_premium_library_item_requires_commercial_review_before_publication(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)

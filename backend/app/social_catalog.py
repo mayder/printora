@@ -1924,6 +1924,11 @@ class SocialCatalogRepository:
                     pinned = excluded.pinned,
                     visibility = excluded.visibility,
                     updated_at = CURRENT_TIMESTAMP
+                WHERE social_feed_items.body != excluded.body
+                   OR COALESCE(social_feed_items.component, '') != COALESCE(excluded.component, '')
+                   OR COALESCE(social_feed_items.firmware_family, '') != COALESCE(excluded.firmware_family, '')
+                   OR social_feed_items.pinned != excluded.pinned
+                   OR social_feed_items.visibility != excluded.visibility
                 """,
                 (row["id"], body, _primary_component(row["components_json"]), row["firmware_family"], source_id),
             )
@@ -1987,6 +1992,11 @@ class SocialCatalogRepository:
                     ELSE excluded.status
                 END,
                 updated_at = CURRENT_TIMESTAMP
+            WHERE social_communities.name != excluded.name
+               OR (
+                   social_communities.status != 'merged'
+                   AND social_communities.status != excluded.status
+               )
             """,
             (slug, name, scope, manufacturer_id, model_id, variant_id, status),
         )
