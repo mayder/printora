@@ -172,6 +172,7 @@ def main() -> None:
     if args.max_bytes_per_second < 0:
         raise SystemExit("--max-bytes-per-second não pode ser negativo")
 
+    os.umask(0o007)
     source = sqlite3.connect(f"file:{args.sqlite}?mode=ro", uri=True)
     try:
         with psycopg.connect(args.postgresql_url, row_factory=dict_row) as target:

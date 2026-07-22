@@ -294,6 +294,7 @@ def main() -> None:
     args = parser.parse_args()
     if not args.postgresql_url:
         raise SystemExit("--postgresql-url ou PRINTORA_DATABASE_URL é obrigatório")
+    os.umask(0o007)
     sqlite_connection = sqlite3.connect(f"file:{args.sqlite}?mode=ro", uri=True)
     sqlite_connection.row_factory = sqlite3.Row
     sqlite_connection.execute("BEGIN")

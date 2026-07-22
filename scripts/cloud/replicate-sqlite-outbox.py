@@ -190,6 +190,7 @@ def main() -> None:
         raise SystemExit("--postgresql-url ou PRINTORA_DATABASE_URL é obrigatório")
     if args.batch_size < 1 or args.batch_size > 10_000:
         raise SystemExit("--batch-size deve estar entre 1 e 10000")
+    os.umask(0o007)
     sqlite_connection = sqlite3.connect(f"file:{args.sqlite}?mode=ro", uri=True)
     sqlite_connection.row_factory = sqlite3.Row
     total = 0

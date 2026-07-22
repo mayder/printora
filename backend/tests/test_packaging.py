@@ -196,6 +196,16 @@ def test_postgresql_cutover_locks_source_and_never_restores_snapshot() -> None:
     assert "snapshot" not in cutover.lower()
 
 
+def test_transition_readers_preserve_group_write_access_to_wal() -> None:
+    for script_name in (
+        "import-sqlite-postgresql.py",
+        "replicate-sqlite-outbox.py",
+        "reconcile-sqlite-postgresql.py",
+    ):
+        script = (ROOT_DIR / "scripts/cloud" / script_name).read_text()
+        assert "os.umask(0o007)" in script
+
+
 def test_cloud_load_smoke_reports_zero_errors() -> None:
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
