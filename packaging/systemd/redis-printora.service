@@ -12,7 +12,6 @@ RuntimeDirectoryMode=0770
 StateDirectory=redis-printora
 StateDirectoryMode=0750
 ExecStart=/usr/bin/redis-server /etc/redis/printora.conf
-ExecStartPost=/usr/bin/redis-cli -s /run/redis-printora/redis.sock ping
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true

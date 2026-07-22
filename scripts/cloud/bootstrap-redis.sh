@@ -21,5 +21,13 @@ chmod 0640 /etc/printora-cloud/redis.env
 
 systemctl daemon-reload
 systemctl enable --now redis-printora.service
-redis-cli -s /run/redis-printora/redis.sock ping | grep -qx PONG
-echo "Redis dedicado e recomponível ativo somente por socket local."
+for _attempt in $(seq 1 50); do
+  if redis-cli -s /run/redis-printora/redis.sock ping 2>/dev/null | grep -qx PONG; then
+    echo "Redis dedicado e recomponível ativo somente por socket local."
+    exit 0
+  fi
+  sleep 0.1
+done
+systemctl status redis-printora.service --no-pager >&2 || true
+echo "ERRO: Redis não respondeu no socket dedicado" >&2
+exit 1
