@@ -1,3 +1,8 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 
 from app.modules.platform.database_target import uses_postgresql
@@ -24,6 +29,34 @@ def test_invalid_database_url_never_falls_back_to_sqlite(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="deve usar PostgreSQL"):
         uses_postgresql()
+
+
+def test_cloud_process_does_not_load_sqlite_adapter() -> None:
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "PRINTORA_RUNTIME_PROFILE": "cloud",
+            "PRINTORA_DATABASE_URL": "postgresql://example.invalid/printora_cloud",
+        }
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; import app.database; "
+                "assert 'sqlite3' not in sys.modules; "
+                "assert 'app.modules.platform.transition_outbox' not in sys.modules"
+            ),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+        cwd=Path(__file__).resolve().parents[1],
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 def test_postgresql_adapter_rewrites_parameters_without_touching_literals() -> None:
