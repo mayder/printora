@@ -20,7 +20,7 @@ export RESTIC_CACHE_DIR="$restore_root/restic-cache"
 started=0
 cleanup() {
   if [[ "$started" -eq 1 ]]; then
-    runuser -u postgres -- "$pg_bin/pg_ctl" -D "$cluster" -m fast -w stop >/dev/null || true
+    runuser -u postgres -- "$pg_bin/pg_ctl" -D "$cluster" -m immediate -w stop >/dev/null || true
   fi
   case "$restore_root" in
     /var/lib/postgresql/printora-restore-test.*) rm -rf -- "$restore_root" ;;
