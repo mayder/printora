@@ -82,7 +82,7 @@
     }
   ],
   "summary": {
-    "modules": 126,
+    "modules": 127,
     "routes": 322,
     "contracts": 331,
     "tables": 100,
@@ -92,7 +92,7 @@
       "community": 27,
       "identity": 10,
       "integrations": 6,
-      "operations": 52,
+      "operations": 53,
       "shared": 8
     }
   },
@@ -155,34 +155,15 @@
     {
       "module": "agent_pairing",
       "owner": "operations",
-      "lines": 1008,
+      "lines": 886,
       "imports": [
         "auth",
         "database",
+        "modules.operations.contracts",
         "printers"
       ],
       "routes": [],
-      "contracts": [
-        "PairingTokenCreateRequest",
-        "PairingTokenResponse",
-        "AgentInstallPlanResponse",
-        "PairingTokenRecord",
-        "AgentExchangeRequest",
-        "AgentCredentialExchangeResponse",
-        "AgentRecord",
-        "AgentPairingOverview",
-        "AgentInstallStatusResponse",
-        "AgentHeartbeatRequest",
-        "AgentHeartbeatResponse",
-        "AgentSnapshotRequest",
-        "AgentProtocolMessage",
-        "AgentJobCreateRequest",
-        "AgentJobRecord",
-        "AgentJobResponse",
-        "AgentJobResultRequest",
-        "AgentJobErrorRequest",
-        "AgentEventRecord"
-      ]
+      "contracts": []
     },
     {
       "module": "agent_parity",
@@ -684,7 +665,7 @@
     {
       "module": "modules.community.catalog_contracts",
       "owner": "community",
-      "lines": 126,
+      "lines": 124,
       "imports": [],
       "routes": [],
       "contracts": [
@@ -774,7 +755,7 @@
     {
       "module": "modules.community.validation",
       "owner": "community",
-      "lines": 126,
+      "lines": 124,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -900,6 +881,34 @@
       ],
       "routes": [],
       "contracts": []
+    },
+    {
+      "module": "modules.operations.contracts",
+      "owner": "operations",
+      "lines": 209,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "PairingTokenCreateRequest",
+        "PairingTokenResponse",
+        "AgentInstallPlanResponse",
+        "PairingTokenRecord",
+        "AgentExchangeRequest",
+        "AgentCredentialExchangeResponse",
+        "AgentRecord",
+        "AgentPairingOverview",
+        "AgentInstallStatusResponse",
+        "AgentHeartbeatRequest",
+        "AgentHeartbeatResponse",
+        "AgentSnapshotRequest",
+        "AgentProtocolMessage",
+        "AgentJobCreateRequest",
+        "AgentJobRecord",
+        "AgentJobResponse",
+        "AgentJobResultRequest",
+        "AgentJobErrorRequest",
+        "AgentEventRecord"
+      ]
     },
     {
       "module": "modules.registry",
@@ -1143,16 +1152,17 @@
     {
       "module": "routes.agents",
       "owner": "operations",
-      "lines": 697,
+      "lines": 696,
       "imports": [
         "agent_channel",
         "agent_pairing",
         "agent_parity",
         "agent_support",
         "agent_updates",
-        "auth",
         "config",
         "gcode_cache",
+        "modules.identity.contracts",
+        "modules.operations.contracts",
         "remote_operations",
         "routes.auth"
       ],

@@ -5,7 +5,8 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 
-from app.agent_pairing import (
+from app.agent_pairing import AgentPairingRepository, printer_for_user
+from app.modules.operations.contracts import (
     AgentPairingConflictError,
     AgentExchangeRequest,
     AgentHeartbeatRequest,
@@ -18,7 +19,6 @@ from app.agent_pairing import (
     AgentJobResultRequest,
     AgentJobResponse,
     AgentPairingOverview,
-    AgentPairingRepository,
     AgentProtocolMessage,
     AgentSnapshotRequest,
     AgentCredentialExchangeResponse,
@@ -27,7 +27,6 @@ from app.agent_pairing import (
     PairingTokenCreateRequest,
     PairingTokenRecord,
     PairingTokenResponse,
-    printer_for_user,
 )
 from app.agent_channel import agent_ws_manager, job_message, protocol_message
 from app.agent_parity import (
@@ -48,9 +47,9 @@ from app.agent_updates import (
     AgentUpdateRepository,
     load_agent_update_manifest,
 )
-from app.auth import CurrentUser
 from app.config import Settings, get_settings
 from app.gcode_cache import GcodeCacheEntry, store_gcode_cache_upload
+from app.modules.identity.contracts import CurrentUser
 from app.routes.auth import require_current_user
 from app.remote_operations import (
     RemoteOperationCancelResponse,

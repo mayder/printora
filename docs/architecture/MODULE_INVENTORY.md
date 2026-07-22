@@ -4,7 +4,7 @@
 
 ## Resumo
 
-- módulos Python: 126;
+- módulos Python: 127;
 - endpoints HTTP/WebSocket: 322;
 - contratos tipados: 331;
 - tabelas declaradas em SQL: 100;
@@ -16,7 +16,7 @@
 |---|---|---|---:|---:|
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 10 | 8 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 27 | 45 |
-| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 52 | 32 |
+| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 53 | 32 |
 | `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 23 | 15 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 6 | 0 |
 | `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 8 | 0 |
@@ -30,14 +30,14 @@
 | `maintenance` | `operations` | 1147 | 0 | 8 |
 | `routes.social_catalog` | `community` | 1107 | 59 | 0 |
 | `print_projects` | `community` | 1037 | 0 | 14 |
-| `agent_pairing` | `operations` | 1008 | 0 | 19 |
 | `self_update` | `administration` | 1002 | 0 | 10 |
 | `auth` | `identity` | 911 | 0 | 0 |
 | `calibration` | `operations` | 910 | 0 | 12 |
+| `agent_pairing` | `operations` | 886 | 0 | 0 |
 | `routes.operation` | `operations` | 776 | 13 | 0 |
 | `setup_flash` | `operations` | 753 | 0 | 7 |
 | `setup_can` | `operations` | 699 | 0 | 7 |
-| `routes.agents` | `operations` | 697 | 35 | 0 |
+| `routes.agents` | `operations` | 696 | 35 | 0 |
 | `routes.calibration` | `operations` | 674 | 15 | 0 |
 | `setup_wizard` | `operations` | 643 | 0 | 7 |
 | `printers` | `operations` | 635 | 0 | 3 |
