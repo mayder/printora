@@ -145,12 +145,46 @@ def replicate_batch(
     return len(events), watermark
 
 
+def sync_sequences(connection: psycopg.Connection[Any]) -> int:
+    rows = connection.execute(
+        """
+        SELECT table_name,
+               column_name,
+               pg_get_serial_sequence(
+                   quote_ident(table_schema) || '.' || quote_ident(table_name),
+                   column_name
+               ) AS sequence_name
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+        ORDER BY table_name, ordinal_position
+        """
+    ).fetchall()
+    synchronized = 0
+    for row in rows:
+        sequence_name = row["sequence_name"]
+        if not sequence_name:
+            continue
+        maximum = connection.execute(
+            sql.SQL("SELECT MAX({}) AS maximum FROM {}").format(
+                sql.Identifier(str(row["column_name"])),
+                sql.Identifier(str(row["table_name"])),
+            )
+        ).fetchone()["maximum"]
+        connection.execute(
+            "SELECT setval(%s::regclass, %s, %s)",
+            (sequence_name, maximum if maximum is not None else 1, maximum is not None),
+        )
+        synchronized += 1
+    return synchronized
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sqlite", type=Path, required=True)
     parser.add_argument("--postgresql-url", default=os.environ.get("PRINTORA_DATABASE_URL"))
     parser.add_argument("--batch-size", type=int, default=500)
     parser.add_argument("--until-idle", action="store_true")
+    parser.add_argument("--sync-sequences", action="store_true")
     args = parser.parse_args()
     if not args.postgresql_url:
         raise SystemExit("--postgresql-url ou PRINTORA_DATABASE_URL é obrigatório")
@@ -160,6 +194,7 @@ def main() -> None:
     sqlite_connection.row_factory = sqlite3.Row
     total = 0
     watermark = 0
+    synchronized_sequences = 0
     try:
         with psycopg.connect(args.postgresql_url, row_factory=dict_row) as target:
             shapes = load_shapes(target)
@@ -174,9 +209,21 @@ def main() -> None:
                 total += processed
                 if not args.until_idle or processed < args.batch_size:
                     break
+            if args.sync_sequences:
+                synchronized_sequences = sync_sequences(target)
+                target.commit()
     finally:
         sqlite_connection.close()
-    print(json.dumps({"processed": total, "watermark": watermark}, sort_keys=True))
+    print(
+        json.dumps(
+            {
+                "processed": total,
+                "synchronized_sequences": synchronized_sequences,
+                "watermark": watermark,
+            },
+            sort_keys=True,
+        )
+    )
 
 
 if __name__ == "__main__":
