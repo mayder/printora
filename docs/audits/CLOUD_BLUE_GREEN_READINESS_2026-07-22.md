@@ -14,6 +14,8 @@ Data: 2026-07-22.
 - reconnect do agente com jitter, fallback polling e deduplicação concorrente;
 - substituição segura de sessão WebSocket durante reconnect;
 - carga HTTP reproduzível com erro zero e limite p95 configurável.
+- threat model repository-wide persistido em `SECURITY.md`, cobrindo ativos,
+  fronteiras, invariantes, supply chain, agente/impressora e severidade.
 
 ## Evidência Local
 
