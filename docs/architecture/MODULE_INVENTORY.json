@@ -82,14 +82,14 @@
     }
   ],
   "summary": {
-    "modules": 121,
+    "modules": 126,
     "routes": 322,
     "contracts": 331,
     "tables": 100,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 23,
-      "community": 22,
+      "community": 27,
       "identity": 10,
       "integrations": 6,
       "operations": 52,
@@ -370,10 +370,10 @@
     {
       "module": "external_library",
       "owner": "community",
-      "lines": 284,
+      "lines": 289,
       "imports": [
         "database",
-        "social_catalog"
+        "modules.community.contracts"
       ],
       "routes": [],
       "contracts": [
@@ -682,6 +682,104 @@
       "contracts": []
     },
     {
+      "module": "modules.community.catalog_contracts",
+      "owner": "community",
+      "lines": 126,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "CatalogVariant",
+        "CatalogModelAdmin",
+        "CatalogModel",
+        "CatalogManufacturer",
+        "CatalogSummary",
+        "CatalogAdminSummary",
+        "CatalogVariantUpdate",
+        "CatalogManufacturerCreate",
+        "CatalogModelCreate",
+        "CatalogVariantCreate"
+      ]
+    },
+    {
+      "module": "modules.community.community_contracts",
+      "owner": "community",
+      "lines": 336,
+      "imports": [
+        "modules.community.catalog_contracts",
+        "modules.community.validation"
+      ],
+      "routes": [],
+      "contracts": [
+        "PublicProfileUpdate",
+        "PublicProfile",
+        "PrinterPublicUpdate",
+        "PublicPrinter",
+        "Community",
+        "CommunityFeedItem",
+        "CommunityFeedSummary",
+        "CommunityFeedCreate",
+        "CommunityPostCreate",
+        "CommunityPostUpdate",
+        "DiscussionComment",
+        "DiscussionCommentCreate",
+        "DiscussionCommentUpdate",
+        "DiscussionReactionCount",
+        "DiscussionReactionPayload",
+        "DiscussionDetail",
+        "RelationshipRecord",
+        "RelationshipSummary"
+      ]
+    },
+    {
+      "module": "modules.community.contracts",
+      "owner": "community",
+      "lines": 87,
+      "imports": [
+        "modules.community.catalog_contracts",
+        "modules.community.community_contracts",
+        "modules.community.library_contracts",
+        "modules.community.validation"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.community.library_contracts",
+      "owner": "community",
+      "lines": 377,
+      "imports": [
+        "modules.community.validation"
+      ],
+      "routes": [],
+      "contracts": [
+        "LibraryFileMetadata",
+        "LibraryItemBase",
+        "LibraryItemUpdate",
+        "LibraryVersionCreate",
+        "LibraryVersion",
+        "LibraryCollectionCreate",
+        "LibraryCollectionItemCreate",
+        "LibraryCollection",
+        "PrintListCreate",
+        "PrintListItemCreate",
+        "PrintListItemUpdate",
+        "PrintListItem",
+        "PrintList",
+        "LibraryDownloadHistoryItem",
+        "LibraryOrganizerSummary",
+        "LibraryItem",
+        "LibraryCommercialReviewCreate"
+      ]
+    },
+    {
+      "module": "modules.community.validation",
+      "owner": "community",
+      "lines": 126,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "modules.identity.__init__",
       "owner": "identity",
       "lines": 1,
@@ -950,9 +1048,10 @@
     {
       "module": "print_projects",
       "owner": "community",
-      "lines": 1036,
+      "lines": 1037,
       "imports": [
         "database",
+        "modules.community.contracts",
         "social_catalog",
         "social_storage"
       ],
@@ -2482,8 +2581,9 @@
       "owner": "community",
       "lines": 1107,
       "imports": [
-        "auth",
         "config",
+        "modules.community.contracts",
+        "modules.identity.contracts",
         "routes.auth",
         "social_catalog",
         "social_notifications",
@@ -3337,59 +3437,14 @@
     {
       "module": "social_catalog",
       "owner": "community",
-      "lines": 4033,
+      "lines": 3332,
       "imports": [
         "database",
+        "modules.community.contracts",
         "social_storage"
       ],
       "routes": [],
-      "contracts": [
-        "CatalogVariant",
-        "CatalogModelAdmin",
-        "CatalogModel",
-        "CatalogManufacturer",
-        "CatalogSummary",
-        "CatalogAdminSummary",
-        "CatalogVariantUpdate",
-        "CatalogManufacturerCreate",
-        "CatalogModelCreate",
-        "CatalogVariantCreate",
-        "PublicProfileUpdate",
-        "PublicProfile",
-        "PrinterPublicUpdate",
-        "PublicPrinter",
-        "Community",
-        "CommunityFeedItem",
-        "CommunityFeedSummary",
-        "CommunityFeedCreate",
-        "CommunityPostCreate",
-        "CommunityPostUpdate",
-        "DiscussionComment",
-        "DiscussionCommentCreate",
-        "DiscussionCommentUpdate",
-        "DiscussionReactionCount",
-        "DiscussionReactionPayload",
-        "DiscussionDetail",
-        "LibraryFileMetadata",
-        "LibraryItemBase",
-        "LibraryItemUpdate",
-        "LibraryVersionCreate",
-        "LibraryVersion",
-        "LibraryCollectionCreate",
-        "LibraryCollectionItemCreate",
-        "LibraryCollection",
-        "PrintListCreate",
-        "PrintListItemCreate",
-        "PrintListItemUpdate",
-        "PrintListItem",
-        "PrintList",
-        "LibraryDownloadHistoryItem",
-        "LibraryOrganizerSummary",
-        "LibraryItem",
-        "LibraryCommercialReviewCreate",
-        "RelationshipRecord",
-        "RelationshipSummary"
-      ]
+      "contracts": []
     },
     {
       "module": "social_moderation",

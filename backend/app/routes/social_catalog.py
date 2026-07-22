@@ -5,10 +5,9 @@ import time
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
-from app.auth import CurrentUser
 from app.config import get_settings
-from app.routes.auth import get_auth_repository, require_current_user, require_current_user_when_configured
-from app.social_catalog import (
+from app.modules.identity.contracts import CurrentUser
+from app.modules.community.contracts import (
     CatalogAdminSummary,
     CatalogManufacturer,
     CatalogManufacturerCreate,
@@ -47,9 +46,10 @@ from app.social_catalog import (
     PublicProfileUpdate,
     RelationshipRecord,
     RelationshipSummary,
-    SocialCatalogRepository,
     TrustState,
 )
+from app.routes.auth import get_auth_repository, require_current_user, require_current_user_when_configured
+from app.social_catalog import SocialCatalogRepository
 from app.social_notifications import SocialNotificationsRepository
 from app.social_safety import SocialSafetyRepository
 

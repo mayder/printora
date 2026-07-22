@@ -4,7 +4,7 @@
 
 ## Resumo
 
-- módulos Python: 121;
+- módulos Python: 126;
 - endpoints HTTP/WebSocket: 322;
 - contratos tipados: 331;
 - tabelas declaradas em SQL: 100;
@@ -15,7 +15,7 @@
 | Fronteira | Owner | Responsabilidade | Módulos | Tabelas |
 |---|---|---|---:|---:|
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 10 | 8 |
-| `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 22 | 45 |
+| `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 27 | 45 |
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 52 | 32 |
 | `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 23 | 15 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 6 | 0 |
@@ -25,11 +25,11 @@
 
 | Módulo | Owner | Linhas | Rotas | Contratos |
 |---|---|---:|---:|---:|
-| `social_catalog` | `community` | 4033 | 0 | 45 |
+| `social_catalog` | `community` | 3332 | 0 | 0 |
 | `operation` | `operations` | 1153 | 0 | 0 |
 | `maintenance` | `operations` | 1147 | 0 | 8 |
 | `routes.social_catalog` | `community` | 1107 | 59 | 0 |
-| `print_projects` | `community` | 1036 | 0 | 14 |
+| `print_projects` | `community` | 1037 | 0 | 14 |
 | `agent_pairing` | `operations` | 1008 | 0 | 19 |
 | `self_update` | `administration` | 1002 | 0 | 10 |
 | `auth` | `identity` | 911 | 0 | 0 |

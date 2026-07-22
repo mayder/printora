@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
-import ipaddress
 import json
 import math
 import re
@@ -11,782 +10,182 @@ import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 from typing import Literal
-from urllib.parse import urlparse
-
-from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.database import connect_database
+from app.modules.community.contracts import (
+    TrustState,
+    ProfileVisibility,
+    CommunityStatus,
+    RelationshipType,
+    RelationshipStatus,
+    FeedContentType,
+    FeedOrder,
+    DiscussionReactionType,
+    LibraryVisibility,
+    LibraryFileKind,
+    LibraryLicense,
+    LibraryCollectionVisibility,
+    PrintListItemStatus,
+    LibraryContentClass,
+    LibraryCommercialStatus,
+    CatalogVariant,
+    CatalogVariantDetail,
+    CatalogModelAdmin,
+    CatalogModel,
+    CatalogManufacturer,
+    CatalogSummary,
+    CatalogAdminSummary,
+    CatalogVariantUpdate,
+    CatalogManufacturerCreate,
+    CatalogModelCreate,
+    CatalogVariantCreate,
+    PublicProfileUpdate,
+    PublicProfile,
+    PrinterPublicUpdate,
+    PublicPrinter,
+    Community,
+    CommunityDetail,
+    CommunityFeedItem,
+    CommunityFeedSummary,
+    CommunityFeedCreate,
+    CommunityPostCreate,
+    CommunityPostUpdate,
+    DiscussionComment,
+    DiscussionCommentCreate,
+    DiscussionCommentUpdate,
+    DiscussionReactionCount,
+    DiscussionReactionPayload,
+    DiscussionDetail,
+    LibraryFileMetadata,
+    LibraryItemBase,
+    LibraryItemCreate,
+    LibraryItemUpdate,
+    LibraryVersionCreate,
+    LibraryVersion,
+    LibraryCollectionCreate,
+    LibraryCollectionItemCreate,
+    LibraryCollection,
+    PrintListCreate,
+    PrintListItemCreate,
+    PrintListItemUpdate,
+    PrintListItem,
+    PrintList,
+    LibraryDownloadHistoryItem,
+    LibraryOrganizerSummary,
+    LibraryItem,
+    LibraryCommercialReviewCreate,
+    RelationshipRecord,
+    RelationshipSummary,
+    normalize_slug,
+    clean_optional_text,
+    clean_library_file_name,
+    clean_text_list,
+    clean_public_image_urls,
+    clean_discussion_text,
+    clean_discussion_attachments,
+    validate_public_url,
+    _is_private_or_local_host,
+    _clean_social_links,
+)
 from app.social_storage import SocialStorageRepository
 
 
-TrustState = Literal["official", "community", "draft", "obsolete", "blocked"]
-ProfileVisibility = Literal["public", "unlisted", "private"]
-CommunityStatus = Literal["active", "uncurated", "obsolete", "merged"]
-RelationshipType = Literal["follow", "friend", "block"]
-RelationshipStatus = Literal["active", "pending", "accepted", "ended"]
-FeedContentType = Literal["technical_post", "question", "mod", "print_result", "file_announcement", "curation_notice"]
-FeedOrder = Literal["recent", "recommended", "pinned"]
-DiscussionReactionType = Literal["like", "useful", "thanks"]
-LibraryVisibility = Literal["private", "friends", "community", "public"]
-LibraryFileKind = Literal["stl", "3mf", "bundle"]
-LibraryLicense = Literal["cc-by", "cc-by-sa", "cc0", "mit", "custom", "all-rights-reserved"]
-LibraryCollectionVisibility = Literal["private", "community", "public"]
-PrintListItemStatus = Literal["want_to_print", "printed", "problem"]
-LibraryContentClass = Literal["community", "curated", "premium", "sponsored"]
-LibraryCommercialStatus = Literal["none", "pending_review", "approved", "rejected"]
-
-
-class CatalogVariant(BaseModel):
-    id: int
-    slug: str
-    name: str
-    build_volume: dict[str, object]
-    components: dict[str, object]
-    firmware_family: str | None
-    trust_state: TrustState
-    source: str
-
-
-class CatalogVariantDetail(CatalogVariant):
-    manufacturer_id: int
-    manufacturer_slug: str
-    manufacturer_name: str
-    model_id: int
-    model_slug: str
-    model_name: str
-    kinematics: str
-
-
-class CatalogModelAdmin(BaseModel):
-    id: int
-    slug: str
-    name: str
-    kinematics: str
-    trust_state: TrustState
-    manufacturer_id: int
-    manufacturer_slug: str
-    manufacturer_name: str
-    manufacturer_website_url: str | None = None
-    manufacturer_repository_url: str | None = None
-    manufacturer_documentation_url: str | None = None
-    manufacturer_logo_url: str | None = None
-    manufacturer_discord_url: str | None = None
-    manufacturer_reddit_url: str | None = None
-    manufacturer_summary: str | None = None
-    website_url: str | None = None
-    repository_url: str | None = None
-    documentation_url: str | None = None
-    bom_url: str | None = None
-    image_url: str | None = None
-    discord_url: str | None = None
-    reddit_url: str | None = None
-    forum_url: str | None = None
-    description: str | None = None
-    curation_notes: str | None = None
-    detail: dict[str, object] = Field(default_factory=dict)
-    source_links: dict[str, object] = Field(default_factory=dict)
-    variants: list[CatalogVariant] = Field(default_factory=list)
-
-
-class CatalogModel(BaseModel):
-    id: int
-    slug: str
-    name: str
-    kinematics: str
-    trust_state: TrustState
-    source: str
-    variants: list[CatalogVariant] = Field(default_factory=list)
-
-
-class CatalogManufacturer(BaseModel):
-    id: int
-    slug: str
-    name: str
-    trust_state: TrustState
-    source: str
-    models: list[CatalogModel] = Field(default_factory=list)
-
-
-class CatalogSummary(BaseModel):
-    manufacturers: list[CatalogManufacturer]
-
-
-class CatalogAdminSummary(BaseModel):
-    models: list[CatalogModelAdmin]
-    manufacturer_count: int
-    model_count: int
-    variant_count: int
-
-
-class CatalogVariantUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=160)
-    build_volume: dict[str, object] | None = None
-    components: dict[str, object] | None = None
-    firmware_family: str | None = Field(default=None, max_length=80)
-    trust_state: TrustState | None = None
-    source: str | None = Field(default=None, max_length=120)
-
-
-class CatalogManufacturerCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    slug: str | None = Field(default=None, max_length=120)
-    trust_state: TrustState = "draft"
-    source: str = Field(default="admin", max_length=120)
-
-
-class CatalogModelCreate(BaseModel):
-    manufacturer_id: int = Field(ge=1)
-    name: str = Field(min_length=1, max_length=120)
-    slug: str | None = Field(default=None, max_length=120)
-    kinematics: str = Field(min_length=1, max_length=80)
-    trust_state: TrustState = "draft"
-    source: str = Field(default="admin", max_length=120)
-
-
-class CatalogVariantCreate(BaseModel):
-    model_id: int = Field(ge=1)
-    name: str = Field(min_length=1, max_length=160)
-    slug: str | None = Field(default=None, max_length=120)
-    build_volume: dict[str, object] = Field(default_factory=dict)
-    components: dict[str, object] = Field(default_factory=dict)
-    firmware_family: str | None = Field(default=None, max_length=80)
-    trust_state: TrustState = "draft"
-    source: str = Field(default="admin", max_length=120)
-
-
-class PublicProfileUpdate(BaseModel):
-    slug: str | None = Field(default=None, max_length=80)
-    display_name: str = Field(min_length=1, max_length=120)
-    bio: str | None = Field(default=None, max_length=280)
-    avatar_url: str | None = Field(default=None, max_length=500)
-    location: str | None = Field(default=None, max_length=120)
-    social_links: dict[str, str | None] = Field(default_factory=dict)
-    visibility: ProfileVisibility = "public"
-
-    @field_validator("slug")
-    @classmethod
-    def clean_slug(cls, value: str | None) -> str | None:
-        return normalize_slug(value) if value else None
-
-    @field_validator("avatar_url")
-    @classmethod
-    def clean_avatar_url(cls, value: str | None) -> str | None:
-        return validate_public_url(value, field_name="avatar_url", allowed_hosts=None)
-
-    @field_validator("social_links")
-    @classmethod
-    def clean_social_links(cls, value: dict[str, str | None]) -> dict[str, str | None]:
-        return _clean_social_links(value)
-
-
-class PublicProfile(BaseModel):
-    user_id: int
-    slug: str
-    display_name: str
-    bio: str | None
-    avatar_url: str | None
-    location: str | None
-    social_links: dict[str, str | None]
-    visibility: ProfileVisibility
-    created_at: str
-    updated_at: str
-    viewer_blocked: bool = False
-    reserved_slugs: list[str] = Field(default_factory=list)
-    public_printer_count: int = 0
-
-
-class PrinterPublicUpdate(BaseModel):
-    public_profile_enabled: bool = False
-    catalog_variant_id: int | None = Field(default=None, ge=1)
-    public_name: str | None = Field(default=None, max_length=120)
-    public_description: str | None = Field(default=None, max_length=500)
-    public_mods: list[str] = Field(default_factory=list, max_length=20)
-    public_images: list[str] = Field(default_factory=list, max_length=6)
-
-    @field_validator("public_images")
-    @classmethod
-    def clean_public_images(cls, value: list[str]) -> list[str]:
-        return clean_public_image_urls(value)
-
-
-class PublicPrinter(BaseModel):
-    id: int
-    owner_user_id: int
-    owner_slug: str | None
-    owner_display_name: str | None
-    public_name: str
-    public_description: str | None
-    public_mods: list[str]
-    public_images: list[str]
-    catalog_variant_id: int
-    manufacturer_slug: str
-    manufacturer_name: str
-    model_slug: str
-    model_name: str
-    variant_name: str
-    variant_slug: str
-    build_volume: dict[str, object]
-    kinematics: str
-    updated_at: str
-
-
-class Community(BaseModel):
-    id: int
-    slug: str
-    name: str
-    scope: Literal["manufacturer", "model", "variant"]
-    status: CommunityStatus
-    manufacturer_id: int | None
-    manufacturer_slug: str | None = None
-    manufacturer_name: str | None = None
-    manufacturer_logo_url: str | None = None
-    model_id: int | None
-    model_slug: str | None = None
-    model_name: str | None = None
-    variant_id: int | None
-    variant_slug: str | None = None
-    variant_name: str | None = None
-    merged_into_id: int | None = None
-    merged_into_slug: str | None = None
-    merged_into_name: str | None = None
-    member_count: int
-    printer_count: int
-    file_count: int = 0
-    mod_count: int = 0
-
-
-class CommunityDetail(Community):
-    members: list[PublicProfile] = Field(default_factory=list)
-    printers: list[PublicPrinter] = Field(default_factory=list)
-    filters: CatalogSummary | None = None
-
-
-class CommunityFeedItem(BaseModel):
-    id: int
-    community_id: int
-    author_user_id: int | None
-    author_slug: str | None = None
-    author_display_name: str | None = None
-    content_type: FeedContentType
-    title: str
-    body: str
-    component: str | None = None
-    material: str | None = None
-    firmware_family: str | None = None
-    problem_tag: str | None = None
-    attachments: list[dict[str, str]] = Field(default_factory=list)
-    pinned: bool = False
-    comment_count: int = 0
-    reaction_count: int = 0
-    solution_comment_id: int | None = None
-    edit_count: int = 0
-    deleted_at: str | None = None
-    source_type: str
-    source_id: str | None = None
-    created_at: str
-    updated_at: str
-
-
-class CommunityFeedSummary(BaseModel):
-    community: Community
-    items: list[CommunityFeedItem]
-    page: int
-    page_size: int
-    has_more: bool
-    order: FeedOrder
-    filters: dict[str, list[str]] = Field(default_factory=dict)
-
-
-class CommunityFeedCreate(BaseModel):
-    community_id: int = Field(ge=1)
-    author_user_id: int | None = Field(default=None, ge=1)
-    content_type: FeedContentType
-    title: str = Field(min_length=1, max_length=160)
-    body: str = Field(default="", max_length=1200)
-    component: str | None = Field(default=None, max_length=80)
-    material: str | None = Field(default=None, max_length=80)
-    firmware_family: str | None = Field(default=None, max_length=80)
-    problem_tag: str | None = Field(default=None, max_length=80)
-    attachments: list[dict[str, str]] = Field(default_factory=list, max_length=6)
-    pinned: bool = False
-    visibility: Literal["public", "private"] = "public"
-    source_type: str = Field(default="community", max_length=60)
-    source_id: str | None = Field(default=None, max_length=120)
-
-    @field_validator("title", "body")
-    @classmethod
-    def reject_markup(cls, value: str) -> str:
-        return clean_discussion_text(value)
-
-    @field_validator("attachments")
-    @classmethod
-    def clean_attachments(cls, value: list[dict[str, str]]) -> list[dict[str, str]]:
-        return clean_discussion_attachments(value)
-
-
-class CommunityPostCreate(BaseModel):
-    content_type: FeedContentType
-    title: str = Field(min_length=1, max_length=160)
-    body: str = Field(min_length=1, max_length=1200)
-    component: str | None = Field(default=None, max_length=80)
-    material: str | None = Field(default=None, max_length=80)
-    firmware_family: str | None = Field(default=None, max_length=80)
-    problem_tag: str | None = Field(default=None, max_length=80)
-    attachments: list[dict[str, str]] = Field(default_factory=list, max_length=6)
-
-    @field_validator("content_type")
-    @classmethod
-    def reject_system_type(cls, value: FeedContentType) -> FeedContentType:
-        if value == "curation_notice":
-            raise ValueError("aviso de curadoria não é post de usuário")
-        return value
-
-    @field_validator("title", "body")
-    @classmethod
-    def reject_markup(cls, value: str) -> str:
-        return clean_discussion_text(value)
-
-    @field_validator("attachments")
-    @classmethod
-    def clean_attachments(cls, value: list[dict[str, str]]) -> list[dict[str, str]]:
-        return clean_discussion_attachments(value)
-
-
-class CommunityPostUpdate(BaseModel):
-    title: str | None = Field(default=None, min_length=1, max_length=160)
-    body: str | None = Field(default=None, min_length=1, max_length=1200)
-    attachments: list[dict[str, str]] | None = Field(default=None, max_length=6)
-
-    @field_validator("title", "body")
-    @classmethod
-    def reject_markup(cls, value: str | None) -> str | None:
-        return clean_discussion_text(value) if value is not None else None
-
-    @field_validator("attachments")
-    @classmethod
-    def clean_attachments(cls, value: list[dict[str, str]] | None) -> list[dict[str, str]] | None:
-        return clean_discussion_attachments(value or []) if value is not None else None
-
-
-class DiscussionComment(BaseModel):
-    id: int
-    feed_item_id: int
-    author_user_id: int
-    author_slug: str | None = None
-    author_display_name: str | None = None
-    parent_comment_id: int | None = None
-    body: str
-    attachments: list[dict[str, str]] = Field(default_factory=list)
-    edit_count: int = 0
-    deleted_at: str | None = None
-    created_at: str
-    updated_at: str
-    replies: list["DiscussionComment"] = Field(default_factory=list)
-
-
-class DiscussionCommentCreate(BaseModel):
-    body: str = Field(min_length=1, max_length=1200)
-    parent_comment_id: int | None = Field(default=None, ge=1)
-    attachments: list[dict[str, str]] = Field(default_factory=list, max_length=6)
-
-    @field_validator("body")
-    @classmethod
-    def reject_markup(cls, value: str) -> str:
-        return clean_discussion_text(value)
-
-    @field_validator("attachments")
-    @classmethod
-    def clean_attachments(cls, value: list[dict[str, str]]) -> list[dict[str, str]]:
-        return clean_discussion_attachments(value)
-
-
-class DiscussionCommentUpdate(BaseModel):
-    body: str = Field(min_length=1, max_length=1200)
-    attachments: list[dict[str, str]] = Field(default_factory=list, max_length=6)
-
-    @field_validator("body")
-    @classmethod
-    def reject_markup(cls, value: str) -> str:
-        return clean_discussion_text(value)
-
-    @field_validator("attachments")
-    @classmethod
-    def clean_attachments(cls, value: list[dict[str, str]]) -> list[dict[str, str]]:
-        return clean_discussion_attachments(value)
-
-
-class DiscussionReactionCount(BaseModel):
-    reaction_type: DiscussionReactionType
-    count: int
-
-
-class DiscussionReactionPayload(BaseModel):
-    reaction_type: DiscussionReactionType
-
-
-class DiscussionDetail(BaseModel):
-    post: CommunityFeedItem
-    comments: list[DiscussionComment]
-    reactions: list[DiscussionReactionCount] = Field(default_factory=list)
-
-
-class LibraryFileMetadata(BaseModel):
-    id: int | None = None
-    file_kind: LibraryFileKind
-    file_name: str = Field(min_length=1, max_length=180)
-    original_url: str | None = Field(default=None, max_length=500)
-    size_bytes: int | None = Field(default=None, ge=1, le=500_000_000)
-    sha256: str | None = Field(default=None, min_length=64, max_length=64)
-    validation_status: str = "metadata_only"
-    storage_key: str | None = None
-    quarantine_key: str | None = None
-    uploaded_size_bytes: int | None = None
-    rejection_reason: str | None = None
-    deduplicated_from_file_id: int | None = None
-    analysis: dict[str, object] = Field(default_factory=dict)
-    thumbnail_svg: str | None = None
-    analyzed_at: str | None = None
-
-    @field_validator("file_name")
-    @classmethod
-    def clean_file_name(cls, value: str) -> str:
-        return clean_library_file_name(value)
-
-    @field_validator("original_url")
-    @classmethod
-    def clean_original_url(cls, value: str | None) -> str | None:
-        return validate_public_url(value, field_name="original_url", allowed_hosts=None)
-
-    @field_validator("sha256")
-    @classmethod
-    def clean_sha256(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        cleaned = value.strip().lower()
-        if not re.fullmatch(r"[0-9a-f]{64}", cleaned):
-            raise ValueError("sha256 inválido")
-        return cleaned
-
-
-class LibraryItemBase(BaseModel):
-    title: str = Field(min_length=1, max_length=160)
-    description: str = Field(default="", max_length=1200)
-    visibility: LibraryVisibility = "private"
-    community_slug: str | None = Field(default=None, max_length=160)
-    catalog_variant_id: int | None = Field(default=None, ge=1)
-    component: str | None = Field(default=None, max_length=80)
-    version_label: str = Field(default="v1", min_length=1, max_length=40)
-    material_suggestion: str | None = Field(default=None, max_length=80)
-    supports_required: bool = False
-    orientation_notes: str | None = Field(default=None, max_length=500)
-    license: LibraryLicense = "all-rights-reserved"
-    original_author_name: str | None = Field(default=None, max_length=160)
-    source_url: str | None = Field(default=None, max_length=500)
-    attribution_text: str | None = Field(default=None, max_length=500)
-    remix_source_item_id: int | None = Field(default=None, ge=1)
-    publication_terms_accepted: bool = False
-    content_class: LibraryContentClass = "community"
-    commercial_metadata: dict[str, object] = Field(default_factory=dict)
-    promotion_disclosure: str | None = Field(default=None, max_length=300)
-    files: list[LibraryFileMetadata] = Field(min_length=1, max_length=12)
-
-    @field_validator("title", "description", "orientation_notes")
-    @classmethod
-    def reject_markup(cls, value: str | None) -> str | None:
-        return clean_discussion_text(value) if value is not None else None
-
-    @field_validator("component", "version_label", "material_suggestion")
-    @classmethod
-    def clean_short_text(cls, value: str | None) -> str | None:
-        return clean_optional_text(value)
-
-    @field_validator("original_author_name", "attribution_text", "promotion_disclosure")
-    @classmethod
-    def clean_credit_text(cls, value: str | None) -> str | None:
-        return clean_discussion_text(value) if value is not None else None
-
-    @field_validator("source_url")
-    @classmethod
-    def clean_source_url(cls, value: str | None) -> str | None:
-        return validate_public_url(value, field_name="source_url", allowed_hosts=None)
-
-    @field_validator("community_slug")
-    @classmethod
-    def clean_community_slug(cls, value: str | None) -> str | None:
-        return normalize_slug(value) if value else None
-
-
-class LibraryItemCreate(LibraryItemBase):
-    pass
-
-
-class LibraryItemUpdate(BaseModel):
-    title: str | None = Field(default=None, min_length=1, max_length=160)
-    description: str | None = Field(default=None, max_length=1200)
-    visibility: LibraryVisibility | None = None
-    community_slug: str | None = Field(default=None, max_length=160)
-    catalog_variant_id: int | None = Field(default=None, ge=1)
-    component: str | None = Field(default=None, max_length=80)
-    version_label: str | None = Field(default=None, min_length=1, max_length=40)
-    material_suggestion: str | None = Field(default=None, max_length=80)
-    supports_required: bool | None = None
-    orientation_notes: str | None = Field(default=None, max_length=500)
-    license: LibraryLicense | None = None
-    original_author_name: str | None = Field(default=None, max_length=160)
-    source_url: str | None = Field(default=None, max_length=500)
-    attribution_text: str | None = Field(default=None, max_length=500)
-    remix_source_item_id: int | None = Field(default=None, ge=1)
-    publication_terms_accepted: bool | None = None
-    content_class: LibraryContentClass | None = None
-    commercial_metadata: dict[str, object] | None = None
-    promotion_disclosure: str | None = Field(default=None, max_length=300)
-    files: list[LibraryFileMetadata] | None = Field(default=None, min_length=1, max_length=12)
-
-    @field_validator("title", "description", "orientation_notes")
-    @classmethod
-    def reject_markup(cls, value: str | None) -> str | None:
-        return clean_discussion_text(value) if value is not None else None
-
-    @field_validator("component", "version_label", "material_suggestion")
-    @classmethod
-    def clean_short_text(cls, value: str | None) -> str | None:
-        return clean_optional_text(value)
-
-    @field_validator("original_author_name", "attribution_text", "promotion_disclosure")
-    @classmethod
-    def clean_credit_text(cls, value: str | None) -> str | None:
-        return clean_discussion_text(value) if value is not None else None
-
-    @field_validator("source_url")
-    @classmethod
-    def clean_source_url(cls, value: str | None) -> str | None:
-        return validate_public_url(value, field_name="source_url", allowed_hosts=None)
-
-    @field_validator("community_slug")
-    @classmethod
-    def clean_community_slug(cls, value: str | None) -> str | None:
-        return normalize_slug(value) if value else None
-
-
-class LibraryVersionCreate(BaseModel):
-    version_label: str = Field(min_length=1, max_length=40)
-    changelog: str = Field(default="", max_length=1000)
-    files: list[LibraryFileMetadata] = Field(min_length=1, max_length=12)
-
-    @field_validator("version_label")
-    @classmethod
-    def clean_version_label(cls, value: str) -> str:
-        cleaned = clean_optional_text(value)
-        if not cleaned:
-            raise ValueError("versão inválida")
-        return cleaned
-
-    @field_validator("changelog")
-    @classmethod
-    def clean_changelog(cls, value: str) -> str:
-        return clean_discussion_text(value)
-
-
-class LibraryVersion(BaseModel):
-    id: int
-    item_id: int
-    version_label: str
-    changelog: str
-    files: list[LibraryFileMetadata] = Field(default_factory=list)
-    metadata_snapshot: dict[str, object] = Field(default_factory=dict)
-    is_current: bool
-    created_by_user_id: int
-    created_at: str
-    download_count: int = 0
-
-
-class LibraryCollectionCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    description: str = Field(default="", max_length=500)
-    visibility: LibraryCollectionVisibility = "private"
-    community_slug: str | None = Field(default=None, max_length=160)
-
-    @field_validator("name", "description")
-    @classmethod
-    def clean_text(cls, value: str) -> str:
-        return clean_discussion_text(value)
-
-    @field_validator("community_slug")
-    @classmethod
-    def clean_community_slug(cls, value: str | None) -> str | None:
-        return normalize_slug(value) if value else None
-
-
-class LibraryCollectionItemCreate(BaseModel):
-    item_id: int = Field(ge=1)
-    version_id: int | None = Field(default=None, ge=1)
-    notes: str | None = Field(default=None, max_length=300)
-
-    @field_validator("notes")
-    @classmethod
-    def clean_notes(cls, value: str | None) -> str | None:
-        return clean_discussion_text(value) if value is not None else None
-
-
-class LibraryCollection(BaseModel):
-    id: int
-    owner_user_id: int
-    community_id: int | None = None
-    community_slug: str | None = None
-    community_name: str | None = None
-    name: str
-    description: str
-    visibility: LibraryCollectionVisibility
-    item_count: int = 0
-    created_at: str
-    updated_at: str
-
-
-class PrintListCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    printer_id: int | None = Field(default=None, ge=1)
-
-    @field_validator("name")
-    @classmethod
-    def clean_name(cls, value: str) -> str:
-        return clean_discussion_text(value)
-
-
-class PrintListItemCreate(BaseModel):
-    item_id: int = Field(ge=1)
-    version_id: int = Field(ge=1)
-    status: PrintListItemStatus = "want_to_print"
-    notes: str | None = Field(default=None, max_length=300)
-
-    @field_validator("notes")
-    @classmethod
-    def clean_notes(cls, value: str | None) -> str | None:
-        return clean_discussion_text(value) if value is not None else None
-
-
-class PrintListItemUpdate(BaseModel):
-    status: PrintListItemStatus
-    notes: str | None = Field(default=None, max_length=300)
-
-    @field_validator("notes")
-    @classmethod
-    def clean_notes(cls, value: str | None) -> str | None:
-        return clean_discussion_text(value) if value is not None else None
-
-
-class PrintListItem(BaseModel):
-    id: int
-    item_id: int
-    version_id: int
-    item_title: str
-    version_label: str
-    status: PrintListItemStatus
-    notes: str | None = None
-    created_at: str
-    updated_at: str
-
-
-class PrintList(BaseModel):
-    id: int
-    owner_user_id: int
-    printer_id: int | None = None
-    printer_name: str | None = None
-    name: str
-    status: Literal["active", "archived"]
-    items: list[PrintListItem] = Field(default_factory=list)
-    created_at: str
-    updated_at: str
-
-
-class LibraryDownloadHistoryItem(BaseModel):
-    id: int
-    item_id: int
-    version_id: int | None = None
-    title: str
-    version_label: str | None = None
-    created_at: str
-
-
-class LibraryOrganizerSummary(BaseModel):
-    favorites: list[LibraryItem] = Field(default_factory=list)
-    collections: list[LibraryCollection] = Field(default_factory=list)
-    print_lists: list[PrintList] = Field(default_factory=list)
-    downloads: list[LibraryDownloadHistoryItem] = Field(default_factory=list)
-
-
-class LibraryItem(BaseModel):
-    id: int
-    owner_user_id: int
-    owner_slug: str | None = None
-    owner_display_name: str | None = None
-    community_id: int | None = None
-    community_slug: str | None = None
-    community_name: str | None = None
-    catalog_variant_id: int | None = None
-    manufacturer_name: str | None = None
-    model_name: str | None = None
-    variant_name: str | None = None
-    title: str
-    description: str
-    visibility: LibraryVisibility
-    component: str | None = None
-    version_label: str
-    material_suggestion: str | None = None
-    supports_required: bool
-    orientation_notes: str | None = None
-    license: LibraryLicense
-    original_author_name: str | None = None
-    source_url: str | None = None
-    attribution_text: str | None = None
-    remix_source_item_id: int | None = None
-    remix_source_title: str | None = None
-    publication_terms_accepted_at: str | None = None
-    content_class: LibraryContentClass = "community"
-    commercial_status: LibraryCommercialStatus = "none"
-    commercial_metadata: dict[str, object] = Field(default_factory=dict)
-    promotion_disclosure: str = ""
-    status: Literal["active", "archived"]
-    files: list[LibraryFileMetadata] = Field(default_factory=list)
-    versions: list[LibraryVersion] = Field(default_factory=list)
-    current_version_id: int | None = None
-    favorite_count: int = 0
-    viewer_favorite: bool = False
-    collection_count: int = 0
-    print_list_count: int = 0
-    download_count: int = 0
-    created_at: str
-    updated_at: str
-
-
-class LibraryCommercialReviewCreate(BaseModel):
-    status: LibraryCommercialStatus
-    note: str = Field(default="", max_length=500)
-
-    @field_validator("note")
-    @classmethod
-    def clean_note(cls, value: str) -> str:
-        return clean_discussion_text(value)
-
-
-class RelationshipRecord(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    target_user_id: int
-    target_slug: str | None
-    target_display_name: str | None
-    relation_type: RelationshipType
-    status: RelationshipStatus
-    created_at: str
-    updated_at: str
-
-
-class RelationshipSummary(BaseModel):
-    following: list[RelationshipRecord]
-    followers: list[RelationshipRecord]
-    friends: list[RelationshipRecord]
-    blocked: list[RelationshipRecord]
-    pending_friend_requests: list[RelationshipRecord]
-    sent_friend_requests: list[RelationshipRecord] = Field(default_factory=list)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 @dataclass(frozen=True)
@@ -3348,12 +2747,6 @@ LEFT JOIN social_profiles sp ON sp.user_id = c.author_user_id AND sp.visibility 
 """
 
 
-def normalize_slug(value: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", value.strip().lower())
-    slug = slug.strip("-")
-    if not slug:
-        raise ValueError("slug inválido")
-    return slug[:80]
 
 
 def commercial_disclosure(content_class: LibraryContentClass, value: str | None = None) -> str:
@@ -3367,22 +2760,8 @@ def commercial_disclosure(content_class: LibraryContentClass, value: str | None 
     return clean
 
 
-def clean_optional_text(value: object) -> str | None:
-    if value is None:
-        return None
-    cleaned = str(value).strip()
-    return cleaned or None
 
 
-def clean_library_file_name(value: str) -> str:
-    cleaned = value.strip()
-    if not cleaned or "/" in cleaned or "\\" in cleaned or ".." in cleaned:
-        raise ValueError("nome de arquivo inválido")
-    suffix = Path(cleaned).suffix.lower()
-    allowed_suffixes = {".stl", ".3mf", ".zip"}
-    if suffix not in allowed_suffixes:
-        raise ValueError("biblioteca aceita STL, 3MF ou pacote ZIP")
-    return cleaned
 
 
 def _library_file_kind_from_name(file_name: str) -> LibraryFileKind:
@@ -3594,98 +2973,18 @@ def _xml_local_name(tag: str) -> str:
     return tag.rsplit("}", 1)[-1] if "}" in tag else tag
 
 
-def clean_text_list(values: list[str], max_length: int) -> list[str]:
-    cleaned: list[str] = []
-    seen: set[str] = set()
-    for value in values:
-        item = str(value).strip()
-        if not item or item in seen:
-            continue
-        cleaned.append(item[:max_length])
-        seen.add(item)
-    return cleaned
 
 
-def clean_public_image_urls(values: list[str]) -> list[str]:
-    cleaned: list[str] = []
-    seen: set[str] = set()
-    for value in values:
-        image_url = validate_public_url(str(value)[:500], field_name="imagem pública", allowed_hosts=None)
-        if image_url is None or image_url in seen:
-            continue
-        cleaned.append(image_url)
-        seen.add(image_url)
-    return cleaned
 
 
-def clean_discussion_text(value: str) -> str:
-    cleaned = value.replace("\x00", "").strip()
-    if re.search(r"<\s*/?\s*[a-zA-Z][^>]*>", cleaned) or re.search(r"javascript\s*:", cleaned, flags=re.IGNORECASE):
-        raise ValueError("HTML ou script não é permitido")
-    return cleaned
 
 
-def clean_discussion_attachments(values: list[dict[str, str]]) -> list[dict[str, str]]:
-    cleaned: list[dict[str, str]] = []
-    seen: set[str] = set()
-    for raw in values:
-        kind = str(raw.get("kind", "link")).strip().lower()
-        if kind not in {"image", "link"}:
-            raise ValueError("tipo de anexo inválido")
-        url = validate_public_url(raw.get("url"), field_name="anexo", allowed_hosts=None)
-        if not url or url in seen:
-            continue
-        label = clean_discussion_text(str(raw.get("label") or ""))[:80]
-        cleaned.append({"kind": kind, "url": url, "label": label or ("Imagem" if kind == "image" else "Link")})
-        seen.add(url)
-    return cleaned
 
 
-def validate_public_url(value: str | None, *, field_name: str, allowed_hosts: set[str] | None) -> str | None:
-    cleaned = clean_optional_text(value)
-    if cleaned is None:
-        return None
-    parsed = urlparse(cleaned)
-    if parsed.scheme != "https":
-        raise ValueError(f"{field_name} deve usar https")
-    if not parsed.hostname or parsed.username or parsed.password:
-        raise ValueError(f"{field_name} deve informar host público válido")
-    hostname = parsed.hostname.lower().strip(".")
-    if _is_private_or_local_host(hostname):
-        raise ValueError(f"{field_name} não pode apontar para host local ou privado")
-    if allowed_hosts is not None and not any(hostname == host or hostname.endswith(f".{host}") for host in allowed_hosts):
-        raise ValueError(f"{field_name} usa host não permitido")
-    return cleaned
 
 
-def _is_private_or_local_host(hostname: str) -> bool:
-    if hostname in {"localhost", "local", "internal"} or hostname.endswith((".localhost", ".local", ".internal", ".lan")):
-        return True
-    try:
-        ip = ipaddress.ip_address(hostname)
-    except ValueError:
-        return False
-    return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast
 
 
-def _clean_social_links(values: dict[str, str | None]) -> dict[str, str | None]:
-    host_rules: dict[str, set[str] | None] = {
-        "website": None,
-        "github": {"github.com"},
-        "instagram": {"instagram.com"},
-        "youtube": {"youtube.com", "youtu.be"},
-        "x": {"x.com", "twitter.com"},
-        "printables": {"printables.com"},
-        "makerworld": {"makerworld.com"},
-    }
-    cleaned: dict[str, str | None] = {}
-    for key, raw_value in values.items():
-        if key not in host_rules:
-            continue
-        valid_url = validate_public_url(raw_value, field_name=f"social_links.{key}", allowed_hosts=host_rules[key])
-        if valid_url:
-            cleaned[key] = valid_url
-    return cleaned
 
 
 

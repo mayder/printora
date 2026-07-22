@@ -8,7 +8,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 
 from app.database import connect_database
-from app.social_catalog import clean_library_file_name, validate_public_url, _validate_library_upload
+from app.modules.community.contracts import clean_library_file_name, validate_public_url
+from app.social_catalog import _validate_library_upload
 from app.social_storage import DEFAULT_USER_QUOTA_BYTES, SocialStorageRepository
 
 ProjectVisibility = Literal["private", "unlisted", "public"]

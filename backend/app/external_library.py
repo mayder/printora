@@ -8,7 +8,12 @@ from urllib.parse import urlparse
 from pydantic import BaseModel, Field, field_validator
 
 from app.database import connect_database
-from app.social_catalog import LibraryLicense, clean_discussion_text, clean_optional_text, validate_public_url
+from app.modules.community.contracts import (
+    LibraryLicense,
+    clean_discussion_text,
+    clean_optional_text,
+    validate_public_url,
+)
 
 ExternalSourceStatus = Literal["active", "paused", "blocked"]
 ExternalImportMode = Literal["bookmark", "metadata_only"]
