@@ -18,7 +18,11 @@ def create_snapshot(source_path: Path, target_path: Path) -> dict[str, object]:
         journal_mode = str(source.execute("PRAGMA journal_mode").fetchone()[0]).lower()
         if journal_mode != "wal":
             raise RuntimeError(f"Snapshot online exige WAL; recebido: {journal_mode}")
-        source.execute("VACUUM INTO ?", (str(target_path),))
+        target = sqlite3.connect(target_path)
+        try:
+            source.backup(target, pages=512, sleep=0.05)
+        finally:
+            target.close()
     finally:
         source.close()
 
