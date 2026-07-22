@@ -32,7 +32,7 @@ printf 'PRINTORA_PORT=8070\nPRINTORA_SLOT=green\n' > "$BASE_PATH/shared/slots/gr
 chown "$DEPLOY_USER:$DEPLOY_USER" "$BASE_PATH/shared/slots/blue.env" "$BASE_PATH/shared/slots/green.env"
 chmod 0640 "$BASE_PATH/shared/slots/blue.env" "$BASE_PATH/shared/slots/green.env"
 
-if [[ -s "$VHOST && ! -e "$VHOST_BACKUP" ]]; then cp -a "$VHOST" "$VHOST_BACKUP"; fi
+if [[ -s "$VHOST" && ! -e "$VHOST_BACKUP" ]]; then cp -a "$VHOST" "$VHOST_BACKUP"; fi
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/nginx/print3dmaker.xyz.conf" "$VHOST"
 ln -sfn "$BASE_PATH/shared/nginx/upstream-blue.conf" /etc/nginx/conf.d/printora-cloud-active.conf
 printf 'blue\n' > "$BASE_PATH/shared/active-slot"
