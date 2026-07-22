@@ -161,7 +161,7 @@ def test_postgresql_backup_is_encrypted_and_restored_in_isolated_cluster() -> No
 def test_postgresql_bootstrap_uses_dedicated_checksummed_cluster() -> None:
     bootstrap = (ROOT_DIR / "scripts/cloud/bootstrap-postgresql.sh").read_text()
     config = (ROOT_DIR / "packaging/postgresql/printora.conf").read_text()
-    sql = (ROOT_DIR / "backend/sql/postgresql/000_cluster_bootstrap.sql").read_text()
+    sql = (ROOT_DIR / "backend/sql/postgresql/admin/000_cluster_bootstrap.sql").read_text()
 
     assert "--data-checksums" in bootstrap
     assert "5433" in bootstrap

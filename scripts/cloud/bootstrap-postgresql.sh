@@ -56,7 +56,7 @@ fi
 
 {
   printf "\\set app_password '%s'\n" "$app_password"
-  cat "$ROOT_DIR/backend/sql/postgresql/000_cluster_bootstrap.sql"
+  cat "$ROOT_DIR/backend/sql/postgresql/admin/000_cluster_bootstrap.sql"
 } | sudo -u postgres psql -p "$port" -v ON_ERROR_STOP=1 >/dev/null
 
 schema_exists="$(sudo -u postgres psql -p "$port" -d printora_cloud -Atqc \
