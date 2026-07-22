@@ -169,6 +169,8 @@ def test_postgresql_bootstrap_uses_dedicated_checksummed_cluster() -> None:
     assert "5433" in bootstrap
     assert "archive_mode = on" in config
     assert "archive-postgresql-wal.sh" in config
+    assert "max_wal_size = '4GB'" in config
+    assert "checkpoint_completion_target = 0.9" in config
     assert "127.0.0.1" in config
     assert "CREATE ROLE printora_owner NOLOGIN" in sql
     assert "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION" in sql
