@@ -63,6 +63,34 @@ def sqlite_foreign_key_violations(connection: sqlite3.Connection) -> list[dict[s
     ]
 
 
+def sqlite_outbox_watermark(connection: sqlite3.Connection) -> int | None:
+    exists = connection.execute(
+        """
+        SELECT 1 FROM sqlite_schema
+        WHERE type = 'table' AND name = 'postgresql_transition_outbox'
+        """
+    ).fetchone()
+    if exists is None:
+        return None
+    return int(
+        connection.execute(
+            "SELECT COALESCE(MAX(id), 0) FROM postgresql_transition_outbox"
+        ).fetchone()[0]
+    )
+
+
+def postgresql_replication_watermark(connection: psycopg.Connection[Any]) -> int | None:
+    exists = connection.execute(
+        "SELECT to_regclass('public.printora_transition_replication_state') AS relation_name"
+    ).fetchone()
+    if exists is None or exists["relation_name"] is None:
+        return None
+    row = connection.execute(
+        "SELECT watermark FROM printora_transition_replication_state WHERE id = 1"
+    ).fetchone()
+    return int(row["watermark"]) if row is not None else None
+
+
 def postgresql_foreign_keys(connection: psycopg.Connection[Any]) -> dict[str, int]:
     row = connection.execute(
         """
@@ -262,12 +290,23 @@ def main() -> None:
     parser.add_argument("--sqlite", type=Path, required=True)
     parser.add_argument("--postgresql-url", default=os.environ.get("PRINTORA_DATABASE_URL"))
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--require-watermark-alignment", action="store_true")
     args = parser.parse_args()
     if not args.postgresql_url:
         raise SystemExit("--postgresql-url ou PRINTORA_DATABASE_URL é obrigatório")
     sqlite_connection = sqlite3.connect(f"file:{args.sqlite}?mode=ro", uri=True)
     sqlite_connection.row_factory = sqlite3.Row
+    sqlite_connection.execute("BEGIN")
+    source_watermark = sqlite_outbox_watermark(sqlite_connection)
     with psycopg.connect(args.postgresql_url, row_factory=dict_row) as postgresql_connection:
+        postgresql_connection.execute(
+            "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
+        )
+        target_watermark = postgresql_replication_watermark(postgresql_connection)
+        if args.require_watermark_alignment and source_watermark != target_watermark:
+            raise SystemExit(
+                f"watermark divergente: sqlite={source_watermark}, postgresql={target_watermark}"
+            )
         source_tables = sqlite_tables(sqlite_connection)
         target_tables = postgresql_tables(postgresql_connection)
         common = sorted(set(source_tables) & set(target_tables))
@@ -279,6 +318,8 @@ def main() -> None:
     payload = {
         "source_backend": "sqlite",
         "target_backend": "postgresql",
+        "source_watermark": source_watermark,
+        "target_watermark": target_watermark,
         "source_tables": len(source_tables),
         "target_tables": len(target_tables),
         "missing_in_postgresql": sorted(set(source_tables) - set(target_tables)),

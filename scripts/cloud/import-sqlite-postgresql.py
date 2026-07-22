@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import sqlite3
+import time
 from pathlib import Path
 from typing import Any
 
@@ -85,6 +86,7 @@ def import_table(
     table: str,
     columns: list[str],
     batch_size: int,
+    throttle_seconds: float,
 ) -> int:
     projection = ", ".join(_quote(column) for column in columns)
     source_cursor = source.execute(f"SELECT {projection} FROM {_quote(table)}")
@@ -98,6 +100,8 @@ def import_table(
             for row in rows:
                 copy.write_row(tuple(row))
             imported += len(rows)
+            if throttle_seconds:
+                time.sleep(throttle_seconds)
     target.commit()
     return imported
 
@@ -145,6 +149,7 @@ def main() -> None:
     parser.add_argument("--postgresql-url", default=os.environ.get("PRINTORA_DATABASE_URL"))
     parser.add_argument("--expected-database", required=True)
     parser.add_argument("--batch-size", type=int, default=1_000)
+    parser.add_argument("--throttle-seconds", type=float, default=0.0)
     parser.add_argument("--replace-target", action="store_true", required=True)
     parser.add_argument("--initialize-watermark-from-outbox", action="store_true")
     args = parser.parse_args()
@@ -152,11 +157,18 @@ def main() -> None:
         raise SystemExit("--postgresql-url ou PRINTORA_DATABASE_URL é obrigatório")
     if args.batch_size < 1 or args.batch_size > 10_000:
         raise SystemExit("--batch-size deve estar entre 1 e 10000")
+    if args.throttle_seconds < 0 or args.throttle_seconds > 5:
+        raise SystemExit("--throttle-seconds deve estar entre 0 e 5")
 
     source = sqlite3.connect(f"file:{args.sqlite}?mode=ro", uri=True)
     try:
         with psycopg.connect(args.postgresql_url, row_factory=dict_row) as target:
             validate_target(target, args.expected_database)
+            initial_watermark = (
+                snapshot_watermark(source)
+                if args.initialize_watermark_from_outbox
+                else 0
+            )
             tables = sqlite_tables(source)
             for table in tables:
                 source_columns = sqlite_columns(source, table)
@@ -173,6 +185,7 @@ def main() -> None:
                     table,
                     sqlite_columns(source, table),
                     args.batch_size,
+                    args.throttle_seconds,
                 )
                 print(
                     json.dumps(
@@ -186,7 +199,7 @@ def main() -> None:
             sequences = sync_sequences(target)
             watermark = 0
             if args.initialize_watermark_from_outbox:
-                watermark = snapshot_watermark(source)
+                watermark = initial_watermark
                 target.execute(
                     f"""
                     UPDATE {STATE_TABLE}
