@@ -159,6 +159,13 @@ def main() -> None:
                     sqlite_columns(source, table),
                     args.batch_size,
                 )
+                print(
+                    json.dumps(
+                        {"event": "table_imported", "rows": report[table], "table": table},
+                        sort_keys=True,
+                    ),
+                    flush=True,
+                )
             target.execute("SET session_replication_role = origin")
             target.commit()
             sequences = sync_sequences(target)
