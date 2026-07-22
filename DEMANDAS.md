@@ -5267,3 +5267,596 @@ Estado atual:
 - A lista completa e ações de arquivo permanecem apenas em `Arquivos G-code`; a Operação abre essa aba por CTA e por clique nos atalhos.
 - `Machine` permanece no card de impressão, enquanto `Temperaturas` e ações protegidas continuam em blocos próprios, evitando buracos grandes no grid.
 - Validação focada executada sem ação mutável na impressora ativa: `npm --prefix frontend run build`.
+
+## Programa Plurianual Da Comunidade E Fabricação 3D
+
+Objetivo:
+
+Evoluir o Printora como comunidade e infraestrutura aberta de fabricação digital, cobrindo lacunas de redes sociais, comunidades maker, repositórios 3D, slicers, operação de impressoras, educação, acessibilidade, reparo, tecnologia assistiva, fabricação local e impacto social.
+
+Fonte detalhada:
+
+- visão e fases: `docs/community/MASTER_PLAN.md`;
+- comparação de plataformas: `docs/community/PLATFORM_BENCHMARK.md`;
+- 3.080 melhorias atômicas: `docs/community/COMMUNITY_BACKLOG.md` e `.csv`;
+- 440 famílias de tela: `docs/community/COMMUNITY_SCREENS.md` e `.csv`;
+- prioridade por impacto social: `docs/community/PRIORITIES.md`;
+- geração reproduzível: `scripts/generate_community_roadmap.py`.
+
+Regras de execução:
+
+1. O programa não é um pacote único e não pode ser fechado por quantidade de código.
+2. Cada implementação futura deve selecionar uma capacidade validada, auditar o estado atual e criar pacote/lotes pequenos antes de editar runtime.
+3. Capacidades marcadas como `parcial` devem estender contratos existentes; é proibido criar domínio paralelo sem decisão registrada.
+4. Itens `P0` exigem especialista, revisão independente e piloto controlado.
+5. Toda capacidade inclui, além da regra, tela, mobile, acessibilidade, confiança, impacto e validação.
+6. Métricas de engajamento não substituem resultado humano, segurança, resolução, aprendizagem ou sustentabilidade.
+7. O catálogo deve ser revisado periodicamente porque plataformas, leis, riscos e o próprio Printora evoluem.
+
+Estado atual:
+
+- Planejamento abrangente concluído em julho de 2026.
+- Implementação futura ainda não iniciada como programa; o produto já possui bases listadas como `parcial` no inventário.
+- Nenhuma capacidade ausente deve ser marcada como entregue sem pacote, testes, documentação e validação real próprios.
+
+## Programa De Evolução Arquitetural
+
+Fonte detalhada: `docs/architecture/EVOLUCAO_ARQUITETURAL.md`.
+
+Ordem obrigatória: PKG-86 a PKG-95. Nenhum pacote pode
+ser fechado mantendo bridge, flag, adapter, dependência, banco, arquivo, unit,
+rota ou documentação operacional da tecnologia aposentada. Limpeza destrutiva
+de dados exige relatório de integridade, janela de observação e confirmação
+humana explícita.
+
+## PKG-86: Qualificação Do Servidor E Publicação Sem Indisponibilidade
+
+Objetivo:
+
+Comprovar que o host atual suporta a evolução e substituir o restart único por
+releases imutáveis e deploy blue/green sem compartilhar dependências mutáveis.
+
+Prioridade: P0 estrutural.
+
+Dependências:
+
+- infraestrutura cloud publicada;
+- fluxos críticos existentes inventariados;
+- acesso operacional ao Nginx e systemd do servidor atual.
+
+Entregáveis:
+
+- auditoria de CPU, RAM, disco, I/O, rede, file descriptors, processos e pico;
+- orçamento de recurso e limite systemd para app, workers e dependências futuras;
+- health, readiness, correlation/request/job ID, métricas e logs estruturados;
+- preflight de sudo/permissões, usuários, firewall, portas, NTP, certificados,
+  diretórios, ownership, quotas, logrotate e destino de backup externo;
+- release imutável com código, frontend, venv, lockfile e unit próprios;
+- duas instâncias do app em portas independentes, upstream Nginx, N/N-1 e drenagem;
+- workflow que sobe release verde, valida, troca upstream atomicamente e só então drena o azul;
+- protocolo de reconnect com jitter/ack/deduplicação para WebSockets de agentes;
+- protocolo expandir/migrar/contrair para schema e eventos durante N/N-1;
+- rollback que reativa o release anterior sem restaurar dados antigos;
+- baseline de carga, SLO, alertas, retenção e capacidade no host atual.
+
+Lotes:
+
+1. Inventariar topologia, privilégios, recursos, dados e fluxos P0/P1.
+2. Medir pico e calcular espaço simultâneo para duas releases, dados, WAL e rollback.
+3. Implantar observabilidade, readiness, métricas, quotas e alertas de saturação.
+4. Criar venv/frontend/unit por release, portas 8069/8070 e upstream Nginx selecionável.
+5. Implementar warm-up, smoke privado, `nginx -t`, troca atômica e drenagem.
+6. Implementar reconnect/deduplicação de WebSockets e compatibilidade N/N-1.
+7. Executar carga/soak, falha de processo, deploy e rollback no servidor atual.
+8. Remover venv compartilhado, restart antigo, scripts temporários e docs divergentes.
+
+Critério de aceite:
+
+- deploy não gera requests falhos nem desconecta impressão por causa da troca;
+- release inválido nunca recebe tráfego público;
+- WebSocket novo conecta e conexões antigas drenam dentro do limite definido;
+- agente recebe cada job no máximo uma vez de forma efetiva e confirma retomada;
+- rollback de código não sobrescreve banco nem perde escrita posterior;
+- blue/green usa artefatos/venvs independentes e schema/eventos compatíveis N/N-1;
+- PostgreSQL/Redis/storage futuros podem ser instalados com privilégio e firewall aprovados;
+- backup externo criptografado possui restore comprovado sem executar app fora do host;
+- carga de pico passa com folga de recurso definida no servidor atual;
+- não resta referência ao restart de instância única como caminho de publicação;
+- validações completas e smoke público passam no fechamento.
+
+Estado atual:
+
+- Em andamento. Base local de observabilidade, readiness, releases imutáveis,
+  blue/green, rollback, backup externo e reconnect implementada e validada.
+- Fechamento bloqueado até bootstrap privilegiado, medição de capacidade,
+  configuração/restauração do backup externo, dois ciclos publicados,
+  carga/falha/rollback e observação no servidor atual.
+
+## PKG-87: Monólito Modular, Contratos E Fronteiras
+
+Objetivo:
+
+Separar domínios e responsabilidades sem alterar comportamento público, criando
+as fronteiras necessárias para trocar persistência e processamento com segurança.
+
+Prioridade: P0 estrutural.
+
+Dependências:
+
+- PKG-86 fechado;
+- contratos e fluxos P0/P1 congelados por testes.
+
+Entregáveis:
+
+- mapa de domínios, tabelas, arquivos, rotas, eventos, owners e dependências;
+- módulos de identidade/permissão, comunidade/projetos, operação/agentes,
+  administração e integrações com interfaces explícitas;
+- application services sem FastAPI, repositories sem regra de UI e adapters de infraestrutura;
+- contratos HTTP/WebSocket/evento tipados, versionados e compatíveis N/N-1;
+- frontend dividido em page, state/hook, form, component e API client;
+- divisão dos arquivos críticos acima do limite por responsabilidade;
+- testes de arquitetura bloqueando ciclos, imports proibidos e fallback entre perfis cloud/local;
+- caracterização dos fluxos legados antes de mover código e remoção da estrutura antiga depois.
+
+Lotes:
+
+1. Inventariar módulos, dependências, contratos, tabelas e arquivos críticos.
+2. Criar testes de caracterização e arquitetura antes das extrações.
+3. Extrair identidade/permissão e contratos transversais.
+4. Extrair comunidade/projetos e operação/agentes.
+5. Extrair administração, jobs e integrações externas.
+6. Dividir telas/componentes grandes preservando acessibilidade e responsividade.
+7. Remover imports/bridges antigos, atualizar docs e executar regressão completa.
+
+Critério de aceite:
+
+- API, WebSocket, agente e telas preservam comportamento validado;
+- domínio não importa FastAPI, SQL driver, Redis, storage nem UI;
+- UI não contém regra de negócio, persistência ou acesso direto à infraestrutura;
+- não há ciclos ou duas implementações canônicas do mesmo caso de uso;
+- arquivos alterados respeitam limites ou decisão temporária com data de remoção;
+- perfis cloud/local compartilham domínio, mas não importam adapters um do outro;
+- contratos N/N-1 e testes P0/P1 passam sob blue/green;
+- estrutura antiga e bridges de extração são removidas antes do fechamento;
+- `./check.sh`, suíte completa e smoke publicado passam.
+
+Estado atual:
+
+- Planejado; implementação não iniciada.
+
+## PKG-88: PostgreSQL Cloud Sem Perda De Dados
+
+Objetivo:
+
+Migrar somente o runtime cloud de SQLite para PostgreSQL no servidor atual, sem
+perder escrita confirmada e sem deixar fallback SQLite no perfil cloud.
+
+Prioridade: P0 estrutural.
+
+Dependências:
+
+- PKG-87 fechado;
+- orçamento do host aprovado;
+- backup e restore ensaiados antes da primeira transição.
+
+Entregáveis:
+
+- PostgreSQL endurecido em loopback/socket, role mínima, TLS/socket, backup e monitoração;
+- SQL PostgreSQL idempotente em diretório explícito, sem migration de framework;
+- export/import consistente, captura incremental, sombra e reconciliação SQLite/PostgreSQL;
+- relatório de integridade por tabela, owner, estado, checksum, sequence e órfão;
+- release A com persistence ports e outbox SQLite atômica; release B PostgreSQL-compatible;
+- replicação idempotente, leitura sombra e canário com relatório de divergência;
+- cutover para PostgreSQL e rollback somente para release que também use PostgreSQL;
+- separação formal entre adapters cloud PostgreSQL e local SQLite;
+- remoção final de SQLite do runtime/deploy/env/units/dependências/testes/docs cloud;
+- painel read-only de progresso, watermark, divergência e integridade.
+
+Lotes:
+
+1. Instalar e endurecer PostgreSQL no host; criar schema idempotente e adapters alvo.
+2. Publicar release A com ports/outbox SQLite e compatibilidade N/N-1.
+3. Fazer snapshot, import, captura incremental e leitura sombra.
+4. Publicar release B PostgreSQL-compatible e executar canário.
+5. Reconciliar watermark, cortar escrita/leitura e observar sob carga.
+6. Provar rollback de código mantendo PostgreSQL e todas as escritas pós-cutover.
+7. Publicar release C sem adapter/fallback SQLite cloud.
+8. Após aceite explícito, remover arquivo/backups SQLite cloud e auditar referências.
+
+Critério de aceite:
+
+- PostgreSQL contém 100% dos registros e relações reconciliados, sem perda ou duplicidade;
+- escrita confirmada antes/durante/depois do cutover permanece disponível;
+- sequences, datas/timezones, booleanos, JSON, constraints, índices e FKs preservam semântica;
+- cutover e rollback de código não restauram snapshot velho nem perdem escrita nova;
+- release anterior e candidato coexistem durante expandir/migrar/contrair;
+- busca automatizada encontra zero referência operacional a SQLite no perfil cloud;
+- modo local SQLite continua testado e não pode ser carregado como fallback cloud;
+- arquivo/banco antigo no servidor só é excluído após confirmação explícita;
+- PostgreSQL cabe no orçamento, reinicia por systemd e tem backup/WAL restaurável;
+- `./check.sh`, testes completos, carga, integridade, restore e smoke cloud/local passam.
+
+Estado atual:
+
+- Planejado; implementação não iniciada.
+
+## PKG-89: Outbox, Workers, Redis E Realtime Distribuído
+
+Objetivo:
+
+Tornar eventos, jobs e sessões de agentes duráveis e compatíveis com múltiplas
+instâncias, sem usar memória ou Redis como fonte canônica de negócio.
+
+Prioridade: P0 estrutural.
+
+Dependências:
+
+- PKG-88 fechado;
+- PostgreSQL, blue/green e contratos N/N-1 operacionais.
+
+Entregáveis:
+
+- outbox/inbox transacionais, schemas versionados e deduplicação;
+- fila PostgreSQL com lease, heartbeat, timeout, retry/backoff, prioridade e dead-letter;
+- workers systemd por classe, release imutável, concorrência e drain controlados;
+- idempotency key em toda operação mutável/repetível;
+- Redis protegido em socket/loopback para cache recomponível, rate limit, presença e pub/sub;
+- sessões WebSocket distribuídas com reconnect/jitter, ack e retomada de jobs;
+- backpressure, quotas, retenção, reprocessamento supervisionado e métricas;
+- remoção de registries, entrega imediata e filas in-memory aposentados.
+
+Lotes:
+
+1. Definir contratos, ordenação, idempotência e matriz de compatibilidade dos eventos/jobs.
+2. Implantar outbox/inbox e dispatcher idempotente.
+3. Implantar fila PostgreSQL e workers pausáveis com leases recuperáveis.
+4. Migrar jobs por domínio e reconciliar pendentes/em execução.
+5. Implantar Redis sem dados autoritativos.
+6. Migrar presença/pub-sub/WebSocket e protocolo do agente.
+7. Executar falhas, duplicidade, atraso, reconnect, carga e drain blue/green.
+8. Remover mecanismos in-memory, flags e bridges temporárias.
+
+Critério de aceite:
+
+- commit de negócio e evento são atômicos;
+- evento/webhook/job repetido produz um único efeito efetivo;
+- worker morto libera lease e retoma sem duplicar efeito não idempotente;
+- Redis vazio/indisponível degrada, recompõe e não perde dado de negócio;
+- agente reconecta entre instâncias e nenhum job confirmado some ou roda duas vezes;
+- dead-letter tem owner, alerta, retenção e reprocessamento seguro;
+- workers N/N-1 drenam antes de schema/evento incompatível ser contraído;
+- zero registry/fila autoritativa permanece em memória;
+- carga, soak, falha controlada, suíte completa e smoke passam no host atual.
+
+Estado atual:
+
+- Planejado; implementação não iniciada.
+
+## PKG-90: Objetos, Quarentena E Busca Reconstruível
+
+Objetivo:
+
+Migrar arquivos/artefatos cloud e busca para contratos duráveis, verificáveis e
+reconstruíveis, sem paths locais antigos como fonte autoritativa.
+
+Prioridade: P0/P1 estrutural.
+
+Dependências:
+
+- PKG-89 fechado;
+- ADR do storage aprovada por capacidade, licença, segurança, backup e restore.
+
+Entregáveis:
+
+- serviço S3-compatible sob systemd no host, privado, com role mínima e quotas;
+- buckets/prefixos por finalidade, ownership, checksum, content type e versionamento;
+- upload streaming, limites, quarentena, análise, promoção atômica e URL autorizada curta;
+- cópia inicial e incremental de objetos com manifesto/checksum e reconciliação;
+- backup criptografado/externo e restore de metadados mais conteúdo;
+- busca textual PostgreSQL atualizada por outbox e reconstruível do dado canônico;
+- busca respeitando permissão, bloqueio, remoção, tenant e conteúdo moderado;
+- painéis de integridade, órfãos, quarentena, uso, atraso e rebuild;
+- remoção de paths, índices e consultas antigas após cutover.
+
+Lotes:
+
+1. Decidir implementação S3-compatible e executar prova de capacidade/upgrade/restore.
+2. Criar contrato, segurança, buckets, quotas, retenção e streaming.
+3. Migrar objetos por manifesto/checksum com escrita incremental.
+4. Executar canário/cutover e validar download/upload/quarentena.
+5. Implantar índice textual PostgreSQL e consumidor de outbox.
+6. Reindexar, comparar relevância/permissão e executar canário.
+7. Provar restore integral de metadados/objetos e rebuild do índice.
+8. Remover storage/busca antigos, bridges, flags e referências cloud.
+
+Critério de aceite:
+
+- todo objeto canônico possui owner, tamanho, checksum, estado e referência válida;
+- upload interrompido não cria objeto promovido nem registro órfão silencioso;
+- quarentena nunca é servida, fatiada ou publicada;
+- URLs não expõem path interno, credencial ou objeto de outro owner;
+- metadado e conteúdo restauram juntos e reconciliam por checksum;
+- índice apagado é reconstruído sem perda funcional e nunca concede permissão;
+- storage/busca indisponíveis degradam sem derrubar login, segurança ou impressão ativa;
+- zero path/índice/consulta antiga permanece no perfil cloud;
+- carga, segurança, restore, suíte completa e smoke passam no host atual.
+
+Estado atual:
+
+- Planejado; implementação não iniciada.
+
+## PKG-91: Núcleo Financeiro, Pagamentos E Pedidos
+
+Objetivo:
+
+Entregar ledger, pagamentos e pedidos em domínio isolado e auditável, sem
+manusear dados de cartão nem misturar saldo com conteúdo social.
+
+Prioridade: P0/P1 conforme risco financeiro e físico.
+
+Dependências:
+
+- PKG-90 fechado;
+- identidade, permissão, auditoria, outbox e idempotência operacionais;
+- revisão jurídica/fiscal por país antes de ativação real.
+
+Entregáveis:
+
+- ledger imutável de partidas dobradas e reconciliação independente;
+- payment intents, adapters de provedor e webhooks autenticados/idempotentes;
+- pedidos, itens, licenças, preço, taxa, imposto preparado e snapshots imutáveis;
+- captura, cancelamento, reembolso, disputa, saldo, repasse e fechamento;
+- risco/fraude explicável, revisão humana e recurso;
+- valores em unidade monetária mínima, moeda explícita e regra de arredondamento;
+- tokenização/checkout hospedado pelo provedor para reduzir escopo PCI;
+- state machines formais de pedido/pagamento, invariantes e comandos idempotentes;
+- consoles separados para finanças, suporte e risco;
+- retenção, privacidade, segregação de função e trilha de auditoria.
+
+Lotes:
+
+1. Modelar ledger, invariantes e reconciliação com SQL idempotente.
+2. Implementar adapter sandbox, intent e webhook com replay seguro.
+3. Criar pedido e snapshots de item/licença/preço.
+4. Implementar captura, cancelamento, reembolso e disputa.
+5. Implementar saldo, repasse e fechamento reconciliado.
+6. Adicionar risco/fraude, revisão humana e permissões segregadas.
+7. Validar PCI/LGPD, fiscal/jurídico, chargeback e continuidade do provedor.
+8. Remover contratos comerciais preparatórios/legados substituídos e validar ponta a ponta.
+
+Critério de aceite:
+
+- soma de débitos e créditos é sempre zero por transação financeira;
+- webhook repetido, fora de ordem ou atrasado não duplica cobrança/estorno;
+- timeout não deixa pedido e pagamento em estados contraditórios silenciosos;
+- reconciliação identifica e bloqueia divergência antes de repasse;
+- permissões impedem a mesma pessoa de criar e aprovar operação sensível;
+- pedido aponta a snapshot imutável, nunca ao preço/arquivo mutável atual;
+- dinheiro usa inteiro + moeda; float nunca participa de cálculo ou ledger;
+- Printora não recebe, persiste ou registra PAN/CVV/dado bruto de cartão;
+- reembolso/repasse nunca excede valor elegível e saldo negativo tem política explícita;
+- dados pessoais/financeiros não vazam em comunidade, logs ou analytics;
+- não resta endpoint, campo, tela ou job de checkout/pedido anterior em paralelo;
+- sandbox, segurança, carga, reconciliação e recuperação passam antes de dinheiro real;
+- todo componente pertencente ao Printora executa no servidor atual; provedor
+  externo é acessado somente por adapter e não hospeda regra canônica do produto.
+
+Estado atual:
+
+- Planejado; implementação não iniciada.
+
+## PKG-92: Fabricação, Qualidade, Logística E Cadeia De Custódia
+
+Objetivo:
+
+Transformar pedido elegível em cotação, ordem de fabricação, qualidade e entrega
+rastreáveis, preservando segurança física, licença e privacidade.
+
+Prioridade: P0/P1 conforme risco físico.
+
+Dependências:
+
+- PKG-91 fechado;
+- políticas jurídica, segurança de produto, responsabilidade e recall aprovadas.
+
+Entregáveis:
+
+- cotação versionada de material, máquina, prazo, tolerância, acabamento e frete;
+- aceite explícito e ordem ligada a snapshots de projeto/arquivo/licença/preço;
+- reserva de capacidade/material concorrente e idempotente;
+- estados formais de produção, pausa, falha, retrabalho e cancelamento;
+- plano/checklist de qualidade, medições, fotos/evidências e aprovação segregada;
+- embalagem, transportadora, tracking, entrega e tratamento de exceção;
+- cadeia de custódia de arquivo/material/peça sem exposição pública de endereço;
+- incidente, produto inseguro, recall, reembolso e preservação de evidência;
+- console de produção separado em lista, detalhe e transições autorizadas;
+- retenção/eliminação segura de arquivos fabris e dados pessoais.
+
+Lotes:
+
+1. Modelar cotação, aceite, snapshots e invariantes.
+2. Implementar ordem, capacidade, material e concorrência.
+3. Implementar execução, pausa, falha, retrabalho e cancelamento.
+4. Implementar qualidade, evidência e segregação de aprovação.
+5. Implementar embalagem, expedição, tracking e entrega.
+6. Implementar incidente, recall, disputa e integração financeira idempotente.
+7. Validar privacidade, licença, segurança física, carga e recuperação.
+8. Remover fluxos produtivos/logísticos substituídos e fechar ponta a ponta.
+
+Critério de aceite:
+
+- ordem sempre referencia snapshots imutáveis e licença válida para fabricação;
+- reserva concorrente não vende a mesma capacidade/material duas vezes;
+- estado não salta etapa obrigatória nem retrocede sem evento compensatório;
+- peça reprovada não pode ser expedida;
+- tracking/webhook repetido não duplica transição ou notificação;
+- endereço/documento não aparece em comunidade, logs ou evidência pública;
+- recall alcança pedidos/peças afetados e preserva trilha auditável;
+- falha de logística não altera ledger fora de comando financeiro idempotente;
+- nenhum fluxo antigo de cotação/produção/entrega permanece em paralelo;
+- suíte completa, segurança, carga, recuperação e smoke passam no host atual.
+
+Estado atual:
+
+- Planejado; implementação não iniciada.
+
+## PKG-93: Escala, Resiliência, Backup E Recuperação
+
+Objetivo:
+
+Operar múltiplas instâncias e cargas assíncronas com degradação controlada,
+backup externo e recuperação comprovada no servidor atual.
+
+Prioridade: P1 estrutural.
+
+Dependências:
+
+- PKG-92 fechado;
+- métricas e baseline de capacidade confiáveis;
+- classificação de dados e política de retenção aprovadas.
+
+Entregáveis:
+
+- múltiplas instâncias stateless e balanceamento Nginx no mesmo host;
+- pools de workers por criticidade/carga com backpressure e quotas;
+- circuit breakers, timeouts, bulkheads e degradação graciosa;
+- backup PostgreSQL/objetos/configuração com criptografia e retenção;
+- restore automatizado em ambiente isolado e exercícios RPO/RTO;
+- WAL/backup criptografado enviado para destino fora do host e restore sem dependência da origem;
+- runbook de perda de processo, banco, disco, configuração e host;
+- testes de carga, soak, caos de processo, segurança e recuperação.
+
+Lotes:
+
+1. Tornar app stateless e validar balanceamento de múltiplas instâncias.
+2. Separar workers por fila/risco e implantar backpressure/quotas.
+3. Implementar resiliência e degradação por dependência.
+4. Automatizar backup e restore; medir RPO/RTO.
+5. Testar perda de processo/banco/disco/configuração e restore isolado.
+6. Testar perda simulada do host a partir da cópia externa.
+7. Fazer soak/capacidade final e remover mecanismos substituídos.
+
+Critério de aceite:
+
+- matar uma instância não interrompe requests novos nem perde job confirmado;
+- sobrecarga recebe backpressure e não derruba login, segurança ou impressão;
+- backup completo é restaurado e reconciliado dentro do RPO/RTO definido;
+- migração/deploy preserva RPO zero; desastre físico declara RPO medido, sem promessa falsa;
+- credencial/chave de restore não depende somente do host perdido;
+- carga de pico e soak passam com folga no servidor atual;
+- limite contra falha física do host fica documentado sem falsa promessa de HA;
+- `./check.sh`, testes completos, caos, segurança, restore e smoke passam.
+
+Estado atual:
+
+- Planejado; implementação não iniciada.
+
+## PKG-94: Analytics, Moderação Multilíngue E Inteligência Isolada
+
+Objetivo:
+
+Entregar analytics, moderação multilíngue e ML como consumidores isolados de
+eventos sanitizados, sem escrita direta no núcleo transacional.
+
+Prioridade: P1/P2 conforme impacto.
+
+Dependências:
+
+- PKG-93 fechado;
+- classificação, consentimento, retenção e finalidade de cada dado aprovados;
+- capacidade residual comprovada no host atual.
+
+Entregáveis:
+
+- pipeline analítico derivado com schema versionado, lineage e replay;
+- warehouse/read models isolados do OLTP por role e orçamento de recurso;
+- dashboards de impacto, qualidade, segurança e operação;
+- exclusão/anonimização propagada e retenção por finalidade;
+- moderação multilíngue com confiança, contexto, revisão humana e recurso;
+- serviço isolado de recomendação/ML e busca geométrica;
+- registro de dataset/modelo, licença, versão, métricas, bias, canário e drift;
+- fallback determinístico e kill switch para cada decisão automatizada;
+- quotas de CPU/RAM/GPU/disco para não afetar fluxos P0/P1.
+
+Lotes:
+
+1. Definir contratos de evento, finalidade, lineage, consentimento e remoção.
+2. Implantar pipeline/read models com replay e reconciliação.
+3. Implantar dashboards sem consulta pesada no OLTP.
+4. Implementar moderação multilíngue com revisão/recurso.
+5. Isolar recomendação e busca geométrica com fallback determinístico.
+6. Implementar avaliação offline, canário, drift, rollback e kill switch.
+7. Executar carga, falha, privacidade, bias e degradação.
+8. Remover protótipos, datasets e modelos substituídos conforme retenção.
+
+Critério de aceite:
+
+- analytics/ML não escreve diretamente no OLTP nem amplia permissão;
+- evento pode ser reprocessado sem duplicar métrica ou decisão;
+- remoção/anonimização alcança derivados dentro do prazo definido;
+- modelo possui owner, versão, dataset permitido, métricas e rollback;
+- decisão de alto impacto exige revisão humana e canal de recurso;
+- falha/kill switch mantém fallback seguro e não bloqueia P0/P1;
+- carga dos serviços respeita quotas e folga do servidor atual;
+- datasets/modelos temporários têm retenção e limpeza comprovadas;
+- suíte completa, segurança/privacidade, carga e smoke passam.
+
+Estado atual:
+
+- Planejado; implementação não iniciada.
+
+## PKG-95: Consolidação, Erradicação Legada E Aceite Arquitetural
+
+Objetivo:
+
+Fechar o programa com prova independente de que a arquitetura final é única,
+operável, restaurável e livre de bridges, flags, dados e referências obsoletas.
+
+Prioridade: P0 de encerramento.
+
+Dependências:
+
+- PKG-86 a PKG-94 fechados e publicados;
+- janelas de observação concluídas;
+- autorização humana para cada limpeza destrutiva pendente.
+
+Entregáveis:
+
+- manifesto de tecnologias, tabelas, arquivos, rotas e contratos aposentados;
+- scanner de referências legadas integrado ao check;
+- scanner por perfil provando que adapter local válido não entra no runtime cloud;
+- remoção de flags, adapters, bridges, units, scripts, envs e dependências temporárias;
+- revisão de arquivos grandes, SOLID, contratos e consumidores;
+- SBOM, lockfiles, artefatos reproduzíveis, dependências, CVEs e política de atualização;
+- revisão de threat model, roles, secrets, rede, auditoria, privacidade e abuso;
+- documentação consolidada descrevendo somente a arquitetura final;
+- inventário e reconciliação final de dados, objetos, jobs e índices;
+- ensaio integral de deploy, rollback de código, backup e restore;
+- carga/soak no servidor atual e relatório de capacidade residual;
+- revisão independente de segurança, privacidade, retenção e operação.
+
+Lotes:
+
+1. Gerar manifesto final de legado e owners de remoção.
+2. Executar scanner em código, banco, filesystem, units, env, workflows, docs e testes.
+3. Remover resíduos não destrutivos e corrigir regressões.
+4. Apresentar relatório e executar limpezas destrutivas explicitamente aprovadas.
+5. Repetir integridade, restore, deploy, rollback, carga, soak e segurança.
+6. Consolidar decisões/runbook e encerrar o programa em commit próprio.
+
+Critério de aceite:
+
+- nenhum termo/artefato aposentado existe fora do histórico/decisão permitidos;
+- não há flag de transição permanente nem adapter sem consumidor atual;
+- nenhum serviço/dependência existe sem owner, versão, atualização, alerta e remoção;
+- perfil cloud não importa/carrega adapter SQLite local nem possui fallback silencioso;
+- banco, objetos, filas e índices reconciliam com as fontes canônicas;
+- restore integral sobe uma instância utilizável e passa smoke dos fluxos P0/P1;
+- deploy e rollback de código não perdem escrita nem geram indisponibilidade observável;
+- servidor atual mantém folga acordada após soak;
+- documentação, units e configuração efetiva refletem a mesma topologia;
+- revisão completa e `./check.sh` passam; pacote termina em commit exclusivo.
+
+Estado atual:
+
+- Planejado; implementação não iniciada.

@@ -8,6 +8,21 @@ O objetivo é resolver uma lacuna comum em impressoras Klipper avançadas: opera
 
 O projeto deve ajudar o usuário a manter a impressora saudável sem precisar ser especialista em Linux, systemd, CAN, Git, Klipper, Moonraker e firmware ao mesmo tempo.
 
+## Visão comunitária plurianual
+
+O Printora também deve evoluir de forma incremental para uma infraestrutura comunitária de fabricação digital. Essa visão conecta pessoas, comunidades, conhecimento, projetos, arquivos, materiais, impressoras, escolas, oficinas e necessidades sociais sem misturar relacionamento social com permissão operacional sobre equipamentos.
+
+O norte não é maximizar tempo de tela. É aumentar:
+
+- autonomia por tecnologia assistiva segura;
+- acesso a educação maker e infraestrutura comunitária;
+- reparo, vida útil de produtos e redução de resíduos;
+- resolução de problemas e reprodução de resultados técnicos;
+- fabricação local, renda justa e resiliência territorial;
+- segurança, inclusão, acessibilidade e confiança.
+
+O plano completo, benchmark, telas e inventário verificável ficam em `docs/community/`. A execução deve recortar pacotes pequenos em `DEMANDAS.md`, validar o problema com pessoas afetadas e medir benefício e dano antes de expansão.
+
 ## Arquitetura real do projeto
 
 - Monorepo com backend Python/FastAPI em `backend/`.
@@ -454,3 +469,28 @@ A Klipper toolkit for firmware, maintenance, diagnostics and printer operations.
 - Zero dependência de edição manual de configs para tarefas repetitivas.
 - Diagnósticos claros para usuários não especialistas.
 - Relatórios úteis para comunidade e suporte.
+
+## Arquitetura Alvo Plurianual
+
+A evolução técnica oficial está em
+`docs/architecture/EVOLUCAO_ARQUITETURAL.md` e nos pacotes `PKG-86` a `PKG-95`.
+
+O produto evolui em quatro etapas:
+
+1. qualificação do host, releases imutáveis, monólito modular, contratos,
+   observabilidade e deploy blue/green;
+2. PostgreSQL cloud, Redis recomponível, outbox/fila durável, workers, objetos
+   S3-compatible, realtime distribuído e busca reconstruível;
+3. ledger, pagamentos, pedidos, fabricação, qualidade e logística isolados;
+4. múltiplas instâncias, resiliência, recuperação, analytics e ML isolado.
+
+Todos os componentes devem executar no servidor cloud atual. Kubernetes,
+segundo host e serviços gerenciados não são requisitos. A arquitetura no mesmo
+host protege contra falha de processo e deploy, mas não promete sobrevivência à
+perda física do servidor.
+
+Após cada cutover, existe apenas um caminho canônico por perfil. O cloud não
+mantém fallback SQLite; o SQLite local permanece somente como adapter local
+suportado e isolado. Bridges, flags, bancos, arquivos, dependências,
+configurações, testes e documentação aposentados são removidos antes do
+fechamento, respeitando confirmação explícita e prova de integridade/restauração.

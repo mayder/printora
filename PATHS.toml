@@ -20,6 +20,13 @@ readme = "README.md"
 check = "./check.sh"
 mindmap_complete = "MAPA_MENTAL_MARKMAP.md"
 mindmap_executive = "MAPA_EXECUTIVO_MARKMAP.md"
+community_master = "docs/community/MASTER_PLAN.md"
+community_benchmark = "docs/community/PLATFORM_BENCHMARK.md"
+community_backlog = "docs/community/COMMUNITY_BACKLOG.md"
+community_screens = "docs/community/COMMUNITY_SCREENS.md"
+community_priorities = "docs/community/PRIORITIES.md"
+architecture_evolution = "docs/architecture/EVOLUCAO_ARQUITETURAL.md"
+architecture_review = "docs/architecture/REVISAO_PACOTES.md"
 
 [rules]
 read_order = [

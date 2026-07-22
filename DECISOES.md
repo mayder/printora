@@ -985,3 +985,68 @@ Consequencias: projeto privado ou em revisão não vaza na busca pública. Compa
 Impacto em testes: `backend/tests/test_print_projects.py`, schema versionado, build frontend e `./check.sh`.
 Impacto em rollback: médio; reverter remove controles e regras novas, mas valores comerciais já gravados podem permanecer no SQLite.
 Como reverter: reverter `backend/sql/071_print_project_publication.sql`, alterações em `backend/app/print_projects.py`, `backend/app/routes/print_projects.py`, frontend de projetos e documentação. Se o SQL já tiver sido aplicado, restaurar backup SQLite anterior; não executar `DROP TABLE`, recriação manual de `print_projects` ou limpeza de revisões sem confirmação explícita.
+### DEC-20260722-01 - Programa comunitário usa inventário atômico gerado e prioridade por impacto social
+
+Status: aceita
+Data: 2026-07-22
+Contexto: a base social entregue nos pacotes anteriores cobre identidade pública, comunidades derivadas do catálogo, discussões, biblioteca, descoberta, moderação, notificações, projetos e fluxo de impressão, mas ainda está longe da amplitude de uma rede comunitária e de uma infraestrutura social de fabricação digital. Colocar milhares de itens diretamente em `DEMANDAS.md` tornaria o backlog oficial impraticável e misturaria planejamento de décadas com pacotes executáveis.
+
+Decisão: manter `DEMANDAS.md` como backlog executável e registrar o universo plurianual em `docs/community/`. O inventário parte de 55 frentes e 440 capacidades revisadas; cada capacidade gera sete itens atômicos — produto, tela, mobile, acessibilidade, confiança, impacto e qualidade — totalizando 3.080 melhorias. Telas futuras são catalogadas separando lista, detalhe e cadastro/edição. A ordem P0-P4 usa impacto social, equidade e redução de dano antes de engajamento ou receita.
+
+Alternativas consideradas: adicionar centenas de pacotes imediatamente; manter apenas uma lista curta de ideias; copiar uma rede social específica; tratar telas e requisitos transversais como detalhe posterior.
+
+Consequências: o projeto ganha cobertura ampla e filtrável sem fingir que tudo já está pronto para implementação. Cada entrega futura ainda precisa de descoberta, pacote pequeno, contrato, testes e validação real. O gerador torna contagens e IDs reproduzíveis, mas o conteúdo precisa de revisão periódica porque plataformas, leis e o produto mudam.
+
+Impacto em testes: `TESTES.md` define gates por prioridade. Itens P0 exigem revisão independente, especialista e piloto controlado; todas as capacidades incluem acessibilidade, mobile, confiança, métrica de impacto e qualidade.
+
+Impacto em rollback: baixo, pois esta decisão é documental. Reverter remove as referências e arquivos de planejamento sem alterar runtime ou banco. Não há SQL.
+
+Como reverter: remover as chaves comunitárias de `PATHS.toml`, as referências em documentos oficiais, `docs/community/` e o gerador, preservando o backlog executável anterior.
+
+Referências: `docs/community/MASTER_PLAN.md`, `docs/community/PLATFORM_BENCHMARK.md`, `docs/community/COMMUNITY_BACKLOG.md`, `docs/community/COMMUNITY_SCREENS.md`, `scripts/generate_community_roadmap.py`.
+
+### DEC-20260722-02 - Evolução usa monólito modular e cutover sem legado permanente
+
+Status: aceita
+Data: 2026-07-22
+Contexto: a arquitetura atual atende o estágio inicial, mas o programa
+comunitário, processamento, realtime, comércio e fabricação exigem persistência
+concorrente, jobs duráveis, objetos, recuperação e separação de domínios. O
+servidor atual possui Nginx/systemd/Python, não oferece Docker/Node ao usuário de
+deploy e hoje reinicia uma única instância Uvicorn.
+
+Decisão: executar a evolução nos pacotes `PKG-86` a `PKG-95`, dividindo cada
+risco em pacote fechável: host/blue-green; monólito modular; PostgreSQL cloud;
+jobs/realtime; objetos/busca; financeiro; fabricação; escala/recuperação;
+analytics/ML; consolidação. PostgreSQL será a fonte relacional cloud, Redis
+conterá apenas estado recomponível, a fila durável usará PostgreSQL/outbox e os
+serviços rodarão como units systemd no mesmo host. O modo local SQLite continua
+suportado em adapter isolado, sem fallback ou referência no runtime cloud.
+
+Alternativas consideradas: manter SQLite e processo único; migrar diretamente
+para microsserviços; introduzir Kubernetes; exigir serviços gerenciados; manter
+dual-write e adapters antigos indefinidamente.
+
+Consequências: a transição exige releases/venvs imutáveis, expansão/contração
+compatível N/N-1, sombra, canário, reconciliação, carga,
+restore e observação. Em compensação, evita reescrita big-bang, dependência de
+novo servidor e dívida permanente. Redundância no mesmo host cobre processo e
+deploy, não falha física do servidor; backup/WAL externo é obrigatório para recuperação.
+
+Impacto em testes: cada etapa exige arquitetura, contrato, integração, carga,
+soak, falha controlada, integridade, restauração, segurança e smoke dos fluxos
+P0/P1. O check passa a bloquear referências a tecnologias aposentadas.
+
+Impacto em rollback: rollback de código reativa a instância anterior sem
+restaurar snapshot velho. O destino e a ponte temporária permanecem apenas na
+janela de observação; sua remoção ocorre no mesmo pacote. Banco/arquivo antigo
+só é excluído após relatório reconciliado e confirmação humana explícita.
+
+Como reverter: antes de cada cutover, manter upstream azul e origem autoritativa.
+Depois do cutover, reativar release compatível e reconciliar eventos pendentes;
+nunca sobrescrever escritas novas com backup anterior. Após a limpeza aprovada,
+o rollback é forward-fix ou restore completo validado, não retorno ao legado.
+
+Referência: `docs/architecture/EVOLUCAO_ARQUITETURAL.md`.
+
+Revisão de cobertura: `docs/architecture/REVISAO_PACOTES.md`.

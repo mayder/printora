@@ -2,6 +2,8 @@
 
 Inventario operacional de telas, rotas, estados e regras de UI do Printora.
 
+O catálogo plurianual de superfícies comunitárias futuras fica em `docs/community/COMMUNITY_SCREENS.md`. Ele não declara rotas implementadas: serve para recortar pacotes, evitar telas gigantes e manter lista, detalhe e cadastro/edição como responsabilidades separadas.
+
 ## Regras
 
 - Este arquivo descreve comportamento final de produto, nao implementacao interna.
@@ -333,3 +335,30 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 
 - Definir rotas dedicadas somente se a SPA deixar de usar `section` por query/hash.
 - Separar fluxos de listagem, detalhe, cadastro e edicao quando houver CRUD real fora dos modais existentes.
+
+## Operação Da Plataforma Planejada
+
+Os pacotes arquiteturais não devem expor nomes internos, tecnologia ou comandos
+perigosos para usuários comuns. As superfícies abaixo pertencem à Administração
+e só entram quando o respectivo backend estiver operacional:
+
+- `Administração > Saúde da plataforma`: instâncias, readiness, versão ativa,
+  filas, storage, banco, cache, busca, capacidade e incidentes, sem segredos;
+- `Administração > Transição de dados`: progresso read-only, watermark,
+  divergências, checksums e gate de cutover; nenhuma exclusão direta pela tela;
+- `Administração > Jobs`: filtros, detalhe, tentativas, erro sanitizado,
+  dead-letter e reprocessamento idempotente com confirmação;
+- `Administração > Armazenamento`: uso/cota, objetos órfãos, integridade,
+  quarentena, retenção e restore supervisionado;
+- `Administração > Busca`: saúde, atraso do índice, divergência e rebuild seguro;
+- `Administração > Finanças`: pedidos, ledger, reconciliação, disputa e repasse,
+  separados em lista, detalhe e ações autorizadas;
+- `Administração > Produção`: cotações, ordens, qualidade, logística e incidentes,
+  com lista/detalhe e transições explícitas;
+- `Administração > Recuperação`: backups, restores ensaiados, RPO/RTO e evidência,
+  sem botão destrutivo genérico;
+- `Administração > Dados e modelos`: pipelines, versões, canários, drift e
+  rollback de ML, sem acesso direto ao banco transacional.
+
+Todas exigem desktop/mobile, teclado, leitor de tela, estados vazio/loading/
+erro/degradado, permissão por ação, confirmação forte e auditoria sanitizada.

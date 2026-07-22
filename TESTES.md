@@ -1711,6 +1711,135 @@ Critérios:
 - Validação focada executada em 2026-07-20: `npm --prefix frontend run build`. Não foi executada ação live ou mutável na impressora porque ela estava imprimindo.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+## Validação Da Evolução Arquitetural
+
+Gates transversais para todos os pacotes:
+
+- testar autorização backend e isolamento owner/organização/tenant em leitura,
+  escrita, busca, cache, objeto, evento, exportação e suporte;
+- testar sessão/token, revogação, expiração, replay, CSRF/CORS e step-up aplicáveis;
+- testar injeção, mass assignment, paginação/limite, enumeração e rate limit;
+- testar SSRF/DNS rebinding e uploads com traversal, archive/parser bomb,
+  content-type falso e conteúdo hostil;
+- executar scan de segredo/dependência, gerar SBOM e verificar checksum/assinatura do artefato;
+- validar que log, trace, evento, backup e pacote de suporte não contêm segredo/PAN/dado indevido;
+- executar revisão independente nos fluxos financeiros, físicos, sensíveis e automatizados.
+
+### PKG-86 - Qualificação Do Servidor E Publicação Sem Indisponibilidade
+
+- validar privilégios, firewall, portas, NTP, disco, I/O, RAM, CPU, quotas e backup externo;
+- provar que blue/green usam release, frontend, venv, lockfile e unit independentes;
+- falhar readiness e provar que candidato não recebe tráfego;
+- executar `nginx -t`, troca atômica, drain e rollback sob carga;
+- testar compatibilidade N/N-1 de schema, evento e contrato;
+- testar reconnect com jitter, ack e deduplicação dos agentes;
+- matar candidato/ativo e provar continuidade sem restauração de dados;
+- testar disco/log/WAL próximo da quota e alerta antes de indisponibilidade;
+- fechamento: carga/soak, deploy controlado, rollback e smoke público P0/P1.
+
+### PKG-87 - Monólito Modular, Contratos E Fronteiras
+
+- congelar contratos HTTP/WebSocket/evento dos fluxos P0/P1;
+- validar ausência de ciclo e imports proibidos entre domínio, aplicação, API e infraestrutura;
+- validar isolamento entre persistence adapters cloud e local;
+- validar page/form/state/client sem routing, regra e persistência misturados;
+- executar testes de caracterização antes/depois de cada extração;
+- impedir duas implementações canônicas do mesmo caso de uso;
+- verificar limites de arquivo/função e remoção de bridges antigas;
+- fechamento: suíte completa, contratos N/N-1 e smoke publicado.
+
+### PKG-88 - PostgreSQL Cloud Sem Perda De Dados
+
+- comparar contagem, min/max, sequences, checksum por lote, FK, órfãos e consultas semânticas;
+- testar tipos SQLite/PostgreSQL: data/hora, booleano, JSON, decimal, null e collation;
+- testar snapshot mais alterações concorrentes, watermark e outbox SQLite atômica;
+- executar leitura sombra/canário e bloquear divergência não explicada;
+- testar cutover sob escrita e rollback para release PostgreSQL-compatible;
+- provar que nenhuma escrita pós-cutover depende de snapshot SQLite;
+- restaurar backup/WAL PostgreSQL em ambiente isolado;
+- escanear zero SQLite no perfil cloud e testar SQLite somente no perfil local;
+- fechamento: integridade total, carga, restore, suíte cloud/local e smoke.
+
+### PKG-89 - Outbox, Workers, Redis E Realtime Distribuído
+
+- testar atomicidade negócio/outbox, inbox e schemas versionados;
+- testar duplicidade, ordenação, timeout, backoff, dead-letter e replay;
+- matar worker, expirar lease e validar um único efeito efetivo;
+- reiniciar/esvaziar Redis e validar recomposição/degradação sem perda canônica;
+- testar WebSocket em múltiplas instâncias, reconnect, ack e retomada do agente;
+- saturar filas e validar backpressure/quotas sem derrubar P0/P1;
+- drenar workers N/N-1 antes de contrair schema/evento;
+- escanear zero registry/fila autoritativa em memória;
+- fechamento: carga/soak, falha controlada, suíte completa e smoke.
+
+### PKG-90 - Objetos, Quarentena E Busca Reconstruível
+
+- testar upload streaming, limite, interrupção, checksum, quarentena e promoção atômica;
+- testar path traversal, content type, arquivo hostil, URL expirada e acesso cruzado;
+- reconciliar manifesto/metadado/conteúdo e detectar órfãos nos dois sentidos;
+- restaurar metadados e objetos juntos a partir da cópia externa;
+- testar índice com permissão, tenant, bloqueio, remoção e moderação;
+- apagar/reconstruir índice e comparar cobertura/relevância controlada;
+- falhar storage/busca e validar degradação dos fluxos não críticos;
+- escanear zero path/índice/consulta cloud aposentado;
+- fechamento: carga, segurança, restore, suíte completa e smoke.
+
+### PKG-91 - Núcleo Financeiro, Pagamentos E Pedidos
+
+- testar partidas dobradas, inteiro/moeda/arredondamento e reconciliação;
+- testar webhook assinado/inválido, repetido, fora de ordem, atrasado e replay;
+- testar timeout e concorrência entre pedido, provedor e ledger;
+- testar captura, cancelamento, reembolso, disputa, chargeback e repasse;
+- testar limites de reembolso/repasse, saldo negativo e comandos idempotentes;
+- provar ausência de PAN/CVV em request persistido, log, trace e backup;
+- testar segregação de função, step-up, auditoria, LGPD e retenção;
+- validar sandbox/reconciliação real antes de dinheiro real;
+- fechamento: revisão independente de segurança, carga, restore e smoke ponta a ponta.
+
+### PKG-92 - Fabricação, Qualidade, Logística E Cadeia De Custódia
+
+- testar snapshot/licença da ordem, aceite e estados formais;
+- testar concorrência de capacidade/material e idempotência;
+- impedir expedição sem qualidade aprovada;
+- testar retrabalho, cancelamento, falha, incidente e recall;
+- testar webhook de tracking repetido/fora de ordem;
+- validar privacidade de endereço/documento/evidência e retenção;
+- testar compensação financeira sem escrita direta no ledger;
+- fechamento: segurança física, carga, recuperação e smoke ponta a ponta.
+
+### PKG-93 - Escala, Resiliência, Backup E Recuperação
+
+- distribuir requests/WebSockets entre instâncias e matar uma durante carga;
+- saturar pools e validar backpressure, circuit breaker, timeout e bulkhead;
+- restaurar PostgreSQL, objetos, configuração e secrets references em isolamento;
+- simular perda de processo, banco, disco, configuração e host;
+- medir RPO/RTO real usando backup/WAL externo e reconciliar;
+- provar que chave/credencial de restore sobrevive à perda do host;
+- executar carga de pico, soak e caos de processo;
+- fechamento: capacidade residual, restore, suíte completa e smoke P0/P1.
+
+### PKG-94 - Analytics, Moderação Multilíngue E Inteligência Isolada
+
+- validar role impedindo analytics/ML de escrever no OLTP;
+- testar replay/deduplicação, lineage, consentimento, remoção e anonimização;
+- revisar moderação multilíngue, falsos positivos, recurso e decisão humana;
+- validar dataset/licença, modelo offline, bias, canário, drift e rollback;
+- acionar kill switch e provar fallback determinístico;
+- saturar analytics/ML e provar quotas sem afetar P0/P1;
+- testar retenção/limpeza de dataset e modelo temporário;
+- fechamento: privacidade, segurança, carga, suíte completa e smoke.
+
+### PKG-95 - Consolidação E Erradicação Legada
+
+- executar scanner por perfil em código, imports, lockfiles, env, SQL, filesystem, units, workflows, docs e testes;
+- exigir zero flag/bridge/adapter temporário; adapters locais válidos ficam restritos ao perfil local;
+- gerar SBOM, revisar dependências/segredos/roles e remover serviço sem owner;
+- reconciliar dados, objetos, jobs, auditorias, índices e retenção;
+- executar restore integral, deploy/rollback sob carga e provar preservação de escrita;
+- repetir carga, soak, caos, segurança e smoke público;
+- revisar contratos/consumidores, arquivos grandes, SOLID e documentação final;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh` deve passar antes do commit exclusivo.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:
@@ -1738,3 +1867,16 @@ Não avançar se:
 - houver alteração de config sem backup;
 - relatório expuser segredo;
 - app não conseguir distinguir leitura de mutação.
+## Validação Do Programa Comunitário Plurianual
+
+O inventário em `docs/community/COMMUNITY_BACKLOG.md` decompõe cada capacidade em regra, tela, mobile, acessibilidade, confiança, impacto e qualidade. Ao recortar um pacote futuro, `TESTES.md` deve receber cenários específicos proporcionais ao risco.
+
+Mínimo por prioridade:
+
+- `P0`: unitário, contrato/API, permissão, abuso, privacidade, acessibilidade, mobile, falha segura, rollback, revisão independente, piloto controlado e evidência com especialista;
+- `P1`: regra, contrato, acessibilidade, mobile/offline, equidade, estados de tela e validação com usuários representativos;
+- `P2`: regra, API, integração, permissões, estados de tela, responsividade e fluxo principal real;
+- `P3`: contrato comercial, fraude, pagamento, cancelamento, imposto, disputa, acessibilidade e transparência de taxa;
+- `P4`: experimento isolado com hipótese, opt-in, privacidade, orçamento, critério de parada e nenhuma dependência crítica.
+
+Nenhum experimento pode usar produção, criança, dado biométrico, comando de impressora ou dispositivo assistivo sem fluxo específico aprovado. Métrica de sucesso deve ser acompanhada de métrica de dano e recortes de equidade quando aplicável.

@@ -59,6 +59,48 @@ Uma versão só pode ser considerada publicável se:
 
 Migrations são proibidas. Toda alteração de banco deve ser entregue como script `.sql` idempotente em `backend/sql/`, com rollback e impacto documentados.
 
+### Gates De Evolução Arquitetural
+
+Os pacotes `PKG-86` a `PKG-95` seguem
+`docs/architecture/EVOLUCAO_ARQUITETURAL.md` e só podem avançar quando:
+
+- a capacidade de CPU, RAM, disco, I/O e file descriptors do servidor atual foi medida;
+- o destino roda em paralelo sem receber tráfego produtivo prematuramente;
+- backup foi restaurado e validado em ambiente isolado;
+- dados foram reconciliados por contagem, checksum, chaves, sequences e consultas semânticas;
+- deploy/cutover possui health, readiness, canário, drenagem e rollback sem restaurar snapshot velho sobre escritas novas;
+- toda escrita mutável possui idempotência e outbox quando cruza processo/tecnologia;
+- a observação pós-cutover não registra erro, perda, duplicidade ou regressão de SLO atribuível à troca;
+- bridges, dual-read, dual-write e flags temporárias são removidos no mesmo pacote;
+- referências à tecnologia aposentada são zeradas em runtime, configuração, dependências, SQL ativo, scripts, workflow, tests e docs;
+- limpeza de banco, tabela, arquivo, backup ou objeto antigo recebe confirmação humana explícita.
+- release blue/green não compartilha virtualenv, frontend ou dependência mutável;
+- schema, evento e contrato preservam compatibilidade N/N-1 durante a drenagem;
+- o perfil cloud não carrega SQLite; o adapter SQLite local fica isolado e testado;
+- backup/WAL criptografado possui cópia fora do host e restore independente;
+- serviço novo possui role mínima, segredo rotacionável, quota, retenção, alerta,
+  owner, atualização e procedimento de remoção.
+
+O servidor atual pode oferecer redundância de processo e deploy sem
+indisponibilidade observável. Não é permitido classificar isso como alta
+disponibilidade contra perda física do host; esse nível exige outro host.
+
+O fechamento de cada transição deve anexar relatório de integridade, relatório
+de referências legadas, teste de restauração, capacidade residual, período de
+observação, responsável e rollback ainda disponível.
+
+Nenhum pacote pode prometer simultaneamente execução em um único host e RPO zero
+contra destruição física desse host. RPO zero é obrigatório para deploy/cutover;
+desastre físico usa RPO/RTO medidos pela cópia externa até existir réplica
+síncrona autorizada em outro host.
+
+Todos os pacotes arquiteturais exigem threat model, autorização backend
+deny-by-default, isolamento owner/tenant, rate limit, idempotência, validação de
+entrada, proteção SSRF/upload, SQL parametrizado, secrets fora do release,
+dependências fixadas/SBOM, scans de segredo/dependência, artefatos verificáveis,
+logs sanitizados e plano de incidente. Tela desabilitada nunca substitui
+controle de permissão no backend.
+
 Em branch `main` ou `hml`, a IA deve perguntar antes de editar quando o usuário não tiver autorizado explicitamente o uso da branch.
 
 ## Riscos Principais
@@ -94,9 +136,25 @@ Risco: corromper histórico ou inventário.
 Mitigações:
 
 - SQLite com backup;
-- migrações idempotentes ou versionamento interno;
+- scripts SQL idempotentes e versionamento interno, sem migration de framework;
 - exportação de dados;
 - nunca armazenar segredo em texto puro.
+
+### Transição De Banco E Storage
+
+Risco: perda, duplicidade, divergência silenciosa ou permanência indefinida de
+dois caminhos autoritativos.
+
+Mitigações:
+
+- snapshot consistente e captura incremental por watermark/outbox;
+- import idempotente e leitura sombra antes do canário;
+- reconciliação antes e depois do cutover;
+- uma única fonte autoritativa em cada instante;
+- ponte temporária removida antes do fechamento do pacote;
+- banco/storage antigo preservado somente durante a janela de rollback;
+- exclusão física apenas após aceite explícito do relatório de integridade;
+- restore validado antes de qualquer exclusão.
 
 ### Relatórios
 
@@ -136,6 +194,20 @@ Ordem recomendada:
 9. Gestão de plugins.
 10. Firmware Manager com dry-run.
 11. Firmware Manager com flash real.
+
+### Programa comunitário plurianual
+
+Para itens de `docs/community/`, a prioridade é definida por impacto social, não por potencial de engajamento ou receita:
+
+1. `P0`: vida, autonomia, proteção infantil, segurança física/digital, privacidade, integridade e moderação;
+2. `P1`: acessibilidade, mobile/offline, educação, escolas, reparo, sustentabilidade, fabricação local e qualidade;
+3. `P2`: núcleo comunitário, conhecimento, colaboração, modelos, slicing, impressão em rede e integrações;
+4. `P3`: creator economy, marketplace, logística, reputação, concursos e financiamento;
+5. `P4`: AR, IA generativa e interfaces experimentais.
+
+Critérios de desempate: alcance, urgência, equidade, redução de dano, dependência estrutural, evidência, custo de oportunidade e reversibilidade.
+
+Itens `P0` exigem especialista da área quando aplicável, revisão independente, piloto controlado, métrica de dano, canal de incidente e rollback antes de escala. Funcionalidades comerciais não podem bloquear acesso a alertas de segurança, atribuição, denúncia, exportação de dados ou conhecimento essencial de reparo e uso responsável.
 
 ## Rollback
 

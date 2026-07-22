@@ -27,6 +27,14 @@ update: Moonraker Update Manager
 ui entry: Mainsail custom navigation
 ```
 
+Este bloco registra a arquitetura inicial/local que originou o produto. A
+arquitetura cloud plurianual oficial é
+`docs/architecture/EVOLUCAO_ARQUITETURAL.md`: monólito modular, blue/green,
+PostgreSQL, Redis recomponível, fila/outbox durável, storage S3-compatible e
+workers no servidor atual. Depois do cutover, SQLite não permanece como fallback
+cloud; o perfil local/offline pode manter adapter SQLite próprio, isolado por
+testes de arquitetura e sem import/configuração cruzada com o cloud.
+
 ## Regras De Desenvolvimento
 
 - Não criar automações destrutivas sem dry-run.
@@ -112,7 +120,7 @@ No Printora:
 
 Cada módulo deve ter responsabilidade clara:
 
-- `backend`: API, regras de aplicação, integração Moonraker/Klipper, SQLite, relatórios, backups, auditoria, firmware e updates.
+- `backend`: API, regras de aplicação, integração Moonraker/Klipper, persistência canônica vigente, relatórios, backups, auditoria, firmware e updates.
 - `frontend`: UI, estados de tela, navegação, acessibilidade, feedback visual e consumo explícito da API.
 - `scripts`: operação local, bootstrap, run e validações do modelo.
 

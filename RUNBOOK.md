@@ -2,29 +2,79 @@
 
 Runbook operacional do Printora.
 
+## Evolução Arquitetural Planejada
+
+Os procedimentos executáveis serão adicionados lote a lote pelos pacotes
+`PKG-86` a `PKG-95`. A arquitetura, gates e ordem ficam em
+`docs/architecture/EVOLUCAO_ARQUITETURAL.md`.
+
+O bootstrap privilegiado, o backup/restore externo, dois ciclos blue/green,
+rollback e falhas de processo foram comprovados no host em 22 de julho de 2026.
+A publicação cloud usa dois slots independentes e N-1 aquecido; a evidência fica
+em `docs/audits/CLOUD_BLUE_GREEN_READINESS_2026-07-22.md`. Isso não representa
+alta disponibilidade contra perda física do host.
+
+Regras operacionais obrigatórias durante as transições:
+
+- medir recursos do host antes de instalar novo serviço;
+- não colocar destino em produção antes de restore, carga e sombra passarem;
+- não fazer dual-write independente dentro do request;
+- não restaurar snapshot antigo sobre escritas confirmadas após cutover;
+- não excluir banco, tabela, arquivo, objeto ou backup sem confirmação explícita;
+- remover bridges/flags/adapters e atualizar este runbook no mesmo pacote;
+- manter relatório de integridade e referência legada junto ao release;
+- executar tudo por systemd/Nginx no servidor atual, sem pressupor Docker.
+- usar venv/frontend/unit imutáveis por release; nunca atualizar dependência do blue em uso;
+- manter compatibilidade N/N-1 até requests, WebSockets e workers antigos drenarem;
+- manter SQLite somente no perfil local; cloud não pode usá-lo como fallback;
+- manter backup/WAL criptografado fora do host e testar restore sem a origem.
+
+O alvo permite continuidade contra falha de processo e durante deploy. Pane
+física do host continua exigindo restauração; não há HA física em um único
+servidor.
+
 ## Publicacao Cloud
 
 O deploy publico planejado do Printora usa o dominio `print3dmaker.xyz`, com
-GoDaddy apenas como registrador, DNS/proxy pela Cloudflare e o backend em Docker
+GoDaddy apenas como registrador, DNS/proxy pela Cloudflare e o backend Python/systemd
 atrás de Nginx no servidor. O guia operacional fica em
 `docs/DEPLOY_CLOUD.md`.
 
-O workflow `Deploy Printora Cloud` publica a branch `cloud`, roda `./check.sh`,
-envia o bundle por SSH, instala o backend no virtualenv compartilhado e troca o
-symlink `current`. O restart preferencial e `sudo -n systemctl restart
-printora-cloud.service`; quando o usuario `deploy` nao tem sudo sem senha, o
-workflow encerra o `uvicorn` anterior e sobe um processo `uvicorn` do release
-atual na porta `8069`, usando `shared/printora-cloud.env` e logando em
-`shared/logs/printora-cloud.log`. A hardening operacional recomendada continua
-sendo liberar apenas `restart/status printora-cloud.service` sem senha para o
-usuario de deploy.
+O workflow `Deploy Printora Cloud` publica a branch `cloud`, executa o gate
+completo, cria frontend e venv imutáveis dentro de cada release, sobe o slot
+inativo em `8069` ou `8070`, valida `/ready`, `/health` e catálogo, testa a
+configuração Nginx, troca o upstream atomicamente e só então drena o slot
+anterior. Não existe fallback para matar processo manualmente ou atualizar venv
+compartilhado. O usuário `deploy` só recebe sudo para os três comandos fixos do
+blue/green definidos em `packaging/sudoers/printora-cloud-deploy`.
+
+Bootstrap único, executado por administrador do host depois de backup da
+configuração Nginx:
+
+```bash
+sudo PRINTORA_BASE_PATH=/var/www/print3dmaker.xyz \
+  scripts/cloud/bootstrap-blue-green.sh
+sudo /usr/local/sbin/printora-cloud-preflight
+```
+
+O preflight só passa com NTP, certificado, logrotate, `restic`, destino externo
+e permissões válidos. O arquivo `shared/backup-target.conf` deve ter modo `0600`
+e referenciar credenciais fora do Git. A chave de recuperação precisa possuir
+cópia fora do host.
 
 Validacao pos-deploy:
 
 ```bash
 curl -fsS https://print3dmaker.xyz/health
+curl -fsS https://print3dmaker.xyz/ready
 curl -fsS https://print3dmaker.xyz/api/catalog >/dev/null
 curl -fsS "https://print3dmaker.xyz/api/social/communities/variant-voron-design-voron-2-4-voron-2-4-r2-350/feed?page_size=1" >/dev/null
+```
+
+Rollback de código, sem restaurar banco:
+
+```bash
+sudo /usr/local/sbin/printora-cloud-rollback
 ```
 
 ## Preview operacional de G-code
