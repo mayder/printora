@@ -144,6 +144,7 @@ def test_postgresql_backup_is_encrypted_and_restored_in_isolated_cluster() -> No
 
     assert "pg_dump" in backup
     assert "pg_basebackup" in backup
+    assert 'chown postgres:postgres "$work_dir"' in backup
     assert "--wal-method=stream" in backup
     assert "--serializable-deferrable" in backup
     assert "printora-cloud-postgresql" in backup
@@ -152,6 +153,7 @@ def test_postgresql_backup_is_encrypted_and_restored_in_isolated_cluster() -> No
     assert "forget" not in backup
     assert "prune" not in backup
     assert "base.tar.zst" in restore
+    assert 'chown postgres:postgres "$restore_root"' in restore
     assert "recovery.signal" in restore
     assert "restore_command" in restore
     assert "checksum do dump divergente" in restore

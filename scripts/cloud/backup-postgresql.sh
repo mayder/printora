@@ -24,6 +24,8 @@ set +a
 umask 077
 work_dir="$(mktemp -d /tmp/printora-postgresql-backup.XXXXXX)"
 trap 'rm -rf -- "$work_dir"' EXIT
+chown postgres:postgres "$work_dir"
+chmod 0700 "$work_dir"
 export RESTIC_CACHE_DIR="$work_dir/restic-cache"
 install -d -o root -g root -m 0700 "$RESTIC_CACHE_DIR"
 install -d -o postgres -g postgres -m 0700 "$work_dir/base"

@@ -50,6 +50,8 @@ actual_sha256="$(sha256sum "$dump" | awk '{print $1}')"
 [[ "$actual_sha256" == "$expected_sha256" ]] || { echo "checksum do dump divergente" >&2; exit 1; }
 
 pg_bin="$(pg_config --bindir)"
+chown postgres:postgres "$restore_root"
+chmod 0700 "$restore_root"
 install -d -o postgres -g postgres -m 0700 "$cluster" "$socket_dir"
 chown -R postgres:postgres "$restored"
 runuser -u postgres -- tar --zstd -xf "$base_tar" -C "$cluster"
