@@ -31,7 +31,13 @@ trap cleanup EXIT
 restic restore latest --tag printora-cloud-postgresql --target "$restored"
 dump="$(find "$restored" -type f -name printora-postgresql.dump -print -quit)"
 manifest="$(find "$restored" -type f -name manifest.json -print -quit)"
-[[ -n "$dump" && -n "$manifest" ]] || { echo "backup restaurado incompleto" >&2; exit 1; }
+base_tar="$(find "$restored" -type f -name base.tar.zst -print -quit)"
+wal_tar="$(find "$restored" -type f -name pg_wal.tar.zst -print -quit)"
+archive_dir="$(find "$restored" -type d -name printora-wal-archive -print -quit)"
+[[ -n "$dump" && -n "$manifest" && -n "$base_tar" && -n "$wal_tar" && -n "$archive_dir" ]] || {
+  echo "backup restaurado incompleto" >&2
+  exit 1
+}
 expected_sha256="$(python3 - "$manifest" <<'PY'
 import json
 import sys
@@ -46,13 +52,36 @@ actual_sha256="$(sha256sum "$dump" | awk '{print $1}')"
 pg_bin="$(pg_config --bindir)"
 install -d -o postgres -g postgres -m 0700 "$cluster" "$socket_dir"
 chown -R postgres:postgres "$restored"
-runuser -u postgres -- "$pg_bin/initdb" -D "$cluster" --auth=trust --no-locale --no-sync >/dev/null
-runuser -u postgres -- "$pg_bin/pg_ctl" -D "$cluster" -o "-F -h '' -k $socket_dir" -w start >/dev/null
+runuser -u postgres -- tar --zstd -xf "$base_tar" -C "$cluster"
+install -d -o postgres -g postgres -m 0700 "$cluster/pg_wal"
+runuser -u postgres -- tar --zstd -xf "$wal_tar" -C "$cluster/pg_wal"
+cat > "$cluster/postgresql.conf" <<EOF
+listen_addresses = ''
+port = 5432
+unix_socket_directories = '$socket_dir'
+archive_mode = off
+restore_command = 'cp $archive_dir/%f %p'
+recovery_target_action = 'promote'
+EOF
+cat > "$cluster/pg_hba.conf" <<'EOF'
+local all all trust
+EOF
+touch "$cluster/recovery.signal"
+chown -R postgres:postgres "$cluster"
+runuser -u postgres -- "$pg_bin/pg_ctl" -D "$cluster" -w start >/dev/null
 started=1
 export PGHOST="$socket_dir" PGPORT=5432 PGUSER=postgres PGDATABASE=postgres
-runuser -u postgres -- "$pg_bin/createdb" printora_restore_test
-export PGDATABASE=printora_restore_test
-runuser -u postgres -- "$pg_bin/pg_restore" --exit-on-error --no-owner --no-acl --dbname=printora_restore_test "$dump"
+for _attempt in $(seq 1 60); do
+  if [[ "$(runuser -u postgres -- "$pg_bin/psql" -X -Atqc 'SELECT pg_is_in_recovery()')" == "f" ]]; then
+    break
+  fi
+  sleep 1
+done
+[[ "$(runuser -u postgres -- "$pg_bin/psql" -X -Atqc 'SELECT pg_is_in_recovery()')" == "f" ]] || {
+  echo "restore físico não promoveu dentro do limite" >&2
+  exit 1
+}
+export PGDATABASE=printora_cloud
 
 runuser -u postgres -- "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -At <<'SQL'
 DO $$
@@ -76,9 +105,10 @@ END
 $$;
 SELECT json_build_object(
     'database', current_database(),
+    'in_recovery', pg_is_in_recovery(),
     'tables', (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'),
     'schema_versions', (SELECT COUNT(*) FROM schema_versions),
     'invalid_foreign_keys', (SELECT COUNT(*) FROM pg_constraint WHERE contype = 'f' AND NOT convalidated)
 );
 SQL
-echo "restore PostgreSQL validado em cluster isolado; aplicação não foi iniciada"
+echo "restore físico PostgreSQL com WAL validado em cluster isolado; aplicação não foi iniciada"

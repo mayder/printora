@@ -5,17 +5,20 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=deploy
-Group=deploy
+User=root
+Group=root
 Environment=RESTIC_CACHE_DIR=/var/www/print3dmaker.xyz/shared/backup-cache
-ExecStart=/usr/local/libexec/printora-cloud/backup-sqlite.sh
+ExecStart=/usr/local/libexec/printora-cloud/backup-postgresql.sh
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadOnlyPaths=/var/www/print3dmaker.xyz/shared/data
+ReadOnlyPaths=/var/lib/postgresql/16/printora /var/lib/postgresql/16/printora-wal-archive
 ReadWritePaths=/var/www/print3dmaker.xyz/shared/backup-cache
 MemoryHigh=6G
 MemoryMax=8G
 CPUQuota=200%
+CPUWeight=10
+IOWeight=10
+Nice=15
 TasksMax=128

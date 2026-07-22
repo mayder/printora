@@ -143,13 +143,17 @@ def test_postgresql_backup_is_encrypted_and_restored_in_isolated_cluster() -> No
     restore = (ROOT_DIR / "scripts/cloud/restore-postgresql-backup-test.sh").read_text()
 
     assert "pg_dump" in backup
+    assert "pg_basebackup" in backup
+    assert "--wal-method=stream" in backup
     assert "--serializable-deferrable" in backup
     assert "printora-cloud-postgresql" in backup
     assert "restic backup" in backup
+    assert "backup-postgresql.sh" in (ROOT_DIR / "scripts/cloud/bootstrap-blue-green.sh").read_text()
     assert "forget" not in backup
     assert "prune" not in backup
-    assert "initdb" in restore
-    assert "pg_restore" in restore
+    assert "base.tar.zst" in restore
+    assert "recovery.signal" in restore
+    assert "restore_command" in restore
     assert "checksum do dump divergente" in restore
     assert "aplicação não foi iniciada" in restore
 
