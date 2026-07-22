@@ -4,9 +4,9 @@
 
 ## Resumo
 
-- módulos Python: 128;
+- módulos Python: 130;
 - endpoints HTTP/WebSocket: 322;
-- contratos tipados: 331;
+- contratos tipados: 334;
 - tabelas declaradas em SQL: 100;
 - ciclos de import detectados: 0.
 
@@ -16,7 +16,7 @@
 |---|---|---|---:|---:|
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 10 | 8 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 27 | 45 |
-| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 53 | 32 |
+| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 55 | 32 |
 | `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 24 | 15 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 6 | 0 |
 | `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 8 | 0 |

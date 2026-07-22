@@ -82,9 +82,9 @@
     }
   ],
   "summary": {
-    "modules": 128,
+    "modules": 130,
     "routes": 322,
-    "contracts": 331,
+    "contracts": 334,
     "tables": 100,
     "cycles": 0,
     "modules_by_owner": {
@@ -92,7 +92,7 @@
       "community": 27,
       "identity": 10,
       "integrations": 6,
-      "operations": 53,
+      "operations": 55,
       "shared": 8
     }
   },
@@ -119,11 +119,12 @@
     {
       "module": "agent_executor",
       "owner": "operations",
-      "lines": 96,
+      "lines": 80,
       "imports": [
         "agent_channel",
         "agent_pairing",
-        "auth",
+        "modules.operations.application",
+        "modules.operations.contracts",
         "printers"
       ],
       "routes": [],
@@ -892,6 +893,17 @@
       "contracts": []
     },
     {
+      "module": "modules.operations.application",
+      "owner": "operations",
+      "lines": 118,
+      "imports": [
+        "modules.operations.contracts",
+        "modules.operations.ports"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "modules.operations.contracts",
       "owner": "operations",
       "lines": 209,
@@ -917,6 +929,20 @@
         "AgentJobResultRequest",
         "AgentJobErrorRequest",
         "AgentEventRecord"
+      ]
+    },
+    {
+      "module": "modules.operations.ports",
+      "owner": "operations",
+      "lines": 25,
+      "imports": [
+        "modules.operations.contracts"
+      ],
+      "routes": [],
+      "contracts": [
+        "PrinterIdentity",
+        "AgentJobRepositoryPort",
+        "AgentRealtimePort"
       ]
     },
     {

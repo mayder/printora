@@ -1,16 +1,22 @@
 from __future__ import annotations
 
-import asyncio
-from datetime import timedelta
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 from fastapi import HTTPException
 
 from app.agent_channel import agent_ws_manager
-from app.agent_pairing import AgentJobCreateRequest, AgentJobRecord, AgentPairingRepository
-from app.auth import format_dt, utc_now
+from app.agent_pairing import AgentPairingRepository
+from app.modules.operations.application import (
+    AgentJobFailedError as ApplicationAgentJobFailedError,
+    AgentJobNotFoundError,
+    AgentJobRejectedError,
+    AgentJobService,
+    AgentJobTimeoutError,
+    AgentUnavailableError,
+    timeout_detail,
+)
+from app.modules.operations.contracts import AgentJobRecord
 from app.printers import PrinterRecord
 
 
@@ -21,6 +27,7 @@ class AgentCommandExecutor:
     def __init__(self, database_path: Path) -> None:
         self.database_path = database_path
         self.repository = AgentPairingRepository(database_path)
+        self.service = AgentJobService(self.repository, agent_ws_manager)
 
     async def run(
         self,
@@ -31,41 +38,24 @@ class AgentCommandExecutor:
         timeout_seconds: float = DEFAULT_AGENT_TIMEOUT_SECONDS,
         require_online: bool = True,
     ) -> AgentJobRecord:
-        agent = self.repository.latest_active_agent(printer.id)
-        if require_online and agent is None:
-            raise HTTPException(status_code=409, detail="nenhum agente online para esta impressora")
-        expires_at = format_dt(utc_now() + timedelta(seconds=max(5, int(timeout_seconds) + 5)))
         try:
-            job = self.repository.create_job(
+            return await self.service.run(
                 printer,
-                AgentJobCreateRequest(
-                    job_type=job_type,
-                    agent_id=agent.id if agent is not None else None,
-                    correlation_id=f"{job_type}_{uuid4().hex}",
-                    payload=payload or {},
-                    expires_at=expires_at,
-                ),
+                job_type=job_type,
+                payload=payload,
+                timeout_seconds=timeout_seconds,
+                require_online=require_online,
             )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        websocket_delivered = await agent_ws_manager.push_job(job)
-        return await self._wait(printer.id, job.id, timeout_seconds, websocket_delivered=websocket_delivered)
-
-    async def _wait(self, printer_id: int, job_id: int, timeout_seconds: float, *, websocket_delivered: bool = True) -> AgentJobRecord:
-        deadline = asyncio.get_running_loop().time() + max(1.0, timeout_seconds)
-        interval = 0.15
-        while True:
-            job = self.repository.get_job(printer_id, job_id)
-            if job is None:
-                raise HTTPException(status_code=404, detail="job do agente não encontrado")
-            if job.status == "succeeded":
-                return job
-            if job.status in {"failed", "canceled"}:
-                raise AgentJobFailedError(job)
-            if asyncio.get_running_loop().time() >= deadline:
-                raise HTTPException(status_code=504, detail=_timeout_detail(job.status, websocket_delivered))
-            await asyncio.sleep(interval)
-            interval = min(0.5, interval * 1.5)
+        except AgentUnavailableError as exc:
+            raise HTTPException(status_code=409, detail=exc.message) from exc
+        except AgentJobRejectedError as exc:
+            raise HTTPException(status_code=400, detail=exc.message) from exc
+        except AgentJobNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=exc.message) from exc
+        except ApplicationAgentJobFailedError as exc:
+            raise AgentJobFailedError(exc.job) from exc
+        except AgentJobTimeoutError as exc:
+            raise HTTPException(status_code=504, detail=timeout_detail(exc)) from exc
 
 
 def unwrap_moonraker_result(value: Any) -> dict[str, Any]:
@@ -81,13 +71,7 @@ class AgentJobFailedError(HTTPException):
 
 
 def _timeout_detail(job_status: str, websocket_delivered: bool) -> str:
-    if job_status == "pending" and not websocket_delivered:
-        return "timeout aguardando resposta do agente; job ficou enfileirado para polling porque o WebSocket não confirmou entrega"
-    if job_status == "pending":
-        return "timeout aguardando o agente iniciar o job"
-    if job_status == "in_progress":
-        return "timeout aguardando o agente concluir o job"
-    return "timeout aguardando resposta do agente"
+    return timeout_detail(AgentJobTimeoutError(job_status, websocket_delivered))
 
 
 def unwrap_moonraker_list(value: Any, key: str) -> list[str]:
