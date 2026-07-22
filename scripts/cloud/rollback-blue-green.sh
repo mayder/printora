@@ -28,4 +28,6 @@ ln -sfn "$rollback_release" "$PRINTORA_BASE_PATH/current.next"
 mv -Tf "$PRINTORA_BASE_PATH/current.next" "$PRINTORA_BASE_PATH/current"
 sleep "${PRINTORA_DRAIN_SECONDS:-30}"
 systemctl stop "printora-cloud@$current_slot.service" || true
-echo "[printora-cloud] active_slot=$rollback_slot previous_slot=$current_slot status=rolled_back data_restored=false"
+standby_status="ready"
+if ! start_standby "$current_slot"; then standby_status="degraded"; fi
+echo "[printora-cloud] active_slot=$rollback_slot standby_slot=$current_slot standby_status=$standby_status status=rolled_back data_restored=false"

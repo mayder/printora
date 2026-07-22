@@ -20,6 +20,8 @@ Data: 2026-07-22.
   gate de vulnerabilidades antes de empacotar a release.
 - probes e restarts não executam varredura integral do SQLite; `integrity_check`
   permanece no gate de schema e nos fluxos isolados de backup/restore.
+- após a drenagem, N-1 reinicia sem WebSockets antigos e permanece aquecido como
+  backup do upstream ativo.
 
 ## Evidência Local
 

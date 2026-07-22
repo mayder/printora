@@ -46,4 +46,6 @@ systemctl stop "printora-cloud@$current_slot.service" || true
 if systemctl is-active --quiet printora-cloud.service; then
   systemctl stop printora-cloud.service
 fi
-echo "[printora-cloud] release=$release_sha active_slot=$candidate_slot previous_slot=$current_slot status=deployed"
+standby_status="ready"
+if ! start_standby "$current_slot"; then standby_status="degraded"; fi
+echo "[printora-cloud] release=$release_sha active_slot=$candidate_slot standby_slot=$current_slot standby_status=$standby_status status=deployed"

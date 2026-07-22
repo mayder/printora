@@ -51,6 +51,22 @@ wait_until_ready() {
   return 1
 }
 
+start_standby() {
+  local slot="$1"
+  local port
+  validate_slot "$slot"
+  [[ -L "$PRINTORA_BASE_PATH/slots/$slot" ]] || return 0
+  port="$(slot_port "$slot")"
+  systemctl restart "printora-cloud@$slot.service"
+  if wait_until_ready "$port" 60; then
+    echo "[printora-cloud] standby_slot=$slot status=ready"
+    return 0
+  fi
+  systemctl stop "printora-cloud@$slot.service" || true
+  echo "[printora-cloud] ALERTA: standby_slot=$slot status=failed" >&2
+  return 1
+}
+
 switch_nginx_to_slot() {
   local slot="$1"
   local target="$PRINTORA_BASE_PATH/shared/nginx/upstream-$slot.conf"

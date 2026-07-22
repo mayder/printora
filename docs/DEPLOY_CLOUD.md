@@ -87,7 +87,8 @@ O workflow `Deploy Printora Cloud`:
 7. cria release e venv independentes usando `uv.lock` congelado;
 8. inicia o slot inativo e exige `/ready`, `/health` e catálogo;
 9. executa `nginx -t`, troca upstream e recarrega Nginx;
-10. drena por 30 segundos e encerra o slot anterior;
+10. drena por 30 segundos, reinicia N-1 sem conexões antigas e o mantém como
+    backup aquecido do Nginx;
 11. valida endpoints públicos.
 
 Candidato inválido é parado antes da troca e não recebe tráfego público.
