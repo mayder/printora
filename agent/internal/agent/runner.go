@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -14,6 +15,27 @@ type Runner struct {
 	Logger    *log.Logger
 	startedAt time.Time
 	metrics   hostMetricsCache
+	jobsMu    sync.Mutex
+	inFlight  map[int]struct{}
+}
+
+func (r *Runner) claimJob(jobID int) bool {
+	r.jobsMu.Lock()
+	defer r.jobsMu.Unlock()
+	if r.inFlight == nil {
+		r.inFlight = make(map[int]struct{})
+	}
+	if _, exists := r.inFlight[jobID]; exists {
+		return false
+	}
+	r.inFlight[jobID] = struct{}{}
+	return true
+}
+
+func (r *Runner) releaseJob(jobID int) {
+	r.jobsMu.Lock()
+	defer r.jobsMu.Unlock()
+	delete(r.inFlight, jobID)
 }
 
 func NewRunner(cfg Config, credential string, logger *log.Logger) *Runner {

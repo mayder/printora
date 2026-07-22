@@ -1,0 +1,46 @@
+name: Rollback Printora Cloud
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Digite ROLLBACK para reativar a release anterior sem restaurar dados
+        required: true
+        type: string
+
+concurrency:
+  group: printora-cloud-production
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Validate confirmation
+        run: test "${{ inputs.confirmation }}" = ROLLBACK
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.PRINTORA_SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.PRINTORA_SSH_HOST || '187.45.180.181' }}
+          SSH_PORT: ${{ secrets.PRINTORA_SSH_PORT || '1158' }}
+          SSH_USER: ${{ secrets.PRINTORA_SSH_USER || 'deploy' }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/printora_key
+          chmod 600 ~/.ssh/printora_key
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+          echo "SSH_HOST=$SSH_HOST" >> "$GITHUB_ENV"
+          echo "SSH_PORT=$SSH_PORT" >> "$GITHUB_ENV"
+          echo "SSH_USER=$SSH_USER" >> "$GITHUB_ENV"
+
+      - name: Reactivate previous release
+        run: ssh -i ~/.ssh/printora_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" sudo -n /usr/local/sbin/printora-cloud-rollback
+
+      - name: Validate public endpoint
+        run: |
+          curl --max-time 10 -fsS https://print3dmaker.xyz/health >/dev/null
+          curl --max-time 10 -fsS https://print3dmaker.xyz/ready >/dev/null
+          curl --max-time 10 -fsS https://print3dmaker.xyz/api/catalog >/dev/null

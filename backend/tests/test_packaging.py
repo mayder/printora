@@ -1,5 +1,8 @@
 from pathlib import Path
+import json
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import subprocess
+import threading
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -87,3 +90,84 @@ def test_integration_validator_runs_offline() -> None:
     )
 
     assert "validada em modo offline" in result.stdout
+
+
+def test_cloud_blue_green_packaging_is_independent_and_fail_closed() -> None:
+    service = (ROOT_DIR / "packaging/systemd/printora-cloud@.service").read_text()
+    nginx = (ROOT_DIR / "packaging/nginx/print3dmaker.xyz.conf").read_text()
+    deploy = (ROOT_DIR / "scripts/cloud/deploy-blue-green.sh").read_text()
+    workflow = (ROOT_DIR / ".github/workflows/deploy-cloud.yml").read_text()
+
+    assert "/slots/%i/venv/bin/python" in service
+    assert "EnvironmentFile=/var/www/print3dmaker.xyz/shared/slots/%i.env" in service
+    assert "LimitNOFILE=65536" in service
+    assert "proxy_pass http://printora_cloud" in nginx
+    assert "location = /metrics" in nginx
+    assert "wait_until_ready" in deploy
+    assert "switch_nginx_to_slot" in deploy
+    assert "data_restored" not in deploy
+    assert "shared/venv" not in workflow
+    assert "RUN_PYTHON_TESTS: \"1\"" in workflow
+    assert "RUN_FRONTEND_CHECKS: \"1\"" in workflow
+    assert "printora-cloud-preflight" in workflow
+
+
+def test_cloud_rollback_never_restores_database_snapshot() -> None:
+    rollback = (ROOT_DIR / "scripts/cloud/rollback-blue-green.sh").read_text()
+
+    assert "switch_nginx_to_slot" in rollback
+    assert "data_restored=false" in rollback
+    assert "sqlite" not in rollback.lower()
+    assert "shutil" not in rollback.lower()
+    assert "cp " not in rollback.lower()
+
+
+def test_cloud_backup_has_external_restore_test_without_automatic_deletion() -> None:
+    backup = (ROOT_DIR / "scripts/cloud/backup-sqlite.sh").read_text()
+    restore = (ROOT_DIR / "scripts/cloud/restore-backup-test.sh").read_text()
+    timer = (ROOT_DIR / "packaging/systemd/printora-cloud-backup.timer").read_text()
+
+    assert "restic backup" in backup
+    assert "PRAGMA integrity_check" in backup
+    assert "restic restore latest" in restore
+    assert "aplicação não foi iniciada" in restore
+    assert "forget" not in backup
+    assert "prune" not in backup
+    assert "Persistent=true" in timer
+
+
+def test_cloud_load_smoke_reports_zero_errors() -> None:
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'{"status":"ok"}')
+
+        def log_message(self, _format: str, *_args) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = subprocess.run(
+            [
+                "python3",
+                "scripts/cloud/load-smoke.py",
+                f"http://127.0.0.1:{server.server_port}/health",
+                "--requests",
+                "20",
+                "--concurrency",
+                "4",
+            ],
+            cwd=ROOT_DIR,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+    report = json.loads(result.stdout)
+    assert report["requests"] == 20
+    assert report["error_count"] == 0

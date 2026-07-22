@@ -909,6 +909,30 @@ func TestReconnectBackoffIsCapped(t *testing.T) {
 	}
 }
 
+func TestReconnectBackoffJitterStaysWithinTwentyPercent(t *testing.T) {
+	base := 10 * time.Second
+	for i := 0; i < 100; i++ {
+		delay := jitterReconnectBackoff(base)
+		if delay < 8*time.Second || delay > 12*time.Second {
+			t.Fatalf("jitter outside expected bounds: %s", delay)
+		}
+	}
+}
+
+func TestRunnerRejectsConcurrentDuplicateJob(t *testing.T) {
+	runner := &Runner{}
+	if !runner.claimJob(42) {
+		t.Fatal("first job claim should succeed")
+	}
+	if runner.claimJob(42) {
+		t.Fatal("concurrent duplicate job claim should fail")
+	}
+	runner.releaseJob(42)
+	if !runner.claimJob(42) {
+		t.Fatal("job should be claimable after release")
+	}
+}
+
 func TestAgentHandlesRemoteSelfUpdateJob(t *testing.T) {
 	var sawReport bool
 	var sawResult bool

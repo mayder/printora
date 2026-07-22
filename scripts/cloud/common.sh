@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PRINTORA_BASE_PATH="${PRINTORA_BASE_PATH:-/var/www/print3dmaker.xyz}"
+PRINTORA_ACTIVE_SLOT_FILE="$PRINTORA_BASE_PATH/shared/active-slot"
+
+fail() {
+  echo "[printora-cloud] ERRO: $*" >&2
+  exit 1
+}
+
+require_root() {
+  [[ "$(id -u)" -eq 0 ]] || fail "execução exige root via sudo controlado"
+}
+
+validate_slot() {
+  [[ "${1:-}" == "blue" || "${1:-}" == "green" ]] || fail "slot inválido: ${1:-vazio}"
+}
+
+slot_port() {
+  case "$1" in
+    blue) echo 8069 ;;
+    green) echo 8070 ;;
+    *) fail "slot inválido: $1" ;;
+  esac
+}
+
+active_slot() {
+  local slot="blue"
+  if [[ -s "$PRINTORA_ACTIVE_SLOT_FILE" ]]; then
+    slot="$(tr -d '[:space:]' < "$PRINTORA_ACTIVE_SLOT_FILE")"
+  fi
+  validate_slot "$slot"
+  echo "$slot"
+}
+
+other_slot() {
+  if [[ "$1" == "blue" ]]; then echo green; else echo blue; fi
+}
+
+wait_until_ready() {
+  local port="$1"
+  local attempts="${2:-45}"
+  local attempt
+  for attempt in $(seq 1 "$attempts"); do
+    if curl --max-time 2 -fsS "http://127.0.0.1:$port/ready" >/dev/null; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+switch_nginx_to_slot() {
+  local slot="$1"
+  local target="$PRINTORA_BASE_PATH/shared/nginx/upstream-$slot.conf"
+  local link="/etc/nginx/conf.d/printora-cloud-active.conf"
+  local previous=""
+  validate_slot "$slot"
+  [[ -s "$target" ]] || fail "upstream ausente: $target"
+  if [[ -L "$link" ]]; then previous="$(readlink "$link")"; fi
+  ln -sfn "$target" "$link"
+  if ! nginx -t; then
+    if [[ -n "$previous" ]]; then ln -sfn "$previous" "$link"; else rm -f "$link"; fi
+    fail "nginx rejeitou upstream do slot $slot"
+  fi
+  systemctl reload nginx
+}

@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import get_settings
 from app.auth import AuthRepository, set_current_auth_context
 from app.database import connect_database, initialize_database
+from app.operational import request_observability_middleware
 from app.social_catalog import SocialCatalogRepository
 from app.routes import (
     audit,
@@ -61,6 +62,11 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def observability_middleware(request, call_next):
+    return await request_observability_middleware(request, call_next)
 
 
 @app.middleware("http")

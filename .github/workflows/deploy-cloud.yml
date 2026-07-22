@@ -16,7 +16,7 @@ env:
 
 jobs:
   deploy:
-    name: Deploy cloud branch to production
+    name: Deploy cloud branch with blue green switch
     runs-on: ubuntu-latest
     environment: production
 
@@ -26,23 +26,28 @@ jobs:
         with:
           ref: ${{ env.DEFAULT_DEPLOY_BRANCH }}
 
-      - name: Validate official check
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Validate complete package gate
+        env:
+          RUN_PYTHON_TESTS: "1"
+          RUN_FRONTEND_CHECKS: "1"
         run: ./check.sh
 
-      - name: Validate cloud target metadata
-        run: test -s packaging/cloud/production-target.env.example
-
-      - name: Package release
+      - name: Package immutable release
         run: |
           set -euo pipefail
           DEPLOY_SHA="$(git rev-parse HEAD)"
           echo "DEPLOY_SHA=$DEPLOY_SHA" >> "$GITHUB_ENV"
+          test -s frontend/dist/index.html
           tar \
             --exclude='.git' \
             --exclude='backend/.venv' \
             --exclude='frontend/node_modules' \
             --exclude='agent/bin' \
             -czf "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz" .
+          sha256sum "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz" > "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz.sha256"
 
       - name: Configure SSH
         env:
@@ -52,10 +57,7 @@ jobs:
           SSH_USER_SECRET: ${{ secrets.PRINTORA_SSH_USER }}
         run: |
           set -euo pipefail
-          if [ -z "$SSH_PRIVATE_KEY" ]; then
-            echo "::error::Secret PRINTORA_SSH_PRIVATE_KEY nao configurado."
-            exit 1
-          fi
+          test -n "$SSH_PRIVATE_KEY" || { echo "::error::Secret PRINTORA_SSH_PRIVATE_KEY nao configurado."; exit 1; }
           SSH_HOST="${SSH_HOST_SECRET:-$DEFAULT_SSH_HOST}"
           SSH_PORT="${SSH_PORT_SECRET:-$DEFAULT_SSH_PORT}"
           SSH_USER="${SSH_USER_SECRET:-$DEFAULT_SSH_USER}"
@@ -69,12 +71,17 @@ jobs:
             echo "SSH_USER=$SSH_USER"
           } >> "$GITHUB_ENV"
 
+      - name: Validate privileged preflight
+        run: ssh -i ~/.ssh/printora_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" sudo -n /usr/local/sbin/printora-cloud-preflight
+
       - name: Upload release bundle
         run: |
-          set -euo pipefail
-          scp -i ~/.ssh/printora_key -P "$SSH_PORT" "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz" "$SSH_USER@$SSH_HOST:/tmp/printora-cloud-release-$DEPLOY_SHA.tgz"
+          scp -i ~/.ssh/printora_key -P "$SSH_PORT" \
+            "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz" \
+            "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz.sha256" \
+            "$SSH_USER@$SSH_HOST:/tmp/"
 
-      - name: Publish release on target
+      - name: Prepare independent release
         env:
           DEPLOY_BASE_PATH_SECRET: ${{ secrets.PRINTORA_DEPLOY_BASE_PATH }}
         run: |
@@ -83,177 +90,48 @@ jobs:
           ssh -i ~/.ssh/printora_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
             "DEPLOY_BASE_PATH='$DEPLOY_BASE_PATH' RELEASE_SHA='$DEPLOY_SHA' bash -s" <<'REMOTE'
           set -euo pipefail
-          RELEASE_DIR="$DEPLOY_BASE_PATH/releases/$RELEASE_SHA"
-          BUNDLE="/tmp/printora-cloud-release-$RELEASE_SHA.tgz"
-
-          mkdir -p "$DEPLOY_BASE_PATH/releases" "$DEPLOY_BASE_PATH/shared/data" "$DEPLOY_BASE_PATH/shared/logs"
-          test -w "$DEPLOY_BASE_PATH"
-          command -v python3 >/dev/null
-          python3 --version
-          test -s "$BUNDLE"
-
-          rm -rf "$RELEASE_DIR"
-          mkdir -p "$RELEASE_DIR"
-          tar -xzf "$BUNDLE" -C "$RELEASE_DIR"
-
-          if [ ! -x "$DEPLOY_BASE_PATH/shared/venv/bin/python" ]; then
-            python3 -m venv "$DEPLOY_BASE_PATH/shared/venv"
+          release_dir="$DEPLOY_BASE_PATH/releases/$RELEASE_SHA"
+          bundle="/tmp/printora-cloud-release-$RELEASE_SHA.tgz"
+          checksum="$bundle.sha256"
+          cd /tmp
+          sha256sum -c "$checksum"
+          if [[ -e "$release_dir" && -s "$release_dir/RELEASE_SHA" ]]; then
+            test "$(cat "$release_dir/RELEASE_SHA")" = "$RELEASE_SHA"
+            test -x "$release_dir/venv/bin/python"
+            test -s "$release_dir/frontend/dist/index.html"
+            rm -f "$bundle" "$checksum"
+            exit 0
           fi
-          "$DEPLOY_BASE_PATH/shared/venv/bin/python" -m pip install --upgrade pip setuptools wheel
-          "$DEPLOY_BASE_PATH/shared/venv/bin/pip" install -e "$RELEASE_DIR/backend"
-
-          if [ ! -f "$DEPLOY_BASE_PATH/shared/printora-cloud.env" ]; then
-            cat > "$DEPLOY_BASE_PATH/shared/printora-cloud.env" <<ENV
-          PRINTORA_DATA_DIR=$DEPLOY_BASE_PATH/shared/data
-          PRINTORA_FRONTEND_DIST_DIR=$DEPLOY_BASE_PATH/current/frontend/dist
-          PRINTORA_HOST_AUDIT_MODE=disabled
-          PRINTORA_RELEASE_SOURCE_MODE=github
-          PRINTORA_RELEASE_GITHUB_OWNER=mayder
-          PRINTORA_RELEASE_GITHUB_REPO=printora
-          PRINTORA_RELEASE_CHANNEL=stable
-          ENV
+          if [[ -e "$release_dir" ]]; then
+            active_release="$(readlink -f "$DEPLOY_BASE_PATH/current" 2>/dev/null || true)"
+            [[ "$active_release" != "$release_dir" ]] || { echo "release ativa sem marcador; intervenção manual necessária" >&2; exit 1; }
+            rm -rf -- "$release_dir"
           fi
-
-          ln -sfn "$RELEASE_DIR" "$DEPLOY_BASE_PATH/current"
-          if sudo -n systemctl restart printora-cloud.service; then
-            echo "printora-cloud.service restarted by systemctl"
-          else
-            echo "sudo restart unavailable; restarting deploy-owned uvicorn process"
-            set -a
-            . "$DEPLOY_BASE_PATH/shared/printora-cloud.env"
-            set +a
-            cd "$DEPLOY_BASE_PATH/current"
-            "$DEPLOY_BASE_PATH/shared/venv/bin/python" - <<'PY'
-          import os
-          import signal
-          import socket
-          import subprocess
-          import time
-          from pathlib import Path
-
-          from app.config import get_settings
-          from app.database import initialize_database
-
-          def tcp_listeners_on(port: int) -> set[str]:
-              inodes: set[str] = set()
-              port_hex = f"{port:04X}"
-              for table in ("/proc/net/tcp", "/proc/net/tcp6"):
-                  try:
-                      lines = Path(table).read_text().splitlines()[1:]
-                  except OSError:
-                      continue
-                  for line in lines:
-                      parts = line.split()
-                      local_address = parts[1]
-                      state = parts[3]
-                      inode = parts[9]
-                      if state == "0A" and local_address.rsplit(":", 1)[1].upper() == port_hex:
-                          inodes.add(inode)
-              return inodes
-
-          def pids_for_inodes(inodes: set[str]) -> set[int]:
-              pids: set[int] = set()
-              if not inodes:
-                  return pids
-              current_pid = os.getpid()
-              for proc in Path("/proc").iterdir():
-                  if not proc.name.isdigit():
-                      continue
-                  pid = int(proc.name)
-                  if pid == current_pid or pid == os.getppid():
-                      continue
-                  fd_dir = proc / "fd"
-                  try:
-                      for fd in fd_dir.iterdir():
-                          try:
-                              target = os.readlink(fd)
-                          except OSError:
-                              continue
-                          if target.startswith("socket:[") and target[8:-1] in inodes:
-                              pids.add(pid)
-                              break
-                  except OSError:
-                      continue
-              return pids
-
-          for sig in (signal.SIGTERM, signal.SIGKILL):
-              pids = pids_for_inodes(tcp_listeners_on(8069))
-              if not pids:
-                  break
-              for pid in pids:
-                  try:
-                      os.kill(pid, sig)
-                  except ProcessLookupError:
-                      pass
-              time.sleep(2 if sig == signal.SIGTERM else 1)
-
-          settings = get_settings()
-          initialize_database(settings.database_path)
-
-          base_path = Path(os.environ["DEPLOY_BASE_PATH"])
-          log_path = base_path / "shared" / "logs" / "printora-cloud.log"
-          log_path.parent.mkdir(parents=True, exist_ok=True)
-          log = open(log_path, "ab", buffering=0)
-          subprocess.Popen(
-              [
-                  str(base_path / "shared" / "venv" / "bin" / "python"),
-                  "-m",
-                  "uvicorn",
-                  "app.main:app",
-                  "--app-dir",
-                  str(base_path / "current" / "backend"),
-                  "--host",
-                  "127.0.0.1",
-                  "--port",
-                  "8069",
-              ],
-              cwd=str(base_path / "current"),
-              stdin=subprocess.DEVNULL,
-              stdout=log,
-              stderr=log,
-              start_new_session=True,
-              close_fds=True,
-          )
-          PY
-          fi
-
-          for attempt in $(seq 1 30); do
-            if curl --max-time 2 -fsS http://127.0.0.1:8069/health >/dev/null; then
-              break
-            fi
-            if [ "$attempt" -eq 30 ]; then
-              sudo -n systemctl status printora-cloud.service --no-pager || true
-              ps -ef | grep -E 'uvicorn|printora-cloud' | grep -v grep || true
-              tail -120 "$DEPLOY_BASE_PATH/shared/logs/printora-cloud.log" || true
-              exit 1
-            fi
-            sleep 1
-          done
-          curl --max-time 5 -fsS http://127.0.0.1:8069/api/catalog >/dev/null
-          rm -f "$BUNDLE"
+          mkdir -p "$release_dir"
+          tar -xzf "$bundle" -C "$release_dir"
+          python3 -m venv "$release_dir/venv"
+          "$release_dir/venv/bin/pip" install --disable-pip-version-check 'uv==0.11.0'
+          VIRTUAL_ENV="$release_dir/venv" "$release_dir/venv/bin/uv" sync --active --frozen --no-dev --project "$release_dir/backend" --python "$release_dir/venv/bin/python"
+          "$release_dir/venv/bin/python" -c 'import app, fastapi, uvicorn'
+          printf '%s\n' "$RELEASE_SHA" > "$release_dir/RELEASE_SHA"
+          rm -f "$bundle" "$checksum"
           REMOTE
+
+      - name: Switch traffic and drain previous slot
+        run: ssh -i ~/.ssh/printora_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" sudo -n /usr/local/sbin/printora-cloud-deploy "$DEPLOY_SHA"
 
       - name: Validate public endpoint
         run: |
           set -euo pipefail
-          EXPECTED_AGENT_VERSION="$(python3 - <<'PY'
-          import json
-          from pathlib import Path
-          payload = json.loads(Path("backend/app/data/agent_update_manifest.json").read_text())
-          print(payload["recommended_version"])
-          PY
-          )"
+          EXPECTED_AGENT_VERSION="$(python3 -c 'import json; print(json.load(open("backend/app/data/agent_update_manifest.json"))["recommended_version"])')"
           for attempt in $(seq 1 30); do
             if curl --max-time 5 -fsS https://print3dmaker.xyz/health >/dev/null \
+              && curl --max-time 5 -fsS https://print3dmaker.xyz/ready >/dev/null \
               && curl --max-time 5 -fsS https://print3dmaker.xyz/api/catalog >/dev/null \
               && MANIFEST_JSON="$(curl --max-time 5 -fsS "https://print3dmaker.xyz/api/agent/update/manifest?deploy_sha=$DEPLOY_SHA")" \
-              && python3 -c 'import json, sys; expected = sys.argv[1]; payload = json.loads(sys.stdin.read()); actual = payload.get("recommended_version"); raise SystemExit(0 if actual == expected else f"manifesto do agente ainda em {actual}, esperado {expected}")' "$EXPECTED_AGENT_VERSION" <<< "$MANIFEST_JSON"
-            then
+              && python3 -c 'import json,sys; raise SystemExit(0 if json.loads(sys.stdin.read()).get("recommended_version") == sys.argv[1] else 1)' "$EXPECTED_AGENT_VERSION" <<< "$MANIFEST_JSON"; then
               exit 0
             fi
             sleep 2
           done
-          curl --max-time 5 -fsS https://print3dmaker.xyz/health
-          curl --max-time 5 -fsS https://print3dmaker.xyz/api/catalog >/dev/null
-          curl --max-time 5 -fsS "https://print3dmaker.xyz/api/agent/update/manifest?deploy_sha=$DEPLOY_SHA"
           exit 1

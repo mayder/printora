@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import Depends
+from fastapi import Depends, Response
 
 from app.install_diagnostics import InstallationDiagnosticsResponse, build_installation_diagnostics
 from app.database import get_database_version_info, get_public_database_version_info
+from app.operational import http_metrics, readiness
 from app.routes.auth import require_current_user, require_current_user_when_configured
 from app.routes.support import *
 
@@ -15,6 +16,19 @@ router = APIRouter()
 @router.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "app": "Printora"}
+
+
+@router.get("/ready")
+async def ready(response: Response) -> dict[str, object]:
+    is_ready, payload = readiness(get_settings())
+    if not is_ready:
+        response.status_code = 503
+    return payload
+
+
+@router.get("/metrics", include_in_schema=False)
+async def metrics() -> Response:
+    return Response(content=http_metrics.render(), media_type="text/plain; version=0.0.4")
 
 
 

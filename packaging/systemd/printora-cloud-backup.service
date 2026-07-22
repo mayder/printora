@@ -1,0 +1,15 @@
+[Unit]
+Description=Backup externo criptografado do Printora Cloud
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+ExecStart=/usr/local/libexec/printora-cloud/backup-sqlite.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/var/www/print3dmaker.xyz/shared/data

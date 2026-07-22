@@ -1,0 +1,9 @@
+/var/www/print3dmaker.xyz/shared/logs/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

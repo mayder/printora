@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"time"
@@ -33,7 +34,7 @@ func (r *Runner) RunChannel(ctx context.Context) error {
 				return ctx.Err()
 			}
 			r.Logger.Printf("websocket unavailable, fallback polling: %v", err)
-			r.runReconnectFallback(ctx, backoff)
+			r.runReconnectFallback(ctx, jitterReconnectBackoff(backoff))
 			if connected {
 				backoff = minReconnectBackoff
 				continue
@@ -110,6 +111,17 @@ func nextReconnectBackoff(current time.Duration) time.Duration {
 		return maxReconnectBackoff
 	}
 	return next
+}
+
+func jitterReconnectBackoff(current time.Duration) time.Duration {
+	if current <= 0 {
+		current = minReconnectBackoff
+	}
+	spread := current / 5
+	if spread <= 0 {
+		return current
+	}
+	return current - spread + time.Duration(rand.Int64N(int64(spread*2)+1))
 }
 
 func (r *Runner) runWebSocket(ctx context.Context) (bool, error) {
@@ -212,6 +224,11 @@ func (r *Runner) pollJobsWhileConnected(ctx context.Context) {
 }
 
 func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
+	if !r.claimJob(job.ID) {
+		r.Logger.Printf("job duplicate ignored id=%d correlation_id=%s", job.ID, job.CorrelationID)
+		return
+	}
+	defer r.releaseJob(job.ID)
 	if err := r.API.AckJob(ctx, job.ID); err != nil {
 		r.Logger.Printf("job ack failed id=%d: %v", job.ID, err)
 		return

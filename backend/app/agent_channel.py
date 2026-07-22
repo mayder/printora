@@ -19,11 +19,19 @@ class AgentWebSocketManager:
 
     async def register(self, agent: AgentRecord, websocket) -> None:
         async with self._lock:
+            previous = self._sessions.get(agent.id)
             self._sessions[agent.id] = AgentWebSocketSession(agent, websocket)
+        if previous is not None and previous.websocket is not websocket:
+            try:
+                await previous.websocket.close(code=1012, reason="replaced_by_reconnect")
+            except Exception:
+                pass
 
-    async def unregister(self, agent_id: int) -> None:
+    async def unregister(self, agent_id: int, websocket=None) -> None:
         async with self._lock:
-            self._sessions.pop(agent_id, None)
+            current = self._sessions.get(agent_id)
+            if current is not None and (websocket is None or current.websocket is websocket):
+                self._sessions.pop(agent_id, None)
 
     async def send(self, agent_id: int, message: dict) -> bool:
         async with self._lock:
@@ -35,7 +43,7 @@ class AgentWebSocketManager:
                 await session.websocket.send_json(message)
             return True
         except Exception:
-            await self.unregister(agent_id)
+            await self.unregister(agent_id, session.websocket)
             return False
 
     async def push_job(self, job: AgentJobRecord) -> bool:
@@ -54,7 +62,7 @@ class AgentWebSocketManager:
                 await session.websocket.send_json(job_message(job))
             return True
         except Exception:
-            await self.unregister(session.agent.id)
+            await self.unregister(session.agent.id, session.websocket)
             return False
 
 

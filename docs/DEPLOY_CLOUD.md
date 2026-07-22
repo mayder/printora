@@ -1,138 +1,121 @@
 # Deploy Cloud Do Printora
 
-Publicacao planejada:
+Alvo operacional:
 
-- produto: Printora;
-- dominio publico: `print3dmaker.xyz`;
-- DNS recomendado: Cloudflare;
-- branch de publicacao: `cloud`;
-- alvo SSH: `deploy@187.45.180.181:1158`;
-- path base no servidor: `/var/www/print3dmaker.xyz`;
-- servidor de aplicacao: Python/FastAPI atrás de Nginx;
-- porta interna: `127.0.0.1:8069`;
-- agente: conexao outbound para `https://print3dmaker.xyz`.
+- domínio: `print3dmaker.xyz`;
+- branch publicada: `cloud`;
+- SSH: `deploy@187.45.180.181:1158`;
+- base: `/var/www/print3dmaker.xyz`;
+- proxy: Nginx;
+- slots: blue em `127.0.0.1:8069` e green em `127.0.0.1:8070`;
+- agente: conexão outbound para `https://print3dmaker.xyz`.
 
-## DNS
-
-Use a GoDaddy apenas como registrador. Configure os nameservers do dominio para
-os nameservers da Cloudflare.
-
-Registros esperados na Cloudflare:
-
-```text
-A      print3dmaker.xyz      <IP_DO_SERVIDOR>      proxied
-CNAME  www                   print3dmaker.xyz      proxied
-```
-
-SSL/TLS na Cloudflare:
-
-```text
-Full (strict)
-Always Use HTTPS: enabled
-WebSockets: enabled
-```
-
-Se o servidor ainda nao tiver certificado valido, use temporariamente `Full`
-somente durante a primeira subida e volte para `Full (strict)` depois de emitir
-certificado no origin.
-
-## Servidor
-
-Arquivo de referencia sem segredo:
-
-```bash
-packaging/cloud/production-target.env.example
-```
-
-O servidor atual usa Python 3.12, Nginx e systemd. Docker/Node nao ficam
-disponiveis para o usuario `deploy`; por isso o frontend deve ser buildado antes
-do upload e o backend roda via venv Python.
-
-Estrutura esperada:
+## Estrutura
 
 ```text
 /var/www/print3dmaker.xyz
-├── current -> releases/<versao>
-├── releases/
+├── current -> releases/<sha-ativo>
+├── releases/<sha>/
+│   ├── backend/
+│   ├── frontend/dist/
+│   ├── uv.lock
+│   └── venv/
+├── slots/
+│   ├── blue -> ../releases/<sha>
+│   └── green -> ../releases/<sha>
 └── shared/
+    ├── active-slot
+    ├── backup-target.conf
     ├── data/
     ├── logs/
-    ├── printora-cloud.env
-    └── venv/
+    ├── nginx/
+    ├── slots/
+    └── printora-cloud.env
 ```
 
-Validar localmente no servidor:
+Releases não compartilham venv, frontend nem dependência mutável. Dados e logs
+ficam em `shared/`. O perfil cloud atual ainda usa SQLite até a transição
+específica para PostgreSQL; não apague banco ou backup sem confirmação humana.
+
+## Bootstrap Privilegiado
+
+Antes de executar, salvar configuração Nginx e confirmar uma janela operacional.
+O script mantém a instância legada em `8069`, instala units, upstreams, logrotate
+e sudoers limitado, valida `visudo` e `nginx -t`, e recarrega o Nginx sem trocar
+o backend ativo.
 
 ```bash
-curl -fsS http://127.0.0.1:8069/health
-curl -fsS http://127.0.0.1:8069/api/agent/update/manifest
+sudo PRINTORA_BASE_PATH=/var/www/print3dmaker.xyz \
+  scripts/cloud/bootstrap-blue-green.sh
+sudo /usr/local/sbin/printora-cloud-preflight
 ```
 
-Nginx:
+O primeiro deploy sobe green em `8070`, valida em loopback, troca o upstream e
+só então encerra a instância legada. O segundo ciclo popula blue com release
+imutável e torna rollback entre os dois slots comprovável.
+
+## Backup Externo
+
+Instalar `restic` e criar `/var/www/print3dmaker.xyz/shared/backup-target.conf`
+com modo `0600`. O arquivo deve apontar para repositório fora do host e arquivo
+de senha fora do release. Nunca versionar seu conteúdo. A chave/senha precisa
+ter custódia externa ao servidor.
 
 ```bash
-sudo cp packaging/nginx/print3dmaker.xyz.conf /etc/nginx/sites-available/print3dmaker.xyz.conf
-sudo ln -sfn /etc/nginx/sites-available/print3dmaker.xyz.conf /etc/nginx/sites-enabled/print3dmaker.xyz.conf
-sudo certbot --nginx -d print3dmaker.xyz -d www.print3dmaker.xyz
-sudo nginx -t
-sudo systemctl reload nginx
+sudo systemctl start printora-cloud-backup.service
+sudo -u deploy /usr/local/libexec/printora-cloud/restore-backup-test.sh
+sudo systemctl enable --now printora-cloud-backup.timer
 ```
 
-Se o certificado ainda nao existir, emita antes de ativar o modo `Full (strict)`
-na Cloudflare.
+O backup usa a API de backup SQLite e valida `PRAGMA integrity_check`. O teste de
+restore usa diretório temporário isolado e não inicia a aplicação. Retenção não
+é apagada automaticamente; limpeza exige política e execução supervisionada.
 
-Systemd:
+## Deploy
 
-```bash
-sudo cp packaging/systemd/printora-cloud.service /etc/systemd/system/printora-cloud.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now printora-cloud.service
-sudo systemctl status printora-cloud.service --no-pager
-```
+O workflow `Deploy Printora Cloud`:
 
-Validar publico:
+1. faz checkout de `cloud`;
+2. instala dependências frontend e roda o gate completo;
+3. gera bundle e SHA-256;
+4. exige preflight privilegiado verde;
+5. cria release e venv independentes usando `uv.lock` congelado;
+6. inicia o slot inativo e exige `/ready`, `/health` e catálogo;
+7. executa `nginx -t`, troca upstream e recarrega Nginx;
+8. drena por 30 segundos e encerra o slot anterior;
+9. valida endpoints públicos.
 
-```bash
-curl -fsS https://print3dmaker.xyz/health
-curl -fsS https://print3dmaker.xyz/api/agent/update/manifest
-```
-
-## Agente
-
-O agente deve usar:
-
-```json
-{
-  "api_base_url": "https://print3dmaker.xyz",
-  "update_manifest_url": "https://print3dmaker.xyz/api/agent/update/manifest"
-}
-```
-
-O pareamento normal pela UI gera o comando completo com token curto. Nao grave
-`ptr_pair_*`, `ptr_agent_*` ou `ptr_sess_*` em arquivo versionado.
+Candidato inválido é parado antes da troca e não recebe tráfego público.
 
 ## Rollback
 
-Parar somente o Printora:
+O workflow `Rollback Printora Cloud` exige confirmação textual `ROLLBACK`. Ele
+reativa o slot anterior, valida readiness, troca upstream e drena o release
+atual. Banco, objetos e escritas posteriores não são restaurados nem sobrescritos.
+
+Operação local equivalente:
 
 ```bash
-sudo systemctl stop printora-cloud.service
+sudo /usr/local/sbin/printora-cloud-rollback
 ```
 
-Desativar vhost:
+## Validação
 
 ```bash
-sudo rm -f /etc/nginx/sites-enabled/print3dmaker.xyz.conf
-sudo nginx -t
-sudo systemctl reload nginx
+curl -fsS http://127.0.0.1:8069/health
+curl -fsS http://127.0.0.1:8070/health
+curl -fsS https://print3dmaker.xyz/health
+curl -fsS https://print3dmaker.xyz/ready
+curl -fsS https://print3dmaker.xyz/api/agent/update/manifest
+python3 scripts/cloud/load-smoke.py https://print3dmaker.xyz/health \
+  --requests 1000 --concurrency 30 --p95-ms 1000
 ```
 
-Voltar DNS na Cloudflare para outro origin exige apenas editar o registro `A`.
+Também validar WebSocket do agente, ausência de duplicidade de job, troca sob
+carga, morte do candidato/ativo, rollback e reconexão dentro do SLO medido.
 
-## Smoke Test
+## DNS E TLS
 
-- `GET /health` retorna sucesso.
-- frontend abre em `https://print3dmaker.xyz`.
-- `GET /api/agent/update/manifest` retorna JSON.
-- WebSocket do agente conecta em `/api/agent/ws` via Cloudflare.
-- instalador do agente gerado pela UI usa `https://print3dmaker.xyz`.
+GoDaddy permanece como registrador e Cloudflare como DNS/proxy. O modo TLS deve
+ser `Full (strict)`, HTTPS obrigatório e WebSockets habilitados. O certificado
+do origin precisa estar válido antes do preflight.

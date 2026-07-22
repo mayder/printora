@@ -620,7 +620,7 @@ async def agent_websocket(websocket: WebSocket) -> None:
     except Exception as exc:
         await agent_ws_manager.send(agent.id, _message("error", {"reason": str(exc)[:160]}))
     finally:
-        await agent_ws_manager.unregister(agent.id)
+        await agent_ws_manager.unregister(agent.id, websocket)
 
 
 def _websocket_credential(websocket: WebSocket) -> str | None:
