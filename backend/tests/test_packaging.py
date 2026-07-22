@@ -154,6 +154,20 @@ def test_postgresql_backup_is_encrypted_and_restored_in_isolated_cluster() -> No
     assert "aplicação não foi iniciada" in restore
 
 
+def test_postgresql_bootstrap_uses_dedicated_checksummed_cluster() -> None:
+    bootstrap = (ROOT_DIR / "scripts/cloud/bootstrap-postgresql.sh").read_text()
+    config = (ROOT_DIR / "packaging/postgresql/printora.conf").read_text()
+    sql = (ROOT_DIR / "backend/sql/postgresql/000_cluster_bootstrap.sql").read_text()
+
+    assert "--data-checksums" in bootstrap
+    assert "5433" in bootstrap
+    assert "archive_mode = on" in config
+    assert "127.0.0.1" in config
+    assert "CREATE ROLE printora_owner NOLOGIN" in sql
+    assert "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION" in sql
+    assert "PostgreSQL dedicado" in bootstrap
+
+
 def test_cloud_load_smoke_reports_zero_errors() -> None:
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
