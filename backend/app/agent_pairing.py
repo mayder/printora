@@ -8,6 +8,10 @@ from typing import Any, Literal
 
 from app.auth import AuthUser, format_dt, hash_token, new_secret, utc_now
 from app.database import connect_database
+from app.modules.platform.durable_execution import (
+    DurableExecutionRepository,
+    EventEnvelope,
+)
 from app.modules.operations.contracts import (
     AGENT_PROTOCOL_VERSION,
     AGENT_MAX_PAYLOAD_BYTES,
@@ -525,8 +529,27 @@ class AgentPairingRepository:
                 )
             except Exception as exc:
                 raise ValueError("correlation_id já usado") from exc
+            job_id = int(cursor.lastrowid)
+            DurableExecutionRepository(self.database_path).append_event(
+                connection,
+                EventEnvelope(
+                    event_id=f"agent-job:{job_id}:created",
+                    aggregate_type="agent_job",
+                    aggregate_id=str(job_id),
+                    event_type="agent.job.created",
+                    ordering_key=f"printer:{printer.id}:agent-jobs",
+                    sequence_no=job_id,
+                    payload={
+                        "job_id": job_id,
+                        "printer_id": printer.id,
+                        "agent_id": request.agent_id,
+                        "correlation_id": correlation_id,
+                    },
+                    headers={"owner_type": "printer", "owner_id": str(printer.id)},
+                ),
+            )
             self._record_event(connection, printer.id, request.agent_id, "job_created", "pending", request.job_type)
-            row = connection.execute("SELECT * FROM agent_jobs WHERE id = ?", (int(cursor.lastrowid),)).fetchone()
+            row = connection.execute("SELECT * FROM agent_jobs WHERE id = ?", (job_id,)).fetchone()
         return _job_from_row(row)
 
     def get_job(self, printer_id: int, job_id: int) -> AgentJobRecord | None:

@@ -372,13 +372,8 @@ async def create_printer_agent_update_job(
         raise HTTPException(status_code=404, detail="printer not found")
     try:
         response = repository.request_agent_update(printer, agent_id, _public_base_url(request))
-        delivered = await agent_ws_manager.push_job(response.job) if response.job else False
-        detail = (
-            "Update enviado ao agente online pelo canal remoto. O agente baixa, valida SHA-256 e reinicia só o serviço do agente."
-            if delivered
-            else "Update enfileirado. O agente buscará a ação no próximo heartbeat/polling, sem SSH."
-        )
-        return response.model_copy(update={"websocket_delivered": delivered, "detail": detail})
+        detail = "Update registrado na fila durável. O agente retomará a ação pelo canal remoto ou polling, sem SSH."
+        return response.model_copy(update={"websocket_delivered": False, "detail": detail})
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -526,9 +521,7 @@ async def create_printer_agent_job(
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
     try:
-        job = repository.create_job(printer, payload)
-        await agent_ws_manager.push_job(job)
-        return job
+        return repository.create_job(printer, payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

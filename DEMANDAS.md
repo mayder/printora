@@ -5549,6 +5549,10 @@ Estado atual:
   model e schemas portáveis foram definidos. As tabelas aditivas de
   outbox/inbox, jobs duráveis, idempotência, sessões e controle de workers são
   criadas por SQL idempotente, sem migration de framework.
+- Lote 2 concluído: repository transacional de outbox/inbox, claim ordenado com
+  lease, retry/dead-letter e dispatcher que materializa consumidores como jobs
+  idempotentes. A criação canônica de job de agente grava o evento na mesma
+  transação e não depende mais de entrega imediata pelo processo HTTP.
 
 ## PKG-90: Objetos, Quarentena E Busca Reconstruível
 

@@ -7,6 +7,7 @@ from app.modules.platform.durable_execution import (
     DurableExecutionRepository,
     EventEnvelope,
 )
+from app.modules.platform.event_dispatcher import EventDispatcher, EventSubscription
 
 
 def _event(event_id: str = "evt-1") -> EventEnvelope:
@@ -105,3 +106,68 @@ def test_inbox_deduplicates_same_event_and_rejects_changed_payload(tmp_path: Pat
     changed = EventEnvelope(**{**_event().__dict__, "payload": {"job_id": 99}})
     with pytest.raises(ValueError, match="payload divergente"):
         repository.begin_inbox("search-index", changed)
+
+
+def test_outbox_preserves_order_and_dispatch_is_idempotent(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = DurableExecutionRepository(database_path)
+    second = EventEnvelope(**{**_event("evt-2").__dict__, "sequence_no": 2})
+    with connect_database(database_path) as connection:
+        repository.append_event(connection, _event())
+        repository.append_event(connection, second)
+
+    dispatcher = EventDispatcher(
+        database_path,
+        "dispatcher-a",
+        {
+            "printer.job_requested": (
+                EventSubscription("agent-realtime", "critical", "realtime.agent_job_available", priority=10),
+            )
+        },
+    )
+
+    first_result = dispatcher.dispatch_once()
+    second_result = dispatcher.dispatch_once()
+    assert first_result.event_id == "evt-1"
+    assert second_result.event_id == "evt-2"
+    assert dispatcher.dispatch_once().status == "idle"
+    with connect_database(database_path) as connection:
+        jobs = connection.execute("SELECT job_key FROM durable_jobs ORDER BY id").fetchall()
+        events = connection.execute("SELECT status FROM outbox_events ORDER BY sequence_no").fetchall()
+    assert [row["job_key"] for row in jobs] == [
+        "event:evt-1:agent-realtime",
+        "event:evt-2:agent-realtime",
+    ]
+    assert [row["status"] for row in events] == ["published", "published"]
+
+
+def test_dispatch_retry_does_not_duplicate_materialized_job(tmp_path: Path, monkeypatch) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = DurableExecutionRepository(database_path)
+    with connect_database(database_path) as connection:
+        repository.append_event(connection, _event())
+
+    dispatcher = EventDispatcher(
+        database_path,
+        "dispatcher-a",
+        {"printer.job_requested": (EventSubscription("consumer", "default", "consume"),)},
+    )
+    original_publish = repository.publish_event
+    calls = 0
+
+    def fail_first_publish(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("process stopped before commit")
+        return original_publish(*args, **kwargs)
+
+    monkeypatch.setattr(dispatcher.repository, "publish_event", fail_first_publish)
+    assert dispatcher.dispatch_once().status == "retry"
+    with connect_database(database_path) as connection:
+        connection.execute("UPDATE outbox_events SET available_at = '2000-01-01 00:00:00'")
+    assert dispatcher.dispatch_once().status == "published"
+    with connect_database(database_path) as connection:
+        assert connection.execute("SELECT COUNT(*) AS total FROM durable_jobs").fetchone()["total"] == 1

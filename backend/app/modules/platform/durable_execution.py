@@ -57,6 +57,26 @@ class DurableJob:
 
 
 @dataclass(frozen=True)
+class OutboxEvent:
+    id: int
+    event_id: str
+    aggregate_type: str
+    aggregate_id: str
+    event_type: str
+    schema_version: int
+    ordering_key: str
+    sequence_no: int
+    payload: dict[str, Any]
+    headers: dict[str, Any]
+    status: str
+    attempts: int
+    max_attempts: int
+    lease_owner: str | None
+    lease_token: str | None
+    lease_expires_at: str | None
+
+
+@dataclass(frozen=True)
 class InboxDecision:
     accepted: bool
     duplicate: bool
@@ -141,6 +161,124 @@ class DurableExecutionRepository:
                 max_attempts=max_attempts,
                 available_at=available_at,
             )
+
+    def claim_event(self, dispatcher_id: str, lease_seconds: int = 45) -> OutboxEvent | None:
+        now = _utc_now()
+        token = uuid4().hex
+        parameters = (
+            dispatcher_id,
+            token,
+            _timestamp(now + timedelta(seconds=max(5, lease_seconds))),
+            _timestamp(now),
+            _timestamp(now),
+            _timestamp(now),
+        )
+        with connect_database(self.database_path) as connection:
+            self._dead_letter_exhausted_events(connection, now)
+            if uses_postgresql():
+                row = connection.execute(
+                    """
+                    WITH candidate AS (
+                        SELECT candidate.id
+                        FROM outbox_events AS candidate
+                        WHERE candidate.status IN ('pending', 'publishing')
+                          AND candidate.available_at <= ?
+                          AND (candidate.status = 'pending' OR candidate.lease_expires_at <= ?)
+                          AND candidate.attempts < candidate.max_attempts
+                          AND NOT EXISTS (
+                              SELECT 1 FROM outbox_events AS previous
+                              WHERE previous.ordering_key = candidate.ordering_key
+                                AND previous.sequence_no < candidate.sequence_no
+                                AND previous.status <> 'published'
+                          )
+                        ORDER BY candidate.id
+                        FOR UPDATE SKIP LOCKED
+                        LIMIT 1
+                    )
+                    UPDATE outbox_events AS events
+                    SET status = 'publishing', attempts = attempts + 1,
+                        lease_owner = ?, lease_token = ?, lease_expires_at = ?, updated_at = ?
+                    FROM candidate
+                    WHERE events.id = candidate.id
+                    RETURNING events.*
+                    """,
+                    (
+                        _timestamp(now),
+                        _timestamp(now),
+                        dispatcher_id,
+                        token,
+                        _timestamp(now + timedelta(seconds=max(5, lease_seconds))),
+                        _timestamp(now),
+                    ),
+                ).fetchone()
+            else:
+                row = connection.execute(
+                    """
+                    UPDATE outbox_events
+                    SET status = 'publishing', attempts = attempts + 1,
+                        lease_owner = ?, lease_token = ?, lease_expires_at = ?, updated_at = ?
+                    WHERE id = (
+                        SELECT candidate.id
+                        FROM outbox_events AS candidate
+                        WHERE candidate.status IN ('pending', 'publishing')
+                          AND candidate.available_at <= ?
+                          AND (candidate.status = 'pending' OR candidate.lease_expires_at <= ?)
+                          AND candidate.attempts < candidate.max_attempts
+                          AND NOT EXISTS (
+                              SELECT 1 FROM outbox_events AS previous
+                              WHERE previous.ordering_key = candidate.ordering_key
+                                AND previous.sequence_no < candidate.sequence_no
+                                AND previous.status <> 'published'
+                          )
+                        ORDER BY candidate.id
+                        LIMIT 1
+                    )
+                    RETURNING *
+                    """,
+                    parameters,
+                ).fetchone()
+        return _outbox_from_row(row) if row else None
+
+    def publish_event(
+        self,
+        event_id: int,
+        lease_token: str,
+        *,
+        connection: DatabaseConnection | None = None,
+    ) -> bool:
+        if connection is not None:
+            return self._publish_event(connection, event_id, lease_token)
+        with connect_database(self.database_path) as managed:
+            return self._publish_event(managed, event_id, lease_token)
+
+    def retry_event(self, event_id: int, lease_token: str, error: str, backoff_seconds: int) -> bool:
+        now = _utc_now()
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                "SELECT attempts, max_attempts FROM outbox_events WHERE id = ? AND status = 'publishing' AND lease_token = ?",
+                (event_id, lease_token),
+            ).fetchone()
+            if row is None:
+                return False
+            terminal = int(row["attempts"]) >= int(row["max_attempts"])
+            status = "dead_letter" if terminal else "pending"
+            updated = connection.execute(
+                """
+                UPDATE outbox_events
+                SET status = ?, last_error = ?, available_at = ?, lease_owner = NULL,
+                    lease_token = NULL, lease_expires_at = NULL, updated_at = ?
+                WHERE id = ? AND status = 'publishing' AND lease_token = ?
+                """,
+                (
+                    status,
+                    _safe_error(error),
+                    _timestamp(now + timedelta(seconds=max(1, backoff_seconds))),
+                    _timestamp(now),
+                    event_id,
+                    lease_token,
+                ),
+            )
+        return updated.rowcount == 1
 
     def claim_job(self, queue_name: str, worker_id: str, lease_seconds: int = 45) -> DurableJob | None:
         now = _utc_now()
@@ -373,6 +511,30 @@ class DurableExecutionRepository:
             (_timestamp(now), _timestamp(now), queue_name, _timestamp(now)),
         )
 
+    def _dead_letter_exhausted_events(self, connection: DatabaseConnection, now: datetime) -> None:
+        connection.execute(
+            """
+            UPDATE outbox_events
+            SET status = 'dead_letter', last_error = 'lease expirado após limite de tentativas',
+                lease_owner = NULL, lease_token = NULL, lease_expires_at = NULL, updated_at = ?
+            WHERE status = 'publishing' AND lease_expires_at <= ? AND attempts >= max_attempts
+            """,
+            (_timestamp(now), _timestamp(now)),
+        )
+
+    def _publish_event(self, connection: DatabaseConnection, event_id: int, lease_token: str) -> bool:
+        now = _timestamp(_utc_now())
+        updated = connection.execute(
+            """
+            UPDATE outbox_events
+            SET status = 'published', published_at = ?, last_error = NULL,
+                lease_owner = NULL, lease_token = NULL, lease_expires_at = NULL, updated_at = ?
+            WHERE id = ? AND status = 'publishing' AND lease_token = ?
+            """,
+            (now, now, event_id, lease_token),
+        )
+        return updated.rowcount == 1
+
 
 def _job_from_row(row) -> DurableJob:
     return DurableJob(
@@ -395,6 +557,27 @@ def _job_from_row(row) -> DurableJob:
         lease_expires_at=row["lease_expires_at"],
         result=json.loads(row["result_json"]) if row["result_json"] else None,
         error_message=row["error_message"],
+    )
+
+
+def _outbox_from_row(row) -> OutboxEvent:
+    return OutboxEvent(
+        id=int(row["id"]),
+        event_id=str(row["event_id"]),
+        aggregate_type=str(row["aggregate_type"]),
+        aggregate_id=str(row["aggregate_id"]),
+        event_type=str(row["event_type"]),
+        schema_version=int(row["schema_version"]),
+        ordering_key=str(row["ordering_key"]),
+        sequence_no=int(row["sequence_no"]),
+        payload=json.loads(row["payload_json"] or "{}"),
+        headers=json.loads(row["headers_json"] or "{}"),
+        status=str(row["status"]),
+        attempts=int(row["attempts"]),
+        max_attempts=int(row["max_attempts"]),
+        lease_owner=row["lease_owner"],
+        lease_token=row["lease_token"],
+        lease_expires_at=row["lease_expires_at"],
     )
 
 
