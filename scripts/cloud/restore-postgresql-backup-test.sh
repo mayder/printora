@@ -29,13 +29,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
-restic restore latest --tag printora-cloud-postgresql --target "$restored"
+restic restore latest --tag printora-cloud-postgresql --target "$restored" \
+  --include '/tmp/**/base/base.tar.zst' \
+  --include '/tmp/**/base/pg_wal.tar*' \
+  --include '/tmp/**/manifest.json' \
+  --include '/tmp/**/printora-postgresql.dump'
 dump="$(find "$restored" -type f -name printora-postgresql.dump -print -quit)"
 manifest="$(find "$restored" -type f -name manifest.json -print -quit)"
 base_tar="$(find "$restored" -type f -name base.tar.zst -print -quit)"
 wal_tar="$(find "$restored" -type f \( -name pg_wal.tar.zst -o -name pg_wal.tar \) -print -quit)"
-archive_dir="$(find "$restored" -type d -name printora-wal-archive -print -quit)"
-[[ -n "$dump" && -n "$manifest" && -n "$base_tar" && -n "$wal_tar" && -n "$archive_dir" ]] || {
+[[ -n "$dump" && -n "$manifest" && -n "$base_tar" && -n "$wal_tar" ]] || {
   echo "backup restaurado incompleto" >&2
   exit 1
 }
@@ -47,6 +50,20 @@ with open(sys.argv[1], encoding="utf-8") as source:
     print(json.load(source)["dump_sha256"])
 PY
 )"
+last_archived_wal="$(python3 - "$manifest" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    print(json.load(source)["last_archived_wal"])
+PY
+)"
+[[ "$last_archived_wal" =~ ^[0-9A-F]{24}$ ]] || { echo "WAL final inválido" >&2; exit 1; }
+restic restore latest --tag printora-cloud-postgresql --target "$restored" \
+  --include "/var/lib/postgresql/16/printora-wal-archive/$last_archived_wal"
+archive_dir="$(find "$restored" -type d -name printora-wal-archive -print -quit)"
+[[ -s "$archive_dir/$last_archived_wal" ]] || { echo "WAL final ausente" >&2; exit 1; }
+"$(pg_config --bindir)/pg_waldump" -n 1 "$archive_dir/$last_archived_wal" >/dev/null
 actual_sha256="$(sha256sum "$dump" | awk '{print $1}')"
 [[ "$actual_sha256" == "$expected_sha256" ]] || { echo "checksum do dump divergente" >&2; exit 1; }
 
