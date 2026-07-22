@@ -20,19 +20,10 @@ if TYPE_CHECKING:
 if not uses_postgresql():
     import sqlite3
 
-    from app.modules.platform.transition_outbox import (
-        OUTBOX_TABLE,
-        ensure_transition_outbox,
-        transition_outbox_enabled,
-    )
-
 SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
 POSTGRESQL_SQL_DIR = SQL_DIR / "postgresql"
 APP_NAME = "Printora"
 VERSIONING_SCRIPT = "000_schema_versioning.sql"
-POSTGRESQL_BOOTSTRAP_OBJECTS = {
-    "002_transition_replication_state.sql": "public.printora_transition_replication_state",
-}
 SQLITE_TIMEOUT_SECONDS = 60.0
 SQLITE_BUSY_TIMEOUT_MS = int(SQLITE_TIMEOUT_SECONDS * 1000)
 
@@ -78,8 +69,6 @@ def initialize_database(database_path: Path) -> None:
             )
         schema_revision = len(sql_files)
         _upsert_app_version(connection, schema_revision)
-        if transition_outbox_enabled():
-            ensure_transition_outbox(connection)
         # A verificação integral pode varrer vários gigabytes. Ela pertence ao
         # gate de mudança de schema; reinícios e probes devem permanecer rápidos.
         if pending_files:
@@ -136,9 +125,6 @@ def _initialize_postgresql() -> None:
             connection.execute_script(baseline.read_text(encoding="utf-8"))
         for postgresql_script in sorted(POSTGRESQL_SQL_DIR.glob("[0-9]*.sql")):
             if postgresql_script.name == "001_baseline.sql":
-                continue
-            expected_object = POSTGRESQL_BOOTSTRAP_OBJECTS.get(postgresql_script.name)
-            if expected_object and _postgresql_relation_exists(connection, expected_object):
                 continue
             connection.execute_script(postgresql_script.read_text(encoding="utf-8"))
         for execution_order, sql_file in enumerate(sql_files, start=1):
@@ -525,54 +511,12 @@ def _table_exists(
     return row is not None
 
 
-def _postgresql_relation_exists(
-    connection: PostgreSQLConnection,
-    relation_name: str,
-) -> bool:
-    row = connection.execute(
-        "SELECT to_regclass(?) AS relation_name",
-        (relation_name,),
-    ).fetchone()
-    return row is not None and row["relation_name"] is not None
-
-
 def _database_transition_status(
     connection: sqlite3.Connection | PostgreSQLConnection,
 ) -> dict[str, object]:
     if isinstance(connection, PostgreSQLConnection):
-        relation = "public.printora_transition_replication_state"
-        if not _postgresql_relation_exists(connection, relation):
-            return {"backend": "postgresql", "state": "not_initialized"}
-        row = connection.execute(
-            """
-            SELECT watermark, updated_at
-            FROM printora_transition_replication_state
-            WHERE id = 1
-            """
-        ).fetchone()
-        return {
-            "backend": "postgresql",
-            "state": "active",
-            "watermark": int(row["watermark"]) if row else 0,
-            "updated_at": row["updated_at"] if row else None,
-        }
-    if not _table_exists(connection, OUTBOX_TABLE):
-        return {"backend": "sqlite", "state": "not_initialized"}
-    row = connection.execute(
-        f"""
-        SELECT COUNT(*) AS events,
-               COALESCE(MAX(id), 0) AS watermark,
-               COUNT(DISTINCT table_name) AS changed_tables
-        FROM {OUTBOX_TABLE}
-        """
-    ).fetchone()
-    return {
-        "backend": "sqlite",
-        "state": "capturing" if transition_outbox_enabled() else "available",
-        "events": int(row["events"]),
-        "watermark": int(row["watermark"]),
-        "changed_tables": int(row["changed_tables"]),
-    }
+        return {"backend": "postgresql", "state": "active"}
+    return {"backend": "sqlite", "state": "available"}
 
 
 def _column_exists(connection: sqlite3.Connection, table_name: str, column_name: str) -> bool:

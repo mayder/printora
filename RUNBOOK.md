@@ -2,9 +2,9 @@
 
 Runbook operacional do Printora.
 
-## Evolução Arquitetural Planejada
+## Evolução Arquitetural
 
-Os procedimentos executáveis serão adicionados lote a lote pelos pacotes
+Os procedimentos executáveis são adicionados lote a lote pelos pacotes
 `PKG-86` a `PKG-95`. A arquitetura, gates e ordem ficam em
 `docs/architecture/EVOLUCAO_ARQUITETURAL.md`.
 
@@ -52,15 +52,17 @@ Bootstrap único, executado por administrador do host depois de backup da
 configuração Nginx:
 
 ```bash
+sudo PRINTORA_POSTGRESQL_PASSWORD_FILE=/etc/printora-cloud/postgresql-password \
+  scripts/cloud/bootstrap-postgresql.sh
 sudo PRINTORA_BASE_PATH=/var/www/print3dmaker.xyz \
   scripts/cloud/bootstrap-blue-green.sh
 sudo /usr/local/sbin/printora-cloud-preflight
 ```
 
-O preflight só passa com NTP, certificado, logrotate, `restic`, destino externo
-e permissões válidos. O arquivo `shared/backup-target.conf` deve ter modo `0600`
-e referenciar credenciais fora do Git. A chave de recuperação precisa possuir
-cópia fora do host.
+O preflight só passa com NTP, certificado, logrotate, `restic`, destino externo,
+cluster dedicado PostgreSQL, checksums, WAL e permissões válidos. O arquivo
+`shared/backup-target.conf` deve ter modo `0600` e referenciar credenciais fora
+do Git. A chave de recuperação precisa possuir cópia fora do host.
 
 Validacao pos-deploy:
 
@@ -76,6 +78,53 @@ Rollback de código, sem restaurar banco:
 ```bash
 sudo /usr/local/sbin/printora-cloud-rollback
 ```
+
+## PostgreSQL Cloud
+
+O runtime cloud usa exclusivamente o cluster PostgreSQL `16/printora` em
+`127.0.0.1:5433`. A unit lê a credencial de
+`/etc/printora-cloud/postgresql.env`; esse arquivo deve permanecer `root:deploy`
+com modo `0640`. Ausência ou URL não PostgreSQL bloqueia a inicialização em vez
+de cair para o adapter local.
+
+Diagnóstico read-only:
+
+```bash
+systemctl is-active postgresql@16-printora.service
+pg_isready -h 127.0.0.1 -p 5433 -d printora_cloud
+sudo -u postgres psql -p 5433 -d printora_cloud -X -Atqc \
+  "SELECT current_database(), current_setting('data_checksums'), current_setting('archive_mode')"
+sudo -u postgres psql -p 5433 -d printora_cloud -X -Atqc \
+  "SELECT count(*) FROM pg_constraint WHERE contype = 'f' AND NOT convalidated"
+```
+
+Backup externo criptografado, sem prune automático:
+
+```bash
+sudo systemctl start printora-cloud-backup.service
+sudo journalctl -u printora-cloud-backup.service -n 50 --no-pager
+```
+
+Restore supervisionado em cluster efêmero, com limite de recurso no mesmo host:
+
+```bash
+sudo systemd-run --wait --collect \
+  --unit=printora-cloud-restore-test \
+  --property=CPUQuota=20% \
+  --property='IOReadBandwidthMax=/dev/sda4 10M' \
+  --property='IOWriteBandwidthMax=/dev/sda4 10M' \
+  /usr/local/libexec/printora-cloud/restore-postgresql-backup-test.sh
+```
+
+O restore deve informar banco fora de recovery, tabelas, versões e zero FK
+inválida. Ele não inicia o Printora e remove somente seu diretório temporário.
+Rollback de aplicação sempre reutiliza o mesmo PostgreSQL e nunca restaura um
+snapshot antigo sobre escritas confirmadas.
+
+A origem anterior e seus backups permanecem preservados fora do runtime. Não os
+remover sem relatório de integridade, janela de observação e confirmação
+explícita. Evidência do cutover, backup, restore e rollback:
+`docs/audits/POSTGRESQL_CLOUD_TRANSITION_2026-07-22.md`.
 
 ## Preview operacional de G-code
 

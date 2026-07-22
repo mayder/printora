@@ -9,6 +9,7 @@ User=deploy
 Group=deploy
 WorkingDirectory=/var/www/print3dmaker.xyz/slots/%i/backend
 EnvironmentFile=/var/www/print3dmaker.xyz/shared/printora-cloud.env
+EnvironmentFile=/etc/printora-cloud/postgresql.env
 EnvironmentFile=/var/www/print3dmaker.xyz/shared/slots/%i.env
 Environment=PRINTORA_FRONTEND_DIST_DIR=/var/www/print3dmaker.xyz/slots/%i/frontend/dist
 ExecStart=/var/www/print3dmaker.xyz/slots/%i/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port ${PRINTORA_PORT} --loop asyncio --proxy-headers --forwarded-allow-ips=127.0.0.1

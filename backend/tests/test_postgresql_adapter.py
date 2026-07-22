@@ -45,8 +45,7 @@ def test_cloud_process_does_not_load_sqlite_adapter() -> None:
             "-c",
             (
                 "import sys; import app.database; "
-                "assert 'sqlite3' not in sys.modules; "
-                "assert 'app.modules.platform.transition_outbox' not in sys.modules"
+                "assert 'sqlite3' not in sys.modules"
             ),
         ],
         check=False,

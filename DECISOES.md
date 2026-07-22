@@ -1086,3 +1086,41 @@ sem alterar schema ou dados.
 Como reverter: reverter os arquivos em `backend/app/modules`, o registry em
 `main.py`, os snapshots/gates e o boundary de preferências no frontend como um
 conjunto; não restaurar banco nem remover dados.
+
+### DEC-20260722-04 - Cloud usa PostgreSQL dedicado sem fallback de persistência
+
+Status: aceita
+Data: 2026-07-22
+Contexto: a persistência cloud em SQLite limitava concorrência, recuperação e
+execução futura de workers. A migração precisava preservar toda escrita
+confirmada enquanto releases N/N-1 coexistiam no mesmo host.
+
+Decisão: tornar o cluster dedicado PostgreSQL `16/printora`, porta `5433` e
+loopback, a única fonte relacional do perfil cloud. A unit recebe a URL por
+arquivo root, e ausência dessa configuração bloqueia o processo. Deploy e
+rollback de código reutilizam o banco atual e nunca restauram snapshot. O
+adapter SQLite continua apenas no perfil local. Backup físico, dump lógico e
+WAL externo são obrigatórios e o restore roda em cluster efêmero limitado.
+
+Alternativas consideradas: manter SQLite cloud; dual-write permanente; usar o
+cluster compartilhado da porta `5432`; retornar ao arquivo anterior no rollback;
+contratar banco gerenciado antes de medir o host atual.
+
+Consequências: o cloud ganha FKs, concorrência, WAL e recuperação compatíveis
+com workers futuros, sem alterar o modo local. A origem anterior fica preservada
+fora do runtime até aceite explícito de exclusão. O mesmo host ainda não fornece
+alta disponibilidade física, e ensaios de restore precisam de limite de I/O.
+
+Impacto em testes: reconciliação por tabela/checksum/sequence/FK, canário,
+cutover, escrita pós-cutover, rollback sem restore, backup/WAL, restore isolado,
+gate PostgreSQL-only e suíte local/cloud tornam-se obrigatórios.
+
+Impacto em rollback: somente rollback de código para release PostgreSQL-compatible.
+Falha física exige restore validado do backup externo. É proibido recolocar a
+origem antiga em escrita depois do cutover.
+
+Como reverter: publicar a release PostgreSQL-compatible anterior pelo blue/green
+e manter o mesmo banco. Não apagar registros novos, não restaurar snapshot sobre
+produção e não reativar fallback local no perfil cloud.
+
+Referência: `docs/audits/POSTGRESQL_CLOUD_TRANSITION_2026-07-22.md`.

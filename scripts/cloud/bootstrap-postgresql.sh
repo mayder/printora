@@ -68,8 +68,6 @@ schema_exists="$(sudo -u postgres psql -p "$port" -d printora_cloud -Atqc \
 if [[ "$schema_exists" != "t" ]]; then
   sudo -u postgres psql -p "$port" -d printora_cloud -v ON_ERROR_STOP=1 \
     -f "$ROOT_DIR/backend/sql/postgresql/001_baseline.sql" >/dev/null
-  sudo -u postgres psql -p "$port" -d printora_cloud -v ON_ERROR_STOP=1 \
-    -f "$ROOT_DIR/backend/sql/postgresql/002_transition_replication_state.sql" >/dev/null
 fi
 sudo -u postgres psql -p "$port" -d printora_cloud -v ON_ERROR_STOP=1 \
   -f "$ROOT_DIR/scripts/cloud/postgresql-runtime-permissions.sql" >/dev/null

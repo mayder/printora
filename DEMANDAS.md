@@ -5482,7 +5482,16 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado; implementação não iniciada.
+- Concluído em 2026-07-22.
+- PostgreSQL dedicado publicado em `5433`, 706.023 registros importados e duas
+  reconciliações fecharam 100/100 tabelas, 187/187 FKs e zero divergência.
+- Backup físico/lógico/WAL e restore isolado passaram; canário, cutover no
+  watermark `11494`, deploy e rollback PostgreSQL preservaram escritas novas.
+- Release final removeu mecanismos transitórios e tornou o gate cloud
+  PostgreSQL-only bloqueante, mantendo o adapter SQLite somente no perfil local.
+- O arquivo e os backups anteriores continuam preservados até confirmação
+  explícita; evidência completa em
+  `docs/audits/POSTGRESQL_CLOUD_TRANSITION_2026-07-22.md`.
 
 ## PKG-89: Outbox, Workers, Redis E Realtime Distribuído
 

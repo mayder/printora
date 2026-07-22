@@ -1783,6 +1783,21 @@ Evidência de fechamento em 2026-07-22:
 - escanear zero SQLite no perfil cloud e testar SQLite somente no perfil local;
 - fechamento: integridade total, carga, restore, suíte cloud/local e smoke.
 
+Evidência de fechamento em 2026-07-22:
+
+- dois relatórios completos fecharam 100/100 tabelas e 187/187 FKs, nos
+  watermarks `8167` e `10067`, sem checksum divergente ou sequence insegura;
+- o cutover alcançou o watermark final `11494` sob lock da origem;
+- backup físico/lógico/WAL restaurou 101 tabelas e 74 versões em cluster isolado,
+  fora de recovery e com zero FK inválida;
+- canário, health, readiness, catálogo, versão, social, autenticação e manifesto
+  passaram no host real;
+- deploy e rollback PostgreSQL preservaram os eventos `282037` a `282228`, com
+  `data_restored=false`;
+- gate PostgreSQL-only, modo local, suíte completa e frontend ficaram
+  bloqueantes; detalhes em
+  `docs/audits/POSTGRESQL_CLOUD_TRANSITION_2026-07-22.md`.
+
 ### PKG-89 - Outbox, Workers, Redis E Realtime Distribuído
 
 - testar atomicidade negócio/outbox, inbox e schemas versionados;

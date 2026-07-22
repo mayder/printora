@@ -99,6 +99,7 @@ def test_cloud_blue_green_packaging_is_independent_and_fail_closed() -> None:
     workflow = (ROOT_DIR / ".github/workflows/deploy-cloud.yml").read_text()
 
     assert "/slots/%i/venv/bin/python" in service
+    assert "EnvironmentFile=/etc/printora-cloud/postgresql.env" in service
     assert "EnvironmentFile=/var/www/print3dmaker.xyz/shared/slots/%i.env" in service
     assert "LimitNOFILE=65536" in service
     assert "proxy_pass http://printora_cloud" in nginx
@@ -123,13 +124,12 @@ def test_cloud_rollback_never_restores_database_snapshot() -> None:
 
 
 def test_cloud_backup_has_external_restore_test_without_automatic_deletion() -> None:
-    backup = (ROOT_DIR / "scripts/cloud/backup-sqlite.sh").read_text()
+    backup = (ROOT_DIR / "scripts/cloud/backup-postgresql.sh").read_text()
     bootstrap = (ROOT_DIR / "scripts/cloud/bootstrap-blue-green.sh").read_text()
-    restore = (ROOT_DIR / "scripts/cloud/restore-backup-test.sh").read_text()
+    restore = (ROOT_DIR / "scripts/cloud/restore-postgresql-backup-test.sh").read_text()
     timer = (ROOT_DIR / "packaging/systemd/printora-cloud-backup.timer").read_text()
 
     assert "restic backup" in backup
-    assert "PRAGMA integrity_check" in backup
     assert "restic restore latest" in restore
     assert "aplicação não foi iniciada" in restore
     assert "forget" not in backup
@@ -186,28 +186,18 @@ def test_postgresql_wal_archive_is_published_atomically() -> None:
     assert "rm -f" in archive
 
 
-def test_postgresql_cutover_locks_source_and_never_restores_snapshot() -> None:
-    canary = (ROOT_DIR / "scripts/cloud/prepare-postgresql-canary.sh").read_text()
-    cutover = (ROOT_DIR / "scripts/cloud/cutover-postgresql.py").read_text()
+def test_cloud_runtime_is_postgresql_only_after_transition_cleanup() -> None:
+    bootstrap = (ROOT_DIR / "scripts/cloud/bootstrap-blue-green.sh").read_text()
+    preflight = (ROOT_DIR / "scripts/cloud/preflight.sh").read_text()
+    sudoers = (ROOT_DIR / "packaging/sudoers/printora-cloud-deploy").read_text()
 
-    assert "traffic_switched=false" in canary
-    assert "PRINTORA_RUNTIME_PROFILE=cloud" in canary
-    assert 'source.execute("BEGIN IMMEDIATE")' in cutover
-    assert "catch_up_under_lock" in cutover
-    assert "printora_transition_replication_state" in cutover
-    assert "systemctl\", \"reload\", \"nginx" in cutover
-    assert "data_restored=false" in cutover
-    assert "snapshot" not in cutover.lower()
-
-
-def test_transition_readers_preserve_group_write_access_to_wal() -> None:
-    for script_name in (
-        "import-sqlite-postgresql.py",
-        "replicate-sqlite-outbox.py",
-        "reconcile-sqlite-postgresql.py",
-    ):
-        script = (ROOT_DIR / "scripts/cloud" / script_name).read_text()
-        assert "os.umask(0o007)" in script
+    assert "PRINTORA_RUNTIME_PROFILE=cloud" in bootstrap
+    assert "backup-postgresql.sh" in bootstrap
+    assert "postgresql_environment" in preflight
+    assert "postgresql_runtime" in preflight
+    assert "postgresql@16-printora.service" in preflight
+    assert "postgresql-canary" not in sudoers
+    assert "postgresql-cutover" not in sudoers
 
 
 def test_cloud_load_smoke_reports_zero_errors() -> None:

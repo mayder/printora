@@ -20,13 +20,9 @@ import type {
 } from "../../types";
 
 type CapabilityStatus = OperationCapability["status"];
-type DatabaseTransitionStatus = {
+type DatabaseRuntimeStatus = {
   backend: "sqlite" | "postgresql";
   state: string;
-  watermark?: number;
-  events?: number;
-  changed_tables?: number;
-  updated_at?: string | null;
 };
 
 const PRIMARY_PRINT_FACT_LABELS = new Set(["Estado", "Camada", "Tempo", "Restante"]);
@@ -81,7 +77,7 @@ export function MonitoringDashboard({
   onOpenGcodeFiles: () => void;
 }) {
   const [capabilityModalStatus, setCapabilityModalStatus] = React.useState<CapabilityStatus | null>(null);
-  const [databaseTransition, setDatabaseTransition] = React.useState<DatabaseTransitionStatus | null>(null);
+  const [databaseRuntime, setDatabaseRuntime] = React.useState<DatabaseRuntimeStatus | null>(null);
   const printBodyRef = React.useRef<HTMLDivElement | null>(null);
   const temperatureSeries = buildTemperatureSeries(operationStatus?.temperature_history ?? [], operationStatus?.temperatures ?? []);
   const latestCanRecords = canRecords.slice(0, 4);
@@ -100,23 +96,23 @@ export function MonitoringDashboard({
   React.useEffect(() => {
     let cancelled = false;
     let refreshTimer: number | undefined;
-    async function loadDatabaseTransition() {
+    async function loadDatabaseRuntime() {
       try {
         const response = await apiResponse("/api/system/version/internal");
         if (!response.ok || cancelled) return;
-        const payload = (await response.json()) as { database_transition?: DatabaseTransitionStatus };
+        const payload = (await response.json()) as { database_transition?: DatabaseRuntimeStatus };
         if (!cancelled && payload.database_transition) {
-          setDatabaseTransition(payload.database_transition);
+          setDatabaseRuntime(payload.database_transition);
         }
       } catch {
         // This support-only status must not affect the operational dashboard.
       } finally {
         if (!cancelled) {
-          refreshTimer = window.setTimeout(() => void loadDatabaseTransition(), 15_000);
+          refreshTimer = window.setTimeout(() => void loadDatabaseRuntime(), 15_000);
         }
       }
     }
-    void loadDatabaseTransition();
+    void loadDatabaseRuntime();
     return () => {
       cancelled = true;
       if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
@@ -222,21 +218,15 @@ export function MonitoringDashboard({
         <MonitorBadge icon={Database} label="Origem" value={formatDataState(operationStatus?.data_state)} />
       </div>
 
-      {databaseTransition ? (
-        <section className="monitor-card database-transition-card" aria-label="Progresso da transição de banco">
+      {databaseRuntime ? (
+        <section className="monitor-card database-transition-card" aria-label="Estado do banco da plataforma">
           <div className="monitor-card-title">
             <Database size={18} />
-            <h3>Transição de banco</h3>
+            <h3>Banco da plataforma</h3>
           </div>
           <div className="monitor-status-strip">
-            <MonitorBadge icon={Database} label="Backend" value={databaseTransition.backend} tone="ok" />
-            <MonitorBadge icon={Activity} label="Estado" value={databaseTransition.state} />
-            <MonitorBadge icon={Gauge} label="Watermark" value={String(databaseTransition.watermark ?? 0)} />
-            <MonitorBadge
-              icon={FileText}
-              label="Eventos"
-              value={String(databaseTransition.events ?? databaseTransition.changed_tables ?? 0)}
-            />
+            <MonitorBadge icon={Database} label="Backend" value={databaseRuntime.backend} tone="ok" />
+            <MonitorBadge icon={Activity} label="Estado" value={databaseRuntime.state} tone="ok" />
           </div>
         </section>
       ) : null}

@@ -34,8 +34,10 @@ Alvo operacional:
 ```
 
 Releases não compartilham venv, frontend nem dependência mutável. Dados e logs
-ficam em `shared/`. O perfil cloud atual ainda usa SQLite até a transição
-específica para PostgreSQL; não apague banco ou backup sem confirmação humana.
+ficam em `shared/`. O perfil cloud usa exclusivamente o cluster PostgreSQL
+dedicado `16/printora` em `127.0.0.1:5433`; a credencial fica em
+`/etc/printora-cloud/postgresql.env`, fora do release. A origem anterior e seus
+backups permanecem preservados e não podem ser removidos sem confirmação humana.
 
 ## Bootstrap Privilegiado
 
@@ -44,6 +46,8 @@ O script instala units, upstreams, logrotate e sudoers limitado, valida `visudo`
 e `nginx -t`, e recarrega o Nginx sem trocar o backend ativo.
 
 ```bash
+sudo PRINTORA_POSTGRESQL_PASSWORD_FILE=/etc/printora-cloud/postgresql-password \
+  scripts/cloud/bootstrap-postgresql.sh
 sudo PRINTORA_BASE_PATH=/var/www/print3dmaker.xyz \
   scripts/cloud/bootstrap-blue-green.sh
 sudo /usr/local/sbin/printora-cloud-preflight
@@ -63,13 +67,19 @@ ter custódia externa ao servidor.
 
 ```bash
 sudo systemctl start printora-cloud-backup.service
-sudo -u deploy /usr/local/libexec/printora-cloud/restore-backup-test.sh
+sudo systemd-run --wait --collect \
+  --unit=printora-cloud-restore-test \
+  --property=CPUQuota=20% \
+  --property='IOReadBandwidthMax=/dev/sda4 10M' \
+  --property='IOWriteBandwidthMax=/dev/sda4 10M' \
+  /usr/local/libexec/printora-cloud/restore-postgresql-backup-test.sh
 sudo systemctl enable --now printora-cloud-backup.timer
 ```
 
-O backup usa a API de backup SQLite e valida `PRAGMA integrity_check`. O teste de
-restore usa diretório temporário isolado e não inicia a aplicação. Retenção não
-é apagada automaticamente; limpeza exige política e execução supervisionada.
+O backup combina `pg_basebackup`, WAL e dump lógico com checksum. O teste de
+restore promove um cluster temporário isolado, valida tabelas, versões e FKs e
+não inicia a aplicação. Retenção não é apagada automaticamente; limpeza exige
+política e execução supervisionada.
 O serviço usa cache dedicado em `shared/backup-cache`, limite alto de 6 GB,
 limite máximo de 8 GB e no máximo 200% de CPU. O preflight exige acesso ao
 repositório, 2 GB de RAM, 20 GB de disco e um milhão de inodes disponíveis.

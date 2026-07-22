@@ -832,3 +832,18 @@ Rollback:
 - parar o app;
 - restaurar o backup `printora.<timestamp>.before-schema.db` para `printora.db`;
 - reiniciar o app e validar `GET /api/system/version`.
+
+### Restore PostgreSQL Pode Saturar O Disco Compartilhado
+
+Um restore físico sem limite de I/O no mesmo host elevou a latência do processo
+web durante a validação de 2026-07-22. O backup permaneceu íntegro, mas o ensaio
+precisou ser interrompido e repetido com limite de leitura/escrita.
+
+Mitigação:
+
+- restaurar somente base, dump, manifesto e o WAL final necessário;
+- executar o cluster temporário com CPU e I/O limitados por systemd;
+- usar `fsync=off` somente no cluster efêmero descartável de validação;
+- encerrar o cluster efêmero sem checkpoint e remover apenas o diretório exato;
+- monitorar `/health` público e interromper somente o ensaio se passar de 5 s;
+- nunca reduzir durabilidade do cluster PostgreSQL de produção.

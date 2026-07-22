@@ -63,6 +63,27 @@ validate_resource_budget() {
   [[ "$available_inodes" -ge 1000000 ]]
 }
 
+validate_postgresql_environment() {
+  local config=/etc/printora-cloud/postgresql.env
+  [[ "$(stat -c '%a' "$config")" == "640" ]] || return 1
+  [[ "$(stat -c '%U:%G' "$config")" == "root:deploy" ]] || return 1
+  bash -c '
+    set -euo pipefail
+    set -a
+    source "$1"
+    set +a
+    [[ "${PRINTORA_DATABASE_URL:-}" == postgresql://*@127.0.0.1:5433/printora_cloud ]]
+  ' bash "$config"
+}
+
+validate_postgresql_runtime() {
+  systemctl is-active --quiet postgresql@16-printora.service
+  pg_isready -q -h 127.0.0.1 -p 5433 -d printora_cloud
+  [[ -d /var/lib/postgresql/16/printora-wal-archive ]]
+  [[ "$(runuser -u postgres -- psql -p 5433 -d printora_cloud -X -Atqc \
+    "SELECT current_setting('data_checksums') || ':' || current_setting('archive_mode')")" == "on:on" ]]
+}
+
 check python python3 --version
 check nginx nginx -t
 check systemd systemctl cat printora-cloud@.service
@@ -77,5 +98,7 @@ check restic restic version
 check backup_target validate_backup_target
 check backup_repository validate_backup_repository
 check resource_budget validate_resource_budget
+check postgresql_environment validate_postgresql_environment
+check postgresql_runtime validate_postgresql_runtime
 
 [[ "$failures" -eq 0 ]] || fail "$failures item(ns) de preflight falharam"

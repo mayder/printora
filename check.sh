@@ -17,6 +17,7 @@ run_model_validations() {
     scripts/validate-no-secrets.sh \
     scripts/validate-file-size.sh \
     scripts/validate-no-runtime-pkg-names.sh \
+    scripts/validate-cloud-postgresql-only.sh \
     scripts/validate-fixtures.sh \
     scripts/validate-layering.sh \
     scripts/validate-stack.sh; do
