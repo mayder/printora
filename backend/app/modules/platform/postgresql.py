@@ -19,6 +19,7 @@ DATETIME_WITH_MODIFIER = re.compile(
 )
 DATETIME_NOW = re.compile(r"datetime\(\s*'now'\s*\)", re.IGNORECASE)
 GROUP_CONCAT_DISTINCT = re.compile(r"GROUP_CONCAT\(DISTINCT\s+([^\)]+)\)", re.IGNORECASE)
+GROUP_CONCAT = re.compile(r"GROUP_CONCAT\(\s*([^\)]+)\s*\)", re.IGNORECASE)
 CURRENT_TIMESTAMP_TOKEN = re.compile(r"\bCURRENT_TIMESTAMP\b", re.IGNORECASE)
 CURRENT_TIMESTAMP_SENTINEL = "__PRINTORA_POSTGRESQL_CURRENT_TIMESTAMP__"
 
@@ -117,6 +118,7 @@ def translate_sql(statement: str) -> str:
     translated = CURRENT_TIMESTAMP_TOKEN.sub("CAST(CURRENT_TIMESTAMP AS TEXT)", translated)
     translated = translated.replace(CURRENT_TIMESTAMP_SENTINEL, "CURRENT_TIMESTAMP")
     translated = GROUP_CONCAT_DISTINCT.sub(r"STRING_AGG(DISTINCT \1, ',')", translated)
+    translated = GROUP_CONCAT.sub(r"STRING_AGG(\1, ',')", translated)
     if ignore_conflicts:
         translated = translated.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING"
     return translated

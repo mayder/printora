@@ -65,3 +65,12 @@ def test_postgresql_adapter_rewrites_group_concat() -> None:
     translated = translate_sql("SELECT GROUP_CONCAT(DISTINCT c.name) FROM communities c")
 
     assert "STRING_AGG(DISTINCT c.name, ',')" in translated
+
+
+def test_postgresql_adapter_rewrites_plain_group_concat() -> None:
+    translated = translate_sql(
+        "SELECT group_concat(file_kind) FROM social_library_files WHERE item_id = ?"
+    )
+
+    assert "STRING_AGG(file_kind, ',')" in translated
+    assert "item_id = %s" in translated
