@@ -166,10 +166,20 @@ def test_postgresql_bootstrap_uses_dedicated_checksummed_cluster() -> None:
     assert "--data-checksums" in bootstrap
     assert "5433" in bootstrap
     assert "archive_mode = on" in config
+    assert "archive-postgresql-wal.sh" in config
     assert "127.0.0.1" in config
     assert "CREATE ROLE printora_owner NOLOGIN" in sql
     assert "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION" in sql
     assert "PostgreSQL dedicado" in bootstrap
+
+
+def test_postgresql_wal_archive_is_published_atomically() -> None:
+    archive = (ROOT_DIR / "scripts/cloud/archive-postgresql-wal.sh").read_text()
+
+    assert ".partial" in archive
+    assert "sync" in archive
+    assert "mv -f" in archive
+    assert "rm -f" in archive
 
 
 def test_postgresql_cutover_locks_source_and_never_restores_snapshot() -> None:

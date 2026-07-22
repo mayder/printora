@@ -31,6 +31,10 @@ if ! pg_lsclusters --no-header | awk -v version="$version" -v cluster="$cluster"
 fi
 
 install -d -o postgres -g postgres -m 0700 "$archive_dir"
+install -d -o root -g root -m 0755 /usr/local/libexec/printora-cloud
+install -o root -g root -m 0755 \
+  "$ROOT_DIR/scripts/cloud/archive-postgresql-wal.sh" \
+  /usr/local/libexec/printora-cloud/archive-postgresql-wal.sh
 install -d -o root -g postgres -m 0750 "$config_dir/conf.d"
 install -o root -g postgres -m 0640 \
   "$ROOT_DIR/packaging/postgresql/printora.conf" \
