@@ -214,6 +214,7 @@ def table_report(
     sqlite_count, sqlite_digest = digest_rows(sqlite_cursor, common_columns)
     cursor_name = "reconcile_" + hashlib.sha256(table.encode()).hexdigest()[:16]
     with postgresql_connection.cursor(name=cursor_name, row_factory=dict_row) as postgresql_cursor:
+        postgresql_cursor.itersize = 1_000
         postgresql_cursor.execute(
             f"SELECT {projection} FROM {quote(table)} ORDER BY {ordering}"
         )
