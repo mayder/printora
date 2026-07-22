@@ -7,9 +7,15 @@ Wants=network-online.target
 Type=oneshot
 User=deploy
 Group=deploy
+Environment=RESTIC_CACHE_DIR=/var/www/print3dmaker.xyz/shared/backup-cache
 ExecStart=/usr/local/libexec/printora-cloud/backup-sqlite.sh
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadOnlyPaths=/var/www/print3dmaker.xyz/shared/data
+ReadWritePaths=/var/www/print3dmaker.xyz/shared/backup-cache
+MemoryHigh=6G
+MemoryMax=8G
+CPUQuota=200%
+TasksMax=128

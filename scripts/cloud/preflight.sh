@@ -42,17 +42,40 @@ if not repository.startswith(external_prefixes) or not password_file.startswith(
 PY
 }
 
+validate_backup_repository() {
+  local config="$PRINTORA_BASE_PATH/shared/backup-target.conf"
+  timeout 30 sudo -u deploy bash -c '
+    set -euo pipefail
+    set -a
+    source "$1"
+    set +a
+    restic snapshots >/dev/null
+  ' bash "$config"
+}
+
+validate_resource_budget() {
+  local available_memory_kb available_disk_kb available_inodes
+  available_memory_kb="$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)"
+  available_disk_kb="$(df -Pk "$PRINTORA_BASE_PATH" | awk 'NR == 2 {print $4}')"
+  available_inodes="$(df -Pi "$PRINTORA_BASE_PATH" | awk 'NR == 2 {print $4}')"
+  [[ "$available_memory_kb" -ge 2097152 ]]
+  [[ "$available_disk_kb" -ge 20971520 ]]
+  [[ "$available_inodes" -ge 1000000 ]]
+}
+
 check python python3 --version
 check nginx nginx -t
 check systemd systemctl cat printora-cloud@.service
 check clock bash -c '[[ "$(timedatectl show --property=NTPSynchronized --value)" == "yes" ]]'
-check base_writable test -w "$PRINTORA_BASE_PATH"
-check data_writable test -w "$PRINTORA_BASE_PATH/shared/data"
+check base_writable sudo -u deploy test -w "$PRINTORA_BASE_PATH"
+check data_writable sudo -u deploy test -w "$PRINTORA_BASE_PATH/shared/data"
 check blue_port bash -c '! ss -ltnH "sport = :8069" | grep -q . || systemctl is-active --quiet printora-cloud@blue.service || systemctl is-active --quiet printora-cloud.service'
 check green_port bash -c '! ss -ltnH "sport = :8070" | grep -q . || systemctl is-active --quiet printora-cloud@green.service'
 check certificate test -s /etc/letsencrypt/live/print3dmaker.xyz/fullchain.pem
 check logrotate test -s /etc/logrotate.d/printora-cloud
 check restic restic version
 check backup_target validate_backup_target
+check backup_repository validate_backup_repository
+check resource_budget validate_resource_budget
 
 [[ "$failures" -eq 0 ]] || fail "$failures item(ns) de preflight falharam"

@@ -44,16 +44,23 @@ corrigida não encontrou vulnerabilidades.
 
 ## Evidência Remota Obrigatória Pendente
 
-- instalar bootstrap com administrador e confirmar sudoers via `visudo`;
-- registrar CPU, RAM, disco, I/O, rede, file descriptors, processos e pico;
-- aprovar orçamento para duas releases e dependências futuras;
-- configurar destino restic fora do host, provar custódia externa da chave e restore;
 - executar primeiro deploy para green e segundo para blue;
 - medir requests falhos, p95, reconnect, duplicidade e tempo de drenagem sob carga;
 - matar candidato antes da troca e ativo depois da troca;
 - executar rollback e provar preservação de escrita posterior;
 - observar logs/métricas pelo período definido e executar smoke público P0/P1;
 - somente depois remover unit, venv e procedimento legados.
+
+## Evidência Remota Coletada
+
+- host: 48 CPUs, 32 GB de RAM total e 25 GB disponíveis;
+- disco: 906 GB totais e 130 GB disponíveis; 9 milhões de inodes disponíveis;
+- banco SQLite: 4,04 GiB; diretório de dados: 28 GB;
+- serviço legado permaneceu saudável durante o bootstrap;
+- backup Restic criptografado externo: snapshot `a698d107`, 4,04 GiB lidos e
+  413,8 MiB armazenados;
+- restore isolado: 4,04 GiB restaurados, `integrity=ok`, 100 tabelas e 73 scripts
+  de schema; nenhuma aplicação foi iniciada sobre a cópia restaurada.
 
 Até essa evidência existir, a publicação sem indisponibilidade não está aceita e
 o pacote arquitetural inicial permanece aberto.

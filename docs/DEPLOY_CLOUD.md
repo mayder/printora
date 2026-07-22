@@ -70,6 +70,9 @@ sudo systemctl enable --now printora-cloud-backup.timer
 O backup usa a API de backup SQLite e valida `PRAGMA integrity_check`. O teste de
 restore usa diretório temporário isolado e não inicia a aplicação. Retenção não
 é apagada automaticamente; limpeza exige política e execução supervisionada.
+O serviço usa cache dedicado em `shared/backup-cache`, limite alto de 6 GB,
+limite máximo de 8 GB e no máximo 200% de CPU. O preflight exige acesso ao
+repositório, 2 GB de RAM, 20 GB de disco e um milhão de inodes disponíveis.
 
 ## Deploy
 

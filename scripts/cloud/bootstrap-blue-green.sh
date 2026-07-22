@@ -11,7 +11,8 @@ VHOST_BACKUP="$VHOST.before-blue-green"
 id "$DEPLOY_USER" >/dev/null
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0750 \
   "$BASE_PATH/releases" "$BASE_PATH/slots" "$BASE_PATH/shared/data" \
-  "$BASE_PATH/shared/logs" "$BASE_PATH/shared/slots" "$BASE_PATH/shared/nginx"
+  "$BASE_PATH/shared/logs" "$BASE_PATH/shared/slots" "$BASE_PATH/shared/nginx" \
+  "$BASE_PATH/shared/backup-cache"
 
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud@.service" /etc/systemd/system/printora-cloud@.service
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-backup.service" /etc/systemd/system/printora-cloud-backup.service
