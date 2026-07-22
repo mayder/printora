@@ -24,11 +24,19 @@ RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
 478 testes backend passaram
 go test ./... passou
 build frontend e testes direcionados passaram
+CHECK_STRICT_SECRETS=1 CHECK_STRICT_RUNTIME_NAMES=1 ./check.sh passou
+npm audit --omit=dev: 0 vulnerabilidades
+pip-audit --local: 0 vulnerabilidades conhecidas
+govulncheck ./... com Go 1.25.12: 0 vulnerabilidades alcançáveis
 ```
 
 O build em Node 18.20.8 emitiu aviso de versão mínima do Vite, mas concluiu com
 sucesso. O workflow usa o runner GitHub atual e deve registrar a versão Node no
 primeiro ciclo de validação.
+
+O agente fixa `toolchain go1.25.12`: a auditoria inicial com Go 1.25.4 encontrou
+14 vulnerabilidades alcançáveis na biblioteca padrão; a reexecução com a versão
+corrigida não encontrou vulnerabilidades.
 
 ## Evidência Remota Obrigatória Pendente
 
