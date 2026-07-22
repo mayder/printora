@@ -5543,7 +5543,12 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado; implementação não iniciada.
+- Em execução desde 2026-07-22.
+- Lote 1 concluído: envelope de evento V1, contrato de jobs/leases,
+  idempotência, ordenação, compatibilidade N/N-1, filas por criticidade, threat
+  model e schemas portáveis foram definidos. As tabelas aditivas de
+  outbox/inbox, jobs duráveis, idempotência, sessões e controle de workers são
+  criadas por SQL idempotente, sem migration de framework.
 
 ## PKG-90: Objetos, Quarentena E Busca Reconstruível
 

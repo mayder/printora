@@ -1123,4 +1123,38 @@ Como reverter: publicar a release PostgreSQL-compatible anterior pelo blue/green
 e manter o mesmo banco. Não apagar registros novos, não restaurar snapshot sobre
 produção e não reativar fallback local no perfil cloud.
 
+### DEC-20260722-05 - Execução distribuída usa PostgreSQL canônico e Redis recomponível
+
+Status: aceita
+Data: 2026-07-22
+Contexto: jobs de agente, eventos entre módulos e conexões WebSocket precisam
+funcionar em dois processos e em workers independentes. O registry de sockets e
+a entrega imediata do processo único não fornecem durabilidade nem coordenação.
+
+Decisão: persistir outbox, inbox, jobs, idempotência, sessões e controle de
+workers no PostgreSQL. Claims usam lease token, heartbeat, expiração, retry com
+backoff, prioridade e dead-letter. Redis fica restrito a cache, rate limit,
+presença e pub/sub recomponíveis. O socket local é apenas um recurso efêmero da
+instância; após reconnect, o agente retoma o estado canônico no banco.
+
+Alternativas consideradas: Redis como fila canônica; broker externo no primeiro
+lote; registry global somente em memória; entrega síncrona dentro do request;
+microserviços antes de estabilizar contratos.
+
+Consequências: produtores precisam gravar negócio e outbox na mesma transação;
+consumidores precisam de inbox/idempotência. Workers e eventos preservam N/N-1
+até drain. Redis pode ser reiniciado sem perda de negócio, ao custo de uma
+recomposição breve de presença/cache.
+
+Impacto em testes: atomicidade, duplicidade, ordenação, lease expirado, worker
+morto, retry, dead-letter, Redis vazio, reconnect multi-instância, backpressure,
+drain e ausência de fila autoritativa em memória são gates do fechamento.
+
+Impacto em rollback: tabelas aditivas podem permanecer inertes. Rollback de
+código drena workers e volta para uma release N-1 compatível sem restaurar banco.
+Não apagar tabelas ou eventos durante rollback.
+
+Como reverter: pausar os worker controls, drenar leases, publicar a release N-1
+e manter as estruturas duráveis para forward-fix ou replay supervisionado.
+
 Referência: `docs/audits/POSTGRESQL_CLOUD_TRANSITION_2026-07-22.md`.
