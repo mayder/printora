@@ -4,10 +4,10 @@
 
 ## Resumo
 
-- módulos Python: 136;
+- módulos Python: 137;
 - endpoints HTTP/WebSocket: 322;
 - contratos tipados: 337;
-- tabelas declaradas em SQL: 100;
+- tabelas declaradas em SQL: 101;
 - ciclos de import detectados: 0.
 
 ## Fronteiras E Owners
@@ -17,9 +17,9 @@
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 10 | 8 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 28 | 45 |
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 55 | 32 |
-| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 25 | 15 |
+| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 25 | 16 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 7 | 0 |
-| `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 11 | 0 |
+| `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 12 | 0 |
 
 ## Arquivos Críticos
 
@@ -50,7 +50,7 @@
 | `firmware.repository` | `operations` | 489 | 0 | 0 |
 | `agent_support` | `operations` | 486 | 0 | 5 |
 | `firmware_catalog` | `operations` | 478 | 0 | 14 |
-| `database` | `shared` | 466 | 0 | 0 |
+| `database` | `shared` | 472 | 0 | 0 |
 | `updates` | `administration` | 465 | 0 | 8 |
 | `backups` | `administration` | 431 | 0 | 0 |
 | `install_diagnostics` | `administration` | 403 | 0 | 2 |

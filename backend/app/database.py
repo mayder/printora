@@ -12,6 +12,10 @@ from importlib import metadata
 
 from app.modules.platform.database_target import require_postgresql_url, uses_postgresql
 from app.modules.platform.postgresql import PostgreSQLConnection
+from app.modules.platform.transition_outbox import (
+    ensure_transition_outbox,
+    transition_outbox_enabled,
+)
 
 SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
 POSTGRESQL_SQL_DIR = SQL_DIR / "postgresql"
@@ -62,6 +66,8 @@ def initialize_database(database_path: Path) -> None:
             )
         schema_revision = len(sql_files)
         _upsert_app_version(connection, schema_revision)
+        if transition_outbox_enabled():
+            ensure_transition_outbox(connection)
         # A verificação integral pode varrer vários gigabytes. Ela pertence ao
         # gate de mudança de schema; reinícios e probes devem permanecer rápidos.
         if pending_files:

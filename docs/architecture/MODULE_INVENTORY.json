@@ -82,10 +82,10 @@
     }
   ],
   "summary": {
-    "modules": 136,
+    "modules": 137,
     "routes": 322,
     "contracts": 337,
-    "tables": 100,
+    "tables": 101,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 25,
@@ -93,7 +93,7 @@
       "identity": 10,
       "integrations": 7,
       "operations": 55,
-      "shared": 11
+      "shared": 12
     }
   },
   "cycles": [],
@@ -323,10 +323,11 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 466,
+      "lines": 472,
       "imports": [
         "modules.platform.database_target",
-        "modules.platform.postgresql"
+        "modules.platform.postgresql",
+        "modules.platform.transition_outbox"
       ],
       "routes": [],
       "contracts": []
@@ -1002,6 +1003,14 @@
       "module": "modules.platform.postgresql",
       "owner": "shared",
       "lines": 152,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.platform.transition_outbox",
+      "owner": "shared",
+      "lines": 108,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -4185,6 +4194,11 @@
       "table": "print_project_publication_reviews",
       "owner": "community",
       "script": "071_print_project_publication.sql"
+    },
+    {
+      "table": "postgresql_transition_outbox",
+      "owner": "administration",
+      "script": "073_postgresql_transition_outbox.sql"
     }
   ]
 }
