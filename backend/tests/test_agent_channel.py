@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from app.config import get_settings
 from app.database import initialize_database
+from app.database import connect_database
 from app.main import app
 
 
@@ -93,6 +94,35 @@ def test_agent_job_result_accepts_visual_payload_above_command_limit(tmp_path: P
         get_settings.cache_clear()
 
 
+def test_in_progress_job_is_resumed_after_agent_reconnect(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner_token = _register(client, "owner-resume@example.com")
+            printer = _create_printer(client, owner_token, "Voron Resume")
+            credential = _pair_agent(client, owner_token, printer["id"], "agent-channel-resume")
+            job = client.post(
+                f"/api/printers/{printer['id']}/agent/jobs",
+                json={"job_type": "ping", "payload": {}, "correlation_id": "job-resume-001"},
+                headers=_auth(owner_token),
+            ).json()
+            assert client.post(f"/api/agent/jobs/{job['id']}/ack", headers=_auth(credential)).status_code == 200
+
+            resumed = client.get("/api/agent/jobs/next", headers=_auth(credential)).json()["jobs"]
+            assert [item["id"] for item in resumed] == [job["id"]]
+            assert resumed[0]["status"] == "in_progress"
+            result = client.post(
+                f"/api/agent/jobs/{job['id']}/result",
+                json={"correlation_id": "job-resume-001", "result": {"pong": True}},
+                headers=_auth(credential),
+            )
+            assert result.json()["status"] == "succeeded"
+    finally:
+        get_settings.cache_clear()
+
+
 def test_agent_websocket_contract_version_and_job_flow(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
     get_settings.cache_clear()
@@ -144,6 +174,12 @@ def test_agent_websocket_contract_version_and_job_flow(tmp_path: Path, monkeypat
                 assert result_ack["payload"]["status"] == "succeeded"
 
             assert client.get("/api/agent/jobs/next", headers=_auth(credential)).json()["jobs"] == []
+        with connect_database(tmp_path / "printora.db") as connection:
+            session = connection.execute(
+                "SELECT disconnected_at, last_acknowledged_job_id FROM realtime_sessions ORDER BY connected_at DESC LIMIT 1"
+            ).fetchone()
+        assert session["disconnected_at"] is not None
+        assert session["last_acknowledged_job_id"] == job["id"]
     finally:
         get_settings.cache_clear()
 

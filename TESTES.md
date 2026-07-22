@@ -1810,6 +1810,21 @@ Evidência de fechamento em 2026-07-22:
 - escanear zero registry/fila autoritativa em memória;
 - fechamento: carga/soak, falha controlada, suíte completa e smoke.
 
+Evidência parcial em 2026-07-22:
+
+- testes focados cobrem atomicidade negócio/outbox, inbox, ordenação,
+  deduplicação, lease expirado, completion token, retry, dead-letter e replay;
+- idempotência HTTP reproduz resposta e rejeita chave reutilizada com payload
+  divergente;
+- fencing de sessão entre duas instâncias mantém somente um owner canônico e
+  persiste último ACK;
+- Redis ausente degrada sem bloquear negócio; cache, rate limit, presença e
+  pub/sub foram exercitados também contra processo Redis efêmero real;
+- carga SQLite controlada concluiu 500/500 jobs, oito consumidores, zero
+  duplicidade e 170,38 jobs/s;
+- fechamento remoto ainda depende de instalar Redis/workers, reiniciar Redis,
+  matar worker com lease, executar drain blue/green, soak e smoke público.
+
 ### PKG-90 - Objetos, Quarentena E Busca Reconstruível
 
 - testar upload streaming, limite, interrupção, checksum, quarentena e promoção atômica;

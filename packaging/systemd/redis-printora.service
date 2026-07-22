@@ -1,0 +1,30 @@
+[Unit]
+Description=Redis recomponível do Printora Cloud
+After=network.target
+Before=printora-cloud-workers.target
+
+[Service]
+Type=simple
+User=redis
+Group=deploy
+RuntimeDirectory=redis-printora
+RuntimeDirectoryMode=0770
+StateDirectory=redis-printora
+StateDirectoryMode=0750
+ExecStart=/usr/bin/redis-server /etc/redis/printora.conf
+ExecStartPost=/usr/bin/redis-cli -s /run/redis-printora/redis.sock ping
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/run/redis-printora /var/lib/redis-printora
+MemoryHigh=192M
+MemoryMax=256M
+CPUQuota=50%
+TasksMax=64
+LimitNOFILE=16384
+
+[Install]
+WantedBy=multi-user.target

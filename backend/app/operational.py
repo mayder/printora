@@ -13,6 +13,8 @@ from fastapi import Request, Response
 
 from app.config import Settings
 from app.database import connect_database
+from app.modules.platform.durable_execution import DurableExecutionRepository
+from app.modules.platform.recomposable_redis import RecomposableRedis
 
 
 LOGGER = logging.getLogger("printora.http")
@@ -61,6 +63,32 @@ class HttpMetrics:
 
 
 http_metrics = HttpMetrics()
+
+
+def render_durable_metrics(settings: Settings) -> str:
+    metrics = DurableExecutionRepository(settings.database_path).metrics()
+    lines = [
+        "# HELP printora_durable_items Total de itens duráveis por estado.",
+        "# TYPE printora_durable_items gauge",
+    ]
+    for key, total in sorted(metrics["jobs"].items()):
+        queue, status = key.split(":", maxsplit=1)
+        lines.append(
+            f'printora_durable_items{{kind="job",queue="{_label(queue)}",status="{_label(status)}"}} {total}'
+        )
+    for status, total in sorted(metrics["outbox"].items()):
+        lines.append(
+            f'printora_durable_items{{kind="outbox",queue="outbox",status="{_label(status)}"}} {total}'
+        )
+    redis_up = int(RecomposableRedis(settings.redis_url, settings.redis_prefix, settings.redis_timeout_seconds).ping())
+    lines.extend(
+        [
+            "# HELP printora_recomposable_redis_up Redis recomponível acessível.",
+            "# TYPE printora_recomposable_redis_up gauge",
+            f"printora_recomposable_redis_up {redis_up}",
+        ]
+    )
+    return "\n".join(lines) + "\n"
 
 
 async def request_observability_middleware(request: Request, call_next) -> Response:

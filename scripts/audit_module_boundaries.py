@@ -91,6 +91,7 @@ BOUNDARIES = (
             "remote_operations",
             "support",
             "system",
+            "worker_admin",
             "technical_profiles",
             "frontend",
         ),
@@ -108,6 +109,8 @@ SHARED_MODULES = {
     "database",
     "main",
     "worker",
+    "idempotency_middleware",
+    "rate_limit_middleware",
 }
 
 CREATE_TABLE = re.compile(

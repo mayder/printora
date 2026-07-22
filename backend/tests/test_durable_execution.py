@@ -8,6 +8,7 @@ from app.modules.platform.durable_execution import (
     EventEnvelope,
 )
 from app.modules.platform.event_dispatcher import EventDispatcher, EventSubscription
+from app.modules.platform import durable_execution
 
 
 def _event(event_id: str = "evt-1") -> EventEnvelope:
@@ -171,3 +172,46 @@ def test_dispatch_retry_does_not_duplicate_materialized_job(tmp_path: Path, monk
     assert dispatcher.dispatch_once().status == "published"
     with connect_database(database_path) as connection:
         assert connection.execute("SELECT COUNT(*) AS total FROM durable_jobs").fetchone()["total"] == 1
+
+
+def test_queue_quota_applies_backpressure_without_affecting_other_class(tmp_path: Path, monkeypatch) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = DurableExecutionRepository(database_path)
+    monkeypatch.setitem(durable_execution.QUEUE_ACTIVE_LIMITS, "bulk", 1)
+    repository.enqueue_job(job_key="bulk-1", queue_name="bulk", job_type="test", payload={})
+
+    with pytest.raises(durable_execution.QueueSaturatedError):
+        repository.enqueue_job(job_key="bulk-2", queue_name="bulk", job_type="test", payload={})
+
+    critical = repository.enqueue_job(job_key="critical-1", queue_name="critical", job_type="test", payload={})
+    assert critical.status == "queued"
+
+
+def test_dead_letter_replay_requires_exact_confirmation_and_emits_audit_event(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    repository = DurableExecutionRepository(database_path)
+    repository.enqueue_job(
+        job_key="dead-letter-1",
+        queue_name="default",
+        job_type="test",
+        payload={},
+        max_attempts=1,
+    )
+    claimed = repository.claim_job("default", "worker-a")
+    assert claimed is not None
+    repository.retry_job(claimed.id, claimed.lease_token or "", "controlled", 1)
+
+    assert repository.dead_letter_preview("default")[0]["job_key"] == "dead-letter-1"
+    with pytest.raises(ValueError, match="não confere"):
+        repository.replay_dead_letter(claimed.id, "wrong", "replay-001", "admin")
+    replayed = repository.replay_dead_letter(claimed.id, "dead-letter-1", "replay-001", "admin", "default")
+
+    assert replayed.status == "queued"
+    with connect_database(database_path) as connection:
+        event = connection.execute(
+            "SELECT event_type, headers_json FROM outbox_events WHERE event_id = 'job-replay:replay-001'"
+        ).fetchone()
+    assert event["event_type"] == "platform.job.replayed"
+    assert '"actor":"admin"' in event["headers_json"]

@@ -604,6 +604,10 @@ async def agent_websocket(websocket: WebSocket) -> None:
                 return
             response = _handle_agent_message(repository, agent, message)
             await agent_ws_manager.send(agent.id, response)
+            if message.message_type in {"hello", "heartbeat"}:
+                await agent_ws_manager.heartbeat(agent.id, websocket)
+            elif message.message_type == "ack":
+                await agent_ws_manager.heartbeat(agent.id, websocket, int(message.payload["job_id"]))
             if message.message_type in {"hello", "heartbeat", "backpressure"}:
                 for job in repository.next_jobs(agent, 10).jobs:
                     await agent_ws_manager.send(agent.id, _job_message(job))

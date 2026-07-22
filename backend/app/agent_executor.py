@@ -5,7 +5,6 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from app.agent_channel import agent_ws_manager
 from app.agent_pairing import AgentPairingRepository
 from app.modules.operations.application import (
     AgentJobFailedError as ApplicationAgentJobFailedError,
@@ -27,7 +26,7 @@ class AgentCommandExecutor:
     def __init__(self, database_path: Path) -> None:
         self.database_path = database_path
         self.repository = AgentPairingRepository(database_path)
-        self.service = AgentJobService(self.repository, agent_ws_manager)
+        self.service = AgentJobService(self.repository)
 
     async def run(
         self,

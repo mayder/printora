@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
 
 from app.config import get_settings
+from app.modules.platform.database_target import uses_postgresql
 from app.agent_executor import AgentCommandExecutor, AgentJobFailedError
 from app.agent_pairing import printer_for_user
 from app.auth import AuthRepository
@@ -116,6 +117,8 @@ async def run_slicing_job(
     repository: SlicingPipelineRepository = Depends(get_slicing_pipeline_repository),
 ) -> SlicingJob:
     try:
+        if uses_postgresql():
+            return repository.schedule_job(job_id, current.user.id if current else None)
         return repository.run_job(job_id, current.user.id if current else None)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

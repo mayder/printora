@@ -6,7 +6,7 @@ from fastapi import Depends, Response
 
 from app.install_diagnostics import InstallationDiagnosticsResponse, build_installation_diagnostics
 from app.database import get_database_version_info, get_public_database_version_info
-from app.operational import http_metrics, readiness
+from app.operational import http_metrics, readiness, render_durable_metrics
 from app.routes.auth import require_current_user, require_current_user_when_configured
 from app.routes.support import *
 
@@ -28,7 +28,10 @@ async def ready(response: Response) -> dict[str, object]:
 
 @router.get("/metrics", include_in_schema=False)
 async def metrics() -> Response:
-    return Response(content=http_metrics.render(), media_type="text/plain; version=0.0.4")
+    return Response(
+        content=http_metrics.render() + render_durable_metrics(get_settings()),
+        media_type="text/plain; version=0.0.4",
+    )
 
 
 

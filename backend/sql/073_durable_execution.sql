@@ -158,3 +158,25 @@ VALUES ('bulk', 'running', 1);
 
 INSERT OR IGNORE INTO worker_controls (queue_name, desired_state, max_concurrency)
 VALUES ('outbox', 'running', 1);
+
+INSERT OR IGNORE INTO outbox_events (
+    event_id, aggregate_type, aggregate_id, event_type, schema_version,
+    ordering_key, sequence_no, payload_json, headers_json
+)
+SELECT
+    'agent-job:' || id || ':created',
+    'agent_job',
+    CAST(id AS TEXT),
+    'agent.job.created',
+    1,
+    'printer:' || printer_id || ':agent-jobs',
+    id,
+    json_object(
+        'job_id', id,
+        'printer_id', printer_id,
+        'agent_id', agent_id,
+        'correlation_id', correlation_id
+    ),
+    json_object('owner_type', 'printer', 'owner_id', CAST(printer_id AS TEXT))
+FROM agent_jobs
+WHERE status IN ('pending', 'in_progress');

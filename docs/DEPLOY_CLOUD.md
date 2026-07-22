@@ -36,7 +36,9 @@ Alvo operacional:
 Releases não compartilham venv, frontend nem dependência mutável. Dados e logs
 ficam em `shared/`. O perfil cloud usa exclusivamente o cluster PostgreSQL
 dedicado `16/printora` em `127.0.0.1:5433`; a credencial fica em
-`/etc/printora-cloud/postgresql.env`, fora do release. A origem anterior e seus
+`/etc/printora-cloud/postgresql.env`, fora do release. O Redis recomponível usa
+`/etc/printora-cloud/redis.env` e socket Unix dedicado; execute
+`scripts/cloud/bootstrap-redis.sh` antes de habilitar os workers. A origem anterior e seus
 backups permanecem preservados e não podem ser removidos sem confirmação humana.
 
 ## Bootstrap Privilegiado

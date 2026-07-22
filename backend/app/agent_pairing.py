@@ -492,6 +492,14 @@ class AgentPairingRepository:
                 """,
                 (request.agent_version, request.platform, json.dumps(request.capabilities), agent.id),
             )
+            connection.execute(
+                """
+                UPDATE agent_jobs
+                SET updated_at = CURRENT_TIMESTAMP
+                WHERE agent_id = ? AND status = 'in_progress'
+                """,
+                (agent.id,),
+            )
             self._reconcile_agent_update_jobs(connection, agent, request)
             self._record_event(connection, agent.printer_id, agent.id, "heartbeat", "ok", request.agent_version)
         return AgentHeartbeatResponse(accepted=True, agent_id=agent.id, printer_id=agent.printer_id, status="active")
@@ -588,14 +596,14 @@ class AgentPairingRepository:
                 SELECT *
                 FROM agent_jobs
                 WHERE printer_id = ?
-                  AND status = 'pending'
+                  AND (status = 'pending' OR (status = 'in_progress' AND agent_id = ?))
                   AND (agent_id IS NULL OR agent_id = ?)
                   AND available_at <= CURRENT_TIMESTAMP
                   AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
                 ORDER BY created_at, id
                 LIMIT ?
                 """,
-                (agent.printer_id, agent.id, clean_limit),
+                (agent.printer_id, agent.id, agent.id, clean_limit),
             ).fetchall()
         return AgentJobResponse(jobs=[_job_from_row(row) for row in rows])
 

@@ -66,6 +66,7 @@
         "remote_operations",
         "support",
         "system",
+        "worker_admin",
         "technical_profiles",
         "frontend"
       ]
@@ -82,18 +83,18 @@
     }
   ],
   "summary": {
-    "modules": 139,
-    "routes": 322,
-    "contracts": 338,
+    "modules": 145,
+    "routes": 326,
+    "contracts": 339,
     "tables": 107,
     "cycles": 0,
     "modules_by_owner": {
-      "administration": 25,
+      "administration": 26,
       "community": 28,
       "identity": 10,
       "integrations": 7,
       "operations": 55,
-      "shared": 14
+      "shared": 19
     }
   },
   "cycles": [],
@@ -109,9 +110,11 @@
     {
       "module": "agent_channel",
       "owner": "operations",
-      "lines": 92,
+      "lines": 244,
       "imports": [
-        "agent_pairing"
+        "agent_pairing",
+        "database",
+        "modules.platform.recomposable_redis"
       ],
       "routes": [],
       "contracts": []
@@ -119,9 +122,8 @@
     {
       "module": "agent_executor",
       "owner": "operations",
-      "lines": 80,
+      "lines": 79,
       "imports": [
-        "agent_channel",
         "agent_pairing",
         "modules.operations.application",
         "modules.operations.contracts",
@@ -156,7 +158,7 @@
     {
       "module": "agent_pairing",
       "owner": "operations",
-      "lines": 909,
+      "lines": 917,
       "imports": [
         "auth",
         "database",
@@ -305,7 +307,7 @@
     {
       "module": "config",
       "owner": "administration",
-      "lines": 63,
+      "lines": 66,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -555,6 +557,17 @@
       "contracts": []
     },
     {
+      "module": "idempotency_middleware",
+      "owner": "shared",
+      "lines": 70,
+      "imports": [
+        "config",
+        "modules.platform.idempotency"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "install_diagnostics",
       "owner": "administration",
       "lines": 403,
@@ -572,13 +585,18 @@
     {
       "module": "main",
       "owner": "shared",
-      "lines": 60,
+      "lines": 84,
       "imports": [
+        "agent_channel",
         "auth",
         "config",
         "database",
+        "idempotency_middleware",
         "modules",
+        "modules.platform.realtime_broker",
+        "modules.platform.recomposable_redis",
         "operational",
+        "rate_limit_middleware",
         "social_catalog"
       ],
       "routes": [],
@@ -624,7 +642,7 @@
     {
       "module": "modules.administration.api",
       "owner": "administration",
-      "lines": 17,
+      "lines": 18,
       "imports": [
         "modules.assembly",
         "routes"
@@ -933,7 +951,7 @@
     {
       "module": "modules.operations.application",
       "owner": "operations",
-      "lines": 118,
+      "lines": 116,
       "imports": [
         "modules.operations.contracts",
         "modules.operations.ports"
@@ -972,15 +990,14 @@
     {
       "module": "modules.operations.ports",
       "owner": "operations",
-      "lines": 25,
+      "lines": 21,
       "imports": [
         "modules.operations.contracts"
       ],
       "routes": [],
       "contracts": [
         "PrinterIdentity",
-        "AgentJobRepositoryPort",
-        "AgentRealtimePort"
+        "AgentJobRepositoryPort"
       ]
     },
     {
@@ -1002,7 +1019,7 @@
     {
       "module": "modules.platform.durable_execution",
       "owner": "shared",
-      "lines": 647,
+      "lines": 765,
       "imports": [
         "database",
         "modules.platform.database_target"
@@ -1024,9 +1041,37 @@
       "contracts": []
     },
     {
+      "module": "modules.platform.idempotency",
+      "owner": "shared",
+      "lines": 158,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "modules.platform.postgresql",
       "owner": "shared",
       "lines": 161,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.platform.realtime_broker",
+      "owner": "shared",
+      "lines": 83,
+      "imports": [
+        "modules.platform.recomposable_redis"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.platform.recomposable_redis",
+      "owner": "shared",
+      "lines": 116,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -1088,10 +1133,12 @@
     {
       "module": "operational",
       "owner": "operations",
-      "lines": 127,
+      "lines": 155,
       "imports": [
         "config",
-        "database"
+        "database",
+        "modules.platform.durable_execution",
+        "modules.platform.recomposable_redis"
       ],
       "routes": [],
       "contracts": []
@@ -1219,6 +1266,14 @@
       ]
     },
     {
+      "module": "rate_limit_middleware",
+      "owner": "shared",
+      "lines": 45,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "releases",
       "owner": "administration",
       "lines": 242,
@@ -1274,7 +1329,7 @@
     {
       "module": "routes.agents",
       "owner": "operations",
-      "lines": 689,
+      "lines": 693,
       "imports": [
         "agent_channel",
         "agent_pairing",
@@ -2567,12 +2622,13 @@
     {
       "module": "routes.slicing",
       "owner": "operations",
-      "lines": 316,
+      "lines": 319,
       "imports": [
         "agent_executor",
         "agent_pairing",
         "auth",
         "config",
+        "modules.platform.database_target",
         "print_delivery",
         "print_history",
         "print_preflight",
@@ -3221,7 +3277,7 @@
     {
       "module": "routes.system",
       "owner": "administration",
-      "lines": 245,
+      "lines": 248,
       "imports": [
         "database",
         "install_diagnostics",
@@ -3351,6 +3407,44 @@
         }
       ],
       "contracts": []
+    },
+    {
+      "module": "routes.worker_admin",
+      "owner": "administration",
+      "lines": 112,
+      "imports": [
+        "config",
+        "database",
+        "modules.identity.contracts",
+        "modules.platform.durable_execution",
+        "routes.auth"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "",
+          "handler": "worker_overview"
+        },
+        {
+          "method": "POST",
+          "path": "/control",
+          "handler": "control_workers"
+        },
+        {
+          "method": "GET",
+          "path": "/{queue_name}/dead-letter",
+          "handler": "dead_letter_preview"
+        },
+        {
+          "method": "POST",
+          "path": "/{queue_name}/dead-letter/{job_id}/replay",
+          "handler": "replay_dead_letter"
+        }
+      ],
+      "contracts": [
+        "WorkerControlRequest",
+        "DeadLetterReplayRequest"
+      ]
     },
     {
       "module": "routes.z_offset",
@@ -3540,10 +3634,11 @@
     {
       "module": "slicing_pipeline",
       "owner": "operations",
-      "lines": 625,
+      "lines": 680,
       "imports": [
         "config",
         "database",
+        "modules.platform.durable_execution",
         "slicing"
       ],
       "routes": [],
@@ -3697,11 +3792,13 @@
     {
       "module": "worker",
       "owner": "shared",
-      "lines": 225,
+      "lines": 253,
       "imports": [
         "config",
         "modules.platform.durable_execution",
-        "modules.platform.event_dispatcher"
+        "modules.platform.event_dispatcher",
+        "modules.platform.recomposable_redis",
+        "slicing_pipeline"
       ],
       "routes": [],
       "contracts": []

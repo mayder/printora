@@ -5,9 +5,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
+from app.agent_channel import agent_ws_manager
 from app.auth import AuthRepository, set_current_auth_context
 from app.database import connect_database, initialize_database
+from app.idempotency_middleware import idempotency_middleware as apply_idempotency
+from app.rate_limit_middleware import redis_rate_limit_middleware as apply_rate_limit
 from app.modules import module_routers
+from app.modules.platform.realtime_broker import RealtimeBroker
+from app.modules.platform.recomposable_redis import RecomposableRedis
 from app.operational import request_observability_middleware
 from app.social_catalog import SocialCatalogRepository
 @asynccontextmanager
@@ -18,7 +23,16 @@ async def lifespan(app: FastAPI):
         repository = SocialCatalogRepository(settings.database_path)
         repository.sync_all_communities(connection)
         repository.sync_default_feed_items(connection)
-    yield
+    redis_service = RecomposableRedis(settings.redis_url, settings.redis_prefix, settings.redis_timeout_seconds)
+    agent_ws_manager.configure(settings.database_path, redis_service)
+    realtime_broker = RealtimeBroker(redis_service, agent_ws_manager.handle_notification)
+    await realtime_broker.start()
+    app.state.recomposable_redis = redis_service
+    app.state.realtime_broker = realtime_broker
+    try:
+        yield
+    finally:
+        await realtime_broker.stop()
 
 
 app = FastAPI(title="Printora", version="0.1.41", lifespan=lifespan)
@@ -35,6 +49,16 @@ app.add_middleware(
 @app.middleware("http")
 async def observability_middleware(request, call_next):
     return await request_observability_middleware(request, call_next)
+
+
+@app.middleware("http")
+async def durable_idempotency_middleware(request, call_next):
+    return await apply_idempotency(request, call_next)
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request, call_next):
+    return await apply_rate_limit(request, call_next)
 
 
 @app.middleware("http")

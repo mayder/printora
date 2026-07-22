@@ -14,6 +14,14 @@ from app.modules.platform.database_target import uses_postgresql
 
 TERMINAL_JOB_STATES = {"succeeded", "failed", "dead_letter", "canceled"}
 ACTIVE_JOB_STATES = {"queued", "leased"}
+QUEUE_ACTIVE_LIMITS = {"critical": 10_000, "default": 5_000, "bulk": 1_000}
+OWNER_ACTIVE_LIMIT = 250
+MAX_JOB_PAYLOAD_BYTES = 256 * 1024
+MAX_EVENT_PAYLOAD_BYTES = 256 * 1024
+
+
+class QueueSaturatedError(RuntimeError):
+    pass
 
 
 class DatabaseConnection(Protocol):
@@ -90,6 +98,9 @@ class DurableExecutionRepository:
     def append_event(self, connection: DatabaseConnection, event: EventEnvelope) -> int:
         if event.schema_version < 1 or event.sequence_no < 1:
             raise ValueError("schema_version e sequence_no devem ser positivos")
+        payload_json = _canonical_json(event.payload)
+        if len(payload_json.encode("utf-8")) > MAX_EVENT_PAYLOAD_BYTES:
+            raise ValueError("payload do evento excede 256 KB")
         cursor = connection.execute(
             """
             INSERT INTO outbox_events (
@@ -105,7 +116,7 @@ class DurableExecutionRepository:
                 event.schema_version,
                 event.ordering_key,
                 event.sequence_no,
-                _canonical_json(event.payload),
+                payload_json,
                 _canonical_json(event.headers or {}),
             ),
         )
@@ -519,13 +530,120 @@ class DurableExecutionRepository:
                 (now, now, worker_id),
             )
 
+    def set_worker_state(self, queue_name: str, desired_state: str, actor: str) -> None:
+        if queue_name not in {"outbox", *QUEUE_ACTIVE_LIMITS}:
+            raise ValueError("fila desconhecida")
+        if desired_state not in {"running", "paused", "draining"}:
+            raise ValueError("estado de worker inválido")
+        with connect_database(self.database_path) as connection:
+            connection.execute(
+                """
+                INSERT INTO worker_controls (queue_name, desired_state, max_concurrency, updated_by, updated_at)
+                VALUES (?, ?, 1, ?, ?)
+                ON CONFLICT(queue_name) DO UPDATE SET
+                    desired_state = excluded.desired_state,
+                    updated_by = excluded.updated_by,
+                    updated_at = excluded.updated_at
+                """,
+                (queue_name, desired_state, actor[:160], _timestamp(_utc_now())),
+            )
+
+    def dead_letter_preview(self, queue_name: str, limit: int = 50) -> list[dict[str, Any]]:
+        with connect_database(self.database_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT id, job_key, job_type, attempts, max_attempts, error_message, completed_at
+                FROM durable_jobs
+                WHERE queue_name = ? AND status = 'dead_letter'
+                ORDER BY completed_at DESC, id DESC
+                LIMIT ?
+                """,
+                (queue_name, max(1, min(limit, 100))),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def replay_dead_letter(
+        self,
+        job_id: int,
+        expected_job_key: str,
+        replay_key: str,
+        actor: str,
+        queue_name: str | None = None,
+    ) -> DurableJob:
+        with connect_database(self.database_path) as connection:
+            statement = "SELECT * FROM durable_jobs WHERE id = ? AND status = 'dead_letter'"
+            parameters: tuple[object, ...] = (job_id,)
+            if queue_name is not None:
+                statement += " AND queue_name = ?"
+                parameters = (job_id, queue_name)
+            row = connection.execute(statement, parameters).fetchone()
+            if row is None:
+                raise ValueError("job dead-letter não encontrado")
+            if row["job_key"] != expected_job_key:
+                raise ValueError("confirmação do job_key não confere")
+            existing = connection.execute(
+                "SELECT event_id FROM outbox_events WHERE event_id = ?",
+                (f"job-replay:{replay_key}",),
+            ).fetchone()
+            if existing is not None:
+                return _job_from_row(row)
+            sequence = connection.execute(
+                "SELECT COALESCE(MAX(sequence_no), 0) + 1 AS next_sequence FROM outbox_events WHERE ordering_key = ?",
+                (f"durable-job-replay:{job_id}",),
+            ).fetchone()["next_sequence"]
+            self.append_event(
+                connection,
+                EventEnvelope(
+                    event_id=f"job-replay:{replay_key}",
+                    aggregate_type="durable_job",
+                    aggregate_id=str(job_id),
+                    event_type="platform.job.replayed",
+                    ordering_key=f"durable-job-replay:{job_id}",
+                    sequence_no=int(sequence),
+                    payload={"job_id": job_id, "job_type": row["job_type"]},
+                    headers={"actor": actor[:160]},
+                ),
+            )
+            connection.execute(
+                """
+                UPDATE durable_jobs
+                SET status = 'queued', attempts = 0, available_at = ?, error_message = NULL,
+                    result_json = NULL, completed_at = NULL, lease_owner = NULL,
+                    lease_token = NULL, lease_expires_at = NULL, heartbeat_at = NULL,
+                    updated_at = ?
+                WHERE id = ? AND status = 'dead_letter'
+                """,
+                (_timestamp(_utc_now()), _timestamp(_utc_now()), job_id),
+            )
+            updated = connection.execute("SELECT * FROM durable_jobs WHERE id = ?", (job_id,)).fetchone()
+        return _job_from_row(updated)
+
     def _enqueue_job(self, connection: DatabaseConnection, **values: Any) -> DurableJob:
         payload_json = _canonical_json(values["payload"])
+        if len(payload_json.encode("utf-8")) > MAX_JOB_PAYLOAD_BYTES:
+            raise ValueError("payload do job excede 256 KB")
         existing = connection.execute("SELECT * FROM durable_jobs WHERE job_key = ?", (values["job_key"],)).fetchone()
         if existing is not None:
             if existing["job_type"] != values["job_type"] or existing["payload_json"] != payload_json:
                 raise ValueError("job_key repetido com contrato divergente")
             return _job_from_row(existing)
+        active = connection.execute(
+            "SELECT COUNT(*) AS total FROM durable_jobs WHERE queue_name = ? AND status IN ('queued', 'leased')",
+            (values["queue_name"],),
+        ).fetchone()
+        queue_limit = QUEUE_ACTIVE_LIMITS.get(values["queue_name"], 1_000)
+        if int(active["total"]) >= queue_limit:
+            raise QueueSaturatedError(f"fila {values['queue_name']} atingiu quota ativa")
+        if values["owner_type"] and values["owner_id"]:
+            owned = connection.execute(
+                """
+                SELECT COUNT(*) AS total FROM durable_jobs
+                WHERE owner_type = ? AND owner_id = ? AND status IN ('queued', 'leased')
+                """,
+                (values["owner_type"], values["owner_id"]),
+            ).fetchone()
+            if int(owned["total"]) >= OWNER_ACTIVE_LIMIT:
+                raise QueueSaturatedError("owner atingiu quota de jobs ativos")
         cursor = connection.execute(
             """
             INSERT INTO durable_jobs (

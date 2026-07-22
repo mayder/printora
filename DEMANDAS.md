@@ -5557,6 +5557,25 @@ Estado atual:
   heartbeat de lease, retomada após expiração, pausa/drain persistidos e registro
   de release. Units systemd resolvem a release ativa de forma imutável; deploy e
   rollback drenam/reiniciam workers compatíveis sem restaurar dados.
+- Lote 4 concluído: jobs de agente geram outbox atômica, pendências anteriores
+  recebem evento por backfill idempotente e jobs em execução retomam após
+  reconnect. Fatiamento cloud é agendado na fila bulk; o modo local preserva a
+  execução síncrona existente.
+- Lote 5 concluído: Redis dedicado por socket Unix, ACL, limite de memória e
+  política `allkeys-lru`, sem AOF/RDB, foi empacotado para cache, rate limit,
+  presença e pub/sub. Indisponibilidade degrada para PostgreSQL/polling sem perda
+  canônica.
+- Lote 6 concluído: sessões realtime possuem owner de instância, expiração,
+  fencing PostgreSQL, heartbeat e último ACK. Pub/sub acorda a instância dona e
+  reconnect com jitter retoma jobs persistidos.
+- Lote 7 em validação: quotas por classe/owner, payload máximo, métricas,
+  dead-letter, preview/replay administrativo, retenção supervisionada e carga
+  sintética estão implementados. Falha, drain e soak ainda serão comprovados no
+  host antes do fechamento.
+- Lote 8 concluído no código: entrega imediata e port realtime autoritativa foram
+  removidas; o gate bloqueia filas Python em memória e qualquer retorno do
+  `push_job`. Registry local conserva somente objetos socket efêmeros e é cercado
+  pelo owner canônico da sessão no PostgreSQL.
 
 ## PKG-90: Objetos, Quarentena E Busca Reconstruível
 

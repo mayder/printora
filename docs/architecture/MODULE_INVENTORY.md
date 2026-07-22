@@ -4,9 +4,9 @@
 
 ## Resumo
 
-- módulos Python: 139;
-- endpoints HTTP/WebSocket: 322;
-- contratos tipados: 338;
+- módulos Python: 145;
+- endpoints HTTP/WebSocket: 326;
+- contratos tipados: 339;
 - tabelas declaradas em SQL: 107;
 - ciclos de import detectados: 0.
 
@@ -17,9 +17,9 @@
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 10 | 8 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 28 | 45 |
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 55 | 32 |
-| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 25 | 22 |
+| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 26 | 22 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 7 | 0 |
-| `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 14 | 0 |
+| `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 19 | 0 |
 
 ## Arquivos Críticos
 
@@ -31,19 +31,19 @@
 | `routes.social_catalog` | `community` | 1108 | 59 | 0 |
 | `print_projects` | `community` | 1037 | 0 | 14 |
 | `self_update` | `administration` | 1001 | 0 | 10 |
+| `agent_pairing` | `operations` | 917 | 0 | 0 |
 | `auth` | `identity` | 911 | 0 | 0 |
 | `calibration` | `operations` | 910 | 0 | 12 |
-| `agent_pairing` | `operations` | 909 | 0 | 0 |
 | `routes.operation` | `operations` | 776 | 13 | 0 |
+| `modules.platform.durable_execution` | `shared` | 765 | 0 | 1 |
 | `setup_flash` | `operations` | 753 | 0 | 7 |
 | `setup_can` | `operations` | 699 | 0 | 7 |
-| `routes.agents` | `operations` | 689 | 35 | 0 |
+| `routes.agents` | `operations` | 693 | 35 | 0 |
+| `slicing_pipeline` | `operations` | 680 | 0 | 5 |
 | `routes.calibration` | `operations` | 674 | 15 | 0 |
-| `modules.platform.durable_execution` | `shared` | 647 | 0 | 1 |
 | `setup_wizard` | `operations` | 643 | 0 | 7 |
 | `printers` | `operations` | 635 | 0 | 3 |
 | `search_discovery` | `community` | 629 | 0 | 5 |
-| `slicing_pipeline` | `operations` | 625 | 0 | 5 |
 | `gcode_files` | `operations` | 543 | 0 | 10 |
 | `database` | `shared` | 524 | 0 | 0 |
 | `health` | `administration` | 513 | 0 | 0 |

@@ -114,6 +114,37 @@ def test_slicing_job_blocks_oversized_model_and_cancels_planned_job(tmp_path: Pa
     assert canceled.canceled_at is not None
 
 
+def test_slicing_job_can_be_scheduled_and_canceled_in_durable_queue(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    user, printer_id, profile_id = _seed_printer_and_profile(database_path)
+    repository = SlicingPipelineRepository(database_path, Settings(data_dir=tmp_path))
+    job = repository.create_job(
+        user.id,
+        SlicingJobCreate(
+            printer_id=printer_id,
+            material_profile_id=profile_id,
+            model_reference="library://queued.stl",
+            model_dimensions=ModelDimensions(x_mm=20, y_mm=20, z_mm=20),
+            quality_reference="0.20 qualidade",
+        ),
+    )
+
+    scheduled = repository.schedule_job(job.id, user.id)
+    repeated = repository.schedule_job(job.id, user.id)
+    canceled = repository.cancel_job(job.id, user.id)
+
+    assert scheduled.status == "planned"
+    assert repeated.status == "planned"
+    assert canceled.status == "canceled"
+    with connect_database(database_path) as connection:
+        rows = connection.execute(
+            "SELECT status FROM durable_jobs WHERE owner_type = 'slicing_job' AND owner_id = ? ORDER BY id",
+            (str(job.id),),
+        ).fetchall()
+    assert [row["status"] for row in rows] == ["canceled"]
+
+
 def test_project_slicing_job_uses_immutable_project_snapshot(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)

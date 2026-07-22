@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     slicer_engine_path: Path | None = None
     slicer_engine_timeout_seconds: float = 600.0
     slicer_engine_work_dir: Path | None = None
+    redis_url: str | None = None
+    redis_prefix: str = "printora"
+    redis_timeout_seconds: float = 0.5
 
     model_config = SettingsConfigDict(
         env_file=".env",

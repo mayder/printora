@@ -18,16 +18,6 @@ class Printer:
     id: int = 7
 
 
-class Realtime:
-    def __init__(self, delivered: bool = True) -> None:
-        self.delivered = delivered
-        self.jobs: list[AgentJobRecord] = []
-
-    async def push_job(self, job: AgentJobRecord) -> bool:
-        self.jobs.append(job)
-        return self.delivered
-
-
 class Repository:
     def __init__(self, status: str = "succeeded", online: bool = True) -> None:
         self.status = status
@@ -78,25 +68,23 @@ class Repository:
 
 def test_agent_job_service_dispatches_without_http_dependency() -> None:
     repository = Repository()
-    realtime = Realtime()
 
-    job = asyncio.run(AgentJobService(repository, realtime).run(Printer(), job_type="status"))
+    job = asyncio.run(AgentJobService(repository).run(Printer(), job_type="status"))
 
     assert job.status == "succeeded"
     assert repository.request is not None
     assert repository.request.agent_id == 3
-    assert realtime.jobs[0].status == "pending"
 
 
 def test_agent_job_service_rejects_required_offline_agent() -> None:
-    service = AgentJobService(Repository(online=False), Realtime())
+    service = AgentJobService(Repository(online=False))
 
     with pytest.raises(AgentUnavailableError):
         asyncio.run(service.run(Printer(), job_type="status"))
 
 
 def test_agent_job_service_reports_failed_job_without_fastapi_error() -> None:
-    service = AgentJobService(Repository(status="failed"), Realtime())
+    service = AgentJobService(Repository(status="failed"))
 
     with pytest.raises(AgentJobFailedError) as exc_info:
         asyncio.run(service.run(Printer(), job_type="status"))

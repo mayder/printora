@@ -16,6 +16,7 @@ from uuid import uuid4
 from app.config import get_settings
 from app.modules.platform.durable_execution import DurableExecutionRepository, DurableJob
 from app.modules.platform.event_dispatcher import EventDispatcher, EventSubscription
+from app.modules.platform.recomposable_redis import RecomposableRedis
 
 
 JobHandler = Callable[[DurableJob], dict[str, Any]]
@@ -165,15 +166,42 @@ class OutboxWorker:
 
 
 def _realtime_notification(job: DurableJob) -> dict[str, Any]:
+    settings = get_settings()
+    redis_service = RecomposableRedis(settings.redis_url, settings.redis_prefix, settings.redis_timeout_seconds)
+    payload = job.payload.get("payload") or {}
+    notified = redis_service.publish(
+        "agent",
+        {
+            "type": "job_available",
+            "agent_job_id": payload.get("job_id"),
+            "printer_id": payload.get("printer_id"),
+            "agent_id": payload.get("agent_id"),
+            "event_id": job.payload.get("event_id"),
+        },
+    )
     return {
         "status": "durable",
-        "delivery": "polling_resume",
+        "delivery": "pubsub" if notified else "polling_resume",
         "event_id": job.payload.get("event_id"),
     }
 
 
+def _execute_slicing(job: DurableJob) -> dict[str, Any]:
+    from app.slicing_pipeline import SlicingPipelineRepository
+
+    settings = get_settings()
+    slicing_job = SlicingPipelineRepository(settings.database_path, settings).run_job(
+        int(job.payload["slicing_job_id"]),
+        int(job.payload["actor_user_id"]) if job.payload.get("actor_user_id") is not None else None,
+    )
+    return {"slicing_job_id": slicing_job.id, "status": slicing_job.status}
+
+
 def _handlers() -> dict[str, JobHandler]:
-    return {"realtime.agent_job_available": _realtime_notification}
+    return {
+        "realtime.agent_job_available": _realtime_notification,
+        "slicing.execute": _execute_slicing,
+    }
 
 
 def _backoff(attempt: int) -> int:

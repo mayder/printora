@@ -7,7 +7,7 @@ from typing import Any
 from uuid import uuid4
 
 from app.modules.operations.contracts import AgentJobCreateRequest, AgentJobRecord
-from app.modules.operations.ports import AgentJobRepositoryPort, AgentRealtimePort, PrinterIdentity
+from app.modules.operations.ports import AgentJobRepositoryPort, PrinterIdentity
 
 
 @dataclass(frozen=True)
@@ -39,7 +39,6 @@ class AgentJobTimeoutError(Exception):
 @dataclass
 class AgentJobService:
     repository: AgentJobRepositoryPort
-    realtime: AgentRealtimePort
 
     async def run(
         self,
@@ -69,12 +68,11 @@ class AgentJobService:
             )
         except ValueError as exc:
             raise AgentJobRejectedError(str(exc)) from exc
-        websocket_delivered = await self.realtime.push_job(job)
         return await self._wait(
             printer.id,
             job.id,
             timeout_seconds,
-            websocket_delivered=websocket_delivered,
+            websocket_delivered=False,
         )
 
     async def _wait(

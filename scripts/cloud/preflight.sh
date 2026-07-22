@@ -96,6 +96,18 @@ validate_durable_workers() {
   done
 }
 
+validate_recomposable_redis() {
+  local config=/etc/printora-cloud/redis.env
+  [[ "$(stat -c '%a:%U:%G' "$config")" == "640:root:deploy" ]] || return 1
+  grep -qx 'PRINTORA_REDIS_URL=unix:///run/redis-printora/redis.sock?db=0' "$config"
+  systemctl is-active --quiet redis-printora.service
+  [[ "$(redis-cli -s /run/redis-printora/redis.sock ping)" == "PONG" ]]
+  redis-cli -s /run/redis-printora/redis.sock INFO persistence | grep -q '^aof_enabled:0'
+  grep -qx 'save ""' /etc/redis/printora.conf
+  grep -qx 'appendonly no' /etc/redis/printora.conf
+  grep -qx 'maxmemory-policy allkeys-lru' /etc/redis/printora.conf
+}
+
 check python python3 --version
 check nginx nginx -t
 check systemd systemctl cat printora-cloud@.service
@@ -113,5 +125,6 @@ check resource_budget validate_resource_budget
 check postgresql_environment validate_postgresql_environment
 check postgresql_runtime validate_postgresql_runtime
 check durable_workers validate_durable_workers
+check recomposable_redis validate_recomposable_redis
 
 [[ "$failures" -eq 0 ]] || fail "$failures item(ns) de preflight falharam"

@@ -126,6 +126,65 @@ remover sem relatório de integridade, janela de observação e confirmação
 explícita. Evidência do cutover, backup, restore e rollback:
 `docs/audits/POSTGRESQL_CLOUD_TRANSITION_2026-07-22.md`.
 
+## Execução Durável, Workers E Redis
+
+O PostgreSQL é canônico para outbox, inbox, idempotência, jobs, leases, sessões
+e controle de workers. Redis é dedicado ao Printora, acessível somente pelo
+socket `/run/redis-printora/redis.sock` e contém apenas cache, rate limit,
+presença e pub/sub recomponíveis. Reiniciar ou esvaziar Redis não autoriza apagar
+nem recriar dado de negócio.
+
+Bootstrap privilegiado, depois do PostgreSQL e antes de habilitar workers:
+
+```bash
+sudo scripts/cloud/bootstrap-redis.sh
+sudo PRINTORA_BASE_PATH=/var/www/print3dmaker.xyz scripts/cloud/bootstrap-blue-green.sh
+sudo /usr/local/sbin/printora-cloud-preflight
+```
+
+Diagnóstico read-only:
+
+```bash
+systemctl is-active redis-printora.service printora-cloud-workers.target
+systemctl is-active printora-cloud-worker@outbox.service
+systemctl is-active printora-cloud-worker@critical.service
+systemctl is-active printora-cloud-worker@default.service
+systemctl is-active printora-cloud-worker@bulk.service
+redis-cli -s /run/redis-printora/redis.sock ping
+sudo -u deploy bash -c 'set -a; source /etc/printora-cloud/postgresql.env; set +a; /usr/local/libexec/printora-cloud/audit-durable-execution.py'
+```
+
+O deploy troca o app, atualiza o link `current`, envia `SIGTERM` aos workers,
+aguarda o drain e inicia as classes na release imutável nova. Rollback para uma
+release N-1 sem worker pausa as units; os jobs continuam no PostgreSQL até uma
+release compatível voltar.
+
+Pausa e drain são estados canônicos em `worker_controls`. A API administrativa
+deny-by-default expõe overview, controle e dead-letter em
+`/api/admin/workers`; mutações aceitam `Idempotency-Key`, têm rate limit e não
+retornam payload do job. Replay exige o `job_key` exato e gera evento de
+auditoria antes de recolocar o item na fila.
+
+Retenção é preview por padrão e nunca roda automaticamente:
+
+```bash
+sudo -u deploy bash -c 'set -a; source /etc/printora-cloud/postgresql.env; set +a; /usr/local/libexec/printora-cloud/retention-durable-execution.py'
+```
+
+Aplicação física da retenção exige janela, preview revisado, confirmação textual
+exata e autorização para excluir os registros expirados. Não executar `--apply`
+durante investigação ou sem aceite do responsável.
+
+Falha de Redis:
+
+- agentes retomam jobs pelo PostgreSQL/polling;
+- cache é recomposto sob demanda;
+- rate limit informa degradação interna e não vira fonte de autorização;
+- reiniciar somente `redis-printora.service`; não reiniciar Moonraker, Klipper,
+  agente da impressora ou MCU.
+
+Evidência: `docs/audits/DURABLE_EXECUTION_2026-07-22.md`.
+
 ## Preview operacional de G-code
 
 A aba `Operacao` do detalhe da impressora usa cache sob demanda do G-code para

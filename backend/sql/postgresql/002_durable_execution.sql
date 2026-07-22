@@ -148,3 +148,26 @@ ON CONFLICT (queue_name) DO NOTHING;
 INSERT INTO public.worker_controls (queue_name, desired_state, max_concurrency)
 VALUES ('outbox', 'running', 1)
 ON CONFLICT (queue_name) DO NOTHING;
+
+INSERT INTO public.outbox_events (
+    event_id, aggregate_type, aggregate_id, event_type, schema_version,
+    ordering_key, sequence_no, payload_json, headers_json
+)
+SELECT
+    'agent-job:' || id || ':created',
+    'agent_job',
+    id::text,
+    'agent.job.created',
+    1,
+    'printer:' || printer_id || ':agent-jobs',
+    id,
+    jsonb_build_object(
+        'job_id', id,
+        'printer_id', printer_id,
+        'agent_id', agent_id,
+        'correlation_id', correlation_id
+    )::text,
+    jsonb_build_object('owner_type', 'printer', 'owner_id', printer_id::text)::text
+FROM public.agent_jobs
+WHERE status IN ('pending', 'in_progress')
+ON CONFLICT (event_id) DO NOTHING;

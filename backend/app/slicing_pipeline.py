@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.config import Settings
 from app.database import connect_database
+from app.modules.platform.durable_execution import DurableExecutionRepository
 from app.slicing import SlicerEngine, SlicingEngineBridge, SlicingRequest
 
 SlicingJobStatus = Literal["planned", "running", "completed", "failed", "canceled"]
@@ -242,6 +243,52 @@ class SlicingPipelineRepository:
         self._finish_completed(job.id, output)
         return self.get_job(job.id, actor_user_id)  # type: ignore[return-value]
 
+    def schedule_job(self, job_id: int, actor_user_id: int | None) -> SlicingJob:
+        job = self.get_job(job_id, actor_user_id)
+        if job is None:
+            raise ValueError("job de fatiamento não encontrado")
+        if job.status == "canceled":
+            return job
+        if job.status not in {"planned", "failed"}:
+            raise ValueError("job de fatiamento não está pronto para execução")
+        with connect_database(self.database_path) as connection:
+            active = connection.execute(
+                """
+                SELECT id FROM durable_jobs
+                WHERE owner_type = 'slicing_job' AND owner_id = ? AND status IN ('queued', 'leased')
+                LIMIT 1
+                """,
+                (str(job.id),),
+            ).fetchone()
+            if active is not None:
+                return job
+            previous = connection.execute(
+                "SELECT COUNT(*) AS total FROM durable_jobs WHERE owner_type = 'slicing_job' AND owner_id = ?",
+                (str(job.id),),
+            ).fetchone()
+            generation = int(previous["total"]) + 1
+            DurableExecutionRepository(self.database_path).enqueue_job(
+                job_key=f"slicing:{job.id}:execute:{generation}",
+                queue_name="bulk",
+                job_type="slicing.execute",
+                payload={"slicing_job_id": job.id, "actor_user_id": actor_user_id},
+                owner_type="slicing_job",
+                owner_id=str(job.id),
+                priority=100,
+                max_attempts=3,
+                connection=connection,
+            )
+            if job.status == "failed":
+                connection.execute(
+                    """
+                    UPDATE slicing_jobs
+                    SET status = 'planned', error_message = NULL, completed_at = NULL, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND status = 'failed'
+                    """,
+                    (job.id,),
+                )
+        return self.get_job(job.id, actor_user_id)  # type: ignore[return-value]
+
     def cancel_job(self, job_id: int, actor_user_id: int | None) -> SlicingJob:
         job = self.get_job(job_id, actor_user_id)
         if job is None:
@@ -253,6 +300,14 @@ class SlicingPipelineRepository:
             connection.execute(
                 "UPDATE slicing_jobs SET canceled_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 (job.id,),
+            )
+            connection.execute(
+                """
+                UPDATE durable_jobs
+                SET status = 'canceled', completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE owner_type = 'slicing_job' AND owner_id = ? AND status = 'queued'
+                """,
+                (str(job.id),),
             )
         return self.get_job(job.id, actor_user_id)  # type: ignore[return-value]
 

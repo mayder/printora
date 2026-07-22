@@ -5466,6 +5466,21 @@
         "title": "ContentFollowRecord",
         "type": "object"
       },
+      "DeadLetterReplayRequest": {
+        "properties": {
+          "expected_job_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Expected Job Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_job_key"
+        ],
+        "title": "DeadLetterReplayRequest",
+        "type": "object"
+      },
       "DiscoveredPrinter": {
         "properties": {
           "address": {
@@ -22214,6 +22229,35 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "WorkerControlRequest": {
+        "properties": {
+          "desired_state": {
+            "enum": [
+              "running",
+              "paused",
+              "draining"
+            ],
+            "title": "Desired State",
+            "type": "string"
+          },
+          "queue_name": {
+            "enum": [
+              "outbox",
+              "critical",
+              "default",
+              "bulk"
+            ],
+            "title": "Queue Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue_name",
+          "desired_state"
+        ],
+        "title": "WorkerControlRequest",
+        "type": "object"
+      },
       "ZOffsetRecord": {
         "properties": {
           "alert_level": {
@@ -22505,6 +22549,295 @@
           }
         },
         "summary": "Frontend Index"
+      }
+    },
+    "/api/admin/workers": {
+      "get": {
+        "operationId": "worker_overview_api_admin_workers_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Worker Overview Api Admin Workers Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Worker Overview",
+        "tags": [
+          "workers"
+        ]
+      }
+    },
+    "/api/admin/workers/control": {
+      "post": {
+        "operationId": "control_workers_api_admin_workers_control_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerControlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Control Workers Api Admin Workers Control Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Control Workers",
+        "tags": [
+          "workers"
+        ]
+      }
+    },
+    "/api/admin/workers/{queue_name}/dead-letter": {
+      "get": {
+        "operationId": "dead_letter_preview_api_admin_workers__queue_name__dead_letter_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "queue_name",
+            "required": true,
+            "schema": {
+              "enum": [
+                "critical",
+                "default",
+                "bulk"
+              ],
+              "title": "Queue Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Dead Letter Preview Api Admin Workers  Queue Name  Dead Letter Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dead Letter Preview",
+        "tags": [
+          "workers"
+        ]
+      }
+    },
+    "/api/admin/workers/{queue_name}/dead-letter/{job_id}/replay": {
+      "post": {
+        "operationId": "replay_dead_letter_api_admin_workers__queue_name__dead_letter__job_id__replay_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "queue_name",
+            "required": true,
+            "schema": {
+              "enum": [
+                "critical",
+                "default",
+                "bulk"
+              ],
+              "title": "Queue Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeadLetterReplayRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Replay Dead Letter Api Admin Workers  Queue Name  Dead Letter  Job Id  Replay Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replay Dead Letter",
+        "tags": [
+          "workers"
+        ]
       }
     },
     "/api/agent/gcode-cache/{cache_key}": {
