@@ -87,6 +87,7 @@ def import_table(
     columns: list[str],
     batch_size: int,
     throttle_seconds: float,
+    max_bytes_per_second: int,
 ) -> int:
     projection = ", ".join(_quote(column) for column in columns)
     source_cursor = source.execute(f"SELECT {projection} FROM {_quote(table)}")
@@ -95,13 +96,21 @@ def import_table(
         sql.SQL(", ").join(map(sql.Identifier, columns)),
     )
     imported = 0
+    transferred_bytes = 0
+    started_at = time.monotonic()
     with target.cursor().copy(copy_statement) as copy:
         while rows := source_cursor.fetchmany(batch_size):
             for row in rows:
                 copy.write_row(tuple(row))
+                transferred_bytes += _row_size(row)
             imported += len(rows)
             if throttle_seconds:
                 time.sleep(throttle_seconds)
+            if max_bytes_per_second:
+                expected_elapsed = transferred_bytes / max_bytes_per_second
+                remaining_delay = expected_elapsed - (time.monotonic() - started_at)
+                if remaining_delay > 0:
+                    time.sleep(remaining_delay)
     target.commit()
     return imported
 
@@ -150,6 +159,7 @@ def main() -> None:
     parser.add_argument("--expected-database", required=True)
     parser.add_argument("--batch-size", type=int, default=1_000)
     parser.add_argument("--throttle-seconds", type=float, default=0.0)
+    parser.add_argument("--max-bytes-per-second", type=int, default=0)
     parser.add_argument("--replace-target", action="store_true", required=True)
     parser.add_argument("--initialize-watermark-from-outbox", action="store_true")
     args = parser.parse_args()
@@ -159,6 +169,8 @@ def main() -> None:
         raise SystemExit("--batch-size deve estar entre 1 e 10000")
     if args.throttle_seconds < 0 or args.throttle_seconds > 5:
         raise SystemExit("--throttle-seconds deve estar entre 0 e 5")
+    if args.max_bytes_per_second < 0:
+        raise SystemExit("--max-bytes-per-second não pode ser negativo")
 
     source = sqlite3.connect(f"file:{args.sqlite}?mode=ro", uri=True)
     try:
@@ -186,6 +198,7 @@ def main() -> None:
                     sqlite_columns(source, table),
                     args.batch_size,
                     args.throttle_seconds,
+                    args.max_bytes_per_second,
                 )
                 print(
                     json.dumps(
@@ -231,6 +244,18 @@ def main() -> None:
 
 def _quote(identifier: str) -> str:
     return '"' + identifier.replace('"', '""') + '"'
+
+
+def _row_size(row: sqlite3.Row | tuple[Any, ...]) -> int:
+    size = 0
+    for value in row:
+        if value is None:
+            size += 1
+        elif isinstance(value, (bytes, bytearray, memoryview)):
+            size += len(value)
+        else:
+            size += len(str(value).encode("utf-8"))
+    return size
 
 
 if __name__ == "__main__":
