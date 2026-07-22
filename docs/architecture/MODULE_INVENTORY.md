@@ -43,7 +43,7 @@
 | `printers` | `operations` | 635 | 0 | 3 |
 | `search_discovery` | `community` | 629 | 0 | 5 |
 | `slicing_pipeline` | `operations` | 625 | 0 | 5 |
-| `database` | `shared` | 571 | 0 | 0 |
+| `database` | `shared` | 580 | 0 | 0 |
 | `gcode_files` | `operations` | 543 | 0 | 10 |
 | `health` | `administration` | 513 | 0 | 0 |
 | `setup_firmware` | `operations` | 513 | 0 | 5 |
