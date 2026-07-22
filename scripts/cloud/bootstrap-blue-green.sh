@@ -26,6 +26,9 @@ install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/backup-sqlite.sh" /usr/
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/restore-backup-test.sh" /usr/local/libexec/printora-cloud/restore-backup-test.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/backup-postgresql.sh" /usr/local/libexec/printora-cloud/backup-postgresql.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/restore-postgresql-backup-test.sh" /usr/local/libexec/printora-cloud/restore-postgresql-backup-test.sh
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/prepare-postgresql-canary.sh" /usr/local/sbin/printora-cloud-postgresql-canary
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/cutover-postgresql.sh" /usr/local/sbin/printora-cloud-postgresql-cutover
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/cutover-postgresql.py" /usr/local/libexec/printora-cloud/cutover-postgresql.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/deploy-blue-green.sh" /usr/local/sbin/printora-cloud-deploy
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/rollback-blue-green.sh" /usr/local/sbin/printora-cloud-rollback
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/preflight.sh" /usr/local/sbin/printora-cloud-preflight

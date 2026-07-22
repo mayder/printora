@@ -172,6 +172,20 @@ def test_postgresql_bootstrap_uses_dedicated_checksummed_cluster() -> None:
     assert "PostgreSQL dedicado" in bootstrap
 
 
+def test_postgresql_cutover_locks_source_and_never_restores_snapshot() -> None:
+    canary = (ROOT_DIR / "scripts/cloud/prepare-postgresql-canary.sh").read_text()
+    cutover = (ROOT_DIR / "scripts/cloud/cutover-postgresql.py").read_text()
+
+    assert "traffic_switched=false" in canary
+    assert "PRINTORA_RUNTIME_PROFILE=cloud" in canary
+    assert 'source.execute("BEGIN IMMEDIATE")' in cutover
+    assert "catch_up_under_lock" in cutover
+    assert "printora_transition_replication_state" in cutover
+    assert "systemctl\", \"reload\", \"nginx" in cutover
+    assert "data_restored=false" in cutover
+    assert "snapshot" not in cutover.lower()
+
+
 def test_cloud_load_smoke_reports_zero_errors() -> None:
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
