@@ -159,6 +159,10 @@ aguarda o drain e inicia as classes na release imutável nova. Rollback para uma
 release N-1 sem worker pausa as units; os jobs continuam no PostgreSQL até uma
 release compatível voltar.
 
+Antes de iniciar o slot candidato, o deploy aplica os scripts PostgreSQL
+aditivos em transação e sob advisory lock com o papel proprietário. O usuário
+runtime apenas valida o schema e permanece sem permissão de DDL.
+
 Pausa e drain são estados canônicos em `worker_controls`. A API administrativa
 deny-by-default expõe overview, controle e dead-letter em
 `/api/admin/workers`; mutações aceitam `Idempotency-Key`, têm rate limit e não

@@ -22,6 +22,15 @@ if not uses_postgresql():
 
 SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
 POSTGRESQL_SQL_DIR = SQL_DIR / "postgresql"
+POSTGRESQL_REQUIRED_EXTENSION_TABLES = (
+    "outbox_events",
+    "inbox_receipts",
+    "durable_jobs",
+    "idempotency_records",
+    "realtime_sessions",
+    "worker_controls",
+    "worker_instances",
+)
 APP_NAME = "Printora"
 VERSIONING_SCRIPT = "000_schema_versioning.sql"
 SQLITE_TIMEOUT_SECONDS = 60.0
@@ -119,14 +128,22 @@ def _initialize_postgresql() -> None:
             "SELECT to_regclass('public.app_version') AS table_name"
         ).fetchone()
         if app_version_table is None or app_version_table["table_name"] is None:
-            baseline = POSTGRESQL_SQL_DIR / "001_baseline.sql"
-            if not baseline.is_file():
-                raise DatabaseSchemaError(f"Baseline PostgreSQL obrigatório não encontrado: {baseline.name}")
-            connection.execute_script(baseline.read_text(encoding="utf-8"))
-        for postgresql_script in sorted(POSTGRESQL_SQL_DIR.glob("[0-9]*.sql")):
-            if postgresql_script.name == "001_baseline.sql":
-                continue
-            connection.execute_script(postgresql_script.read_text(encoding="utf-8"))
+            raise DatabaseSchemaError(
+                "Baseline PostgreSQL ausente; execute o bootstrap privilegiado antes da aplicação"
+            )
+        missing_extensions = [
+            table_name
+            for table_name in POSTGRESQL_REQUIRED_EXTENSION_TABLES
+            if connection.execute(
+                "SELECT to_regclass(?) AS table_name",
+                (f"public.{table_name}",),
+            ).fetchone()["table_name"]
+            is None
+        ]
+        if missing_extensions:
+            raise DatabaseSchemaError(
+                "Schema PostgreSQL privilegiado pendente: " + ", ".join(missing_extensions)
+            )
         for execution_order, sql_file in enumerate(sql_files, start=1):
             connection.execute(
                 """

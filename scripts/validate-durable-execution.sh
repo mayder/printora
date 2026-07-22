@@ -36,7 +36,13 @@ grep -q 'FOR UPDATE SKIP LOCKED' backend/app/modules/platform/durable_execution.
 grep -q 'lease_token' backend/app/modules/platform/durable_execution.py
 grep -q 'Idempotency-Key' backend/app/routes/worker_admin.py
 grep -q '^EnvironmentFile=/etc/printora-cloud/redis.env$' packaging/systemd/printora-cloud@.service
+grep -q 'apply-postgresql-schema.sh' scripts/cloud/deploy-blue-green.sh
 grep -q '^unixsocket /run/redis-printora/redis.sock$' packaging/redis/printora.conf
 grep -q '^appendonly no$' packaging/redis/printora.conf
+
+if rg -n 'execute_script\(postgresql_script' backend/app/database.py >/dev/null; then
+  echo "aplicação runtime não pode executar DDL PostgreSQL" >&2
+  exit 1
+fi
 
 echo "execução durável, Redis recomponível e realtime distribuído validados"

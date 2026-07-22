@@ -15,6 +15,7 @@ release_dir="$PRINTORA_BASE_PATH/releases/$release_sha"
 [[ -d "$release_dir/backend" ]] || fail "backend da release ausente"
 [[ -x "$release_dir/venv/bin/python" ]] || fail "venv imutável da release ausente"
 [[ -s "$release_dir/frontend/dist/index.html" ]] || fail "frontend da release ausente"
+"$SCRIPT_DIR/apply-postgresql-schema.sh" "$release_dir"
 
 current_slot="$(active_slot)"
 candidate_slot="$(other_slot "$current_slot")"
