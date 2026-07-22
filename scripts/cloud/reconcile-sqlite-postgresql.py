@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 import psycopg
+from psycopg import sql
 from psycopg.rows import dict_row
 
 
@@ -47,6 +48,85 @@ def postgresql_tables(connection: psycopg.Connection[Any]) -> list[str]:
         for row in rows
         if str(row["table_name"]) not in POSTGRESQL_EXCLUDED_TABLES
     ]
+
+
+def sqlite_foreign_key_violations(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    rows = connection.execute("PRAGMA foreign_key_check").fetchall()
+    return [
+        {
+            "table": row[0],
+            "rowid": row[1],
+            "parent": row[2],
+            "foreign_key_id": row[3],
+        }
+        for row in rows[:100]
+    ]
+
+
+def postgresql_foreign_keys(connection: psycopg.Connection[Any]) -> dict[str, int]:
+    row = connection.execute(
+        """
+        SELECT COUNT(*) AS total,
+               COUNT(*) FILTER (WHERE constraint_definition.convalidated) AS validated
+        FROM pg_constraint constraint_definition
+        JOIN pg_namespace namespace
+          ON namespace.oid = constraint_definition.connamespace
+        WHERE namespace.nspname = current_schema()
+          AND constraint_definition.contype = 'f'
+        """
+    ).fetchone()
+    return {"total": int(row["total"]), "validated": int(row["validated"])}
+
+
+def postgresql_sequences(connection: psycopg.Connection[Any]) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        """
+        SELECT table_name,
+               column_name,
+               pg_get_serial_sequence(
+                   quote_ident(table_schema) || '.' || quote_ident(table_name),
+                   column_name
+               ) AS sequence_name
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+        ORDER BY table_name, ordinal_position
+        """
+    ).fetchall()
+    report: list[dict[str, Any]] = []
+    for row in rows:
+        sequence_name = row["sequence_name"]
+        if not sequence_name:
+            continue
+        maximum = connection.execute(
+            sql.SQL("SELECT MAX({}) AS maximum FROM {}").format(
+                sql.Identifier(str(row["column_name"])),
+                sql.Identifier(str(row["table_name"])),
+            )
+        ).fetchone()["maximum"]
+        sequence = connection.execute(
+            sql.SQL("SELECT last_value, is_called FROM {}").format(
+                sql.Identifier(*str(sequence_name).split(".", 1))
+            )
+        ).fetchone()
+        safe = (
+            maximum is None and not bool(sequence["is_called"])
+        ) or (
+            maximum is not None
+            and bool(sequence["is_called"])
+            and int(sequence["last_value"]) >= int(maximum)
+        )
+        report.append(
+            {
+                "table": row["table_name"],
+                "column": row["column_name"],
+                "sequence": sequence_name,
+                "last_value": sequence["last_value"],
+                "is_called": sequence["is_called"],
+                "table_maximum": maximum,
+                "safe": safe,
+            }
+        )
+    return report
 
 
 def sqlite_columns(connection: sqlite3.Connection, table: str) -> tuple[list[str], list[str]]:
@@ -186,6 +266,9 @@ def main() -> None:
         target_tables = postgresql_tables(postgresql_connection)
         common = sorted(set(source_tables) & set(target_tables))
         reports = [table_report(sqlite_connection, postgresql_connection, table) for table in common]
+        foreign_keys = postgresql_foreign_keys(postgresql_connection)
+        sequences = postgresql_sequences(postgresql_connection)
+    source_foreign_key_violations = sqlite_foreign_key_violations(sqlite_connection)
     sqlite_connection.close()
     payload = {
         "source_backend": "sqlite",
@@ -197,12 +280,20 @@ def main() -> None:
         "tables": reports,
         "matched_tables": sum(1 for report in reports if report["match"]),
         "mismatched_tables": [report["table"] for report in reports if not report["match"]],
+        "sqlite_foreign_key_violations": source_foreign_key_violations,
+        "postgresql_foreign_keys": foreign_keys,
+        "postgresql_sequences": sequences,
+        "unsafe_sequences": [item["sequence"] for item in sequences if not item["safe"]],
     }
     payload["status"] = (
         "ok"
         if not payload["missing_in_postgresql"]
         and not payload["extra_in_postgresql"]
         and not payload["mismatched_tables"]
+        and not payload["sqlite_foreign_key_violations"]
+        and payload["postgresql_foreign_keys"]["total"]
+        == payload["postgresql_foreign_keys"]["validated"]
+        and not payload["unsafe_sequences"]
         else "diverged"
     )
     content = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
