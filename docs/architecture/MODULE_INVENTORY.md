@@ -4,10 +4,10 @@
 
 ## Resumo
 
-- módulos Python: 136;
+- módulos Python: 139;
 - endpoints HTTP/WebSocket: 322;
-- contratos tipados: 337;
-- tabelas declaradas em SQL: 100;
+- contratos tipados: 338;
+- tabelas declaradas em SQL: 107;
 - ciclos de import detectados: 0.
 
 ## Fronteiras E Owners
@@ -17,9 +17,9 @@
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 10 | 8 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 28 | 45 |
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 55 | 32 |
-| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 25 | 15 |
+| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 25 | 22 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 7 | 0 |
-| `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 11 | 0 |
+| `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 14 | 0 |
 
 ## Arquivos Críticos
 
@@ -33,12 +33,13 @@
 | `self_update` | `administration` | 1001 | 0 | 10 |
 | `auth` | `identity` | 911 | 0 | 0 |
 | `calibration` | `operations` | 910 | 0 | 12 |
-| `agent_pairing` | `operations` | 886 | 0 | 0 |
+| `agent_pairing` | `operations` | 909 | 0 | 0 |
 | `routes.operation` | `operations` | 776 | 13 | 0 |
 | `setup_flash` | `operations` | 753 | 0 | 7 |
 | `setup_can` | `operations` | 699 | 0 | 7 |
-| `routes.agents` | `operations` | 696 | 35 | 0 |
+| `routes.agents` | `operations` | 689 | 35 | 0 |
 | `routes.calibration` | `operations` | 674 | 15 | 0 |
+| `modules.platform.durable_execution` | `shared` | 647 | 0 | 1 |
 | `setup_wizard` | `operations` | 643 | 0 | 7 |
 | `printers` | `operations` | 635 | 0 | 3 |
 | `search_discovery` | `community` | 629 | 0 | 5 |

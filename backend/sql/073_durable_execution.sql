@@ -155,3 +155,6 @@ VALUES ('default', 'running', 2);
 
 INSERT OR IGNORE INTO worker_controls (queue_name, desired_state, max_concurrency)
 VALUES ('bulk', 'running', 1);
+
+INSERT OR IGNORE INTO worker_controls (queue_name, desired_state, max_concurrency)
+VALUES ('outbox', 'running', 1);

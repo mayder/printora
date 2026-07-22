@@ -84,6 +84,18 @@ validate_postgresql_runtime() {
     "SELECT current_setting('data_checksums') || ':' || current_setting('archive_mode')")" == "on:on" ]]
 }
 
+validate_durable_workers() {
+  local queue config
+  test -x /usr/local/libexec/printora-cloud/start-worker.sh
+  systemctl cat printora-cloud-worker@.service >/dev/null
+  systemctl cat printora-cloud-workers.target >/dev/null
+  for queue in outbox critical default bulk; do
+    config="/etc/printora-cloud/workers/$queue.env"
+    [[ "$(stat -c '%a:%U:%G' "$config")" == "640:root:deploy" ]] || return 1
+    grep -Eq '^PRINTORA_WORKER_CONCURRENCY=[1-9][0-9]*$' "$config" || return 1
+  done
+}
+
 check python python3 --version
 check nginx nginx -t
 check systemd systemctl cat printora-cloud@.service
@@ -100,5 +112,6 @@ check backup_repository validate_backup_repository
 check resource_budget validate_resource_budget
 check postgresql_environment validate_postgresql_environment
 check postgresql_runtime validate_postgresql_runtime
+check durable_workers validate_durable_workers
 
 [[ "$failures" -eq 0 ]] || fail "$failures item(ns) de preflight falharam"

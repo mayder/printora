@@ -67,6 +67,23 @@ start_standby() {
   return 1
 }
 
+restart_durable_workers() {
+  local target=printora-cloud-workers.target
+  if [[ ! -f /etc/systemd/system/$target ]]; then return 0; fi
+  systemctl stop "$target" || true
+  if [[ ! -f "$PRINTORA_BASE_PATH/current/backend/app/worker.py" ]]; then
+    echo "[printora-cloud] workers=disabled release=not_compatible"
+    return 0
+  fi
+  systemctl start "$target"
+  local queue
+  for queue in outbox critical default bulk; do
+    systemctl is-active --quiet "printora-cloud-worker@$queue.service" \
+      || fail "worker $queue não iniciou"
+  done
+  echo "[printora-cloud] workers=restarted status=ready"
+}
+
 switch_nginx_to_slot() {
   local slot="$1"
   local target="$PRINTORA_BASE_PATH/shared/nginx/upstream-$slot.conf"

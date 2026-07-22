@@ -1,0 +1,31 @@
+[Unit]
+Description=Printora Cloud durable worker %i
+After=network-online.target postgresql@16-printora.service
+Wants=network-online.target postgresql@16-printora.service
+PartOf=printora-cloud-workers.target
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+EnvironmentFile=/var/www/print3dmaker.xyz/shared/printora-cloud.env
+EnvironmentFile=/etc/printora-cloud/postgresql.env
+EnvironmentFile=-/etc/printora-cloud/workers/%i.env
+ExecStart=/usr/local/libexec/printora-cloud/start-worker.sh %i
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=75
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/print3dmaker.xyz/shared/data /var/www/print3dmaker.xyz/shared/logs
+LimitNOFILE=32768
+MemoryHigh=384M
+MemoryMax=512M
+CPUQuota=100%
+TasksMax=128
+
+[Install]
+WantedBy=printora-cloud-workers.target

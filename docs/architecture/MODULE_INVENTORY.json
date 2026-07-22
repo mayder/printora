@@ -82,10 +82,10 @@
     }
   ],
   "summary": {
-    "modules": 136,
+    "modules": 139,
     "routes": 322,
-    "contracts": 337,
-    "tables": 100,
+    "contracts": 338,
+    "tables": 107,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 25,
@@ -93,7 +93,7 @@
       "identity": 10,
       "integrations": 7,
       "operations": 55,
-      "shared": 11
+      "shared": 14
     }
   },
   "cycles": [],
@@ -156,11 +156,12 @@
     {
       "module": "agent_pairing",
       "owner": "operations",
-      "lines": 886,
+      "lines": 909,
       "imports": [
         "auth",
         "database",
         "modules.operations.contracts",
+        "modules.platform.durable_execution",
         "printers"
       ],
       "routes": [],
@@ -999,6 +1000,30 @@
       "contracts": []
     },
     {
+      "module": "modules.platform.durable_execution",
+      "owner": "shared",
+      "lines": 647,
+      "imports": [
+        "database",
+        "modules.platform.database_target"
+      ],
+      "routes": [],
+      "contracts": [
+        "DatabaseConnection"
+      ]
+    },
+    {
+      "module": "modules.platform.event_dispatcher",
+      "owner": "shared",
+      "lines": 83,
+      "imports": [
+        "database",
+        "modules.platform.durable_execution"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "modules.platform.postgresql",
       "owner": "shared",
       "lines": 161,
@@ -1249,7 +1274,7 @@
     {
       "module": "routes.agents",
       "owner": "operations",
-      "lines": 696,
+      "lines": 689,
       "imports": [
         "agent_channel",
         "agent_pairing",
@@ -3670,6 +3695,18 @@
       ]
     },
     {
+      "module": "worker",
+      "owner": "shared",
+      "lines": 225,
+      "imports": [
+        "config",
+        "modules.platform.durable_execution",
+        "modules.platform.event_dispatcher"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "z_offset",
       "owner": "operations",
       "lines": 248,
@@ -4185,6 +4222,41 @@
       "table": "print_project_publication_reviews",
       "owner": "community",
       "script": "071_print_project_publication.sql"
+    },
+    {
+      "table": "outbox_events",
+      "owner": "administration",
+      "script": "073_durable_execution.sql"
+    },
+    {
+      "table": "inbox_receipts",
+      "owner": "administration",
+      "script": "073_durable_execution.sql"
+    },
+    {
+      "table": "durable_jobs",
+      "owner": "administration",
+      "script": "073_durable_execution.sql"
+    },
+    {
+      "table": "idempotency_records",
+      "owner": "administration",
+      "script": "073_durable_execution.sql"
+    },
+    {
+      "table": "realtime_sessions",
+      "owner": "administration",
+      "script": "073_durable_execution.sql"
+    },
+    {
+      "table": "worker_controls",
+      "owner": "administration",
+      "script": "073_durable_execution.sql"
+    },
+    {
+      "table": "worker_instances",
+      "owner": "administration",
+      "script": "073_durable_execution.sql"
     }
   ]
 }

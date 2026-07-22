@@ -107,6 +107,7 @@ SHARED_MODULES = {
     "__init__",
     "database",
     "main",
+    "worker",
 }
 
 CREATE_TABLE = re.compile(

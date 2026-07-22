@@ -144,3 +144,7 @@ ON public.worker_instances(queue_name, state, heartbeat_at);
 INSERT INTO public.worker_controls (queue_name, desired_state, max_concurrency)
 VALUES ('critical', 'running', 2), ('default', 'running', 2), ('bulk', 'running', 1)
 ON CONFLICT (queue_name) DO NOTHING;
+
+INSERT INTO public.worker_controls (queue_name, desired_state, max_concurrency)
+VALUES ('outbox', 'running', 1)
+ON CONFLICT (queue_name) DO NOTHING;

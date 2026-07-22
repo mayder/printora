@@ -39,6 +39,7 @@ printf '%s\n' "$candidate_slot" > "$PRINTORA_ACTIVE_SLOT_FILE.tmp"
 mv -f "$PRINTORA_ACTIVE_SLOT_FILE.tmp" "$PRINTORA_ACTIVE_SLOT_FILE"
 ln -sfn "$release_dir" "$PRINTORA_BASE_PATH/current.next"
 mv -Tf "$PRINTORA_BASE_PATH/current.next" "$PRINTORA_BASE_PATH/current"
+restart_durable_workers
 
 drain_seconds="${PRINTORA_DRAIN_SECONDS:-30}"
 sleep "$drain_seconds"

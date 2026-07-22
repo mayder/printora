@@ -469,6 +469,56 @@ class DurableExecutionRepository:
         outbox = {str(row["status"]): int(row["total"]) for row in outbox_rows}
         return {"jobs": jobs, "outbox": outbox}
 
+    def worker_desired_state(self, queue_name: str) -> str:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                "SELECT desired_state FROM worker_controls WHERE queue_name = ?",
+                (queue_name,),
+            ).fetchone()
+        return str(row["desired_state"]) if row else "paused"
+
+    def register_worker(
+        self,
+        worker_id: str,
+        queue_name: str,
+        release_sha: str,
+        concurrency: int,
+    ) -> None:
+        now = _timestamp(_utc_now())
+        with connect_database(self.database_path) as connection:
+            connection.execute(
+                """
+                INSERT INTO worker_instances (
+                    worker_id, queue_name, release_sha, state, concurrency,
+                    started_at, heartbeat_at, stopped_at
+                ) VALUES (?, ?, ?, 'running', ?, ?, ?, NULL)
+                ON CONFLICT(worker_id) DO UPDATE SET
+                    queue_name = excluded.queue_name,
+                    release_sha = excluded.release_sha,
+                    state = 'running',
+                    concurrency = excluded.concurrency,
+                    started_at = excluded.started_at,
+                    heartbeat_at = excluded.heartbeat_at,
+                    stopped_at = NULL
+                """,
+                (worker_id, queue_name, release_sha, concurrency, now, now),
+            )
+
+    def heartbeat_worker(self, worker_id: str, state: str = "running") -> None:
+        with connect_database(self.database_path) as connection:
+            connection.execute(
+                "UPDATE worker_instances SET state = ?, heartbeat_at = ? WHERE worker_id = ?",
+                (state, _timestamp(_utc_now()), worker_id),
+            )
+
+    def stop_worker(self, worker_id: str) -> None:
+        now = _timestamp(_utc_now())
+        with connect_database(self.database_path) as connection:
+            connection.execute(
+                "UPDATE worker_instances SET state = 'stopped', heartbeat_at = ?, stopped_at = ? WHERE worker_id = ?",
+                (now, now, worker_id),
+            )
+
     def _enqueue_job(self, connection: DatabaseConnection, **values: Any) -> DurableJob:
         payload_json = _canonical_json(values["payload"])
         existing = connection.execute("SELECT * FROM durable_jobs WHERE job_key = ?", (values["job_key"],)).fetchone()

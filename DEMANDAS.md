@@ -5553,6 +5553,10 @@ Estado atual:
   lease, retry/dead-letter e dispatcher que materializa consumidores como jobs
   idempotentes. A criação canônica de job de agente grava o evento na mesma
   transação e não depende mais de entrega imediata pelo processo HTTP.
+- Lote 3 concluído: worker durável por classe com concorrência limitada,
+  heartbeat de lease, retomada após expiração, pausa/drain persistidos e registro
+  de release. Units systemd resolvem a release ativa de forma imutável; deploy e
+  rollback drenam/reiniciam workers compatíveis sem restaurar dados.
 
 ## PKG-90: Objetos, Quarentena E Busca Reconstruível
 
