@@ -16,6 +16,7 @@ restore_root="$(mktemp -d /var/lib/postgresql/printora-restore-test.XXXXXX)"
 cluster="$restore_root/cluster"
 socket_dir="$restore_root/socket"
 restored="$restore_root/restored"
+export RESTIC_CACHE_DIR="$restore_root/restic-cache"
 started=0
 cleanup() {
   if [[ "$started" -eq 1 ]]; then
@@ -32,7 +33,7 @@ restic restore latest --tag printora-cloud-postgresql --target "$restored"
 dump="$(find "$restored" -type f -name printora-postgresql.dump -print -quit)"
 manifest="$(find "$restored" -type f -name manifest.json -print -quit)"
 base_tar="$(find "$restored" -type f -name base.tar.zst -print -quit)"
-wal_tar="$(find "$restored" -type f -name pg_wal.tar.zst -print -quit)"
+wal_tar="$(find "$restored" -type f \( -name pg_wal.tar.zst -o -name pg_wal.tar \) -print -quit)"
 archive_dir="$(find "$restored" -type d -name printora-wal-archive -print -quit)"
 [[ -n "$dump" && -n "$manifest" && -n "$base_tar" && -n "$wal_tar" && -n "$archive_dir" ]] || {
   echo "backup restaurado incompleto" >&2
@@ -56,7 +57,11 @@ install -d -o postgres -g postgres -m 0700 "$cluster" "$socket_dir"
 chown -R postgres:postgres "$restored"
 runuser -u postgres -- tar --zstd -xf "$base_tar" -C "$cluster"
 install -d -o postgres -g postgres -m 0700 "$cluster/pg_wal"
-runuser -u postgres -- tar --zstd -xf "$wal_tar" -C "$cluster/pg_wal"
+case "$wal_tar" in
+  *.zst) runuser -u postgres -- tar --zstd -xf "$wal_tar" -C "$cluster/pg_wal" ;;
+  *.tar) runuser -u postgres -- tar -xf "$wal_tar" -C "$cluster/pg_wal" ;;
+  *) echo "formato do arquivo pg_wal inesperado" >&2; exit 1 ;;
+esac
 cat > "$cluster/postgresql.conf" <<EOF
 listen_addresses = ''
 port = 5432
