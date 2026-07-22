@@ -84,6 +84,9 @@ listen_addresses = ''
 port = 5432
 unix_socket_directories = '$socket_dir'
 archive_mode = off
+fsync = off
+full_page_writes = off
+synchronous_commit = off
 restore_command = 'cp $archive_dir/%f %p'
 recovery_target_action = 'promote'
 EOF
@@ -92,8 +95,8 @@ local all all trust
 EOF
 touch "$cluster/recovery.signal"
 chown -R postgres:postgres "$cluster"
-runuser -u postgres -- "$pg_bin/pg_ctl" -D "$cluster" -w start >/dev/null
 started=1
+runuser -u postgres -- "$pg_bin/pg_ctl" -D "$cluster" -t 300 -w start >/dev/null
 export PGHOST="$socket_dir" PGPORT=5432 PGUSER=postgres PGDATABASE=postgres
 for _attempt in $(seq 1 60); do
   if [[ "$(runuser -u postgres -- "$pg_bin/psql" -X -Atqc 'SELECT pg_is_in_recovery()')" == "f" ]]; then
