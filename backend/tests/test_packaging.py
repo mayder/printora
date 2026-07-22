@@ -138,6 +138,22 @@ def test_cloud_backup_has_external_restore_test_without_automatic_deletion() -> 
     assert "systemctl enable --now printora-cloud-backup.timer" in bootstrap
 
 
+def test_postgresql_backup_is_encrypted_and_restored_in_isolated_cluster() -> None:
+    backup = (ROOT_DIR / "scripts/cloud/backup-postgresql.sh").read_text()
+    restore = (ROOT_DIR / "scripts/cloud/restore-postgresql-backup-test.sh").read_text()
+
+    assert "pg_dump" in backup
+    assert "--serializable-deferrable" in backup
+    assert "printora-cloud-postgresql" in backup
+    assert "restic backup" in backup
+    assert "forget" not in backup
+    assert "prune" not in backup
+    assert "initdb" in restore
+    assert "pg_restore" in restore
+    assert "checksum do dump divergente" in restore
+    assert "aplicação não foi iniciada" in restore
+
+
 def test_cloud_load_smoke_reports_zero_errors() -> None:
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
