@@ -409,6 +409,7 @@ def _upsert_app_version(
     schema_revision: int,
 ) -> None:
     version = _installed_app_version()
+    updated_at = datetime.now(timezone.utc).isoformat()
     connection.execute(
         """
         INSERT INTO app_version (id, app_name, version, schema_revision)
@@ -421,11 +422,11 @@ def _upsert_app_version(
                 WHEN app_version.app_name != excluded.app_name
                   OR app_version.version != excluded.version
                   OR app_version.schema_revision != excluded.schema_revision
-                THEN CURRENT_TIMESTAMP
+                THEN ?
                 ELSE app_version.updated_at
             END
         """,
-        (APP_NAME, version, schema_revision),
+        (APP_NAME, version, schema_revision, updated_at),
     )
 
 
@@ -478,7 +479,16 @@ def _sql_checksum(sql_file: Path) -> str:
     return hashlib.sha256(sql_file.read_bytes()).hexdigest()
 
 
-def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
+def _table_exists(
+    connection: sqlite3.Connection | PostgreSQLConnection,
+    table_name: str,
+) -> bool:
+    if isinstance(connection, PostgreSQLConnection):
+        row = connection.execute(
+            "SELECT to_regclass(?) AS table_name",
+            (f"public.{table_name}",),
+        ).fetchone()
+        return row is not None and row["table_name"] is not None
     row = connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
         (table_name,),

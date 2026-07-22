@@ -47,7 +47,7 @@
 | `health` | `administration` | 513 | 0 | 0 |
 | `setup_firmware` | `operations` | 513 | 0 | 5 |
 | `setup_final_validation` | `operations` | 509 | 0 | 4 |
-| `database` | `shared` | 491 | 0 | 0 |
+| `database` | `shared` | 501 | 0 | 0 |
 | `firmware.repository` | `operations` | 489 | 0 | 0 |
 | `agent_support` | `operations` | 486 | 0 | 5 |
 | `firmware_catalog` | `operations` | 478 | 0 | 14 |

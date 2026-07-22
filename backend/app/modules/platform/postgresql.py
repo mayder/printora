@@ -99,7 +99,7 @@ class PostgreSQLConnection:
                 WHERE table_schema = current_schema() AND column_name = 'id'
                 """
             )
-            return {str(row[0]) for row in cursor.fetchall()}
+            return {str(row["table_name"]) for row in cursor.fetchall()}
 
 
 def translate_sql(statement: str) -> str:
