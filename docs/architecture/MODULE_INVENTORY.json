@@ -1568,7 +1568,7 @@
     {
       "module": "routes.frontend",
       "owner": "administration",
-      "lines": 52,
+      "lines": 56,
       "imports": [
         "routes.support"
       ],

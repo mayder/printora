@@ -1,0 +1,68 @@
+from __future__ import annotations
+
+import ast
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+APP = ROOT / "backend" / "app"
+INVENTORY = ROOT / "docs" / "architecture" / "MODULE_INVENTORY.json"
+FORBIDDEN_PURE_IMPORTS = {
+    "fastapi",
+    "sqlite3",
+    "psycopg",
+    "redis",
+    "sqlalchemy",
+    "starlette",
+}
+PURE_FILENAMES = {"domain.py", "contracts.py", "ports.py"}
+
+
+def imported_roots(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    roots: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            roots.update(alias.name.partition(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            roots.add(node.module.partition(".")[0])
+    return roots
+
+
+def test_generated_module_inventory_is_current_and_acyclic() -> None:
+    subprocess.run(
+        ["python3", "scripts/audit_module_boundaries.py", "--check"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(INVENTORY.read_text(encoding="utf-8"))
+    assert payload["cycles"] == []
+    assert payload["summary"]["routes"] >= 300
+    assert payload["summary"]["tables"] >= 100
+    assert all(row["owner"] for row in payload["modules"])
+
+
+def test_versioned_http_and_realtime_contracts_are_current() -> None:
+    subprocess.run(
+        [sys.executable, "scripts/export_api_contracts.py", "--check"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_pure_module_layers_do_not_import_framework_or_database_drivers() -> None:
+    pure_files = [
+        path
+        for path in (APP / "modules").rglob("*.py")
+        if path.name in PURE_FILENAMES
+    ] if (APP / "modules").is_dir() else []
+    for path in pure_files:
+        forbidden = imported_roots(path) & FORBIDDEN_PURE_IMPORTS
+        assert not forbidden, f"{path.relative_to(ROOT)} importa {sorted(forbidden)}"

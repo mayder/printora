@@ -58,6 +58,15 @@ run_model_validations
 log "validando inventário modular"
 python3 scripts/audit_module_boundaries.py --check >/dev/null
 
+log "validando contratos públicos versionados"
+if command -v uv >/dev/null 2>&1; then
+  (cd backend && uv run python ../scripts/export_api_contracts.py --check >/dev/null)
+elif [[ -x backend/.venv/bin/python ]]; then
+  backend/.venv/bin/python scripts/export_api_contracts.py --check >/dev/null
+else
+  python3 scripts/export_api_contracts.py --check >/dev/null
+fi
+
 log "python compileall"
 python3 -m compileall -q backend/app backend/tests
 
