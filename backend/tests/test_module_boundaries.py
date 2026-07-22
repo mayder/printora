@@ -84,3 +84,16 @@ def test_module_registry_has_unique_versioned_owners_and_router_order() -> None:
     orders = [registration.order for definition in definitions for registration in definition.routers]
     assert len(orders) == 31
     assert len(orders) == len(set(orders))
+
+
+def test_current_adapters_implement_explicit_module_ports(tmp_path: Path) -> None:
+    from app.backups import BackupRepository
+    from app.modules.administration.ports import BackupRepositoryPort
+    from app.modules.community.ports import CommunityRepositoryPort
+    from app.modules.integrations.ports import MoonrakerGateway
+    from app.moonraker import MoonrakerClient
+    from app.social_catalog import SocialCatalogRepository
+
+    assert isinstance(BackupRepository(tmp_path / "backup.db"), BackupRepositoryPort)
+    assert isinstance(SocialCatalogRepository(tmp_path / "social.db"), CommunityRepositoryPort)
+    assert isinstance(MoonrakerClient("http://127.0.0.1:7125"), MoonrakerGateway)

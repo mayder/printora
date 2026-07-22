@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import get_settings
 from app.modules.identity.contracts import CurrentUser
+from app.modules.community.ports import CommunityRepositoryPort
 from app.modules.community.contracts import (
     CatalogAdminSummary,
     CatalogManufacturer,
@@ -58,7 +59,7 @@ router = APIRouter(tags=["social-catalog"])
 _PROFILE_SEARCH_WINDOWS: dict[str, list[float]] = {}
 
 
-def get_social_repository() -> SocialCatalogRepository:
+def get_social_repository() -> CommunityRepositoryPort:
     return SocialCatalogRepository(get_settings().database_path)
 
 

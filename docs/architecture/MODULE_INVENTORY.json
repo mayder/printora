@@ -82,16 +82,16 @@
     }
   ],
   "summary": {
-    "modules": 130,
+    "modules": 133,
     "routes": 322,
-    "contracts": 334,
+    "contracts": 337,
     "tables": 100,
     "cycles": 0,
     "modules_by_owner": {
-      "administration": 24,
-      "community": 27,
+      "administration": 25,
+      "community": 28,
       "identity": 10,
-      "integrations": 6,
+      "integrations": 7,
       "operations": 55,
       "shared": 8
     }
@@ -646,6 +646,18 @@
       ]
     },
     {
+      "module": "modules.administration.ports",
+      "owner": "administration",
+      "lines": 24,
+      "imports": [
+        "modules.administration.contracts"
+      ],
+      "routes": [],
+      "contracts": [
+        "BackupRepositoryPort"
+      ]
+    },
+    {
       "module": "modules.assembly",
       "owner": "shared",
       "lines": 19,
@@ -763,6 +775,18 @@
       ]
     },
     {
+      "module": "modules.community.ports",
+      "owner": "community",
+      "lines": 33,
+      "imports": [
+        "modules.community.contracts"
+      ],
+      "routes": [],
+      "contracts": [
+        "CommunityRepositoryPort"
+      ]
+    },
+    {
       "module": "modules.community.validation",
       "owner": "community",
       "lines": 124,
@@ -872,6 +896,16 @@
       ],
       "routes": [],
       "contracts": []
+    },
+    {
+      "module": "modules.integrations.ports",
+      "owner": "integrations",
+      "lines": 27,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "MoonrakerGateway"
+      ]
     },
     {
       "module": "modules.operations.__init__",
@@ -2624,10 +2658,11 @@
     {
       "module": "routes.social_catalog",
       "owner": "community",
-      "lines": 1107,
+      "lines": 1108,
       "imports": [
         "config",
         "modules.community.contracts",
+        "modules.community.ports",
         "modules.identity.contracts",
         "routes.auth",
         "social_catalog",

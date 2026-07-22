@@ -4,9 +4,9 @@
 
 ## Resumo
 
-- módulos Python: 130;
+- módulos Python: 133;
 - endpoints HTTP/WebSocket: 322;
-- contratos tipados: 334;
+- contratos tipados: 337;
 - tabelas declaradas em SQL: 100;
 - ciclos de import detectados: 0.
 
@@ -15,10 +15,10 @@
 | Fronteira | Owner | Responsabilidade | Módulos | Tabelas |
 |---|---|---|---:|---:|
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 10 | 8 |
-| `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 27 | 45 |
+| `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 28 | 45 |
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 55 | 32 |
-| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 24 | 15 |
-| `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 6 | 0 |
+| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 25 | 15 |
+| `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 7 | 0 |
 | `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 8 | 0 |
 
 ## Arquivos Críticos
@@ -28,7 +28,7 @@
 | `social_catalog` | `community` | 3332 | 0 | 0 |
 | `operation` | `operations` | 1153 | 0 | 0 |
 | `maintenance` | `operations` | 1147 | 0 | 8 |
-| `routes.social_catalog` | `community` | 1107 | 59 | 0 |
+| `routes.social_catalog` | `community` | 1108 | 59 | 0 |
 | `print_projects` | `community` | 1037 | 0 | 14 |
 | `self_update` | `administration` | 1002 | 0 | 10 |
 | `auth` | `identity` | 911 | 0 | 0 |
