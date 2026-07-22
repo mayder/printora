@@ -7,6 +7,7 @@ import { PrintVisual } from "./PrintPreview";
 import { TemperatureMonitor, buildTemperatureSeries } from "./temperature";
 import { canTone, formatCanAlert, formatDataState, formatDecision, formatOperationValue, formatOptional, formatPercent, formatTemperature, healthTone } from "./formatters";
 import { formatDateTime } from "../../utils/formatters";
+import { apiResponse } from "../../services/http";
 import type { CanBusRecord, CanBusRecordComparison, CanBusSummary, HealthResponse } from "./types";
 import type {
   OperationAction,
@@ -19,6 +20,14 @@ import type {
 } from "../../types";
 
 type CapabilityStatus = OperationCapability["status"];
+type DatabaseTransitionStatus = {
+  backend: "sqlite" | "postgresql";
+  state: string;
+  watermark?: number;
+  events?: number;
+  changed_tables?: number;
+  updated_at?: string | null;
+};
 
 const PRIMARY_PRINT_FACT_LABELS = new Set(["Estado", "Camada", "Tempo", "Restante"]);
 const MIN_GCODE_VIEWER_AGENT_VERSION = "0.1.30";
@@ -72,6 +81,7 @@ export function MonitoringDashboard({
   onOpenGcodeFiles: () => void;
 }) {
   const [capabilityModalStatus, setCapabilityModalStatus] = React.useState<CapabilityStatus | null>(null);
+  const [databaseTransition, setDatabaseTransition] = React.useState<DatabaseTransitionStatus | null>(null);
   const printBodyRef = React.useRef<HTMLDivElement | null>(null);
   const temperatureSeries = buildTemperatureSeries(operationStatus?.temperature_history ?? [], operationStatus?.temperatures ?? []);
   const latestCanRecords = canRecords.slice(0, 4);
@@ -86,6 +96,32 @@ export function MonitoringDashboard({
   const idleGcodeFiles = operationStatus?.miscellaneous.gcode_files ?? [];
   const completedPrintFile = completedPrintPreviewFile(operationStatus, idleGcodeFiles);
   const completedPreview = Boolean(!printActive && completedPrintFile);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    let refreshTimer: number | undefined;
+    async function loadDatabaseTransition() {
+      try {
+        const response = await apiResponse("/api/system/version/internal");
+        if (!response.ok || cancelled) return;
+        const payload = (await response.json()) as { database_transition?: DatabaseTransitionStatus };
+        if (!cancelled && payload.database_transition) {
+          setDatabaseTransition(payload.database_transition);
+        }
+      } catch {
+        // This support-only status must not affect the operational dashboard.
+      } finally {
+        if (!cancelled) {
+          refreshTimer = window.setTimeout(() => void loadDatabaseTransition(), 15_000);
+        }
+      }
+    }
+    void loadDatabaseTransition();
+    return () => {
+      cancelled = true;
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+    };
+  }, []);
   const gcodeFilename = printActive
     ? (operationStatus?.miscellaneous.filename ?? "").trim()
     : ((operationStatus?.miscellaneous.filename ?? "").trim() || operationGcodeFilePath(completedPrintFile));
@@ -185,6 +221,25 @@ export function MonitoringDashboard({
         <MonitorBadge icon={Thermometer} label="Mesa" value={formatTemperature(bed?.temperature)} />
         <MonitorBadge icon={Database} label="Origem" value={formatDataState(operationStatus?.data_state)} />
       </div>
+
+      {databaseTransition ? (
+        <section className="monitor-card database-transition-card" aria-label="Progresso da transição de banco">
+          <div className="monitor-card-title">
+            <Database size={18} />
+            <h3>Transição de banco</h3>
+          </div>
+          <div className="monitor-status-strip">
+            <MonitorBadge icon={Database} label="Backend" value={databaseTransition.backend} tone="ok" />
+            <MonitorBadge icon={Activity} label="Estado" value={databaseTransition.state} />
+            <MonitorBadge icon={Gauge} label="Watermark" value={String(databaseTransition.watermark ?? 0)} />
+            <MonitorBadge
+              icon={FileText}
+              label="Eventos"
+              value={String(databaseTransition.events ?? databaseTransition.changed_tables ?? 0)}
+            />
+          </div>
+        </section>
+      ) : null}
 
       {liveUnavailable ? (
         <div className="monitor-note monitor-live-unavailable">
