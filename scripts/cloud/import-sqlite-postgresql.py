@@ -16,6 +16,7 @@ from psycopg.rows import dict_row
 
 
 EXCLUDED_TABLES = {"postgresql_transition_outbox", "sqlite_sequence"}
+STATE_TABLE = "printora_transition_replication_state"
 
 
 def sqlite_tables(connection: sqlite3.Connection) -> list[str]:
@@ -32,6 +33,19 @@ def sqlite_tables(connection: sqlite3.Connection) -> list[str]:
 
 def sqlite_columns(connection: sqlite3.Connection, table: str) -> list[str]:
     return [str(row[1]) for row in connection.execute(f"PRAGMA table_info({_quote(table)})")]
+
+
+def snapshot_watermark(connection: sqlite3.Connection) -> int:
+    exists = connection.execute(
+        "SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?",
+        ("postgresql_transition_outbox",),
+    ).fetchone()
+    if exists is None:
+        raise RuntimeError("Snapshot não contém a outbox de transição")
+    row = connection.execute(
+        "SELECT COALESCE(MAX(id), 0) FROM postgresql_transition_outbox"
+    ).fetchone()
+    return int(row[0])
 
 
 def postgresql_columns(connection: psycopg.Connection[Any], table: str) -> list[str]:
@@ -132,6 +146,7 @@ def main() -> None:
     parser.add_argument("--expected-database", required=True)
     parser.add_argument("--batch-size", type=int, default=1_000)
     parser.add_argument("--replace-target", action="store_true", required=True)
+    parser.add_argument("--initialize-watermark-from-outbox", action="store_true")
     args = parser.parse_args()
     if not args.postgresql_url:
         raise SystemExit("--postgresql-url ou PRINTORA_DATABASE_URL é obrigatório")
@@ -169,6 +184,22 @@ def main() -> None:
             target.execute("SET session_replication_role = origin")
             target.commit()
             sequences = sync_sequences(target)
+            watermark = 0
+            if args.initialize_watermark_from_outbox:
+                watermark = snapshot_watermark(source)
+                target.execute(
+                    f"""
+                    UPDATE {STATE_TABLE}
+                    SET watermark = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = 1
+                    """,
+                    (watermark,),
+                )
+                if target.execute(
+                    f"SELECT watermark FROM {STATE_TABLE} WHERE id = 1"
+                ).fetchone() is None:
+                    raise RuntimeError("Estado de replicação PostgreSQL não inicializado")
+                target.commit()
     finally:
         source.close()
     print(
@@ -177,6 +208,7 @@ def main() -> None:
                 "imported_rows": sum(report.values()),
                 "sequences": sequences,
                 "tables": report,
+                "watermark": watermark,
             },
             ensure_ascii=False,
             sort_keys=True,
