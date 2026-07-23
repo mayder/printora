@@ -31,25 +31,31 @@ def main() -> None:
         buyer_id = _user(connection, f"finance-buyer-{run_id}@example.invalid")
         approver_id = _user(connection, f"finance-approver-{run_id}@example.invalid")
         executor_id = _user(connection, f"finance-executor-{run_id}@example.invalid")
-        project_id = connection.execute(
+        connection.execute("LOCK TABLE print_projects IN EXCLUSIVE MODE")
+        project_id = int(
+            connection.execute(
+                "SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM print_projects"
+            ).fetchone()["next_id"]
+        )
+        connection.execute(
             """
             INSERT INTO print_projects (
-                owner_user_id, slug, title, visibility, lifecycle_status,
+                id, owner_user_id, slug, title, visibility, lifecycle_status,
                 publication_status, commercial_class, license, price_cents,
                 currency, commercial_terms
-            ) VALUES (?, ?, 'Projeto sintético financeiro', 'public', 'active',
+            ) VALUES (?, ?, ?, 'Projeto sintético financeiro', 'public', 'active',
                       'approved', 'premium', 'CC-BY-4.0', 5000, 'BRL',
                       'Somente validação sandbox')
             """,
-            (seller_id, f"finance-sandbox-{run_id}"),
-        ).lastrowid
+            (project_id, seller_id, f"finance-sandbox-{run_id}"),
+        )
 
     orders = FinanceOrderService(database_path)
     order = orders.create(
         buyer_id,
         OrderCreateRequest(
             idempotency_key=f"order-{run_id}",
-            items=[OrderItemRequest(project_id=int(project_id))],
+            items=[OrderItemRequest(project_id=project_id)],
             country_code="BR",
         ),
     )
