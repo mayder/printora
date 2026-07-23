@@ -2,7 +2,7 @@
 
 Data: 2026-07-23
 Pacote: PKG-96
-Estado: candidato local validado; publicação, canário, rollback físico e promoção pendentes
+Estado: publicado, homologado nas Voron 2.4 e 0.2 e promovido como recomendado
 
 ## Escopo Exercitado
 
@@ -57,8 +57,9 @@ byte a byte com o N-1 versionado. O conteúdo continua recuperável pelo artefat
 - `govulncheck ./...`: nenhuma vulnerabilidade alcançável;
 - testes focados de agente/update/instalador/backend passaram, incluindo canal
   candidato, rollback N-1, bloqueio prematuro e rejeição de canal inválido;
-- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`: 567 testes Python,
-  testes Go, build frontend e testes de release/preview passaram.
+- `CHECK_STRICT_SECRETS=1 CHECK_STRICT_RUNTIME_NAMES=1 RUN_PYTHON_TESTS=1
+  RUN_FRONTEND_CHECKS=1 ./check.sh`: 569 testes Python, testes Go, build frontend
+  e testes de release, preview e polling sequencial passaram.
 
 O build frontend ainda emitiu os warnings de Node 18 incompatível e chunks acima
 de 500 kB. O comando terminou com sucesso porque esses limites pertencem ao
@@ -82,23 +83,76 @@ Em produção, antes de qualquer mutação:
 - um job auditado `remote_operation_status` terminou com `safe_mode=read_only`,
   `kind=operation_status` e estado físico `standby`.
 
-Nenhum update, restart, comando G-code, alteração de Klipper/Moonraker, flash ou
-mudança de firmware foi executado nesta etapa.
+Nenhum comando G-code, alteração de Klipper/Moonraker, flash ou mudança de
+firmware foi executado.
 
-## Gates Pendentes
+## Canário, Rollback E Paridade Real
 
-1. commit/push e publicar o candidato sem alterar a recomendação;
-2. validar download público, checksum, assinatura, SBOM e smoke;
-3. com a impressora ainda ociosa, instalar somente `printora-agent` como canário;
-4. exercer heartbeat, snapshot, job, WebSocket, reconnect, polling e fencing;
-5. comprovar que Klipper, Moonraker, MCU, host e fila não reiniciaram;
-6. executar rollback real para o N-1, validar saúde e reaplicar `0.1.34`;
-7. observar o canário e somente então promover `recommended_version`;
-8. repetir gate completo, smoke público, auditoria de resíduo e fechar o pacote.
+- Voron 0.2 e Voron 2.4 foram confirmadas com Moonraker online, Klipper `ready`
+  e `print_stats.state=standby` antes de cada ação mutável;
+- a primeira tentativa na Voron 0.2 falhou antes da instalação porque o OpenSSL
+  1.1.1 local não suportava a verificação Ed25519 usada; o binário não foi
+  substituído;
+- o verificador foi trocado por uma implementação Ed25519 portátil em Python
+  padrão, validada contra a assinatura real e contra adulteração;
+- as duas impressoras instalaram `0.1.34`, voltaram para `0.1.33` e reaplicaram
+  `0.1.34` exclusivamente pelas ações web do Printora;
+- cada operação reiniciou somente `printora-agent`; Klipper, Moonraker, MCU e
+  host permaneceram ativos;
+- doctor remoto final confirmou API, Moonraker, fila local e logs; a Voron 2.4
+  também confirmou ausência de throttling/undervoltage;
+- conexões WebSocket `101`, reconnect, heartbeat a cada 10 segundos, entrega de
+  jobs e fallback por `/api/agent/jobs/next` foram observados em produção;
+- retransmissões de resultado foram idempotentes e o journal durável impediu
+  repetição do efeito físico;
+- depois da janela de observação, ambos os agentes continuaram online em
+  `linux/arm64`, protocolo 1 e versão `0.1.34`.
+
+## Defeitos Encontrados E Corrigidos
+
+- timestamps PostgreSQL com offset curto impediam a UI de reconhecer agentes
+  online; backend e frontend passaram a normalizar o formato;
+- `printer_snapshots.id` não possuía identidade no baseline PostgreSQL legado;
+  `017_printer_snapshots_identity.sql` adicionou sequência/default de forma
+  aditiva, idempotente e transacional, alinhando a propriedade da sequência à
+  tabela;
+- a desconexão WebSocket era removida da memória antes da persistência e podia
+  ser perdida no shutdown; a ordem foi invertida e o teste passou 30 vezes
+  consecutivas;
+- a aba Operação sobrepunha leituras a cada cinco segundos quando o agente estava
+  lento; o polling agora espera a rodada atual terminar antes de agendar outra.
+
+Em produção, o banco registrou um snapshot por impressora:
+
+| Impressora | `printer_id` | Snapshot real |
+| --- | ---: | --- |
+| Voron 0.2 | 1 | `2026-07-23 11:31:49-03` |
+| Voron 2.4 | 3 | `2026-07-23 11:30:44-03` |
+
+A janela estabilizada do polling registrou Operação às 11:51:46, saúde às
+11:52:01 e nova Operação às 11:52:12, sem sobreposição.
+
+## Publicação E Promoção
+
+| Marco | Evidência |
+| --- | --- |
+| Candidato publicado | workflow `30009192554` |
+| Schema/snapshot corrigidos | workflow `30015189640` |
+| Polling sequencial publicado | workflow `30016684483` |
+| Promoção pública | workflow `30018307622`, commit `7acb26f` |
+
+O manifesto público final recomenda `0.1.34`, não anuncia candidato e mantém os
+artefatos `0.1.33` e `0.1.34`. Downloads públicos produziram exatamente os
+SHA-256 documentados. `/health` respondeu `ok`; `/ready` respondeu `ready`,
+PostgreSQL `ok` e schema revision 86. A UI exibiu dois agentes online, ambos em
+`0.1.34`, versão esperada `0.1.34` e canário ausente.
 
 ## Risco Residual
 
-O artefato candidato está validado localmente, mas não existe evidência suficiente
-para chamá-lo de publicado, instalado ou homologado em hardware. A ausência de
-mutação nesta etapa preserva a impressão e o rollback, mas impede o fechamento
-do PKG-96 até os gates operacionais acima.
+- o alerta histórico de falhas em 24 horas permanece visível até a janela de
+  retenção expirar, mas a causa de tempestade foi corrigida e a nova janela
+  mostrou leituras sequenciais;
+- Node 18 e chunks acima de 500 kB continuam warnings não bloqueantes e pertencem
+  explicitamente ao PKG-97;
+- o rollback permanece disponível para `0.1.33`; não envolve restauração de
+  PostgreSQL, Redis, objetos ou release web.

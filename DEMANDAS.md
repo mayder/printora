@@ -6214,18 +6214,19 @@ Rollback:
 
 Estado atual:
 
-- Em implementação em 2026-07-23.
-- Lotes 1 a 4 concluídos localmente: inventário, plataforma `linux/arm64`,
-  versão/protocolo/capabilities, build reproduzível, SBOM, checksums, assinatura,
-  verificação no agente/instalador e journal durável de jobs.
-- Leitura real confirmou agente `0.1.33` saudável e impressora `standby`.
-- Autorização explícita recebida para commit, push, deploy e update/rollback
-  apenas do `printora-agent` nas Voron 2.4 e 0.2, sempre pelo ambiente web.
-- Lote 5 em andamento: ações web de candidato/rollback, preflight fail-closed e
-  release imutável estão prontas para publicação; lotes 6 a 10 dependem da
-  confirmação de ambas as impressoras ociosas, canário real, rollback,
-  observação e promoção.
-- Evidência parcial: `docs/audits/AGENT_RELEASE_0.1.34_2026-07-23.md`.
+- Concluído em 2026-07-23.
+- Lotes 1 a 10 concluídos: inventário, suporte `linux/arm64`, contratos,
+  artefato reproduzível, SBOM, checksums, assinatura, candidato público,
+  canário real, WebSocket/polling/heartbeat/jobs/fencing, rollback N-1,
+  reaplicação, observação, promoção e auditoria final.
+- Voron 2.4 e Voron 0.2 terminaram online em `0.1.34`, protocolo 1, com
+  Moonraker online e Klipper `ready`; update/rollback reiniciaram somente
+  `printora-agent`.
+- Manifesto público recomenda `0.1.34`, não anuncia candidato e preserva o
+  artefato `0.1.33` para rollback.
+- Gate completo: 569 testes Python, testes Go, build e testes frontend; smoke
+  público e dois snapshots reais passaram.
+- Evidência final: `docs/audits/AGENT_RELEASE_0.1.34_2026-07-23.md`.
 
 ## PKG-97: Gate De Qualidade, E2E, Fuzzing E Pentest
 
