@@ -1200,3 +1200,36 @@ até reconciliação e confirmação explícita para remoção.
 Como reverter: pausar promoções, drenar jobs de storage, publicar a release N-1
 S3-compatible e manter buckets/metadados intactos. Falha física exige restore
 integral validado, nunca retorno silencioso a paths locais.
+
+### DEC-20260722-07 - Busca cloud usa FTS PostgreSQL reconstruível por outbox
+
+Status: aceita
+Data: 2026-07-22
+Contexto: a busca cloud reconstruía uma tabela SQLite por assinatura durante o
+request e consultava texto com `LIKE`. Esse fluxo não escala, pode ficar obsoleto
+entre processos e não reaplica todas as permissões no momento da leitura.
+
+Decisão: materializar documentos no PostgreSQL com `tsvector` gerado, índice GIN
+e ranking `ts_rank_cd`. Triggers estreitos nas fontes emitem somente um evento
+sanitizado na outbox; o dispatcher cria job durável de rebuild. Rebuild desativa
+a geração anterior e faz upsert da geração atual, sem apagar fonte ou índice. A
+consulta reaplica estado canônico, visibilidade, membership, bloqueio, moderação
+e revisão comercial. O modo local preserva sua materialização SQLite.
+
+Alternativas consideradas: Elasticsearch/OpenSearch no mesmo host; rebuild em
+todo request; cron sem outbox; consulta `LIKE` permanente; índice como fonte de
+autorização.
+
+Consequências: busca deixa de estar no caminho de escrita e pode ser reconstruída
+após restore. Eventos repetidos geram trabalho idempotente, não autoridade nova.
+Documentos inativos permanecem temporariamente para auditoria/rollback e nunca
+aparecem porque `is_active=false` e os filtros canônicos continuam obrigatórios.
+
+Impacto em testes: ranking, acento/termo, outbox repetida, rebuild vazio,
+remoção/moderação, membership, bloqueio, relevância e carga passam a ser gates.
+
+Impacto em rollback: a tabela e os triggers podem permanecer inertes. Publicar
+release anterior não restaura nem apaga fonte; reativação exige novo rebuild.
+
+Como reverter: pausar jobs `search.rebuild`, publicar a release anterior e manter
+`search_documents`/outbox para diagnóstico. Não remover eventos ou documentos.

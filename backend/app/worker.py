@@ -136,6 +136,14 @@ class OutboxWorker:
                         priority=10,
                     ),
                 ),
+                "search.source.changed": (
+                    EventSubscription(
+                        consumer_name="search-index-v1",
+                        queue_name="bulk",
+                        job_type="search.rebuild",
+                        priority=80,
+                    ),
+                ),
             },
         )
 
@@ -197,10 +205,19 @@ def _execute_slicing(job: DurableJob) -> dict[str, Any]:
     return {"slicing_job_id": slicing_job.id, "status": slicing_job.status}
 
 
+def _rebuild_search(_job: DurableJob) -> dict[str, Any]:
+    from app.search_discovery import SearchDiscoveryRepository
+
+    settings = get_settings()
+    indexed_count = SearchDiscoveryRepository(settings.database_path).rebuild_index()
+    return {"indexed_count": indexed_count, "materialization": "search_documents"}
+
+
 def _handlers() -> dict[str, JobHandler]:
     return {
         "realtime.agent_job_available": _realtime_notification,
         "slicing.execute": _execute_slicing,
+        "search.rebuild": _rebuild_search,
     }
 
 

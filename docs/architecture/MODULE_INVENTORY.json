@@ -86,7 +86,7 @@
     "modules": 148,
     "routes": 329,
     "contracts": 341,
-    "tables": 112,
+    "tables": 113,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 26,
@@ -326,7 +326,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 546,
+      "lines": 547,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -2508,11 +2508,12 @@
     {
       "module": "routes.search_discovery",
       "owner": "community",
-      "lines": 71,
+      "lines": 74,
       "imports": [
         "auth",
         "config",
         "routes.auth",
+        "routes.social_catalog",
         "search_discovery"
       ],
       "routes": [
@@ -3507,9 +3508,10 @@
     {
       "module": "search_discovery",
       "owner": "community",
-      "lines": 629,
+      "lines": 733,
       "imports": [
-        "database"
+        "database",
+        "modules.platform.database_target"
       ],
       "routes": [],
       "contracts": [
@@ -3845,12 +3847,13 @@
     {
       "module": "worker",
       "owner": "shared",
-      "lines": 253,
+      "lines": 270,
       "imports": [
         "config",
         "modules.platform.durable_execution",
         "modules.platform.event_dispatcher",
         "modules.platform.recomposable_redis",
+        "search_discovery",
         "slicing_pipeline"
       ],
       "routes": [],
@@ -4432,6 +4435,11 @@
       "table": "cloud_object_download_tokens",
       "owner": "administration",
       "script": "075_object_download_tokens.sql"
+    },
+    {
+      "table": "search_documents",
+      "owner": "administration",
+      "script": "076_postgresql_search.sql"
     }
   ]
 }

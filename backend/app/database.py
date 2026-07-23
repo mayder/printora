@@ -33,6 +33,7 @@ POSTGRESQL_REQUIRED_EXTENSION_TABLES = (
     "durable_jobs",
     "idempotency_records",
     "realtime_sessions",
+    "search_documents",
     "worker_controls",
     "worker_instances",
 )

@@ -8,6 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.database import connect_database, initialize_database
+from app.modules.platform.database_target import uses_postgresql
 
 
 SearchEntityType = Literal["community", "post", "library_item", "technical_config", "material_profile", "catalog_variant"]
@@ -84,6 +85,8 @@ class SearchDiscoveryRepository:
     def ensure_index_current(self) -> int:
         self.ensure_schema()
         with connect_database(self.database_path) as connection:
+            if uses_postgresql():
+                return self._indexed_count(connection)
             source_signature = self._source_signature(connection)
             current_count = self._indexed_count(connection)
             if self._index_is_current(connection, source_signature):
@@ -110,11 +113,13 @@ class SearchDiscoveryRepository:
         order: SearchOrder = "relevance",
         page: int = 1,
         page_size: int = 20,
+        viewer_user_id: int | None = None,
     ) -> SearchResponse:
         indexed_count = self.ensure_index_current()
         page = max(page, 1)
         page_size = min(max(page_size, 1), 50)
         offset = (page - 1) * page_size
+        postgresql = uses_postgresql()
         where, params = self._where(
             query=query,
             entity_type=entity_type,
@@ -125,20 +130,27 @@ class SearchDiscoveryRepository:
             material=material,
             license=license,
             file_kind=file_kind,
+            postgresql=postgresql,
+            viewer_user_id=viewer_user_id,
         )
-        order_sql = {
-            "popular": "idx.popularity_score DESC, idx.source_updated_at DESC",
-            "recent": "idx.source_updated_at DESC, idx.popularity_score DESC",
-            "relevance": "CASE WHEN lower(idx.title) LIKE ? THEN 0 ELSE 1 END, idx.popularity_score DESC, idx.source_updated_at DESC",
-        }[order]
-        order_params: list[object] = [f"%{query.lower()}%"] if order == "relevance" else []
+        if postgresql and order == "relevance" and query.strip():
+            order_sql = "ts_rank_cd(idx.search_vector, websearch_to_tsquery('simple', ?)) DESC, idx.popularity_score DESC, idx.source_updated_at DESC"
+            order_params: list[object] = [query.strip()]
+        else:
+            order_sql = {
+                "popular": "idx.popularity_score DESC, idx.source_updated_at DESC",
+                "recent": "idx.source_updated_at DESC, idx.popularity_score DESC",
+                "relevance": "CASE WHEN lower(idx.title) LIKE ? THEN 0 ELSE 1 END, idx.popularity_score DESC, idx.source_updated_at DESC",
+            }[order]
+            order_params = [f"%{query.lower()}%"] if order == "relevance" else []
+        search_table = "search_documents" if postgresql else "social_search_index"
         with connect_database(self.database_path) as connection:
             rows = connection.execute(
                 f"""
                 SELECT idx.*, sc.slug AS community_slug, sc.name AS community_name,
                        cm.name AS manufacturer_name, cpm.name AS model_name, cpv.name AS variant_name,
                        sp.slug AS owner_slug, sp.display_name AS owner_display_name
-                FROM social_search_index idx
+                FROM {search_table} idx
                 LEFT JOIN social_communities sc ON sc.id = idx.community_id
                 LEFT JOIN catalog_printer_variants cpv ON cpv.id = idx.catalog_variant_id
                 LEFT JOIN catalog_printer_models cpm ON cpm.id = cpv.model_id
@@ -150,7 +162,7 @@ class SearchDiscoveryRepository:
                 """,
                 (*params, *order_params, page_size + 1, offset),
             ).fetchall()
-            facets = self._facets(connection, where, params)
+            facets = self._facets(connection, where, params, search_table)
         results = [_row_to_result(row) for row in rows[:page_size]]
         return SearchResponse(
             query=query,
@@ -212,21 +224,43 @@ class SearchDiscoveryRepository:
         return rows
 
     def _rebuild_index(self, connection, source_signature: str | None = None) -> int:
-        connection.execute("DELETE FROM social_search_index")
-        connection.execute("DELETE FROM social_content_tag_links")
+        postgresql = uses_postgresql()
+        search_table = "search_documents" if postgresql else "social_search_index"
+        if not postgresql:
+            connection.execute(f"DELETE FROM {search_table}")
+            connection.execute("DELETE FROM social_content_tag_links")
+        else:
+            connection.execute("UPDATE search_documents SET is_active = false WHERE is_active = true")
         rows = self._collect_rows(connection)
-        connection.executemany(
+        conflict_sql = (
             """
-            INSERT INTO social_search_index (
+            ON CONFLICT(entity_type, entity_id) DO UPDATE SET
+                title = excluded.title, body = excluded.body, tags_json = excluded.tags_json,
+                community_id = excluded.community_id, catalog_variant_id = excluded.catalog_variant_id,
+                owner_user_id = excluded.owner_user_id, visibility = excluded.visibility,
+                popularity_score = excluded.popularity_score, source_updated_at = excluded.source_updated_at,
+                indexed_at = CURRENT_TIMESTAMP, is_active = true
+            """
+            if postgresql
+            else ""
+        )
+        connection.executemany(
+            f"""
+            INSERT INTO {search_table} (
                 entity_type, entity_id, title, body, tags_json, community_id,
                 catalog_variant_id, owner_user_id, visibility, popularity_score, source_updated_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            {conflict_sql}
             """,
             rows,
         )
-        self._sync_tags(connection)
-        self._record_materialization(connection, source_signature or self._source_signature(connection))
+        self._sync_tags(connection, search_table)
+        self._record_materialization(
+            connection,
+            source_signature or self._source_signature(connection),
+            "search_documents" if uses_postgresql() else "social_search_index",
+        )
         return len(rows)
 
     def _index_is_current(self, connection, source_signature: str) -> bool:
@@ -247,19 +281,20 @@ class SearchDiscoveryRepository:
         return row is not None
 
     def _indexed_count(self, connection) -> int:
-        row = connection.execute("SELECT COUNT(*) AS total FROM social_search_index").fetchone()
+        table = "search_documents" if uses_postgresql() else "social_search_index"
+        row = connection.execute(f"SELECT COUNT(*) AS total FROM {table}").fetchone()
         return int(row["total"] or 0)
 
-    def _record_materialization(self, connection, source_signature: str) -> None:
+    def _record_materialization(self, connection, source_signature: str, name: str = "social_search_index") -> None:
         connection.execute(
             """
             INSERT INTO social_materialization_state (name, source_signature, refreshed_at)
-            VALUES ('social_search_index', ?, CURRENT_TIMESTAMP)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(name) DO UPDATE SET
                 source_signature = excluded.source_signature,
                 refreshed_at = CURRENT_TIMESTAMP
             """,
-            (source_signature,),
+            (name, source_signature),
         )
 
     def _source_signature(self, connection) -> str:
@@ -302,8 +337,8 @@ class SearchDiscoveryRepository:
             separators=(",", ":"),
         )
 
-    def _sync_tags(self, connection) -> None:
-        index_rows = connection.execute("SELECT entity_type, entity_id, tags_json FROM social_search_index").fetchall()
+    def _sync_tags(self, connection, search_table: str = "social_search_index") -> None:
+        index_rows = connection.execute(f"SELECT entity_type, entity_id, tags_json FROM {search_table}").fetchall()
         for row in index_rows:
             for tag in json.loads(row["tags_json"] or "[]"):
                 slug = _slug(tag)
@@ -327,13 +362,29 @@ class SearchDiscoveryRepository:
                 )
 
     def _where(self, **filters) -> tuple[str, tuple[object, ...]]:
-        clauses = ["idx.visibility IN ('public', 'community')"]
+        postgresql = bool(filters.get("postgresql"))
+        viewer_user_id = filters.get("viewer_user_id")
+        if postgresql:
+            clauses = ["idx.is_active = true", _postgresql_visibility_clause(viewer_user_id), _postgresql_canonical_clause()]
+        else:
+            clauses = ["idx.visibility IN ('public', 'community')"]
         params: list[object] = []
+        if postgresql and viewer_user_id is not None:
+            params.append(viewer_user_id)
+        if postgresql and viewer_user_id is not None:
+            clauses.append(
+                "NOT EXISTS (SELECT 1 FROM social_relationships blocked WHERE blocked.relation_type = 'block' AND blocked.status = 'active' AND ((blocked.actor_user_id = ? AND blocked.target_user_id = idx.owner_user_id) OR (blocked.target_user_id = ? AND blocked.actor_user_id = idx.owner_user_id)))"
+            )
+            params.extend([viewer_user_id, viewer_user_id])
         query = filters.get("query", "").strip().lower()
         if query:
-            like = f"%{query}%"
-            clauses.append("(lower(idx.title) LIKE ? OR lower(idx.body) LIKE ? OR lower(idx.tags_json) LIKE ?)")
-            params.extend([like, like, like])
+            if postgresql:
+                clauses.append("idx.search_vector @@ websearch_to_tsquery('simple', ?)")
+                params.append(query)
+            else:
+                like = f"%{query}%"
+                clauses.append("(lower(idx.title) LIKE ? OR lower(idx.body) LIKE ? OR lower(idx.tags_json) LIKE ?)")
+                params.extend([like, like, like])
         if filters.get("entity_type"):
             clauses.append("idx.entity_type = ?")
             params.append(filters["entity_type"])
@@ -355,8 +406,8 @@ class SearchDiscoveryRepository:
                 params.append(f"%{_slug(f'{json_key}:{value}')}%")
         return " AND ".join(clauses), tuple(params)
 
-    def _facets(self, connection, where: str, params: tuple[object, ...]) -> SearchFacets:
-        rows = connection.execute(f"SELECT entity_type, tags_json, community_id FROM social_search_index idx LEFT JOIN social_communities sc ON sc.id = idx.community_id WHERE {where}", params).fetchall()
+    def _facets(self, connection, where: str, params: tuple[object, ...], search_table: str = "social_search_index") -> SearchFacets:
+        rows = connection.execute(f"SELECT entity_type, tags_json, community_id FROM {search_table} idx LEFT JOIN social_communities sc ON sc.id = idx.community_id WHERE {where}", params).fetchall()
         entity_counts: dict[str, int] = {}
         tag_counts: dict[str, int] = {}
         for row in rows:
@@ -371,6 +422,59 @@ class SearchDiscoveryRepository:
             licenses=_options({tag: count for tag, count in tag_counts.items() if tag.startswith("license-")}, 20),
             file_kinds=_options({tag: count for tag, count in tag_counts.items() if tag.startswith("file-")}, 20),
         )
+
+
+def _postgresql_visibility_clause(viewer_user_id: int | None) -> str:
+    if viewer_user_id is None:
+        return "idx.visibility = 'public'"
+    return """
+    (
+        idx.visibility = 'public'
+        OR (
+            idx.visibility = 'community'
+            AND idx.community_id IS NOT NULL
+            AND EXISTS (
+                SELECT 1 FROM social_community_members membership
+                WHERE membership.community_id = idx.community_id
+                  AND membership.user_id = ?
+                  AND membership.active = 1
+            )
+        )
+    )
+    """
+
+
+def _postgresql_canonical_clause() -> str:
+    return """
+    (
+        (idx.entity_type = 'community' AND EXISTS (
+            SELECT 1 FROM social_communities source
+            WHERE source.id = idx.entity_id AND source.status IN ('active', 'uncurated')
+        ))
+        OR (idx.entity_type = 'post' AND EXISTS (
+            SELECT 1 FROM social_feed_items source
+            WHERE source.id = idx.entity_id AND source.visibility = 'public' AND source.deleted_at IS NULL
+        ))
+        OR (idx.entity_type = 'library_item' AND EXISTS (
+            SELECT 1 FROM social_library_items source
+            WHERE source.id = idx.entity_id AND source.status = 'active'
+              AND source.visibility = idx.visibility
+              AND (source.content_class IN ('community', 'curated') OR source.commercial_status = 'approved')
+        ))
+        OR (idx.entity_type = 'technical_config' AND EXISTS (
+            SELECT 1 FROM social_technical_printer_configs source
+            WHERE source.id = idx.entity_id AND source.status = 'active' AND source.visibility = idx.visibility
+        ))
+        OR (idx.entity_type = 'material_profile' AND EXISTS (
+            SELECT 1 FROM social_material_profiles source
+            WHERE source.id = idx.entity_id AND source.status = 'active' AND source.visibility = idx.visibility
+        ))
+        OR (idx.entity_type = 'catalog_variant' AND EXISTS (
+            SELECT 1 FROM catalog_printer_variants source
+            WHERE source.id = idx.entity_id AND source.trust_state <> 'blocked'
+        ))
+    )
+    """
 
 
 def _community_rows(connection) -> list[tuple[object, ...]]:

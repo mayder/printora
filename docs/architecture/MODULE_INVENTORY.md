@@ -7,7 +7,7 @@
 - módulos Python: 148;
 - endpoints HTTP/WebSocket: 329;
 - contratos tipados: 341;
-- tabelas declaradas em SQL: 112;
+- tabelas declaradas em SQL: 113;
 - ciclos de import detectados: 0.
 
 ## Fronteiras E Owners
@@ -17,7 +17,7 @@
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 10 | 8 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 29 | 45 |
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 55 | 32 |
-| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 26 | 27 |
+| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 26 | 28 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 7 | 0 |
 | `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 21 | 0 |
 
@@ -37,14 +37,14 @@
 | `routes.operation` | `operations` | 776 | 13 | 0 |
 | `modules.platform.durable_execution` | `shared` | 763 | 0 | 1 |
 | `setup_flash` | `operations` | 753 | 0 | 7 |
+| `search_discovery` | `community` | 733 | 0 | 5 |
 | `setup_can` | `operations` | 699 | 0 | 7 |
 | `routes.agents` | `operations` | 693 | 35 | 0 |
 | `slicing_pipeline` | `operations` | 680 | 0 | 5 |
 | `routes.calibration` | `operations` | 674 | 15 | 0 |
 | `setup_wizard` | `operations` | 643 | 0 | 7 |
 | `printers` | `operations` | 635 | 0 | 3 |
-| `search_discovery` | `community` | 629 | 0 | 5 |
-| `database` | `shared` | 546 | 0 | 0 |
+| `database` | `shared` | 547 | 0 | 0 |
 | `gcode_files` | `operations` | 543 | 0 | 10 |
 | `health` | `administration` | 513 | 0 | 0 |
 | `setup_firmware` | `operations` | 513 | 0 | 5 |

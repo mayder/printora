@@ -5659,6 +5659,10 @@ Estado atual:
   download recalcula owner/publicação/moderação no PostgreSQL e usa token aleatório
   de 60 segundos, uso único, persistido somente como hash e enviado por header.
   Quarentena não possui rota de leitura. Validação focada: 81 testes passaram.
+- Lote 5 implementado localmente: `search_documents` PostgreSQL usa `tsvector`
+  gerado + GIN, fontes emitem outbox sanitizada e worker bulk executa rebuild
+  idempotente sem `DELETE`. Consulta reaplica fonte ativa, publicação comercial,
+  membership e bloqueios. Validação focada de busca/worker/schema: 102 testes.
 
 ## PKG-91: Núcleo Financeiro, Pagamentos E Pedidos
 

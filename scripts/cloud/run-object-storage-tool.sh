@@ -5,8 +5,8 @@ base_path="${PRINTORA_BASE_PATH:-/var/www/print3dmaker.xyz}"
 tool="${1:-}"
 shift || true
 case "$tool" in
-  validate|migrate|reconcile) ;;
-  *) echo "ERRO: ferramenta deve ser validate, migrate ou reconcile" >&2; exit 2 ;;
+  validate|migrate|reconcile|search-rebuild) ;;
+  *) echo "ERRO: ferramenta deve ser validate, migrate, reconcile ou search-rebuild" >&2; exit 2 ;;
 esac
 
 active_slot="$(cat "$base_path/shared/active-slot")"
@@ -22,4 +22,6 @@ set +a
 
 cd "$base_path/current/backend"
 export PYTHONPATH="$PWD"
-exec "$base_path/current/venv/bin/python" "/usr/local/libexec/printora-cloud/${tool}-object-storage.py" "$@"
+script_name="${tool}-object-storage.py"
+[[ "$tool" == "search-rebuild" ]] && script_name=search-rebuild.py
+exec "$base_path/current/venv/bin/python" "/usr/local/libexec/printora-cloud/$script_name" "$@"

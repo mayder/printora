@@ -29,6 +29,7 @@ install -o root -g root -m 0755 "$release_dir/scripts/cloud/run-object-storage-t
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/validate-object-storage-app.py" /usr/local/libexec/printora-cloud/validate-object-storage.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/migrate-object-storage.py" /usr/local/libexec/printora-cloud/migrate-object-storage.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/reconcile-object-storage.py" /usr/local/libexec/printora-cloud/reconcile-object-storage.py
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/search-rebuild.py" /usr/local/libexec/printora-cloud/search-rebuild.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/preflight.sh" /usr/local/sbin/printora-cloud-preflight
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/deploy-blue-green.sh" /usr/local/sbin/printora-cloud-deploy
 systemctl daemon-reload

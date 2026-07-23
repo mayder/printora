@@ -44,6 +44,11 @@ materialização reconstruível, atualizada por outbox/job idempotente. A consul
 reaplica visibilidade, tenant, bloqueio e moderação; ranking nunca concede acesso.
 Apagar o índice autoriza apenas rebuild, nunca apagar fonte.
 
+O rebuild marca documentos anteriores como inativos e faz upsert da visão atual,
+sem `DELETE`. O perfil local mantém `social_search_index`; o perfil Cloud consulta
+somente `search_documents`, GIN e `websearch_to_tsquery('simple', ...)`. Eventos
+da fonte carregam apenas nome da tabela, ID e operação.
+
 ## Backup E Rollback
 
 Backup reúne dump PostgreSQL, manifesto de objetos/versões/checksums e conteúdo

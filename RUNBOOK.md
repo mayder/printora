@@ -1960,6 +1960,7 @@ Comandos no host, executados como `deploy`:
 /usr/local/libexec/printora-cloud/run-object-storage-tool.sh migrate --manifest /tmp/object-manifest.json
 /usr/local/libexec/printora-cloud/run-object-storage-tool.sh migrate --apply --manifest /tmp/object-manifest-applied.json
 /usr/local/libexec/printora-cloud/run-object-storage-tool.sh reconcile
+/usr/local/libexec/printora-cloud/run-object-storage-tool.sh search-rebuild
 ```
 
 - `migrate` sem `--apply` gera somente manifesto e reconciliação dry-run;
@@ -1968,6 +1969,8 @@ Comandos no host, executados como `deploy`:
 - `reconcile` compara banco, `HEAD`, tamanho, checksum disponível e lista de buckets;
 - ausência, corrupção ou órfão faz a reconciliação falhar sem apagar conteúdo;
 - `--adopt-prefix` existe somente para adoção supervisionada de objetos conhecidos.
+- `search-rebuild` desativa a geração anterior, faz upsert da atual e reporta
+  contagem por tipo; não apaga fonte nem documentos anteriores.
 
 Download autorizado usa `POST /api/storage/social-library-files/<id>/tokens` ou
 `POST /api/storage/print-project-files/<id>/tokens`. A resposta contém rota fixa,

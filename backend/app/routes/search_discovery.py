@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.auth import CurrentUser
 from app.config import get_settings
 from app.routes.auth import require_current_user
+from app.routes.social_catalog import optional_current_user
 from app.search_discovery import SearchDiscoveryRepository, SearchEntityType, SearchOrder, SearchResponse, TagRecord
 
 
@@ -35,6 +36,7 @@ async def search_social_content(
     order: SearchOrder = "relevance",
     page: int = 1,
     page_size: int = 20,
+    current: CurrentUser | None = Depends(optional_current_user),
     repository: SearchDiscoveryRepository = Depends(get_search_repository),
 ) -> SearchResponse:
     return repository.search(
@@ -50,6 +52,7 @@ async def search_social_content(
         order=order,
         page=page,
         page_size=page_size,
+        viewer_user_id=current.user.id if current else None,
     )
 
 
