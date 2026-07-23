@@ -45,7 +45,7 @@
 | `printers` | `operations` | 635 | 0 | 3 |
 | `search_discovery` | `community` | 629 | 0 | 5 |
 | `gcode_files` | `operations` | 543 | 0 | 10 |
-| `database` | `shared` | 524 | 0 | 0 |
+| `database` | `shared` | 541 | 0 | 0 |
 | `health` | `administration` | 513 | 0 | 0 |
 | `setup_firmware` | `operations` | 513 | 0 | 5 |
 | `setup_final_validation` | `operations` | 509 | 0 | 4 |

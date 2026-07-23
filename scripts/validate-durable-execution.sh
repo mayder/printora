@@ -22,12 +22,13 @@ for file in "${required[@]}"; do
   [[ -s "$file" ]] || { echo "execução durável ausente: $file" >&2; exit 1; }
 done
 
-if rg -n 'asyncio\.Queue|queue\.Queue|collections\.deque|from collections import deque' backend/app; then
+if grep -R -nE --include='*.py' \
+  'asyncio\.Queue|queue\.Queue|collections\.deque|from collections import deque' backend/app; then
   echo "fila autoritativa em memória detectada" >&2
   exit 1
 fi
 
-if rg -n 'agent_ws_manager\.push_job|def push_job' backend/app; then
+if grep -R -nE --include='*.py' 'agent_ws_manager\.push_job|def push_job' backend/app; then
   echo "entrega imediata autoritativa de job detectada" >&2
   exit 1
 fi
@@ -40,7 +41,7 @@ grep -q 'apply-postgresql-schema.sh' scripts/cloud/deploy-blue-green.sh
 grep -q '^unixsocket /run/redis-printora/redis.sock$' packaging/redis/printora.conf
 grep -q '^appendonly no$' packaging/redis/printora.conf
 
-if rg -n 'execute_script\(postgresql_script' backend/app/database.py >/dev/null; then
+if grep -nE 'execute_script\(postgresql_script' backend/app/database.py >/dev/null; then
   echo "aplicação runtime não pode executar DDL PostgreSQL" >&2
   exit 1
 fi

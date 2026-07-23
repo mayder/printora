@@ -326,7 +326,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 524,
+      "lines": 541,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
