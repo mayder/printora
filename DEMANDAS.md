@@ -5850,7 +5850,8 @@ Critério de aceite:
 
 Estado atual:
 
-- Implementação local concluída: cotação versionada copia snapshots do pedido,
+- Concluído 100% em 2026-07-23; lotes 1 a 8 entregues, publicados e revisados.
+- Cotação versionada copia snapshots do pedido,
   licença, material, máquina, arquivo, tolerância, acabamento, prazo e frete.
   Aceite e reservas usam transação/idempotência e decremento condicional de
   capacidade/material. A máquina de estados impede saltos; qualidade exige
@@ -5862,6 +5863,11 @@ Estado atual:
 - O console de Fabricação separa lista/detalhe de ordens e incidentes, com acesso
   por papel. O fluxo não possui integração que acione impressora, agente,
   Moonraker, Klipper ou MCU.
+- A publicação `29978102956` promoveu `523ad57` após 557 testes locais e gate
+  integral no CI. A prova sintética Cloud passou aceite/reserva, cadeia formal
+  até entrega, qualidade segregada, recall, tracking somente por hash e comando
+  financeiro apenas por chave idempotente. Smoke público passou; nenhuma
+  operação acessou a impressora física.
 
 ## PKG-93: Escala, Resiliência, Backup E Recuperação
 
