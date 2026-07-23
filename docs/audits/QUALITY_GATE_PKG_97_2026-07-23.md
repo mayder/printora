@@ -36,13 +36,13 @@ declarações sem runtime são as únicas exclusões frontend.
 
 | Módulo | Cobertura global | Cobertura crítica |
 | --- | ---: | ---: |
-| Backend Python | 79,25% de linhas | 84,58% de linhas |
+| Backend Python | 79,41% de linhas | 85,04% de linhas |
 | Agente Go | 53,3% de statements | 54,8% no pacote operacional |
-| Frontend | 1,78% de linhas | 91,36% nas fronteiras P0 selecionadas |
+| Frontend | 1,80% de linhas | 91,36% nas fronteiras P0 selecionadas |
 
-- backend: 569 testes, medidos por `pytest-cov`;
+- backend: 596 testes, medidos por `pytest-cov`;
 - agente: `go test -coverprofile` sobre todos os pacotes;
-- frontend: nove testes Vitest em três arquivos, com Istanbul sobre todos os
+- frontend: 11 testes Vitest em três arquivos, com Istanbul sobre todos os
   `.ts`/`.tsx`, inclusive arquivos nunca importados;
 - fronteiras frontend P0 medidas: cliente HTTP/autorização, cálculo de preview
   G-code e polling sequencial;
@@ -80,11 +80,15 @@ declarações sem runtime são as únicas exclusões frontend.
   agentes e idempotency keys incluem projeto e índice de repetição;
 - nenhuma rota P0 usa retry ou quarentena;
 - flakiness: os 20 cenários passaram 10 vezes por projeto, totalizando 200
-  execuções consecutivas em 3,9 minutos, sem retry;
+  execuções consecutivas em 3,7 minutos, sem retry;
 - Axe não encontrou violação `critical` ou `serious` nas rotas P0 medidas;
 - o gate revelou o fallback frontend antes das APIs e três telas administrativas
   comprimidas na primeira coluna. Ambos os defeitos foram corrigidos e
   ganharam regressão automatizada.
+- o CI revelou uma corrida entre logout e `/api/auth/me`: a revogação retornava
+  `200`, mas uma leitura anterior podia restaurar o usuário na interface. A
+  geração local de autenticação agora descarta respostas antigas; 200 execuções
+  desktop/mobile passaram depois da correção.
 
 ## Property-based E Fuzz
 
@@ -131,11 +135,19 @@ declarações sem runtime são as únicas exclusões frontend.
   e feed comunitário. O navegador autenticado abriu a Visão geral publicada,
   sem erro visível, com as duas impressoras e os dois agentes online em
   `0.1.34`; nenhuma ação mutável foi enviada às impressoras;
-- o commit documental posterior `b40c8d6` apenas prepara o escopo do pentest e
-  não exige nova troca de runtime;
+- a execução `30032632953` do commit `d5b3744` foi bloqueada no gate E2E pela
+  corrida de logout antes de empacotar, enviar ou trocar qualquer slot;
+- a execução corrigida `30034513130` publicou o commit `9f2fcc1` em `24m11s`;
+  gate completo, build reproduzível, evidência, auditoria, SBOM, release
+  imutável, preflight, preparação independente, troca com drain e smoke público
+  passaram;
+- smoke externo posterior confirmou `/health`, `/ready`, catálogo e versão
+  `0.1.41` com schema `86`. O navegador autenticado mostrou duas impressoras,
+  dois agentes online em `0.1.34`, zero alertas e operação `2/2`; nenhuma ação
+  mutável foi enviada às impressoras;
 - `./check.sh` passou em 2026-07-23 com Node suportado, regras/arquitetura,
-  20 E2E, 20 execuções property/fuzz, 723 mutantes, cobertura Python/Go/frontend,
-  contratos, compileall e testes Go;
+  20 E2E, 20 execuções property/fuzz, 723 mutantes, 596 testes Python, cobertura
+  Python/Go/frontend, contratos, compileall e testes Go;
 - validação visual local em navegador real confirmou Finanças, Fabricação e
   Dados e inteligência com 2.145 px úteis em viewport de 2.461 px, zero overflow
   horizontal e lista/detalhe de Fabricação sem sobreposição.

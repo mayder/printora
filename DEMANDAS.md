@@ -6361,6 +6361,13 @@ Estado atual:
   gera manifesto sanitizado sem senha/token. O teste integrado percorre os
   contratos reais em base isolada; fornecedor, ambiente externo, janela e
   assinaturas continuam pendentes.
+- A corrida entre logout e uma leitura `/api/auth/me` concorrente foi corrigida
+  com geração de autenticação; respostas iniciadas antes da revogação não podem
+  restaurar a sessão local. O reteste passou 200/200 cenários desktop/mobile.
+- O deploy `30032632953` falhou fechado no E2E antes de publicar slot. A correção
+  foi publicada pelo deploy blue/green `30034513130`, commit `9f2fcc1`, com gate,
+  SBOM, troca, drain e smoke público aprovados. Produção respondeu saudável em
+  `0.1.41`/schema `86`, com duas impressoras e dois agentes `0.1.34` online.
 - Lote 10 depende do relatório independente e do reteste dos achados. Gate,
   runbook e evidência automatizada já estão consolidados; fechamento, publicação
   e aceite do pacote permanecem bloqueados pelos lotes 9 e 10.
