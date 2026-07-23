@@ -19,6 +19,7 @@ run_model_validations() {
     scripts/validate-no-runtime-pkg-names.sh \
     scripts/validate-cloud-postgresql-only.sh \
     scripts/validate-cloud-object-search-only.sh \
+    scripts/validate-final-architecture.sh \
     scripts/validate-durable-execution.sh \
     scripts/validate-finance-safety.sh \
     scripts/validate-fixtures.sh \

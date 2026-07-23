@@ -266,7 +266,7 @@ def get_database_version_info(database_path: Path, data_dir: Path | None = None)
             if latest_integrity
             else None
         )
-        transition = _database_transition_status(connection)
+        runtime = _database_runtime_status(connection)
         return {
             "app_name": app_version["app_name"] if app_version else APP_NAME,
             "version": app_version["version"] if app_version else _installed_app_version(),
@@ -294,7 +294,7 @@ def get_database_version_info(database_path: Path, data_dir: Path | None = None)
             "latest_integrity_result": json.loads(latest_integrity["result_json"]) if latest_integrity else None,
             "latest_integrity_checked_at": latest_integrity["checked_at"] if latest_integrity else None,
             "latest_validation": latest_validation,
-            "database_transition": transition,
+            "database_runtime": runtime,
         }
 
 
@@ -577,7 +577,7 @@ def _table_exists(
     return row is not None
 
 
-def _database_transition_status(
+def _database_runtime_status(
     connection: sqlite3.Connection | PostgreSQLConnection,
 ) -> dict[str, object]:
     if isinstance(connection, PostgreSQLConnection):

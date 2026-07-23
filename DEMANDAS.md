@@ -6072,4 +6072,18 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado; implementação não iniciada.
+- Lotes 1 a 3 implementados: manifesto final, owners/ciclo de vida das units,
+  scanner bloqueante integrado ao `check.sh`, prova executável de que o perfil
+  cloud não carrega `sqlite3` e remoção do contrato transitório
+  `database_transition`.
+- Nenhum resíduo não destrutivo listado no manifesto permanece. SQLite e
+  `printora.service` foram mantidos exclusivamente como perfil local válido;
+  transições de negócio e bridge USB-CAN não são bridges arquiteturais.
+- Gate estrito completo passou com 566 testes backend, Go, build e testes
+  frontend, scans de segredo/runtime e fronteiras modulares. SBOM reproduzível
+  foi gerado; npm audit, pip-audit e govulncheck não encontraram vulnerabilidade.
+- Lotes 4 a 6 aguardam publicação da release, auditoria efetiva read-only,
+  repetição do preflight/rollback/carga/restore e consolidação da evidência.
+- Nenhuma limpeza destrutiva foi executada. Se o inventário remoto encontrar
+  dado, tabela, objeto, backup ou arquivo candidato, ele será apenas reportado
+  até existir confirmação específica.

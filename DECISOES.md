@@ -1339,3 +1339,41 @@ Eventos e derivados são preservados para forward-fix.
 Como reverter: ativar kill switch, interromper somente
 `printora-cloud-intelligence.service`, publicar a release anterior e preservar
 as tabelas `analytics_*`. Não conceder acesso ao OLTP nem excluir derivados.
+
+### DEC-20260723-03 - Encerramento mantém um runtime cloud e um perfil local explícito
+
+Status: aceita
+Data: 2026-07-23
+Contexto: o fechamento arquitetural precisava eliminar mecanismos transitórios
+sem confundir o adapter SQLite local suportado, transições de domínio ou bridge
+USB-CAN física com legado cloud.
+
+Decisão: declarar PostgreSQL, storage S3 compatível, Redis recomponível, filas
+duráveis e releases blue/green como topologia cloud única. SQLite e
+`printora.service` permanecem somente no perfil local/dispositivo. Um scanner
+integrado ao gate bloqueia arquivos e flags da transição, exige owner/ciclo de
+vida das units e executa uma importação cloud que falha se `sqlite3` entrar em
+`sys.modules`. O status interno do banco passa a se chamar `database_runtime`,
+sem contrato transitório.
+
+Alternativas consideradas: remover SQLite e quebrar instalações locais; aceitar
+uma allowlist ampla de termos; manter o contrato antigo indefinidamente; fazer
+limpeza física junto do scanner.
+
+Consequências: o runtime cloud fica verificável sem falso positivo sobre
+hardware ou regras de negócio. Arquivos grandes históricos ficam registrados
+como dívida incremental e não podem crescer com capacidades novas. Limpeza de
+dado, tabela, objeto, backup ou release continua fora do scanner e exige
+confirmação específica.
+
+Impacto em testes: scanner final, perfil de importação, snapshots de contrato,
+gate estrito, dependências, SBOM, auditoria remota, restore, rollback, soak e
+smoke público são evidências de encerramento.
+
+Impacto em rollback: baixo para o scanner e a documentação. Uma release N-1
+pode ainda expor `database_transition`, mas não recebe tráfego junto da nova
+release. Dados e adapters locais não são alterados.
+
+Como reverter: publicar a release N-1 por blue/green e preservar o manifesto
+para diagnóstico. Não reintroduzir dual-read, dual-write ou fallback SQLite no
+perfil cloud.

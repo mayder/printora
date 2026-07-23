@@ -46,6 +46,7 @@ install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-active-active.
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/soak-cloud.sh" /usr/local/libexec/printora-cloud/soak-cloud.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/audit-capacity.sh" /usr/local/libexec/printora-cloud/audit-capacity.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-analytics-intelligence.py" /usr/local/libexec/printora-cloud/probe-analytics-intelligence.py
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/audit-final-architecture.sh" /usr/local/libexec/printora-cloud/audit-final-architecture.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/preflight.sh" /usr/local/sbin/printora-cloud-preflight
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/deploy-blue-green.sh" /usr/local/sbin/printora-cloud-deploy
 installed_script_sha="$(sha256sum /usr/local/sbin/printora-cloud-deploy | awk '{print $1}')"

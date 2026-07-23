@@ -2164,6 +2164,36 @@ snapshot.
 
 ## Validacao por risco
 
+## Aceite final da arquitetura cloud
+
+O manifesto canônico é
+`docs/architecture/FINAL_ARCHITECTURE_MANIFEST.md`. O scanner local bloqueia
+flags, contratos e arquivos transitórios, exige owner para cada unit, confirma
+lockfiles/SBOM fixados e importa o perfil cloud provando que `sqlite3` não foi
+carregado:
+
+```bash
+scripts/validate-final-architecture.sh
+```
+
+Após publicação, executar no servidor sem acessar a cadeia da impressora:
+
+```bash
+sudo /usr/local/libexec/printora-cloud/audit-final-architecture.sh
+sudo /usr/local/sbin/printora-cloud-preflight
+```
+
+O resultado esperado contém `status=passed`, duas réplicas web, zero índice ou
+constraint inválida e `analytics_role=1:0:0`. O comando só lê release, units,
+readiness, módulos carregados e metadados PostgreSQL. Não remove dados, objetos,
+backups ou releases.
+
+Para revalidar recuperação e capacidade, usar o último restore isolado e o soak
+documentados nas auditorias cloud. Rollback de código usa
+`printora-cloud-rollback`; nunca restaurar snapshot antigo sobre escritas novas.
+Qualquer candidato destrutivo deve ser apresentado separadamente com preview,
+backup, impacto, confirmação e rollback.
+
 - Documentacao, label ou ajuste local simples: validar arquivo alterado e executar `./check.sh` se a alteracao tocar regra do modelo.
 - Bug simples e isolado: reteste focado e check proporcional.
 - Bug complexo: `./check.sh`, teste automatizado quando viavel e regressao do fluxo afetado.

@@ -100,9 +100,9 @@ export function MonitoringDashboard({
       try {
         const response = await apiResponse("/api/system/version/internal");
         if (!response.ok || cancelled) return;
-        const payload = (await response.json()) as { database_transition?: DatabaseRuntimeStatus };
-        if (!cancelled && payload.database_transition) {
-          setDatabaseRuntime(payload.database_transition);
+        const payload = (await response.json()) as { database_runtime?: DatabaseRuntimeStatus };
+        if (!cancelled && payload.database_runtime) {
+          setDatabaseRuntime(payload.database_runtime);
         }
       } catch {
         // This support-only status must not affect the operational dashboard.
@@ -219,7 +219,7 @@ export function MonitoringDashboard({
       </div>
 
       {databaseRuntime ? (
-        <section className="monitor-card database-transition-card" aria-label="Estado do banco da plataforma">
+        <section className="monitor-card database-runtime-card" aria-label="Estado do banco da plataforma">
           <div className="monitor-card-title">
             <Database size={18} />
             <h3>Banco da plataforma</h3>

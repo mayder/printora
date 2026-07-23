@@ -247,7 +247,7 @@ def test_system_version_internal_endpoint_requires_support_user(tmp_path: Path, 
         assert payload["database_path"] == str(tmp_path / "printora.db")
         assert len(payload["applied_sql_scripts"]) == _sql_script_count()
         assert payload["latest_integrity_result"] == ["ok"]
-        assert payload["database_transition"] == {
+        assert payload["database_runtime"] == {
             "backend": "sqlite",
             "state": "available",
         }
