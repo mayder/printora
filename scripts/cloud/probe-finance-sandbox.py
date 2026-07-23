@@ -88,8 +88,15 @@ def main() -> None:
     )
 
     settlement = FinanceSettlementService(database_path)
+    with connect_database(database_path) as connection:
+        clearing_minor = int(connection.execute(
+            """SELECT COALESCE(SUM(CASE WHEN entry.side = 'debit' THEN entry.amount_minor ELSE -entry.amount_minor END), 0) AS amount
+               FROM finance_accounts account
+               LEFT JOIN finance_ledger_entries entry ON entry.account_id = account.id
+               WHERE account.code = 'provider_clearing:BRL'"""
+        ).fetchone()["amount"])
     reconciliation = settlement.reconcile(
-        "BRL", 4000, f"sandbox-report-{run_id}", approver_id
+        "BRL", clearing_minor, f"sandbox-report-{run_id}", approver_id
     )
     payout = settlement.request_payout(seller_id, "BRL", 3000, f"payout-{run_id}")
     approved = settlement.approve_payout(payout.public_id, approver_id)

@@ -5744,7 +5744,7 @@ Critério de aceite:
 
 Estado atual:
 
-- Em execução desde 2026-07-22.
+- Concluído 100% em 2026-07-23; lotes 1 a 8 entregues, publicados e revisados.
 - Lote 1 concluído: ledger de partidas dobradas usa inteiro + moeda explícita,
   posting em duas fases com balanceamento também protegido no banco, linhas
   imutáveis após posting, chave idempotente com digest e reconciliação
@@ -5782,11 +5782,20 @@ Estado atual:
   preview. O runtime suporta exclusivamente `disabled`/`sandbox`, checkout é
   hospedado, schema não contém PAN/CVV e circuit breaker degrada falha do adapter;
   dinheiro real continua tecnicamente indisponível mesmo com controles aprovados.
-- Lote 8 implementado localmente: scanner bloqueia endpoint comercial fora da
+- Lote 8 concluído: scanner bloqueia endpoint comercial fora da
   fronteira financeira, modo além de disabled/sandbox, coluna PAN/CVV e payload
   bruto de webhook. Não havia checkout/pedido anterior para migrar. A UI de
   Finanças separa visão geral, pedidos/pagamentos, ledger, reconciliação,
   disputas e repasses em lista/detalhe, com estado explícito de acesso restrito.
+- Publicação final `29977187334` promoveu `3b55e01` após 554 testes no CI,
+  auditoria de dependências, SBOM e blue/green. A prova sandbox sintética no
+  Cloud passou captura, replay idempotente, reembolso parcial, reconciliação,
+  segregação de aprovação/execução de repasse, saldo, ledger global balanceado,
+  ausência de coluna para cartão/payload bruto e bloqueio de dinheiro real.
+  Smoke público passou. O snapshot externo `c0df65fe` restaurou em destino
+  isolado 134 tabelas, 85 revisões, oito versões de objeto, zero FK inválida e
+  reconstruiu 364 documentos. Aplicação e impressora física não foram tocadas
+  pelo restore.
 
 ## PKG-92: Fabricação, Qualidade, Logística E Cadeia De Custódia
 
