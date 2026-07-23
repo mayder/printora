@@ -121,6 +121,12 @@ PRINTORA_PLATFORM_ADMIN_EMAILS=pentest-admin@example.test \
 existente, omitir a opção. A execução é idempotente, não redefine senha e imprime
 somente ID, email, caminho da base, estado administrativo e se criou a conta.
 
+Para preparar todas as contas, organizações e papéis do pentest, usar o
+procedimento e o template em
+`docs/audits/PENTEST_SCOPE_PKG_97_2026-07-23.md`. A preparação automatizada
+rejeita produção, exige autorização vigente para target externo, não
+sobrescreve manifesto e nunca grava senha ou token.
+
 ## Publicacao Cloud
 
 O deploy publico planejado do Printora usa o dominio `print3dmaker.xyz`, com

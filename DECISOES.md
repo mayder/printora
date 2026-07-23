@@ -1568,3 +1568,26 @@ de ambiente; não reintroduzir comparações distribuídas nas rotas.
 
 Como reverter: remover a variável do ambiente para usar o default compatível e
 reimplantar, preservando a política central.
+
+### DEC-20260723-09 - Handoff de pentest é sintético, sanitizado e bloqueado em produção
+
+Status: aceita
+Data: 2026-07-23
+Contexto: o fornecedor independente precisa receber contas, tenants e papéis
+reproduzíveis sem usar identidade, dado, segredo, pagamento ou impressora real.
+Preparação manual não garante segregação, rastreabilidade ou ausência de token
+no material entregue.
+
+Decisão: preparar o ambiente por aplicação idempotente sobre contratos HTTP
+reais, com sete contas `example.test`, duas organizações, financeiro sandbox e
+papéis separados de suporte/finanças/produção. Target produtivo é sempre
+proibido. Target externo exige arquivo de autorização vigente, com referência
+ao documento assinado; o manifesto registra seu SHA-256 e exclui senha/sessão.
+
+Consequências: o seed valida permissões reais e produz evidência reproduzível,
+mas não executa pentest e não substitui assinatura independente. O arquivo de
+senha exige `0600`; manifesto existente não é sobrescrito. Não há tabela, SQL,
+migração, dado produtivo ou observabilidade persistida nova.
+
+Como reverter: descartar exclusivamente o ambiente isolado conforme autorização
+e retenção acordadas; preservar o manifesto sanitizado e o relatório assinado.

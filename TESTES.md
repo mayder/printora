@@ -2013,6 +2013,9 @@ Não avançar se:
 - validar que autorização administrativa vem do contrato autenticado, que
   identidade configurada não pode ser reivindicada por cadastro público e que o
   provisionador exige arquivo de senha `0600`;
+- validar preparação idempotente do handoff com sete contas sintéticas, duas
+  organizações, segregação financeira/produção, bloqueio do usuário comum,
+  manifesto sem segredo e rejeição incondicional de produção;
 - executar dois usuários/organizações e provar isolamento ponta a ponta;
 - validar desktop/mobile, tema claro/escuro, teclado e acessibilidade;
 - injetar offline, timeout, 429, 5xx, reconnect e dependência degradada;

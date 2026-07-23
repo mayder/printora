@@ -96,16 +96,16 @@
     }
   ],
   "summary": {
-    "modules": 171,
+    "modules": 172,
     "routes": 372,
-    "contracts": 384,
+    "contracts": 385,
     "tables": 156,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 30,
       "community": 29,
       "finance": 13,
-      "identity": 12,
+      "identity": 13,
       "integrations": 7,
       "operations": 58,
       "shared": 22
@@ -1225,6 +1225,16 @@
         "StepUpResponse",
         "AgentCredentialResponse",
         "AgentCredentialRecord"
+      ]
+    },
+    {
+      "module": "modules.identity.pentest_handoff",
+      "owner": "identity",
+      "lines": 332,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "ApiClient"
       ]
     },
     {

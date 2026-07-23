@@ -6356,6 +6356,11 @@ Estado atual:
   isolado pode declarar `pentest-admin@example.test`, enquanto configuração
   vazia ou inválida falha fechado. Cadastro público de identidade administrativa
   foi bloqueado para evitar apropriação da conta antes do provisionamento.
+- O handoff automatizado prepara sete contas `example.test`, duas organizações e
+  papéis segregados, valida autorização externa vigente, rejeita produção e
+  gera manifesto sanitizado sem senha/token. O teste integrado percorre os
+  contratos reais em base isolada; fornecedor, ambiente externo, janela e
+  assinaturas continuam pendentes.
 - Lote 10 depende do relatório independente e do reteste dos achados. Gate,
   runbook e evidência automatizada já estão consolidados; fechamento, publicação
   e aceite do pacote permanecem bloqueados pelos lotes 9 e 10.

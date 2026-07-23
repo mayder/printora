@@ -4,9 +4,9 @@
 
 ## Resumo
 
-- módulos Python: 171;
+- módulos Python: 172;
 - endpoints HTTP/WebSocket: 372;
-- contratos tipados: 384;
+- contratos tipados: 385;
 - tabelas declaradas em SQL: 156;
 - ciclos de import detectados: 0.
 
@@ -14,7 +14,7 @@
 
 | Fronteira | Owner | Responsabilidade | Módulos | Tabelas |
 |---|---|---|---:|---:|
-| `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 12 | 8 |
+| `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 13 | 8 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 29 | 45 |
 | `finance` | Finanças e pedidos | Ledger, pedidos, pagamentos, reconciliação, risco e repasses. | 13 | 20 |
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 58 | 44 |
