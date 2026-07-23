@@ -12,6 +12,7 @@ type Runner struct {
 	API       *APIClient
 	Moonraker *MoonrakerClient
 	Queue     Queue
+	Journal   *JobJournal
 	Logger    *log.Logger
 	startedAt time.Time
 	metrics   hostMetricsCache
@@ -44,6 +45,7 @@ func NewRunner(cfg Config, credential string, logger *log.Logger) *Runner {
 		API:       NewAPIClient(cfg.APIBaseURL, credential, Timeout(cfg)),
 		Moonraker: NewMoonrakerClient(cfg.MoonrakerURL, Timeout(cfg)),
 		Queue:     NewQueue(cfg.QueueFile),
+		Journal:   NewJobJournal(cfg.JobJournalFile),
 		Logger:    logger,
 		startedAt: time.Now(),
 	}

@@ -371,7 +371,11 @@ export function usePrinters(options: UsePrintersOptions) {
     }
   }
 
-  async function createAgentUpdateJob(agentId: number, printerId = selectedPrinterId) {
+  async function createAgentUpdateJob(
+    agentId: number,
+    printerId = selectedPrinterId,
+    channel: "stable" | "candidate" | "rollback" = "stable",
+  ) {
     if (!printerId) {
       setError("Selecione uma impressora");
       return;
@@ -379,7 +383,7 @@ export function usePrinters(options: UsePrintersOptions) {
     setLoading(true);
     setError(null);
     try {
-      const response = await printerApi.createAgentUpdateJob(printerId, agentId);
+      const response = await printerApi.createAgentUpdateJob(printerId, agentId, channel);
       if (!response.ok) {
         throw new Error(await response.text());
       }

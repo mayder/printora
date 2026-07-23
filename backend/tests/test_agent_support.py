@@ -126,6 +126,8 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
             assert created.json()["job"]["job_type"] == "remote_host_script"
             assert created.json()["job"]["payload"]["safe_mode"] == "agent_update_bootstrap"
             assert "sha256sum -c" in created.json()["job"]["payload"]["script"]
+            assert "openssl pkeyutl -verify" in created.json()["job"]["payload"]["script"]
+            assert "print_stats.state=" in created.json()["job"]["payload"]["script"]
 
             with connect_database(tmp_path / "printora.db") as connection:
                 connection.execute("UPDATE printer_agents SET agent_version = '0.1.17' WHERE id = ?", (agent_id,))
@@ -137,6 +139,45 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
             assert current_created.json()["job"]["job_type"] == "remote_agent_update_check"
             assert current_created.json()["job"]["payload"]["safe_mode"] == "agent_self_update"
             assert current_created.json()["job"]["payload"]["target_version"] == "0.1.33"
+
+            candidate_created = client.post(
+                f"/api/printers/{printer['id']}/agents/{agent_id}/update-check?channel=candidate",
+                headers=_auth(owner_token),
+            )
+            assert candidate_created.status_code == 200
+            candidate_job = candidate_created.json()["job"]
+            assert candidate_job["job_type"] == "remote_host_script"
+            assert candidate_job["payload"]["target_version"] == "0.1.34"
+            assert candidate_job["payload"]["update_channel"] == "candidate"
+            assert "/api/agent/update/releases/0.1.34/linux-arm64" in candidate_job["payload"]["script"]
+            assert "systemctl restart printora-agent" in candidate_job["payload"]["script"]
+            assert "systemctl restart klipper" not in candidate_job["payload"]["script"]
+            assert "systemctl restart moonraker" not in candidate_job["payload"]["script"]
+
+            premature_rollback = client.post(
+                f"/api/printers/{printer['id']}/agents/{agent_id}/update-check?channel=rollback",
+                headers=_auth(owner_token),
+            )
+            assert premature_rollback.status_code == 400
+
+            with connect_database(tmp_path / "printora.db") as connection:
+                connection.execute("UPDATE printer_agents SET agent_version = '0.1.34' WHERE id = ?", (agent_id,))
+            rollback_created = client.post(
+                f"/api/printers/{printer['id']}/agents/{agent_id}/update-check?channel=rollback",
+                headers=_auth(owner_token),
+            )
+            assert rollback_created.status_code == 200
+            rollback_job = rollback_created.json()["job"]
+            assert rollback_job["job_type"] == "remote_host_script"
+            assert rollback_job["payload"]["target_version"] == "0.1.33"
+            assert rollback_job["payload"]["update_channel"] == "rollback"
+            assert "/api/agent/update/releases/0.1.33/linux-arm64" in rollback_job["payload"]["script"]
+
+            invalid_channel = client.post(
+                f"/api/printers/{printer['id']}/agents/{agent_id}/update-check?channel=invalid",
+                headers=_auth(owner_token),
+            )
+            assert invalid_channel.status_code == 422
     finally:
         get_settings.cache_clear()
 

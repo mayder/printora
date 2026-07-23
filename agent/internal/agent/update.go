@@ -2,7 +2,9 @@ package agent
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -22,10 +24,13 @@ type UpdateManifest struct {
 	ManifestVersion    int             `json:"manifest_version"`
 	MinimumVersion     string          `json:"minimum_version"`
 	RecommendedVersion string          `json:"recommended_version"`
+	CandidateVersion   string          `json:"candidate_version"`
 	BlockedVersions    []string        `json:"blocked_versions"`
 	ProtocolVersion    int             `json:"protocol_version"`
 	ProtocolMin        int             `json:"protocol_min"`
 	ProtocolMax        int             `json:"protocol_max"`
+	SignatureAlgorithm string          `json:"signature_algorithm"`
+	SigningKeyID       string          `json:"signing_key_id"`
 	AutoUpdate         bool            `json:"auto_update"`
 	Releases           []UpdateRelease `json:"releases"`
 }
@@ -100,6 +105,24 @@ func (r *Runner) CheckAgentUpdate(ctx context.Context) UpdateResult {
 	if release.URL == "" {
 		return UpdateResult{Status: "skipped", TargetVersion: release.Version, Detail: "release sem URL de download"}
 	}
+	if r.Moonraker == nil {
+		return UpdateResult{Status: "blocked", TargetVersion: release.Version, Detail: "estado da impressão indisponível"}
+	}
+	printState, err := r.Moonraker.PrintState(ctx)
+	if err != nil {
+		return UpdateResult{
+			Status:        "blocked",
+			TargetVersion: release.Version,
+			Detail:        "não foi possível confirmar impressora ociosa: " + err.Error(),
+		}
+	}
+	if !remotePrintIdle(printState) {
+		return UpdateResult{
+			Status:        "blocked",
+			TargetVersion: release.Version,
+			Detail:        "update bloqueado durante impressão: print_stats.state=" + printState,
+		}
+	}
 	stagedPath, err := downloadRelease(ctx, r.Config, release)
 	if err != nil {
 		return UpdateResult{Status: "failed", TargetVersion: release.Version, Detail: err.Error()}
@@ -140,8 +163,11 @@ func selectUpdateRelease(manifest UpdateManifest, platform string, currentVersio
 	if ProtocolVersion < manifest.ProtocolMin || ProtocolVersion > manifest.ProtocolMax {
 		return UpdateRelease{}, UpdateResult{Status: "blocked", Detail: "protocolo incompatível com manifesto"}
 	}
+	if manifest.SignatureAlgorithm != releaseSignatureAlgorithm || manifest.SigningKeyID != releaseSigningKeyID {
+		return UpdateRelease{}, UpdateResult{Status: "blocked", Detail: "identidade de assinatura incompatível com o agente"}
+	}
 	for _, release := range manifest.Releases {
-		if release.Platform != platform {
+		if release.Platform != platform || normalizeVersion(release.Version) != normalizeVersion(manifest.RecommendedVersion) {
 			continue
 		}
 		if ProtocolVersion < release.ProtocolMin || ProtocolVersion > release.ProtocolMax {
@@ -190,9 +216,29 @@ func downloadRelease(ctx context.Context, cfg Config, release UpdateRelease) (st
 	}
 	actual := hex.EncodeToString(hasher.Sum(nil))
 	if !strings.EqualFold(actual, release.SHA256) {
+		_ = os.Remove(stagedPath)
 		return "", fmt.Errorf("sha256 inválido: esperado %s, recebido %s", release.SHA256, actual)
 	}
+	if err := verifyReleaseSignature(actual, release.Signature); err != nil {
+		_ = os.Remove(stagedPath)
+		return "", err
+	}
 	return stagedPath, nil
+}
+
+func verifyReleaseSignature(digestHex string, signatureBase64 string) error {
+	publicKey, err := base64.StdEncoding.DecodeString(releasePublicKeyBase64)
+	if err != nil || len(publicKey) != ed25519.PublicKeySize {
+		return errors.New("chave pública de release inválida")
+	}
+	signature, err := base64.StdEncoding.DecodeString(signatureBase64)
+	if err != nil || len(signature) != ed25519.SignatureSize {
+		return errors.New("assinatura de release inválida")
+	}
+	if !ed25519.Verify(ed25519.PublicKey(publicKey), []byte(strings.ToLower(digestHex)), signature) {
+		return errors.New("assinatura de release não confere")
+	}
+	return nil
 }
 
 func updateDownloadTimeout(cfg Config) time.Duration {

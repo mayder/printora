@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
@@ -63,9 +64,7 @@ from app.remote_operations import (
 router = APIRouter()
 INSTALLER_SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "install_agent_linux.sh"
 AGENT_RELEASE_DIR = Path(__file__).resolve().parents[1] / "data" / "agent_releases"
-AGENT_RELEASE_FILES = {
-    "linux-arm64": "printora-agent-linux-arm64",
-}
+AGENT_RELEASE_PLATFORMS = {"linux-arm64"}
 
 
 def get_pairing_repository(settings: Settings = Depends(get_settings)) -> AgentPairingRepository:
@@ -229,11 +228,14 @@ async def create_agent_install_plan(
     printer = printer_for_user(settings.database_path, current.user, printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
+    release = _linux_arm64_release(str(request.base_url))
     return repository.create_install_plan(
         current.user,
         printer,
         str(request.base_url).rstrip("/"),
-        _linux_arm64_release_url(str(request.base_url)),
+        release.url if release else None,
+        release.sha256 if release else None,
+        release.signature if release else None,
     )
 
 
@@ -260,22 +262,71 @@ async def agent_update_manifest(request: Request) -> AgentUpdateManifest:
     return load_agent_update_manifest(str(request.base_url))
 
 
+@router.get("/api/agent/update/manifest/candidate", response_model=AgentUpdateManifest)
+async def candidate_agent_update_manifest(
+    request: Request,
+    _agent: AgentRecord = Depends(require_agent),
+) -> AgentUpdateManifest:
+    manifest = load_agent_update_manifest(str(request.base_url))
+    if not manifest.candidate_version:
+        raise HTTPException(status_code=404, detail="agent candidate release not found")
+    if not any(release.version == manifest.candidate_version for release in manifest.releases):
+        raise HTTPException(status_code=503, detail="agent candidate artifact not published")
+    return manifest.model_copy(update={"recommended_version": manifest.candidate_version})
+
+
 @router.get("/api/agent/update/releases/{platform}")
 async def agent_update_release(platform: str) -> FileResponse:
-    filename = AGENT_RELEASE_FILES.get(platform)
-    if filename is None:
+    manifest = load_agent_update_manifest()
+    release = next(
+        (
+            item
+            for item in manifest.releases
+            if item.platform.replace("/", "-") == platform
+            and item.version == manifest.recommended_version
+        ),
+        None,
+    )
+    if release is None:
         raise HTTPException(status_code=404, detail="agent release not found")
+    return _agent_release_file(release.version, platform)
+
+
+@router.get("/api/agent/update/releases/{version}/{platform}")
+async def versioned_agent_update_release(version: str, platform: str) -> FileResponse:
+    manifest = load_agent_update_manifest()
+    release = next(
+        (
+            item
+            for item in manifest.releases
+            if item.platform.replace("/", "-") == platform and item.version == version
+        ),
+        None,
+    )
+    if release is None:
+        raise HTTPException(status_code=404, detail="agent release not found")
+    return _agent_release_file(version, platform)
+
+
+def _agent_release_file(version: str, platform: str) -> FileResponse:
+    if platform not in AGENT_RELEASE_PLATFORMS:
+        raise HTTPException(status_code=404, detail="agent release not found")
+    filename = f"printora-agent-{platform}-{version}"
     path = AGENT_RELEASE_DIR / filename
     if not path.exists() or not path.is_file():
         raise HTTPException(status_code=404, detail="agent release file not published")
     return FileResponse(path, media_type="application/octet-stream", filename=filename)
 
 
-def _linux_arm64_release_url(public_base_url: str | None = None) -> str | None:
+def _linux_arm64_release(public_base_url: str | None = None):
     manifest = load_agent_update_manifest(public_base_url)
     for release in manifest.releases:
-        if release.platform == "linux/arm64" and release.url:
-            return release.url
+        if (
+            release.platform == "linux/arm64"
+            and release.version == manifest.recommended_version
+            and release.url
+        ):
+            return release
     return None
 
 
@@ -363,6 +414,7 @@ async def create_printer_agent_update_job(
     printer_id: int,
     agent_id: int,
     request: Request,
+    channel: Literal["stable", "candidate", "rollback"] = Query("stable"),
     current: CurrentUser = Depends(require_current_user),
     repository: AgentSupportRepository = Depends(get_support_repository),
 ) -> AgentUpdateRequestResponse:
@@ -371,7 +423,12 @@ async def create_printer_agent_update_job(
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
     try:
-        response = repository.request_agent_update(printer, agent_id, _public_base_url(request))
+        response = repository.request_agent_update(
+            printer,
+            agent_id,
+            _public_base_url(request),
+            channel=channel,
+        )
         detail = "Update registrado na fila durável. O agente retomará a ação pelo canal remoto ou polling, sem SSH."
         return response.model_copy(update={"websocket_delivered": False, "detail": detail})
     except ValueError as exc:

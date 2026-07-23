@@ -96,7 +96,7 @@
   ],
   "summary": {
     "modules": 169,
-    "routes": 370,
+    "routes": 372,
     "contracts": 384,
     "tables": 156,
     "cycles": 0,
@@ -171,7 +171,7 @@
     {
       "module": "agent_pairing",
       "owner": "operations",
-      "lines": 917,
+      "lines": 925,
       "imports": [
         "auth",
         "database",
@@ -201,7 +201,7 @@
     {
       "module": "agent_support",
       "owner": "operations",
-      "lines": 486,
+      "lines": 547,
       "imports": [
         "agent_pairing",
         "agent_updates",
@@ -220,7 +220,7 @@
     {
       "module": "agent_updates",
       "owner": "operations",
-      "lines": 175,
+      "lines": 188,
       "imports": [
         "agent_pairing",
         "database"
@@ -1307,7 +1307,7 @@
     {
       "module": "modules.operations.contracts",
       "owner": "operations",
-      "lines": 209,
+      "lines": 208,
       "imports": [],
       "routes": [],
       "contracts": [
@@ -1775,7 +1775,7 @@
     {
       "module": "routes.agents",
       "owner": "operations",
-      "lines": 693,
+      "lines": 750,
       "imports": [
         "agent_channel",
         "agent_pairing",
@@ -1847,8 +1847,18 @@
         },
         {
           "method": "GET",
+          "path": "/api/agent/update/manifest/candidate",
+          "handler": "candidate_agent_update_manifest"
+        },
+        {
+          "method": "GET",
           "path": "/api/agent/update/releases/{platform}",
           "handler": "agent_update_release"
+        },
+        {
+          "method": "GET",
+          "path": "/api/agent/update/releases/{version}/{platform}",
+          "handler": "versioned_agent_update_release"
         },
         {
           "method": "POST",

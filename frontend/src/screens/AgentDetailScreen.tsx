@@ -90,10 +90,25 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
   const row = rows.find((candidate) => candidate.agent.id === selectedAgentId) ?? rows.find((candidate) => candidate.printer.id === selectedPrinterId) ?? rows[0] ?? null;
   const health = agentSupport?.agents.find((item) => item.agent?.id === row?.agent.id) ?? null;
   const expectedAgentVersion = agentUpdateManifest?.recommended_version ?? health?.expected_version ?? agentInstallStatus?.expected_agent_version ?? "-";
+  const candidateAgentVersion = agentUpdateManifest?.candidate_version ?? "-";
   const outdated = row ? expectedAgentVersion !== "-" && row.agent.agent_version !== expectedAgentVersion : false;
+  const canInstallCandidate = Boolean(
+    row
+    && candidateAgentVersion !== "-"
+    && row.agent.agent_version !== candidateAgentVersion,
+  );
+  const canRollbackCandidate = Boolean(
+    row
+    && expectedAgentVersion !== "-"
+    && row.agent.agent_version === candidateAgentVersion
+    && candidateAgentVersion !== expectedAgentVersion,
+  );
   const latestDoctor = agentSupport?.latest_doctor ?? null;
 
-  async function updateAgent(rowToUpdate: AgentFleetRow) {
+  async function updateAgent(
+    rowToUpdate: AgentFleetRow,
+    channel: "stable" | "candidate" | "rollback" = "stable",
+  ) {
     if (!canRequestSystemAgentUpdate(rowToUpdate)) {
       showToast({
         tone: "warning",
@@ -102,7 +117,7 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
       });
       return;
     }
-    await createAgentUpdateJob(rowToUpdate.agent.id, rowToUpdate.printer.id);
+    await createAgentUpdateJob(rowToUpdate.agent.id, rowToUpdate.printer.id, channel);
   }
 
   if (!row) {
@@ -154,12 +169,25 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
               <RefreshCw size={15} />
               {agentUpdateButtonLabel(row)}
             </button>
+            {canInstallCandidate ? (
+              <button type="button" className="secondary-button" onClick={() => void updateAgent(row, "candidate")} disabled={loading || row.agent.status !== "active"}>
+                <ShieldAlert size={15} />
+                Instalar canário {candidateAgentVersion}
+              </button>
+            ) : null}
+            {canRollbackCandidate ? (
+              <button type="button" className="secondary-button" onClick={() => void updateAgent(row, "rollback")} disabled={loading || row.agent.status !== "active"}>
+                <RefreshCw size={15} />
+                Reverter para {expectedAgentVersion}
+              </button>
+            ) : null}
           </div>
         </div>
         <div className="overview-strip agent-summary-strip">
           <Badge icon={Server} label="Status" value={row.agent.status} />
           <Badge icon={Gauge} label="Versão instalada" value={row.agent.agent_version ?? "-"} />
           <Badge icon={RefreshCw} label="Versão esperada" value={expectedAgentVersion} />
+          <Badge icon={ShieldAlert} label="Canário disponível" value={candidateAgentVersion} />
           <Badge icon={Radio} label="Último contato" value={formatDateTime(row.agent.last_seen_at)} />
           <Badge icon={KeyRound} label="Credencial" value={row.agent.status === "revoked" ? "revogada" : "configurada"} />
         </div>
@@ -213,6 +241,7 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
           <Badge icon={Server} label="Plataforma" value={devicePlatform} />
           <Badge icon={Gauge} label="Agente" value={row.agent.agent_version ?? "-"} />
           <Badge icon={RefreshCw} label="Esperada" value={expectedAgentVersion} />
+          <Badge icon={ShieldAlert} label="Canário" value={candidateAgentVersion} />
           <Badge icon={Radio} label="Moonraker" value={moonrakerStatus?.status ?? "sem doctor"} />
           <Badge icon={AlertTriangle} label="Raio Raspberry" value={formatRaspberryStatus(raspberryCheck)} />
         </div>

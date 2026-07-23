@@ -1,0 +1,10 @@
+{
+  "platform": "linux/arm64",
+  "reproducible_build": true,
+  "sha256": "c430f3b16f0785808b09ecacce63fb734c434864262dc22a50dcc3642a6ff9dc",
+  "signature": "+uYOT28B41qHiJPqs0P/OndKLjfSgzm+i5PESRwb+RLQr+K5oAJzCDvCj8EuAevYtzcPKzMPZgLs29g6Yf3eCA==",
+  "signature_algorithm": "ed25519-sha256",
+  "signing_key_id": "sha256:e241d16ebb469da7436ff050a36212635557eab1322495a2c62e2ca6caf24cdc",
+  "toolchain": "go1.25.12",
+  "version": "0.1.34"
+}

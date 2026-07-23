@@ -49,8 +49,15 @@ export const printerApi = {
   agentSupport: (printerId: number) => apiResponse(`/api/printers/${printerId}/agent/support`),
   createAgentDoctorJob: (printerId: number) =>
     apiResponse(`/api/printers/${printerId}/agent/support/doctor`, { method: "POST" }),
-  createAgentUpdateJob: (printerId: number, agentId: number) =>
-    apiResponse(`/api/printers/${printerId}/agents/${agentId}/update-check`, { method: "POST" }),
+  createAgentUpdateJob: (
+    printerId: number,
+    agentId: number,
+    channel: "stable" | "candidate" | "rollback" = "stable",
+  ) =>
+    apiResponse(
+      `/api/printers/${printerId}/agents/${agentId}/update-check?channel=${encodeURIComponent(channel)}`,
+      { method: "POST" },
+    ),
   agentSupportBundle: (printerId: number) => apiResponse(`/api/printers/${printerId}/agent/support/bundle`),
   agentUpdateManifest: () => apiResponse("/api/agent/update/manifest"),
   remoteOperations: (printerId: number) => apiResponse(`/api/printers/${printerId}/remote/operations`),

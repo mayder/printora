@@ -33,6 +33,25 @@ O alvo permite continuidade contra falha de processo e durante deploy. Pane
 física do host continua exigindo restauração; não há HA física em um único
 servidor.
 
+## Pacotes De Confiança Planejados
+
+Ordem para execução em outra janela:
+
+1. `PKG-96`: gerar, publicar, instalar como canário e reverter o agente `0.1.34`;
+2. `PKG-97`: tornar Node/cobertura/E2E/fuzz/mutation/pentest gates bloqueantes;
+3. `PKG-98`: homologar agente/impressora reais e executar soak final de 72 horas;
+4. `PKG-99`: reduzir RPO físico para até 5 minutos e repetir restore de desastre.
+
+Durante `PKG-96` e `PKG-98`, leitura é permitida com impressão ativa; update,
+restart do agente ou outra mutação exige impressora ociosa, janela aprovada e
+rollback do agente. Esses pacotes não autorizam restart de Klipper/Moonraker,
+flash, alteração de firmware ou exclusão de dados.
+
+Pentest/carga/fuzz em produção exigem escopo e autorização separados.
+`PKG-97` deve preferir ambiente isolado com dados sintéticos. `PKG-99` executa
+restore em cluster temporário limitado; prune continua fora do fluxo automático
+e exige preview mais confirmação explícita.
+
 ## Publicacao Cloud
 
 O deploy publico planejado do Printora usa o dominio `print3dmaker.xyz`, com
@@ -1368,6 +1387,7 @@ Config do agente:
   "update_manifest_url": "https://printora.example.com/api/agent/update/manifest",
   "update_state_file": "/var/lib/printora-agent/update-state.json",
   "update_staging_dir": "/var/lib/printora-agent/updates",
+  "job_journal_file": "/var/lib/printora-agent/job-journal.json",
   "agent_binary_path": "/usr/local/bin/printora-agent",
   "agent_service_name": "printora-agent",
   "allow_service_restart": true
@@ -1382,26 +1402,53 @@ sudo printora-agent -config /etc/printora-agent/config.json update-check
 
 Publicação do binário do agente:
 
+- somente `linux/arm64` é suportado enquanto não existir artefato funcional e testado para outra plataforma;
+- a chave privada Ed25519 fica no bundle privado e nunca entra no release ou no Git;
+- gerar duas vezes, comparar, produzir SBOM, checksums e assinaturas:
+
+```bash
+PRINTORA_AGENT_RELEASE_VERSION=0.1.34 \
+PRINTORA_AGENT_SIGNING_KEY_FILE=/caminho/privado/agent-release-ed25519.pem \
+scripts/build-agent-release.sh
+```
+
 - o arquivo servido em `releases[].url` precisa ser exatamente o mesmo binário usado para calcular `releases[].sha256`;
-- a API serve o binário em `/api/agent/update/releases/linux-arm64` a partir de `.artifacts/agent/printora-agent-linux-arm64`;
-- o manifesto público recalcula `url` e `sha256` do artefato local publicado antes de responder, evitando hash estático antigo;
-- se o download falhar com `sha256 inválido`, conferir o SHA do arquivo servido pela URL pública/local antes de tentar reinstalar a impressora;
+- URLs imutáveis usam `/api/agent/update/releases/{version}/linux-arm64`; a rota sem versão permanece apenas como compatibilidade e aponta para a versão recomendada;
+- a API confere que arquivo e checksum estático do manifesto são idênticos; divergência bloqueia a resposta em vez de recalcular e esconder erro;
+- o manifesto exige assinatura `ed25519-sha256`, fingerprint da chave e release completo;
+- publicar `candidate_version` primeiro, mantendo `recommended_version` em N-1; promover somente depois de canário, rollback e observação;
+- o canário autenticado usa temporariamente `/api/agent/update/manifest/candidate`; nenhum agente usa esse endpoint por padrão;
+- a UI envia `POST .../update-check?channel=candidate` para instalar exatamente
+  `candidate_version` e `channel=rollback` para retornar à recomendada N-1;
+  ambos geram job remoto controlado, sem SSH, com preflight de
+  `print_stats.state`, backup, SHA-256 e Ed25519 antes da troca;
+- se o download falhar com checksum ou assinatura inválida, bloquear a instalação e conferir o arquivo servido antes de nova tentativa;
 - em ambiente local de teste, não depender de servidor HTTP avulso para o binário quando a API estiver acessível pela impressora.
 
 Execução pela UI:
 
 - abrir `Agentes`, conferir `Versão instalada` e `Versão esperada`;
 - clicar `Atualizar` na linha ou `Atualizar agente` no detalhe;
+- para canário, clicar `Instalar canário <versão>`; após o heartbeat confirmar
+  essa versão, clicar `Reverter para <N-1>` para o teste de rollback;
 - o servidor cria um job `remote_agent_update_check` para o agente ativo, tenta entregar imediatamente pelo WebSocket e mantém fallback por heartbeat/polling, sem SSH e sem comando manual para o usuário;
-- o agente baixa o binário indicado no manifesto, valida SHA-256, troca somente `/usr/local/bin/printora-agent` e reinicia apenas `printora-agent` quando `allow_service_restart=true`.
+- o agente baixa apenas a versão recomendada, valida SHA-256 e assinatura Ed25519, troca somente `/usr/local/bin/printora-agent` e reinicia apenas `printora-agent` quando `allow_service_restart=true`.
 
 Segurança:
 
 - o update consulta somente o manifesto do agente e baixa o binário indicado para a plataforma do host;
-- `sha256` é obrigatório para aplicar;
+- `sha256`, assinatura, algoritmo e identidade da chave são obrigatórios para aplicar;
+- antes do download, `print_stats.state` precisa comprovar estado ocioso;
+  impressão, pausa ou indisponibilidade do Moonraker bloqueiam o update;
 - versão/protocolo bloqueado pelo servidor impede aplicação;
 - antes da troca, o agente preserva backup do binário atual e tenta preservar o config;
 - a troca altera apenas o binário do `printora-agent`;
+- recebimento é sincronizado no journal antes do ACK, início antes do efeito e
+  resultado terminal antes de responder ao cloud; redelivery reenvia sem
+  repetir efeito;
+- job mutável interrompido depois do ACK é bloqueado como `requires_reconciliation`;
+- o journal local sincroniza arquivo/diretório, usa modo `0600` e retenção
+  limitada às 200 entradas mais recentes;
 - restart automático, quando habilitado, executa apenas `systemctl restart printora-agent`;
 - o fluxo não reinicia Klipper, Moonraker, firmware, Raspberry ou impressora;
 - falha em health command ou restart restaura o binário anterior quando possível.

@@ -206,4 +206,3 @@ class AgentEventRecord(BaseModel):
     status: str
     detail: str | None
     created_at: str
-

@@ -236,17 +236,20 @@ export type AgentUpdateManifest = {
   manifest_version: number;
   minimum_version: string;
   recommended_version: string;
+  candidate_version?: string | null;
   blocked_versions: string[];
   protocol_version: number;
   protocol_min: number;
   protocol_max: number;
+  signature_algorithm: "ed25519-sha256";
+  signing_key_id: string;
   auto_update: boolean;
   releases: Array<{
     platform: string;
     version: string;
     url: string;
     sha256: string;
-    signature?: string | null;
+    signature: string;
     protocol_min: number;
     protocol_max: number;
   }>;

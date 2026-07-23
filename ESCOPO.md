@@ -494,3 +494,16 @@ mantém fallback SQLite; o SQLite local permanece somente como adapter local
 suportado e isolado. Bridges, flags, bancos, arquivos, dependências,
 configurações, testes e documentação aposentados são removidos antes do
 fechamento, respeitando confirmação explícita e prova de integridade/restauração.
+
+## Confiança Contínua Pós-Arquitetura
+
+A arquitetura base encerrada nos pacotes `PKG-86` a `PKG-95` é seguida pelos
+pacotes `PKG-96` a `PKG-99`:
+
+1. agente versionado e distribuído de forma imutável;
+2. toolchain, cobertura, E2E, fuzzing, mutation testing e pentest;
+3. homologação com impressora/agente reais e soak de 72 horas;
+4. RPO físico reduzido e recuperação de desastre continuamente comprovada.
+
+Esses pacotes elevam a confiança sem bloquear a evolução funcional futura e sem
+prometer ausência absoluta de defeitos.

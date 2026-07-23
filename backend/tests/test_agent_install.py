@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import os
 import subprocess
 
@@ -30,7 +31,9 @@ def test_agent_install_plan_generates_single_use_token_and_command(tmp_path: Pat
             assert "/api/agent/install/linux.sh" in plan["install_command"]
             assert "PRINTORA_PAIRING_TOKEN='ptr_pair_" in plan["install_command"]
             assert "PRINTORA_AGENT_VERSION='0.1.33'" in plan["install_command"]
-            assert "PRINTORA_AGENT_BIN_URL='http://testserver/api/agent/update/releases/linux-arm64'" in plan["install_command"]
+            assert "PRINTORA_AGENT_BIN_URL='http://testserver/api/agent/update/releases/0.1.33/linux-arm64'" in plan["install_command"]
+            assert "PRINTORA_AGENT_SHA256='1373f97a" in plan["install_command"]
+            assert "PRINTORA_AGENT_SIGNATURE=" in plan["install_command"]
             assert "PRINTORA_MOONRAKER_URL='http://127.0.0.1:7125'" in plan["install_command"]
             assert plan["token_prefix"] in plan["install_command"]
 
@@ -147,6 +150,42 @@ def test_agent_installer_notifies_api_after_service_install() -> None:
     assert "notify_install_success" in content
     assert "$API_BASE/api/agent/heartbeat" in content
     assert "install_success" in content
+
+
+def test_agent_installer_verifies_release_checksum_and_signature(tmp_path: Path) -> None:
+    backend_dir = Path(__file__).resolve().parents[1]
+    script = backend_dir / "scripts" / "install_agent_linux.sh"
+    release_dir = backend_dir / "app" / "data" / "agent_releases"
+    artifact = release_dir / "printora-agent-linux-arm64-0.1.34"
+    metadata = json.loads(
+        (release_dir / "printora-agent-linux-arm64-0.1.34.metadata.json").read_text()
+    )
+    env = {
+        **os.environ,
+        "PRINTORA_AGENT_INSTALL_SOURCE_ONLY": "1",
+        "PRINTORA_AGENT_SHA256": metadata["sha256"],
+        "PRINTORA_AGENT_SIGNATURE": metadata["signature"],
+    }
+    valid = subprocess.run(
+        ["bash", "-c", f"source {script!s}; verify_release {artifact!s}"],
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert valid.returncode == 0, valid.stderr
+
+    tampered = tmp_path / "tampered-agent"
+    tampered.write_bytes(artifact.read_bytes() + b"tampered")
+    invalid = subprocess.run(
+        ["bash", "-c", f"source {script!s}; verify_release {tampered!s}"],
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert invalid.returncode != 0
+    assert "checksum do agente não confere" in invalid.stderr
 
 
 def _register(client: TestClient, email: str) -> str:

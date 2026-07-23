@@ -147,16 +147,24 @@ class AgentPairingRepository:
         printer: PrinterRecord,
         api_base_url: str,
         agent_bin_url: str | None = None,
+        agent_sha256: str | None = None,
+        agent_signature: str | None = None,
     ) -> AgentInstallPlanResponse:
         token = self.create_pairing_token(current_user, printer, PairingTokenCreateRequest(ttl_minutes=15))
         script_url = f"{api_base_url.rstrip('/')}/api/agent/install/linux.sh"
         bin_env = f"PRINTORA_AGENT_BIN_URL={_shell_quote(agent_bin_url)} " if agent_bin_url else ""
+        hash_env = f"PRINTORA_AGENT_SHA256={_shell_quote(agent_sha256)} " if agent_sha256 else ""
+        signature_env = (
+            f"PRINTORA_AGENT_SIGNATURE={_shell_quote(agent_signature)} "
+            if agent_signature
+            else ""
+        )
         install_command = (
             f"curl -fsSL {_shell_quote(script_url)} | "
             f"sudo PRINTORA_API_BASE={_shell_quote(api_base_url.rstrip('/'))} "
             f"PRINTORA_PAIRING_TOKEN={_shell_quote(token.token)} "
             f"PRINTORA_AGENT_VERSION={_shell_quote(EXPECTED_AGENT_VERSION)} "
-            f"{bin_env}"
+            f"{bin_env}{hash_env}{signature_env}"
             "PRINTORA_MOONRAKER_URL='http://127.0.0.1:7125' "
             "bash -s -- --apply --yes"
         )

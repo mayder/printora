@@ -246,7 +246,10 @@ export function AgentsScreen(props: AgentsScreenProps) {
     await loadFleetAgentPairings();
   }
 
-  async function updateAgent(row: AgentFleetRow) {
+  async function updateAgent(
+    row: AgentFleetRow,
+    channel: "stable" | "candidate" | "rollback" = "stable",
+  ) {
     selectAgent(row);
     if (!canRequestSystemAgentUpdate(row)) {
       showToast({
@@ -256,7 +259,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
       });
       return;
     }
-    await createAgentUpdateJob(row.agent.id, row.printer.id);
+    await createAgentUpdateJob(row.agent.id, row.printer.id, channel);
   }
 
   async function refreshAgentStatus(row: AgentFleetRow) {
@@ -268,6 +271,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
   }
 
   const expectedAgentVersion = agentUpdateManifest?.recommended_version ?? agentInstallStatus?.expected_agent_version ?? "-";
+  const candidateAgentVersion = agentUpdateManifest?.candidate_version ?? "-";
 
   return (
     <>
@@ -294,6 +298,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
           <Badge icon={Radio} label="Agentes pareados" value={visibleAgentRows.length} />
           <Badge icon={CheckCircle2} label="Online agora" value={visibleAgentRows.filter((row) => isAgentHeartbeatRecent(row.agent)).length} />
           <Badge icon={Gauge} label="Versão esperada" value={expectedAgentVersion} />
+          <Badge icon={ShieldAlert} label="Canário disponível" value={candidateAgentVersion} />
         </div>
       </article>
 
@@ -393,6 +398,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
                   <Metric label="URL" value={selectedAgentRow.printer.moonraker_url} />
                   <Metric label="Versão" value={selectedAgentRow.agent.agent_version ?? "-"} />
                   <Metric label="Versão esperada" value={expectedAgentVersion} />
+                  <Metric label="Canário disponível" value={candidateAgentVersion} />
                   <Metric label="Plataforma" value={selectedAgentRow.agent.platform ?? "-"} />
                   <Metric label="Pareado em" value={formatDateTime(selectedAgentRow.agent.paired_at)} />
                   <Metric label="Último contato" value={formatDateTime(selectedAgentRow.agent.last_seen_at)} />
@@ -412,6 +418,18 @@ export function AgentsScreen(props: AgentsScreenProps) {
                     <RefreshCw size={15} />
                     {agentUpdateButtonLabel(selectedAgentRow, "detail")}
                   </button>
+                  {candidateAgentVersion !== "-" && selectedAgentRow.agent.agent_version !== candidateAgentVersion ? (
+                    <button type="button" className="secondary-button" onClick={() => void updateAgent(selectedAgentRow, "candidate")} disabled={loading || selectedAgentRow.agent.status !== "active"}>
+                      <ShieldAlert size={15} />
+                      Instalar canário {candidateAgentVersion}
+                    </button>
+                  ) : null}
+                  {selectedAgentRow.agent.agent_version === candidateAgentVersion && candidateAgentVersion !== expectedAgentVersion ? (
+                    <button type="button" className="secondary-button" onClick={() => void updateAgent(selectedAgentRow, "rollback")} disabled={loading || selectedAgentRow.agent.status !== "active"}>
+                      <RefreshCw size={15} />
+                      Reverter para {expectedAgentVersion}
+                    </button>
+                  ) : null}
                   <button type="button" className="secondary-button" onClick={() => void rotateAgent(selectedAgentRow)} disabled={loading || selectedAgentRow.agent.status === "revoked"}>
                     <KeyRound size={15} />
                     Rotacionar

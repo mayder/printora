@@ -173,6 +173,22 @@ O `check.sh` da raiz chama os validadores do modelo e checks leves. Checks pesad
 RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
 ```
 
+### Limite De Tamanho
+
+O limite de linhas é bloqueante para código dentro de `backend/app`,
+`frontend/src` e `agent`. Documentos de governança e backlog, especialmente
+`DEMANDAS.md`, não possuem limite de linhas: completude, rastreabilidade e
+capacidade de execução em outra janela têm prioridade sobre compactação
+artificial do documento.
+
+### Confiança Operacional Pós-Arquitetura
+
+Os pacotes `PKG-96` a `PKG-99` são executados depois da arquitetura base e
+fecham, em ordem, distribuição do agente, gates de qualidade, homologação
+física/soak e recuperação física. Nenhum deles pode declarar ausência absoluta
+de defeitos; o aceite deve descrever o escopo efetivamente exercitado e os
+riscos residuais.
+
 ### Resposta final curta
 
 Ao concluir uma tarefa, a IA deve responder apenas: o que foi feito, o que falhou ou ficou bloqueado, e como validar.

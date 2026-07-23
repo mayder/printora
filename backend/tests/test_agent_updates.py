@@ -20,12 +20,23 @@ def test_agent_update_manifest_is_public_and_versioned(tmp_path: Path, monkeypat
             assert payload["manifest_version"] == 1
             assert payload["minimum_version"] == "0.1.17"
             assert payload["recommended_version"] == "0.1.33"
+            assert payload["candidate_version"] == "0.1.34"
             assert payload["protocol_min"] == 1
             assert payload["protocol_max"] == 1
+            assert payload["signature_algorithm"] == "ed25519-sha256"
+            assert payload["signing_key_id"].startswith("sha256:")
             assert payload["releases"]
-            linux_arm64 = next(release for release in payload["releases"] if release["platform"] == "linux/arm64")
+            assert {release["platform"] for release in payload["releases"]} == {"linux/arm64"}
+            assert {release["version"] for release in payload["releases"]} == {"0.1.33", "0.1.34"}
+            linux_arm64 = next(
+                release
+                for release in payload["releases"]
+                if release["platform"] == "linux/arm64" and release["version"] == "0.1.33"
+            )
             assert linux_arm64["version"] == "0.1.33"
-            assert linux_arm64["url"].endswith("/api/agent/update/releases/linux-arm64")
+            assert linux_arm64["url"].endswith("/api/agent/update/releases/0.1.33/linux-arm64")
+            assert len(linux_arm64["sha256"]) == 64
+            assert linux_arm64["signature"]
 
             release = client.get("/api/agent/update/releases/linux-arm64")
             assert release.status_code in {200, 404}
@@ -34,6 +45,24 @@ def test_agent_update_manifest_is_public_and_versioned(tmp_path: Path, monkeypat
             else:
                 assert release.headers["content-type"] == "application/octet-stream"
                 assert hashlib.sha256(release.content).hexdigest() == linux_arm64["sha256"]
+
+            candidate = next(release for release in payload["releases"] if release["version"] == "0.1.34")
+            candidate_release = client.get("/api/agent/update/releases/0.1.34/linux-arm64")
+            assert candidate_release.status_code == 200
+            assert hashlib.sha256(candidate_release.content).hexdigest() == candidate["sha256"]
+
+            candidate_manifest_unauthenticated = client.get("/api/agent/update/manifest/candidate")
+            assert candidate_manifest_unauthenticated.status_code == 401
+
+            owner_token = _register(client, "owner-agent-candidate@example.com")
+            printer = _create_printer(client, owner_token)
+            credential = _pair_agent(client, owner_token, printer["id"], "agent-candidate-001")
+            candidate_manifest = client.get(
+                "/api/agent/update/manifest/candidate",
+                headers=_auth(credential),
+            )
+            assert candidate_manifest.status_code == 200
+            assert candidate_manifest.json()["recommended_version"] == "0.1.34"
     finally:
         get_settings.cache_clear()
 

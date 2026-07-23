@@ -229,87 +229,103 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 		return
 	}
 	defer r.releaseJob(job.ID)
+	if r.replayJournaledJob(ctx, job) {
+		return
+	}
+	if r.Journal != nil {
+		if err := r.Journal.MarkReceived(job); err != nil {
+			r.Logger.Printf("job receipt journal failed id=%d: %v", job.ID, err)
+			return
+		}
+	}
 	if err := r.API.AckJob(ctx, job.ID); err != nil {
 		r.Logger.Printf("job ack failed id=%d: %v", job.ID, err)
 		return
 	}
+	if r.Journal != nil {
+		if err := r.Journal.MarkStarted(job); err != nil {
+			r.Logger.Printf("job journal failed id=%d: %v", job.ID, err)
+			_ = r.API.NackJob(ctx, job.ID, job.CorrelationID, "falha ao persistir início do job")
+			return
+		}
+	}
 	switch job.JobType {
 	case "ping":
-		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: map[string]any{"pong": true, "agent_version": Version}})
+		r.completeJob(ctx, job, map[string]any{"pong": true, "agent_version": Version})
 	case "snapshot":
 		snapshot := r.Moonraker.Snapshot(ctx)
-		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: compactSnapshot(snapshot)})
+		r.completeJob(ctx, job, compactSnapshot(snapshot))
 	case "remote_audit", "remote_snapshot", "remote_health", "remote_temperatures", "remote_update_status", "remote_can_status", "remote_final_validation", "remote_report_sanitized", "remote_backup_preview", "remote_operation_preview", "remote_firmware_preview", "remote_moonraker_status", "remote_operation_status", "remote_calibration_capabilities", "remote_firmware_inventory":
 		payload := r.Moonraker.RemotePayload(ctx, job.JobType)
-		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+		r.completeJob(ctx, job, mapValueOrEmpty(payload))
 	case "remote_gcode_files_list":
 		payload := r.Moonraker.GcodeFiles(ctx, job.Payload)
-		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+		r.completeJob(ctx, job, mapValueOrEmpty(payload))
 	case "remote_gcode_file_action":
 		payload := r.Moonraker.RemoteGcodeFileAction(ctx, job.Payload)
 		if payload["status"] == "executed" || payload["status"] == "printed" || payload["status"] == "renamed" || payload["status"] == "moved" || payload["status"] == "duplicated" || payload["status"] == "deleted" {
-			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+			r.completeJob(ctx, job, mapValueOrEmpty(payload))
 		} else {
-			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
+			r.failJob(ctx, job, stringValue(payload["detail"]), mapValueOrEmpty(payload))
 		}
 	case "remote_update_action":
 		payload := r.Moonraker.RemoteUpdateAction(ctx, job.Payload)
 		if payload["status"] == "accepted" {
-			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+			r.completeJob(ctx, job, mapValueOrEmpty(payload))
 		} else {
-			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["moonraker_response_error"]), Result: mapValueOrEmpty(payload)})
+			r.failJob(ctx, job, stringValue(payload["moonraker_response_error"]), mapValueOrEmpty(payload))
 		}
 	case "remote_mutation_preflight":
 		payload := r.Moonraker.RemoteMutationPreflight(ctx, job.Payload)
-		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+		r.completeJob(ctx, job, mapValueOrEmpty(payload))
 	case "remote_mutation_execute":
 		payload := r.Moonraker.RemoteMutationExecute(ctx, job.Payload)
 		if payload["status"] == "executed" {
-			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+			r.completeJob(ctx, job, mapValueOrEmpty(payload))
 		} else {
-			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
+			r.failJob(ctx, job, stringValue(payload["detail"]), mapValueOrEmpty(payload))
 		}
 	case "remote_gcode_preflight":
 		payload := r.Moonraker.RemoteGcodePreflight(ctx, job.Payload)
-		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+		r.completeJob(ctx, job, mapValueOrEmpty(payload))
 	case "remote_gcode_execute":
 		payload := r.Moonraker.RemoteGcodeExecute(ctx, job.Payload)
 		if payload["status"] == "executed" || payload["status"] == "dispatched_unconfirmed" {
-			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+			r.completeJob(ctx, job, mapValueOrEmpty(payload))
 		} else {
-			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
+			r.failJob(ctx, job, stringValue(payload["detail"]), mapValueOrEmpty(payload))
 		}
 	case "remote_gcode_upload":
 		payload := r.Moonraker.RemoteGcodeUpload(ctx, job.Payload)
 		if payload["status"] == "uploaded" || payload["status"] == "started" {
-			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+			r.completeJob(ctx, job, mapValueOrEmpty(payload))
 		} else {
-			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
+			r.failJob(ctx, job, stringValue(payload["detail"]), mapValueOrEmpty(payload))
 		}
 	case "remote_gcode_cache":
 		payload := r.RemoteGcodeCache(ctx, job.Payload)
 		if payload["status"] == "cached" {
-			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+			r.completeJob(ctx, job, mapValueOrEmpty(payload))
 		} else {
-			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
+			r.failJob(ctx, job, stringValue(payload["detail"]), mapValueOrEmpty(payload))
 		}
 	case "remote_gcode_delete":
 		payload := r.Moonraker.RemoteGcodeDelete(ctx, job.Payload)
 		if payload["status"] == "deleted" {
-			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+			r.completeJob(ctx, job, mapValueOrEmpty(payload))
 		} else {
-			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["detail"]), Result: mapValueOrEmpty(payload)})
+			r.failJob(ctx, job, stringValue(payload["detail"]), mapValueOrEmpty(payload))
 		}
 	case "remote_host_script":
 		payload := RemoteHostScript(ctx, job.Payload)
 		if payload["status"] == "ok" {
-			_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+			r.completeJob(ctx, job, mapValueOrEmpty(payload))
 		} else {
-			_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: stringValue(payload["error"]), Result: mapValueOrEmpty(payload)})
+			r.failJob(ctx, job, stringValue(payload["error"]), mapValueOrEmpty(payload))
 		}
 	case "remote_doctor":
 		payload := RemoteDoctor(ctx, r.Config, r.API, r.Moonraker)
-		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: mapValueOrEmpty(payload)})
+		r.completeJob(ctx, job, mapValueOrEmpty(payload))
 	case "remote_agent_update_check":
 		result := r.CheckAgentUpdate(ctx)
 		r.RecordUpdateResult(ctx, result)
@@ -320,9 +336,82 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 			"target_version":  result.TargetVersion,
 			"detail":          result.Detail,
 		}
-		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: payload})
+		r.completeJob(ctx, job, payload)
 	default:
-		_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: "unsupported job type", Result: map[string]any{"job_type": job.JobType}})
+		r.failJob(ctx, job, "unsupported job type", map[string]any{"job_type": job.JobType})
+	}
+}
+
+func (r *Runner) replayJournaledJob(ctx context.Context, job AgentJob) bool {
+	if r.Journal == nil {
+		return false
+	}
+	entry, found := r.Journal.Find(job.ID, job.CorrelationID)
+	if !found {
+		return false
+	}
+	switch entry.State {
+	case "received":
+		return false
+	case "succeeded":
+		_ = r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: entry.Result})
+		return true
+	case "failed":
+		_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: entry.ErrorMessage, Result: entry.Result})
+		return true
+	case "started":
+		if !isNonRepeatableJob(job.JobType) {
+			return false
+		}
+		result := map[string]any{
+			"status": "requires_reconciliation",
+			"detail": "job mutável interrompido após ACK; efeito não será repetido automaticamente",
+		}
+		message := stringValue(result["detail"])
+		_ = r.Journal.MarkError(job, message, result)
+		_ = r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: message, Result: result})
+		return true
+	default:
+		return false
+	}
+}
+
+func (r *Runner) completeJob(ctx context.Context, job AgentJob, result map[string]any) {
+	if r.Journal != nil {
+		if err := r.Journal.MarkResult(job, result); err != nil {
+			r.Logger.Printf("job result journal failed id=%d: %v", job.ID, err)
+			return
+		}
+	}
+	if err := r.API.ResultJob(ctx, job.ID, AgentJobResultPayload{CorrelationID: job.CorrelationID, Result: result}); err != nil {
+		r.Logger.Printf("job result delivery failed id=%d: %v", job.ID, err)
+	}
+}
+
+func (r *Runner) failJob(ctx context.Context, job AgentJob, message string, result map[string]any) {
+	if r.Journal != nil {
+		if err := r.Journal.MarkError(job, message, result); err != nil {
+			r.Logger.Printf("job error journal failed id=%d: %v", job.ID, err)
+			return
+		}
+	}
+	if err := r.API.ErrorJob(ctx, job.ID, AgentJobErrorPayload{CorrelationID: job.CorrelationID, ErrorMessage: message, Result: result}); err != nil {
+		r.Logger.Printf("job error delivery failed id=%d: %v", job.ID, err)
+	}
+}
+
+func isNonRepeatableJob(jobType string) bool {
+	switch jobType {
+	case "remote_gcode_file_action",
+		"remote_update_action",
+		"remote_mutation_execute",
+		"remote_gcode_execute",
+		"remote_gcode_upload",
+		"remote_gcode_delete",
+		"remote_host_script":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -372,6 +461,7 @@ func (r *Runner) channelCapabilities(ctx context.Context) map[string]any {
 	capabilities["gcode_file_actions"] = true
 	capabilities["host_script"] = true
 	capabilities["jobs"] = true
+	capabilities["durable_job_journal"] = true
 	capabilities["websocket"] = true
 	capabilities["polling"] = r.Config.PollingEnabled
 	capabilities["protocol_v"] = ProtocolVersion

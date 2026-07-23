@@ -5,7 +5,7 @@
 ## Resumo
 
 - módulos Python: 169;
-- endpoints HTTP/WebSocket: 370;
+- endpoints HTTP/WebSocket: 372;
 - contratos tipados: 384;
 - tabelas declaradas em SQL: 156;
 - ciclos de import detectados: 0.
@@ -32,27 +32,27 @@
 | `routes.social_catalog` | `community` | 1119 | 59 | 0 |
 | `print_projects` | `community` | 1059 | 0 | 14 |
 | `self_update` | `administration` | 1001 | 0 | 10 |
-| `agent_pairing` | `operations` | 917 | 0 | 0 |
+| `agent_pairing` | `operations` | 925 | 0 | 0 |
 | `auth` | `identity` | 911 | 0 | 0 |
 | `calibration` | `operations` | 910 | 0 | 12 |
 | `routes.operation` | `operations` | 776 | 13 | 0 |
 | `modules.platform.durable_execution` | `shared` | 763 | 0 | 1 |
 | `setup_flash` | `operations` | 753 | 0 | 7 |
+| `routes.agents` | `operations` | 750 | 37 | 0 |
 | `search_discovery` | `community` | 733 | 0 | 5 |
 | `setup_can` | `operations` | 699 | 0 | 7 |
-| `routes.agents` | `operations` | 693 | 35 | 0 |
 | `slicing_pipeline` | `operations` | 680 | 0 | 5 |
 | `routes.calibration` | `operations` | 674 | 15 | 0 |
 | `modules.administration.intelligence` | `administration` | 673 | 0 | 0 |
 | `setup_wizard` | `operations` | 643 | 0 | 7 |
 | `printers` | `operations` | 635 | 0 | 3 |
 | `database` | `shared` | 590 | 0 | 0 |
+| `agent_support` | `operations` | 547 | 0 | 5 |
 | `gcode_files` | `operations` | 543 | 0 | 10 |
 | `health` | `administration` | 513 | 0 | 0 |
 | `setup_firmware` | `operations` | 513 | 0 | 5 |
 | `setup_final_validation` | `operations` | 509 | 0 | 4 |
 | `firmware.repository` | `operations` | 489 | 0 | 0 |
-| `agent_support` | `operations` | 486 | 0 | 5 |
 | `firmware_catalog` | `operations` | 478 | 0 | 14 |
 | `updates` | `administration` | 465 | 0 | 8 |
 | `backups` | `administration` | 431 | 0 | 0 |

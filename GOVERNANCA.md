@@ -101,6 +101,28 @@ dependências fixadas/SBOM, scans de segredo/dependência, artefatos verificáve
 logs sanitizados e plano de incidente. Tela desabilitada nunca substitui
 controle de permissão no backend.
 
+### Gates De Confiança Pós-Arquitetura
+
+Os pacotes `PKG-96` a `PKG-99` só podem fechar quando:
+
+- versão de agente identifica exatamente um conjunto de fontes/binários;
+- plataforma anunciada possui artefato, checksum, assinatura e teste real;
+- Node incompatível bloqueia antes do build;
+- cobertura mínima global/crítica e não regressão estão ativas;
+- E2E executa fluxos P0/P1 com isolamento entre usuários/organizações;
+- fuzzing/property testing e mutation testing produzem evidência reproduzível;
+- pentest independente não deixa achado crítico/alto aberto;
+- validação física respeita estado da impressora e nunca usa impressão ativa
+  para mutação não autorizada;
+- soak final é contínuo; falha reinicia a janela afetada;
+- RPO/RTO são medidos e alertados, não apenas descritos;
+- relatório final lista explicitamente escopo testado, não testado e risco residual.
+
+Pentest, fuzz, carga e E2E em produção precisam de autorização e escopo
+específicos. Teste destrutivo, prune, flash, restart de Klipper/Moonraker,
+alteração de firmware ou comando físico perigoso não é autorizado por esses
+pacotes.
+
 Em branch `main` ou `hml`, a IA deve perguntar antes de editar quando o usuário não tiver autorizado explicitamente o uso da branch.
 
 ## Riscos Principais

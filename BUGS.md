@@ -847,3 +847,32 @@ Mitigação:
 - encerrar o cluster efêmero sem checkpoint e remover apenas o diretório exato;
 - monitorar `/health` público e interromper somente o ensaio se passar de 5 s;
 - nunca reduzir durabilidade do cluster PostgreSQL de produção.
+
+### Agente Alterado Sem Nova Versão Pública
+
+Impacto:
+
+- o código do agente recebeu alterações de reconnect/blue-green depois do
+  artefato `0.1.33`;
+- o manifesto e o SHA-256 público continuam apontando ao binário anterior;
+- agentes instalados não recebem essas alterações como uma nova versão.
+
+Mitigação:
+
+- resolver no `PKG-96` com versão `0.1.34`, build reproduzível, assinatura,
+  canário real, rollback e atualização do manifesto;
+- nunca substituir conteúdo mantendo o mesmo número de versão.
+
+### Gate Frontend Aceita Node Não Suportado E Cobertura Zero
+
+Impacto:
+
+- Vite avisa que Node 18 não é suportado, mas o build pode encerrar com sucesso;
+- cobertura mínima está desativada e não bloqueia regressão;
+- os testes frontend atuais não equivalem a uma suíte E2E completa.
+
+Mitigação:
+
+- resolver no `PKG-97`;
+- falhar antes do build com Node incompatível;
+- ativar cobertura, E2E, fuzzing, mutation testing e pentest independente.

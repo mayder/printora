@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -108,27 +109,51 @@ class AgentSupportRepository:
             ),
         )
 
-    def request_agent_update(self, printer: PrinterRecord, agent_id: int, public_base_url: str | None = None) -> AgentUpdateRequestResponse:
+    def request_agent_update(
+        self,
+        printer: PrinterRecord,
+        agent_id: int,
+        public_base_url: str | None = None,
+        channel: Literal["stable", "candidate", "rollback"] = "stable",
+    ) -> AgentUpdateRequestResponse:
         agent = next((item for item in self._agents(printer.id) if item.id == agent_id), None)
         if agent is None:
             raise ValueError("agente não pertence à impressora")
         if agent.status != "active":
             raise ValueError("agente precisa estar ativo para receber update remoto")
+        manifest = load_agent_update_manifest(public_base_url)
+        target_version = manifest.recommended_version
+        if channel == "candidate":
+            if not manifest.candidate_version:
+                raise ValueError("release candidata indisponível")
+            target_version = manifest.candidate_version
+        release = _release_for_version(manifest, target_version)
+        if agent.platform not in (None, release.platform):
+            raise ValueError(f"release {release.platform} incompatível com agente {agent.platform}")
+        if channel == "rollback" and _version_tuple(agent.agent_version) <= _version_tuple(target_version):
+            raise ValueError("rollback exige agente em versão superior à recomendada")
         job_type = "remote_agent_update_check"
         payload: dict[str, Any] = {
             "safe_mode": "agent_self_update",
             "requested_at": _now_text(),
-            "target_version": EXPECTED_AGENT_VERSION,
+            "target_version": target_version,
+            "update_channel": channel,
         }
-        if _needs_bootstrap_update(agent.agent_version):
-            release = _linux_arm64_release(public_base_url)
+        if channel != "stable" or _needs_bootstrap_update(agent.agent_version):
             job_type = "remote_host_script"
             payload = {
                 "safe_mode": "agent_update_bootstrap",
                 "kind": "agent_update_bootstrap",
-                "script": _bootstrap_update_script(release.url, release.sha256),
+                "script": _bootstrap_update_script(
+                    release.url,
+                    release.sha256,
+                    release.signature,
+                    agent.agent_version,
+                    target_version,
+                ),
                 "timeout_seconds": 120,
-                "target_version": EXPECTED_AGENT_VERSION,
+                "target_version": target_version,
+                "update_channel": channel,
             }
         job = AgentPairingRepository(self.database_path).create_job(
             printer,
@@ -142,7 +167,10 @@ class AgentSupportRepository:
         return AgentUpdateRequestResponse(
             mode="remote_job",
             status="queued",
-            detail="Update remoto registrado para o agente. O agente aplica pelo próprio serviço, sem SSH.",
+            detail=(
+                f"{channel.capitalize()} {target_version} registrado para o agente. "
+                "A aplicação ocorre pelo próprio serviço, sem SSH."
+            ),
             job=job,
         )
 
@@ -429,23 +457,56 @@ def _version_tuple(version: str | None) -> tuple[int, int, int]:
     return values[0], values[1], values[2]
 
 
-def _linux_arm64_release(public_base_url: str | None):
-    manifest = load_agent_update_manifest(public_base_url)
+def _release_for_version(manifest, version: str):
     for release in manifest.releases:
-        if release.platform == "linux/arm64" and release.url and release.sha256:
+        if release.platform == "linux/arm64" and release.version == version:
             return release
-    raise ValueError("release linux/arm64 indisponível para atualização remota")
+    raise ValueError(f"release linux/arm64 {version} indisponível para atualização remota")
 
 
-def _bootstrap_update_script(url: str, sha256: str) -> str:
+def _bootstrap_update_script(
+    url: str,
+    sha256: str,
+    signature: str,
+    source_version: str | None,
+    target_version: str,
+) -> str:
+    safe_source = re.sub(r"[^0-9A-Za-z._-]", "-", source_version or "unknown")
+    safe_target = re.sub(r"[^0-9A-Za-z._-]", "-", target_version)
+    public_key = """-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAdK8RtUcm2hdrv0CFCNMFago1e+8RmT3ab9fbDyK8hmg=
+-----END PUBLIC KEY-----"""
     return f"""set -euo pipefail
-tmp="$(mktemp)"
-curl -4 -fsSL --retry 5 --retry-delay 2 '{url}' -o "$tmp"
-echo '{sha256}  '"$tmp" | sha256sum -c -
-install -m 0755 "$tmp" /usr/local/bin/printora-agent
-rm -f "$tmp"
+current_sha="$(sha256sum /usr/local/bin/printora-agent | awk '{{print $1}}')"
+if [ "$current_sha" = {shlex.quote(sha256)} ]; then
+  echo 'agente já está no artefato alvo {safe_target}'
+  exit 0
+fi
+state="$(curl -4 -fsSL --connect-timeout 5 --max-time 10 \
+  'http://127.0.0.1:7125/printer/objects/query?print_stats' |
+  python3 -c 'import json,sys; print(json.load(sys.stdin).get("result",{{}}).get("status",{{}}).get("print_stats",{{}}).get("state",""))')"
+case "$state" in standby|complete|cancelled|error) ;; *)
+  echo "update bloqueado: print_stats.state=${{state:-indisponível}}" >&2
+  exit 23
+esac
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+curl -4 -fsSL --retry 5 --retry-delay 2 --connect-timeout 10 {shlex.quote(url)} -o "$work/agent"
+echo {shlex.quote(sha256 + "  ")}"$work/agent" | sha256sum -c -
+cat > "$work/public.pem" <<'KEY'
+{public_key}
+KEY
+printf '%s' {shlex.quote(signature)} | openssl base64 -d -A -out "$work/signature.bin"
+printf '%s' {shlex.quote(sha256)} > "$work/digest.txt"
+openssl pkeyutl -verify -pubin -inkey "$work/public.pem" -rawin \
+  -in "$work/digest.txt" -sigfile "$work/signature.bin" >/dev/null
+install -d -m 0700 /var/lib/printora-agent/updates
+install -m 0755 /usr/local/bin/printora-agent \
+  /var/lib/printora-agent/updates/printora-agent.backup-{safe_source}
+install -m 0755 "$work/agent" /usr/local/bin/printora-agent.new
+mv -f /usr/local/bin/printora-agent.new /usr/local/bin/printora-agent
 nohup sh -c 'sleep 1; systemctl restart printora-agent' >/dev/null 2>&1 &
-echo 'agente atualizado para {EXPECTED_AGENT_VERSION}; restart agendado'
+echo 'agente preparado para {safe_target}; restart exclusivo agendado'
 """
 
 

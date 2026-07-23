@@ -1,7 +1,9 @@
 package agent
 
 import (
+	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -933,6 +935,131 @@ func TestRunnerRejectsConcurrentDuplicateJob(t *testing.T) {
 	}
 }
 
+func TestJobJournalPersistsTerminalResult(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "job-journal.json")
+	job := AgentJob{ID: 41, CorrelationID: "journal-41", JobType: "ping"}
+	journal := NewJobJournal(path)
+	if err := journal.MarkReceived(job); err != nil {
+		t.Fatal(err)
+	}
+	if err := journal.MarkStarted(job); err != nil {
+		t.Fatal(err)
+	}
+	if err := journal.MarkResult(job, map[string]any{"pong": true}); err != nil {
+		t.Fatal(err)
+	}
+	entry, found := NewJobJournal(path).Find(job.ID, job.CorrelationID)
+	if !found || entry.State != "succeeded" || entry.Result["pong"] != true {
+		t.Fatalf("unexpected persisted entry: found=%v entry=%#v", found, entry)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("unexpected journal permissions: %s", info.Mode().Perm())
+	}
+}
+
+func TestJobJournalPersistsReceiptBeforeAck(t *testing.T) {
+	var ackCalls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/agent/jobs/82/ack" {
+			ackCalls.Add(1)
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+	job := AgentJob{ID: 82, CorrelationID: "receipt-82", JobType: "remote_gcode_execute"}
+	journal := NewJobJournal(filepath.Join(t.TempDir(), "job-journal.json"))
+	runner := &Runner{
+		API:     NewAPIClient(server.URL, "ptr_agent_test", time.Second),
+		Journal: journal,
+		Logger:  discardLogger(),
+	}
+	runner.handleJob(context.Background(), job)
+	entry, found := journal.Find(job.ID, job.CorrelationID)
+	if ackCalls.Load() != 1 || !found || entry.State != "received" {
+		t.Fatalf("job receipt was not preserved before failed ACK: ack=%d entry=%#v", ackCalls.Load(), entry)
+	}
+	if runner.replayJournaledJob(context.Background(), job) {
+		t.Fatal("received job must be eligible for ACK retry before any side effect")
+	}
+}
+
+func TestJournaledMutationIsNotRepeatedAfterRestart(t *testing.T) {
+	var ackCalls atomic.Int32
+	var errorCalls atomic.Int32
+	var moonrakerCalls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/agent/jobs/77/ack":
+			ackCalls.Add(1)
+			w.WriteHeader(http.StatusOK)
+		case "/api/agent/jobs/77/error":
+			errorCalls.Add(1)
+			w.WriteHeader(http.StatusOK)
+		default:
+			moonrakerCalls.Add(1)
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	job := AgentJob{ID: 77, CorrelationID: "mutation-77", JobType: "remote_gcode_execute"}
+	journal := NewJobJournal(filepath.Join(t.TempDir(), "job-journal.json"))
+	if err := journal.MarkStarted(job); err != nil {
+		t.Fatal(err)
+	}
+	runner := &Runner{
+		API:       NewAPIClient(server.URL, "ptr_agent_test", time.Second),
+		Moonraker: NewMoonrakerClient(server.URL, time.Second),
+		Journal:   journal,
+		Logger:    discardLogger(),
+	}
+	runner.handleJob(context.Background(), job)
+	if ackCalls.Load() != 0 || moonrakerCalls.Load() != 0 || errorCalls.Load() != 1 {
+		t.Fatalf("mutation replayed: ack=%d moonraker=%d error=%d", ackCalls.Load(), moonrakerCalls.Load(), errorCalls.Load())
+	}
+	entry, found := journal.Find(job.ID, job.CorrelationID)
+	if !found || entry.State != "failed" || entry.Result["status"] != "requires_reconciliation" {
+		t.Fatalf("unexpected reconciliation entry: %#v", entry)
+	}
+}
+
+func TestJournaledResultIsRedeliveredWithoutReexecution(t *testing.T) {
+	var ackCalls atomic.Int32
+	var resultCalls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/agent/jobs/81/ack":
+			ackCalls.Add(1)
+			w.WriteHeader(http.StatusOK)
+		case "/api/agent/jobs/81/result":
+			resultCalls.Add(1)
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	job := AgentJob{ID: 81, CorrelationID: "result-81", JobType: "ping"}
+	journal := NewJobJournal(filepath.Join(t.TempDir(), "job-journal.json"))
+	if err := journal.MarkResult(job, map[string]any{"pong": true}); err != nil {
+		t.Fatal(err)
+	}
+	runner := &Runner{
+		API:     NewAPIClient(server.URL, "ptr_agent_test", time.Second),
+		Journal: journal,
+		Logger:  discardLogger(),
+	}
+	runner.handleJob(context.Background(), job)
+	if ackCalls.Load() != 0 || resultCalls.Load() != 1 {
+		t.Fatalf("terminal job was not replayed safely: ack=%d result=%d", ackCalls.Load(), resultCalls.Load())
+	}
+}
+
 func TestAgentHandlesRemoteSelfUpdateJob(t *testing.T) {
 	var sawReport bool
 	var sawResult bool
@@ -963,6 +1090,8 @@ func TestAgentHandlesRemoteSelfUpdateJob(t *testing.T) {
 				RecommendedVersion: Version,
 				ProtocolMin:        ProtocolVersion,
 				ProtocolMax:        ProtocolVersion,
+				SignatureAlgorithm: releaseSignatureAlgorithm,
+				SigningKeyID:       releaseSigningKeyID,
 				AutoUpdate:         true,
 				Releases: []UpdateRelease{{
 					Platform:    Platform(),
@@ -1131,7 +1260,7 @@ func TestAgentHandlesRemoteMutationPreflightAndExecute(t *testing.T) {
 }
 
 func TestRemoteGcodeExecuteTreatsAwaitingHeadersTimeoutAsDispatched(t *testing.T) {
-	var sawExecute bool
+	var sawExecute atomic.Bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/server/info":
@@ -1143,7 +1272,7 @@ func TestRemoteGcodeExecuteTreatsAwaitingHeadersTimeoutAsDispatched(t *testing.T
 		case "/printer/objects/query":
 			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"status": map[string]any{"print_stats": map[string]any{"state": "standby"}}}})
 		case "/printer/gcode/script":
-			sawExecute = true
+			sawExecute.Store(true)
 			time.Sleep(30 * time.Millisecond)
 			_ = json.NewEncoder(w).Encode(map[string]any{"result": "ok"})
 		default:
@@ -1154,7 +1283,7 @@ func TestRemoteGcodeExecuteTreatsAwaitingHeadersTimeoutAsDispatched(t *testing.T
 
 	client := NewMoonrakerClient(server.URL, time.Millisecond)
 	result := client.RemoteGcodeExecute(context.Background(), map[string]any{"commands": []any{"G28"}})
-	if !sawExecute {
+	if !sawExecute.Load() {
 		t.Fatal("expected gcode request to reach Moonraker")
 	}
 	if result["status"] != "dispatched_unconfirmed" {
@@ -1319,6 +1448,7 @@ func TestAgentUpdateAppliesValidatedBinary(t *testing.T) {
 	}
 	newBinary := []byte("new-binary")
 	sum := sha256.Sum256(newBinary)
+	signature := testReleaseSignature(t, fmt.Sprintf("%x", sum))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/manifest":
@@ -1328,12 +1458,15 @@ func TestAgentUpdateAppliesValidatedBinary(t *testing.T) {
 				RecommendedVersion: targetVersion,
 				ProtocolMin:        ProtocolVersion,
 				ProtocolMax:        ProtocolVersion,
+				SignatureAlgorithm: releaseSignatureAlgorithm,
+				SigningKeyID:       releaseSigningKeyID,
 				AutoUpdate:         true,
 				Releases: []UpdateRelease{{
 					Platform:    Platform(),
 					Version:     targetVersion,
 					URL:         "http://" + r.Host + "/binary",
 					SHA256:      fmt.Sprintf("%x", sum),
+					Signature:   signature,
 					ProtocolMin: ProtocolVersion,
 					ProtocolMax: ProtocolVersion,
 				}},
@@ -1345,7 +1478,7 @@ func TestAgentUpdateAppliesValidatedBinary(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	runner := updateTestRunner(tmpDir, binaryPath, server.URL+"/manifest")
+	runner := updateTestRunner(t, tmpDir, binaryPath, server.URL+"/manifest")
 	result := runner.CheckAgentUpdate(context.Background())
 	if result.Status != "applied" {
 		t.Fatalf("expected applied, got %#v", result)
@@ -1373,12 +1506,15 @@ func TestAgentUpdateRejectsInvalidHash(t *testing.T) {
 				RecommendedVersion: targetVersion,
 				ProtocolMin:        ProtocolVersion,
 				ProtocolMax:        ProtocolVersion,
+				SignatureAlgorithm: releaseSignatureAlgorithm,
+				SigningKeyID:       releaseSigningKeyID,
 				AutoUpdate:         true,
 				Releases: []UpdateRelease{{
 					Platform:    Platform(),
 					Version:     targetVersion,
 					URL:         "http://" + r.Host + "/binary",
 					SHA256:      "bad",
+					Signature:   base64.StdEncoding.EncodeToString(make([]byte, ed25519.SignatureSize)),
 					ProtocolMin: ProtocolVersion,
 					ProtocolMax: ProtocolVersion,
 				}},
@@ -1388,7 +1524,7 @@ func TestAgentUpdateRejectsInvalidHash(t *testing.T) {
 		_, _ = w.Write([]byte("new-binary"))
 	}))
 	defer server.Close()
-	runner := updateTestRunner(tmpDir, binaryPath, server.URL+"/manifest")
+	runner := updateTestRunner(t, tmpDir, binaryPath, server.URL+"/manifest")
 	result := runner.CheckAgentUpdate(context.Background())
 	if result.Status != "failed" || !strings.Contains(result.Detail, "sha256") {
 		t.Fatalf("expected hash failure, got %#v", result)
@@ -1396,6 +1532,52 @@ func TestAgentUpdateRejectsInvalidHash(t *testing.T) {
 	current, _ := os.ReadFile(binaryPath)
 	if string(current) != "old-binary" {
 		t.Fatalf("binary changed after hash failure: %q", current)
+	}
+}
+
+func TestAgentUpdateRejectsInvalidSignature(t *testing.T) {
+	targetVersion := "99.0.0"
+	tmpDir := t.TempDir()
+	binaryPath := filepath.Join(tmpDir, "printora-agent")
+	if err := os.WriteFile(binaryPath, []byte("old-binary"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	newBinary := []byte("new-binary")
+	sum := sha256.Sum256(newBinary)
+	_ = testReleaseSignature(t, fmt.Sprintf("%x", sum))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/manifest" {
+			_ = json.NewEncoder(w).Encode(UpdateManifest{
+				ManifestVersion:    1,
+				RecommendedVersion: targetVersion,
+				ProtocolMin:        ProtocolVersion,
+				ProtocolMax:        ProtocolVersion,
+				SignatureAlgorithm: releaseSignatureAlgorithm,
+				SigningKeyID:       releaseSigningKeyID,
+				AutoUpdate:         true,
+				Releases: []UpdateRelease{{
+					Platform:    Platform(),
+					Version:     targetVersion,
+					URL:         "http://" + r.Host + "/binary",
+					SHA256:      fmt.Sprintf("%x", sum),
+					Signature:   base64.StdEncoding.EncodeToString(make([]byte, ed25519.SignatureSize)),
+					ProtocolMin: ProtocolVersion,
+					ProtocolMax: ProtocolVersion,
+				}},
+			})
+			return
+		}
+		_, _ = w.Write(newBinary)
+	}))
+	defer server.Close()
+	runner := updateTestRunner(t, tmpDir, binaryPath, server.URL+"/manifest")
+	result := runner.CheckAgentUpdate(context.Background())
+	if result.Status != "failed" || !strings.Contains(result.Detail, "assinatura") {
+		t.Fatalf("expected signature failure, got %#v", result)
+	}
+	current, _ := os.ReadFile(binaryPath)
+	if string(current) != "old-binary" {
+		t.Fatalf("binary changed after signature failure: %q", current)
 	}
 }
 
@@ -1408,6 +1590,7 @@ func TestAgentUpdateRollsBackWhenHealthFails(t *testing.T) {
 	}
 	newBinary := []byte("new-binary")
 	sum := sha256.Sum256(newBinary)
+	signature := testReleaseSignature(t, fmt.Sprintf("%x", sum))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/manifest" {
 			_ = json.NewEncoder(w).Encode(UpdateManifest{
@@ -1415,12 +1598,15 @@ func TestAgentUpdateRollsBackWhenHealthFails(t *testing.T) {
 				RecommendedVersion: targetVersion,
 				ProtocolMin:        ProtocolVersion,
 				ProtocolMax:        ProtocolVersion,
+				SignatureAlgorithm: releaseSignatureAlgorithm,
+				SigningKeyID:       releaseSigningKeyID,
 				AutoUpdate:         true,
 				Releases: []UpdateRelease{{
 					Platform:    Platform(),
 					Version:     targetVersion,
 					URL:         "http://" + r.Host + "/binary",
 					SHA256:      fmt.Sprintf("%x", sum),
+					Signature:   signature,
 					ProtocolMin: ProtocolVersion,
 					ProtocolMax: ProtocolVersion,
 				}},
@@ -1430,7 +1616,7 @@ func TestAgentUpdateRollsBackWhenHealthFails(t *testing.T) {
 		_, _ = w.Write(newBinary)
 	}))
 	defer server.Close()
-	runner := updateTestRunner(tmpDir, binaryPath, server.URL+"/manifest")
+	runner := updateTestRunner(t, tmpDir, binaryPath, server.URL+"/manifest")
 	runner.Config.UpdateHealthCommand = []string{"false"}
 	result := runner.CheckAgentUpdate(context.Background())
 	if result.Status != "rolled_back" {
@@ -1453,6 +1639,104 @@ func TestAgentUpdateBlocksServerBlockedVersion(t *testing.T) {
 	}
 }
 
+func TestAgentUpdateIgnoresCandidateUntilRecommended(t *testing.T) {
+	release, result := selectUpdateRelease(UpdateManifest{
+		RecommendedVersion: "0.1.33",
+		CandidateVersion:   "0.1.34",
+		ProtocolMin:        ProtocolVersion,
+		ProtocolMax:        ProtocolVersion,
+		SignatureAlgorithm: releaseSignatureAlgorithm,
+		SigningKeyID:       releaseSigningKeyID,
+		Releases: []UpdateRelease{
+			{Platform: Platform(), Version: "0.1.34", ProtocolMin: ProtocolVersion, ProtocolMax: ProtocolVersion},
+			{Platform: Platform(), Version: "0.1.33", ProtocolMin: ProtocolVersion, ProtocolMax: ProtocolVersion},
+		},
+	}, Platform(), "0.1.32")
+	if result.Status != "available" || release.Version != "0.1.33" {
+		t.Fatalf("expected only recommended release, release=%#v result=%#v", release, result)
+	}
+}
+
+func TestAgentUpdateBlocksWhilePrinting(t *testing.T) {
+	targetVersion := "99.0.0"
+	manifestServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(UpdateManifest{
+			ManifestVersion:    1,
+			RecommendedVersion: targetVersion,
+			ProtocolMin:        ProtocolVersion,
+			ProtocolMax:        ProtocolVersion,
+			SignatureAlgorithm: releaseSignatureAlgorithm,
+			SigningKeyID:       releaseSigningKeyID,
+			AutoUpdate:         true,
+			Releases: []UpdateRelease{{
+				Platform:    Platform(),
+				Version:     targetVersion,
+				URL:         "http://" + r.Host + "/binary",
+				SHA256:      strings.Repeat("a", 64),
+				Signature:   base64.StdEncoding.EncodeToString(make([]byte, ed25519.SignatureSize)),
+				ProtocolMin: ProtocolVersion,
+				ProtocolMax: ProtocolVersion,
+			}},
+		})
+	}))
+	defer manifestServer.Close()
+	moonrakerServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"result": map[string]any{
+				"status": map[string]any{"print_stats": map[string]any{"state": "printing"}},
+			},
+		})
+	}))
+	defer moonrakerServer.Close()
+	tmpDir := t.TempDir()
+	binaryPath := filepath.Join(tmpDir, "printora-agent")
+	if err := os.WriteFile(binaryPath, []byte("old-binary"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	runner := updateTestRunner(t, tmpDir, binaryPath, manifestServer.URL)
+	runner.Moonraker = NewMoonrakerClient(moonrakerServer.URL, time.Second)
+	result := runner.CheckAgentUpdate(context.Background())
+	if result.Status != "blocked" || !strings.Contains(result.Detail, "durante impressão") {
+		t.Fatalf("expected printing block, got %#v", result)
+	}
+}
+
+func TestAgentUpdateBlocksWhenIdleStateCannotBeConfirmed(t *testing.T) {
+	targetVersion := "99.0.0"
+	manifestServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(UpdateManifest{
+			ManifestVersion:    1,
+			RecommendedVersion: targetVersion,
+			ProtocolMin:        ProtocolVersion,
+			ProtocolMax:        ProtocolVersion,
+			SignatureAlgorithm: releaseSignatureAlgorithm,
+			SigningKeyID:       releaseSigningKeyID,
+			AutoUpdate:         true,
+			Releases: []UpdateRelease{{
+				Platform:    Platform(),
+				Version:     targetVersion,
+				URL:         "http://" + r.Host + "/binary",
+				SHA256:      strings.Repeat("a", 64),
+				Signature:   base64.StdEncoding.EncodeToString(make([]byte, ed25519.SignatureSize)),
+				ProtocolMin: ProtocolVersion,
+				ProtocolMax: ProtocolVersion,
+			}},
+		})
+	}))
+	defer manifestServer.Close()
+	tmpDir := t.TempDir()
+	binaryPath := filepath.Join(tmpDir, "printora-agent")
+	if err := os.WriteFile(binaryPath, []byte("old-binary"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	runner := updateTestRunner(t, tmpDir, binaryPath, manifestServer.URL)
+	runner.Moonraker = NewMoonrakerClient("http://127.0.0.1:1", 50*time.Millisecond)
+	result := runner.CheckAgentUpdate(context.Background())
+	if result.Status != "blocked" || !strings.Contains(result.Detail, "confirmar impressora ociosa") {
+		t.Fatalf("expected unavailable idle-state block, got %#v", result)
+	}
+}
+
 func TestQueuePersistsAndTrims(t *testing.T) {
 	queue := NewQueue(filepath.Join(t.TempDir(), "queue.jsonl"))
 	for i := 0; i < 205; i++ {
@@ -1469,7 +1753,16 @@ func TestQueuePersistsAndTrims(t *testing.T) {
 	}
 }
 
-func updateTestRunner(tmpDir string, binaryPath string, manifestURL string) *Runner {
+func updateTestRunner(t *testing.T, tmpDir string, binaryPath string, manifestURL string) *Runner {
+	t.Helper()
+	moonrakerServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"result": map[string]any{
+				"status": map[string]any{"print_stats": map[string]any{"state": "standby"}},
+			},
+		})
+	}))
+	t.Cleanup(moonrakerServer.Close)
 	cfg := DefaultConfig()
 	cfg.UpdateManifestURL = manifestURL
 	cfg.UpdateStagingDir = filepath.Join(tmpDir, "updates")
@@ -1479,7 +1772,19 @@ func updateTestRunner(tmpDir string, binaryPath string, manifestURL string) *Run
 	return &Runner{
 		Config:    cfg,
 		API:       NewAPIClient("http://127.0.0.1", "ptr_agent_test", time.Second),
-		Moonraker: NewMoonrakerClient("http://127.0.0.1:1", time.Second),
+		Moonraker: NewMoonrakerClient(moonrakerServer.URL, time.Second),
 		Logger:    discardLogger(),
 	}
+}
+
+func testReleaseSignature(t *testing.T, digestHex string) string {
+	t.Helper()
+	seed := bytes.Repeat([]byte{0x34}, ed25519.SeedSize)
+	privateKey := ed25519.NewKeyFromSeed(seed)
+	previousPublicKey := releasePublicKeyBase64
+	releasePublicKeyBase64 = base64.StdEncoding.EncodeToString(privateKey.Public().(ed25519.PublicKey))
+	t.Cleanup(func() {
+		releasePublicKeyBase64 = previousPublicKey
+	})
+	return base64.StdEncoding.EncodeToString(ed25519.Sign(privateKey, []byte(digestHex)))
 }

@@ -6096,3 +6096,384 @@ Estado atual:
 - Nenhuma limpeza destrutiva foi executada. Se o inventário remoto encontrar
   dado, tabela, objeto, backup ou arquivo candidato, ele será apenas reportado
   até existir confirmação específica.
+
+## Programa De Confiança Operacional Pós-Arquitetura
+
+Objetivo:
+
+Elevar a confiança sobre a arquitetura entregue nos pacotes `PKG-86` a
+`PKG-95` sem declarar a promessa tecnicamente impossível de ausência absoluta
+de defeitos. O programa transforma todas as lacunas observadas em gates
+executáveis, evidências reproduzíveis, validação real e operação contínua.
+
+Os sete passos obrigatórios ficam cobertos assim:
+
+1. **Gate de Node suportado:** PKG-97.
+2. **Cobertura mínima automatizada:** PKG-97.
+3. **E2E real em navegador:** PKG-97.
+4. **Agente, Moonraker, Klipper e impressora reais:** PKG-96 e PKG-98.
+5. **Soak prolongado de 24–72 horas:** PKG-98.
+6. **Fuzzing e mutation testing:** PKG-97.
+7. **Pentest independente:** PKG-97.
+
+Recuperação física e redução do RPO ficam no `PKG-99` como continuidade
+obrigatória da análise. A ordem de execução recomendada é `PKG-96`, `PKG-97`,
+`PKG-98` e `PKG-99`. Cada pacote fecha separadamente, com commit próprio, gate
+completo, publicação quando aplicável e evidência em `docs/audits/`.
+
+O limite de linhas aplicado a código não se aplica a `DEMANDAS.md`. Este arquivo
+é a fonte executável do backlog e pode crescer quando isso preservar escopo,
+riscos, critérios e evidências necessários para outra janela executar sem
+inferência.
+
+## PKG-96: Agente 0.1.34, Artefato Imutável E Paridade Real
+
+Objetivo:
+
+Publicar corretamente as mudanças de reconnect/blue-green e toolchain já
+existentes no código do agente como uma nova versão imutável, validando
+compatibilidade, atualização, rollback e operação em agente real sem afetar
+Klipper, Moonraker ou impressão em andamento.
+
+Prioridade: P0.
+
+Contexto:
+
+- o código do agente recebeu alterações depois da publicação `0.1.33`;
+- o manifesto público, o binário Linux arm64 e o SHA-256 continuam identificados
+  como `0.1.33`;
+- versões iguais não podem apontar para conteúdos diferentes;
+- plataformas sem artefato funcional não podem aparecer como suportadas;
+- o canal realtime distribuído precisa ser comprovado com o binário realmente
+  instalado no host da impressora, não apenas com testes do servidor.
+
+Dependências:
+
+- PKG-95 fechado e publicado;
+- árvore `cloud` limpa;
+- impressora de validação identificada;
+- autorização operacional para atualizar somente `printora-agent`;
+- impressão parada para o lote mutável de update/rollback;
+- backup do binário/configuração atual e caminho de rollback comprovado.
+
+Entregáveis:
+
+- versão `0.1.34` em código, manifesto, binários, UI, contratos e documentação;
+- build reproduzível por plataforma suportada, lock de toolchain e SBOM;
+- SHA-256 e assinatura verificável de cada artefato;
+- plataforma sem artefato real removida do manifesto ou marcada explicitamente
+  como não suportada, nunca com URL/hash vazios sugerindo suporte;
+- matriz agente `0.1.33`/`0.1.34` versus protocolo cloud atual e N-1;
+- testes de reconnect com jitter, fencing de sessão, ACK persistido,
+  deduplicação e retomada por polling;
+- canário em um agente real antes da recomendação global;
+- update remoto, health pós-update e rollback para `0.1.33`;
+- prova de que update/restart afeta somente `printora-agent`;
+- confirmação por heartbeat de versão, protocolo, plataforma e capacidades;
+- retenção do binário N-1 durante a janela de rollback;
+- remoção de qualquer artefato temporário ou referência ambígua antes do fechamento.
+
+Lotes:
+
+1. Inventariar diferenças entre o código atual e o binário público `0.1.33`.
+2. Definir plataformas suportadas e eliminar entradas fictícias/incompletas.
+3. Atualizar versão/protocolo/capabilities e adicionar testes de compatibilidade.
+4. Produzir binários reproduzíveis, SBOM, checksum e assinatura.
+5. Publicar `0.1.34` sem torná-lo recomendado e validar download/assinatura.
+6. Instalar como canário em agente real com a impressora ociosa.
+7. Exercitar WebSocket, reconnect, polling, heartbeat, jobs e fencing.
+8. Executar rollback real para `0.1.33`, validar saúde e reaplicar `0.1.34`.
+9. Tornar `0.1.34` recomendado somente após janela de observação.
+10. Auditar manifesto público, UI, binário, docs, retenção e ausência de resíduo.
+
+Critério de aceite:
+
+- `0.1.34` possui conteúdo único, checksum único e assinatura verificável;
+- build repetido a partir do mesmo commit produz artefato verificável conforme
+  política de reprodutibilidade documentada;
+- nenhuma plataforma é anunciada sem binário funcional e testado;
+- `0.1.33` permanece compatível durante rollout e rollback;
+- canário recebe heartbeat, snapshot e job somente da própria impressora;
+- reconnect não perde ACK/job nem produz efeito duplicado;
+- polling assume quando WebSocket falha e volta ao canal primário sem tempestade;
+- update e rollback não reiniciam Klipper, Moonraker, MCU ou host;
+- impressão ativa bloqueia update mutável, mas permite validação read-only;
+- após rollback, jobs/heartbeats continuam e nenhum dado cloud é restaurado;
+- agente final reporta `0.1.34` no backend e na UI;
+- `go test ./...`, scans, SBOM, gate completo e smoke público passam;
+- pacote termina com commit, push, release do agente, publicação cloud do
+  manifesto e documento de evidência próprios.
+
+Rollback:
+
+- manter binário/configuração `0.1.33` validados;
+- reverter somente `printora-agent`;
+- confirmar service active, versão, heartbeat, Moonraker acessível e fila íntegra;
+- não restaurar PostgreSQL, Redis, objetos ou release web;
+- bloquear recomendação `0.1.34` se canário ou rollback falharem.
+
+Estado atual:
+
+- Em implementação em 2026-07-23.
+- Lotes 1 a 4 concluídos localmente: inventário, plataforma `linux/arm64`,
+  versão/protocolo/capabilities, build reproduzível, SBOM, checksums, assinatura,
+  verificação no agente/instalador e journal durável de jobs.
+- Leitura real confirmou agente `0.1.33` saudável e impressora `standby`.
+- Autorização explícita recebida para commit, push, deploy e update/rollback
+  apenas do `printora-agent` nas Voron 2.4 e 0.2, sempre pelo ambiente web.
+- Lote 5 em andamento: ações web de candidato/rollback, preflight fail-closed e
+  release imutável estão prontas para publicação; lotes 6 a 10 dependem da
+  confirmação de ambas as impressoras ociosas, canário real, rollback,
+  observação e promoção.
+- Evidência parcial: `docs/audits/AGENT_RELEASE_0.1.34_2026-07-23.md`.
+
+## PKG-97: Gate De Qualidade, E2E, Fuzzing E Pentest
+
+Objetivo:
+
+Transformar os limites conhecidos dos testes atuais em gates bloqueantes:
+toolchain suportada, cobertura mínima, E2E em navegador, property/fuzz testing,
+mutation testing e pentest independente, sem mascarar falha por warning,
+flakiness ou relatório incompleto.
+
+Prioridade: P0/P1.
+
+Dependências:
+
+- PKG-96 fechado;
+- ambiente de teste isolado e dados sintéticos;
+- contas anônima, usuário, moderador, suporte, produção, financeiro e admin;
+- navegador/viewport definidos;
+- profissional/empresa independente para o pentest;
+- autorização separada e escopo escrito antes de qualquer teste ativo em produção.
+
+Entregáveis:
+
+- gate de Node que falha fora da versão suportada pelo Vite;
+- `engines`, arquivo de versão e CI usando a mesma versão Node LTS;
+- dependências instaladas de forma limpa/reproduzível antes do build;
+- orçamento de bundles/chunks e proibição de warning crítico ignorado;
+- cobertura Python, Go e frontend coletada e publicada por módulo/criticidade;
+- limiar mínimo global e limiar superior para fluxos P0;
+- regra de não regressão de cobertura;
+- suíte E2E em navegador real para rotas públicas e autenticadas;
+- matriz desktop/mobile, tema claro/escuro, teclado e acessibilidade;
+- estados loading/empty/error/offline/timeout/429/5xx e reconnect;
+- isolamento owner/organização/tenant verificado ponta a ponta;
+- property-based testing e fuzzing para parsers, URLs, uploads, webhooks,
+  idempotência, paginação, serialização, G-code e protocolos;
+- mutation testing em regras críticas e relatório de mutantes sobreviventes;
+- teste de flakiness com repetição, seed registrada e quarentena proibida para P0;
+- pentest independente web/API/WebSocket/autenticação/autorização/uploads/SSRF,
+  sessões, rate limit, multi-tenant, financeiro sandbox e supply chain;
+- correção e reteste de todos os achados críticos/altos;
+- evidência consolidada sem segredo, dado pessoal ou payload de produção.
+
+Lotes:
+
+1. Fixar Node LTS suportado e fazer versão incompatível falhar antes do build.
+2. Tornar instalação/build reproduzíveis e definir orçamento de bundle.
+3. Medir baseline real de cobertura sem alterar testes para inflar percentual.
+4. Ativar limiares por criticidade e gate de não regressão.
+5. Implantar E2E real em navegador para fluxos P0/P1.
+6. Cobrir mobile, acessibilidade, temas, falhas de rede e permissões.
+7. Implantar property-based testing e fuzzing com corpus/seed reproduzíveis.
+8. Implantar mutation testing nas regras críticas e corrigir testes fracos.
+9. Executar pentest independente em ambiente autorizado.
+10. Corrigir e retestar achados; consolidar gate, runbook e evidência final.
+
+Critério de aceite:
+
+- Node incompatível encerra o gate antes de gerar `dist`;
+- local e CI usam a mesma major/minor suportada;
+- nenhum warning classificado como bloqueante termina com exit code zero;
+- cobertura global e crítica atendem os limites registrados em `PATHS.toml`;
+- cobertura não pode cair sem decisão documentada e aprovação explícita;
+- E2E executa no mínimo login/logout, autorização, comunidade/projeto,
+  upload/quarentena, busca, agente, administração, financeiro sandbox,
+  fabricação e estados de recuperação aplicáveis;
+- E2E prova isolamento entre dois usuários/organizações;
+- acessibilidade automática não apresenta violação crítica/alta nas rotas P0;
+- fuzzing encerra sem crash, hang, leak, traversal, SSRF ou consumo sem limite;
+- mutation score crítico atinge o limiar definido e mutante sobrevivente recebe
+  teste, justificativa ou backlog explícito;
+- testes P0 passam repetidos com seed fixa e randômica sem flakiness não explicada;
+- pentest independente não deixa achado crítico/alto aberto;
+- achados médios possuem owner, prazo, mitigação e risco aceito em governança;
+- relatórios não contêm segredo nem dado real não sanitizado;
+- gate completo executa no CI, publica evidência e bloqueia deploy quando falha;
+- pacote termina com commit, push, publicação e auditoria próprias.
+
+Rollback:
+
+- gates novos podem ser revertidos somente se impedirem execução por defeito do
+  próprio gate, com incidente e prazo de restauração;
+- não reduzir limiar para fazer build passar sem decisão registrada;
+- preservar relatórios, seeds, corpus e evidência de pentest;
+- nenhuma execução de fuzz/pentest pode alterar dado produtivo.
+
+Estado atual:
+
+- Planejado; implementação não iniciada.
+
+## PKG-98: Homologação Física E Soak Prolongado
+
+Objetivo:
+
+Validar o sistema completo com agente, Moonraker, Klipper e impressora reais,
+seguido de soak de longa duração, sem usar uma impressão ativa como ambiente
+para ações mutáveis e sem considerar smoke curto como prova de estabilidade.
+
+Prioridade: P0 operacional.
+
+Dependências:
+
+- PKG-97 fechado;
+- agente `0.1.34` instalado e saudável;
+- Voron de validação identificada e janela operacional aprovada;
+- impressão/teste controlado, arquivo conhecido e material disponível;
+- métricas do host, agente, Raspberry, Moonraker, Klipper e browser coletáveis;
+- plano de parada segura e operador presente para qualquer ação física.
+
+Entregáveis:
+
+- matriz real: imprimindo, pausada, ociosa, concluída, cancelada, offline,
+  agente reiniciando, Moonraker indisponível e rede degradada;
+- validação read-only durante impressão ativa;
+- comandos mutáveis somente ociosa/fria, com confirmação e preflight;
+- update/rollback do agente, reconnect, heartbeat, jobs e cache real;
+- Operação, Arquivos G-code, preview, preflight, salvar/enviar e histórico reais;
+- confirmação de que cloud/agent nunca reiniciam Klipper/Moonraker indevidamente;
+- evidência desktop/mobile e tema claro/escuro no fluxo real;
+- soak cloud/agente mínimo de 24 horas e alvo de 72 horas contínuas;
+- carga representativa durante soak, incluindo WebSocket, polling, jobs,
+  uploads, busca, objetos e endpoints P0/P1;
+- métricas de CPU, RSS, handles/FD, goroutines, conexões, fila, Redis, banco,
+  latência, erros, reconnects, disco, WAL e crescimento de logs;
+- critérios de tendência para leak, backlog, drift e degradação;
+- interrupção segura do ensaio se temperatura, impressão, host ou SLO degradarem;
+- relatório cronológico com incidentes, correções e repetição do trecho afetado.
+
+Lotes:
+
+1. Definir matriz, fixtures, arquivo G-code, limites e plano de segurança.
+2. Validar estados reais read-only com impressão em andamento.
+3. Em janela ociosa, validar ações protegidas, agente e falhas controladas.
+4. Validar update/rollback `0.1.34` e continuidade do canal real.
+5. Validar fluxo projeto -> G-code -> preflight -> salvar/enviar -> histórico.
+6. Executar E2E visual real em desktop/mobile e temas.
+7. Executar soak inicial de 24 horas com telemetria e carga representativa.
+8. Corrigir qualquer regressão e reiniciar a contagem do período afetado.
+9. Executar soak final de 72 horas contínuas.
+10. Consolidar capacidade, tendências, incidentes, evidências e runbook.
+
+Critério de aceite:
+
+- nenhum comando mutável é disparado durante impressão ativa sem fluxo autorizado;
+- falha/restart do agente não interrompe Klipper, Moonraker ou a impressão;
+- reconnect não duplica comando, upload, job, histórico ou notificação;
+- estados offline/timeout não exibem dado antigo como atual;
+- preview e progresso correspondem ao G-code/estado real;
+- preflight bloqueia incompatibilidade e envio inseguro;
+- desktop/mobile/tema claro/escuro não apresentam quebra impeditiva;
+- soak final completa 72 horas sem erro P0, perda de dado ou backlog crescente;
+- taxa de erro, p95/p99 e uso de recurso permanecem dentro do SLO definido;
+- CPU/RSS/FD/goroutines/conexões/logs/WAL não apresentam crescimento sem limite;
+- backup, workers, Redis, PostgreSQL, storage e busca continuam saudáveis;
+- incidente reinicia o período afetado; não é permitido somar janelas quebradas;
+- evidência não expõe token, IP privado, path, endereço ou arquivo sensível;
+- pacote termina com commit, push, publicação e aceite operacional real.
+
+Rollback:
+
+- interromper somente o teste/carga responsável;
+- preservar impressão em andamento e estado da máquina;
+- reverter agente para N-1 quando necessário;
+- reverter web por blue/green sem restaurar dados;
+- nunca usar restore de banco como rollback de código;
+- registrar incidente e repetir integralmente o trecho invalidado.
+
+Estado atual:
+
+- Planejado; implementação não iniciada.
+
+## PKG-99: RPO Físico, Recuperação Contínua E Prontidão De Desastre
+
+Objetivo:
+
+Reduzir o pior caso documentado de perda física do host, provar continuamente
+backup/restore no schema vigente e deixar um plano executável de desastre sem
+prometer alta disponibilidade física em servidor único.
+
+Prioridade: P0 operacional.
+
+Dependências:
+
+- PKG-98 fechado;
+- destino externo criptografado saudável;
+- custódia de chave/credencial fora do host;
+- janela e responsável para restore supervisionado;
+- capacidade de rede/disco medida para aumentar frequência sem afetar produção.
+
+Entregáveis:
+
+- SLO formal de RPO/RTO por classe de dado;
+- WAL arquivado continuamente e monitorado;
+- backup base/lógico/objetos/configuração em frequência compatível;
+- alerta de atraso de WAL, snapshot, objeto, configuração e teste de restore;
+- meta de pior caso de RPO físico igual ou inferior a 5 minutos;
+- RPO zero preservado para deploy/cutover;
+- RTO alvo de até 15 minutos validado no volume atual;
+- restore isolado periódico usando o schema/release vigentes;
+- validação de tabelas, revisões, FKs, objetos, busca, configuração e checksums;
+- recuperação testada sem depender do host original;
+- exercício de perda de processo, instância, PostgreSQL, Redis, storage, disco,
+  configuração, credencial e host;
+- runbook cronológico com responsável, comunicação, decisão e critérios de retorno;
+- monitoramento de custo, crescimento, retenção e capacidade do repositório;
+- prune/limpeza somente após preview, confirmação explícita e backup restaurável;
+- desenho opcional de segundo host/réplica síncrona, sem implantação automática.
+
+Lotes:
+
+1. Classificar dados e definir RPO/RTO por criticidade.
+2. Medir frequência atual e eliminar a janela de até 24h15.
+3. Implantar WAL contínuo, timers e alertas de atraso.
+4. Ajustar backup de objetos/configuração e validar capacidade.
+5. Automatizar restore isolado periódico, limitado por CPU/I/O.
+6. Simular falhas parciais e perda total do host.
+7. Restaurar usando somente custódia e cópia externas.
+8. Medir RPO/RTO, reconciliar e corrigir divergências.
+9. Exercitar preview de retenção; qualquer prune exige confirmação separada.
+10. Consolidar runbook, dashboards, alertas, evidência e revisão independente.
+
+Critério de aceite:
+
+- pior caso medido/configurado de RPO físico é `<= 5 minutos`;
+- deploy/cutover mantém RPO zero para escrita confirmada;
+- restore completo atinge RTO `<= 15 minutos` no volume atual;
+- cluster restaurado sai de recovery e possui schema/revisões esperados;
+- zero FK inválida e checksums de objetos/configuração conferem;
+- busca é reconstruída exclusivamente da fonte canônica;
+- credencial e chave de recuperação sobrevivem à perda do host;
+- falha de Redis não exige restore e estado recomponível retorna;
+- alerta dispara antes de violar RPO/RTO e possui owner acionável;
+- aumento de frequência não degrada SLO web, workers ou impressão;
+- retenção possui preview, hold, auditoria e rollback quando aplicável;
+- nenhum snapshot/objeto/WAL é removido sem confirmação explícita;
+- plano de segundo host deixa claro custo, pré-requisitos e benefício, sem
+  classificar o host único como alta disponibilidade;
+- restore, carga, segurança, gate completo e smoke público passam;
+- pacote termina com commit, push, publicação e auditoria próprias.
+
+Rollback:
+
+- restaurar frequência anterior somente se o novo regime degradar produção;
+- preservar todo WAL/snapshot produzido até diagnóstico;
+- nunca desativar alerta antes de restabelecer proteção equivalente;
+- não executar prune como forma de resolver falha de capacidade sem aprovação;
+- manter rollback de código independente do mecanismo de recuperação física.
+
+Estado atual:
+
+- Planejado; implementação não iniciada.

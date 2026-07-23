@@ -5,7 +5,7 @@ from pathlib import Path
 import hashlib
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.agent_pairing import AgentRecord
 from app.database import connect_database
@@ -13,32 +13,51 @@ from app.database import connect_database
 
 AGENT_UPDATE_MANIFEST_VERSION = 1
 AGENT_UPDATE_PROTOCOL_VERSION = 1
-AGENT_CURRENT_VERSION = "0.1.33"
+AGENT_CURRENT_VERSION = "0.1.34"
+AGENT_RECOMMENDED_VERSION = "0.1.33"
 AGENT_MANIFEST_PATH = Path(__file__).resolve().parent / "data" / "agent_update_manifest.json"
+AGENT_SIGNATURE_ALGORITHM = "ed25519-sha256"
+AGENT_SIGNING_KEY_ID = "sha256:e241d16ebb469da7436ff050a36212635557eab1322495a2c62e2ca6caf24cdc"
 
 AgentUpdateStatus = Literal["available", "blocked", "downloaded", "applied", "rolled_back", "failed", "skipped"]
 
 
 class AgentReleaseAsset(BaseModel):
-    platform: str
+    platform: Literal["linux/arm64"]
     version: str
-    url: str = ""
-    sha256: str = ""
-    signature: str | None = None
+    url: str = Field(min_length=1)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    signature: str = Field(min_length=80)
     protocol_min: int = AGENT_UPDATE_PROTOCOL_VERSION
     protocol_max: int = AGENT_UPDATE_PROTOCOL_VERSION
 
 
 class AgentUpdateManifest(BaseModel):
     manifest_version: int = AGENT_UPDATE_MANIFEST_VERSION
-    minimum_version: str = AGENT_CURRENT_VERSION
-    recommended_version: str = AGENT_CURRENT_VERSION
+    minimum_version: str = "0.1.17"
+    recommended_version: str = AGENT_RECOMMENDED_VERSION
+    candidate_version: str | None = AGENT_CURRENT_VERSION
     blocked_versions: list[str] = Field(default_factory=list)
     protocol_version: int = AGENT_UPDATE_PROTOCOL_VERSION
     protocol_min: int = AGENT_UPDATE_PROTOCOL_VERSION
     protocol_max: int = AGENT_UPDATE_PROTOCOL_VERSION
+    signature_algorithm: Literal["ed25519-sha256"] = AGENT_SIGNATURE_ALGORITHM
+    signing_key_id: str = AGENT_SIGNING_KEY_ID
     auto_update: bool = True
     releases: list[AgentReleaseAsset] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_release_set(self) -> "AgentUpdateManifest":
+        identities = [(release.platform, release.version) for release in self.releases]
+        if len(identities) != len(set(identities)):
+            raise ValueError("manifesto possui release duplicada")
+        if self.auto_update and not self.releases:
+            raise ValueError("manifesto com auto_update exige release")
+        if self.auto_update and not any(
+            release.version == self.recommended_version for release in self.releases
+        ):
+            raise ValueError("versão recomendada não possui release")
+        return self
 
 
 class AgentUpdateReportRequest(BaseModel):
@@ -118,35 +137,29 @@ def load_agent_update_manifest(public_base_url: str | None = None) -> AgentUpdat
 
 
 def _default_manifest(public_base_url: str | None = None) -> AgentUpdateManifest:
-    return _with_local_release_assets(AgentUpdateManifest(
-        releases=[
-            AgentReleaseAsset(platform="linux/amd64", version=AGENT_CURRENT_VERSION),
-            AgentReleaseAsset(platform="linux/arm64", version=AGENT_CURRENT_VERSION),
-            AgentReleaseAsset(platform="linux/arm", version=AGENT_CURRENT_VERSION),
-        ]
-    ), public_base_url)
+    del public_base_url
+    return AgentUpdateManifest(auto_update=False, releases=[])
 
 
 def _with_local_release_assets(manifest: AgentUpdateManifest, public_base_url: str | None) -> AgentUpdateManifest:
     release_dir = Path(__file__).resolve().parent / "data" / "agent_releases"
-    local_files = {
-        "linux/arm64": ("linux-arm64", "printora-agent-linux-arm64"),
-    }
     releases: list[AgentReleaseAsset] = []
     for release in manifest.releases:
-        local = local_files.get(release.platform)
-        if local is None:
-            releases.append(release)
-            continue
-        route_platform, filename = local
+        route_platform = release.platform.replace("/", "-")
+        filename = f"printora-agent-{route_platform}-{release.version}"
         path = release_dir / filename
         if not path.exists() or not path.is_file():
-            releases.append(release)
-            continue
+            raise RuntimeError(f"artefato do agente ausente: {filename}")
+        actual_sha256 = _sha256_file(path)
+        if actual_sha256 != release.sha256:
+            raise RuntimeError(f"checksum divergente para {filename}")
         url = release.url
         if public_base_url:
-            url = f"{public_base_url.rstrip('/')}/api/agent/update/releases/{route_platform}"
-        releases.append(release.model_copy(update={"url": url, "sha256": _sha256_file(path)}))
+            url = (
+                f"{public_base_url.rstrip('/')}/api/agent/update/releases/"
+                f"{release.version}/{route_platform}"
+            )
+        releases.append(release.model_copy(update={"url": url}))
     return manifest.model_copy(update={"releases": releases})
 
 

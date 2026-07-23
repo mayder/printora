@@ -15,7 +15,12 @@ PAIRING_TOKEN="${PRINTORA_PAIRING_TOKEN:-}"
 AGENT_VERSION="${PRINTORA_AGENT_VERSION:-0.1.17}"
 BIN_URL="${PRINTORA_AGENT_BIN_URL:-}"
 LOCAL_BIN="${PRINTORA_AGENT_BIN:-}"
+AGENT_SHA256="${PRINTORA_AGENT_SHA256:-}"
+AGENT_SIGNATURE="${PRINTORA_AGENT_SIGNATURE:-}"
 TEST_MODE="${PRINTORA_AGENT_INSTALL_TEST_MODE:-0}"
+RELEASE_PUBLIC_KEY='-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAdK8RtUcm2hdrv0CFCNMFago1e+8RmT3ab9fbDyK8hmg=
+-----END PUBLIC KEY-----'
 
 usage() {
   cat <<'USAGE'
@@ -100,6 +105,8 @@ preflight() {
   have curl || fail "curl ausente"
   have python3 || fail "python3 ausente para processar troca segura do token"
   have install || fail "install ausente"
+  have openssl || fail "openssl ausente para validar assinatura do agente"
+  have base64 || fail "base64 ausente para validar assinatura do agente"
   require_systemd
   if curl -fsS --max-time 3 "$MOONRAKER_URL/server/info" >/dev/null 2>&1; then
     log "moonraker: ok"
@@ -115,23 +122,39 @@ confirm_apply() {
 }
 
 install_binary() {
-  local target="$PREFIX/bin/printora-agent"
+  local target="$PREFIX/bin/printora-agent" candidate=""
   if [[ -n "$LOCAL_BIN" ]]; then
     [[ -x "$LOCAL_BIN" ]] || fail "PRINTORA_AGENT_BIN não é executável"
-    install -m 0755 "$LOCAL_BIN" "$target"
-    return
+    candidate="$LOCAL_BIN"
+  elif [[ -n "$BIN_URL" ]]; then
+    candidate="$target.tmp"
+    curl -fsSL --retry 5 --retry-delay 2 --connect-timeout 10 "$BIN_URL" -o "$candidate"
+  elif have printora-agent; then
+    candidate="$(command -v printora-agent)"
+  else
+    fail "binário do agente ausente; informe PRINTORA_AGENT_BIN_URL ou PRINTORA_AGENT_BIN"
   fi
-  if [[ -n "$BIN_URL" ]]; then
-    curl -fsSL --retry 5 --retry-delay 2 --connect-timeout 10 "$BIN_URL" -o "$target.tmp"
-    install -m 0755 "$target.tmp" "$target"
-    rm -f "$target.tmp"
-    return
+  verify_release "$candidate"
+  install -m 0755 "$candidate" "$target"
+  [[ "$candidate" == "$target.tmp" ]] && rm -f "$candidate"
+}
+
+verify_release() {
+  local candidate="$1" actual temp_dir
+  [[ -n "$AGENT_SHA256" ]] || fail "PRINTORA_AGENT_SHA256 obrigatório"
+  [[ -n "$AGENT_SIGNATURE" ]] || fail "PRINTORA_AGENT_SIGNATURE obrigatória"
+  actual="$(openssl dgst -sha256 "$candidate" | awk '{print $NF}')"
+  [[ "$actual" == "$AGENT_SHA256" ]] || fail "checksum do agente não confere"
+  temp_dir="$(mktemp -d)"
+  printf '%s\n' "$RELEASE_PUBLIC_KEY" > "$temp_dir/public.pem"
+  printf '%s' "$AGENT_SIGNATURE" | base64 -d > "$temp_dir/signature.bin"
+  printf '%s' "$actual" > "$temp_dir/digest.txt"
+  if ! openssl pkeyutl -verify -pubin -inkey "$temp_dir/public.pem" \
+    -rawin -in "$temp_dir/digest.txt" -sigfile "$temp_dir/signature.bin" >/dev/null 2>&1; then
+    rm -rf "$temp_dir"
+    fail "assinatura do agente não confere"
   fi
-  if have printora-agent; then
-    install -m 0755 "$(command -v printora-agent)" "$target"
-    return
-  fi
-  fail "binário do agente ausente; informe PRINTORA_AGENT_BIN_URL ou PRINTORA_AGENT_BIN"
+  rm -rf "$temp_dir"
 }
 
 exchange_token() {
@@ -213,6 +236,7 @@ print(json.dumps({
     "update_manifest_url": api_base + "/api/agent/update/manifest",
     "update_state_file": state_dir + "/update-state.json",
     "update_staging_dir": state_dir + "/updates",
+    "job_journal_file": state_dir + "/job-journal.json",
     "agent_binary_path": "/usr/local/bin/printora-agent",
     "agent_service_name": "printora-agent",
     "allow_service_restart": True,

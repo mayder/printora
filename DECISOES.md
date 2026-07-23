@@ -1377,3 +1377,80 @@ release. Dados e adapters locais não são alterados.
 Como reverter: publicar a release N-1 por blue/green e preservar o manifesto
 para diagnóstico. Não reintroduzir dual-read, dual-write ou fallback SQLite no
 perfil cloud.
+
+### DEC-20260723-04 - Confiança pós-arquitetura usa quatro pacotes e sete gates
+
+Status: aceita
+Data: 2026-07-23
+Contexto: os pacotes 86 a 95 fecharam a arquitetura base, mas o aceite mostrou
+limites que não devem ser confundidos com defeitos inexistentes: Node local não
+suportado gerava apenas warning, cobertura mínima estava desativada, não havia
+E2E amplo em navegador, a homologação final excluía hardware real, o soak era
+curto, fuzz/mutation não eram gates e não havia pentest independente. O código
+do agente também mudou depois do binário público `0.1.33` sem nova versão.
+
+Decisão: registrar `PKG-96` a `PKG-99`. O primeiro publica agente `0.1.34`
+imutável; o segundo fecha Node, cobertura, E2E, fuzz, mutation e pentest; o
+terceiro homologa hardware real e soak contínuo de 72 horas; o quarto reduz o
+RPO físico e repete recuperação de desastre. Limite de linhas permanece
+aplicável a runtime, não a `DEMANDAS.md`.
+
+Alternativas consideradas: reabrir os pacotes arquiteturais concluídos; chamar
+os limites de bugs isolados; declarar ausência de defeitos; criar um único
+pacote grande sem commits/aceites independentes.
+
+Consequências: o roadmap funcional pode continuar, mas fluxos que dependem do
+novo agente, dinheiro real, fabricação real ou promessa de recuperação precisam
+respeitar os gates correspondentes. Pentest externo, soak e homologação física
+possuem custo e dependências operacionais explícitas.
+
+Impacto em testes: sete gates obrigatórios — Node, cobertura, E2E, hardware real,
+soak, fuzz/mutation e pentest — além de RPO/RTO contínuos.
+
+Impacto em rollback: cada pacote mantém rollback próprio. Agente volta para
+N-1; gates só podem ser temporariamente revertidos por defeito comprovado do
+gate; web usa blue/green sem restore; recuperação preserva WAL/snapshots.
+
+Como reverter: remover apenas o planejamento se ainda não iniciado. Depois de
+implementado, reverter por pacote sem reduzir silenciosamente cobertura,
+segurança, versão ou proteção de dados.
+
+### DEC-20260723-05 - Release do agente usa Ed25519, candidato separado e journal durável
+
+Status: aceita
+Data: 2026-07-23
+Contexto: SHA-256 sem assinatura não protege a origem do artefato, um manifesto
+com URL/hash vazio anuncia suporte inexistente e redelivery após ACK poderia
+repetir efeito mutável quando a resposta final falhasse.
+
+Decisão: suportar somente `linux/arm64` até outra plataforma possuir artefato
+testado; fixar a chave pública Ed25519 e seu fingerprint no agente; manter a
+chave privada fora do Git; publicar versão candidata separada da recomendada; e
+persistir recebimento antes do ACK, início antes do efeito e resultado antes da
+resposta ao cloud em journal local sincronizado. Job terminal é apenas
+reenviado. Job mutável interrompido depois do ACK exige reconciliação e não é
+repetido automaticamente. Update do agente exige estado ocioso confirmado pelo
+Moonraker e falha fechado se esse estado estiver indisponível.
+
+Alternativas consideradas: manter apenas SHA-256; carregar chave pública do
+mesmo manifesto; substituir o binário sob URL genérica; promover o candidato
+diretamente; confiar apenas na deduplicação em memória.
+
+Consequências: a primeira adoção exige endpoint candidato autenticado e canário
+operacional. Como o agente N-1 não entende seleção de canal, candidato e rollback
+são jobs web controlados com versão exata, preflight Moonraker, SHA-256, Ed25519,
+backup e restart exclusivo do serviço; não exigem SSH. O journal guarda no
+máximo 200 entradas, modo `0600`, e pode conter somente resultados já
+sanitizados pelo agente.
+
+Impacto em testes: build duplo, verificação criptográfica, rejeição de hash/chave
+e assinatura, seleção recomendada/candidata, persistência pré-ACK, replay
+terminal, interrupção mutável e bloqueio de update durante impressão ou estado
+indisponível são gates.
+
+Impacto em rollback: o N-1 permanece versionado e o host preserva backup local.
+Rollback troca somente `printora-agent`; banco, Redis, storage, Klipper,
+Moonraker, MCU e host não são restaurados ou reiniciados.
+
+Como reverter: voltar ao binário N-1 e manifesto anterior, mantendo os artefatos
+e journal para diagnóstico. Não reutilizar `0.1.34` com outro conteúdo.

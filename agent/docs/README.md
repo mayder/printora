@@ -32,6 +32,7 @@ O config é JSON e deve ficar com permissão `0600`.
   "update_manifest_url": "https://printora.example.com/api/agent/update/manifest",
   "update_state_file": "/var/lib/printora-agent/update-state.json",
   "update_staging_dir": "/var/lib/printora-agent/updates",
+  "job_journal_file": "/var/lib/printora-agent/job-journal.json",
   "agent_binary_path": "/usr/local/bin/printora-agent",
   "agent_service_name": "printora-agent",
   "allow_service_restart": true
@@ -89,9 +90,20 @@ sudo printora-agent -config /etc/printora-agent/config.json update-check
 ```
 
 O agente consulta `/api/agent/update/manifest`, valida plataforma, versão,
-protocolo e SHA-256 antes de trocar o binário. O restart automático reinicia
-somente o serviço `printora-agent` quando `allow_service_restart=true`. Falha de
-health/restart tenta restaurar o binário anterior.
+protocolo, SHA-256 e assinatura Ed25519 antes de trocar o binário. A identidade
+da chave de release é fixada no binário; manifesto com algoritmo ou chave
+divergente é bloqueado. Antes do download, o agente exige
+`print_stats.state` ocioso; impressão, pausa ou estado indisponível bloqueiam o
+update. O restart automático reinicia somente o serviço `printora-agent` quando
+`allow_service_restart=true`. Falha de health/restart tenta restaurar o binário
+anterior.
+
+O recebimento do job é persistido antes do ACK, o início antes do efeito e o
+resultado antes do envio ao cloud em `job_journal_file`. Uma entrega repetida
+reenvia o resultado sem repetir o efeito. Se o agente reiniciar depois do ACK e
+antes de registrar o resultado de um job mutável, o job entra em reconciliação
+manual e não é executado novamente. O journal sincroniza arquivo e diretório,
+usa permissão `0600` e retém no máximo 200 entradas.
 
 Na instalação systemd padrão, o serviço roda como `root` para conseguir trocar o
 binário em `/usr/local/bin/printora-agent` e reiniciar o próprio serviço sem SSH.

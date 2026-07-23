@@ -11,8 +11,13 @@ import (
 	"time"
 )
 
-const Version = "0.1.33"
+const Version = "0.1.34"
 const ProtocolVersion = 1
+
+const releaseSignatureAlgorithm = "ed25519-sha256"
+const releaseSigningKeyID = "sha256:e241d16ebb469da7436ff050a36212635557eab1322495a2c62e2ca6caf24cdc"
+
+var releasePublicKeyBase64 = "dK8RtUcm2hdrv0CFCNMFago1e+8RmT3ab9fbDyK8hmg="
 
 type Config struct {
 	APIBaseURL                 string   `json:"api_base_url"`
@@ -30,6 +35,7 @@ type Config struct {
 	UpdateManifestURL          string   `json:"update_manifest_url"`
 	UpdateStateFile            string   `json:"update_state_file"`
 	UpdateStagingDir           string   `json:"update_staging_dir"`
+	JobJournalFile             string   `json:"job_journal_file"`
 	AgentBinaryPath            string   `json:"agent_binary_path"`
 	AgentServiceName           string   `json:"agent_service_name"`
 	AllowServiceRestart        bool     `json:"allow_service_restart"`
@@ -56,6 +62,7 @@ func DefaultConfig() Config {
 		UpdateManifestURL:          "",
 		UpdateStateFile:            filepath.Join(base, "update-state.json"),
 		UpdateStagingDir:           filepath.Join(base, "updates"),
+		JobJournalFile:             filepath.Join(base, "job-journal.json"),
 		AgentBinaryPath:            "",
 		AgentServiceName:           "printora-agent",
 		AllowServiceRestart:        false,
@@ -101,6 +108,9 @@ func LoadConfig(path string) (Config, error) {
 	}
 	if cfg.UpdateStagingDir == "" {
 		cfg.UpdateStagingDir = filepath.Join(filepath.Dir(cfg.QueueFile), "updates")
+	}
+	if cfg.JobJournalFile == "" {
+		cfg.JobJournalFile = filepath.Join(filepath.Dir(cfg.QueueFile), "job-journal.json")
 	}
 	if cfg.AgentServiceName == "" {
 		cfg.AgentServiceName = "printora-agent"

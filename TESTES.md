@@ -1942,6 +1942,135 @@ remoção física exige confirmação separada e não faz parte do pacote.
 - revisar contratos/consumidores, arquivos grandes, SOLID e documentação final;
 - `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh` deve passar antes do commit exclusivo.
 
+## Validação Da Confiança Operacional Pós-Arquitetura
+
+Os sete gates obrigatórios dos pacotes `PKG-96` a `PKG-99` são: Node suportado,
+cobertura mínima, E2E em navegador, hardware/agente real, soak prolongado,
+fuzzing/mutation testing e pentest independente. Um relatório deve separar
+claramente teste local, CI, ambiente isolado, produção read-only, hardware real
+e ação mutável autorizada.
+
+### PKG-96 - Agente 0.1.34 E Paridade Real
+
+- comparar diff do agente desde o artefato `0.1.33`;
+- validar que versão, manifesto, binário, UI e documentação informam `0.1.34`;
+- construir duas vezes por plataforma e comparar conforme política de build reproduzível;
+- gerar SBOM, checksum, assinatura e verificar antes de publicar/instalar;
+- rejeitar manifesto com plataforma sem URL, hash, assinatura ou binário testado;
+- executar `go test ./...`, race detector nos módulos concorrentes e scans;
+- testar matriz `0.1.33`/`0.1.34` versus protocolo atual/N-1;
+- testar reconnect, jitter, polling, recebimento persistido antes do ACK,
+  fencing, deduplicação, retomada e sincronização durável do journal;
+- testar que impressão, pausa ou Moonraker indisponível bloqueiam o update antes
+  do download/troca do binário;
+- instalar canário real somente com impressora ociosa;
+- provar pelo navegador que `Instalar canário` seleciona exatamente `0.1.34` e
+  que `Reverter para` seleciona exatamente a recomendada N-1, sem SSH;
+- no script remoto controlado, validar preflight Moonraker, SHA-256, Ed25519,
+  backup do binário e restart exclusivo de `printora-agent`;
+- validar heartbeat/snapshot/job e isolamento da impressora;
+- executar rollback real para `0.1.33` e reaplicar `0.1.34`;
+- comprovar que Klipper/Moonraker/MCU/host não reiniciaram;
+- confirmar versão instalada pela UI e backend;
+- executar gate completo, publicar manifesto e smoke público.
+
+Não avançar se:
+
+- o mesmo número de versão possuir hashes/conteúdos diferentes;
+- plataforma anunciada não tiver artefato funcional;
+- agente antigo perder compatibilidade durante a janela;
+- update/rollback afetar impressão ou outro serviço;
+- canário apresentar duplicidade, perda de job ou reconnect em loop.
+
+### PKG-97 - Node, Cobertura, E2E, Fuzzing, Mutation E Pentest
+
+- executar teste negativo com Node incompatível e exigir falha antes do build;
+- executar local/CI com a mesma versão Node suportada e instalação limpa;
+- falhar em warning classificado como crítico e em orçamento de bundle excedido;
+- coletar cobertura Python, Go e frontend por arquivo/domínio/criticidade;
+- ativar limiar global, limiar P0 e não regressão em `PATHS.toml`;
+- impedir exclusão artificial de código crítico para elevar percentual;
+- executar E2E em navegador real para anônimo, usuário e papéis privilegiados;
+- executar dois usuários/organizações e provar isolamento ponta a ponta;
+- validar desktop/mobile, tema claro/escuro, teclado e acessibilidade;
+- injetar offline, timeout, 429, 5xx, reconnect e dependência degradada;
+- executar property-based testing/fuzzing em parsers, uploads, URL/SSRF,
+  webhooks, idempotência, paginação, G-code e protocolos;
+- guardar corpus/seed mínimo reproduzível sem dado sensível;
+- executar mutation testing nas regras P0/P1;
+- repetir suíte crítica para detectar flakiness;
+- executar pentest independente com escopo autorizado;
+- corrigir e retestar todo achado crítico/alto;
+- registrar médios com owner, prazo, mitigação e risco aceito;
+- executar scans de segredo/dependência/SBOM e gate completo.
+
+Não avançar se:
+
+- Node incompatível terminar com sucesso;
+- cobertura estiver desativada, zerada ou regredir;
+- E2E P0 estiver ausente, flaky ou depender de dado produtivo instável;
+- fuzz encontrar crash/hang/leak/traversal/SSRF não resolvido;
+- mutation score crítico ficar abaixo do limiar;
+- pentest deixar crítico/alto aberto;
+- relatório contiver segredo, PAN/CVV ou dado pessoal real.
+
+### PKG-98 - Hardware Real E Soak De 72 Horas
+
+- documentar impressora, agente, versões, arquivo, material e estado inicial;
+- capturar baseline do host, Raspberry, agente, Moonraker, Klipper e browser;
+- validar impressão ativa somente read-only;
+- validar ociosa/pausada/concluída/cancelada/offline/timeout;
+- com a impressora ociosa, testar ações protegidas e confirmações;
+- testar restart/update/rollback somente do agente;
+- desconectar/reconectar rede e Moonraker de forma controlada;
+- validar operação, arquivos, preview, preflight, entrega e histórico reais;
+- comprovar ausência de duplicidade em comando/job/upload/histórico;
+- validar desktop/mobile, temas e acessibilidade no fluxo real;
+- executar soak inicial de 24 horas;
+- monitorar erro, p95/p99, CPU, RSS, FD, goroutines, conexões, filas, Redis,
+  PostgreSQL, objetos, busca, disco, WAL e logs;
+- corrigir qualquer regressão e reiniciar a janela afetada;
+- executar soak final contínuo de 72 horas;
+- executar gate completo e smoke público após o soak.
+
+Não avançar se:
+
+- ação mutável for executada durante impressão sem autorização;
+- Klipper/Moonraker/MCU reiniciarem por efeito do teste do agente;
+- houver perda/duplicidade, dado antigo apresentado como atual ou backlog crescente;
+- recurso/log/WAL/conexão crescer sem estabilizar;
+- ocorrer erro P0 ou violação de SLO;
+- o período final for soma de janelas interrompidas.
+
+### PKG-99 - RPO, Restore E Desastre
+
+- medir intervalo real de WAL/backup/objetos/configuração antes da mudança;
+- configurar WAL contínuo e alertas de atraso;
+- provar pior caso de RPO físico `<= 5 minutos`;
+- preservar RPO zero em deploy/cutover;
+- executar backup base/lógico/objetos/configuração com checksum;
+- restaurar em cluster isolado e limitado por CPU/I/O;
+- validar schema, revisions, FKs, sequences, objetos, configuração e busca;
+- simular perda de processo, banco, Redis, storage, disco, segredo e host;
+- restaurar usando somente cópia/chave/custódia externas;
+- medir RTO completo e exigir `<= 15 minutos` no volume atual;
+- validar alerta antes de violar RPO/RTO;
+- executar carga simultânea para provar que frequência não degrada produção;
+- executar preview de retenção sem prune automático;
+- exigir confirmação explícita separada para qualquer exclusão;
+- revisar runbook e exercício com responsável independente;
+- executar gate completo, restore e smoke público.
+
+Não avançar se:
+
+- backup depender do host que está sendo simulado como perdido;
+- RPO/RTO ultrapassar meta;
+- restore usar snapshot incompatível sem bloquear readiness;
+- busca/objetos/configuração não reconciliar;
+- aumento de frequência degradar SLO;
+- prune/exclusão ocorrer sem preview e confirmação;
+- host único for documentado como alta disponibilidade física.
+
 ### PKG-20 Validado Em 2026-05-22
 
 Testes automatizados executados:

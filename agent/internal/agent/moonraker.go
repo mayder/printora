@@ -50,6 +50,18 @@ func (c *MoonrakerClient) Snapshot(ctx context.Context) map[string]any {
 	return result
 }
 
+func (c *MoonrakerClient) PrintState(ctx context.Context) (string, error) {
+	payload := map[string]any{}
+	if err := c.get(ctx, "/printer/objects/query?print_stats", "print_stats", payload); err != nil {
+		return "", err
+	}
+	state := nestedString(payload["print_stats"], "result", "status", "print_stats", "state")
+	if state == "" {
+		return "", fmt.Errorf("moonraker não informou print_stats.state")
+	}
+	return state, nil
+}
+
 func (c *MoonrakerClient) RemotePayload(ctx context.Context, jobType string) map[string]any {
 	switch jobType {
 	case "remote_moonraker_status":
