@@ -5663,6 +5663,11 @@ Estado atual:
   gerado + GIN, fontes emitem outbox sanitizada e worker bulk executa rebuild
   idempotente sem `DELETE`. Consulta reaplica fonte ativa, publicação comercial,
   membership e bloqueios. Validação focada de busca/worker/schema: 102 testes.
+- Lote 6 concluído no Cloud em 2026-07-22: rebuild materializou 364 documentos em
+  3,801 s, GIN e endpoint FTS responderam `200`; outbox sintética sanitizada foi
+  publicada e o job bulk terminou em 4,222 s. Comparação de termos e filtros de
+  geração/permissão passou. O primeiro CI expôs um teste WebSocket intermitente;
+  cinco repetições locais e o rerun integral (530 testes) passaram sem mudança.
 - Lote 7 implementado localmente: backup Restic criptografado passa a reunir
   PostgreSQL físico/lógico + WAL e todas as versões/delimitadores dos três buckets
   com manifesto/checksum. Restore isolado reconcilia metadado/conteúdo e executa
