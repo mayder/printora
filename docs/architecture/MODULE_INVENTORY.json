@@ -54,7 +54,8 @@
         "setup",
         "can_monitor",
         "z_offset",
-        "firmware"
+        "firmware",
+        "manufacturing"
       ]
     },
     {
@@ -93,10 +94,10 @@
     }
   ],
   "summary": {
-    "modules": 161,
-    "routes": 348,
-    "contracts": 367,
-    "tables": 133,
+    "modules": 164,
+    "routes": 357,
+    "contracts": 375,
+    "tables": 145,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 26,
@@ -104,7 +105,7 @@
       "finance": 13,
       "identity": 10,
       "integrations": 7,
-      "operations": 55,
+      "operations": 58,
       "shared": 21
     }
   },
@@ -337,7 +338,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 567,
+      "lines": 579,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -729,6 +730,16 @@
         "MaintenanceTaskRecord",
         "MaintenanceSummary"
       ]
+    },
+    {
+      "module": "manufacturing_workflow",
+      "owner": "operations",
+      "lines": 257,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": []
     },
     {
       "module": "modules.__init__",
@@ -1222,9 +1233,10 @@
     {
       "module": "modules.operations.api",
       "owner": "operations",
-      "lines": 36,
+      "lines": 38,
       "imports": [
         "modules.assembly",
+        "modules.operations",
         "routes"
       ],
       "routes": [],
@@ -1267,6 +1279,84 @@
         "AgentJobResultRequest",
         "AgentJobErrorRequest",
         "AgentEventRecord"
+      ]
+    },
+    {
+      "module": "modules.operations.manufacturing_api",
+      "owner": "operations",
+      "lines": 133,
+      "imports": [
+        "config",
+        "database",
+        "manufacturing_workflow",
+        "modules.identity.contracts",
+        "modules.operations.manufacturing_contracts",
+        "routes.auth"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/admin/manufacturing/overview",
+          "handler": "overview"
+        },
+        {
+          "method": "POST",
+          "path": "/api/admin/manufacturing/orders/{order_public_id}/quotes",
+          "handler": "create_quote"
+        },
+        {
+          "method": "POST",
+          "path": "/api/manufacturing/quotes/{quote_public_id}/accept",
+          "handler": "accept_quote"
+        },
+        {
+          "method": "POST",
+          "path": "/api/admin/manufacturing/orders/{public_id}/transitions",
+          "handler": "transition"
+        },
+        {
+          "method": "POST",
+          "path": "/api/admin/manufacturing/orders/{public_id}/quality",
+          "handler": "quality"
+        },
+        {
+          "method": "POST",
+          "path": "/api/admin/manufacturing/orders/{public_id}/shipments",
+          "handler": "shipment"
+        },
+        {
+          "method": "POST",
+          "path": "/api/admin/manufacturing/shipments/{public_id}/tracking",
+          "handler": "tracking"
+        },
+        {
+          "method": "POST",
+          "path": "/api/admin/manufacturing/orders/{public_id}/recall",
+          "handler": "recall"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/admin/manufacturing/roles/{user_id}/{role}",
+          "handler": "assign_role"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "modules.operations.manufacturing_contracts",
+      "owner": "operations",
+      "lines": 58,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "QuoteRequest",
+        "ReservationItem",
+        "AcceptQuoteRequest",
+        "TransitionRequest",
+        "QualityRequest",
+        "ShipmentRequest",
+        "TrackingRequest",
+        "RecallRequest"
       ]
     },
     {
@@ -4833,6 +4923,66 @@
       "table": "finance_retention_policies",
       "owner": "finance",
       "script": "083_finance_compliance.sql"
+    },
+    {
+      "table": "manufacturing_quotes",
+      "owner": "operations",
+      "script": "084_manufacturing_workflow.sql"
+    },
+    {
+      "table": "manufacturing_role_assignments",
+      "owner": "operations",
+      "script": "084_manufacturing_workflow.sql"
+    },
+    {
+      "table": "manufacturing_resources",
+      "owner": "operations",
+      "script": "084_manufacturing_workflow.sql"
+    },
+    {
+      "table": "manufacturing_orders",
+      "owner": "operations",
+      "script": "084_manufacturing_workflow.sql"
+    },
+    {
+      "table": "manufacturing_reservations",
+      "owner": "operations",
+      "script": "084_manufacturing_workflow.sql"
+    },
+    {
+      "table": "manufacturing_events",
+      "owner": "operations",
+      "script": "084_manufacturing_workflow.sql"
+    },
+    {
+      "table": "manufacturing_quality_checks",
+      "owner": "operations",
+      "script": "084_manufacturing_workflow.sql"
+    },
+    {
+      "table": "manufacturing_shipments",
+      "owner": "operations",
+      "script": "084_manufacturing_workflow.sql"
+    },
+    {
+      "table": "manufacturing_tracking_events",
+      "owner": "operations",
+      "script": "084_manufacturing_workflow.sql"
+    },
+    {
+      "table": "manufacturing_custody_events",
+      "owner": "operations",
+      "script": "084_manufacturing_workflow.sql"
+    },
+    {
+      "table": "manufacturing_incidents",
+      "owner": "operations",
+      "script": "084_manufacturing_workflow.sql"
+    },
+    {
+      "table": "manufacturing_recall_items",
+      "owner": "operations",
+      "script": "084_manufacturing_workflow.sql"
     }
   ]
 }

@@ -5850,7 +5850,18 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado; implementação não iniciada.
+- Implementação local concluída: cotação versionada copia snapshots do pedido,
+  licença, material, máquina, arquivo, tolerância, acabamento, prazo e frete.
+  Aceite e reservas usam transação/idempotência e decremento condicional de
+  capacidade/material. A máquina de estados impede saltos; qualidade exige
+  inspetor e aprovador diferentes e peça reprovada não chega à expedição.
+- Logística persiste endereço somente cifrado, tracking somente por hash/digest e
+  deduplica eventos do provedor. Cadeia de custódia e eventos produtivos são
+  imutáveis. Incidente de produto inseguro cria recall rastreável e apenas uma
+  chave idempotente para comando financeiro, sem escrever diretamente no ledger.
+- O console de Fabricação separa lista/detalhe de ordens e incidentes, com acesso
+  por papel. O fluxo não possui integração que acione impressora, agente,
+  Moonraker, Klipper ou MCU.
 
 ## PKG-93: Escala, Resiliência, Backup E Recuperação
 

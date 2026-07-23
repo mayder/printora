@@ -23,6 +23,18 @@ if not uses_postgresql():
 SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
 POSTGRESQL_SQL_DIR = SQL_DIR / "postgresql"
 POSTGRESQL_REQUIRED_EXTENSION_TABLES = (
+    "manufacturing_quotes",
+    "manufacturing_role_assignments",
+    "manufacturing_resources",
+    "manufacturing_orders",
+    "manufacturing_reservations",
+    "manufacturing_events",
+    "manufacturing_quality_checks",
+    "manufacturing_shipments",
+    "manufacturing_tracking_events",
+    "manufacturing_custody_events",
+    "manufacturing_incidents",
+    "manufacturing_recall_items",
     "finance_accounts",
     "finance_ledger_entries",
     "finance_ledger_transactions",

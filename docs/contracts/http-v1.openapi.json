@@ -92,6 +92,31 @@
         "title": "AbuseSignalRecord",
         "type": "object"
       },
+      "AcceptQuoteRequest": {
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 160,
+            "minLength": 8,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/ReservationItem"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Resources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "resources"
+        ],
+        "title": "AcceptQuoteRequest",
+        "type": "object"
+      },
       "AgentCredentialCreateRequest": {
         "properties": {
           "label": {
@@ -16344,6 +16369,140 @@
         "title": "PublicProfileUpdate",
         "type": "object"
       },
+      "QualityRequest": {
+        "properties": {
+          "approver_user_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Approver User Id",
+            "type": "integer"
+          },
+          "check_key": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Check Key",
+            "type": "string"
+          },
+          "evidence_object_key": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Evidence Object Key",
+            "type": "string"
+          },
+          "measurement": {
+            "additionalProperties": true,
+            "title": "Measurement",
+            "type": "object"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "specification": {
+            "additionalProperties": true,
+            "title": "Specification",
+            "type": "object"
+          }
+        },
+        "required": [
+          "check_key",
+          "specification",
+          "measurement",
+          "passed",
+          "evidence_object_key",
+          "approver_user_id"
+        ],
+        "title": "QualityRequest",
+        "type": "object"
+      },
+      "QuoteRequest": {
+        "properties": {
+          "amount_minor": {
+            "minimum": 0.0,
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "currency": {
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "finish": {
+            "additionalProperties": true,
+            "title": "Finish",
+            "type": "object"
+          },
+          "idempotency_key": {
+            "maxLength": 160,
+            "minLength": 8,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "lead_time_days": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 365.0,
+            "title": "Lead Time Days",
+            "type": "integer"
+          },
+          "machine": {
+            "additionalProperties": true,
+            "title": "Machine",
+            "type": "object"
+          },
+          "material": {
+            "additionalProperties": true,
+            "title": "Material",
+            "type": "object"
+          },
+          "shipping": {
+            "additionalProperties": true,
+            "title": "Shipping",
+            "type": "object"
+          },
+          "tolerance": {
+            "additionalProperties": true,
+            "title": "Tolerance",
+            "type": "object"
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "material",
+          "machine",
+          "files",
+          "tolerance",
+          "finish",
+          "shipping",
+          "amount_minor",
+          "currency",
+          "lead_time_days"
+        ],
+        "title": "QuoteRequest",
+        "type": "object"
+      },
+      "RecallRequest": {
+        "properties": {
+          "evidence_reference": {
+            "maxLength": 500,
+            "minLength": 8,
+            "title": "Evidence Reference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_reference"
+        ],
+        "title": "RecallRequest",
+        "type": "object"
+      },
       "RecommendationItem": {
         "properties": {
           "contributor_reputation": {
@@ -17090,6 +17249,27 @@
           "records"
         ],
         "title": "ReputationResponse",
+        "type": "object"
+      },
+      "ReservationItem": {
+        "properties": {
+          "resource_key": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Resource Key",
+            "type": "string"
+          },
+          "units": {
+            "exclusiveMinimum": 0.0,
+            "title": "Units",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "resource_key",
+          "units"
+        ],
+        "title": "ReservationItem",
         "type": "object"
       },
       "RetentionPolicyResponse": {
@@ -20333,6 +20513,35 @@
         "title": "SetupSshTarget",
         "type": "object"
       },
+      "ShipmentRequest": {
+        "properties": {
+          "address_ciphertext": {
+            "maxLength": 4000,
+            "minLength": 8,
+            "title": "Address Ciphertext",
+            "type": "string"
+          },
+          "carrier": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Carrier",
+            "type": "string"
+          },
+          "tracking_token": {
+            "maxLength": 240,
+            "minLength": 6,
+            "title": "Tracking Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "carrier",
+          "tracking_token",
+          "address_ciphertext"
+        ],
+        "title": "ShipmentRequest",
+        "type": "object"
+      },
       "SlicingArtifact": {
         "properties": {
           "artifact_kind": {
@@ -22120,6 +22329,73 @@
           "title"
         ],
         "title": "TechnicalPrinterConfigPayload",
+        "type": "object"
+      },
+      "TrackingRequest": {
+        "properties": {
+          "occurred_at": {
+            "maxLength": 80,
+            "minLength": 10,
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "provider_event_id": {
+            "maxLength": 160,
+            "minLength": 3,
+            "title": "Provider Event Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "in_transit",
+              "exception",
+              "delivered",
+              "returned"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_event_id",
+          "status",
+          "payload",
+          "occurred_at"
+        ],
+        "title": "TrackingRequest",
+        "type": "object"
+      },
+      "TransitionRequest": {
+        "properties": {
+          "event_key": {
+            "maxLength": 160,
+            "minLength": 8,
+            "title": "Event Key",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Reason",
+            "type": "string"
+          },
+          "target": {
+            "maxLength": 40,
+            "minLength": 3,
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "event_key"
+        ],
+        "title": "TransitionRequest",
         "type": "object"
       },
       "UpdateActionResponse": {
@@ -24377,6 +24653,514 @@
         "summary": "Create Sandbox Intent",
         "tags": [
           "finance"
+        ]
+      }
+    },
+    "/api/admin/manufacturing/orders/{order_public_id}/quotes": {
+      "post": {
+        "operationId": "create_quote_api_admin_manufacturing_orders__order_public_id__quotes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_public_id",
+            "required": true,
+            "schema": {
+              "title": "Order Public Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Quote",
+        "tags": [
+          "manufacturing"
+        ]
+      }
+    },
+    "/api/admin/manufacturing/orders/{public_id}/quality": {
+      "post": {
+        "operationId": "quality_api_admin_manufacturing_orders__public_id__quality_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_id",
+            "required": true,
+            "schema": {
+              "title": "Public Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QualityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Quality",
+        "tags": [
+          "manufacturing"
+        ]
+      }
+    },
+    "/api/admin/manufacturing/orders/{public_id}/recall": {
+      "post": {
+        "operationId": "recall_api_admin_manufacturing_orders__public_id__recall_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_id",
+            "required": true,
+            "schema": {
+              "title": "Public Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecallRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recall",
+        "tags": [
+          "manufacturing"
+        ]
+      }
+    },
+    "/api/admin/manufacturing/orders/{public_id}/shipments": {
+      "post": {
+        "operationId": "shipment_api_admin_manufacturing_orders__public_id__shipments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_id",
+            "required": true,
+            "schema": {
+              "title": "Public Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShipmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Shipment",
+        "tags": [
+          "manufacturing"
+        ]
+      }
+    },
+    "/api/admin/manufacturing/orders/{public_id}/transitions": {
+      "post": {
+        "operationId": "transition_api_admin_manufacturing_orders__public_id__transitions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_id",
+            "required": true,
+            "schema": {
+              "title": "Public Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Transition",
+        "tags": [
+          "manufacturing"
+        ]
+      }
+    },
+    "/api/admin/manufacturing/overview": {
+      "get": {
+        "operationId": "overview_api_admin_manufacturing_overview_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Overview",
+        "tags": [
+          "manufacturing"
+        ]
+      }
+    },
+    "/api/admin/manufacturing/roles/{user_id}/{role}": {
+      "put": {
+        "operationId": "assign_role_api_admin_manufacturing_roles__user_id___role__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role",
+            "required": true,
+            "schema": {
+              "title": "Role",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assign Role",
+        "tags": [
+          "manufacturing"
+        ]
+      }
+    },
+    "/api/admin/manufacturing/shipments/{public_id}/tracking": {
+      "post": {
+        "operationId": "tracking_api_admin_manufacturing_shipments__public_id__tracking_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_id",
+            "required": true,
+            "schema": {
+              "title": "Public Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tracking",
+        "tags": [
+          "manufacturing"
         ]
       }
     },
@@ -29011,6 +29795,72 @@
           }
         },
         "summary": "Delete Latest Maintenance Task Event"
+      }
+    },
+    "/api/manufacturing/quotes/{quote_public_id}/accept": {
+      "post": {
+        "operationId": "accept_quote_api_manufacturing_quotes__quote_public_id__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quote_public_id",
+            "required": true,
+            "schema": {
+              "title": "Quote Public Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptQuoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Quote",
+        "tags": [
+          "manufacturing"
+        ]
       }
     },
     "/api/moonraker/status": {

@@ -1883,6 +1883,13 @@ coluna para cartão/payload bruto. Ela não remove nem altera dados anteriores.
 ### PKG-92 - Fabricação, Qualidade, Logística E Cadeia De Custódia
 
 - testar snapshot/licença da ordem, aceite e estados formais;
+- executar `pytest -q tests/test_manufacturing_workflow.py`: cobre snapshot e
+  replay da cotação, reserva atômica, salto inválido, segregação da qualidade,
+  expedição somente aprovada, tracking repetido, entrega e recall;
+- confirmar que endereço não aparece no overview/log e que token/payload do
+  transportador são reduzidos a ciphertext/hash/digest;
+- em smoke Cloud usar somente ordem sintética; não conectar nem comandar
+  impressora, agente, Moonraker, Klipper ou MCU.
 - testar concorrência de capacidade/material e idempotência;
 - impedir expedição sem qualidade aprovada;
 - testar retrabalho, cancelamento, falha, incidente e recall;

@@ -22,6 +22,7 @@ import { MaintenanceScreen } from "./screens/MaintenanceScreen";
 import { ReportsScreen } from "./screens/ReportsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { FinanceAdminScreen } from "./screens/FinanceAdminScreen";
+import { ManufacturingAdminScreen } from "./screens/ManufacturingAdminScreen";
 import { AuthScreen } from "./screens/AuthScreen";
 import { AboutScreen } from "./screens/AboutScreen";
 import { LicenseScreen } from "./screens/LicenseScreen";
@@ -40,6 +41,7 @@ import "./styles/backups.css";
 import "./styles/maintenance.css";
 import "./styles/settings.css";
 import "./styles/finance.css";
+import "./styles/manufacturing.css";
 import "./styles/auth.css";
 import "./styles/setup.css";
 import "./styles/firmware.css";
@@ -157,6 +159,8 @@ function App() {
         return <SettingsScreen {...screenProps} />;
       case "finance":
         return <FinanceAdminScreen {...screenProps} />;
+      case "manufacturing":
+        return <ManufacturingAdminScreen {...screenProps} />;
       case "account":
         return <AuthScreen {...screenProps} />;
       case "about":

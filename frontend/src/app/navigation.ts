@@ -1,4 +1,4 @@
-import { Activity, Database, FileArchive, FileText, Home, Info, Landmark, Network, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
+import { Activity, Database, Factory, FileArchive, FileText, Home, Info, Landmark, Network, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
@@ -19,6 +19,7 @@ export type AppSection =
   | "reports"
   | "settings"
   | "finance"
+  | "manufacturing"
   | "account"
   | "about"
   | "license";
@@ -143,6 +144,13 @@ export const appSections: Array<{
     purpose: "Acompanhe áreas financeiras segregadas, controles de prontidão e registros auditáveis.",
   },
   {
+    key: "manufacturing",
+    icon: Factory,
+    label: "Fabricação",
+    detail: "Ordens, qualidade, logística e recall.",
+    purpose: "Acompanhe a cadeia produtiva sem acionar diretamente impressoras ou expor dados de entrega.",
+  },
+  {
     key: "settings",
     icon: Settings,
     label: "Administração",
@@ -174,7 +182,7 @@ export const appSections: Array<{
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Principal", sections: ["overview", "printers", "agents", "projects", "social", "catalog", "setup"] },
-  { title: "Sistema", sections: ["finance", "settings"] },
+  { title: "Sistema", sections: ["finance", "manufacturing", "settings"] },
 ];
 
 export const onlinePrinterSections = new Set<AppSection>([

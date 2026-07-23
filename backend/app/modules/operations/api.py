@@ -13,6 +13,7 @@ from app.routes import (
     slicing,
     z_offset,
 )
+from app.modules.operations import manufacturing_api
 
 
 MODULE = ModuleDefinition(
@@ -32,5 +33,6 @@ MODULE = ModuleDefinition(
         RouterRegistration(190, setup.router),
         RouterRegistration(200, slicing.router),
         RouterRegistration(310, z_offset.router),
+        RouterRegistration(550, manufacturing_api.router),
     ),
 )

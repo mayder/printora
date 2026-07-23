@@ -27,7 +27,7 @@ grep -q 'checkout\.sandbox\.invalid' backend/app/payment_provider.py || {
   exit 1
 }
 if grep -REn --include='*.py' 'router\.(get|post|put|patch|delete).*\(.*(checkout|payment|orders)' \
-  backend/app | grep -v 'backend/app/modules/finance/api.py'; then
+  backend/app | grep -v -E 'backend/app/modules/finance/api.py|backend/app/modules/operations/manufacturing_api.py'; then
   echo "endpoint comercial legado fora do módulo financeiro detectado" >&2
   exit 1
 fi

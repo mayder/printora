@@ -378,6 +378,16 @@ erro/degradado, permissão por ação, confirmação forte e auditoria sanitizad
 - estados loading, vazio, erro/acesso negado e sucesso são responsivos e operáveis
   por teclado. A tela usa somente o client HTTP compartilhado.
 
+## Administração > Fabricação
+
+- rota/estado: `?section=manufacturing`;
+- acesso exige papel explícito de produção, qualidade, logística ou segurança;
+- `Ordens` e `Incidentes e recall` são listas separadas com painel de detalhe;
+- endereço cifrado, token de tracking, evidência privada e snapshots de arquivo
+  não são retornados pelo overview nem exibidos na tela;
+- transições permanecem nas APIs autorizadas e nunca enviam comando direto à
+  impressora física; estados vazio, loading, acesso negado e detalhe são responsivos.
+
 ## Boundary De Preferências Locais
 
 Tema e progresso do guia de setup preservam o comportamento visual atual, mas

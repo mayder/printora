@@ -2036,6 +2036,22 @@ anterior. Preservar integralmente pedidos, intents, webhooks por digest, ledger,
 reembolsos, disputas, repasses, decisões e auditoria. Não executar `DELETE`,
 `UPDATE` manual de ledger ou `DROP TABLE`.
 
+## Fabricação e cadeia de custódia
+
+O domínio produtivo transforma somente pedido pago em cotação e ordem abstrata.
+Ele não envia G-code, não agenda job no agente e não acessa Moonraker/Klipper.
+Reservas de capacidade e material são atômicas; falta de recurso reverte todo o
+aceite. Qualidade exige atores diferentes para inspecionar e aprovar.
+
+Expedição recebe endereço já cifrado. Nunca registrar endereço, documento,
+tracking token ou evidência privada em log, comunidade ou relatório público.
+Tracking repetido é idempotente. Recall preserva eventos e emite apenas
+`finance_command_key`; um operador financeiro decide e executa eventual estorno.
+
+Rollback de código não restaura banco. Bloquear novas cotações/transições,
+publicar a release anterior e preservar ordens, reservas, qualidade, custódia,
+tracking e incidentes. Não remover registros durante incidente ou recall.
+
 ## Validacao por risco
 
 - Documentacao, label ou ajuste local simples: validar arquivo alterado e executar `./check.sh` se a alteracao tocar regra do modelo.

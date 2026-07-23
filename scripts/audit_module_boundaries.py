@@ -76,6 +76,7 @@ BOUNDARIES = (
             "can_monitor",
             "z_offset",
             "firmware",
+            "manufacturing",
         ),
     ),
     Boundary(
@@ -272,7 +273,7 @@ def infer_table_owner(table: str) -> str:
         return "community"
     if table.startswith(("finance_", "commerce_", "payment_")):
         return "finance"
-    if table.startswith(("agent", "printer", "print_", "calibration", "maintenance")):
+    if table.startswith(("agent", "printer", "print_", "calibration", "maintenance", "manufacturing")):
         return "operations"
     return "administration"
 
