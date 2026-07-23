@@ -11,6 +11,7 @@ HostAuditMode = Literal["disabled", "local", "ssh"]
 FirmwareBuildMode = Literal["disabled", "local"]
 ReleaseSourceMode = Literal["github", "fixture", "disabled"]
 ObjectStorageMode = Literal["local", "s3"]
+PaymentMode = Literal["disabled", "sandbox"]
 
 
 class Settings(BaseSettings):
@@ -50,6 +51,8 @@ class Settings(BaseSettings):
     object_storage_quarantine_bucket: str = "printora-quarantine"
     object_storage_objects_bucket: str = "printora-objects"
     object_storage_artifacts_bucket: str = "printora-artifacts"
+    payment_mode: PaymentMode = "disabled"
+    payment_webhook_secret: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

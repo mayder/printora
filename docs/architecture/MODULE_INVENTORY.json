@@ -93,15 +93,15 @@
     }
   ],
   "summary": {
-    "modules": 151,
-    "routes": 329,
-    "contracts": 341,
-    "tables": 116,
+    "modules": 155,
+    "routes": 331,
+    "contracts": 344,
+    "tables": 118,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 26,
       "community": 29,
-      "finance": 3,
+      "finance": 7,
       "identity": 10,
       "integrations": 7,
       "operations": 55,
@@ -318,7 +318,7 @@
     {
       "module": "config",
       "owner": "administration",
-      "lines": 75,
+      "lines": 78,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -337,7 +337,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 550,
+      "lines": 552,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -382,6 +382,19 @@
       "imports": [
         "database",
         "modules.finance.domain"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "finance_payments",
+      "owner": "finance",
+      "lines": 137,
+      "imports": [
+        "database",
+        "modules.finance.contracts",
+        "modules.finance.domain",
+        "payment_provider"
       ],
       "routes": [],
       "contracts": []
@@ -841,15 +854,57 @@
     {
       "module": "modules.finance.__init__",
       "owner": "finance",
-      "lines": 2,
+      "lines": 1,
       "imports": [],
       "routes": [],
       "contracts": []
     },
     {
+      "module": "modules.finance.api",
+      "owner": "finance",
+      "lines": 78,
+      "imports": [
+        "config",
+        "finance_payments",
+        "modules.assembly",
+        "modules.finance.contracts",
+        "modules.finance.domain",
+        "modules.identity.contracts",
+        "payment_provider",
+        "routes.auth"
+      ],
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/api/admin/finance/sandbox/intents",
+          "handler": "create_sandbox_intent"
+        },
+        {
+          "method": "POST",
+          "path": "/api/finance/provider-webhooks/sandbox",
+          "handler": "sandbox_webhook"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "modules.finance.contracts",
+      "owner": "finance",
+      "lines": 26,
+      "imports": [
+        "modules.finance.domain"
+      ],
+      "routes": [],
+      "contracts": [
+        "PaymentIntentResponse",
+        "PaymentWebhookResponse",
+        "SandboxIntentRequest"
+      ]
+    },
+    {
       "module": "modules.finance.domain",
       "owner": "finance",
-      "lines": 100,
+      "lines": 129,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -1117,11 +1172,12 @@
     {
       "module": "modules.registry",
       "owner": "shared",
-      "lines": 34,
+      "lines": 35,
       "imports": [
         "modules.administration.api",
         "modules.assembly",
         "modules.community.api",
+        "modules.finance.api",
         "modules.identity.api",
         "modules.integrations.api",
         "modules.operations.api"
@@ -1189,6 +1245,16 @@
         "database",
         "modules.platform.durable_execution",
         "modules.platform.recomposable_redis"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "payment_provider",
+      "owner": "finance",
+      "lines": 100,
+      "imports": [
+        "modules.finance.domain"
       ],
       "routes": [],
       "contracts": []
@@ -4493,6 +4559,16 @@
       "table": "finance_ledger_entries",
       "owner": "finance",
       "script": "077_finance_ledger.sql"
+    },
+    {
+      "table": "payment_intents",
+      "owner": "finance",
+      "script": "078_finance_payments.sql"
+    },
+    {
+      "table": "payment_webhook_events",
+      "owner": "finance",
+      "script": "078_finance_payments.sql"
     }
   ]
 }

@@ -5750,6 +5750,11 @@ Estado atual:
   imutáveis após posting, chave idempotente com digest e reconciliação
   independente. SQL SQLite/PostgreSQL é aditivo e idempotente; não há `DELETE`,
   `DROP` ou cálculo monetário com `float`.
+- Lote 2 concluído: adapter sandbox cria intent idempotente e checkout hospedado;
+  webhook HMAC tem limite de payload, rejeita campos de cartão, persiste somente
+  digest e aplica state machine. Replay, evento atrasado/fora de ordem, assinatura
+  inválida e transição impossível não duplicam nem contradizem o estado. O modo
+  de pagamento nasce `disabled` e não oferece configuração de dinheiro real.
 
 ## PKG-92: Fabricação, Qualidade, Logística E Cadeia De Custódia
 

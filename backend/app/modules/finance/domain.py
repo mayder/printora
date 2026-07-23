@@ -6,6 +6,16 @@ from typing import Literal
 
 AccountType = Literal["asset", "liability", "equity", "revenue", "expense"]
 EntrySide = Literal["debit", "credit"]
+PaymentStatus = Literal[
+    "requires_action",
+    "authorized",
+    "captured",
+    "cancelled",
+    "partially_refunded",
+    "refunded",
+    "disputed",
+    "failed",
+]
 
 
 def normalize_currency(value: str) -> str:
@@ -98,3 +108,22 @@ def reject_non_integer_money(value: object, path: str = "metadata") -> None:
     elif isinstance(value, (list, tuple)):
         for index, child in enumerate(value):
             reject_non_integer_money(child, f"{path}[{index}]")
+
+
+PAYMENT_TRANSITIONS: dict[PaymentStatus, frozenset[PaymentStatus]] = {
+    "requires_action": frozenset({"authorized", "captured", "cancelled", "failed"}),
+    "authorized": frozenset({"captured", "cancelled", "failed"}),
+    "captured": frozenset({"partially_refunded", "refunded", "disputed"}),
+    "partially_refunded": frozenset({"partially_refunded", "refunded", "disputed"}),
+    "disputed": frozenset({"captured", "partially_refunded", "refunded"}),
+    "cancelled": frozenset(),
+    "refunded": frozenset(),
+    "failed": frozenset(),
+}
+
+
+def validate_payment_transition(current: PaymentStatus, target: PaymentStatus) -> None:
+    if target == current:
+        return
+    if target not in PAYMENT_TRANSITIONS[current]:
+        raise ValueError(f"transição de pagamento inválida: {current} -> {target}")

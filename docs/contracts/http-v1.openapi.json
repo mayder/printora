@@ -12203,6 +12203,77 @@
         "title": "PairingTokenResponse",
         "type": "object"
       },
+      "PaymentIntentResponse": {
+        "properties": {
+          "amount_minor": {
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "hosted_checkout_url": {
+            "title": "Hosted Checkout Url",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "public_id": {
+            "title": "Public Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "requires_action",
+              "authorized",
+              "captured",
+              "cancelled",
+              "partially_refunded",
+              "refunded",
+              "disputed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "public_id",
+          "provider",
+          "amount_minor",
+          "currency",
+          "status",
+          "hosted_checkout_url"
+        ],
+        "title": "PaymentIntentResponse",
+        "type": "object"
+      },
+      "PaymentWebhookResponse": {
+        "properties": {
+          "duplicate": {
+            "default": false,
+            "title": "Duplicate",
+            "type": "boolean"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "status"
+        ],
+        "title": "PaymentWebhookResponse",
+        "type": "object"
+      },
       "PluginAuditItem": {
         "properties": {
           "action": {
@@ -16205,6 +16276,35 @@
           "records"
         ],
         "title": "ReputationResponse",
+        "type": "object"
+      },
+      "SandboxIntentRequest": {
+        "properties": {
+          "amount_minor": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 100000000.0,
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "currency": {
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 160,
+            "minLength": 8,
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount_minor",
+          "currency",
+          "idempotency_key"
+        ],
+        "title": "SandboxIntentRequest",
         "type": "object"
       },
       "SanitizedReport": {
@@ -22579,6 +22679,65 @@
         "summary": "Frontend Index"
       }
     },
+    "/api/admin/finance/sandbox/intents": {
+      "post": {
+        "operationId": "create_sandbox_intent_api_admin_finance_sandbox_intents_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SandboxIntentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentIntentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Sandbox Intent",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
     "/api/admin/workers": {
       "get": {
         "operationId": "worker_overview_api_admin_workers_get",
@@ -25956,6 +26115,50 @@
           }
         },
         "summary": "Post Update Checklist"
+      }
+    },
+    "/api/finance/provider-webhooks/sandbox": {
+      "post": {
+        "operationId": "sandbox_webhook_api_finance_provider_webhooks_sandbox_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Printora-Sandbox-Signature",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 64,
+              "title": "X-Printora-Sandbox-Signature",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentWebhookResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sandbox Webhook",
+        "tags": [
+          "finance"
+        ]
       }
     },
     "/api/firmware/board-presets": {
