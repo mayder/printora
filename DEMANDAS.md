@@ -6072,7 +6072,8 @@ Critério de aceite:
 
 Estado atual:
 
-- Lotes 1 a 3 implementados: manifesto final, owners/ciclo de vida das units,
+- Concluído e publicado na release `73057bf`; lotes 1 a 6 encerrados.
+- Manifesto final, owners/ciclo de vida das units,
   scanner bloqueante integrado ao `check.sh`, prova executável de que o perfil
   cloud não carrega `sqlite3` e remoção do contrato transitório
   `database_transition`.
@@ -6082,8 +6083,16 @@ Estado atual:
 - Gate estrito completo passou com 566 testes backend, Go, build e testes
   frontend, scans de segredo/runtime e fronteiras modulares. SBOM reproduzível
   foi gerado; npm audit, pip-audit e govulncheck não encontraram vulnerabilidade.
-- Lotes 4 a 6 aguardam publicação da release, auditoria efetiva read-only,
-  repetição do preflight/rollback/carga/restore e consolidação da evidência.
+- Auditoria efetiva comprovou release/réplica iguais, duas readiness, perfil
+  cloud sem SQLite, 157 tabelas, 87 revisões, zero índice/constraint inválida,
+  role analítica `1:0:0` e filas sem lease/processamento pendente.
+- Rollback N-1 sob 600 requests terminou sem erro e sem restaurar dados; a
+  release final foi republicada e auditada. Soak de 120 s também concluiu 600
+  requests sem erro, com cerca de 24 GiB de RAM e 110 GiB de disco livres.
+- O primeiro restore revelou que o snapshot anterior precedia o schema
+  analítico. Um novo backup externo criptografado foi criado sem excluir os
+  anteriores; o restore final subiu 157 tabelas/87 revisões, zero FK inválida,
+  8 versões de objetos, 6 referências canônicas e 364 documentos de busca.
 - Nenhuma limpeza destrutiva foi executada. Se o inventário remoto encontrar
   dado, tabela, objeto, backup ou arquivo candidato, ele será apenas reportado
   até existir confirmação específica.

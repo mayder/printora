@@ -51,16 +51,41 @@ preview e confirmação específica.
 
 ## Publicação e auditoria efetiva
 
-Pendente da publicação da release final e execução read-only de:
+- workflow `29986097612` publicou `73057bf` após gate completo, auditorias de
+  dependência, SBOM, preflight, bundle imutável, blue/green e smoke público;
+- auditoria read-only: release ativa e réplica iguais, duas instâncias web,
+  zero SQLite carregado, 157 tabelas, 87 revisões, zero índice/constraint
+  inválida e role analítica `1:0:0`;
+- filas: zero job leased/running e zero outbox em processamento; 6 objetos e 6
+  referências canônicas;
+- preflight final: todas as verificações aprovadas, incluindo backup externo,
+  PostgreSQL, Redis recomponível, storage, workers, certificados e capacidade;
+- soak de 120 s: 600 requests, zero erro, p95 máximo de 1.489 ms;
+- capacidade após soak: cerca de 24 GiB de RAM e 110 GiB de disco disponíveis;
+- rollback para N-1 sob 600 requests: zero erro, p95 246 ms,
+  `data_restored=false`; a release final foi republicada e a auditoria repetida
+  com sucesso.
 
-```bash
-sudo /usr/local/libexec/printora-cloud/audit-final-architecture.sh
-sudo /usr/local/sbin/printora-cloud-preflight
-```
+## Backup e restore final
 
-O fechamento só será registrado após release ativa/réplica iguais, duas
-readiness, units canônicas ativas, zero artefato aposentado, zero SQLite
-carregado, zero índice/constraint inválida e role analítica `1:0:0`.
+O primeiro restore repetido identificou corretamente que o snapshot anterior
+era anterior ao schema analítico: ele restaurou 146 tabelas/86 revisões, mas a
+release atual recusou iniciar a busca sem as 11 tabelas `analytics_*`. O teste
+ocorreu em cluster temporário isolado e não alterou produção.
+
+Um novo snapshot externo criptografado `aeebfcc1` foi criado sem apagar os
+anteriores. O segundo restore concluiu:
+
+- 12 arquivos de configuração com checksum;
+- 157 tabelas e 87 revisões;
+- zero foreign key inválida;
+- 8 versões de objetos com checksum;
+- 6 objetos canônicos reconciliados;
+- 364 documentos de busca reconstruídos em 6,711 s;
+- cluster isolado promovido e encerrado sem iniciar a aplicação.
+
+O backup antigo não foi excluído; retenção continua uma operação supervisionada
+separada.
 
 ## Rollback
 
