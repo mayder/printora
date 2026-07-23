@@ -60,6 +60,9 @@ jobs:
           CHECK_STRICT_RUNTIME_NAMES: "1"
         run: ./check.sh
 
+      - name: Validate reproducible frontend build
+        run: npm --prefix frontend run build:reproducible
+
       - name: Audit production dependencies
         run: |
           set -euo pipefail

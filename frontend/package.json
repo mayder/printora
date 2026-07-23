@@ -12,9 +12,11 @@
     "preinstall": "node scripts/validate-node-version.mjs",
     "prebuild": "node scripts/validate-node-version.mjs",
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/check-bundle-budget.mjs",
+    "build:reproducible": "bash scripts/verify-reproducible-build.sh",
     "preview": "vite preview --host 0.0.0.0",
     "test:node-version": "node tests/nodeVersionGate.test.mjs",
+    "test:bundle-budget": "node tests/bundleBudget.test.mjs",
     "test:releases": "node tests/releaseStates.test.mjs",
     "test:gcode-preview": "node tests/gcodePreview.test.mjs",
     "test:sequential-poll": "node tests/sequentialPoll.test.mjs"

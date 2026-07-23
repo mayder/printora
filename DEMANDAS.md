@@ -6319,6 +6319,8 @@ Estado atual:
 - Lote 1 concluído: Node `22.22.x` e npm `11.7.x` são gates bloqueantes antes
   de instalação/build, com versões de referência fixadas em arquivos de runtime,
   pacote, Docker e CI.
+- Lote 2 concluído: `npm ci`, build reproduzível, auditoria de dependências,
+  separação de chunks e orçamento bloqueante de bytes brutos/gzip estão ativos.
 - Evidência em `docs/audits/QUALITY_GATE_PKG_97_2026-07-23.md`.
 
 ## PKG-98: Homologação Física E Soak Prolongado
