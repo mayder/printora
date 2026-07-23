@@ -1875,6 +1875,11 @@ projeto de teste, gerar checkout hospedado, capturar, reconciliar, reembolsar e
 confirmar ledger balanceado. Não marcar fiscal/jurídico como aprovado sem revisão
 humana e não habilitar dinheiro real.
 
+No release ativo, executar `scripts/cloud/probe-finance-sandbox.py` com o ambiente
+da aplicação. A prova preserva os registros sintéticos para auditoria, valida
+replay, reembolso, reconciliação, segregação do repasse, saldo e ausência de
+coluna para cartão/payload bruto. Ela não remove nem altera dados anteriores.
+
 ### PKG-92 - Fabricação, Qualidade, Logística E Cadeia De Custódia
 
 - testar snapshot/licença da ordem, aceite e estados formais;
