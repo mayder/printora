@@ -5663,6 +5663,10 @@ Estado atual:
   gerado + GIN, fontes emitem outbox sanitizada e worker bulk executa rebuild
   idempotente sem `DELETE`. Consulta reaplica fonte ativa, publicação comercial,
   membership e bloqueios. Validação focada de busca/worker/schema: 102 testes.
+- Lote 7 implementado localmente: backup Restic criptografado passa a reunir
+  PostgreSQL físico/lógico + WAL e todas as versões/delimitadores dos três buckets
+  com manifesto/checksum. Restore isolado reconcilia metadado/conteúdo e executa
+  rebuild da busca sem iniciar aplicação ou alterar produção.
 
 ## PKG-91: Núcleo Financeiro, Pagamentos E Pedidos
 

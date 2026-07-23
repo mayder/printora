@@ -35,6 +35,7 @@ install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/validate-object-storage
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/migrate-object-storage.py" /usr/local/libexec/printora-cloud/migrate-object-storage.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/reconcile-object-storage.py" /usr/local/libexec/printora-cloud/reconcile-object-storage.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/search-rebuild.py" /usr/local/libexec/printora-cloud/search-rebuild.py
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/export-object-storage-backup.py" /usr/local/libexec/printora-cloud/export-object-storage-backup.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/audit-durable-execution.py" /usr/local/libexec/printora-cloud/audit-durable-execution.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/retention-durable-execution.py" /usr/local/libexec/printora-cloud/retention-durable-execution.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/load-durable-execution.py" /usr/local/libexec/printora-cloud/load-durable-execution.py

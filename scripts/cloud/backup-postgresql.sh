@@ -16,6 +16,7 @@ command -v pg_dump >/dev/null || { echo "pg_dump ausente" >&2; exit 1; }
 command -v pg_restore >/dev/null || { echo "pg_restore ausente" >&2; exit 1; }
 command -v psql >/dev/null || { echo "psql ausente" >&2; exit 1; }
 command -v restic >/dev/null || { echo "restic ausente" >&2; exit 1; }
+[[ -x /usr/local/libexec/printora-cloud/export-object-storage-backup.py ]] || { echo "exportador de objetos ausente" >&2; exit 1; }
 
 set -a
 source "$backup_config"
@@ -31,6 +32,12 @@ install -d -o root -g root -m 0700 "$RESTIC_CACHE_DIR"
 install -d -o postgres -g postgres -m 0700 "$work_dir/base"
 dump="$work_dir/printora-postgresql.dump"
 manifest="$work_dir/manifest.json"
+set -a
+source /etc/printora-object-storage/credentials.env
+set +a
+"$base_path/current/venv/bin/python" /usr/local/libexec/printora-cloud/export-object-storage-backup.py \
+  --output "$work_dir/object-storage"
+unset MINIO_ROOT_USER MINIO_ROOT_PASSWORD PRINTORA_OBJECT_STORAGE_ACCESS_KEY PRINTORA_OBJECT_STORAGE_SECRET_KEY
 runuser -u postgres -- pg_basebackup \
   --port="$port" \
   --pgdata="$work_dir/base" \
@@ -61,7 +68,9 @@ database_size="$(runuser -u postgres -- psql -p "$port" -d printora_cloud -X -At
   'SELECT pg_database_size(current_database())')"
 last_archived_wal="$requested_wal"
 dump_sha256="$(sha256sum "$dump" | awk '{print $1}')"
-python3 - "$manifest" "$database_size" "$dump_sha256" "$last_archived_wal" <<'PY'
+object_manifest_sha256="$(sha256sum "$work_dir/object-storage/object-manifest.json" | awk '{print $1}')"
+object_version_count="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version_count"])' "$work_dir/object-storage/object-manifest.json")"
+python3 - "$manifest" "$database_size" "$dump_sha256" "$last_archived_wal" "$object_manifest_sha256" "$object_version_count" <<'PY'
 import json
 import sys
 from datetime import datetime, timezone
@@ -76,6 +85,8 @@ payload = {
     "dump_sha256": sys.argv[3],
     "last_archived_wal": sys.argv[4],
     "logical_format": "custom",
+    "object_manifest_sha256": sys.argv[5],
+    "object_version_count": int(sys.argv[6]),
     "physical_format": "tar+zstd",
 }
 with open(sys.argv[1], "w", encoding="utf-8") as output:
@@ -83,6 +94,6 @@ with open(sys.argv[1], "w", encoding="utf-8") as output:
     output.write("\n")
 PY
 
-restic backup "$work_dir/base" "$dump" "$manifest" "$archive_dir" \
+restic backup "$work_dir/base" "$dump" "$manifest" "$archive_dir" "$work_dir/object-storage" \
   --tag printora-cloud-postgresql --host printora-cloud
 echo "backup PostgreSQL externo criptografado concluído; retenção exige execução supervisionada separada"

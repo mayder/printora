@@ -33,12 +33,14 @@ restic restore latest --tag printora-cloud-postgresql --target "$restored" \
   --include '/tmp/**/base/base.tar.zst' \
   --include '/tmp/**/base/pg_wal.tar*' \
   --include '/tmp/**/manifest.json' \
-  --include '/tmp/**/printora-postgresql.dump'
+  --include '/tmp/**/printora-postgresql.dump' \
+  --include '/tmp/**/object-storage/**'
 dump="$(find "$restored" -type f -name printora-postgresql.dump -print -quit)"
 manifest="$(find "$restored" -type f -name manifest.json -print -quit)"
 base_tar="$(find "$restored" -type f -name base.tar.zst -print -quit)"
 wal_tar="$(find "$restored" -type f \( -name pg_wal.tar.zst -o -name pg_wal.tar \) -print -quit)"
-[[ -n "$dump" && -n "$manifest" && -n "$base_tar" && -n "$wal_tar" ]] || {
+object_manifest="$(find "$restored" -type f -path '*/object-storage/object-manifest.json' -print -quit)"
+[[ -n "$dump" && -n "$manifest" && -n "$base_tar" && -n "$wal_tar" && -n "$object_manifest" ]] || {
   echo "backup restaurado incompleto" >&2
   exit 1
 }
@@ -66,6 +68,43 @@ archive_dir="$(find "$restored" -type d -name printora-wal-archive -print -quit)
 "$(pg_config --bindir)/pg_waldump" -n 1 "$archive_dir/$last_archived_wal" >/dev/null
 actual_sha256="$(sha256sum "$dump" | awk '{print $1}')"
 [[ "$actual_sha256" == "$expected_sha256" ]] || { echo "checksum do dump divergente" >&2; exit 1; }
+expected_object_manifest_sha256="$(python3 - "$manifest" <<'PY'
+import json
+import sys
+print(json.load(open(sys.argv[1]))["object_manifest_sha256"])
+PY
+)"
+[[ "$(sha256sum "$object_manifest" | awk '{print $1}')" == "$expected_object_manifest_sha256" ]] || {
+  echo "checksum do manifesto de objetos divergente" >&2
+  exit 1
+}
+python3 - "$object_manifest" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+manifest_path = pathlib.Path(sys.argv[1])
+payload = json.loads(manifest_path.read_text())
+versions = 0
+for entry in payload.get("entries", []):
+    if entry.get("kind") != "version":
+        continue
+    versions += 1
+    path = manifest_path.parent / entry["relative_path"]
+    if not path.is_file() or path.stat().st_size != int(entry["size_bytes"]):
+        raise SystemExit("objeto restaurado ausente ou com tamanho divergente")
+    hasher = hashlib.sha256()
+    with path.open("rb") as source:
+        while chunk := source.read(1024 * 1024):
+            hasher.update(chunk)
+    digest = hasher.hexdigest()
+    if digest != entry["sha256"]:
+        raise SystemExit("checksum do objeto restaurado divergente")
+if versions != int(payload.get("version_count", -1)):
+    raise SystemExit("contagem de versões restauradas divergente")
+print(json.dumps({"object_versions_restored": versions, "object_files_checksum": "passed"}, sort_keys=True))
+PY
 
 pg_bin="$(pg_config --bindir)"
 chown postgres:postgres "$restore_root"
@@ -138,4 +177,37 @@ SELECT json_build_object(
     'invalid_foreign_keys', (SELECT COUNT(*) FROM pg_constraint WHERE contype = 'f' AND NOT convalidated)
 );
 SQL
-echo "restore físico PostgreSQL com WAL validado em cluster isolado; aplicação não foi iniciada"
+metadata_csv="$restore_root/cloud-objects.csv"
+runuser -u postgres -- "$pg_bin/psql" -X --csv -c \
+  'SELECT bucket_name, object_key, sha256, size_bytes FROM cloud_objects ORDER BY id' > "$metadata_csv"
+python3 - "$object_manifest" "$metadata_csv" <<'PY'
+import csv
+import json
+import pathlib
+import sys
+
+manifest = json.loads(pathlib.Path(sys.argv[1]).read_text())
+versions = {
+    (entry["bucket"], entry["key"], entry["sha256"], int(entry["size_bytes"]))
+    for entry in manifest.get("entries", [])
+    if entry.get("kind") == "version"
+}
+with open(sys.argv[2], newline="", encoding="utf-8") as source:
+    metadata = list(csv.DictReader(source))
+missing = [
+    (row["bucket_name"], row["object_key"])
+    for row in metadata
+    if (row["bucket_name"], row["object_key"], row["sha256"], int(row["size_bytes"])) not in versions
+]
+if missing:
+    raise SystemExit(f"metadado sem conteúdo restaurado: {len(missing)}")
+print(json.dumps({"canonical_objects": len(metadata), "metadata_content_reconciliation": "passed"}, sort_keys=True))
+PY
+
+PRINTORA_RUNTIME_PROFILE=cloud \
+PRINTORA_DATABASE_URL="postgresql://postgres@/printora_cloud?host=$socket_dir&port=5432" \
+PRINTORA_DATA_DIR="$restore_root/app-data" \
+PYTHONPATH="$base_path/current/backend" \
+  "$base_path/current/venv/bin/python" /usr/local/libexec/printora-cloud/search-rebuild.py
+
+echo "restore físico PostgreSQL/WAL, objetos e rebuild da busca validados em destino isolado; aplicação não foi iniciada"

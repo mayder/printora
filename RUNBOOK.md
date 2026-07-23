@@ -1982,6 +1982,12 @@ Rollback: reverter o adapter/runtime para a release anterior preservando schema,
 buckets, versões e arquivos de origem. Não apagar bucket, versão, objeto, tabela ou
 origem local sem confirmação explícita e backup validado.
 
+O backup externo enumera todas as versões e delete markers via S3, exporta cada
+conteúdo com SHA-256 e inclui manifesto junto do backup físico/lógico PostgreSQL e
+WAL no snapshot Restic criptografado. O teste de restore extrai ambos em destino
+isolado, valida todos os checksums, reconcilia `cloud_objects` com o conteúdo e
+reconstrói `search_documents`. Ele não inicia a aplicação nem altera produção.
+
 ## Validacao por risco
 
 - Documentacao, label ou ajuste local simples: validar arquivo alterado e executar `./check.sh` se a alteracao tocar regra do modelo.

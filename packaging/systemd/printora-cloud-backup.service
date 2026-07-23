@@ -1,5 +1,5 @@
 [Unit]
-Description=Backup externo criptografado do Printora Cloud
+Description=Backup externo criptografado PostgreSQL e objetos do Printora Cloud
 After=network-online.target
 Wants=network-online.target
 
