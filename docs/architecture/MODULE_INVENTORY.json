@@ -1485,7 +1485,7 @@
     {
       "module": "object_storage",
       "owner": "shared",
-      "lines": 234,
+      "lines": 241,
       "imports": [
         "config"
       ],
