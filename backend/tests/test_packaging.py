@@ -105,6 +105,7 @@ def test_cloud_blue_green_packaging_is_independent_and_fail_closed() -> None:
     assert "proxy_pass http://printora_cloud" in nginx
     assert "location = /metrics" in nginx
     assert "wait_until_ready" in deploy
+    assert 'activate_replica "$release_dir"' in deploy
     assert "switch_nginx_to_slot" in deploy
     assert "data_restored" not in deploy
     assert "shared/venv" not in workflow
@@ -113,10 +114,31 @@ def test_cloud_blue_green_packaging_is_independent_and_fail_closed() -> None:
     assert "printora-cloud-preflight" in workflow
 
 
+def test_cloud_upstream_balances_two_instances_of_the_same_release() -> None:
+    blue = (ROOT_DIR / "packaging/nginx/printora-cloud-upstream-blue.conf").read_text()
+    green = (ROOT_DIR / "packaging/nginx/printora-cloud-upstream-green.conf").read_text()
+    bootstrap = (ROOT_DIR / "scripts/cloud/bootstrap-blue-green.sh").read_text()
+    common = (ROOT_DIR / "scripts/cloud/common.sh").read_text()
+
+    assert "127.0.0.1:8069" in blue
+    assert "127.0.0.1:8070" not in blue
+    assert "127.0.0.1:8071" in blue
+    assert "127.0.0.1:8070" in green
+    assert "127.0.0.1:8069" not in green
+    assert "127.0.0.1:8071" in green
+    assert "backup" not in blue
+    assert "backup" not in green
+    assert "PRINTORA_PORT=8071" in bootstrap
+    assert "PRINTORA_SLOT=replica" in bootstrap
+    assert "previous_release" in common
+    assert "upstream atual foi preservado" in common
+
+
 def test_cloud_rollback_never_restores_database_snapshot() -> None:
     rollback = (ROOT_DIR / "scripts/cloud/rollback-blue-green.sh").read_text()
 
     assert "switch_nginx_to_slot" in rollback
+    assert 'activate_replica "$rollback_release"' in rollback
     assert "data_restored=false" in rollback
     assert "sqlite" not in rollback.lower()
     assert "shutil" not in rollback.lower()

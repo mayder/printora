@@ -24,6 +24,8 @@ install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-w
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-workers.target" /etc/systemd/system/printora-cloud-workers.target
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-backup.service" /etc/systemd/system/printora-cloud-backup.service
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-backup.timer" /etc/systemd/system/printora-cloud-backup.timer
+install -o root -g root -m 0644 "$release_dir/packaging/nginx/printora-cloud-upstream-blue.conf" "$PRINTORA_BASE_PATH/shared/nginx/upstream-blue.conf"
+install -o root -g root -m 0644 "$release_dir/packaging/nginx/printora-cloud-upstream-green.conf" "$PRINTORA_BASE_PATH/shared/nginx/upstream-green.conf"
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/common.sh" /usr/local/libexec/printora-cloud/common.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/apply-postgresql-schema.sh" /usr/local/libexec/printora-cloud/apply-postgresql-schema.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/start-worker.sh" /usr/local/libexec/printora-cloud/start-worker.sh
@@ -61,6 +63,7 @@ fi
 
 curl --max-time 5 -fsS "http://127.0.0.1:$candidate_port/health" >/dev/null
 curl --max-time 5 -fsS "http://127.0.0.1:$candidate_port/api/catalog" >/dev/null
+activate_replica "$release_dir"
 switch_nginx_to_slot "$candidate_slot"
 printf '%s\n' "$candidate_slot" > "$PRINTORA_ACTIVE_SLOT_FILE.tmp"
 mv -f "$PRINTORA_ACTIVE_SLOT_FILE.tmp" "$PRINTORA_ACTIVE_SLOT_FILE"
@@ -73,4 +76,4 @@ sleep "$drain_seconds"
 systemctl stop "printora-cloud@$current_slot.service" || true
 standby_status="ready"
 if ! start_standby "$current_slot"; then standby_status="degraded"; fi
-echo "[printora-cloud] release=$release_sha active_slot=$candidate_slot standby_slot=$current_slot standby_status=$standby_status status=deployed"
+echo "[printora-cloud] release=$release_sha active_slot=$candidate_slot replica_slot=replica standby_slot=$current_slot standby_status=$standby_status status=deployed"

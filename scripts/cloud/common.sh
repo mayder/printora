@@ -21,6 +21,7 @@ slot_port() {
   case "$1" in
     blue) echo 8069 ;;
     green) echo 8070 ;;
+    replica) echo 8071 ;;
     *) fail "slot inválido: $1" ;;
   esac
 }
@@ -49,6 +50,32 @@ wait_until_ready() {
     sleep 1
   done
   return 1
+}
+
+activate_replica() {
+  local release_dir="$1"
+  local replica_link="$PRINTORA_BASE_PATH/slots/replica"
+  local previous_release=""
+  local replica_port
+  [[ -d "$release_dir/backend" ]] || fail "backend da release da réplica ausente"
+  if [[ -L "$replica_link" ]]; then
+    previous_release="$(readlink -f "$replica_link")"
+  fi
+  replica_port="$(slot_port replica)"
+  ln -sfn "$release_dir" "$replica_link.next"
+  mv -Tf "$replica_link.next" "$replica_link"
+  systemctl restart printora-cloud@replica.service
+  if wait_until_ready "$replica_port" 60; then
+    echo "[printora-cloud] replica_release=$(basename "$release_dir") status=ready"
+    return 0
+  fi
+  systemctl stop printora-cloud@replica.service || true
+  if [[ -n "$previous_release" && -d "$previous_release" ]]; then
+    ln -sfn "$previous_release" "$replica_link.next"
+    mv -Tf "$replica_link.next" "$replica_link"
+    systemctl restart printora-cloud@replica.service || true
+  fi
+  fail "réplica não ficou ready; upstream atual foi preservado"
 }
 
 start_standby() {

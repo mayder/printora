@@ -55,8 +55,9 @@ chmod 0640 /etc/printora-cloud/workers/*.env
 
 printf 'PRINTORA_PORT=8069\nPRINTORA_SLOT=blue\nPRINTORA_RUNTIME_PROFILE=cloud\n' > "$BASE_PATH/shared/slots/blue.env"
 printf 'PRINTORA_PORT=8070\nPRINTORA_SLOT=green\nPRINTORA_RUNTIME_PROFILE=cloud\n' > "$BASE_PATH/shared/slots/green.env"
-chown "$DEPLOY_USER:$DEPLOY_USER" "$BASE_PATH/shared/slots/blue.env" "$BASE_PATH/shared/slots/green.env"
-chmod 0640 "$BASE_PATH/shared/slots/blue.env" "$BASE_PATH/shared/slots/green.env"
+printf 'PRINTORA_PORT=8071\nPRINTORA_SLOT=replica\nPRINTORA_RUNTIME_PROFILE=cloud\n' > "$BASE_PATH/shared/slots/replica.env"
+chown "$DEPLOY_USER:$DEPLOY_USER" "$BASE_PATH/shared/slots/blue.env" "$BASE_PATH/shared/slots/green.env" "$BASE_PATH/shared/slots/replica.env"
+chmod 0640 "$BASE_PATH/shared/slots/blue.env" "$BASE_PATH/shared/slots/green.env" "$BASE_PATH/shared/slots/replica.env"
 
 if [[ -s "$VHOST" && ! -e "$VHOST_BACKUP" ]]; then cp -a "$VHOST" "$VHOST_BACKUP"; fi
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/nginx/print3dmaker.xyz.conf" "$VHOST"

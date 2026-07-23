@@ -126,6 +126,7 @@ check base_writable sudo -u deploy test -w "$PRINTORA_BASE_PATH"
 check data_writable sudo -u deploy test -w "$PRINTORA_BASE_PATH/shared/data"
 check blue_port bash -c '! ss -ltnH "sport = :8069" | grep -q . || systemctl is-active --quiet printora-cloud@blue.service'
 check green_port bash -c '! ss -ltnH "sport = :8070" | grep -q . || systemctl is-active --quiet printora-cloud@green.service'
+check replica_port bash -c '! ss -ltnH "sport = :8071" | grep -q . || systemctl is-active --quiet printora-cloud@replica.service'
 check certificate test -s /etc/letsencrypt/live/print3dmaker.xyz/fullchain.pem
 check logrotate test -s /etc/logrotate.d/printora-cloud
 check restic restic version

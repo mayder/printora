@@ -20,10 +20,11 @@ if ! wait_until_ready "$rollback_port" 60; then
   fail "release anterior não ficou ready; tráfego permaneceu no slot $current_slot"
 fi
 
+rollback_release="$(readlink -f "$rollback_link")"
+activate_replica "$rollback_release"
 switch_nginx_to_slot "$rollback_slot"
 printf '%s\n' "$rollback_slot" > "$PRINTORA_ACTIVE_SLOT_FILE.tmp"
 mv -f "$PRINTORA_ACTIVE_SLOT_FILE.tmp" "$PRINTORA_ACTIVE_SLOT_FILE"
-rollback_release="$(readlink -f "$rollback_link")"
 ln -sfn "$rollback_release" "$PRINTORA_BASE_PATH/current.next"
 mv -Tf "$PRINTORA_BASE_PATH/current.next" "$PRINTORA_BASE_PATH/current"
 restart_durable_workers
@@ -31,4 +32,4 @@ sleep "${PRINTORA_DRAIN_SECONDS:-30}"
 systemctl stop "printora-cloud@$current_slot.service" || true
 standby_status="ready"
 if ! start_standby "$current_slot"; then standby_status="degraded"; fi
-echo "[printora-cloud] active_slot=$rollback_slot standby_slot=$current_slot standby_status=$standby_status status=rolled_back data_restored=false"
+echo "[printora-cloud] active_slot=$rollback_slot replica_slot=replica standby_slot=$current_slot standby_status=$standby_status status=rolled_back data_restored=false"
