@@ -1478,6 +1478,7 @@ Critérios:
 - Validar que logs/eventos não persistem payload completo nem segredos, apenas tipo/status/correlation ID.
 - Validar fallback polling repetido do agente quando WebSocket falhar e reconexão contínua com backoff limitado.
 - Validar que leituras concorrentes com mesma impressora, agente, tipo e payload reutilizam somente o job ativo, enquanto jobs mutáveis equivalentes continuam independentes.
+- Validar que o heartbeat renova somente o job `in_progress` serial mais antigo e permite que jobs órfãos posteriores expirem.
 - Testes automatizados focados: `cd backend && uv run pytest tests/test_agent_channel.py tests/test_agent_pairing.py -q` e `cd agent && go test ./...`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 

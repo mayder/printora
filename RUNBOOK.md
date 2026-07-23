@@ -1611,6 +1611,8 @@ Política de job:
 - cancelamento é permitido para job pendente; job em progresso não é cancelado pelo servidor para não mascarar execução já recebida pelo agente.
 - leituras de alta frequência com impressora, agente, tipo e payload idênticos
   reutilizam o mesmo job ativo; mutações nunca são coalescidas;
+- o heartbeat renova somente o job `in_progress` mais antigo do agente; outros
+  jobs órfãos devem expirar pelo timeout normal;
 - fila crescente durante reconnect não deve ser contornada elevando o SLO:
   confirmar que novas leituras equivalentes deixam de aumentar a contagem,
   aguardar expiração/drenagem dos jobs anteriores e repetir integralmente o

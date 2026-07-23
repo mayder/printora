@@ -518,7 +518,13 @@ class AgentPairingRepository:
                 """
                 UPDATE agent_jobs
                 SET updated_at = CURRENT_TIMESTAMP
-                WHERE agent_id = ? AND status = 'in_progress'
+                WHERE id = (
+                    SELECT id
+                    FROM agent_jobs
+                    WHERE agent_id = ? AND status = 'in_progress'
+                    ORDER BY created_at, id
+                    LIMIT 1
+                )
                 """,
                 (agent.id,),
             )

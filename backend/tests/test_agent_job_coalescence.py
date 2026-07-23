@@ -2,7 +2,7 @@ from pathlib import Path
 
 from app.agent_pairing import AgentPairingRepository
 from app.database import connect_database, initialize_database
-from app.modules.operations.contracts import AgentJobCreateRequest
+from app.modules.operations.contracts import AgentHeartbeatRequest, AgentJobCreateRequest
 from app.printers import PrinterRepository
 
 
@@ -140,3 +140,26 @@ def test_regular_job_creation_never_coalesces_mutations(tmp_path: Path) -> None:
     )
 
     assert second.id != first.id
+
+    agent = repository.latest_active_agent(printer_id)
+    assert agent is not None
+    first_ack = repository.ack_job(agent, first.id)
+    second_ack = repository.ack_job(agent, second.id)
+    assert first_ack is not None and first_ack.status == "in_progress"
+    assert second_ack is not None and second_ack.status == "in_progress"
+    old_timestamp = "2000-01-01 00:00:00"
+    with connect_database(database_path) as connection:
+        connection.execute(
+            "UPDATE agent_jobs SET updated_at = ? WHERE id IN (?, ?)",
+            (old_timestamp, first.id, second.id),
+        )
+
+    repository.heartbeat(agent, AgentHeartbeatRequest())
+
+    with connect_database(database_path) as connection:
+        rows = connection.execute(
+            "SELECT id, updated_at FROM agent_jobs WHERE id IN (?, ?) ORDER BY id",
+            (first.id, second.id),
+        ).fetchall()
+    assert rows[0]["updated_at"] != old_timestamp
+    assert rows[1]["updated_at"] == old_timestamp

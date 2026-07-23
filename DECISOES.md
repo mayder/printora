@@ -1637,7 +1637,9 @@ Decisão: jobs read-only de alta frequência reutilizam um job `pending` ou
 `in_progress` quando impressora, agente, tipo e payload são idênticos. A decisão
 é atômica em PostgreSQL por advisory lock transacional derivado de SHA-256 do
 escopo. Jobs mutáveis continuam criando registros independentes e nunca são
-coalescidos. Não há nova tabela, script SQL ou retenção.
+coalescidos. O heartbeat renova somente o job `in_progress` mais antigo do
+agente, que corresponde à execução serial corrente; ele não mantém todos os
+órfãos vivos indefinidamente. Não há nova tabela, script SQL ou retenção.
 
 Alternativas consideradas: aumentar o limite do soak; cancelar jobs existentes;
 reduzir polling somente na UI; desativar WebSocket; reiniciar o agente durante a
@@ -1646,7 +1648,9 @@ impressão.
 Consequências: pollings concorrentes aguardam o mesmo resultado e deixam de
 amplificar backlog durante reconnect. O correlation ID original permanece como
 identidade do job compartilhado; chamadas posteriores a uma conclusão criam
-nova leitura. Falha ou expiração continua fail-closed para todos os aguardantes.
+nova leitura. Falha ou expiração continua fail-closed para todos os aguardantes,
+e jobs `in_progress` antigos voltam a expirar depois que o job serial corrente
+avança.
 
 Impacto em testes: aplicação valida a política read-only versus mutação, e o
 repositório valida reuso apenas no mesmo payload/escopo.
