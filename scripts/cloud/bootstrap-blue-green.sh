@@ -30,6 +30,10 @@ install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/backup-postgresql.sh" /
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/restore-postgresql-backup-test.sh" /usr/local/libexec/printora-cloud/restore-postgresql-backup-test.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/apply-postgresql-schema.sh" /usr/local/libexec/printora-cloud/apply-postgresql-schema.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/start-worker.sh" /usr/local/libexec/printora-cloud/start-worker.sh
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/run-object-storage-tool.sh" /usr/local/libexec/printora-cloud/run-object-storage-tool.sh
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/validate-object-storage-app.py" /usr/local/libexec/printora-cloud/validate-object-storage.py
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/migrate-object-storage.py" /usr/local/libexec/printora-cloud/migrate-object-storage.py
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/reconcile-object-storage.py" /usr/local/libexec/printora-cloud/reconcile-object-storage.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/audit-durable-execution.py" /usr/local/libexec/printora-cloud/audit-durable-execution.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/retention-durable-execution.py" /usr/local/libexec/printora-cloud/retention-durable-execution.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/load-durable-execution.py" /usr/local/libexec/printora-cloud/load-durable-execution.py

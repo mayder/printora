@@ -115,6 +115,7 @@ validate_object_storage() {
   grep -qx 'PRINTORA_OBJECT_STORAGE_ENDPOINT_URL=http://127.0.0.1:9100' "$config"
   systemctl is-active --quiet minio-printora.service
   curl -fsS --max-time 2 http://127.0.0.1:9100/minio/health/ready >/dev/null
+  [[ -x /usr/local/libexec/printora-cloud/run-object-storage-tool.sh ]]
 }
 
 check python python3 --version

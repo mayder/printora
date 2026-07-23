@@ -91,7 +91,6 @@ class SocialStorageRepository:
                 state = excluded.state,
                 version_id = excluded.version_id,
                 etag = excluded.etag,
-                owner_user_id = excluded.owner_user_id,
                 updated_at = CURRENT_TIMESTAMP
             RETURNING id
             """,

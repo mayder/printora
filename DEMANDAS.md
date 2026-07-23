@@ -5650,6 +5650,11 @@ Estado atual:
   tabelas canônicas presentes, quarentena/leitura/promoção com checksum válido e
   duas referências persistidas. O path local legado tinha zero arquivos e o
   endpoint público permaneceu `200` após recarregar aplicação e workers.
+- Lote 3 concluído em 2026-07-22: migrador dry-run/apply gera manifesto `0600`,
+  valida tamanho/checksum, copia incrementalmente e nunca remove a origem. O
+  manifesto real teve zero entradas históricas, coerente com o path local vazio.
+  Reconciliação de banco/buckets adotou dois probes conhecidos sem apagar bytes e
+  o replay fechou com 4 objetos, zero ausente, zero corrompido e zero órfão.
 
 ## PKG-91: Núcleo Financeiro, Pagamentos E Pedidos
 

@@ -1947,6 +1947,32 @@ Regras operacionais:
 - rollback rapido: restaurar a versao anterior de `backend/app/data/firmware_canbus_manifest.json` e `backend/app/data/firmware_hardware_catalog.json` ou reverter os arquivos do PKG-30 no Git;
 - se o catalogo ficar indisponivel ou invalido, a tela Firmware deve preservar o fluxo principal por impressora ativa e exibir estado de erro/sem referencia, sem consultar o site externo em runtime.
 
+## Storage de objetos Cloud
+
+O perfil Cloud usa MinIO privado em loopback. PostgreSQL é a fonte canônica de
+owner, referência, estado, tamanho e checksum. A origem local de uma migração
+permanece intacta até uma confirmação explícita de remoção.
+
+Comandos no host, executados como `deploy`:
+
+```bash
+/usr/local/libexec/printora-cloud/run-object-storage-tool.sh validate
+/usr/local/libexec/printora-cloud/run-object-storage-tool.sh migrate --manifest /tmp/object-manifest.json
+/usr/local/libexec/printora-cloud/run-object-storage-tool.sh migrate --apply --manifest /tmp/object-manifest-applied.json
+/usr/local/libexec/printora-cloud/run-object-storage-tool.sh reconcile
+```
+
+- `migrate` sem `--apply` gera somente manifesto e reconciliação dry-run;
+- manifesto é criado com modo `0600` e não contém credenciais nem path absoluto;
+- `migrate --apply` copia incrementalmente e registra a referência; não remove a origem;
+- `reconcile` compara banco, `HEAD`, tamanho, checksum disponível e lista de buckets;
+- ausência, corrupção ou órfão faz a reconciliação falhar sem apagar conteúdo;
+- `--adopt-prefix` existe somente para adoção supervisionada de objetos conhecidos.
+
+Rollback: reverter o adapter/runtime para a release anterior preservando schema,
+buckets, versões e arquivos de origem. Não apagar bucket, versão, objeto, tabela ou
+origem local sem confirmação explícita e backup validado.
+
 ## Validacao por risco
 
 - Documentacao, label ou ajuste local simples: validar arquivo alterado e executar `./check.sh` se a alteracao tocar regra do modelo.

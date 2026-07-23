@@ -25,6 +25,10 @@ install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-w
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/common.sh" /usr/local/libexec/printora-cloud/common.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/apply-postgresql-schema.sh" /usr/local/libexec/printora-cloud/apply-postgresql-schema.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/start-worker.sh" /usr/local/libexec/printora-cloud/start-worker.sh
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/run-object-storage-tool.sh" /usr/local/libexec/printora-cloud/run-object-storage-tool.sh
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/validate-object-storage-app.py" /usr/local/libexec/printora-cloud/validate-object-storage.py
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/migrate-object-storage.py" /usr/local/libexec/printora-cloud/migrate-object-storage.py
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/reconcile-object-storage.py" /usr/local/libexec/printora-cloud/reconcile-object-storage.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/preflight.sh" /usr/local/sbin/printora-cloud-preflight
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/deploy-blue-green.sh" /usr/local/sbin/printora-cloud-deploy
 systemctl daemon-reload

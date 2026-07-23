@@ -3758,7 +3758,7 @@
     {
       "module": "social_storage",
       "owner": "community",
-      "lines": 302,
+      "lines": 301,
       "imports": [
         "database",
         "object_storage"
