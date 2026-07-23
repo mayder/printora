@@ -33,6 +33,18 @@ Definir validações mínimas para o Printora.
 ### E2E
 
 - Reservado para fluxo critico, regressao de alto risco ou fechamento de pacote.
+- O gate do `PKG-97` usa Playwright/Chromium com dados sintéticos isolados:
+
+```bash
+scripts/run-e2e-gate.sh
+PRINTORA_E2E_REPEAT_EACH=10 scripts/run-e2e-gate.sh
+```
+
+- A matriz obrigatória cobre desktop/tema escuro, mobile/tema claro, teclado,
+  acessibilidade, isolamento entre organizações, permissões e recuperação de
+  offline, timeout, `429` e `5xx`.
+- Fluxos P0 não usam retry nem quarentena; repetição deve usar identidade única
+  por projeto e índice para revelar colisão ou vazamento entre execuções.
 
 ## Cobertura mínima por criticidade
 
@@ -2006,6 +2018,20 @@ Não avançar se:
 - corrigir e retestar todo achado crítico/alto;
 - registrar médios com owner, prazo, mitigação e risco aceito;
 - executar scans de segredo/dependência/SBOM e gate completo.
+
+Comandos bloqueantes implantados:
+
+```bash
+scripts/run-e2e-gate.sh
+scripts/run-property-fuzz-gate.sh
+scripts/run-mutation-gate.sh
+scripts/run-pkg97-test-gates.sh
+```
+
+Property/fuzz executa perfil determinístico e perfil aleatório com seed
+reproduzível. Mutation mede somente mutantes efetivamente testados no score,
+publica `stats.json` e a enumeração completa em `survivors.txt`; sobreviventes
+não podem desaparecer por filtro e devem receber teste, justificativa ou backlog.
 
 Não avançar se:
 

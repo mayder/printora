@@ -67,9 +67,67 @@ declarações sem runtime são as únicas exclusões frontend.
 - o ambiente jsdom recebeu `localStorage` determinístico e a suíte frontend
   passou 30 repetições consecutivas antes do gate completo final.
 
+## E2E Em Navegador Real
+
+- Playwright `1.61.1` executa Chromium com workers serializados e sem retry;
+- matriz: desktop Chrome em tema escuro e Pixel 7 em tema claro;
+- 20 cenários passaram: anônimo, login/logout, teclado, acessibilidade,
+  isolamento de duas organizações, negação de privilégios, comunidade, busca,
+  projeto, upload rejeitado/quarentena/promoção, agente pareado com heartbeat,
+  administração, financeiro sandbox, fabricação, offline, timeout, `429` e
+  `5xx`;
+- dados e banco são temporários; emails, organizações, projetos, impressoras,
+  agentes e idempotency keys incluem projeto e índice de repetição;
+- nenhuma rota P0 usa retry ou quarentena;
+- flakiness: os 20 cenários passaram 10 vezes por projeto, totalizando 200
+  execuções consecutivas em 3,9 minutos, sem retry;
+- Axe não encontrou violação `critical` ou `serious` nas rotas P0 medidas;
+- o gate revelou o fallback frontend antes das APIs e três telas administrativas
+  comprimidas na primeira coluna. Ambos os defeitos foram corrigidos e
+  ganharam regressão automatizada.
+
+## Property-based E Fuzz
+
+- Hypothesis `6.161.0`, perfil CI determinístico com 200 exemplos e perfil fuzz
+  com 1.000 exemplos/seed `970099`;
+- 8 properties e regressões determinísticas de porta inválida passaram em ambos
+  os perfis sobre URL/SSRF, path G-code, parser de metadata, idempotência e
+  assinatura de webhook;
+- corpus versionado não contém dado real;
+- achados corrigidos: porta URL inválida e path G-code absoluto, NUL,
+  URL-encoded ou duplamente encoded com traversal.
+
+## Mutation Testing
+
+- mutmut `3.6.0` executa quatro domínios críticos;
+- resultado: 723 mutantes totais, 312 mortos, 197 sobreviventes, 214 sem teste,
+  zero timeout/suspicious/segfault;
+- score testado: `312 / (312 + 197) = 61,30%`, acima do mínimo bloqueante de
+  `60%` registrado em `PATHS.toml`;
+- `stats.json` e `survivors.txt` são publicados no CI. A lista completa dos 197
+  sobreviventes fica preservada, sem filtro;
+- backlog explícito, cobrindo todos os sobreviventes: Plataforma/idempotência
+  79, Pagamentos 54, Identidade 37 e Comunidade/validação 27; owners e prazo
+  `PKG-100` estão definidos na `DEC-20260723-07`.
+
+## Gate Integrado
+
+- `scripts/run-pkg97-test-gates.sh` executa E2E, property/fuzz e mutation;
+- `PATHS.toml` referencia esse comando como teste da stack;
+- cobertura permanece executada separadamente no check para publicar seus
+  relatórios e aplicar não regressão;
+- CI instala Chromium e publica cobertura, E2E e mutation por 30 dias, inclusive
+  em falha.
+- `./check.sh` passou em 2026-07-23 com Node suportado, regras/arquitetura,
+  20 E2E, 20 execuções property/fuzz, 723 mutantes, cobertura Python/Go/frontend,
+  contratos, compileall e testes Go;
+- validação visual local em navegador real confirmou Finanças, Fabricação e
+  Dados e inteligência com 2.145 px úteis em viewport de 2.461 px, zero overflow
+  horizontal e lista/detalhe de Fabricação sem sobreposição.
+
 ## Evidência Pendente
 
-- E2E, acessibilidade e falhas de rede;
-- property/fuzz e mutation;
-- pentest independente e reteste;
-- gate completo, CI, publicação e auditoria final.
+- pentest independente com escopo/autorização escritos;
+- correção e reteste de achados críticos/altos e tratamento dos médios;
+- gate completo final depois do pentest;
+- publicação, auditoria e fechamento do pacote.

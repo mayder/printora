@@ -93,6 +93,7 @@ forbid_runtime_patterns = [
 [quality.stack]
 language = "python+typescript+go"
 framework = "FastAPI + Vite/React + Go CLI"
+test = "scripts/run-pkg97-test-gates.sh"
 
 [quality.coverage]
 enabled = true
@@ -107,6 +108,11 @@ frontend_min_lines = 1.7
 frontend_critical_min_lines = 89
 baseline = "quality/coverage-baseline.json"
 gate = "scripts/run-coverage-gate.sh"
+
+[quality.mutation]
+enabled = true
+command = "scripts/run-mutation-gate.sh"
+min_score = 60
 
 [quality.fixtures]
 dirs = [

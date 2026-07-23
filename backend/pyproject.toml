@@ -16,6 +16,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "hypothesis>=6.138.0,<7",
+  "mutmut>=3.4.0,<4",
   "pytest>=8.3.0",
   "pytest-cov>=7.0.0,<8"
 ]
@@ -29,6 +31,23 @@ app = ["data/*.json", "data/agent_releases/*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.mutmut]
+source_paths = ["app"]
+only_mutate = [
+  "app/modules/community/validation.py",
+  "app/modules/identity/security.py",
+  "app/modules/platform/idempotency.py",
+  "app/payment_provider.py",
+]
+mutate_only_covered_lines = true
+also_copy = ["sql"]
+pytest_add_cli_args_test_selection = [
+  "tests/test_property_fuzz.py",
+  "tests/test_auth.py",
+  "tests/test_finance_payments.py",
+  "tests/test_idempotency.py",
+]
 
 [tool.coverage.run]
 source = ["app"]

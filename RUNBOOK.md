@@ -62,6 +62,30 @@ Os relatórios ficam em `.artifacts/coverage`. Regressão exige corrigir teste o
 código; não alterar limiar/baseline apenas para liberar build. Uma mudança
 intencional exige decisão registrada e aprovação explícita.
 
+Os demais gates automatizados do pacote são:
+
+```bash
+scripts/run-e2e-gate.sh
+scripts/run-property-fuzz-gate.sh
+scripts/run-mutation-gate.sh
+scripts/run-pkg97-test-gates.sh
+```
+
+- E2E sobe backend e frontend compilado em porta isolada e grava relatório,
+  trace/screenshot/vídeo somente quando aplicável em `.artifacts/e2e`;
+- flakiness P0: usar `PRINTORA_E2E_REPEAT_EACH=10` sem retry;
+- fuzz: corpus em `backend/tests/fixtures/fuzz-corpus.json`, seed padrão `970099`
+  e nenhum dado de produção;
+- mutation: limiar em `PATHS.toml`, estatísticas e lista completa de
+  sobreviventes em `.artifacts/mutation`;
+- o CI instala Chromium, executa os gates e preserva cobertura/E2E/mutation por
+  30 dias, inclusive quando houver falha.
+
+Pentest não é substituído por esses gates. Antes de teste ativo, exigir
+fornecedor independente, autorização escrita, ambiente, alvos, janela, contatos,
+limites, tratamento de dados e parada de emergência. Produção permanece fora do
+escopo até autorização específica.
+
 ## Publicacao Cloud
 
 O deploy publico planejado do Printora usa o dominio `print3dmaker.xyz`, com

@@ -19,6 +19,7 @@
     "test:bundle-budget": "node tests/bundleBudget.test.mjs",
     "test:unit": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
     "test:releases": "node tests/releaseStates.test.mjs",
     "test:gcode-preview": "node tests/gcodePreview.test.mjs",
     "test:sequential-poll": "node tests/sequentialPoll.test.mjs"
@@ -30,6 +31,8 @@
     "react-dom": "^19.2.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.61.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

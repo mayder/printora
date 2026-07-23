@@ -1486,3 +1486,44 @@ permanecem preservados.
 
 Como reverter: restaurar temporariamente o workflow anterior, sem alterar o
 baseline, e corrigir o coletor antes de reativar o gate.
+
+### DEC-20260723-07 - E2E isolado e mutation usam gate mensurável com dívida explícita
+
+Status: aceita
+Data: 2026-07-23
+Contexto: testes de componente não provavam ordem real de routers, build
+frontend servido pelo backend, responsividade ou recuperação de rede. Mutation
+testing inicial também mostrou muitos mutantes equivalentes ou sem asserção
+específica; exigir score arbitrariamente alto agora incentivaria filtros.
+
+Decisão: executar Playwright em Chromium real contra banco temporário e frontend
+recém-compilado, sem retry, em desktop/tema escuro e mobile/tema claro. O gate
+mutation atua em identidade, idempotência, pagamento sandbox e validação
+comunitária, mede mortos sobre mortos+sobreviventes e inicia em 60%. A enumeração
+completa de sobreviventes é artefato obrigatório. O baseline de 197
+sobreviventes fica no backlog por domínio: Plataforma/idempotência (79, owner
+Plataforma, prazo PKG-100), Pagamentos (54, owner Finanças, prazo PKG-100),
+Identidade (37, owner Segurança, prazo PKG-100) e Comunidade/validação (27, owner
+Comunidade, prazo PKG-100). Cada lote deve matar mutantes relevantes ou registrar
+justificativa antes de elevar, nunca reduzir, o limiar.
+
+Alternativas consideradas: E2E contra backend já aberto pelo desenvolvedor;
+retry automático; dados compartilhados entre repetições; mutation apenas
+informativo; excluir sobreviventes até atingir percentual alto.
+
+Consequências: o CI instala Chromium e fica mais lento, mas reproduz a aplicação
+integrada. A dívida mutation permanece visível e cada sobrevivente continua
+enumerado em `survivors.txt`; os quatro grupos cobrem todos os 197 identificados
+na execução de 2026-07-23. Pentest independente continua obrigatório e não pode
+ser substituído por E2E/fuzz/mutation.
+
+Impacto em testes: `scripts/run-pkg97-test-gates.sh` executa E2E,
+property/fuzz e mutation; cobertura continua em gate próprio. Flakiness usa dez
+repetições sem retry, e mutation falha abaixo de 60%.
+
+Impacto em rollback: um gate pode ser revertido apenas por defeito comprovado,
+com incidente e prazo. Não reduzir limiar, esconder mutantes ou reutilizar banco
+de teste contaminado para liberar deploy.
+
+Como reverter: restaurar temporariamente o comando anterior do CI, preservar
+artefatos/corpus/seed e corrigir o gate antes de reativá-lo.

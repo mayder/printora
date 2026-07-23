@@ -1,4 +1,10 @@
-.finance-screen { display: grid; gap: 16px; min-width: 0; }
+.finance-screen,
+.finance-access-state {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+}
+.finance-screen { display: grid; gap: 16px; }
 .finance-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .finance-heading h2, .finance-heading p { margin: 0; }
 .finance-heading .eyebrow { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; }

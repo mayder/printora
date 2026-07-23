@@ -52,6 +52,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
 
+      - name: Install E2E browser
+        run: npm --prefix frontend exec -- playwright install --with-deps chromium
+
       - name: Validate complete package gate
         env:
           RUN_PYTHON_TESTS: "1"
@@ -63,12 +66,15 @@ jobs:
       - name: Validate reproducible frontend build
         run: npm --prefix frontend run build:reproducible
 
-      - name: Publish coverage evidence
+      - name: Publish quality evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: coverage-${{ github.sha }}
-          path: .artifacts/coverage
+          name: quality-${{ github.sha }}
+          path: |
+            .artifacts/coverage
+            .artifacts/e2e
+            .artifacts/mutation
           if-no-files-found: error
           retention-days: 30
 

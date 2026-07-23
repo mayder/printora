@@ -898,6 +898,60 @@ Impacto:
 
 Mitigação:
 
-- resolver no `PKG-97`;
-- falhar antes do build com Node incompatível;
-- ativar cobertura, E2E, fuzzing, mutation testing e pentest independente.
+- Node, build e cobertura foram corrigidos nos lotes 1 a 4 do `PKG-97`;
+- E2E, fuzzing e mutation testing foram implantados nos lotes 5 a 8;
+- o risco remanescente é o pentest independente dos lotes 9 e 10, ainda não
+  executado e obrigatório antes de fechar o pacote.
+
+### APIs Sombreadas Pelo Fallback Frontend
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- o router catch-all do frontend podia ser registrado antes de APIs declaradas
+  depois dele, devolvendo HTML da SPA para uma chamada `/api/*`;
+- o erro só aparecia no fluxo integrado, embora testes unitários das rotas
+  passassem isoladamente.
+
+Correção:
+
+- fallback frontend movido para a última ordem de registro;
+- teste de fronteira garante que nenhum router de API venha depois dele;
+- Playwright executa backend e frontend reais e passa nos fluxos P0/P1.
+
+### Layout Administrativo Colapsava Em Desktop
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- Finanças, Fabricação e Dados e inteligência ocupavam somente a primeira das
+  12 colunas da grade global;
+- em Fabricação, lista e detalhe sobrepunham texto e tornavam a tela
+  impraticável no desktop.
+
+Correção:
+
+- containers administrativos agora ocupam `grid-column: 1 / -1`, largura total
+  e `min-width: 0`;
+- E2E verifica a largura mínima de Fabricação em desktop/mobile;
+- validação visual confirmou lista/detalhe sem sobreposição.
+
+### Fuzz Encontrou Porta URL Inválida E Traversal G-code Codificado
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- uma URL HTTPS com porta sintaticamente inválida podia escapar da validação
+  antes de o acesso à propriedade `port` lançar erro;
+- paths G-code absolutos, com NUL ou traversal URL-encoded/duplamente encoded
+  não eram recusados de forma uniforme.
+
+Correção:
+
+- validação de URL força parsing seguro da porta e falha fechado;
+- paths G-code rejeitam NUL, absolutos e traversal após até duas decodificações;
+- corpus/seed e properties reproduzem os casos e passam em perfil determinístico
+  e fuzz aleatório.

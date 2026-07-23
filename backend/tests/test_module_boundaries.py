@@ -69,7 +69,8 @@ def test_pure_module_layers_do_not_import_framework_or_database_drivers() -> Non
 
 
 def test_module_registry_has_unique_versioned_owners_and_router_order() -> None:
-    from app.modules import module_definitions
+    from app.modules import module_definitions, module_routers
+    from app.routes import frontend
 
     definitions = module_definitions()
     assert {definition.key for definition in definitions} == {
@@ -85,6 +86,7 @@ def test_module_registry_has_unique_versioned_owners_and_router_order() -> None:
     orders = [registration.order for definition in definitions for registration in definition.routers]
     assert len(orders) == 35
     assert len(orders) == len(set(orders))
+    assert list(module_routers())[-1] is frontend.router
 
 
 def test_current_adapters_implement_explicit_module_ports(tmp_path: Path) -> None:

@@ -382,7 +382,9 @@ erro/degradado, permissão por ação, confirmação forte e auditoria sanitizad
 - operações sensíveis exigem papel específico e autenticação reforçada de uso
   único; solicitar, aprovar e executar repasse pertencem a atores diferentes;
 - estados loading, vazio, erro/acesso negado e sucesso são responsivos e operáveis
-  por teclado. A tela usa somente o client HTTP compartilhado.
+  por teclado. A tela usa somente o client HTTP compartilhado;
+- o container ocupa as 12 colunas do workspace em desktop e toda a largura
+  disponível em mobile; o gate E2E bloqueia regressão de colapso lateral.
 
 ## Administração > Fabricação
 
@@ -392,7 +394,9 @@ erro/degradado, permissão por ação, confirmação forte e auditoria sanitizad
 - endereço cifrado, token de tracking, evidência privada e snapshots de arquivo
   não são retornados pelo overview nem exibidos na tela;
 - transições permanecem nas APIs autorizadas e nunca enviam comando direto à
-  impressora física; estados vazio, loading, acesso negado e detalhe são responsivos.
+  impressora física; estados vazio, loading, acesso negado e detalhe são responsivos;
+- o container ocupa toda a largura do workspace. Em desktop, lista e detalhe
+  permanecem em duas colunas sem sobreposição; em mobile, empilham em uma coluna.
 
 ## Administração > Dados e inteligência
 
@@ -408,7 +412,9 @@ erro/degradado, permissão por ação, confirmação forte e auditoria sanitizad
 - `Lineage` separa derivações e detalhe de proveniência e informa replays
   idempotentes;
 - estados loading, vazio, acesso negado e detalhe são responsivos. A tela não
-  recebe contexto bruto de moderação, subject key, segredo ou payload de OLTP.
+  recebe contexto bruto de moderação, subject key, segredo ou payload de OLTP;
+- o container ocupa toda a largura do workspace para impedir que dashboard,
+  tabelas e detalhes sejam comprimidos na primeira coluna da grade global.
 
 ## Boundary De Preferências Locais
 

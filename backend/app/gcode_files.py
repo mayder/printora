@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Literal
+from urllib.parse import unquote
 
 from pydantic import BaseModel, Field
 
@@ -333,7 +334,7 @@ def normalize_gcode_file_path(value: str) -> str:
 
 
 def require_valid_gcode_file_path(value: str) -> str:
-    if _contains_path_traversal(value):
+    if "\x00" in value or value.lstrip().startswith(("/", "\\")) or _contains_path_traversal(value):
         raise ValueError("arquivo G-code inválido")
     normalized = normalize_gcode_file_path(value)
     if not normalized or not _is_gcode_filename(normalized):
@@ -503,7 +504,10 @@ def _normalize_path(value: str) -> str:
 
 
 def _contains_path_traversal(value: str) -> bool:
-    return any(part.strip() == ".." for part in str(value).replace("\\", "/").split("/"))
+    decoded = str(value)
+    for _ in range(2):
+        decoded = unquote(decoded)
+    return any(part.strip() == ".." for part in decoded.replace("\\", "/").split("/"))
 
 
 def _basename(value: str) -> str:

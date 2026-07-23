@@ -23,6 +23,6 @@ MODULE = ModuleDefinition(
         RouterRegistration(295, worker_admin.router),
         RouterRegistration(297, data_intelligence.router),
         RouterRegistration(300, technical_profiles.router),
-        RouterRegistration(320, frontend.router),
+        RouterRegistration(1000, frontend.router),
     ),
 )

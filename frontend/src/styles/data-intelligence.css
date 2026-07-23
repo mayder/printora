@@ -1,3 +1,9 @@
+.intelligence-screen,
+.intelligence-access {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+}
 .intelligence-screen { display: grid; gap: 18px; }
 .intelligence-heading, .intelligence-isolation { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .intelligence-heading h2, .intelligence-isolation h3 { margin: 3px 0; }

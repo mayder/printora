@@ -84,6 +84,10 @@ def validate_public_url(value: str | None, *, field_name: str, allowed_hosts: se
     parsed = urlparse(cleaned)
     if parsed.scheme != "https":
         raise ValueError(f"{field_name} deve usar https")
+    try:
+        parsed.port
+    except ValueError as exc:
+        raise ValueError(f"{field_name} deve informar host público válido") from exc
     if not parsed.hostname or parsed.username or parsed.password:
         raise ValueError(f"{field_name} deve informar host público válido")
     hostname = parsed.hostname.lower().strip(".")

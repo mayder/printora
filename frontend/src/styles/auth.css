@@ -1303,7 +1303,7 @@
 }
 
 .auth-card-heading span {
-  color: #078d9c;
+  color: #05717d;
   font-size: 0.76rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -1881,7 +1881,7 @@
 
 .auth-mode-tabs button {
   min-height: 38px;
-  color: #697888;
+  color: #596979;
   background: transparent;
 }
 

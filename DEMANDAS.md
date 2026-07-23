@@ -6325,6 +6325,31 @@ Estado atual:
   arquivos frontend não exercitados e recorte crítico P0 explícito.
 - Lote 4 concluído: limiares globais/críticos, baseline de não regressão,
   relatórios por módulo e artefato CI com retenção de 30 dias estão bloqueantes.
+- Lotes 5 e 6 concluídos: Playwright executa Chromium real em desktop/tema
+  escuro e mobile/tema claro, com login/logout, teclado, acessibilidade,
+  isolamento entre organizações, permissões, comunidade, projeto,
+  upload/quarentena, busca, agente, administração, financeiro sandbox,
+  fabricação e recuperação de offline, timeout, `429` e `5xx`.
+- A repetição E2E usa dados sintéticos isolados, identidade por projeto/repetição
+  e proíbe retry/quarentena de teste P0. Foram 200 execuções consecutivas
+  aprovadas (`20` cenários × `10`, seed/fixtures isoladas). O gate também
+  encontrou e corrigiu o fallback frontend registrado antes das APIs e o
+  colapso desktop das telas financeiras, de fabricação e inteligência.
+- Lote 7 concluído: Hypothesis executa perfil determinístico e perfil fuzz com
+  corpus versionado e seed `970099` para URL/SSRF, paths G-code, parser,
+  idempotência e webhook. Os achados de porta URL inválida e traversal
+  codificado/duplamente codificado foram corrigidos e retestados.
+- Lote 8 concluído: mutmut cobre regras críticas de identidade, idempotência,
+  pagamento sandbox e validação comunitária. Baseline: 312 mortos, 197
+  sobreviventes, 214 sem cobertura e score testado de `61,30%`, acima do gate
+  bloqueante de `60%`. Todo sobrevivente permanece enumerado no artefato CI e
+  recebe backlog por domínio, owner e prazo na auditoria do pacote.
+- Lote 9 bloqueado por dependência externa: falta contratar profissional/empresa
+  independente e aprovar por escrito o escopo e o ambiente antes de qualquer
+  teste ativo. Nenhum pentest foi autoatestatado ou executado em produção.
+- Lote 10 depende do relatório independente e do reteste dos achados. Gate,
+  runbook e evidência automatizada já estão consolidados; fechamento, publicação
+  e aceite do pacote permanecem bloqueados pelos lotes 9 e 10.
 - Evidência em `docs/audits/QUALITY_GATE_PKG_97_2026-07-23.md`.
 
 ## PKG-98: Homologação Física E Soak Prolongado

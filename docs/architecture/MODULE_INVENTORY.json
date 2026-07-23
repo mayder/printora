@@ -629,7 +629,7 @@
     {
       "module": "gcode_files",
       "owner": "operations",
-      "lines": 543,
+      "lines": 547,
       "imports": [],
       "routes": [],
       "contracts": [
@@ -982,7 +982,7 @@
     {
       "module": "modules.community.validation",
       "owner": "community",
-      "lines": 124,
+      "lines": 128,
       "imports": [],
       "routes": [],
       "contracts": []
