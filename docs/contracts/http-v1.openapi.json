@@ -27468,8 +27468,7 @@
           "content": {
             "application/octet-stream": {
               "schema": {
-                "contentMediaType": "application/octet-stream",
-                "title": "Body",
+                "format": "binary",
                 "type": "string"
               }
             }
@@ -37723,6 +37722,17 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {

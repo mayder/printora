@@ -108,7 +108,9 @@ SHARED_MODULES = {
     "__init__",
     "database",
     "main",
+    "object_storage",
     "worker",
+    "upload_stream",
     "idempotency_middleware",
     "rate_limit_middleware",
 }

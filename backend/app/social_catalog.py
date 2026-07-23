@@ -1417,6 +1417,14 @@ class SocialCatalogRepository:
                     duplicate["id"] if duplicate is not None else None,
                 ),
             )
+            storage.register_object(
+                connection,
+                stored,
+                owner_user_id=int(existing["owner_user_id"]),
+                reference_type="social_library_file",
+                reference_id=int(cursor.lastrowid),
+                state=validation_status,
+            )
             action = "upload_rejected" if validation_status == "rejected" else "upload_quarantined"
             self._audit(
                 connection,
@@ -1448,10 +1456,10 @@ class SocialCatalogRepository:
             quarantine_key = clean_optional_text(file_row["quarantine_key"])
             if not quarantine_key:
                 raise ValueError("arquivo sem objeto de quarentena")
-            path = SocialStorageRepository(self.database_path).storage.quarantine_path(quarantine_key)
-            if not path.is_file():
+            try:
+                body = SocialStorageRepository(self.database_path).storage.read_quarantine(quarantine_key)
+            except FileNotFoundError:
                 raise ValueError("arquivo de quarentena não encontrado")
-            body = path.read_bytes()
             try:
                 analysis = analyze_3d_model_bytes(str(file_row["file_name"]), file_row["file_kind"], body)
                 status = "analyzed"

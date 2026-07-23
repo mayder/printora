@@ -108,6 +108,15 @@ validate_recomposable_redis() {
   grep -qx 'maxmemory-policy allkeys-lru' /etc/redis/printora.conf
 }
 
+validate_object_storage() {
+  local config=/etc/printora-cloud/object-storage.env
+  [[ "$(stat -c '%a:%U:%G' "$config")" == "640:root:deploy" ]] || return 1
+  grep -qx 'PRINTORA_OBJECT_STORAGE_MODE=s3' "$config"
+  grep -qx 'PRINTORA_OBJECT_STORAGE_ENDPOINT_URL=http://127.0.0.1:9100' "$config"
+  systemctl is-active --quiet minio-printora.service
+  curl -fsS --max-time 2 http://127.0.0.1:9100/minio/health/ready >/dev/null
+}
+
 check python python3 --version
 check nginx nginx -t
 check systemd systemctl cat printora-cloud@.service
@@ -126,5 +135,6 @@ check postgresql_environment validate_postgresql_environment
 check postgresql_runtime validate_postgresql_runtime
 check durable_workers validate_durable_workers
 check recomposable_redis validate_recomposable_redis
+check object_storage validate_object_storage
 
 [[ "$failures" -eq 0 ]] || fail "$failures item(ns) de preflight falharam"

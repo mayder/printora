@@ -83,10 +83,10 @@
     }
   ],
   "summary": {
-    "modules": 145,
+    "modules": 147,
     "routes": 326,
-    "contracts": 339,
-    "tables": 107,
+    "contracts": 340,
+    "tables": 111,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 26,
@@ -94,7 +94,7 @@
       "identity": 10,
       "integrations": 7,
       "operations": 55,
-      "shared": 19
+      "shared": 21
     }
   },
   "cycles": [],
@@ -307,7 +307,7 @@
     {
       "module": "config",
       "owner": "administration",
-      "lines": 66,
+      "lines": 75,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -326,7 +326,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 541,
+      "lines": 545,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -1110,6 +1110,18 @@
       "contracts": []
     },
     {
+      "module": "object_storage",
+      "owner": "shared",
+      "lines": 190,
+      "imports": [
+        "config"
+      ],
+      "routes": [],
+      "contracts": [
+        "ObjectStorage"
+      ]
+    },
+    {
       "module": "operation",
       "owner": "operations",
       "lines": 1153,
@@ -1226,7 +1238,7 @@
     {
       "module": "print_projects",
       "owner": "community",
-      "lines": 1037,
+      "lines": 1045,
       "imports": [
         "database",
         "modules.community.contracts",
@@ -2277,13 +2289,14 @@
     {
       "module": "routes.print_projects",
       "owner": "community",
-      "lines": 228,
+      "lines": 239,
       "imports": [
         "auth",
         "config",
         "print_projects",
         "routes.auth",
-        "routes.social_catalog"
+        "routes.social_catalog",
+        "upload_stream"
       ],
       "routes": [
         {
@@ -2767,7 +2780,7 @@
     {
       "module": "routes.social_catalog",
       "owner": "community",
-      "lines": 1108,
+      "lines": 1119,
       "imports": [
         "config",
         "modules.community.contracts",
@@ -2776,7 +2789,8 @@
         "routes.auth",
         "social_catalog",
         "social_notifications",
-        "social_safety"
+        "social_safety",
+        "upload_stream"
       ],
       "routes": [
         {
@@ -3667,7 +3681,7 @@
     {
       "module": "social_catalog",
       "owner": "community",
-      "lines": 3342,
+      "lines": 3350,
       "imports": [
         "database",
         "modules.community.contracts",
@@ -3744,9 +3758,10 @@
     {
       "module": "social_storage",
       "owner": "community",
-      "lines": 280,
+      "lines": 302,
       "imports": [
-        "database"
+        "database",
+        "object_storage"
       ],
       "routes": [],
       "contracts": [
@@ -3788,6 +3803,14 @@
         "UpdateSilenceResponse",
         "UpdateActionResponse"
       ]
+    },
+    {
+      "module": "upload_stream",
+      "owner": "shared",
+      "lines": 25,
+      "imports": [],
+      "routes": [],
+      "contracts": []
     },
     {
       "module": "worker",
@@ -4354,6 +4377,26 @@
       "table": "worker_instances",
       "owner": "administration",
       "script": "073_durable_execution.sql"
+    },
+    {
+      "table": "cloud_objects",
+      "owner": "administration",
+      "script": "074_object_storage.sql"
+    },
+    {
+      "table": "cloud_object_references",
+      "owner": "administration",
+      "script": "074_object_storage.sql"
+    },
+    {
+      "table": "cloud_object_upload_sessions",
+      "owner": "administration",
+      "script": "074_object_storage.sql"
+    },
+    {
+      "table": "cloud_object_reconciliation_runs",
+      "owner": "administration",
+      "script": "074_object_storage.sql"
     }
   ]
 }

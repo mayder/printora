@@ -6,8 +6,9 @@ PostgreSQL decide owner, finalidade, estado, checksum, tamanho, content type e
 referências. MinIO armazena bytes privados e versões; uma chave existente nunca é
 sobrescrita. Redis não participa de autorização ou existência canônica.
 
-Estados de objeto: `uploading`, `quarantined`, `scanning`, `promoted`, `rejected`
-e `retired`. Somente `promoted` pode ser baixado, publicado ou consumido pelo
+Estados persistidos de objeto: `quarantined`, `rejected`, `analyzed`, `promoted`,
+`missing` e `corrupt`; a sessão de upload representa `receiving`, `uploaded`,
+`validating`, `expired` e falhas transitórias. Somente `promoted` pode ser baixado, publicado ou consumido pelo
 fatiamento. Promoção copia para uma chave content-addressed definitiva, confirma
 checksum/tamanho por `HEAD` e muda o estado na mesma transação que cria a
 referência. A quarentena não tem rota pública.
@@ -19,7 +20,13 @@ referência. A quarentena não tem rota pública.
 - `printora-artifacts`: saídas internas de jobs e fatiamento.
 
 Chaves não contêm e-mail, nome, path recebido ou ID sequencial previsível. O
-formato é `<purpose>/<sha256[0:2]>/<sha256>/<object-id>`.
+formato dentro de cada bucket é `sha256/<sha256[0:2]>/<sha256>.<extensão>`.
+
+No perfil `cloud`, `PRINTORA_OBJECT_STORAGE_MODE=s3` é obrigatório e não existe
+fallback para filesystem. O adapter local permanece somente para desktop,
+desenvolvimento e testes. A entrada HTTP é consumida por chunks, rejeita
+`Content-Length` inválido e interrompe antes de ultrapassar 25 MiB; nenhum objeto
+é criado antes de a recepção terminar.
 
 ## Autorização E Download
 

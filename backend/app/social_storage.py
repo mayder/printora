@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 from app.database import connect_database
+from app.object_storage import LocalObjectStorage, StoredObject, build_object_storage
 
 DEFAULT_USER_QUOTA_BYTES = 1024 * 1024 * 1024
 DEFAULT_RETENTION_DAYS = 180
@@ -59,42 +59,64 @@ class StorageReport(BaseModel):
     object_storage_plan: list[str]
 
 
-@dataclass(frozen=True)
-class LocalStorageObject:
-    key: str
-    path: Path
-
-
-class LocalLibraryStorage:
-    def __init__(self, database_path: Path) -> None:
-        self.root = database_path.parent / "library_uploads"
-
-    def quarantine_object(self, checksum: str, extension: str) -> LocalStorageObject:
-        clean_extension = extension.lower() if extension.startswith(".") and "/" not in extension and "\\" not in extension else ""
-        key = f"{checksum}{clean_extension}"
-        return LocalStorageObject(key=key, path=self._safe_child("quarantine", key))
-
-    def write_quarantine(self, checksum: str, extension: str, body: bytes) -> LocalStorageObject:
-        obj = self.quarantine_object(checksum, extension)
-        obj.path.parent.mkdir(parents=True, exist_ok=True)
-        obj.path.write_bytes(body)
-        return obj
-
-    def quarantine_path(self, key: str) -> Path:
-        return self._safe_child("quarantine", Path(key).name)
-
-    def _safe_child(self, *parts: str) -> Path:
-        candidate = self.root.joinpath(*parts).resolve()
-        root = self.root.resolve()
-        if candidate != root and root not in candidate.parents:
-            raise ValueError("caminho de storage inválido")
-        return candidate
+LocalLibraryStorage = LocalObjectStorage
 
 
 class SocialStorageRepository:
     def __init__(self, database_path: Path) -> None:
         self.database_path = database_path
-        self.storage = LocalLibraryStorage(database_path)
+        self.storage = build_object_storage(database_path)
+
+    def register_object(
+        self,
+        connection,
+        stored: StoredObject,
+        *,
+        owner_user_id: int,
+        reference_type: str,
+        reference_id: int,
+        state: str = "quarantined",
+    ) -> int:
+        row = connection.execute(
+            """
+            INSERT INTO cloud_objects (
+                bucket_name, object_key, sha256, size_bytes, content_type, state,
+                version_id, etag, owner_user_id, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT (bucket_name, object_key) DO UPDATE SET
+                sha256 = excluded.sha256,
+                size_bytes = excluded.size_bytes,
+                content_type = excluded.content_type,
+                state = excluded.state,
+                version_id = excluded.version_id,
+                etag = excluded.etag,
+                owner_user_id = excluded.owner_user_id,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING id
+            """,
+            (
+                stored.bucket,
+                stored.key,
+                stored.sha256,
+                stored.size_bytes,
+                stored.content_type,
+                state,
+                stored.version_id,
+                stored.etag,
+                owner_user_id,
+            ),
+        ).fetchone()
+        object_id = int(row["id"])
+        connection.execute(
+            """
+            INSERT INTO cloud_object_references (object_id, reference_type, reference_id)
+            VALUES (?, ?, ?)
+            ON CONFLICT (reference_type, reference_id) DO UPDATE SET object_id = excluded.object_id
+            """,
+            (object_id, reference_type, reference_id),
+        )
+        return object_id
 
     def report_for_user(self, user_id: int, *, persist_review: bool = False) -> StorageReport:
         with connect_database(self.database_path) as connection:

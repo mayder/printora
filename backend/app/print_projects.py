@@ -683,6 +683,14 @@ class PrintProjectsRepository:
                     1 if file_role in {"primary", "preview"} else 0,
                 ),
             )
+            storage.register_object(
+                connection,
+                stored,
+                owner_user_id=actor_user_id,
+                reference_type="print_project_file",
+                reference_id=int(cursor.lastrowid),
+                state=validation_status,
+            )
             if file_role == "primary" or project["primary_file_id"] is None:
                 connection.execute("UPDATE print_projects SET primary_file_id = ? WHERE id = ?", (cursor.lastrowid, project_id))
             connection.execute("UPDATE print_projects SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (project_id,))

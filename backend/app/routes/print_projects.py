@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 
 from app.auth import AuthRepository
 from app.config import get_settings
@@ -19,6 +19,7 @@ from app.print_projects import (
 )
 from app.routes.auth import CurrentUser, get_auth_repository, require_current_user
 from app.routes.social_catalog import is_social_admin
+from app.upload_stream import read_limited_upload
 
 router = APIRouter(tags=["print-projects"])
 
@@ -173,16 +174,26 @@ async def save_print_project(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/api/print-projects/{project_id}/files/upload", response_model=PrintProjectDetail)
+@router.post(
+    "/api/print-projects/{project_id}/files/upload",
+    response_model=PrintProjectDetail,
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}},
+        }
+    },
+)
 async def upload_print_project_file(
     project_id: int,
+    request: Request,
     file_name: str,
     file_role: ProjectFileRole = "printable",
-    body: bytes = Body(media_type="application/octet-stream"),
     current: CurrentUser = Depends(require_current_user),
     repository: PrintProjectsRepository = Depends(get_print_projects_repository),
 ) -> PrintProjectDetail:
     try:
+        body = await read_limited_upload(request, 25 * 1024 * 1024)
         return repository.upload_file(current.user.id, project_id, file_name, file_role, body)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc

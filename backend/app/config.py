@@ -10,6 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 HostAuditMode = Literal["disabled", "local", "ssh"]
 FirmwareBuildMode = Literal["disabled", "local"]
 ReleaseSourceMode = Literal["github", "fixture", "disabled"]
+ObjectStorageMode = Literal["local", "s3"]
 
 
 class Settings(BaseSettings):
@@ -41,6 +42,14 @@ class Settings(BaseSettings):
     redis_url: str | None = None
     redis_prefix: str = "printora"
     redis_timeout_seconds: float = 0.5
+    object_storage_mode: ObjectStorageMode = "local"
+    object_storage_endpoint_url: str = ""
+    object_storage_region: str = "us-east-1"
+    object_storage_access_key: str = ""
+    object_storage_secret_key: str = ""
+    object_storage_quarantine_bucket: str = "printora-quarantine"
+    object_storage_objects_bucket: str = "printora-objects"
+    object_storage_artifacts_bucket: str = "printora-artifacts"
 
     model_config = SettingsConfigDict(
         env_file=".env",

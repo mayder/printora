@@ -5637,6 +5637,11 @@ Estado atual:
   Em 2026-07-22, a instalação e o replay do bootstrap passaram no host: três
   buckets privados versionados com quota de 30 GiB, checksum de promoção válido,
   acesso anônimo `403`, exclusão de promovido negada e serviço limitado a 1,5 GiB.
+- Lote 2 implementado localmente em 2026-07-22: adapter S3 SigV4, bloqueio de
+  fallback local no perfil cloud, ingestão HTTP incremental com limite de 25 MiB,
+  metadados/referências/sessões/reconciliação em SQL idempotente, dependência
+  explícita dos serviços e preflight do endpoint privado. Validação focada:
+  80 testes de storage/social/projetos e 41 testes de schema/packaging passaram.
 
 ## PKG-91: Núcleo Financeiro, Pagamentos E Pedidos
 

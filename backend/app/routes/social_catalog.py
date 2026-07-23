@@ -6,6 +6,7 @@ import time
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import get_settings
+from app.upload_stream import read_limited_upload
 from app.modules.identity.contracts import CurrentUser
 from app.modules.community.ports import CommunityRepositoryPort
 from app.modules.community.contracts import (
@@ -659,7 +660,16 @@ async def register_library_version_download(
     return item
 
 
-@router.post("/api/social/library/{item_id}/files/upload", response_model=LibraryItem)
+@router.post(
+    "/api/social/library/{item_id}/files/upload",
+    response_model=LibraryItem,
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}},
+        }
+    },
+)
 async def upload_library_file(
     item_id: int,
     request: Request,
@@ -668,7 +678,8 @@ async def upload_library_file(
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> LibraryItem:
     try:
-        return repository.upload_library_file(item_id, current.user.id, is_social_admin(current), file_name, await request.body())
+        body = await read_limited_upload(request, 25 * 1024 * 1024)
+        return repository.upload_library_file(item_id, current.user.id, is_social_admin(current), file_name, body)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
