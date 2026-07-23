@@ -24,36 +24,39 @@ class FinanceLedgerRepository:
         self.database_path = database_path
 
     def post(self, command: LedgerCommand) -> PostedLedgerTransaction:
-        digest = _command_digest(command)
         with connect_database(self.database_path) as connection:
-            existing = connection.execute(
-                "SELECT id, command_digest FROM finance_ledger_transactions WHERE external_key = ?",
-                (command.external_key,),
-            ).fetchone()
-            if existing is not None:
-                if existing["command_digest"] != digest:
-                    raise ValueError("chave idempotente já usada com comando diferente")
-                return self._load_posted(connection, int(existing["id"]))
-            transaction_id = self._create_draft(connection, command, digest)
-            for entry in command.entries:
-                account_id = self._ensure_account(connection, entry.account)
-                connection.execute(
-                    """
-                    INSERT INTO finance_ledger_entries (
-                        transaction_id, account_id, side, amount_minor, currency
-                    ) VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (transaction_id, account_id, entry.side, entry.money.amount_minor, command.currency),
-                )
+            return self.post_in_connection(connection, command)
+
+    def post_in_connection(self, connection, command: LedgerCommand) -> PostedLedgerTransaction:
+        digest = _command_digest(command)
+        existing = connection.execute(
+            "SELECT id, command_digest FROM finance_ledger_transactions WHERE external_key = ?",
+            (command.external_key,),
+        ).fetchone()
+        if existing is not None:
+            if existing["command_digest"] != digest:
+                raise ValueError("chave idempotente já usada com comando diferente")
+            return self._load_posted(connection, int(existing["id"]))
+        transaction_id = self._create_draft(connection, command, digest)
+        for entry in command.entries:
+            account_id = self._ensure_account(connection, entry.account)
             connection.execute(
                 """
-                UPDATE finance_ledger_transactions
-                SET status = 'posted', posted_at = CURRENT_TIMESTAMP
-                WHERE id = ? AND status = 'draft'
+                INSERT INTO finance_ledger_entries (
+                    transaction_id, account_id, side, amount_minor, currency
+                ) VALUES (?, ?, ?, ?, ?)
                 """,
-                (transaction_id,),
+                (transaction_id, account_id, entry.side, entry.money.amount_minor, command.currency),
             )
-            return self._load_posted(connection, transaction_id)
+        connection.execute(
+            """
+            UPDATE finance_ledger_transactions
+            SET status = 'posted', posted_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND status = 'draft'
+            """,
+            (transaction_id,),
+        )
+        return self._load_posted(connection, transaction_id)
 
     def reconcile(self) -> dict[str, object]:
         with connect_database(self.database_path) as connection:

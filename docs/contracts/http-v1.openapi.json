@@ -12397,6 +12397,97 @@
         "title": "PairingTokenResponse",
         "type": "object"
       },
+      "PaymentCommandRequest": {
+        "properties": {
+          "amount_minor": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Minor"
+          },
+          "command": {
+            "enum": [
+              "capture",
+              "cancel",
+              "refund",
+              "open_dispute",
+              "resolve_dispute_won",
+              "resolve_dispute_lost"
+            ],
+            "title": "Command",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 160,
+            "minLength": 8,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "maxLength": 240,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command",
+          "idempotency_key"
+        ],
+        "title": "PaymentCommandRequest",
+        "type": "object"
+      },
+      "PaymentCommandResponse": {
+        "properties": {
+          "amount_minor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Minor"
+          },
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "command_id": {
+            "title": "Command Id",
+            "type": "integer"
+          },
+          "duplicate": {
+            "default": false,
+            "title": "Duplicate",
+            "type": "boolean"
+          },
+          "payment_public_id": {
+            "title": "Payment Public Id",
+            "type": "string"
+          },
+          "result_status": {
+            "title": "Result Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command_id",
+          "payment_public_id",
+          "command",
+          "result_status",
+          "amount_minor"
+        ],
+        "title": "PaymentCommandResponse",
+        "type": "object"
+      },
       "PaymentIntentResponse": {
         "properties": {
           "amount_minor": {
@@ -22871,6 +22962,74 @@
           }
         },
         "summary": "Frontend Index"
+      }
+    },
+    "/api/admin/finance/payments/{payment_public_id}/commands": {
+      "post": {
+        "operationId": "execute_payment_command_api_admin_finance_payments__payment_public_id__commands_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_public_id",
+            "required": true,
+            "schema": {
+              "title": "Payment Public Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentCommandRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Execute Payment Command",
+        "tags": [
+          "finance"
+        ]
       }
     },
     "/api/admin/finance/sandbox/intents": {

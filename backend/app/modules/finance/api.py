@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from app.config import get_settings
 from app.finance_payments import FinancePaymentService
 from app.finance_orders import FinanceOrderService
+from app.finance_payment_operations import FinancePaymentOperationsService
 from app.modules.assembly import ModuleDefinition, RouterRegistration
 from app.modules.finance.contracts import (
     PaymentIntentResponse,
@@ -13,6 +14,8 @@ from app.modules.finance.contracts import (
     OrderCheckoutRequest,
     OrderCreateRequest,
     OrderResponse,
+    PaymentCommandRequest,
+    PaymentCommandResponse,
 )
 from app.modules.finance.domain import Money
 from app.modules.identity.contracts import CurrentUser
@@ -91,6 +94,25 @@ async def create_sandbox_intent(
             current.user.id,
         )
     except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post(
+    "/api/admin/finance/payments/{payment_public_id}/commands",
+    response_model=PaymentCommandResponse,
+)
+async def execute_payment_command(
+    payment_public_id: str,
+    payload: PaymentCommandRequest,
+    current: CurrentUser = Depends(require_finance_admin),
+) -> PaymentCommandResponse:
+    if get_settings().payment_mode != "sandbox":
+        raise HTTPException(status_code=503, detail="comandos financeiros permanecem desativados")
+    try:
+        return FinancePaymentOperationsService(get_settings().database_path).execute(
+            payment_public_id, payload, current.user.id
+        )
+    except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 

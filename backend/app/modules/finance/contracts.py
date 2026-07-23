@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.modules.finance.domain import PaymentStatus
@@ -65,3 +67,22 @@ class OrderResponse(BaseModel):
 
 class OrderCheckoutRequest(BaseModel):
     idempotency_key: str = Field(min_length=8, max_length=160)
+
+
+class PaymentCommandRequest(BaseModel):
+    command: Literal[
+        "capture", "cancel", "refund", "open_dispute",
+        "resolve_dispute_won", "resolve_dispute_lost",
+    ]
+    idempotency_key: str = Field(min_length=8, max_length=160)
+    amount_minor: int | None = Field(default=None, gt=0)
+    reason: str = Field(default="", max_length=240)
+
+
+class PaymentCommandResponse(BaseModel):
+    command_id: int
+    payment_public_id: str
+    command: str
+    result_status: str
+    amount_minor: int | None
+    duplicate: bool = False

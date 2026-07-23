@@ -5760,6 +5760,11 @@ Estado atual:
   usa somente inteiros, pedido não mistura moedas e mudança posterior no projeto
   não altera o snapshot. Criação, detalhe e checkout são autenticados e
   idempotentes; imposto permanece explicitamente `not_configured` até revisão.
+- Lote 4 concluído: comandos idempotentes cobrem captura, cancelamento, reembolso
+  parcial/integral, abertura e resolução de disputa. Captura, reembolso e disputa
+  postam compensações balanceadas no ledger e atualizam pedido/pagamento na mesma
+  transação; reembolso acima do elegível é bloqueado. Registros e alocações são
+  imutáveis e nenhuma correção edita lançamento anterior.
 
 ## PKG-92: Fabricação, Qualidade, Logística E Cadeia De Custódia
 
