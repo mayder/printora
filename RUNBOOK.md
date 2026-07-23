@@ -1609,6 +1609,12 @@ Política de job:
 - execução expira em 5 minutos;
 - jobs expirados não são entregues em `/api/agent/jobs/next`;
 - cancelamento é permitido para job pendente; job em progresso não é cancelado pelo servidor para não mascarar execução já recebida pelo agente.
+- leituras de alta frequência com impressora, agente, tipo e payload idênticos
+  reutilizam o mesmo job ativo; mutações nunca são coalescidas;
+- fila crescente durante reconnect não deve ser contornada elevando o SLO:
+  confirmar que novas leituras equivalentes deixam de aumentar a contagem,
+  aguardar expiração/drenagem dos jobs anteriores e repetir integralmente o
+  trecho de soak afetado.
 
 Auditoria:
 

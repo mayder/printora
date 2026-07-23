@@ -18,4 +18,10 @@ class AgentJobRepositoryPort(Protocol):
         request: AgentJobCreateRequest,
     ) -> AgentJobRecord: ...
 
+    def create_or_reuse_job(
+        self,
+        printer: PrinterIdentity,
+        request: AgentJobCreateRequest,
+    ) -> AgentJobRecord: ...
+
     def get_job(self, printer_id: int, job_id: int) -> AgentJobRecord | None: ...

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import hashlib
 import json
 from pathlib import Path
 from uuid import uuid4
@@ -8,6 +9,7 @@ from typing import Any, Literal
 
 from app.auth import AuthUser, format_dt, hash_token, new_secret, utc_now
 from app.database import connect_database
+from app.modules.platform.database_target import uses_postgresql
 from app.modules.platform.durable_execution import (
     DurableExecutionRepository,
     EventEnvelope,
@@ -47,6 +49,18 @@ from app.printers import AGENT_ONLINE_WINDOW_SECONDS, PrinterRecord, PrinterRepo
 PAIRING_TOKEN_TTL = timedelta(minutes=15)
 AGENT_JOB_TTL = timedelta(minutes=2)
 AGENT_JOB_IN_PROGRESS_TIMEOUT = timedelta(minutes=5)
+
+
+def _acquire_agent_job_coalescence_lock(connection, printer_id: int, request: AgentJobCreateRequest) -> None:
+    if not uses_postgresql():
+        return
+    payload = json.dumps(request.payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    lock_scope = f"{printer_id}\0{request.agent_id or 0}\0{request.job_type}\0{payload}".encode()
+    lock_key = int.from_bytes(hashlib.sha256(lock_scope).digest()[:8], "big", signed=True)
+    connection.execute(
+        "SELECT pg_advisory_xact_lock(?) AS acquired",
+        (lock_key,),
+    ).fetchone()
 
 
 
@@ -523,10 +537,24 @@ class AgentPairingRepository:
         return AgentHeartbeatResponse(accepted=True, agent_id=agent.id, printer_id=agent.printer_id, status="active")
 
     def create_job(self, printer: PrinterRecord, request: AgentJobCreateRequest) -> AgentJobRecord:
+        return self._create_job(printer, request, reuse_active=False)
+
+    def create_or_reuse_job(self, printer: PrinterRecord, request: AgentJobCreateRequest) -> AgentJobRecord:
+        return self._create_job(printer, request, reuse_active=True)
+
+    def _create_job(
+        self,
+        printer: PrinterRecord,
+        request: AgentJobCreateRequest,
+        *,
+        reuse_active: bool,
+    ) -> AgentJobRecord:
         _ensure_payload_size(request.payload)
         correlation_id = request.correlation_id or f"job_{uuid4().hex}"
         expires_at = request.expires_at or format_dt(utc_now() + AGENT_JOB_TTL)
         with connect_database(self.database_path) as connection:
+            if reuse_active:
+                _acquire_agent_job_coalescence_lock(connection, printer.id, request)
             self._expire_jobs(connection, printer.id)
             if request.agent_id is not None:
                 agent_row = connection.execute(
@@ -535,6 +563,28 @@ class AgentPairingRepository:
                 ).fetchone()
                 if agent_row is None:
                     raise ValueError("agente não pertence à impressora")
+            if reuse_active:
+                active_rows = connection.execute(
+                    """
+                    SELECT *
+                    FROM agent_jobs
+                    WHERE printer_id = ?
+                      AND agent_id = ?
+                      AND job_type = ?
+                      AND status IN ('pending', 'in_progress')
+                      AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+                    ORDER BY id DESC
+                    LIMIT 20
+                    """,
+                    (printer.id, request.agent_id, request.job_type),
+                ).fetchall()
+                for active_row in active_rows:
+                    try:
+                        active_payload = json.loads(active_row["payload_json"] or "{}")
+                    except (TypeError, ValueError):
+                        continue
+                    if active_payload == request.payload:
+                        return _job_from_row(active_row)
             try:
                 cursor = connection.execute(
                     """

@@ -110,6 +110,13 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   temporariamente o status da 0.2 enquanto a nova leitura aguardava resposta.
   A causa era falta de escopo e ordenação na preservação assíncrona do hook.
   A correção limpa dados de outra impressora imediatamente e ignora respostas
-  atrasadas de requisições anteriores; publicação e reteste real pendentes.
+  atrasadas de requisições anteriores. O workflow `30046125403` publicou
+  `11ab762`; o reteste real 0.2 -> 2.4 mostrou estado vazio/read-only imediato,
+  sem dado cruzado e com todos os comandos bloqueados enquanto aguardava leitura.
+- Incidente de fila: o reteste revelou reconnect do WebSocket da Voron 2.4
+  durante leituras longas. Pollings concorrentes acumularam 147 jobs pendentes,
+  violando o limite de backlog antes do soak. A impressão permaneceu intocada.
+  A correção coalesce leituras ativas pelo mesmo escopo e preserva jobs mutáveis
+  independentes; a janela curta continua invalidada até publicação e drenagem.
 - Soak inicial de 24 horas: não iniciado.
 - Soak final contínuo de 72 horas: não iniciado.

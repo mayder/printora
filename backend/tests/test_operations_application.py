@@ -23,6 +23,8 @@ class Repository:
         self.status = status
         self.online = online
         self.request: AgentJobCreateRequest | None = None
+        self.create_calls = 0
+        self.coalesced_create_calls = 0
 
     def latest_active_agent(self, printer_id: int) -> AgentRecord | None:
         if not self.online:
@@ -43,6 +45,12 @@ class Repository:
         )
 
     def create_job(self, printer: Printer, request: AgentJobCreateRequest) -> AgentJobRecord:
+        self.create_calls += 1
+        self.request = request
+        return self._job(printer.id, 11, "pending")
+
+    def create_or_reuse_job(self, printer: Printer, request: AgentJobCreateRequest) -> AgentJobRecord:
+        self.coalesced_create_calls += 1
         self.request = request
         return self._job(printer.id, 11, "pending")
 
@@ -74,6 +82,23 @@ def test_agent_job_service_dispatches_without_http_dependency() -> None:
     assert job.status == "succeeded"
     assert repository.request is not None
     assert repository.request.agent_id == 3
+    assert repository.create_calls == 1
+    assert repository.coalesced_create_calls == 0
+
+
+def test_agent_job_service_coalesces_high_frequency_read_jobs() -> None:
+    repository = Repository()
+
+    job = asyncio.run(
+        AgentJobService(repository).run(
+            Printer(),
+            job_type="remote_operation_status",
+        )
+    )
+
+    assert job.status == "succeeded"
+    assert repository.create_calls == 0
+    assert repository.coalesced_create_calls == 1
 
 
 def test_agent_job_service_rejects_required_offline_agent() -> None:

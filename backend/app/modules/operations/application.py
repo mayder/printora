@@ -36,6 +36,18 @@ class AgentJobTimeoutError(Exception):
     websocket_delivered: bool
 
 
+COALESCIBLE_AGENT_JOB_TYPES = frozenset(
+    {
+        "remote_calibration_capabilities",
+        "remote_firmware_inventory",
+        "remote_gcode_files_list",
+        "remote_moonraker_status",
+        "remote_operation_status",
+        "remote_update_status",
+    }
+)
+
+
 @dataclass
 class AgentJobService:
     repository: AgentJobRepositoryPort
@@ -56,16 +68,17 @@ class AgentJobService:
             datetime.now(timezone.utc) + timedelta(seconds=max(5, int(timeout_seconds) + 5))
         )
         try:
-            job = self.repository.create_job(
-                printer,
-                AgentJobCreateRequest(
-                    job_type=job_type,
-                    agent_id=agent.id if agent is not None else None,
-                    correlation_id=f"{job_type}_{uuid4().hex}",
-                    payload=payload or {},
-                    expires_at=expires_at,
-                ),
+            request = AgentJobCreateRequest(
+                job_type=job_type,
+                agent_id=agent.id if agent is not None else None,
+                correlation_id=f"{job_type}_{uuid4().hex}",
+                payload=payload or {},
+                expires_at=expires_at,
             )
+            if job_type in COALESCIBLE_AGENT_JOB_TYPES:
+                job = self.repository.create_or_reuse_job(printer, request)
+            else:
+                job = self.repository.create_job(printer, request)
         except ValueError as exc:
             raise AgentJobRejectedError(str(exc)) from exc
         return await self._wait(

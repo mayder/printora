@@ -1623,3 +1623,36 @@ o escopo preservado sem desfazer os gates internos ou a evidência existente.
 
 Como reverter: contratar avaliador independente, aprovar o escopo e executar o
 handoff sanitizado em ambiente isolado antes de tratar os achados.
+
+### DEC-20260723-11 - Leituras concorrentes do agente usam coalescência por escopo
+
+Status: aceita
+Data: 2026-07-23
+Contexto: a homologação real do PKG-98 encontrou reconnect do WebSocket durante
+uma leitura operacional longa da Voron 2.4. Pollings simultâneos continuavam
+criando jobs equivalentes, elevaram a fila acima do SLO e atrasaram ainda mais a
+resposta, embora o agente e a impressão permanecessem ativos.
+
+Decisão: jobs read-only de alta frequência reutilizam um job `pending` ou
+`in_progress` quando impressora, agente, tipo e payload são idênticos. A decisão
+é atômica em PostgreSQL por advisory lock transacional derivado de SHA-256 do
+escopo. Jobs mutáveis continuam criando registros independentes e nunca são
+coalescidos. Não há nova tabela, script SQL ou retenção.
+
+Alternativas consideradas: aumentar o limite do soak; cancelar jobs existentes;
+reduzir polling somente na UI; desativar WebSocket; reiniciar o agente durante a
+impressão.
+
+Consequências: pollings concorrentes aguardam o mesmo resultado e deixam de
+amplificar backlog durante reconnect. O correlation ID original permanece como
+identidade do job compartilhado; chamadas posteriores a uma conclusão criam
+nova leitura. Falha ou expiração continua fail-closed para todos os aguardantes.
+
+Impacto em testes: aplicação valida a política read-only versus mutação, e o
+repositório valida reuso apenas no mesmo payload/escopo.
+
+Impacto em rollback: baixo; reverter a política volta a criar um job por
+request, sem alterar schema ou registros existentes.
+
+Como reverter: reverter o serviço/repositório de jobs e monitorar backlog antes
+de reabrir polling real.
