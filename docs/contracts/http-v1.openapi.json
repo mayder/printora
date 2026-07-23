@@ -5282,6 +5282,102 @@
         "title": "CommunityPostUpdate",
         "type": "object"
       },
+      "ComplianceControlRequest": {
+        "properties": {
+          "evidence_reference": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Evidence Reference",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "passed",
+              "blocked"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "evidence_reference"
+        ],
+        "title": "ComplianceControlRequest",
+        "type": "object"
+      },
+      "ComplianceControlResponse": {
+        "properties": {
+          "control_key": {
+            "title": "Control Key",
+            "type": "string"
+          },
+          "evidence_present": {
+            "title": "Evidence Present",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewed_by_user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By User Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "control_key",
+          "status",
+          "evidence_present",
+          "reviewed_by_user_id",
+          "reviewed_at",
+          "expires_at"
+        ],
+        "title": "ComplianceControlResponse",
+        "type": "object"
+      },
       "ConfigOptionPatch": {
         "properties": {
           "option": {
@@ -6260,6 +6356,66 @@
           "negative_balance_policy"
         ],
         "title": "FinanceBalanceResponse",
+        "type": "object"
+      },
+      "FinanceReadinessResponse": {
+        "properties": {
+          "blocked_controls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blocked Controls",
+            "type": "array"
+          },
+          "controls": {
+            "items": {
+              "$ref": "#/components/schemas/ComplianceControlResponse"
+            },
+            "title": "Controls",
+            "type": "array"
+          },
+          "expired_audit_rows_preview": {
+            "title": "Expired Audit Rows Preview",
+            "type": "integer"
+          },
+          "payment_mode": {
+            "title": "Payment Mode",
+            "type": "string"
+          },
+          "pending_controls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Pending Controls",
+            "type": "array"
+          },
+          "real_payments_allowed": {
+            "title": "Real Payments Allowed",
+            "type": "boolean"
+          },
+          "retention_policies": {
+            "items": {
+              "$ref": "#/components/schemas/RetentionPolicyResponse"
+            },
+            "title": "Retention Policies",
+            "type": "array"
+          },
+          "runtime_supports_real_payments": {
+            "title": "Runtime Supports Real Payments",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "payment_mode",
+          "runtime_supports_real_payments",
+          "real_payments_allowed",
+          "pending_controls",
+          "blocked_controls",
+          "controls",
+          "retention_policies",
+          "expired_audit_rows_preview"
+        ],
+        "title": "FinanceReadinessResponse",
         "type": "object"
       },
       "FinanceRoleRequest": {
@@ -16864,6 +17020,34 @@
         "title": "ReputationResponse",
         "type": "object"
       },
+      "RetentionPolicyResponse": {
+        "properties": {
+          "data_class": {
+            "title": "Data Class",
+            "type": "string"
+          },
+          "deletion_mode": {
+            "title": "Deletion Mode",
+            "type": "string"
+          },
+          "legal_basis": {
+            "title": "Legal Basis",
+            "type": "string"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data_class",
+          "retention_days",
+          "legal_basis",
+          "deletion_mode"
+        ],
+        "title": "RetentionPolicyResponse",
+        "type": "object"
+      },
       "RiskAppealRequest": {
         "properties": {
           "reason": {
@@ -23414,6 +23598,74 @@
         ]
       }
     },
+    "/api/admin/finance/compliance/{control_key}": {
+      "put": {
+        "operationId": "review_compliance_control_api_admin_finance_compliance__control_key__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "control_key",
+            "required": true,
+            "schema": {
+              "title": "Control Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceControlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceControlResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Compliance Control",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
     "/api/admin/finance/payments/{payment_public_id}/commands": {
       "post": {
         "operationId": "execute_payment_command_api_admin_finance_payments__payment_public_id__commands_post",
@@ -23593,6 +23845,55 @@
           }
         },
         "summary": "Execute Payout",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/admin/finance/readiness": {
+      "get": {
+        "operationId": "finance_readiness_api_admin_finance_readiness_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinanceReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finance Readiness",
         "tags": [
           "finance"
         ]

@@ -34,6 +34,8 @@ POSTGRESQL_REQUIRED_EXTENSION_TABLES = (
     "finance_risk_cases",
     "finance_risk_decisions",
     "finance_audit_events",
+    "finance_compliance_controls",
+    "finance_retention_policies",
     "commerce_order_items",
     "commerce_orders",
     "payment_intents",

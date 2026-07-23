@@ -20,6 +20,7 @@ run_model_validations() {
     scripts/validate-cloud-postgresql-only.sh \
     scripts/validate-cloud-object-search-only.sh \
     scripts/validate-durable-execution.sh \
+    scripts/validate-finance-safety.sh \
     scripts/validate-fixtures.sh \
     scripts/validate-layering.sh \
     scripts/validate-stack.sh; do

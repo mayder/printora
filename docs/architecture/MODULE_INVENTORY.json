@@ -93,15 +93,15 @@
     }
   ],
   "summary": {
-    "modules": 159,
-    "routes": 345,
-    "contracts": 363,
-    "tables": 131,
+    "modules": 160,
+    "routes": 347,
+    "contracts": 367,
+    "tables": 133,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 26,
       "community": 29,
-      "finance": 11,
+      "finance": 12,
       "identity": 10,
       "integrations": 7,
       "operations": 55,
@@ -337,7 +337,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 565,
+      "lines": 567,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -374,6 +374,19 @@
         "ExternalReferenceRecord",
         "ExternalImportPreview"
       ]
+    },
+    {
+      "module": "finance_compliance",
+      "owner": "finance",
+      "lines": 98,
+      "imports": [
+        "config",
+        "database",
+        "finance_security",
+        "modules.finance.contracts"
+      ],
+      "routes": [],
+      "contracts": []
     },
     {
       "module": "finance_ledger",
@@ -416,7 +429,7 @@
     {
       "module": "finance_payments",
       "owner": "finance",
-      "lines": 137,
+      "lines": 145,
       "imports": [
         "database",
         "modules.finance.contracts",
@@ -913,9 +926,10 @@
     {
       "module": "modules.finance.api",
       "owner": "finance",
-      "lines": 314,
+      "lines": 344,
       "imports": [
         "config",
+        "finance_compliance",
         "finance_orders",
         "finance_payment_operations",
         "finance_payments",
@@ -1005,6 +1019,16 @@
           "handler": "appeal_risk_case"
         },
         {
+          "method": "GET",
+          "path": "/api/admin/finance/readiness",
+          "handler": "finance_readiness"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/admin/finance/compliance/{control_key}",
+          "handler": "review_compliance_control"
+        },
+        {
           "method": "POST",
           "path": "/api/finance/provider-webhooks/sandbox",
           "handler": "sandbox_webhook"
@@ -1015,7 +1039,7 @@
     {
       "module": "modules.finance.contracts",
       "owner": "finance",
-      "lines": 178,
+      "lines": 211,
       "imports": [
         "modules.finance.domain"
       ],
@@ -1042,7 +1066,11 @@
         "FinanceRoleResponse",
         "RiskCaseResponse",
         "RiskDecisionRequest",
-        "RiskAppealRequest"
+        "RiskAppealRequest",
+        "ComplianceControlRequest",
+        "ComplianceControlResponse",
+        "RetentionPolicyResponse",
+        "FinanceReadinessResponse"
       ]
     },
     {
@@ -1396,7 +1424,7 @@
     {
       "module": "payment_provider",
       "owner": "finance",
-      "lines": 100,
+      "lines": 132,
       "imports": [
         "modules.finance.domain"
       ],
@@ -4778,6 +4806,16 @@
       "table": "finance_audit_events",
       "owner": "finance",
       "script": "082_finance_risk_permissions.sql"
+    },
+    {
+      "table": "finance_compliance_controls",
+      "owner": "finance",
+      "script": "083_finance_compliance.sql"
+    },
+    {
+      "table": "finance_retention_policies",
+      "owner": "finance",
+      "script": "083_finance_compliance.sql"
     }
   ]
 }

@@ -8,13 +8,19 @@ import uuid
 from app.database import connect_database
 from app.modules.finance.contracts import PaymentIntentResponse, PaymentWebhookResponse
 from app.modules.finance.domain import Money, PaymentStatus, validate_payment_transition
-from app.payment_provider import ProviderEvent, SandboxPaymentAdapter
+from app.payment_provider import PaymentProviderCircuitBreaker, ProviderEvent, SandboxPaymentAdapter
 
 
 class FinancePaymentService:
-    def __init__(self, database_path: Path, adapter: SandboxPaymentAdapter) -> None:
+    def __init__(
+        self,
+        database_path: Path,
+        adapter: SandboxPaymentAdapter,
+        circuit_breaker: PaymentProviderCircuitBreaker | None = None,
+    ) -> None:
         self.database_path = database_path
         self.adapter = adapter
+        self.circuit_breaker = circuit_breaker or PaymentProviderCircuitBreaker()
 
     def create_intent(
         self,
@@ -33,7 +39,9 @@ class FinancePaymentService:
                 if existing["command_digest"] != digest:
                     raise ValueError("chave idempotente já usada com intent diferente")
                 return _intent_response(existing)
-            provider = self.adapter.create_intent(idempotency_key, money)
+            provider = self.circuit_breaker.call(
+                lambda: self.adapter.create_intent(idempotency_key, money)
+            )
             public_id = f"pay_{uuid.uuid4().hex}"
             connection.execute(
                 """

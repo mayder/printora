@@ -8,6 +8,7 @@ from app.finance_orders import FinanceOrderService
 from app.finance_payment_operations import FinancePaymentOperationsService
 from app.finance_settlement import FinanceSettlementService
 from app.finance_security import FinanceRiskService, FinanceSecurityService
+from app.finance_compliance import FinanceComplianceService
 from app.modules.assembly import ModuleDefinition, RouterRegistration
 from app.modules.finance.contracts import (
     PaymentIntentResponse,
@@ -30,14 +31,18 @@ from app.modules.finance.contracts import (
     RiskAppealRequest,
     RiskCaseResponse,
     RiskDecisionRequest,
+    ComplianceControlRequest,
+    ComplianceControlResponse,
+    FinanceReadinessResponse,
 )
 from app.modules.finance.domain import Money
 from app.modules.identity.contracts import CurrentUser
-from app.payment_provider import SandboxPaymentAdapter
+from app.payment_provider import PaymentProviderCircuitBreaker, SandboxPaymentAdapter
 from app.routes.auth import require_current_user
 
 
 router = APIRouter(tags=["finance"])
+PAYMENT_PROVIDER_BREAKER = PaymentProviderCircuitBreaker()
 
 
 def require_platform_admin(
@@ -78,7 +83,7 @@ def payment_service() -> FinancePaymentService:
         adapter = SandboxPaymentAdapter(settings.payment_webhook_secret)
     except ValueError as exc:
         raise HTTPException(status_code=503, detail="sandbox de pagamento não configurado") from exc
-    return FinancePaymentService(settings.database_path, adapter)
+    return FinancePaymentService(settings.database_path, adapter, PAYMENT_PROVIDER_BREAKER)
 
 
 @router.post("/api/finance/orders", response_model=OrderResponse)
@@ -286,6 +291,31 @@ async def appeal_risk_case(
         )
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get("/api/admin/finance/readiness", response_model=FinanceReadinessResponse)
+async def finance_readiness(
+    _current: CurrentUser = Depends(require_finance_auditor),
+) -> FinanceReadinessResponse:
+    return FinanceComplianceService(get_settings().database_path).readiness()
+
+
+@router.put(
+    "/api/admin/finance/compliance/{control_key}",
+    response_model=ComplianceControlResponse,
+)
+async def review_compliance_control(
+    control_key: str,
+    payload: ComplianceControlRequest,
+    current: CurrentUser = Depends(require_finance_auditor),
+) -> ComplianceControlResponse:
+    try:
+        return FinanceComplianceService(get_settings().database_path).review_control(
+            control_key, payload.status, payload.evidence_reference,
+            payload.expires_at, current.user.id,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 

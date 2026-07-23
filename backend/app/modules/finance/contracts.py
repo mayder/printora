@@ -176,3 +176,36 @@ class RiskDecisionRequest(BaseModel):
 
 class RiskAppealRequest(BaseModel):
     reason: str = Field(min_length=3, max_length=500)
+
+
+class ComplianceControlRequest(BaseModel):
+    status: Literal["pending", "passed", "blocked"]
+    evidence_reference: str = Field(min_length=3, max_length=500)
+    expires_at: str | None = Field(default=None, max_length=80)
+
+
+class ComplianceControlResponse(BaseModel):
+    control_key: str
+    status: str
+    evidence_present: bool
+    reviewed_by_user_id: int | None
+    reviewed_at: str | None
+    expires_at: str | None
+
+
+class RetentionPolicyResponse(BaseModel):
+    data_class: str
+    retention_days: int
+    legal_basis: str
+    deletion_mode: str
+
+
+class FinanceReadinessResponse(BaseModel):
+    payment_mode: str
+    runtime_supports_real_payments: bool
+    real_payments_allowed: bool
+    pending_controls: list[str]
+    blocked_controls: list[str]
+    controls: list[ComplianceControlResponse]
+    retention_policies: list[RetentionPolicyResponse]
+    expired_audit_rows_preview: int

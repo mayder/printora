@@ -5776,6 +5776,12 @@ Estado atual:
   suporte e auditoria usam papéis separados; solicitante não aprova repasse e
   aprovador não o executa. Decisões e alterações de papel geram auditoria
   sanitizada e imutável com retenção declarada de 180 dias.
+- Lote 7 concluído como gate de ativação: matriz PCI/LGPD, fiscal, jurídica,
+  continuidade, chargeback, segurança e restore nasce pendente e aceita somente
+  evidência por hash. Políticas de retenção são explícitas e limpeza é apenas
+  preview. O runtime suporta exclusivamente `disabled`/`sandbox`, checkout é
+  hospedado, schema não contém PAN/CVV e circuit breaker degrada falha do adapter;
+  dinheiro real continua tecnicamente indisponível mesmo com controles aprovados.
 
 ## PKG-92: Fabricação, Qualidade, Logística E Cadeia De Custódia
 

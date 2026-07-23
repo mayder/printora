@@ -4,7 +4,9 @@ from dataclasses import dataclass
 import hashlib
 import hmac
 import json
+import time
 from typing import Any
+from collections.abc import Callable
 
 from app.modules.finance.domain import Money, PaymentStatus, normalize_currency
 
@@ -70,6 +72,36 @@ class SandboxPaymentAdapter:
             created_at=_required_text(payload, "created_at"),
             payload_sha256=hashlib.sha256(body).hexdigest(),
         )
+
+
+class PaymentProviderCircuitBreaker:
+    def __init__(
+        self,
+        failure_threshold: int = 3,
+        recovery_seconds: float = 30.0,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self.failure_threshold = failure_threshold
+        self.recovery_seconds = recovery_seconds
+        self.clock = clock
+        self.failures = 0
+        self.opened_at: float | None = None
+
+    def call(self, operation: Callable[[], Any]) -> Any:
+        if self.opened_at is not None and self.clock() - self.opened_at < self.recovery_seconds:
+            raise RuntimeError("circuit breaker do provedor está aberto")
+        if self.opened_at is not None:
+            self.failures = 0
+            self.opened_at = None
+        try:
+            result = operation()
+        except Exception:
+            self.failures += 1
+            if self.failures >= self.failure_threshold:
+                self.opened_at = self.clock()
+            raise
+        self.failures = 0
+        return result
 
 
 def _required_text(payload: dict[str, Any], key: str) -> str:
