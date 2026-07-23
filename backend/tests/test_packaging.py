@@ -147,6 +147,8 @@ def test_cloud_process_chaos_is_scoped_and_recovers_active_instance() -> None:
     assert "Moonraker" not in chaos
     assert "Klipper" not in chaos
     assert "PRINTORA_SOAK_SECONDS" in soak
+    assert "PRINTORA_SOAK_TARGET_RPS" in soak
+    assert "batch_interval" in soak
     assert "errors=0 status=passed" in soak
 
 

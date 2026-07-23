@@ -45,6 +45,7 @@ install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/load-durable-execution.
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/probe-worker-recovery.py" /usr/local/libexec/printora-cloud/probe-worker-recovery.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/probe-active-active.sh" /usr/local/libexec/printora-cloud/probe-active-active.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/soak-cloud.sh" /usr/local/libexec/printora-cloud/soak-cloud.sh
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/audit-capacity.sh" /usr/local/libexec/printora-cloud/audit-capacity.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/deploy-blue-green.sh" /usr/local/sbin/printora-cloud-deploy
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/rollback-blue-green.sh" /usr/local/sbin/printora-cloud-rollback
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/preflight.sh" /usr/local/sbin/printora-cloud-preflight

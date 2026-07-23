@@ -42,6 +42,7 @@ install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-search-outbox.
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-search-quality.py" /usr/local/libexec/printora-cloud/probe-search-quality.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-active-active.sh" /usr/local/libexec/printora-cloud/probe-active-active.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/soak-cloud.sh" /usr/local/libexec/printora-cloud/soak-cloud.sh
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/audit-capacity.sh" /usr/local/libexec/printora-cloud/audit-capacity.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/preflight.sh" /usr/local/sbin/printora-cloud-preflight
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/deploy-blue-green.sh" /usr/local/sbin/printora-cloud-deploy
 systemctl daemon-reload
