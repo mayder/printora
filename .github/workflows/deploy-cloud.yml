@@ -63,6 +63,15 @@ jobs:
       - name: Validate reproducible frontend build
         run: npm --prefix frontend run build:reproducible
 
+      - name: Publish coverage evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: coverage-${{ github.sha }}
+          path: .artifacts/coverage
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Audit production dependencies
         run: |
           set -euo pipefail

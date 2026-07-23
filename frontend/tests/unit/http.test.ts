@@ -79,4 +79,26 @@ describe("HTTP client", () => {
     await expect(apiResponse("/health")).resolves.toHaveProperty("status", 200);
     await expect(apiRequest("/api/fail")).rejects.toThrow("falha controlada");
   });
+
+  it("preserves explicit auth and handles optional non-auth failures", async () => {
+    storeAuthToken("stored");
+    storeStepUpToken(null);
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("", { status: 200 }))
+      .mockResolvedValueOnce(
+        Response.json({ detail: "limite atingido" }, { status: 429 }),
+      );
+
+    await expect(
+      apiRequest("/api/empty", {
+        headers: { Authorization: "Bearer explicit" },
+      }),
+    ).resolves.toBeUndefined();
+    expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get("Authorization")).toBe(
+      "Bearer explicit",
+    );
+    await expect(apiOptional("/api/limited")).rejects.toThrow("limite atingido");
+    storeAuthToken(null);
+  });
 });

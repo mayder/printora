@@ -38,7 +38,7 @@ declarações sem runtime são as únicas exclusões frontend.
 | --- | ---: | ---: |
 | Backend Python | 79,25% de linhas | 84,58% de linhas |
 | Agente Go | 53,3% de statements | 54,8% no pacote operacional |
-| Frontend | 1,74% de linhas | 89,20% nas fronteiras P0 selecionadas |
+| Frontend | 1,78% de linhas | 91,36% nas fronteiras P0 selecionadas |
 
 - backend: 569 testes, medidos por `pytest-cov`;
 - agente: `go test -coverprofile` sobre todos os pacotes;
@@ -49,9 +49,26 @@ declarações sem runtime são as únicas exclusões frontend.
 - a cobertura frontend global baixa é dívida real visível; não foi ocultada por
   filtro de diretórios.
 
+## Gate De Cobertura
+
+- `scripts/run-coverage-gate.sh` executa as três stacks e falha abaixo do mínimo
+  ou do baseline versionado em `quality/coverage-baseline.json`;
+- `PATHS.toml` habilita cobertura e registra os limiares por stack e criticidade;
+- Python exige 79% global e 84% crítico;
+- Go exige 53% global e 54% no pacote operacional crítico;
+- frontend exige 1,7% global e 89% agregado crítico, além de limites por arquivo
+  para HTTP, preview G-code e polling sequencial;
+- o workflow publica JSON, LCOV e perfis Go em artefato com retenção de 30 dias,
+  inclusive quando o gate falhar;
+- queda abaixo do baseline exige decisão e aprovação explícita; reduzir apenas o
+  limiar não contorna a comparação de não regressão.
+- o novo gate encontrou uma rejeição intermitente da assinatura Ed25519 do
+  instalador; a dependência de OpenSSL foi removida e o teste passou 100 vezes;
+- o ambiente jsdom recebeu `localStorage` determinístico e a suíte frontend
+  passou 30 repetições consecutivas antes do gate completo final.
+
 ## Evidência Pendente
 
-- limiares e não regressão bloqueantes;
 - E2E, acessibilidade e falhas de rede;
 - property/fuzz e mutation;
 - pentest independente e reteste;

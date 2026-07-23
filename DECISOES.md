@@ -1454,3 +1454,35 @@ Moonraker, MCU e host não são restaurados ou reiniciados.
 
 Como reverter: voltar ao binário N-1 e manifesto anterior, mantendo os artefatos
 e journal para diagnóstico. Não reutilizar `0.1.34` com outro conteúdo.
+
+### DEC-20260723-06 - Cobertura usa baseline real e não regressão por stack
+
+Status: aceita
+Data: 2026-07-23
+Contexto: Python e Go já possuíam testes relevantes, mas cobertura não era gate.
+O frontend possuía verificações por leitura de fonte e poucos testes executáveis;
+excluir telas e hooks elevaria artificialmente o percentual.
+
+Decisão: medir todo código executável por stack, excluir somente declarações e
+tipos sem runtime, versionar o baseline real e bloquear qualquer regressão.
+Python, Go e frontend possuem mínimos globais e recortes críticos superiores. O
+frontend inicia com cobertura global baixa explicitamente visível e com 91,36%
+nas fronteiras P0 de HTTP, preview G-code e polling.
+
+Alternativas consideradas: exigir percentual alto fictício excluindo código sem
+teste; ativar apenas cobertura crítica; manter cobertura informativa; reduzir o
+baseline quando código novo não tiver teste.
+
+Consequências: código novo precisa preservar ou elevar o percentual global. A
+dívida frontend permanece mensurável e deve cair por testes reais, E2E e lotes
+futuros, sem afrouxar o gate. Relatórios CI são retidos por 30 dias.
+
+Impacto em testes: `scripts/run-coverage-gate.sh` executa as três stacks, valida
+os mínimos de `PATHS.toml` e compara com `quality/coverage-baseline.json`.
+
+Impacto em rollback: o gate pode ser revertido somente por defeito comprovado do
+próprio mecanismo, com incidente e prazo de restauração. Relatórios e baseline
+permanecem preservados.
+
+Como reverter: restaurar temporariamente o workflow anterior, sem alterar o
+baseline, e corrigir o coletor antes de reativar o gate.

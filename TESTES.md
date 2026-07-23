@@ -1984,6 +1984,9 @@ Não avançar se:
 
 ### PKG-97 - Node, Cobertura, E2E, Fuzzing, Mutation E Pentest
 
+- executar `scripts/run-coverage-gate.sh`; o comando coleta Python/Go/frontend,
+  valida mínimo global/crítico e compara com `quality/coverage-baseline.json`;
+- preservar os relatórios em `.artifacts/coverage` e no artefato CI por 30 dias;
 - executar teste negativo com Node incompatível e exigir falha antes do build;
 - executar local/CI com a mesma versão Node suportada e instalação limpa;
 - falhar em warning classificado como crítico e em orçamento de bundle excedido;

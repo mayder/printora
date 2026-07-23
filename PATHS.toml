@@ -95,9 +95,18 @@ language = "python+typescript+go"
 framework = "FastAPI + Vite/React + Go CLI"
 
 [quality.coverage]
-enabled = false
-min_lines = 0
-critical_min_lines = 0
+enabled = true
+command = "scripts/run-coverage-gate.sh"
+min_lines = 1.7
+critical_min_lines = 54
+python_min_lines = 79
+python_critical_min_lines = 84
+go_min_statements = 53
+go_critical_min_statements = 54
+frontend_min_lines = 1.7
+frontend_critical_min_lines = 89
+baseline = "quality/coverage-baseline.json"
+gate = "scripts/run-coverage-gate.sh"
 
 [quality.fixtures]
 dirs = [

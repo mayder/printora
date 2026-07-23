@@ -29,3 +29,9 @@ app = ["data/*.json", "data/agent_releases/*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+fail_under = 79

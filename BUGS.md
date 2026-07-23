@@ -6,6 +6,31 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Verificação Ed25519 Do Instalador Era Dependente Do OpenSSL Local
+
+Sintoma:
+
+- o instalador podia rejeitar o artefato válido `0.1.34` durante o gate completo;
+- a mesma assinatura passava isoladamente, tornando o teste intermitente.
+
+Causa:
+
+- a validação dependia de `openssl pkeyutl -rawin`, cujo suporte/comportamento
+  para Ed25519 varia entre versões e ambientes.
+
+Correção:
+
+- checksum e assinatura agora são verificados por Python padrão com chave pública
+  fixada, sem depender de OpenSSL;
+- assinatura malformada, não canônica, inválida e checksum adulterado falham
+  fechado antes da instalação.
+
+Validação:
+
+- teste focado repetido 100 vezes sem falha;
+- artefato válido aceito e checksum/assinatura adulterados rejeitados;
+- `./check.sh` completo passou com 569 testes Python e gate de cobertura.
+
 ### Operacao Concluida Nao Mostrava A Ultima Impressao
 
 Sintoma:

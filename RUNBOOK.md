@@ -52,6 +52,16 @@ Pentest/carga/fuzz em produção exigem escopo e autorização separados.
 restore em cluster temporário limitado; prune continua fora do fluxo automático
 e exige preview mais confirmação explícita.
 
+O gate local de cobertura do `PKG-97` é:
+
+```bash
+scripts/run-coverage-gate.sh
+```
+
+Os relatórios ficam em `.artifacts/coverage`. Regressão exige corrigir teste ou
+código; não alterar limiar/baseline apenas para liberar build. Uma mudança
+intencional exige decisão registrada e aprovação explícita.
+
 ## Publicacao Cloud
 
 O deploy publico planejado do Printora usa o dominio `print3dmaker.xyz`, com
