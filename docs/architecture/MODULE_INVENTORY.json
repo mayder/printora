@@ -172,11 +172,12 @@
     {
       "module": "agent_pairing",
       "owner": "operations",
-      "lines": 925,
+      "lines": 981,
       "imports": [
         "auth",
         "database",
         "modules.operations.contracts",
+        "modules.platform.database_target",
         "modules.platform.durable_execution",
         "printers"
       ],
@@ -1338,7 +1339,7 @@
     {
       "module": "modules.operations.application",
       "owner": "operations",
-      "lines": 116,
+      "lines": 129,
       "imports": [
         "modules.operations.contracts",
         "modules.operations.ports"
@@ -1456,7 +1457,7 @@
     {
       "module": "modules.operations.ports",
       "owner": "operations",
-      "lines": 21,
+      "lines": 27,
       "imports": [
         "modules.operations.contracts"
       ],

@@ -32,7 +32,7 @@
 | `routes.social_catalog` | `community` | 1120 | 59 | 0 |
 | `print_projects` | `community` | 1059 | 0 | 14 |
 | `self_update` | `administration` | 1001 | 0 | 10 |
-| `agent_pairing` | `operations` | 925 | 0 | 0 |
+| `agent_pairing` | `operations` | 981 | 0 | 0 |
 | `auth` | `identity` | 913 | 0 | 0 |
 | `calibration` | `operations` | 910 | 0 | 12 |
 | `routes.operation` | `operations` | 776 | 13 | 0 |
