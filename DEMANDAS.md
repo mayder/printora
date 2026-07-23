@@ -6346,7 +6346,11 @@ Estado atual:
   recebe backlog por domínio, owner e prazo na auditoria do pacote.
 - Lote 9 bloqueado por dependência externa: falta contratar profissional/empresa
   independente e aprovar por escrito o escopo e o ambiente antes de qualquer
-  teste ativo. Nenhum pentest foi autoatestatado ou executado em produção.
+  teste ativo. Escopo, regras de engajamento, casos mínimos, parada de
+  emergência e aceite estão prontos em
+  `docs/audits/PENTEST_SCOPE_PKG_97_2026-07-23.md`; identificação do fornecedor,
+  ambiente, janela e assinaturas permanecem pendentes. Nenhum pentest foi
+  autoatestatado ou executado em produção.
 - Lote 10 depende do relatório independente e do reteste dos achados. Gate,
   runbook e evidência automatizada já estão consolidados; fechamento, publicação
   e aceite do pacote permanecem bloqueados pelos lotes 9 e 10.

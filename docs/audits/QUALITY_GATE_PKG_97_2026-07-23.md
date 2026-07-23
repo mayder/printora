@@ -132,7 +132,8 @@ declarações sem runtime são as únicas exclusões frontend.
 
 ## Evidência Pendente
 
-- pentest independente com escopo/autorização escritos;
+- contratação, identificação e assinatura independente do escopo preparado em
+  `PENTEST_SCOPE_PKG_97_2026-07-23.md`;
 - correção e reteste de achados críticos/altos e tratamento dos médios;
 - gate completo final depois do pentest;
 - publicação, auditoria e fechamento do pacote.

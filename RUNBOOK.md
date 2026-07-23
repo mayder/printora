@@ -84,7 +84,9 @@ scripts/run-pkg97-test-gates.sh
 Pentest não é substituído por esses gates. Antes de teste ativo, exigir
 fornecedor independente, autorização escrita, ambiente, alvos, janela, contatos,
 limites, tratamento de dados e parada de emergência. Produção permanece fora do
-escopo até autorização específica.
+escopo até autorização específica. Usar
+`docs/audits/PENTEST_SCOPE_PKG_97_2026-07-23.md` como checklist contratual e
+registro de autorização; campos pendentes não autorizam execução.
 
 ## Publicacao Cloud
 
