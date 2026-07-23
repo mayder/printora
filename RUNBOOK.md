@@ -2052,6 +2052,68 @@ Rollback de código não restaura banco. Bloquear novas cotações/transições,
 publicar a release anterior e preservar ordens, reservas, qualidade, custódia,
 tracking e incidentes. Não remover registros durante incidente ou recall.
 
+## Escala, resiliência e recuperação Cloud
+
+O upstream ativo possui duas instâncias da mesma release: o slot blue (`8069`)
+ou green (`8070`) e `replica` (`8071`). O slot oposto permanece na release N-1
+fora do upstream. Isso protege contra falha de processo no mesmo host, mas não
+contra perda física de host, disco, Nginx ou PostgreSQL.
+
+Diagnóstico sem mutação:
+
+```bash
+cat /var/www/print3dmaker.xyz/shared/active-slot
+systemctl is-active printora-cloud@blue printora-cloud@green printora-cloud@replica
+curl -fsS http://127.0.0.1:8069/ready
+curl -fsS http://127.0.0.1:8070/ready
+curl -fsS http://127.0.0.1:8071/ready
+sudo nginx -T | grep -A4 'upstream printora_cloud'
+sudo /usr/local/sbin/printora-cloud-preflight
+```
+
+Perda de processo: o Nginx remove a instância após falha e mantém requests novos
+na outra. Reiniciar somente a unit afetada e exigir `/ready`. O ensaio controlado
+é `sudo /usr/local/libexec/printora-cloud/probe-active-active.sh`; ele interrompe
+apenas a instância Cloud ativa, executa 300 requests e a restaura por `trap`.
+
+Perda de banco: não iniciar fallback local. Bloquear escrita, preservar logs/WAL,
+diagnosticar o cluster dedicado e restaurar somente em destino isolado. Retorno
+à produção exige reconciliação de tabelas, schema, FKs, objetos e busca.
+
+Perda de configuração: não improvisar segredo. Restaurar os arquivos cifrados do
+snapshot Restic em diretório isolado, validar checksums do manifesto e aplicar
+individualmente com owner/mode original. A credencial Restic e sua cópia de
+custódia ficam fora do host e nunca entram no snapshot ou Git.
+
+Perda de disco ou host: provisionar destino limpo, obter credencial pela custódia
+externa, restaurar o snapshot externo mais recente e aplicar WAL até o ponto
+disponível. Medir RPO desde `created_at`/último WAL do manifesto até o incidente
+e RTO do início do exercício até reconciliação final. O host único não promete
+RPO zero físico; RPO zero vale apenas para deploy/cutover.
+
+Backup completo inclui base física, dump lógico, WAL, todas as versões de
+objetos e configuração cifrada. A política é 14 diários, 8 semanais e 12 mensais.
+`preview-backup-retention.sh` usa `restic forget --dry-run`; nenhuma remoção ou
+`prune` pode ocorrer sem revisão do preview e confirmação explícita.
+
+Ensaios:
+
+```bash
+sudo PRINTORA_SOAK_SECONDS=600 /usr/local/libexec/printora-cloud/soak-cloud.sh
+sudo -u deploy bash -c 'set -a; source /etc/printora-cloud/postgresql.env; set +a; /usr/local/libexec/printora-cloud/load-durable-execution.py'
+sudo -u deploy bash -c 'set -a; source /etc/printora-cloud/postgresql.env; set +a; /usr/local/libexec/printora-cloud/probe-worker-recovery.py'
+sudo systemd-run --wait --collect --unit=printora-cloud-restore-test \
+  --property=CPUQuota=20% \
+  /usr/local/libexec/printora-cloud/restore-postgresql-backup-test.sh
+sudo /usr/local/libexec/printora-cloud/preview-backup-retention.sh
+```
+
+Redis e busca podem degradar/recompor; PostgreSQL, autenticação, autorização,
+ledger, fabricação e ownership nunca degradam para memória local. Storage usa
+pool limitado, timeout e retries finitos. Pagamentos usam circuit breaker.
+Workers são isolados por fila, concorrência e unit; quotas por fila e owner
+aplicam backpressure antes de esgotar recursos.
+
 ## Validacao por risco
 
 - Documentacao, label ou ajuste local simples: validar arquivo alterado e executar `./check.sh` se a alteracao tocar regra do modelo.

@@ -1266,3 +1266,38 @@ release anterior pode ignorar o módulo, mas não deve alterar ou apagar o ledge
 
 Como reverter: bloquear novos comandos financeiros, publicar a release anterior
 e preservar integralmente contas, transações e lançamentos para forward-fix.
+
+### DEC-20260723-01 - Redundância de processo usa duas instâncias da mesma release
+
+Status: aceita
+Data: 2026-07-23
+Contexto: blue/green fornecia cutover seguro, mas o upstream atendia por uma
+instância primária e mantinha a outra somente como backup de release. A perda do
+processo ativo ainda criava uma janela de failover e não exercitava estado
+compartilhado entre processos.
+
+Decisão: cada release ativa atende simultaneamente pelo slot blue ou green e por
+uma instância `replica` em `8071`. As duas apontam para a mesma release imutável,
+PostgreSQL canônico, objetos S3 e Redis recomponível. O slot oposto continua na
+release N-1, fora do upstream, como rollback aquecido. Deploy e rollback só
+recarregam o Nginx depois que as duas instâncias da release-alvo estão ready.
+
+Alternativas consideradas: continuar com upstream primário/backup; executar as
+duas releases diferentes no mesmo upstream; adicionar outro host sem orçamento
+e operação autorizados; usar sessão ou fila em memória local.
+
+Consequências: morte de um processo não interrompe requests novos. Sessão,
+idempotência, outbox e jobs permanecem no PostgreSQL; presença/cache/pubsub podem
+ser recompostos. O mesmo host, disco, Nginx e banco continuam pontos físicos
+únicos, portanto isso é redundância de processo e não alta disponibilidade.
+
+Impacto em testes: deploy, rollback, balanceamento, caos de processo, jobs com
+lease, backpressure, soak, capacidade e restore externo passam a ser gates.
+
+Impacto em rollback: antes da troca, a réplica retorna atomicamente à release
+anterior; falha de readiness preserva o upstream corrente. Banco, objetos e WAL
+nunca são restaurados durante rollback de código.
+
+Como reverter: executar `printora-cloud-rollback`, confirmar os dois processos
+da release N-1 e manter a release atual como standby. Não alterar dados nem
+substituir o upstream manualmente.

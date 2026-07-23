@@ -5918,7 +5918,32 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado; implementação não iniciada.
+- Concluído 100% em 2026-07-23; lotes 1 a 7 entregues, publicados e revisados.
+- O upstream ativo usa duas instâncias da mesma release (`blue`/`green` mais
+  `replica`) e mantém N-1 fora do upstream para rollback. A parada controlada da
+  instância ativa preservou 300 requests, sem erro, e a recuperação devolveu os
+  dois processos ao estado ready.
+- Workers permanecem separados em outbox/critical/default/bulk, com quotas por
+  fila e owner, leases e backpressure. O ensaio concluiu 500 jobs sem duplicidade,
+  recuperou lease expirado e rejeitou conclusão obsoleta. Sob sobrecarga HTTP,
+  400 de 1.000 requests receberam `429` controlado sem derrubar readiness.
+- Storage S3 usa pool limitado, retries e timeouts; Redis degrada para fontes
+  canônicas/recomposição e pagamentos mantêm circuit breaker. Nenhum fallback
+  cloud escreve em memória ou adapter local.
+- O snapshot externo criptografado `38cb0d0f` incluiu PostgreSQL, WAL, 8 versões
+  de objetos e 12 arquivos de configuração. Restore isolado concluiu em 203 s,
+  com 146 tabelas, 86 revisões, zero FK inválida, objetos reconciliados e 364
+  documentos de busca. A cópia externa da credencial acessou e restaurou
+  configuração diretamente fora do host de origem.
+- RPO medido no exercício foi inferior a um minuto e RTO foi 203 s. O limite
+  operacional atual continua honesto: timer diário com atraso aleatório permite
+  pior caso de até 24 h 15 min em destruição física; deploy/cutover preserva RPO
+  zero. O host único fornece redundância de processo, não alta disponibilidade.
+- Soak de 120 s concluiu 600 requests sem erro, p95 máximo de 1.470 ms, com cerca
+  de 24 GiB de memória e 110 GiB de disco ainda disponíveis. O workflow
+  `29979938622` publicou `aa80148` com gate completo, auditorias de dependência,
+  SBOM, preflight e smoke público. A impressora física e sua cadeia operacional
+  não foram acessadas.
 
 ## PKG-94: Analytics, Moderação Multilíngue E Inteligência Isolada
 
