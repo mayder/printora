@@ -976,3 +976,20 @@ Correção:
 - cadastro público de qualquer email configurado como administrador retorna
   `403`; essas contas são criadas somente por canal operacional;
 - teste de fronteira impede novo email administrativo embutido no runtime.
+
+### Resposta De Sessão Concorrente Reabria A Interface Após Logout
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- uma leitura `/api/auth/me` iniciada antes do logout podia terminar depois da
+  revogação e restaurar o usuário no estado local;
+- o backend revogava a sessão corretamente, mas a interface permanecia aberta
+  até as demais chamadas protegidas responderem `401`.
+
+Correção:
+
+- cada encerramento ou expiração incrementa a geração local da autenticação;
+- respostas de leitura iniciadas em geração anterior são descartadas;
+- o E2E confirma a resposta `200` do logout e a transição para a tela de login.

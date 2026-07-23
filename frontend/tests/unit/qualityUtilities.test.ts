@@ -12,12 +12,24 @@ import {
   selfUpdateStepDetail,
   visibleSelfUpdateSteps,
 } from "../../src/selfUpdate";
+import {
+  isCurrentAuthGeneration,
+  nextAuthGeneration,
+} from "../../src/utils/authGeneration";
 
 afterEach(() => {
   vi.useRealTimers();
 });
 
 describe("quality-critical utilities", () => {
+  it("invalidates stale authentication responses after session changes", () => {
+    const captured = 4;
+    const current = nextAuthGeneration(captured);
+
+    expect(isCurrentAuthGeneration(current, captured)).toBe(false);
+    expect(isCurrentAuthGeneration(current, current)).toBe(true);
+  });
+
   it("never overlaps sequential polling", async () => {
     vi.useFakeTimers();
     let resolveTask = () => {};

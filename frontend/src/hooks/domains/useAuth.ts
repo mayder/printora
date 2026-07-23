@@ -1,6 +1,7 @@
 import React from "react";
 import * as authApi from "../../services/authApi";
 import { AUTH_SESSION_EXPIRED_EVENT, getStoredAuthToken, storeAuthToken, storeStepUpToken } from "../../services/http";
+import { isCurrentAuthGeneration, nextAuthGeneration } from "../../utils/authGeneration";
 import { browserTimezone, setPrintoraUserTimezone } from "../../utils/formatters";
 import type {
   AgentCredentialRecord,
@@ -21,6 +22,7 @@ interface UseAuthOptions {
 export function useAuth({ setError, setLoading }: UseAuthOptions) {
   const [authUser, setAuthUser] = React.useState<AuthUser | null>(null);
   const [authReady, setAuthReady] = React.useState(false);
+  const authGeneration = React.useRef(0);
   const [authMode, setAuthMode] = React.useState<"login" | "register">("login");
   const [authEmail, setAuthEmail] = React.useState("");
   const [authPassword, setAuthPassword] = React.useState("");
@@ -48,6 +50,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
 
   React.useEffect(() => {
     function handleExpiredSession() {
+      authGeneration.current = nextAuthGeneration(authGeneration.current);
       storeAuthToken(null);
       storeStepUpToken(null);
       setAuthUser(null);
@@ -63,6 +66,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
   }, [setError]);
 
   async function loadAuth() {
+    const generation = authGeneration.current;
     if (!getStoredAuthToken()) {
       setAuthReady(true);
       return null;
@@ -71,6 +75,9 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
       let user = await authApi.loadAuthUser();
       if (user) {
         user = await acceptPendingInvite(user);
+      }
+      if (!isCurrentAuthGeneration(authGeneration.current, generation)) {
+        return null;
       }
       setAuthUser(user);
       setPrintoraUserTimezone(user?.timezone);
@@ -169,6 +176,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
   async function logoutAuth() {
     setLoading(true);
     setError(null);
+    authGeneration.current = nextAuthGeneration(authGeneration.current);
     try {
       await authApi.logoutUser();
       setAuthUser(null);

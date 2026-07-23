@@ -18,7 +18,13 @@ test("login, tema, navegação por teclado e logout", async ({
   }
 
   await page.locator(".account-menu-button").click();
+  const logoutResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/auth/logout",
+  );
   await page.getByRole("menuitem", { name: "Sair" }).click();
+  expect((await logoutResponse).status()).toBe(200);
   await expect(page.getByRole("heading", { name: "Entrar no Printora" })).toBeVisible();
 });
 

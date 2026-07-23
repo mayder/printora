@@ -2018,6 +2018,8 @@ Não avançar se:
   manifesto sem segredo e rejeição incondicional de produção;
 - executar dois usuários/organizações e provar isolamento ponta a ponta;
 - validar desktop/mobile, tema claro/escuro, teclado e acessibilidade;
+- no logout, confirmar a resposta do backend e impedir que uma leitura de sessão
+  concorrente restaure o usuário após a revogação;
 - injetar offline, timeout, 429, 5xx, reconnect e dependência degradada;
 - executar property-based testing/fuzzing em parsers, uploads, URL/SSRF,
   webhooks, idempotência, paginação, G-code e protocolos;
