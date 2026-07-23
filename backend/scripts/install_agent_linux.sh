@@ -18,10 +18,6 @@ LOCAL_BIN="${PRINTORA_AGENT_BIN:-}"
 AGENT_SHA256="${PRINTORA_AGENT_SHA256:-}"
 AGENT_SIGNATURE="${PRINTORA_AGENT_SIGNATURE:-}"
 TEST_MODE="${PRINTORA_AGENT_INSTALL_TEST_MODE:-0}"
-RELEASE_PUBLIC_KEY='-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAdK8RtUcm2hdrv0CFCNMFago1e+8RmT3ab9fbDyK8hmg=
------END PUBLIC KEY-----'
-
 usage() {
   cat <<'USAGE'
 Uso:
@@ -105,8 +101,6 @@ preflight() {
   have curl || fail "curl ausente"
   have python3 || fail "python3 ausente para processar troca segura do token"
   have install || fail "install ausente"
-  have openssl || fail "openssl ausente para validar assinatura do agente"
-  have base64 || fail "base64 ausente para validar assinatura do agente"
   require_systemd
   if curl -fsS --max-time 3 "$MOONRAKER_URL/server/info" >/dev/null 2>&1; then
     log "moonraker: ok"
@@ -140,21 +134,116 @@ install_binary() {
 }
 
 verify_release() {
-  local candidate="$1" actual temp_dir
+  local candidate="$1" actual
   [[ -n "$AGENT_SHA256" ]] || fail "PRINTORA_AGENT_SHA256 obrigatório"
   [[ -n "$AGENT_SIGNATURE" ]] || fail "PRINTORA_AGENT_SIGNATURE obrigatória"
-  actual="$(openssl dgst -sha256 "$candidate" | awk '{print $NF}')"
+  actual="$(python3 - "$candidate" <<'PY'
+import hashlib
+import pathlib
+import sys
+
+print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
+PY
+)"
   [[ "$actual" == "$AGENT_SHA256" ]] || fail "checksum do agente não confere"
-  temp_dir="$(mktemp -d)"
-  printf '%s\n' "$RELEASE_PUBLIC_KEY" > "$temp_dir/public.pem"
-  printf '%s' "$AGENT_SIGNATURE" | base64 -d > "$temp_dir/signature.bin"
-  printf '%s' "$actual" > "$temp_dir/digest.txt"
-  if ! openssl pkeyutl -verify -pubin -inkey "$temp_dir/public.pem" \
-    -rawin -in "$temp_dir/digest.txt" -sigfile "$temp_dir/signature.bin" >/dev/null 2>&1; then
-    rm -rf "$temp_dir"
+  if ! python3 - "$actual" "$AGENT_SIGNATURE" <<'PY'
+import base64
+import binascii
+import hashlib
+import sys
+
+PUBLIC_KEY = base64.b64decode("dK8RtUcm2hdrv0CFCNMFago1e+8RmT3ab9fbDyK8hmg=")
+FIELD = 2**255 - 19
+ORDER = 2**252 + 27742317777372353535851937790883648493
+
+
+def inverse(value):
+    return pow(value, FIELD - 2, FIELD)
+
+
+D = (-121665 * inverse(121666)) % FIELD
+SQRT_M1 = pow(2, (FIELD - 1) // 4, FIELD)
+
+
+def recover_x(y):
+    xx = (y * y - 1) * inverse(D * y * y + 1)
+    x = pow(xx, (FIELD + 3) // 8, FIELD)
+    if (x * x - xx) % FIELD:
+        x = (x * SQRT_M1) % FIELD
+    if (x * x - xx) % FIELD:
+        raise ValueError("ponto Ed25519 inválido")
+    return x
+
+
+def decode_point(encoded):
+    if len(encoded) != 32:
+        raise ValueError("ponto Ed25519 inválido")
+    y = int.from_bytes(encoded, "little") & ((1 << 255) - 1)
+    if y >= FIELD:
+        raise ValueError("ponto Ed25519 não canônico")
+    x = recover_x(y)
+    if (x & 1) != (encoded[31] >> 7):
+        x = FIELD - x
+    if (-x * x + y * y - 1 - D * x * x * y * y) % FIELD:
+        raise ValueError("ponto Ed25519 fora da curva")
+    return x, y
+
+
+def add_points(left, right):
+    x1, y1 = left
+    x2, y2 = right
+    product = D * x1 * x2 * y1 * y2
+    return (
+        (x1 * y2 + x2 * y1) * inverse(1 + product) % FIELD,
+        (y1 * y2 + x1 * x2) * inverse(1 - product) % FIELD,
+    )
+
+
+def multiply_point(point, scalar):
+    result = (0, 1)
+    current = point
+    while scalar:
+        if scalar & 1:
+            result = add_points(result, current)
+        current = add_points(current, current)
+        scalar >>= 1
+    return result
+
+
+BASE_Y = 4 * inverse(5) % FIELD
+BASE_X = recover_x(BASE_Y)
+if BASE_X & 1:
+    BASE_X = FIELD - BASE_X
+BASE_POINT = (BASE_X, BASE_Y)
+
+message = sys.argv[1].encode()
+try:
+    signature = base64.b64decode(sys.argv[2], validate=True)
+except binascii.Error as error:
+    raise SystemExit("assinatura Ed25519 inválida") from error
+if len(signature) != 64:
+    raise SystemExit("assinatura Ed25519 inválida")
+try:
+    public_point = decode_point(PUBLIC_KEY)
+    signature_point = decode_point(signature[:32])
+except ValueError as error:
+    raise SystemExit(str(error)) from error
+scalar = int.from_bytes(signature[32:], "little")
+if scalar >= ORDER:
+    raise SystemExit("assinatura Ed25519 não canônica")
+challenge = int.from_bytes(
+    hashlib.sha512(signature[:32] + PUBLIC_KEY + message).digest(),
+    "little",
+) % ORDER
+if multiply_point(BASE_POINT, scalar) != add_points(
+    signature_point,
+    multiply_point(public_point, challenge),
+):
+    raise SystemExit("assinatura Ed25519 não confere")
+PY
+  then
     fail "assinatura do agente não confere"
   fi
-  rm -rf "$temp_dir"
 }
 
 exchange_token() {

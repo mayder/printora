@@ -187,6 +187,20 @@ def test_agent_installer_verifies_release_checksum_and_signature(tmp_path: Path)
     assert invalid.returncode != 0
     assert "checksum do agente não confere" in invalid.stderr
 
+    invalid_signature_env = {
+        **env,
+        "PRINTORA_AGENT_SIGNATURE": metadata["signature"][:-4] + "AAAA",
+    }
+    invalid_signature = subprocess.run(
+        ["bash", "-c", f"source {script!s}; verify_release {artifact!s}"],
+        env=invalid_signature_env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert invalid_signature.returncode != 0
+    assert "assinatura do agente não confere" in invalid_signature.stderr
+
 
 def _register(client: TestClient, email: str) -> str:
     response = client.post("/api/auth/register", json={"email": email, "password": "correct-horse"})
