@@ -64,6 +64,12 @@ O build frontend ainda emitiu os warnings de Node 18 incompatível e chunks acim
 de 500 kB. O comando terminou com sucesso porque esses limites pertencem ao
 PKG-97 e ainda não são gates bloqueantes.
 
+Na primeira publicação do candidato, o gate completo passou, mas o deploy foi
+bloqueado antes do empacotamento porque o npm 10 do runner chamou o endpoint
+legado de auditoria e recebeu HTTP 400 `Invalid package tree`. O workflow passou
+a fixar npm `11.7.0`, que usa o endpoint atual; a auditoria continuou bloqueante
+e foi validada localmente com zero vulnerabilidade de produção.
+
 ## Observação Real Somente Leitura
 
 Em produção, antes de qualquer mutação:
