@@ -651,7 +651,13 @@ def _is_termux() -> bool:
         Path("/data/data/com.termux/files/usr"),
         Path.home() / "../usr",
     ]
-    return any(path.exists() for path in prefixes)
+    for path in prefixes:
+        try:
+            if path.exists():
+                return True
+        except OSError:
+            continue
+    return False
 
 
 def _validate_confirmation(confirmation_phrase: str) -> None:

@@ -11,6 +11,18 @@ from app.main import app
 from app.self_update import SelfUpdateRepository, UpdatePlanRequest, build_update_plan
 
 
+def test_detect_update_environment_ignores_inaccessible_termux_probe(monkeypatch) -> None:
+    def inaccessible_exists(path: Path) -> bool:
+        if str(path).endswith("/../usr"):
+            raise PermissionError("denied")
+        return False
+
+    monkeypatch.setattr(self_update_module.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(self_update_module.Path, "exists", inaccessible_exists)
+
+    assert self_update_module.detect_update_environment() == "unix"
+
+
 def test_create_android_termux_plan(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)
