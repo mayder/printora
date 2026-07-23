@@ -60,12 +60,13 @@ class AgentWebSocketManager:
     async def unregister(self, agent_id: int, websocket=None) -> None:
         async with self._lock:
             current = self._sessions.get(agent_id)
-            if current is not None and (websocket is None or current.websocket is websocket):
-                self._sessions.pop(agent_id, None)
-            else:
+            if current is None or (websocket is not None and current.websocket is not websocket):
                 current = None
         if current is not None:
             await asyncio.to_thread(self._disconnect_session, current.session_id)
+            async with self._lock:
+                if self._sessions.get(agent_id) is current:
+                    self._sessions.pop(agent_id, None)
 
     async def disconnect_all(self) -> None:
         async with self._lock:
