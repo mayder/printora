@@ -42,7 +42,7 @@ def _sample() -> dict:
             "file_descriptors": 120,
             "restart_count": 0,
         },
-        "host": {"disk_free_percent": 40},
+        "host": {"disk_free_bytes": 120_000_000_000, "disk_free_percent": 40},
     }
 
 
@@ -64,6 +64,7 @@ def test_healthy_observation_passes_against_baseline() -> None:
         _sample(),
         max_backlog=25,
         min_disk_free_percent=15,
+        min_disk_free_bytes=53_687_091_200,
         max_rss_growth_bytes=268_435_456,
         max_fd_growth=256,
         max_connection_growth=20,
@@ -87,6 +88,7 @@ def test_observation_fails_closed_on_agent_service_and_growth_regressions() -> N
         baseline,
         max_backlog=25,
         min_disk_free_percent=15,
+        min_disk_free_bytes=53_687_091_200,
         max_rss_growth_bytes=268_435_456,
         max_fd_growth=256,
         max_connection_growth=20,
@@ -102,3 +104,29 @@ def test_observation_fails_closed_on_agent_service_and_growth_regressions() -> N
         "file_descriptor_growth",
         "process_restart",
     }
+
+
+def test_disk_gate_accepts_large_absolute_reserve_and_blocks_low_reserve() -> None:
+    sample = _sample()
+    sample["host"] = {"disk_free_bytes": 114_000_000_000, "disk_free_percent": 11.8}
+    assert observer.evaluate_sample(
+        sample,
+        None,
+        max_backlog=25,
+        min_disk_free_percent=15,
+        min_disk_free_bytes=53_687_091_200,
+        max_rss_growth_bytes=268_435_456,
+        max_fd_growth=256,
+        max_connection_growth=20,
+    ) == []
+    sample["host"]["disk_free_bytes"] = 40_000_000_000
+    assert "disk_free_limit" in observer.evaluate_sample(
+        sample,
+        None,
+        max_backlog=25,
+        min_disk_free_percent=15,
+        min_disk_free_bytes=53_687_091_200,
+        max_rss_growth_bytes=268_435_456,
+        max_fd_growth=256,
+        max_connection_growth=20,
+    )

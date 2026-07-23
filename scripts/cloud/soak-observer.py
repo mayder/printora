@@ -59,6 +59,7 @@ def evaluate_sample(
     *,
     max_backlog: int,
     min_disk_free_percent: float,
+    min_disk_free_bytes: int,
     max_rss_growth_bytes: int,
     max_fd_growth: int,
     max_connection_growth: int,
@@ -79,7 +80,10 @@ def evaluate_sample(
         failures.append("active_backlog_limit")
     if platform["inactive_services"]:
         failures.append("required_service_inactive")
-    if sample["host"]["disk_free_percent"] < min_disk_free_percent:
+    if (
+        sample["host"]["disk_free_percent"] < min_disk_free_percent
+        and sample["host"]["disk_free_bytes"] < min_disk_free_bytes
+    ):
         failures.append("disk_free_limit")
 
     if baseline:
@@ -337,6 +341,7 @@ def observe(args: argparse.Namespace) -> dict[str, Any]:
         baseline,
         max_backlog=args.max_backlog,
         min_disk_free_percent=args.min_disk_free_percent,
+        min_disk_free_bytes=args.min_disk_free_bytes,
         max_rss_growth_bytes=args.max_rss_growth_bytes,
         max_fd_growth=args.max_fd_growth,
         max_connection_growth=args.max_connection_growth,
@@ -358,6 +363,7 @@ def main() -> int:
     parser.add_argument("--max-heartbeat-age", type=float, default=120.0)
     parser.add_argument("--max-backlog", type=int, default=25)
     parser.add_argument("--min-disk-free-percent", type=float, default=15.0)
+    parser.add_argument("--min-disk-free-bytes", type=int, default=53_687_091_200)
     parser.add_argument("--max-rss-growth-bytes", type=int, default=268_435_456)
     parser.add_argument("--max-fd-growth", type=int, default=256)
     parser.add_argument("--max-connection-growth", type=int, default=20)

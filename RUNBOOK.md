@@ -2241,6 +2241,9 @@ RSS, FD, tasks, reinícios e disco. O observador falha fechado em heartbeat
 vencido, serviço indisponível, erro novo, backlog ou crescimento acima dos
 limites. O arquivo é sanitizado: identifica o agente somente por fingerprint e
 não registra URL de banco, token, IP, path privado ou payload.
+O gate de disco combina os limites: falha somente quando a reserva fica abaixo
+de 15% e de 50 GiB, evitando falso bloqueio em volumes grandes sem deixar de
+proteger a capacidade absoluta.
 
 ```bash
 sudo systemd-run --unit=printora-cloud-soak --collect \

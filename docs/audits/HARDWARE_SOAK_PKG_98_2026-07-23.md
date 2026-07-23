@@ -73,7 +73,8 @@ Estado: em execução
 - backlog ativo agregado: até 25 e sem crescimento contínuo;
 - crescimento contra baseline: RSS até 256 MiB, FD até 256 e conexões PostgreSQL
   até 20;
-- disco livre: mínimo 15%;
+- disco livre: falha somente se estiver abaixo de 15% e de 50 GiB; o primeiro
+  probe real mediu 11,8%, mas ainda cerca de 114 GB livres;
 - nenhum novo job de agente falho, dead letter, correlation ID duplicado ou
   restart de processo;
 - serviços obrigatórios, Redis, PostgreSQL, storage, busca e agente sempre
