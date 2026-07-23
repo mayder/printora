@@ -30,9 +30,16 @@ for file in "${obsolete_files[@]}"; do
   [[ ! -e "$file" ]] || fail "artefato aposentado presente: $file"
 done
 
-if rg -n \
-  'database_transition|PRINTORA_(SQLITE_SHADOW|POSTGRESQL_SHADOW|DUAL_READ|DUAL_WRITE|TRANSITION_OUTBOX)' \
-  backend/app frontend/src packaging scripts/cloud .github/workflows; then
+retired_pattern='database_transition|PRINTORA_(SQLITE_SHADOW|POSTGRESQL_SHADOW|DUAL_READ|DUAL_WRITE|TRANSITION_OUTBOX)'
+if command -v rg >/dev/null 2>&1; then
+  retired_matches="$(rg -n "$retired_pattern" \
+    backend/app frontend/src packaging scripts/cloud .github/workflows || true)"
+else
+  retired_matches="$(grep -EnR "$retired_pattern" \
+    backend/app frontend/src packaging scripts/cloud .github/workflows || true)"
+fi
+if [[ -n "$retired_matches" ]]; then
+  printf '%s\n' "$retired_matches"
   fail "flag, contrato ou bridge transitório encontrado"
 fi
 
@@ -49,12 +56,20 @@ for unit in packaging/systemd/*.service packaging/systemd/*.timer packaging/syst
     || fail "unit sem owner no manifesto: $(basename "$unit")"
 done
 
-python_bin="python3"
-[[ -x backend/.venv/bin/python ]] && python_bin="backend/.venv/bin/python"
+python_command=(python3)
+python_workdir="$ROOT_DIR"
+if [[ -x backend/.venv/bin/python ]]; then
+  python_command=("$ROOT_DIR/backend/.venv/bin/python")
+elif command -v uv >/dev/null 2>&1; then
+  python_command=(uv run --frozen python)
+  python_workdir="$ROOT_DIR/backend"
+fi
+(
+cd "$python_workdir"
 PYTHONPATH="$ROOT_DIR/backend" \
-PRINTORA_RUNTIME_PROFILE=cloud \
-PRINTORA_DATABASE_URL=postgresql://scan:scan@127.0.0.1:5433/printora_cloud \
-"$python_bin" - <<'PY'
+  PRINTORA_RUNTIME_PROFILE=cloud \
+  PRINTORA_DATABASE_URL=postgresql://scan:scan@127.0.0.1:5433/printora_cloud \
+  "${python_command[@]}" - <<'PY'
 import sys
 
 import app.database
@@ -63,6 +78,7 @@ import app.modules.platform.database_target
 if "sqlite3" in sys.modules:
     raise SystemExit("perfil cloud carregou sqlite3")
 PY
+)
 
 grep -q '^EnvironmentFile=/etc/printora-cloud/postgresql.env$' \
   packaging/systemd/printora-cloud@.service \
