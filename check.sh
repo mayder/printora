@@ -18,6 +18,7 @@ run_model_validations() {
     scripts/validate-file-size.sh \
     scripts/validate-no-runtime-pkg-names.sh \
     scripts/validate-cloud-postgresql-only.sh \
+    scripts/validate-cloud-object-search-only.sh \
     scripts/validate-durable-execution.sh \
     scripts/validate-fixtures.sh \
     scripts/validate-layering.sh \

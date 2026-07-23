@@ -127,9 +127,9 @@ class SocialStorageRepository:
                 usage=usage,
                 retention=retention,
                 object_storage_plan=[
-                    "Manter a chave lógica do arquivo desacoplada do caminho local.",
-                    "Migrar o adapter para bucket externo preservando checksum, tamanho e dono.",
-                    "Executar backfill supervisionado antes de trocar leitura/download para object storage.",
+                    "Chave lógica desacoplada do backend físico.",
+                    "Quarentena, promoção e download autorizados pelo PostgreSQL.",
+                    "Reconciliação por checksum preserva a origem até confirmação explícita.",
                 ],
             )
 

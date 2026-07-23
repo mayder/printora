@@ -5667,6 +5667,10 @@ Estado atual:
   PostgreSQL físico/lógico + WAL e todas as versões/delimitadores dos três buckets
   com manifesto/checksum. Restore isolado reconcilia metadado/conteúdo e executa
   rebuild da busca sem iniciar aplicação ou alterar produção.
+- Lote 8 implementado localmente: gate bloqueia fallback de filesystem, upload
+  sem limite incremental, busca request-time/`LIKE` no perfil cloud e unit sem
+  dependência do storage privado. Adapter e índice antigos permanecem somente no
+  perfil local; dados/paths de origem não foram apagados.
 
 ## PKG-91: Núcleo Financeiro, Pagamentos E Pedidos
 
