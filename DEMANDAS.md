@@ -5997,7 +5997,8 @@ Critério de aceite:
 
 Estado atual:
 
-- Lotes 1 a 6 implementados: contrato sanitizado versionado, lineage, replay,
+- Concluído e publicado na release `734de42`; lotes 1 a 8 encerrados.
+- Contrato sanitizado versionado, lineage, replay,
   read models, dashboard, moderação multilíngue com revisão/recurso, recomendação,
   busca geométrica, registro de modelos, canário, drift e kill switch.
 - Role `printora_analytics` recebe acesso somente às tabelas derivadas; o worker
@@ -6005,8 +6006,17 @@ Estado atual:
 - Anonimização altera somente derivados e a retenção opera em preview, sem
   exclusão automática. O baseline usa apenas eventos internos sanitizados, sem
   dataset ou modelo externo.
-- Testes locais e suíte completa passaram. Lotes 7 e 8 aguardam publicação,
-  carga/isolamento remotos e comprovação final de capacidade e retenção.
+- Gate completo e publicação passaram. O probe remoto processou 1.004 eventos a
+  18,456 eventos/s; replay de 2.000 eventos foi idempotente, PT/EN/ES exigiram
+  revisão humana, kill switch usou fallback determinístico e a retenção não
+  removeu dados.
+- Durante a carga, 600 leituras distribuídas nas duas instâncias tiveram zero
+  erro e máximo de 77 ms. A role não lê nem escreve `auth_users`; o worker ficou
+  em cerca de 34 MiB sob CPU 50%, MemoryMax 1 GiB, TasksMax 128 e IOWeight 25.
+- A rota pública foi aberta em navegador real sem erro de console. A sessão
+  disponível estava desautenticada, portanto o conteúdo administrativo interno
+  permanece validado por contrato, testes e probe autenticado, não por inspeção
+  visual dessa sessão.
 
 ## PKG-95: Consolidação, Erradicação Legada E Aceite Arquitetural
 

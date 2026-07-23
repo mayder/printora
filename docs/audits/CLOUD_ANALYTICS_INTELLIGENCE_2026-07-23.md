@@ -54,7 +54,21 @@ impressora física, agente, Moonraker, Klipper, MCU ou Raspberry Pi.
   e máximo 75 ms. O replay global revelou que a minimização de moderação removia
   features necessárias à reprodução. O evento agora preserva somente idioma,
   rótulos, confiança, flag humana e digests, sem texto, e o digest original
-  continua imutável para deduplicação. Nova publicação e probe pendentes.
+  continua imutável para deduplicação;
+- workflow `29984464479`: release `734de42` publicada com gate completo,
+  auditorias de dependência, SBOM, preflight, blue/green e smoke público;
+- probe final: 1.004 eventos em 54,4 s (18,456 eventos/s), replay de 2.000
+  eventos com 2.000 resultados invariantes, anonimização somente em derivados,
+  PT/EN/ES com revisão humana e fallback determinístico exercitado;
+- role final: acesso de atualização em derivados, sem leitura ou escrita em
+  `auth_users`; nenhum registro temporário e nenhuma exclusão de retenção;
+- worker ativo com cerca de 34 MiB, CPU 50%, MemoryHigh 512 MiB, MemoryMax
+  1 GiB, TasksMax 128 e IOWeight 25;
+- 600 leituras concorrentes nas duas instâncias: zero erro e máximo 77 ms;
+- navegador real abriu `?section=data-intelligence` sem erro de console, mas a
+  sessão disponível estava desautenticada e exibiu o login. A inspeção visual
+  interna não foi alegada; contrato, testes e probe autenticado são a evidência
+  funcional do painel.
 
 ## Retenção e rollback
 
