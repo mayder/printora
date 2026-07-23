@@ -1,10 +1,11 @@
 import React from "react";
 import { Home, RotateCcw, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
-import type GCodeViewerClass from "@sindarius/gcodeviewer";
 import { operationApi } from "../../services/operationApi";
 import { buildLayerOffsets, previewTargetPosition, sliceGcodeTextForPreview, type GcodePreviewMode } from "./gcodePreview";
 
-type GCodeViewerInstance = InstanceType<typeof GCodeViewerClass>;
+type GCodeViewerInstance = InstanceType<
+  (typeof import("@sindarius/gcodeviewer"))["default"]
+>;
 
 type BuildVolumeBounds = {
   min: [number, number, number];

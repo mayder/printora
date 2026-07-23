@@ -17,6 +17,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "test:node-version": "node tests/nodeVersionGate.test.mjs",
     "test:bundle-budget": "node tests/bundleBudget.test.mjs",
+    "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:releases": "node tests/releaseStates.test.mjs",
     "test:gcode-preview": "node tests/gcodePreview.test.mjs",
     "test:sequential-poll": "node tests/sequentialPoll.test.mjs"
@@ -28,10 +30,14 @@
     "react-dom": "^19.2.1"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
+    "@vitest/coverage-istanbul": "^4.1.10",
+    "jsdom": "^29.1.1",
     "typescript": "^5.9.3",
-    "vite": "^7.2.6"
+    "vite": "^7.2.6",
+    "vitest": "^4.1.10"
   }
 }

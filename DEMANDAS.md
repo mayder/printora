@@ -6321,6 +6321,8 @@ Estado atual:
   pacote, Docker e CI.
 - Lote 2 concluído: `npm ci`, build reproduzível, auditoria de dependências,
   separação de chunks e orçamento bloqueante de bytes brutos/gzip estão ativos.
+- Lote 3 concluído: baseline real medido em Python, Go e frontend, incluindo
+  arquivos frontend não exercitados e recorte crítico P0 explícito.
 - Evidência em `docs/audits/QUALITY_GATE_PKG_97_2026-07-23.md`.
 
 ## PKG-98: Homologação Física E Soak Prolongado

@@ -10,6 +10,8 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+.coverage
+coverage/
 
 # Node
 node_modules/

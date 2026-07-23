@@ -28,9 +28,30 @@ Estado: em implementação
 - o build falha quando qualquer orçamento é excedido; o warning genérico de
   500 kB foi substituído por limites explícitos, testados e adequados aos chunks.
 
+## Baseline Real De Cobertura
+
+O baseline inclui código não exercitado e não exclui telas, hooks, serviços ou
+regras para elevar artificialmente o percentual. Arquivos apenas de tipos e
+declarações sem runtime são as únicas exclusões frontend.
+
+| Módulo | Cobertura global | Cobertura crítica |
+| --- | ---: | ---: |
+| Backend Python | 79,25% de linhas | 84,58% de linhas |
+| Agente Go | 53,3% de statements | 54,8% no pacote operacional |
+| Frontend | 1,74% de linhas | 89,20% nas fronteiras P0 selecionadas |
+
+- backend: 569 testes, medidos por `pytest-cov`;
+- agente: `go test -coverprofile` sobre todos os pacotes;
+- frontend: nove testes Vitest em três arquivos, com Istanbul sobre todos os
+  `.ts`/`.tsx`, inclusive arquivos nunca importados;
+- fronteiras frontend P0 medidas: cliente HTTP/autorização, cálculo de preview
+  G-code e polling sequencial;
+- a cobertura frontend global baixa é dívida real visível; não foi ocultada por
+  filtro de diretórios.
+
 ## Evidência Pendente
 
-- cobertura Python, Go e frontend;
+- limiares e não regressão bloqueantes;
 - E2E, acessibilidade e falhas de rede;
 - property/fuzz e mutation;
 - pentest independente e reteste;
