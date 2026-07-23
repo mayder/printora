@@ -123,6 +123,16 @@ declarações sem runtime são as únicas exclusões frontend.
   nenhum slot foi preparado ou trocado. A fixture passou a compor o valor em
   runtime, sem credencial real, e ausência de artefato antes do gate gera aviso
   em vez de uma segunda falha que esconda a causa primária;
+- a execução corrigida `30027821712` publicou o commit runtime `07e2eb2` em
+  `18m45s`: gate completo, build reproduzível, artefatos, auditoria de
+  dependências, SBOM, release imutável, preflight, preparação do slot, troca
+  com drain e validação pública passaram;
+- smoke externo confirmou `/health`, `/ready`, `/api/system/version`, catálogo
+  e feed comunitário. O navegador autenticado abriu a Visão geral publicada,
+  sem erro visível, com as duas impressoras e os dois agentes online em
+  `0.1.34`; nenhuma ação mutável foi enviada às impressoras;
+- o commit documental posterior `b40c8d6` apenas prepara o escopo do pentest e
+  não exige nova troca de runtime;
 - `./check.sh` passou em 2026-07-23 com Node suportado, regras/arquitetura,
   20 E2E, 20 execuções property/fuzz, 723 mutantes, cobertura Python/Go/frontend,
   contratos, compileall e testes Go;
