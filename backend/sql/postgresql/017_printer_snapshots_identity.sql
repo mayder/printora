@@ -8,6 +8,22 @@ LOCK TABLE public.printer_snapshots IN SHARE ROW EXCLUSIVE MODE;
 
 CREATE SEQUENCE IF NOT EXISTS public.printer_snapshots_id_seq;
 
+DO $$
+DECLARE
+    snapshots_owner name;
+BEGIN
+    SELECT pg_get_userbyid(relowner)
+    INTO snapshots_owner
+    FROM pg_class
+    WHERE oid = 'public.printer_snapshots'::regclass;
+
+    EXECUTE format(
+        'ALTER SEQUENCE public.printer_snapshots_id_seq OWNER TO %I',
+        snapshots_owner
+    );
+END
+$$;
+
 ALTER SEQUENCE public.printer_snapshots_id_seq
     OWNED BY public.printer_snapshots.id;
 
