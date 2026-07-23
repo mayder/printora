@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app.agent_support import _ED25519_VERIFY_PYTHON
+from app.agent_support import _ED25519_VERIFY_PYTHON, _parse_dt
 from app.agent_updates import load_agent_update_manifest
 from app.config import get_settings
 from app.database import connect_database, initialize_database
@@ -212,6 +212,20 @@ def test_bootstrap_ed25519_verifier_is_portable_and_rejects_tampering(tmp_path: 
     )
     assert rejected.returncode != 0
     assert "assinatura Ed25519 não confere" in rejected.stderr
+
+
+def test_agent_support_parses_postgresql_and_sqlite_timestamps() -> None:
+    postgres = _parse_dt("2026-07-23 10:36:11.83607-03")
+    assert postgres is not None
+    assert postgres.isoformat() == "2026-07-23T13:36:11.836070+00:00"
+
+    sqlite = _parse_dt("2026-07-23 13:36:11")
+    assert sqlite is not None
+    assert sqlite.isoformat() == "2026-07-23T13:36:11+00:00"
+
+    utc = _parse_dt("2026-07-23T13:36:11Z")
+    assert utc is not None
+    assert utc.isoformat() == "2026-07-23T13:36:11+00:00"
 
 
 def test_agent_update_job_is_reconciled_after_restart_heartbeat(tmp_path: Path, monkeypatch) -> None:

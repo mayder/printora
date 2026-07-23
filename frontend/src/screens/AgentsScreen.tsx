@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Badge, Metric } from "../components/common";
-import { formatDateTime } from "../utils/formatters";
+import { formatDateTime, parsePrintoraDate } from "../utils/formatters";
 import type { AgentPairingOverview, PairingTokenRecord, PrinterAgentRecord, PrinterRecord } from "../types";
 import type { ScreenPropsFor } from "./ScreenProps";
 
@@ -825,11 +825,8 @@ function isAgentHeartbeatRecent(agent: PrinterAgentRecord) {
   if (agent.status !== "active" || !agent.last_seen_at) {
     return false;
   }
-  const normalized = agent.last_seen_at.includes("T")
-    ? agent.last_seen_at
-    : `${agent.last_seen_at.replace(" ", "T")}Z`;
-  const timestamp = Date.parse(normalized);
-  if (Number.isNaN(timestamp)) {
+  const timestamp = parsePrintoraDate(agent.last_seen_at)?.getTime();
+  if (timestamp === undefined) {
     return false;
   }
   return Date.now() - timestamp <= AGENT_ONLINE_WINDOW_SECONDS * 1000;

@@ -1,4 +1,5 @@
 const OFFSET_SUFFIX = /(?:Z|[+-]\d{2}:?\d{2})$/i;
+const SHORT_OFFSET_SUFFIX = /([+-]\d{2})$/;
 const TIMEZONE_KEY = "printora.userTimezone";
 
 let currentUserTimezone = readStoredTimezone();
@@ -40,7 +41,7 @@ export function browserTimezone() {
   return normalizeTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
 }
 
-function parsePrintoraDate(value?: string | null) {
+export function parsePrintoraDate(value?: string | null) {
   if (!value) {
     return null;
   }
@@ -48,9 +49,12 @@ function parsePrintoraDate(value?: string | null) {
   if (!trimmed) {
     return null;
   }
-  const normalized = OFFSET_SUFFIX.test(trimmed)
-    ? trimmed
-    : `${trimmed.replace(" ", "T")}Z`;
+  const isoValue = trimmed.replace(" ", "T");
+  const normalized = SHORT_OFFSET_SUFFIX.test(isoValue)
+    ? isoValue.replace(SHORT_OFFSET_SUFFIX, "$1:00")
+    : OFFSET_SUFFIX.test(isoValue)
+      ? isoValue
+      : `${isoValue}Z`;
   const date = new Date(normalized);
   return Number.isNaN(date.getTime()) ? null : date;
 }
