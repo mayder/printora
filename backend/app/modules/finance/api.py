@@ -6,6 +6,7 @@ from app.config import get_settings
 from app.finance_payments import FinancePaymentService
 from app.finance_orders import FinanceOrderService
 from app.finance_payment_operations import FinancePaymentOperationsService
+from app.finance_settlement import FinanceSettlementService
 from app.modules.assembly import ModuleDefinition, RouterRegistration
 from app.modules.finance.contracts import (
     PaymentIntentResponse,
@@ -16,6 +17,13 @@ from app.modules.finance.contracts import (
     OrderResponse,
     PaymentCommandRequest,
     PaymentCommandResponse,
+    ClosingRequest,
+    ClosingResponse,
+    FinanceBalanceResponse,
+    PayoutRequest,
+    PayoutResponse,
+    ReconciliationRequest,
+    ReconciliationResponse,
 )
 from app.modules.finance.domain import Money
 from app.modules.identity.contracts import CurrentUser
@@ -111,6 +119,85 @@ async def execute_payment_command(
     try:
         return FinancePaymentOperationsService(get_settings().database_path).execute(
             payment_public_id, payload, current.user.id
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get("/api/finance/balance", response_model=FinanceBalanceResponse)
+async def finance_balance(
+    currency: str = "BRL",
+    current: CurrentUser = Depends(require_current_user),
+) -> FinanceBalanceResponse:
+    try:
+        return FinanceSettlementService(get_settings().database_path).balance(current.user.id, currency)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/finance/payouts", response_model=PayoutResponse)
+async def request_payout(
+    payload: PayoutRequest,
+    current: CurrentUser = Depends(require_current_user),
+) -> PayoutResponse:
+    try:
+        return FinanceSettlementService(get_settings().database_path).request_payout(
+            current.user.id, payload.currency, payload.amount_minor, payload.idempotency_key
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/api/admin/finance/reconciliations", response_model=ReconciliationResponse)
+async def reconcile_finance(
+    payload: ReconciliationRequest,
+    current: CurrentUser = Depends(require_finance_admin),
+) -> ReconciliationResponse:
+    try:
+        return FinanceSettlementService(get_settings().database_path).reconcile(
+            payload.currency, payload.provider_reported_minor,
+            payload.evidence_reference, current.user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/api/admin/finance/payouts/{public_id}/approve", response_model=PayoutResponse)
+async def approve_payout(
+    public_id: str,
+    current: CurrentUser = Depends(require_finance_admin),
+) -> PayoutResponse:
+    try:
+        return FinanceSettlementService(get_settings().database_path).approve_payout(
+            public_id, current.user.id
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/api/admin/finance/payouts/{public_id}/execute", response_model=PayoutResponse)
+async def execute_payout(
+    public_id: str,
+    current: CurrentUser = Depends(require_finance_admin),
+) -> PayoutResponse:
+    try:
+        return FinanceSettlementService(get_settings().database_path).execute_payout(
+            public_id, current.user.id
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/api/admin/finance/closings", response_model=ClosingResponse)
+async def close_finance_period(
+    payload: ClosingRequest,
+    current: CurrentUser = Depends(require_finance_admin),
+) -> ClosingResponse:
+    try:
+        return FinanceSettlementService(get_settings().database_path).close(
+            payload.currency, payload.period_key, current.user.id
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

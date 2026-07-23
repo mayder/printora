@@ -4377,6 +4377,71 @@
         "title": "CatalogVariantUpdate",
         "type": "object"
       },
+      "ClosingRequest": {
+        "properties": {
+          "currency": {
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "period_key": {
+            "maxLength": 32,
+            "minLength": 7,
+            "title": "Period Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "period_key"
+        ],
+        "title": "ClosingRequest",
+        "type": "object"
+      },
+      "ClosingResponse": {
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "ledger_imbalance_count": {
+            "title": "Ledger Imbalance Count",
+            "type": "integer"
+          },
+          "ledger_transaction_count": {
+            "title": "Ledger Transaction Count",
+            "type": "integer"
+          },
+          "open_dispute_count": {
+            "title": "Open Dispute Count",
+            "type": "integer"
+          },
+          "period_key": {
+            "title": "Period Key",
+            "type": "string"
+          },
+          "public_id": {
+            "title": "Public Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "public_id",
+          "currency",
+          "period_key",
+          "status",
+          "ledger_transaction_count",
+          "ledger_imbalance_count",
+          "open_dispute_count"
+        ],
+        "title": "ClosingResponse",
+        "type": "object"
+      },
       "Community": {
         "properties": {
           "file_count": {
@@ -6157,6 +6222,44 @@
           "updated_at"
         ],
         "title": "ExternalSourceRecord",
+        "type": "object"
+      },
+      "FinanceBalanceResponse": {
+        "properties": {
+          "available_minor": {
+            "title": "Available Minor",
+            "type": "integer"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "ledger_balance_minor": {
+            "title": "Ledger Balance Minor",
+            "type": "integer"
+          },
+          "negative_balance_policy": {
+            "title": "Negative Balance Policy",
+            "type": "string"
+          },
+          "reserved_minor": {
+            "title": "Reserved Minor",
+            "type": "integer"
+          },
+          "seller_user_id": {
+            "title": "Seller User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seller_user_id",
+          "currency",
+          "ledger_balance_minor",
+          "reserved_minor",
+          "available_minor",
+          "negative_balance_policy"
+        ],
+        "title": "FinanceBalanceResponse",
         "type": "object"
       },
       "FirmwareBoardCreate": {
@@ -12559,6 +12662,84 @@
         "title": "PaymentWebhookResponse",
         "type": "object"
       },
+      "PayoutRequest": {
+        "properties": {
+          "amount_minor": {
+            "exclusiveMinimum": 0.0,
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "currency": {
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 160,
+            "minLength": 8,
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "amount_minor",
+          "idempotency_key"
+        ],
+        "title": "PayoutRequest",
+        "type": "object"
+      },
+      "PayoutResponse": {
+        "properties": {
+          "amount_minor": {
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "approved_by_user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By User Id"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "public_id": {
+            "title": "Public Id",
+            "type": "string"
+          },
+          "requested_by_user_id": {
+            "title": "Requested By User Id",
+            "type": "integer"
+          },
+          "seller_user_id": {
+            "title": "Seller User Id",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "public_id",
+          "seller_user_id",
+          "currency",
+          "amount_minor",
+          "status",
+          "requested_by_user_id",
+          "approved_by_user_id"
+        ],
+        "title": "PayoutResponse",
+        "type": "object"
+      },
       "PluginAuditItem": {
         "properties": {
           "action": {
@@ -15949,6 +16130,72 @@
           "scoring"
         ],
         "title": "RecommendationResponse",
+        "type": "object"
+      },
+      "ReconciliationRequest": {
+        "properties": {
+          "currency": {
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "evidence_reference": {
+            "maxLength": 240,
+            "minLength": 3,
+            "title": "Evidence Reference",
+            "type": "string"
+          },
+          "provider_reported_minor": {
+            "minimum": 0.0,
+            "title": "Provider Reported Minor",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "currency",
+          "provider_reported_minor",
+          "evidence_reference"
+        ],
+        "title": "ReconciliationRequest",
+        "type": "object"
+      },
+      "ReconciliationResponse": {
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "difference_minor": {
+            "title": "Difference Minor",
+            "type": "integer"
+          },
+          "ledger_clearing_minor": {
+            "title": "Ledger Clearing Minor",
+            "type": "integer"
+          },
+          "provider_reported_minor": {
+            "title": "Provider Reported Minor",
+            "type": "integer"
+          },
+          "public_id": {
+            "title": "Public Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "public_id",
+          "currency",
+          "ledger_clearing_minor",
+          "provider_reported_minor",
+          "difference_minor",
+          "status"
+        ],
+        "title": "ReconciliationResponse",
         "type": "object"
       },
       "RelationshipRecord": {
@@ -22964,6 +23211,65 @@
         "summary": "Frontend Index"
       }
     },
+    "/api/admin/finance/closings": {
+      "post": {
+        "operationId": "close_finance_period_api_admin_finance_closings_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClosingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClosingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close Finance Period",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
     "/api/admin/finance/payments/{payment_public_id}/commands": {
       "post": {
         "operationId": "execute_payment_command_api_admin_finance_payments__payment_public_id__commands_post",
@@ -23027,6 +23333,181 @@
           }
         },
         "summary": "Execute Payment Command",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/admin/finance/payouts/{public_id}/approve": {
+      "post": {
+        "operationId": "approve_payout_api_admin_finance_payouts__public_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_id",
+            "required": true,
+            "schema": {
+              "title": "Public Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Payout",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/admin/finance/payouts/{public_id}/execute": {
+      "post": {
+        "operationId": "execute_payout_api_admin_finance_payouts__public_id__execute_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_id",
+            "required": true,
+            "schema": {
+              "title": "Public Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Execute Payout",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/admin/finance/reconciliations": {
+      "post": {
+        "operationId": "reconcile_finance_api_admin_finance_reconciliations_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReconciliationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconciliationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reconcile Finance",
         "tags": [
           "finance"
         ]
@@ -26470,6 +26951,65 @@
         "summary": "Post Update Checklist"
       }
     },
+    "/api/finance/balance": {
+      "get": {
+        "operationId": "finance_balance_api_finance_balance_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "currency",
+            "required": false,
+            "schema": {
+              "default": "BRL",
+              "title": "Currency",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinanceBalanceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finance Balance",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
     "/api/finance/orders": {
       "post": {
         "operationId": "create_order_api_finance_orders_post",
@@ -26650,6 +27190,65 @@
           }
         },
         "summary": "Checkout Order",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/payouts": {
+      "post": {
+        "operationId": "request_payout_api_finance_payouts_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Payout",
         "tags": [
           "finance"
         ]

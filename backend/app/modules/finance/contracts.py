@@ -86,3 +86,58 @@ class PaymentCommandResponse(BaseModel):
     result_status: str
     amount_minor: int | None
     duplicate: bool = False
+
+
+class FinanceBalanceResponse(BaseModel):
+    seller_user_id: int
+    currency: str
+    ledger_balance_minor: int
+    reserved_minor: int
+    available_minor: int
+    negative_balance_policy: str
+
+
+class ReconciliationRequest(BaseModel):
+    currency: str = Field(min_length=3, max_length=3)
+    provider_reported_minor: int = Field(ge=0)
+    evidence_reference: str = Field(min_length=3, max_length=240)
+
+
+class ReconciliationResponse(BaseModel):
+    public_id: str
+    currency: str
+    ledger_clearing_minor: int
+    provider_reported_minor: int
+    difference_minor: int
+    status: str
+
+
+class PayoutRequest(BaseModel):
+    currency: str = Field(min_length=3, max_length=3)
+    amount_minor: int = Field(gt=0)
+    idempotency_key: str = Field(min_length=8, max_length=160)
+
+
+class PayoutResponse(BaseModel):
+    public_id: str
+    seller_user_id: int
+    currency: str
+    amount_minor: int
+    status: str
+    requested_by_user_id: int
+    approved_by_user_id: int | None
+
+
+class ClosingRequest(BaseModel):
+    currency: str = Field(min_length=3, max_length=3)
+    period_key: str = Field(min_length=7, max_length=32)
+
+
+class ClosingResponse(BaseModel):
+    public_id: str
+    currency: str
+    period_key: str
+    status: str
+    ledger_transaction_count: int
+    ledger_imbalance_count: int
+    open_dispute_count: int

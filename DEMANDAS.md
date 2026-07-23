@@ -5765,6 +5765,11 @@ Estado atual:
   postam compensações balanceadas no ledger e atualizam pedido/pagamento na mesma
   transação; reembolso acima do elegível é bloqueado. Registros e alocações são
   imutáveis e nenhuma correção edita lançamento anterior.
+- Lote 5 concluído: saldo é derivado do ledger, reserva pedidos de repasse e
+  explicita política de saldo negativo. Repasse exige aprovação por pessoa
+  diferente, última reconciliação sem divergência e ausência de disputa aberta;
+  execução posta nova transação balanceada. Fechamento imutável registra
+  reconciliação, desbalanceamento e disputas, ficando bloqueado se houver desvio.
 
 ## PKG-92: Fabricação, Qualidade, Logística E Cadeia De Custódia
 

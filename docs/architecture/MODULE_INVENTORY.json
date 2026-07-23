@@ -93,15 +93,15 @@
     }
   ],
   "summary": {
-    "modules": 157,
-    "routes": 335,
-    "contracts": 351,
-    "tables": 124,
+    "modules": 158,
+    "routes": 341,
+    "contracts": 358,
+    "tables": 127,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 26,
       "community": 29,
-      "finance": 9,
+      "finance": 10,
       "identity": 10,
       "integrations": 7,
       "operations": 55,
@@ -337,7 +337,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 558,
+      "lines": 561,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -421,6 +421,19 @@
         "modules.finance.contracts",
         "modules.finance.domain",
         "payment_provider"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "finance_settlement",
+      "owner": "finance",
+      "lines": 287,
+      "imports": [
+        "database",
+        "finance_ledger",
+        "modules.finance.contracts",
+        "modules.finance.domain"
       ],
       "routes": [],
       "contracts": []
@@ -888,12 +901,13 @@
     {
       "module": "modules.finance.api",
       "owner": "finance",
-      "lines": 140,
+      "lines": 227,
       "imports": [
         "config",
         "finance_orders",
         "finance_payment_operations",
         "finance_payments",
+        "finance_settlement",
         "modules.assembly",
         "modules.finance.contracts",
         "modules.finance.domain",
@@ -928,6 +942,36 @@
           "handler": "execute_payment_command"
         },
         {
+          "method": "GET",
+          "path": "/api/finance/balance",
+          "handler": "finance_balance"
+        },
+        {
+          "method": "POST",
+          "path": "/api/finance/payouts",
+          "handler": "request_payout"
+        },
+        {
+          "method": "POST",
+          "path": "/api/admin/finance/reconciliations",
+          "handler": "reconcile_finance"
+        },
+        {
+          "method": "POST",
+          "path": "/api/admin/finance/payouts/{public_id}/approve",
+          "handler": "approve_payout"
+        },
+        {
+          "method": "POST",
+          "path": "/api/admin/finance/payouts/{public_id}/execute",
+          "handler": "execute_payout"
+        },
+        {
+          "method": "POST",
+          "path": "/api/admin/finance/closings",
+          "handler": "close_finance_period"
+        },
+        {
           "method": "POST",
           "path": "/api/finance/provider-webhooks/sandbox",
           "handler": "sandbox_webhook"
@@ -938,7 +982,7 @@
     {
       "module": "modules.finance.contracts",
       "owner": "finance",
-      "lines": 88,
+      "lines": 143,
       "imports": [
         "modules.finance.domain"
       ],
@@ -953,7 +997,14 @@
         "OrderResponse",
         "OrderCheckoutRequest",
         "PaymentCommandRequest",
-        "PaymentCommandResponse"
+        "PaymentCommandResponse",
+        "FinanceBalanceResponse",
+        "ReconciliationRequest",
+        "ReconciliationResponse",
+        "PayoutRequest",
+        "PayoutResponse",
+        "ClosingRequest",
+        "ClosingResponse"
       ]
     },
     {
@@ -4654,6 +4705,21 @@
       "table": "payment_disputes",
       "owner": "finance",
       "script": "080_finance_payment_operations.sql"
+    },
+    {
+      "table": "finance_reconciliation_runs",
+      "owner": "finance",
+      "script": "081_finance_payouts.sql"
+    },
+    {
+      "table": "finance_payouts",
+      "owner": "finance",
+      "script": "081_finance_payouts.sql"
+    },
+    {
+      "table": "finance_closings",
+      "owner": "finance",
+      "script": "081_finance_payouts.sql"
     }
   ]
 }
