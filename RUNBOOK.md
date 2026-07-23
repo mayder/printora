@@ -2005,6 +2005,37 @@ validar SHA-256 do candidato, reiniciar somente `minio-printora.service`, aguard
 e repetir health + reconciliação. Não alterar buckets, metadados ou versões durante
 o rollback.
 
+## Finanças em sandbox
+
+O runtime financeiro aceita somente `PRINTORA_PAYMENT_MODE=disabled` ou
+`sandbox`. Dinheiro real não é suportado nesta release. O sandbox exige segredo
+de webhook fora do Git e checkout hospedado; o Printora não recebe nem persiste
+PAN, CVV ou payload bruto de webhook.
+
+Antes de usar o sandbox, o administrador da plataforma atribui papéis separados
+pela API autenticada. Operação, aprovação, risco, suporte e auditoria não são
+intercambiáveis. Captura, reembolso, disputa, reconciliação, alteração de papel,
+fechamento e aprovação/execução de repasse exigem step-up com purpose
+`finance_sensitive_action`; o token é de uso único e não entra no digest do
+comando.
+
+Gate local:
+
+```bash
+scripts/validate-finance-safety.sh
+cd backend && uv run --extra dev pytest -q tests/test_finance_*.py
+```
+
+O painel `Administração > Finanças` é read-only para consulta e separa pedidos,
+ledger, reconciliação, disputas e repasses. A readiness mantém PCI/LGPD, fiscal,
+jurídico, continuidade, chargeback, segurança e restore como controles com
+evidência por hash. Aprovar controles não habilita dinheiro real.
+
+Rollback: definir modo `disabled`, bloquear novos comandos e publicar a release
+anterior. Preservar integralmente pedidos, intents, webhooks por digest, ledger,
+reembolsos, disputas, repasses, decisões e auditoria. Não executar `DELETE`,
+`UPDATE` manual de ledger ou `DROP TABLE`.
+
 ## Validacao por risco
 
 - Documentacao, label ou ajuste local simples: validar arquivo alterado e executar `./check.sh` se a alteracao tocar regra do modelo.

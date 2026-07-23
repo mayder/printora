@@ -4390,6 +4390,18 @@
             "minLength": 7,
             "title": "Period Key",
             "type": "string"
+          },
+          "step_up_token": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Up Token"
           }
         },
         "required": [
@@ -5310,6 +5322,18 @@
             ],
             "title": "Status",
             "type": "string"
+          },
+          "step_up_token": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Up Token"
           }
         },
         "required": [
@@ -6435,6 +6459,18 @@
             ],
             "title": "Role",
             "type": "string"
+          },
+          "step_up_token": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Up Token"
           },
           "user_id": {
             "minimum": 1.0,
@@ -12747,6 +12783,18 @@
             "maxLength": 240,
             "title": "Reason",
             "type": "string"
+          },
+          "step_up_token": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Up Token"
           }
         },
         "required": [
@@ -12890,6 +12938,18 @@
             "minLength": 8,
             "title": "Idempotency Key",
             "type": "string"
+          },
+          "step_up_token": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Up Token"
           }
         },
         "required": [
@@ -16360,6 +16420,18 @@
             "minimum": 0.0,
             "title": "Provider Reported Minor",
             "type": "integer"
+          },
+          "step_up_token": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Up Token"
           }
         },
         "required": [
@@ -17129,6 +17201,18 @@
             "minLength": 3,
             "title": "Reason",
             "type": "string"
+          },
+          "step_up_token": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Up Token"
           }
         },
         "required": [
@@ -23666,6 +23750,57 @@
         ]
       }
     },
+    "/api/admin/finance/overview": {
+      "get": {
+        "operationId": "finance_admin_overview_api_admin_finance_overview_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Finance Admin Overview Api Admin Finance Overview Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finance Admin Overview",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
     "/api/admin/finance/payments/{payment_public_id}/commands": {
       "post": {
         "operationId": "execute_payment_command_api_admin_finance_payments__payment_public_id__commands_post",
@@ -23749,6 +23884,22 @@
           },
           {
             "in": "header",
+            "name": "X-Printora-Step-Up",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Printora-Step-Up"
+            }
+          },
+          {
+            "in": "header",
             "name": "authorization",
             "required": false,
             "schema": {
@@ -23803,6 +23954,22 @@
             "schema": {
               "title": "Public Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Printora-Step-Up",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Printora-Step-Up"
             }
           },
           {

@@ -1,4 +1,4 @@
-import { Activity, Database, FileArchive, FileText, Home, Info, Network, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
+import { Activity, Database, FileArchive, FileText, Home, Info, Landmark, Network, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
@@ -18,6 +18,7 @@ export type AppSection =
   | "maintenance"
   | "reports"
   | "settings"
+  | "finance"
   | "account"
   | "about"
   | "license";
@@ -135,6 +136,13 @@ export const appSections: Array<{
     purpose: "Gere diagnósticos compartilháveis e compare snapshots sem expor dados sensíveis.",
   },
   {
+    key: "finance",
+    icon: Landmark,
+    label: "Finanças",
+    detail: "Pedidos, ledger, reconciliação, disputas e repasses.",
+    purpose: "Acompanhe áreas financeiras segregadas, controles de prontidão e registros auditáveis.",
+  },
+  {
     key: "settings",
     icon: Settings,
     label: "Administração",
@@ -166,7 +174,7 @@ export const appSections: Array<{
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Principal", sections: ["overview", "printers", "agents", "projects", "social", "catalog", "setup"] },
-  { title: "Sistema", sections: ["settings"] },
+  { title: "Sistema", sections: ["finance", "settings"] },
 ];
 
 export const onlinePrinterSections = new Set<AppSection>([

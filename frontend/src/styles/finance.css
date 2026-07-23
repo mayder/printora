@@ -1,0 +1,30 @@
+.finance-screen { display: grid; gap: 16px; min-width: 0; }
+.finance-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.finance-heading h2, .finance-heading p { margin: 0; }
+.finance-heading .eyebrow { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; }
+.finance-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.finance-tabs button { white-space: nowrap; }
+.finance-tabs button.active { border-color: var(--accent); color: var(--accent); }
+.finance-summary { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+.finance-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.finance-metrics article, .finance-readiness, .finance-list, .finance-detail, .finance-access-state {
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface-1); padding: 16px;
+}
+.finance-metrics article { display: grid; gap: 8px; }
+.finance-metrics strong { font-size: 1.6rem; }
+.finance-status-title { display: flex; gap: 10px; align-items: flex-start; }
+.finance-status-title h3, .finance-status-title p { margin: 0; }
+.finance-readiness dl, .finance-detail dl { display: grid; gap: 8px; margin: 16px 0 0; }
+.finance-readiness dl div, .finance-detail dl div { display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid var(--border-soft); padding-top: 8px; }
+.finance-readiness dd, .finance-detail dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.finance-list-layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); gap: 16px; }
+.finance-list { display: grid; gap: 8px; align-content: start; }
+.finance-list h3, .finance-detail h3 { margin: 0 0 8px; }
+.finance-list > button { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; text-align: left; }
+.finance-access-state { max-width: 620px; display: grid; gap: 8px; }
+.finance-access-state h2, .finance-access-state p { margin: 0; }
+@media (max-width: 800px) {
+  .finance-summary, .finance-list-layout { grid-template-columns: 1fr; }
+  .finance-heading { align-items: stretch; flex-direction: column; }
+  .finance-list > button { grid-template-columns: 1fr; }
+}

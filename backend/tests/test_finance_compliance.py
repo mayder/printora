@@ -1,9 +1,14 @@
 from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 
+from app.auth import AuthRepository
+from app.config import get_settings
 from app.database import connect_database, initialize_database
 from app.finance_compliance import FinanceComplianceService
+from app.modules.finance.api import _require_finance_step_up
+from app.modules.identity.contracts import CurrentUser
 from app.payment_provider import PaymentProviderCircuitBreaker
 
 
@@ -70,3 +75,25 @@ def test_provider_circuit_breaker_opens_and_recovers() -> None:
         breaker.call(lambda: "should-not-run")
     now[0] += 11
     assert breaker.call(lambda: "recovered") == "recovered"
+
+
+def test_sensitive_finance_action_consumes_single_use_step_up(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    with connect_database(database_path) as connection:
+        user_id = connection.execute(
+            "INSERT INTO auth_users (email, password_hash) VALUES ('stepup@example.com', 'hash')"
+        ).lastrowid
+    repository = AuthRepository(database_path)
+    user = repository.get_user(int(user_id))
+    assert user is not None
+    current = CurrentUser(user=user, token="session")
+    with pytest.raises(HTTPException, match="autenticação reforçada"):
+        _require_finance_step_up(current, None)
+    token, _expires_at = repository.create_step_up(int(user_id), "finance_sensitive_action")
+    _require_finance_step_up(current, token)
+    with pytest.raises(HTTPException, match="autenticação reforçada"):
+        _require_finance_step_up(current, token)
+    get_settings.cache_clear()

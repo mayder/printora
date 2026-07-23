@@ -363,6 +363,21 @@ e só entram quando o respectivo backend estiver operacional:
 Todas exigem desktop/mobile, teclado, leitor de tela, estados vazio/loading/
 erro/degradado, permissão por ação, confirmação forte e auditoria sanitizada.
 
+## Administração > Finanças
+
+- rota/estado: `?section=finance`;
+- acesso sem papel financeiro mostra estado restrito, sem consultar ou revelar
+  pedido, saldo, ledger ou evidência;
+- `Visão geral` mostra contagens e prontidão, deixando explícito que dinheiro real
+  está indisponível;
+- `Pedidos e pagamentos`, `Ledger`, `Reconciliação`, `Disputas` e `Repasses` são
+  estados separados com lista e painel de detalhe; nenhuma edição direta do
+  ledger existe;
+- operações sensíveis exigem papel específico e autenticação reforçada de uso
+  único; solicitar, aprovar e executar repasse pertencem a atores diferentes;
+- estados loading, vazio, erro/acesso negado e sucesso são responsivos e operáveis
+  por teclado. A tela usa somente o client HTTP compartilhado.
+
 ## Boundary De Preferências Locais
 
 Tema e progresso do guia de setup preservam o comportamento visual atual, mas

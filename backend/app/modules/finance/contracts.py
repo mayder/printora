@@ -77,6 +77,7 @@ class PaymentCommandRequest(BaseModel):
     idempotency_key: str = Field(min_length=8, max_length=160)
     amount_minor: int | None = Field(default=None, gt=0)
     reason: str = Field(default="", max_length=240)
+    step_up_token: str | None = Field(default=None, max_length=240)
 
 
 class PaymentCommandResponse(BaseModel):
@@ -101,6 +102,7 @@ class ReconciliationRequest(BaseModel):
     currency: str = Field(min_length=3, max_length=3)
     provider_reported_minor: int = Field(ge=0)
     evidence_reference: str = Field(min_length=3, max_length=240)
+    step_up_token: str | None = Field(default=None, max_length=240)
 
 
 class ReconciliationResponse(BaseModel):
@@ -116,6 +118,7 @@ class PayoutRequest(BaseModel):
     currency: str = Field(min_length=3, max_length=3)
     amount_minor: int = Field(gt=0)
     idempotency_key: str = Field(min_length=8, max_length=160)
+    step_up_token: str | None = Field(default=None, max_length=240)
 
 
 class PayoutResponse(BaseModel):
@@ -131,6 +134,7 @@ class PayoutResponse(BaseModel):
 class ClosingRequest(BaseModel):
     currency: str = Field(min_length=3, max_length=3)
     period_key: str = Field(min_length=7, max_length=32)
+    step_up_token: str | None = Field(default=None, max_length=240)
 
 
 class ClosingResponse(BaseModel):
@@ -150,6 +154,7 @@ class FinanceRoleRequest(BaseModel):
         "finance_support", "finance_auditor",
     ]
     active: bool = True
+    step_up_token: str | None = Field(default=None, max_length=240)
 
 
 class FinanceRoleResponse(BaseModel):
@@ -172,6 +177,7 @@ class RiskCaseResponse(BaseModel):
 class RiskDecisionRequest(BaseModel):
     decision: Literal["approve", "reject"]
     reason: str = Field(min_length=3, max_length=500)
+    step_up_token: str | None = Field(default=None, max_length=240)
 
 
 class RiskAppealRequest(BaseModel):
@@ -182,6 +188,7 @@ class ComplianceControlRequest(BaseModel):
     status: Literal["pending", "passed", "blocked"]
     evidence_reference: str = Field(min_length=3, max_length=500)
     expires_at: str | None = Field(default=None, max_length=80)
+    step_up_token: str | None = Field(default=None, max_length=240)
 
 
 class ComplianceControlResponse(BaseModel):

@@ -26,5 +26,10 @@ rg -q 'checkout\.sandbox\.invalid' backend/app/payment_provider.py || {
   echo "checkout sandbox deve permanecer hospedado fora da aplicação" >&2
   exit 1
 }
+if rg -n 'router\.(get|post|put|patch|delete)\([^\n]*(checkout|payment|orders)' \
+  backend/app --glob '*.py' | rg -v 'backend/app/modules/finance/api.py'; then
+  echo "endpoint comercial legado fora do módulo financeiro detectado" >&2
+  exit 1
+fi
 
 echo "segurança financeira: sandbox-only, checkout hospedado e zero PAN/CVV persistido"

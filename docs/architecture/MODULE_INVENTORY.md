@@ -4,8 +4,8 @@
 
 ## Resumo
 
-- módulos Python: 160;
-- endpoints HTTP/WebSocket: 347;
+- módulos Python: 161;
+- endpoints HTTP/WebSocket: 348;
 - contratos tipados: 367;
 - tabelas declaradas em SQL: 133;
 - ciclos de import detectados: 0.
@@ -16,7 +16,7 @@
 |---|---|---|---:|---:|
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 10 | 8 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 29 | 45 |
-| `finance` | Finanças e pedidos | Ledger, pedidos, pagamentos, reconciliação, risco e repasses. | 12 | 20 |
+| `finance` | Finanças e pedidos | Ledger, pedidos, pagamentos, reconciliação, risco e repasses. | 13 | 20 |
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 55 | 32 |
 | `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 26 | 28 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 7 | 0 |

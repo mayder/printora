@@ -1862,6 +1862,19 @@ Evidência de fechamento em 2026-07-22:
 - validar sandbox/reconciliação real antes de dinheiro real;
 - fechamento: revisão independente de segurança, carga, restore e smoke ponta a ponta.
 
+Comando de fechamento:
+
+```bash
+cd backend && uv run --extra dev pytest -q tests/test_finance_*.py
+scripts/validate-finance-safety.sh
+RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 CHECK_STRICT_SECRETS=1 CHECK_STRICT_RUNTIME_NAMES=1 ./check.sh
+```
+
+Evidência remota deve usar somente sandbox e dados sintéticos: criar pedido de
+projeto de teste, gerar checkout hospedado, capturar, reconciliar, reembolsar e
+confirmar ledger balanceado. Não marcar fiscal/jurídico como aprovado sem revisão
+humana e não habilitar dinheiro real.
+
 ### PKG-92 - Fabricação, Qualidade, Logística E Cadeia De Custódia
 
 - testar snapshot/licença da ordem, aceite e estados formais;

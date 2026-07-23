@@ -93,15 +93,15 @@
     }
   ],
   "summary": {
-    "modules": 160,
-    "routes": 347,
+    "modules": 161,
+    "routes": 348,
     "contracts": 367,
     "tables": 133,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 26,
       "community": 29,
-      "finance": 12,
+      "finance": 13,
       "identity": 10,
       "integrations": 7,
       "operations": 55,
@@ -416,7 +416,7 @@
     {
       "module": "finance_payment_operations",
       "owner": "finance",
-      "lines": 292,
+      "lines": 296,
       "imports": [
         "database",
         "finance_ledger",
@@ -435,6 +435,16 @@
         "modules.finance.contracts",
         "modules.finance.domain",
         "payment_provider"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "finance_queries",
+      "owner": "finance",
+      "lines": 46,
+      "imports": [
+        "database"
       ],
       "routes": [],
       "contracts": []
@@ -926,13 +936,15 @@
     {
       "module": "modules.finance.api",
       "owner": "finance",
-      "lines": 344,
+      "lines": 382,
       "imports": [
+        "auth",
         "config",
         "finance_compliance",
         "finance_orders",
         "finance_payment_operations",
         "finance_payments",
+        "finance_queries",
         "finance_security",
         "finance_settlement",
         "modules.assembly",
@@ -1024,6 +1036,11 @@
           "handler": "finance_readiness"
         },
         {
+          "method": "GET",
+          "path": "/api/admin/finance/overview",
+          "handler": "finance_admin_overview"
+        },
+        {
           "method": "PUT",
           "path": "/api/admin/finance/compliance/{control_key}",
           "handler": "review_compliance_control"
@@ -1039,7 +1056,7 @@
     {
       "module": "modules.finance.contracts",
       "owner": "finance",
-      "lines": 211,
+      "lines": 218,
       "imports": [
         "modules.finance.domain"
       ],

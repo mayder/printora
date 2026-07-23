@@ -5782,6 +5782,11 @@ Estado atual:
   preview. O runtime suporta exclusivamente `disabled`/`sandbox`, checkout é
   hospedado, schema não contém PAN/CVV e circuit breaker degrada falha do adapter;
   dinheiro real continua tecnicamente indisponível mesmo com controles aprovados.
+- Lote 8 implementado localmente: scanner bloqueia endpoint comercial fora da
+  fronteira financeira, modo além de disabled/sandbox, coluna PAN/CVV e payload
+  bruto de webhook. Não havia checkout/pedido anterior para migrar. A UI de
+  Finanças separa visão geral, pedidos/pagamentos, ledger, reconciliação,
+  disputas e repasses em lista/detalhe, com estado explícito de acesso restrito.
 
 ## PKG-92: Fabricação, Qualidade, Logística E Cadeia De Custódia
 

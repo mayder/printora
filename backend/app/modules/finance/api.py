@@ -3,12 +3,14 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 
 from app.config import get_settings
+from app.auth import AuthRepository
 from app.finance_payments import FinancePaymentService
 from app.finance_orders import FinanceOrderService
 from app.finance_payment_operations import FinancePaymentOperationsService
 from app.finance_settlement import FinanceSettlementService
 from app.finance_security import FinanceRiskService, FinanceSecurityService
 from app.finance_compliance import FinanceComplianceService
+from app.finance_queries import FinanceAdminQueryService
 from app.modules.assembly import ModuleDefinition, RouterRegistration
 from app.modules.finance.contracts import (
     PaymentIntentResponse,
@@ -73,6 +75,24 @@ def require_finance_auditor(current: CurrentUser = Depends(require_current_user)
 
 def require_finance_risk(current: CurrentUser = Depends(require_current_user)) -> CurrentUser:
     return _require_finance_role(current, {"finance_risk"})
+
+
+def require_finance_any(current: CurrentUser = Depends(require_current_user)) -> CurrentUser:
+    return _require_finance_role(
+        current,
+        {"finance_operator", "finance_approver", "finance_risk", "finance_support", "finance_auditor"},
+    )
+
+
+def _require_finance_step_up(current: CurrentUser, token: str | None) -> None:
+    repository = AuthRepository(get_settings().database_path)
+    if not token or not repository.consume_step_up(
+        current.user.id, token, "finance_sensitive_action"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="autenticação reforçada obrigatória para ação financeira",
+        )
 
 
 def payment_service() -> FinancePaymentService:
@@ -155,6 +175,7 @@ async def execute_payment_command(
         else {"finance_support", "finance_risk"}
     )
     _require_finance_role(current, required_roles)
+    _require_finance_step_up(current, payload.step_up_token)
     try:
         return FinancePaymentOperationsService(get_settings().database_path).execute(
             payment_public_id, payload, current.user.id
@@ -179,6 +200,7 @@ async def request_payout(
     payload: PayoutRequest,
     current: CurrentUser = Depends(require_current_user),
 ) -> PayoutResponse:
+    _require_finance_step_up(current, payload.step_up_token)
     try:
         return FinanceSettlementService(get_settings().database_path).request_payout(
             current.user.id, payload.currency, payload.amount_minor, payload.idempotency_key
@@ -192,6 +214,7 @@ async def reconcile_finance(
     payload: ReconciliationRequest,
     current: CurrentUser = Depends(require_finance_auditor),
 ) -> ReconciliationResponse:
+    _require_finance_step_up(current, payload.step_up_token)
     try:
         return FinanceSettlementService(get_settings().database_path).reconcile(
             payload.currency, payload.provider_reported_minor,
@@ -204,8 +227,10 @@ async def reconcile_finance(
 @router.post("/api/admin/finance/payouts/{public_id}/approve", response_model=PayoutResponse)
 async def approve_payout(
     public_id: str,
+    step_up_token: str | None = Header(default=None, alias="X-Printora-Step-Up"),
     current: CurrentUser = Depends(require_finance_approver),
 ) -> PayoutResponse:
+    _require_finance_step_up(current, step_up_token)
     try:
         return FinanceSettlementService(get_settings().database_path).approve_payout(
             public_id, current.user.id
@@ -219,8 +244,10 @@ async def approve_payout(
 @router.post("/api/admin/finance/payouts/{public_id}/execute", response_model=PayoutResponse)
 async def execute_payout(
     public_id: str,
+    step_up_token: str | None = Header(default=None, alias="X-Printora-Step-Up"),
     current: CurrentUser = Depends(require_finance_operator),
 ) -> PayoutResponse:
+    _require_finance_step_up(current, step_up_token)
     try:
         return FinanceSettlementService(get_settings().database_path).execute_payout(
             public_id, current.user.id
@@ -236,6 +263,7 @@ async def close_finance_period(
     payload: ClosingRequest,
     current: CurrentUser = Depends(require_finance_auditor),
 ) -> ClosingResponse:
+    _require_finance_step_up(current, payload.step_up_token)
     try:
         return FinanceSettlementService(get_settings().database_path).close(
             payload.currency, payload.period_key, current.user.id
@@ -249,6 +277,7 @@ async def assign_finance_role(
     payload: FinanceRoleRequest,
     current: CurrentUser = Depends(require_platform_admin),
 ) -> FinanceRoleResponse:
+    _require_finance_step_up(current, payload.step_up_token)
     try:
         return FinanceSecurityService(get_settings().database_path).assign_role(
             payload.user_id, payload.role, payload.active, current.user.id
@@ -271,6 +300,7 @@ async def decide_risk_case(
     payload: RiskDecisionRequest,
     current: CurrentUser = Depends(require_finance_risk),
 ) -> RiskCaseResponse:
+    _require_finance_step_up(current, payload.step_up_token)
     try:
         return FinanceRiskService(get_settings().database_path).decide(
             public_id, payload.decision, payload.reason, current.user.id
@@ -302,6 +332,13 @@ async def finance_readiness(
     return FinanceComplianceService(get_settings().database_path).readiness()
 
 
+@router.get("/api/admin/finance/overview")
+async def finance_admin_overview(
+    _current: CurrentUser = Depends(require_finance_any),
+) -> dict[str, object]:
+    return FinanceAdminQueryService(get_settings().database_path).overview()
+
+
 @router.put(
     "/api/admin/finance/compliance/{control_key}",
     response_model=ComplianceControlResponse,
@@ -311,6 +348,7 @@ async def review_compliance_control(
     payload: ComplianceControlRequest,
     current: CurrentUser = Depends(require_finance_auditor),
 ) -> ComplianceControlResponse:
+    _require_finance_step_up(current, payload.step_up_token)
     try:
         return FinanceComplianceService(get_settings().database_path).review_control(
             control_key, payload.status, payload.evidence_reference,

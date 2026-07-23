@@ -21,6 +21,7 @@ import { FirmwareScreen } from "./screens/FirmwareScreen";
 import { MaintenanceScreen } from "./screens/MaintenanceScreen";
 import { ReportsScreen } from "./screens/ReportsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { FinanceAdminScreen } from "./screens/FinanceAdminScreen";
 import { AuthScreen } from "./screens/AuthScreen";
 import { AboutScreen } from "./screens/AboutScreen";
 import { LicenseScreen } from "./screens/LicenseScreen";
@@ -38,6 +39,7 @@ import "./styles/modals.css";
 import "./styles/backups.css";
 import "./styles/maintenance.css";
 import "./styles/settings.css";
+import "./styles/finance.css";
 import "./styles/auth.css";
 import "./styles/setup.css";
 import "./styles/firmware.css";
@@ -153,6 +155,8 @@ function App() {
         return <ReportsScreen {...screenProps} />;
       case "settings":
         return <SettingsScreen {...screenProps} />;
+      case "finance":
+        return <FinanceAdminScreen {...screenProps} />;
       case "account":
         return <AuthScreen {...screenProps} />;
       case "about":

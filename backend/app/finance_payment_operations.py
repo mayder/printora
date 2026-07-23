@@ -278,7 +278,11 @@ def _ledger_command(intent, command_id, operation, entries, actor_user_id) -> Le
 
 def _command_digest(payment_public_id, payload, actor_user_id) -> str:
     encoded = json.dumps(
-        {"payment_public_id": payment_public_id, "actor_user_id": actor_user_id, **payload.model_dump()},
+        {
+            "payment_public_id": payment_public_id,
+            "actor_user_id": actor_user_id,
+            **payload.model_dump(exclude={"step_up_token"}),
+        },
         sort_keys=True, separators=(",", ":"),
     ).encode()
     return hashlib.sha256(encoded).hexdigest()
