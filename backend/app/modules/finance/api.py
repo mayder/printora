@@ -4,11 +4,15 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 
 from app.config import get_settings
 from app.finance_payments import FinancePaymentService
+from app.finance_orders import FinanceOrderService
 from app.modules.assembly import ModuleDefinition, RouterRegistration
 from app.modules.finance.contracts import (
     PaymentIntentResponse,
     PaymentWebhookResponse,
     SandboxIntentRequest,
+    OrderCheckoutRequest,
+    OrderCreateRequest,
+    OrderResponse,
 )
 from app.modules.finance.domain import Money
 from app.modules.identity.contracts import CurrentUser
@@ -36,6 +40,42 @@ def payment_service() -> FinancePaymentService:
     except ValueError as exc:
         raise HTTPException(status_code=503, detail="sandbox de pagamento não configurado") from exc
     return FinancePaymentService(settings.database_path, adapter)
+
+
+@router.post("/api/finance/orders", response_model=OrderResponse)
+async def create_order(
+    payload: OrderCreateRequest,
+    current: CurrentUser = Depends(require_current_user),
+) -> OrderResponse:
+    try:
+        return FinanceOrderService(get_settings().database_path).create(current.user.id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get("/api/finance/orders/{public_id}", response_model=OrderResponse)
+async def order_detail(
+    public_id: str,
+    current: CurrentUser = Depends(require_current_user),
+) -> OrderResponse:
+    try:
+        return FinanceOrderService(get_settings().database_path).detail(public_id, current.user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/api/finance/orders/{public_id}/checkout", response_model=PaymentIntentResponse)
+async def checkout_order(
+    public_id: str,
+    payload: OrderCheckoutRequest,
+    current: CurrentUser = Depends(require_current_user),
+) -> PaymentIntentResponse:
+    try:
+        return FinanceOrderService(get_settings().database_path).checkout(
+            public_id, current.user.id, payload.idempotency_key, payment_service()
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/api/admin/finance/sandbox/intents", response_model=PaymentIntentResponse)

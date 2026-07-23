@@ -5755,6 +5755,11 @@ Estado atual:
   digest e aplica state machine. Replay, evento atrasado/fora de ordem, assinatura
   inválida e transição impossível não duplicam nem contradizem o estado. O modo
   de pagamento nasce `disabled` e não oferece configuração de dinheiro real.
+- Lote 3 concluído: pedido canônico e itens imutáveis copiam título, licença,
+  termos, versão e preço aprovado do projeto premium no instante da compra. Total
+  usa somente inteiros, pedido não mistura moedas e mudança posterior no projeto
+  não altera o snapshot. Criação, detalhe e checkout são autenticados e
+  idempotentes; imposto permanece explicitamente `not_configured` até revisão.
 
 ## PKG-92: Fabricação, Qualidade, Logística E Cadeia De Custódia
 

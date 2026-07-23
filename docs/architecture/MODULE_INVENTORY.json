@@ -93,15 +93,15 @@
     }
   ],
   "summary": {
-    "modules": 155,
-    "routes": 331,
-    "contracts": 344,
-    "tables": 118,
+    "modules": 156,
+    "routes": 334,
+    "contracts": 349,
+    "tables": 120,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 26,
       "community": 29,
-      "finance": 7,
+      "finance": 8,
       "identity": 10,
       "integrations": 7,
       "operations": 55,
@@ -337,7 +337,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 552,
+      "lines": 554,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -381,6 +381,19 @@
       "lines": 161,
       "imports": [
         "database",
+        "modules.finance.domain"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "finance_orders",
+      "owner": "finance",
+      "lines": 183,
+      "imports": [
+        "database",
+        "finance_payments",
+        "modules.finance.contracts",
         "modules.finance.domain"
       ],
       "routes": [],
@@ -862,9 +875,10 @@
     {
       "module": "modules.finance.api",
       "owner": "finance",
-      "lines": 78,
+      "lines": 118,
       "imports": [
         "config",
+        "finance_orders",
         "finance_payments",
         "modules.assembly",
         "modules.finance.contracts",
@@ -874,6 +888,21 @@
         "routes.auth"
       ],
       "routes": [
+        {
+          "method": "POST",
+          "path": "/api/finance/orders",
+          "handler": "create_order"
+        },
+        {
+          "method": "GET",
+          "path": "/api/finance/orders/{public_id}",
+          "handler": "order_detail"
+        },
+        {
+          "method": "POST",
+          "path": "/api/finance/orders/{public_id}/checkout",
+          "handler": "checkout_order"
+        },
         {
           "method": "POST",
           "path": "/api/admin/finance/sandbox/intents",
@@ -890,7 +919,7 @@
     {
       "module": "modules.finance.contracts",
       "owner": "finance",
-      "lines": 26,
+      "lines": 67,
       "imports": [
         "modules.finance.domain"
       ],
@@ -898,7 +927,12 @@
       "contracts": [
         "PaymentIntentResponse",
         "PaymentWebhookResponse",
-        "SandboxIntentRequest"
+        "SandboxIntentRequest",
+        "OrderItemRequest",
+        "OrderCreateRequest",
+        "OrderItemResponse",
+        "OrderResponse",
+        "OrderCheckoutRequest"
       ]
     },
     {
@@ -4569,6 +4603,16 @@
       "table": "payment_webhook_events",
       "owner": "finance",
       "script": "078_finance_payments.sql"
+    },
+    {
+      "table": "commerce_orders",
+      "owner": "finance",
+      "script": "079_finance_orders.sql"
+    },
+    {
+      "table": "commerce_order_items",
+      "owner": "finance",
+      "script": "079_finance_orders.sql"
     }
   ]
 }

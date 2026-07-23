@@ -26,6 +26,8 @@ POSTGRESQL_REQUIRED_EXTENSION_TABLES = (
     "finance_accounts",
     "finance_ledger_entries",
     "finance_ledger_transactions",
+    "commerce_order_items",
+    "commerce_orders",
     "payment_intents",
     "payment_webhook_events",
     "cloud_object_reconciliation_runs",
