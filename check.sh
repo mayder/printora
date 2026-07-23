@@ -60,6 +60,10 @@ done
 
 run_model_validations
 
+log "validando Node suportado"
+node frontend/scripts/validate-node-version.mjs
+node frontend/tests/nodeVersionGate.test.mjs
+
 log "validando inventário modular"
 python3 scripts/audit_module_boundaries.py --check >/dev/null
 

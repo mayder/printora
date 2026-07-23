@@ -6315,7 +6315,11 @@ Rollback:
 
 Estado atual:
 
-- Planejado; implementação não iniciada.
+- Em implementação em 2026-07-23.
+- Lote 1 concluído: Node `22.22.x` e npm `11.7.x` são gates bloqueantes antes
+  de instalação/build, com versões de referência fixadas em arquivos de runtime,
+  pacote, Docker e CI.
+- Evidência em `docs/audits/QUALITY_GATE_PKG_97_2026-07-23.md`.
 
 ## PKG-98: Homologação Física E Soak Prolongado
 
