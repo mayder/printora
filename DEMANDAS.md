@@ -6449,7 +6449,12 @@ Rollback:
 
 Estado atual:
 
-- Planejado; implementação não iniciada.
+- Em execução.
+- Lote 1 concluído: matriz, fixture candidata, baseline, SLO, limites e plano de
+  segurança estão registrados em
+  `docs/audits/HARDWARE_SOAK_PKG_98_2026-07-23.md`.
+- Instrumentação de soak implementada em `c2836de`; publicação e smoke real em
+  andamento antes da janela inicial de 24 horas.
 
 ## PKG-99: RPO Físico, Recuperação Contínua E Prontidão De Desastre
 
