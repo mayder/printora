@@ -114,6 +114,8 @@ class FinanceSettlementService:
             row = _payout(connection, public_id)
             if row["status"] != "approved":
                 raise ValueError("repasse não está aprovado")
+            if int(row["approved_by_user_id"]) == actor_user_id:
+                raise PermissionError("aprovador não pode executar o próprio repasse")
             reconciliation = _latest_reconciliation(connection, str(row["currency"]))
             if reconciliation is None or reconciliation["status"] != "passed":
                 raise ValueError("reconciliação divergente bloqueia repasse")
@@ -125,9 +127,9 @@ class FinanceSettlementService:
             connection.execute(
                 """
                 UPDATE finance_payouts SET status = 'paid', paid_ledger_transaction_id = ?,
-                    reconciliation_run_id = ?, paid_at = CURRENT_TIMESTAMP WHERE id = ?
+                    reconciliation_run_id = ?, paid_by_user_id = ?, paid_at = CURRENT_TIMESTAMP WHERE id = ?
                 """,
-                (transaction.id, reconciliation["id"], row["id"]),
+                (transaction.id, reconciliation["id"], actor_user_id, row["id"]),
             )
             return _payout_response(_payout(connection, public_id))
 

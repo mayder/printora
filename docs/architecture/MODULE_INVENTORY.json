@@ -93,15 +93,15 @@
     }
   ],
   "summary": {
-    "modules": 158,
-    "routes": 341,
-    "contracts": 358,
-    "tables": 127,
+    "modules": 159,
+    "routes": 345,
+    "contracts": 363,
+    "tables": 131,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 26,
       "community": 29,
-      "finance": 10,
+      "finance": 11,
       "identity": 10,
       "integrations": 7,
       "operations": 55,
@@ -337,7 +337,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 561,
+      "lines": 565,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -389,10 +389,11 @@
     {
       "module": "finance_orders",
       "owner": "finance",
-      "lines": 183,
+      "lines": 193,
       "imports": [
         "database",
         "finance_payments",
+        "finance_security",
         "modules.finance.contracts",
         "modules.finance.domain"
       ],
@@ -402,7 +403,7 @@
     {
       "module": "finance_payment_operations",
       "owner": "finance",
-      "lines": 286,
+      "lines": 292,
       "imports": [
         "database",
         "finance_ledger",
@@ -426,9 +427,20 @@
       "contracts": []
     },
     {
+      "module": "finance_security",
+      "owner": "finance",
+      "lines": 195,
+      "imports": [
+        "database",
+        "modules.finance.contracts"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "finance_settlement",
       "owner": "finance",
-      "lines": 287,
+      "lines": 289,
       "imports": [
         "database",
         "finance_ledger",
@@ -901,12 +913,13 @@
     {
       "module": "modules.finance.api",
       "owner": "finance",
-      "lines": 227,
+      "lines": 314,
       "imports": [
         "config",
         "finance_orders",
         "finance_payment_operations",
         "finance_payments",
+        "finance_security",
         "finance_settlement",
         "modules.assembly",
         "modules.finance.contracts",
@@ -972,6 +985,26 @@
           "handler": "close_finance_period"
         },
         {
+          "method": "PUT",
+          "path": "/api/admin/finance/roles",
+          "handler": "assign_finance_role"
+        },
+        {
+          "method": "GET",
+          "path": "/api/admin/finance/risk-cases",
+          "handler": "list_risk_cases"
+        },
+        {
+          "method": "POST",
+          "path": "/api/admin/finance/risk-cases/{public_id}/decision",
+          "handler": "decide_risk_case"
+        },
+        {
+          "method": "POST",
+          "path": "/api/finance/risk-cases/{public_id}/appeal",
+          "handler": "appeal_risk_case"
+        },
+        {
           "method": "POST",
           "path": "/api/finance/provider-webhooks/sandbox",
           "handler": "sandbox_webhook"
@@ -982,7 +1015,7 @@
     {
       "module": "modules.finance.contracts",
       "owner": "finance",
-      "lines": 143,
+      "lines": 178,
       "imports": [
         "modules.finance.domain"
       ],
@@ -1004,7 +1037,12 @@
         "PayoutRequest",
         "PayoutResponse",
         "ClosingRequest",
-        "ClosingResponse"
+        "ClosingResponse",
+        "FinanceRoleRequest",
+        "FinanceRoleResponse",
+        "RiskCaseResponse",
+        "RiskDecisionRequest",
+        "RiskAppealRequest"
       ]
     },
     {
@@ -4720,6 +4758,26 @@
       "table": "finance_closings",
       "owner": "finance",
       "script": "081_finance_payouts.sql"
+    },
+    {
+      "table": "finance_role_assignments",
+      "owner": "finance",
+      "script": "082_finance_risk_permissions.sql"
+    },
+    {
+      "table": "finance_risk_cases",
+      "owner": "finance",
+      "script": "082_finance_risk_permissions.sql"
+    },
+    {
+      "table": "finance_risk_decisions",
+      "owner": "finance",
+      "script": "082_finance_risk_permissions.sql"
+    },
+    {
+      "table": "finance_audit_events",
+      "owner": "finance",
+      "script": "082_finance_risk_permissions.sql"
     }
   ]
 }

@@ -7,6 +7,7 @@ import uuid
 
 from app.database import connect_database
 from app.finance_payments import FinancePaymentService
+from app.finance_security import FinanceRiskService
 from app.modules.finance.contracts import (
     OrderCreateRequest,
     OrderItemResponse,
@@ -42,6 +43,7 @@ class FinanceOrderService:
             )
             for snapshot in snapshots:
                 self._insert_item(connection, order_id, snapshot)
+            FinanceRiskService(self.database_path).evaluate_order_in_connection(connection, order_id)
             return self._load(connection, public_id, buyer_user_id)
 
     def detail(self, public_id: str, buyer_user_id: int) -> OrderResponse:
@@ -74,6 +76,14 @@ class FinanceOrderService:
                 WHERE id = ? AND status IN ('draft', 'pending_payment')
                 """,
                 (order_id,),
+            )
+            connection.execute(
+                """
+                UPDATE finance_risk_cases SET payment_intent_id = (
+                    SELECT id FROM payment_intents WHERE public_id = ?
+                ), updated_at = CURRENT_TIMESTAMP WHERE order_id = ?
+                """,
+                (intent.public_id, order_id),
             )
         return intent
 

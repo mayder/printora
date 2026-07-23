@@ -6262,6 +6262,60 @@
         "title": "FinanceBalanceResponse",
         "type": "object"
       },
+      "FinanceRoleRequest": {
+        "properties": {
+          "active": {
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "finance_operator",
+              "finance_approver",
+              "finance_risk",
+              "finance_support",
+              "finance_auditor"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "user_id": {
+            "minimum": 1.0,
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "role"
+        ],
+        "title": "FinanceRoleRequest",
+        "type": "object"
+      },
+      "FinanceRoleResponse": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "role",
+          "active"
+        ],
+        "title": "FinanceRoleResponse",
+        "type": "object"
+      },
       "FirmwareBoardCreate": {
         "properties": {
           "can_interface": {
@@ -16810,6 +16864,96 @@
         "title": "ReputationResponse",
         "type": "object"
       },
+      "RiskAppealRequest": {
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "RiskAppealRequest",
+        "type": "object"
+      },
+      "RiskCaseResponse": {
+        "properties": {
+          "buyer_user_id": {
+            "title": "Buyer User Id",
+            "type": "integer"
+          },
+          "order_id": {
+            "title": "Order Id",
+            "type": "integer"
+          },
+          "public_id": {
+            "title": "Public Id",
+            "type": "string"
+          },
+          "reason_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reason Codes",
+            "type": "array"
+          },
+          "recommended_action": {
+            "title": "Recommended Action",
+            "type": "string"
+          },
+          "risk_level": {
+            "title": "Risk Level",
+            "type": "string"
+          },
+          "score_basis_points": {
+            "title": "Score Basis Points",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "public_id",
+          "order_id",
+          "buyer_user_id",
+          "score_basis_points",
+          "risk_level",
+          "reason_codes",
+          "recommended_action",
+          "status"
+        ],
+        "title": "RiskCaseResponse",
+        "type": "object"
+      },
+      "RiskDecisionRequest": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "reason"
+        ],
+        "title": "RiskDecisionRequest",
+        "type": "object"
+      },
       "SandboxIntentRequest": {
         "properties": {
           "amount_minor": {
@@ -23513,6 +23657,202 @@
         ]
       }
     },
+    "/api/admin/finance/risk-cases": {
+      "get": {
+        "operationId": "list_risk_cases_api_admin_finance_risk_cases_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RiskCaseResponse"
+                  },
+                  "title": "Response List Risk Cases Api Admin Finance Risk Cases Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Risk Cases",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/admin/finance/risk-cases/{public_id}/decision": {
+      "post": {
+        "operationId": "decide_risk_case_api_admin_finance_risk_cases__public_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_id",
+            "required": true,
+            "schema": {
+              "title": "Public Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RiskDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskCaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Risk Case",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/admin/finance/roles": {
+      "put": {
+        "operationId": "assign_finance_role_api_admin_finance_roles_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinanceRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinanceRoleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assign Finance Role",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
     "/api/admin/finance/sandbox/intents": {
       "post": {
         "operationId": "create_sandbox_intent_api_admin_finance_sandbox_intents_post",
@@ -27293,6 +27633,74 @@
           }
         },
         "summary": "Sandbox Webhook",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/risk-cases/{public_id}/appeal": {
+      "post": {
+        "operationId": "appeal_risk_case_api_finance_risk_cases__public_id__appeal_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_id",
+            "required": true,
+            "schema": {
+              "title": "Public Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RiskAppealRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskCaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Appeal Risk Case",
         "tags": [
           "finance"
         ]

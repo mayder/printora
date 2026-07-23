@@ -7,6 +7,7 @@ from app.finance_payments import FinancePaymentService
 from app.finance_orders import FinanceOrderService
 from app.finance_payment_operations import FinancePaymentOperationsService
 from app.finance_settlement import FinanceSettlementService
+from app.finance_security import FinanceRiskService, FinanceSecurityService
 from app.modules.assembly import ModuleDefinition, RouterRegistration
 from app.modules.finance.contracts import (
     PaymentIntentResponse,
@@ -24,6 +25,11 @@ from app.modules.finance.contracts import (
     PayoutResponse,
     ReconciliationRequest,
     ReconciliationResponse,
+    FinanceRoleRequest,
+    FinanceRoleResponse,
+    RiskAppealRequest,
+    RiskCaseResponse,
+    RiskDecisionRequest,
 )
 from app.modules.finance.domain import Money
 from app.modules.identity.contracts import CurrentUser
@@ -34,12 +40,34 @@ from app.routes.auth import require_current_user
 router = APIRouter(tags=["finance"])
 
 
-def require_finance_admin(
+def require_platform_admin(
     current: CurrentUser = Depends(require_current_user),
 ) -> CurrentUser:
     if current.user.email.lower() != "breno@mayder.com.br":
         raise HTTPException(status_code=403, detail="acesso financeiro obrigatório")
     return current
+
+
+def _require_finance_role(current: CurrentUser, roles: set[str]) -> CurrentUser:
+    if not FinanceSecurityService(get_settings().database_path).has_role(current.user.id, roles):
+        raise HTTPException(status_code=403, detail="papel financeiro obrigatório")
+    return current
+
+
+def require_finance_operator(current: CurrentUser = Depends(require_current_user)) -> CurrentUser:
+    return _require_finance_role(current, {"finance_operator"})
+
+
+def require_finance_approver(current: CurrentUser = Depends(require_current_user)) -> CurrentUser:
+    return _require_finance_role(current, {"finance_approver"})
+
+
+def require_finance_auditor(current: CurrentUser = Depends(require_current_user)) -> CurrentUser:
+    return _require_finance_role(current, {"finance_auditor"})
+
+
+def require_finance_risk(current: CurrentUser = Depends(require_current_user)) -> CurrentUser:
+    return _require_finance_role(current, {"finance_risk"})
 
 
 def payment_service() -> FinancePaymentService:
@@ -92,7 +120,7 @@ async def checkout_order(
 @router.post("/api/admin/finance/sandbox/intents", response_model=PaymentIntentResponse)
 async def create_sandbox_intent(
     payload: SandboxIntentRequest,
-    current: CurrentUser = Depends(require_finance_admin),
+    current: CurrentUser = Depends(require_finance_operator),
 ) -> PaymentIntentResponse:
     service = payment_service()
     try:
@@ -112,10 +140,16 @@ async def create_sandbox_intent(
 async def execute_payment_command(
     payment_public_id: str,
     payload: PaymentCommandRequest,
-    current: CurrentUser = Depends(require_finance_admin),
+    current: CurrentUser = Depends(require_current_user),
 ) -> PaymentCommandResponse:
     if get_settings().payment_mode != "sandbox":
         raise HTTPException(status_code=503, detail="comandos financeiros permanecem desativados")
+    required_roles = (
+        {"finance_operator"}
+        if payload.command in {"capture", "cancel"}
+        else {"finance_support", "finance_risk"}
+    )
+    _require_finance_role(current, required_roles)
     try:
         return FinancePaymentOperationsService(get_settings().database_path).execute(
             payment_public_id, payload, current.user.id
@@ -151,7 +185,7 @@ async def request_payout(
 @router.post("/api/admin/finance/reconciliations", response_model=ReconciliationResponse)
 async def reconcile_finance(
     payload: ReconciliationRequest,
-    current: CurrentUser = Depends(require_finance_admin),
+    current: CurrentUser = Depends(require_finance_auditor),
 ) -> ReconciliationResponse:
     try:
         return FinanceSettlementService(get_settings().database_path).reconcile(
@@ -165,7 +199,7 @@ async def reconcile_finance(
 @router.post("/api/admin/finance/payouts/{public_id}/approve", response_model=PayoutResponse)
 async def approve_payout(
     public_id: str,
-    current: CurrentUser = Depends(require_finance_admin),
+    current: CurrentUser = Depends(require_finance_approver),
 ) -> PayoutResponse:
     try:
         return FinanceSettlementService(get_settings().database_path).approve_payout(
@@ -180,12 +214,14 @@ async def approve_payout(
 @router.post("/api/admin/finance/payouts/{public_id}/execute", response_model=PayoutResponse)
 async def execute_payout(
     public_id: str,
-    current: CurrentUser = Depends(require_finance_admin),
+    current: CurrentUser = Depends(require_finance_operator),
 ) -> PayoutResponse:
     try:
         return FinanceSettlementService(get_settings().database_path).execute_payout(
             public_id, current.user.id
         )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -193,12 +229,63 @@ async def execute_payout(
 @router.post("/api/admin/finance/closings", response_model=ClosingResponse)
 async def close_finance_period(
     payload: ClosingRequest,
-    current: CurrentUser = Depends(require_finance_admin),
+    current: CurrentUser = Depends(require_finance_auditor),
 ) -> ClosingResponse:
     try:
         return FinanceSettlementService(get_settings().database_path).close(
             payload.currency, payload.period_key, current.user.id
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.put("/api/admin/finance/roles", response_model=FinanceRoleResponse)
+async def assign_finance_role(
+    payload: FinanceRoleRequest,
+    current: CurrentUser = Depends(require_platform_admin),
+) -> FinanceRoleResponse:
+    try:
+        return FinanceSecurityService(get_settings().database_path).assign_role(
+            payload.user_id, payload.role, payload.active, current.user.id
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get("/api/admin/finance/risk-cases", response_model=list[RiskCaseResponse])
+async def list_risk_cases(
+    status: str | None = None,
+    _current: CurrentUser = Depends(require_finance_risk),
+) -> list[RiskCaseResponse]:
+    return FinanceRiskService(get_settings().database_path).list_cases(status)
+
+
+@router.post("/api/admin/finance/risk-cases/{public_id}/decision", response_model=RiskCaseResponse)
+async def decide_risk_case(
+    public_id: str,
+    payload: RiskDecisionRequest,
+    current: CurrentUser = Depends(require_finance_risk),
+) -> RiskCaseResponse:
+    try:
+        return FinanceRiskService(get_settings().database_path).decide(
+            public_id, payload.decision, payload.reason, current.user.id
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/api/finance/risk-cases/{public_id}/appeal", response_model=RiskCaseResponse)
+async def appeal_risk_case(
+    public_id: str,
+    payload: RiskAppealRequest,
+    current: CurrentUser = Depends(require_current_user),
+) -> RiskCaseResponse:
+    try:
+        return FinanceRiskService(get_settings().database_path).appeal(
+            public_id, payload.reason, current.user.id
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 

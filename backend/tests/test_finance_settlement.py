@@ -21,6 +21,9 @@ def setup_capture(tmp_path: Path):
         approver = connection.execute(
             "INSERT INTO auth_users (email, password_hash) VALUES ('settle-approver@example.com', 'hash')"
         ).lastrowid
+        executor = connection.execute(
+            "INSERT INTO auth_users (email, password_hash) VALUES ('settle-executor@example.com', 'hash')"
+        ).lastrowid
         project = connection.execute(
             """
             INSERT INTO print_projects (
@@ -49,11 +52,11 @@ def setup_capture(tmp_path: Path):
         PaymentCommandRequest(command="capture", idempotency_key="settlement-capture-key"),
         int(approver),
     )
-    return database_path, int(seller), int(approver), payment.public_id
+    return database_path, int(seller), int(approver), int(executor), payment.public_id
 
 
 def test_balance_payout_reconciliation_and_closing(tmp_path: Path) -> None:
-    database_path, seller, approver, _payment_id = setup_capture(tmp_path)
+    database_path, seller, approver, executor, _payment_id = setup_capture(tmp_path)
     service = FinanceSettlementService(database_path)
 
     balance = service.balance(seller, "BRL")
@@ -71,10 +74,12 @@ def test_balance_payout_reconciliation_and_closing(tmp_path: Path) -> None:
     approved = service.approve_payout(payout.public_id, approver)
     assert blocked.status == "blocked" and approved.status == "approved"
     with pytest.raises(ValueError, match="divergente"):
-        service.execute_payout(payout.public_id, approver)
+        service.execute_payout(payout.public_id, executor)
 
     passed = service.reconcile("BRL", 5000, "sandbox-report-match", approver)
-    paid = service.execute_payout(payout.public_id, approver)
+    with pytest.raises(PermissionError, match="próprio"):
+        service.execute_payout(payout.public_id, approver)
+    paid = service.execute_payout(payout.public_id, executor)
     assert passed.status == "passed" and paid.status == "paid"
     assert service.balance(seller, "BRL").ledger_balance_minor == 1000
 
@@ -87,7 +92,7 @@ def test_balance_payout_reconciliation_and_closing(tmp_path: Path) -> None:
 
 
 def test_open_dispute_blocks_payout_execution(tmp_path: Path) -> None:
-    database_path, seller, approver, payment_id = setup_capture(tmp_path)
+    database_path, seller, approver, executor, payment_id = setup_capture(tmp_path)
     settlement = FinanceSettlementService(database_path)
     payout = settlement.request_payout(seller, "BRL", 1000, "dispute-payout-key")
     settlement.approve_payout(payout.public_id, approver)
@@ -101,11 +106,11 @@ def test_open_dispute_blocks_payout_execution(tmp_path: Path) -> None:
     settlement.reconcile("BRL", 4500, "sandbox-dispute-report", approver)
 
     with pytest.raises(ValueError, match="disputa aberta"):
-        settlement.execute_payout(payout.public_id, approver)
+        settlement.execute_payout(payout.public_id, executor)
 
 
 def test_negative_balance_policy_blocks_new_payout(tmp_path: Path) -> None:
-    database_path, seller, approver, payment_id = setup_capture(tmp_path)
+    database_path, seller, approver, _executor, payment_id = setup_capture(tmp_path)
     FinancePaymentOperationsService(database_path).execute(
         payment_id,
         PaymentCommandRequest(

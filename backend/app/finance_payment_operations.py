@@ -125,6 +125,12 @@ class FinancePaymentOperationsService:
             self._resolve(connection, intent, payload, command_id, actor_user_id)
 
     def _capture(self, connection, intent, command_id: int, actor_user_id: int) -> None:
+        risk = connection.execute(
+            "SELECT status FROM finance_risk_cases WHERE order_id = ?",
+            (intent["order_id"],),
+        ).fetchone()
+        if risk is not None and risk["status"] != "approved":
+            raise ValueError("captura bloqueada por revisão de risco")
         amount = int(intent["amount_minor"])
         allocations = _order_allocations(connection, intent["order_id"], amount)
         entries = [_clearing_entry("debit", amount, str(intent["currency"]))]

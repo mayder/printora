@@ -5770,6 +5770,12 @@ Estado atual:
   diferente, última reconciliação sem divergência e ausência de disputa aberta;
   execução posta nova transação balanceada. Fechamento imutável registra
   reconciliação, desbalanceamento e disputas, ficando bloqueado se houver desvio.
+- Lote 6 concluído: regras de risco explicáveis criam score e códigos de motivo;
+  valor alto, velocidade e histórico de disputa exigem revisão humana antes de
+  captura. Rejeição aceita recurso do comprador. Operação, aprovação, risco,
+  suporte e auditoria usam papéis separados; solicitante não aprova repasse e
+  aprovador não o executa. Decisões e alterações de papel geram auditoria
+  sanitizada e imutável com retenção declarada de 180 dias.
 
 ## PKG-92: Fabricação, Qualidade, Logística E Cadeia De Custódia
 

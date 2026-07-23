@@ -141,3 +141,38 @@ class ClosingResponse(BaseModel):
     ledger_transaction_count: int
     ledger_imbalance_count: int
     open_dispute_count: int
+
+
+class FinanceRoleRequest(BaseModel):
+    user_id: int = Field(ge=1)
+    role: Literal[
+        "finance_operator", "finance_approver", "finance_risk",
+        "finance_support", "finance_auditor",
+    ]
+    active: bool = True
+
+
+class FinanceRoleResponse(BaseModel):
+    user_id: int
+    role: str
+    active: bool
+
+
+class RiskCaseResponse(BaseModel):
+    public_id: str
+    order_id: int
+    buyer_user_id: int
+    score_basis_points: int
+    risk_level: str
+    reason_codes: list[str]
+    recommended_action: str
+    status: str
+
+
+class RiskDecisionRequest(BaseModel):
+    decision: Literal["approve", "reject"]
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class RiskAppealRequest(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
