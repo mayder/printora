@@ -5655,6 +5655,10 @@ Estado atual:
   manifesto real teve zero entradas históricas, coerente com o path local vazio.
   Reconciliação de banco/buckets adotou dois probes conhecidos sem apagar bytes e
   o replay fechou com 4 objetos, zero ausente, zero corrompido e zero órfão.
+- Lote 4 implementado localmente: validação aprovada promove por cópia e `HEAD`,
+  download recalcula owner/publicação/moderação no PostgreSQL e usa token aleatório
+  de 60 segundos, uso único, persistido somente como hash e enviado por header.
+  Quarentena não possui rota de leitura. Validação focada: 81 testes passaram.
 
 ## PKG-91: Núcleo Financeiro, Pagamentos E Pedidos
 

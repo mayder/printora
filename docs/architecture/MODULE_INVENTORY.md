@@ -4,10 +4,10 @@
 
 ## Resumo
 
-- módulos Python: 147;
-- endpoints HTTP/WebSocket: 326;
-- contratos tipados: 340;
-- tabelas declaradas em SQL: 111;
+- módulos Python: 148;
+- endpoints HTTP/WebSocket: 329;
+- contratos tipados: 341;
+- tabelas declaradas em SQL: 112;
 - ciclos de import detectados: 0.
 
 ## Fronteiras E Owners
@@ -15,9 +15,9 @@
 | Fronteira | Owner | Responsabilidade | Módulos | Tabelas |
 |---|---|---|---:|---:|
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 10 | 8 |
-| `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 28 | 45 |
+| `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 29 | 45 |
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 55 | 32 |
-| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 26 | 26 |
+| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 26 | 27 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 7 | 0 |
 | `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 21 | 0 |
 
@@ -25,11 +25,11 @@
 
 | Módulo | Owner | Linhas | Rotas | Contratos |
 |---|---|---:|---:|---:|
-| `social_catalog` | `community` | 3350 | 0 | 0 |
+| `social_catalog` | `community` | 3377 | 0 | 0 |
 | `operation` | `operations` | 1153 | 0 | 0 |
 | `maintenance` | `operations` | 1147 | 0 | 8 |
 | `routes.social_catalog` | `community` | 1119 | 59 | 0 |
-| `print_projects` | `community` | 1045 | 0 | 14 |
+| `print_projects` | `community` | 1059 | 0 | 14 |
 | `self_update` | `administration` | 1001 | 0 | 10 |
 | `agent_pairing` | `operations` | 917 | 0 | 0 |
 | `auth` | `identity` | 911 | 0 | 0 |
@@ -44,7 +44,7 @@
 | `setup_wizard` | `operations` | 643 | 0 | 7 |
 | `printers` | `operations` | 635 | 0 | 3 |
 | `search_discovery` | `community` | 629 | 0 | 5 |
-| `database` | `shared` | 545 | 0 | 0 |
+| `database` | `shared` | 546 | 0 | 0 |
 | `gcode_files` | `operations` | 543 | 0 | 10 |
 | `health` | `administration` | 513 | 0 | 0 |
 | `setup_firmware` | `operations` | 513 | 0 | 5 |

@@ -1969,6 +1969,12 @@ Comandos no host, executados como `deploy`:
 - ausência, corrupção ou órfão faz a reconciliação falhar sem apagar conteúdo;
 - `--adopt-prefix` existe somente para adoção supervisionada de objetos conhecidos.
 
+Download autorizado usa `POST /api/storage/social-library-files/<id>/tokens` ou
+`POST /api/storage/print-project-files/<id>/tokens`. A resposta contém rota fixa,
+token de 60 segundos e uso único. O download envia
+`Authorization: Bearer <authorization_token>` para `GET /api/storage/download`.
+Não colocar o token em query string, path, log ou analytics.
+
 Rollback: reverter o adapter/runtime para a release anterior preservando schema,
 buckets, versões e arquivos de origem. Não apagar bucket, versão, objeto, tabela ou
 origem local sem confirmação explícita e backup validado.

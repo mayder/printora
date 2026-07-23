@@ -25,6 +25,7 @@ POSTGRESQL_SQL_DIR = SQL_DIR / "postgresql"
 POSTGRESQL_REQUIRED_EXTENSION_TABLES = (
     "cloud_object_reconciliation_runs",
     "cloud_object_references",
+    "cloud_object_download_tokens",
     "cloud_object_upload_sessions",
     "cloud_objects",
     "outbox_events",

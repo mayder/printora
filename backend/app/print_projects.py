@@ -691,6 +691,20 @@ class PrintProjectsRepository:
                 reference_id=int(cursor.lastrowid),
                 state=validation_status,
             )
+            if validation_status == "quarantined":
+                promoted = storage.storage.promote(stored)
+                storage.register_object(
+                    connection,
+                    promoted,
+                    owner_user_id=actor_user_id,
+                    reference_type="print_project_file",
+                    reference_id=int(cursor.lastrowid),
+                    state="promoted",
+                )
+                connection.execute(
+                    "UPDATE print_project_files SET storage_path = ?, validation_status = 'validated' WHERE id = ?",
+                    (promoted.key, cursor.lastrowid),
+                )
             if file_role == "primary" or project["primary_file_id"] is None:
                 connection.execute("UPDATE print_projects SET primary_file_id = ? WHERE id = ?", (cursor.lastrowid, project_id))
             connection.execute("UPDATE print_projects SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (project_id,))

@@ -11742,6 +11742,34 @@
         "title": "NotificationPreferenceUpdate",
         "type": "object"
       },
+      "ObjectDownloadToken": {
+        "properties": {
+          "authorization_token": {
+            "title": "Authorization Token",
+            "type": "string"
+          },
+          "download_url": {
+            "title": "Download Url",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "single_use": {
+            "default": true,
+            "title": "Single Use",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "download_url",
+          "authorization_token",
+          "expires_at"
+        ],
+        "title": "ObjectDownloadToken",
+        "type": "object"
+      },
       "OperationActionDirectExecuteRequest": {
         "properties": {
           "action_id": {
@@ -41509,6 +41537,169 @@
         "summary": "Update Technical Config",
         "tags": [
           "technical-profiles"
+        ]
+      }
+    },
+    "/api/storage/download": {
+      "get": {
+        "operationId": "download_promoted_object_api_storage_download_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Promoted Object",
+        "tags": [
+          "social-storage"
+        ]
+      }
+    },
+    "/api/storage/print-project-files/{file_id}/tokens": {
+      "post": {
+        "operationId": "issue_project_file_download_token_api_storage_print_project_files__file_id__tokens_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "title": "File Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectDownloadToken"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Issue Project File Download Token",
+        "tags": [
+          "social-storage"
+        ]
+      }
+    },
+    "/api/storage/social-library-files/{file_id}/tokens": {
+      "post": {
+        "operationId": "issue_social_file_download_token_api_storage_social_library_files__file_id__tokens_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "title": "File Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectDownloadToken"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Issue Social File Download Token",
+        "tags": [
+          "social-storage"
         ]
       }
     },

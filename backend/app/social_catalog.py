@@ -1456,14 +1456,22 @@ class SocialCatalogRepository:
             quarantine_key = clean_optional_text(file_row["quarantine_key"])
             if not quarantine_key:
                 raise ValueError("arquivo sem objeto de quarentena")
+            storage_repository = SocialStorageRepository(self.database_path)
             try:
-                body = SocialStorageRepository(self.database_path).storage.read_quarantine(quarantine_key)
+                body = storage_repository.storage.read_quarantine(quarantine_key)
             except FileNotFoundError:
                 raise ValueError("arquivo de quarentena não encontrado")
             try:
                 analysis = analyze_3d_model_bytes(str(file_row["file_name"]), file_row["file_kind"], body)
                 status = "analyzed"
                 thumbnail = build_analysis_thumbnail_svg(analysis)
+                quarantined = storage_repository.storage.describe_quarantine(
+                    quarantine_key,
+                    str(file_row["sha256"]),
+                    len(body),
+                    "application/octet-stream",
+                )
+                promoted = storage_repository.storage.promote(quarantined)
             except ValueError as exc:
                 analysis = {
                     "status": "failed",
@@ -1475,11 +1483,30 @@ class SocialCatalogRepository:
                 """
                 UPDATE social_library_files
                 SET analysis_json = ?, thumbnail_svg = ?, analyzed_at = CURRENT_TIMESTAMP,
-                    validation_status = ?, rejection_reason = CASE WHEN ? = 'analysis_failed' THEN ? ELSE rejection_reason END
+                    validation_status = ?, storage_key = CASE WHEN ? = 'analyzed' THEN ? ELSE storage_key END,
+                    rejection_reason = CASE WHEN ? = 'analysis_failed' THEN ? ELSE rejection_reason END
                 WHERE id = ?
                 """,
-                (json.dumps(analysis, ensure_ascii=False, sort_keys=True), thumbnail, status, status, analysis["problems"][0]["message"] if status == "analysis_failed" else None, file_id),
+                (
+                    json.dumps(analysis, ensure_ascii=False, sort_keys=True),
+                    thumbnail,
+                    status,
+                    status,
+                    promoted.key if status == "analyzed" else None,
+                    status,
+                    analysis["problems"][0]["message"] if status == "analysis_failed" else None,
+                    file_id,
+                ),
             )
+            if status == "analyzed":
+                storage_repository.register_object(
+                    connection,
+                    promoted,
+                    owner_user_id=int(file_row["owner_user_id"]),
+                    reference_type="social_library_file",
+                    reference_id=file_id,
+                    state="promoted",
+                )
             self._audit(
                 connection,
                 "social_library_file",

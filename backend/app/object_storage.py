@@ -5,7 +5,7 @@ import mimetypes
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import BinaryIO, Protocol
 
 from app.config import Settings, get_settings
 
@@ -22,12 +22,23 @@ class StoredObject:
     path: Path | None = None
 
 
+@dataclass(frozen=True)
+class ObjectReader:
+    body: BinaryIO
+    size_bytes: int
+    content_type: str
+
+
 class ObjectStorage(Protocol):
     def write_quarantine(self, checksum: str, extension: str, body: bytes) -> StoredObject: ...
 
     def read_quarantine(self, key: str) -> bytes: ...
 
+    def describe_quarantine(self, key: str, checksum: str, size_bytes: int, content_type: str) -> StoredObject: ...
+
     def promote(self, quarantined: StoredObject) -> StoredObject: ...
+
+    def open_promoted(self, key: str) -> ObjectReader: ...
 
 
 class LocalObjectStorage:
@@ -65,6 +76,12 @@ class LocalObjectStorage:
             content_type=quarantined.content_type,
         )
 
+    def open_promoted(self, key: str) -> ObjectReader:
+        path = self._safe_child("objects", key)
+        if not path.is_file():
+            raise FileNotFoundError("objeto promovido ausente")
+        return ObjectReader(body=path.open("rb"), size_bytes=path.stat().st_size, content_type=_content_type(path.suffix))
+
     def quarantine_path(self, key: str) -> Path:
         return self._safe_child("quarantine", key)
 
@@ -73,6 +90,16 @@ class LocalObjectStorage:
         if not path.is_file():
             raise FileNotFoundError("arquivo de quarentena não encontrado")
         return path.read_bytes()
+
+    def describe_quarantine(self, key: str, checksum: str, size_bytes: int, content_type: str) -> StoredObject:
+        return StoredObject(
+            bucket="local-quarantine",
+            key=key,
+            path=self.quarantine_path(key),
+            size_bytes=size_bytes,
+            sha256=checksum,
+            content_type=content_type,
+        )
 
     def _safe_child(self, *parts: str) -> Path:
         candidate = self.root.joinpath(*parts).resolve()
@@ -159,6 +186,23 @@ class S3ObjectStorage:
     def read_quarantine(self, key: str) -> bytes:
         response = self.client.get_object(Bucket=self.settings.object_storage_quarantine_bucket, Key=key)
         return response["Body"].read()
+
+    def describe_quarantine(self, key: str, checksum: str, size_bytes: int, content_type: str) -> StoredObject:
+        return StoredObject(
+            bucket=self.settings.object_storage_quarantine_bucket,
+            key=key,
+            size_bytes=size_bytes,
+            sha256=checksum,
+            content_type=content_type,
+        )
+
+    def open_promoted(self, key: str) -> ObjectReader:
+        response = self.client.get_object(Bucket=self.settings.object_storage_objects_bucket, Key=key)
+        return ObjectReader(
+            body=response["Body"],
+            size_bytes=int(response["ContentLength"]),
+            content_type=response.get("ContentType") or "application/octet-stream",
+        )
 
 
 def build_object_storage(database_path: Path, settings: Settings | None = None) -> ObjectStorage:

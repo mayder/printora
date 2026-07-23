@@ -32,8 +32,10 @@ desenvolvimento e testes. A entrada HTTP é consumida por chunks, rejeita
 
 A aplicação usa uma access key sem administração de servidor. Download exige
 referência válida, objeto promovido e permissão recalculada no PostgreSQL. O
-cliente recebe token assinado de uso único/curto para uma rota da aplicação; não
-recebe endpoint, bucket, chave S3 ou credencial.
+cliente recebe token aleatório de uso único por 60 segundos para uma rota fixa da
+aplicação e o envia no header `Authorization`; o token não entra em URL ou log de
+acesso. Somente o hash é persistido. O cliente não recebe endpoint, bucket, chave
+S3 ou credencial.
 
 ## Busca
 

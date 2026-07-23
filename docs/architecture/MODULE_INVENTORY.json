@@ -83,14 +83,14 @@
     }
   ],
   "summary": {
-    "modules": 147,
-    "routes": 326,
-    "contracts": 340,
-    "tables": 111,
+    "modules": 148,
+    "routes": 329,
+    "contracts": 341,
+    "tables": 112,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 26,
-      "community": 28,
+      "community": 29,
       "identity": 10,
       "integrations": 7,
       "operations": 55,
@@ -326,7 +326,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 545,
+      "lines": 546,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -1112,7 +1112,7 @@
     {
       "module": "object_storage",
       "owner": "shared",
-      "lines": 190,
+      "lines": 234,
       "imports": [
         "config"
       ],
@@ -1238,7 +1238,7 @@
     {
       "module": "print_projects",
       "owner": "community",
-      "lines": 1045,
+      "lines": 1059,
       "imports": [
         "database",
         "modules.community.contracts",
@@ -3225,11 +3225,13 @@
     {
       "module": "routes.social_storage",
       "owner": "community",
-      "lines": 31,
+      "lines": 98,
       "imports": [
         "auth",
         "config",
         "routes.auth",
+        "routes.social_catalog",
+        "social_object_downloads",
         "social_storage"
       ],
       "routes": [
@@ -3242,6 +3244,21 @@
           "method": "POST",
           "path": "/api/social/me/library/storage/retention-reviews",
           "handler": "create_library_retention_review"
+        },
+        {
+          "method": "POST",
+          "path": "/api/storage/social-library-files/{file_id}/tokens",
+          "handler": "issue_social_file_download_token"
+        },
+        {
+          "method": "POST",
+          "path": "/api/storage/print-project-files/{file_id}/tokens",
+          "handler": "issue_project_file_download_token"
+        },
+        {
+          "method": "GET",
+          "path": "/api/storage/download",
+          "handler": "download_promoted_object"
         }
       ],
       "contracts": []
@@ -3681,7 +3698,7 @@
     {
       "module": "social_catalog",
       "owner": "community",
-      "lines": 3350,
+      "lines": 3377,
       "imports": [
         "database",
         "modules.community.contracts",
@@ -3721,6 +3738,19 @@
         "ContentFollowRecord",
         "SocialNotificationRecord",
         "NotificationCenterResponse"
+      ]
+    },
+    {
+      "module": "social_object_downloads",
+      "owner": "community",
+      "lines": 149,
+      "imports": [
+        "database",
+        "object_storage"
+      ],
+      "routes": [],
+      "contracts": [
+        "ObjectDownloadToken"
       ]
     },
     {
@@ -4397,6 +4427,11 @@
       "table": "cloud_object_reconciliation_runs",
       "owner": "administration",
       "script": "074_object_storage.sql"
+    },
+    {
+      "table": "cloud_object_download_tokens",
+      "owner": "administration",
+      "script": "075_object_download_tokens.sql"
     }
   ]
 }
