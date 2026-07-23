@@ -45,9 +45,9 @@
 | `routes.calibration` | `operations` | 674 | 15 | 0 |
 | `modules.administration.intelligence` | `administration` | 673 | 0 | 0 |
 | `setup_wizard` | `operations` | 643 | 0 | 7 |
+| `agent_support` | `operations` | 635 | 0 | 5 |
 | `printers` | `operations` | 635 | 0 | 3 |
 | `database` | `shared` | 590 | 0 | 0 |
-| `agent_support` | `operations` | 547 | 0 | 5 |
 | `gcode_files` | `operations` | 543 | 0 | 10 |
 | `health` | `administration` | 513 | 0 | 0 |
 | `setup_firmware` | `operations` | 513 | 0 | 5 |

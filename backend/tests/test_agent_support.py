@@ -1,7 +1,11 @@
+import base64
+import subprocess
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from app.agent_support import _ED25519_VERIFY_PYTHON
+from app.agent_updates import load_agent_update_manifest
 from app.config import get_settings
 from app.database import connect_database, initialize_database
 from app.main import app
@@ -126,7 +130,8 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
             assert created.json()["job"]["job_type"] == "remote_host_script"
             assert created.json()["job"]["payload"]["safe_mode"] == "agent_update_bootstrap"
             assert "sha256sum -c" in created.json()["job"]["payload"]["script"]
-            assert "openssl pkeyutl -verify" in created.json()["job"]["payload"]["script"]
+            assert "hashlib.sha512" in created.json()["job"]["payload"]["script"]
+            assert "openssl pkeyutl -verify" not in created.json()["job"]["payload"]["script"]
             assert "print_stats.state=" in created.json()["job"]["payload"]["script"]
 
             with connect_database(tmp_path / "printora.db") as connection:
@@ -180,6 +185,33 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
             assert invalid_channel.status_code == 422
     finally:
         get_settings.cache_clear()
+
+
+def test_bootstrap_ed25519_verifier_is_portable_and_rejects_tampering(tmp_path: Path) -> None:
+    manifest = load_agent_update_manifest()
+    release = next(item for item in manifest.releases if item.version == "0.1.34")
+    digest_path = tmp_path / "digest.txt"
+    signature_path = tmp_path / "signature.bin"
+    digest_path.write_text(release.sha256, encoding="ascii")
+    signature_path.write_bytes(base64.b64decode(release.signature))
+
+    verified = subprocess.run(
+        ["python3", "-c", _ED25519_VERIFY_PYTHON, str(digest_path), str(signature_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert verified.returncode == 0, verified.stderr
+
+    digest_path.write_text("0" * 64, encoding="ascii")
+    rejected = subprocess.run(
+        ["python3", "-c", _ED25519_VERIFY_PYTHON, str(digest_path), str(signature_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert rejected.returncode != 0
+    assert "assinatura Ed25519 não confere" in rejected.stderr
 
 
 def test_agent_update_job_is_reconciled_after_restart_heartbeat(tmp_path: Path, monkeypatch) -> None:

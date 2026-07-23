@@ -464,6 +464,99 @@ def _release_for_version(manifest, version: str):
     raise ValueError(f"release linux/arm64 {version} indisponível para atualização remota")
 
 
+_ED25519_VERIFY_PYTHON = r"""
+import base64
+import hashlib
+import sys
+
+PUBLIC_KEY = base64.b64decode("dK8RtUcm2hdrv0CFCNMFago1e+8RmT3ab9fbDyK8hmg=")
+FIELD = 2**255 - 19
+ORDER = 2**252 + 27742317777372353535851937790883648493
+
+
+def inverse(value):
+    return pow(value, FIELD - 2, FIELD)
+
+
+D = (-121665 * inverse(121666)) % FIELD
+SQRT_M1 = pow(2, (FIELD - 1) // 4, FIELD)
+
+
+def recover_x(y):
+    xx = (y * y - 1) * inverse(D * y * y + 1)
+    x = pow(xx, (FIELD + 3) // 8, FIELD)
+    if (x * x - xx) % FIELD:
+        x = (x * SQRT_M1) % FIELD
+    if (x * x - xx) % FIELD:
+        raise ValueError("ponto Ed25519 inválido")
+    return x
+
+
+def decode_point(encoded):
+    if len(encoded) != 32:
+        raise ValueError("ponto Ed25519 inválido")
+    y = int.from_bytes(encoded, "little") & ((1 << 255) - 1)
+    if y >= FIELD:
+        raise ValueError("ponto Ed25519 não canônico")
+    x = recover_x(y)
+    if (x & 1) != (encoded[31] >> 7):
+        x = FIELD - x
+    if (-x * x + y * y - 1 - D * x * x * y * y) % FIELD:
+        raise ValueError("ponto Ed25519 fora da curva")
+    return x, y
+
+
+def add_points(left, right):
+    x1, y1 = left
+    x2, y2 = right
+    product = D * x1 * x2 * y1 * y2
+    return (
+        (x1 * y2 + x2 * y1) * inverse(1 + product) % FIELD,
+        (y1 * y2 + x1 * x2) * inverse(1 - product) % FIELD,
+    )
+
+
+def multiply_point(point, scalar):
+    result = (0, 1)
+    current = point
+    while scalar:
+        if scalar & 1:
+            result = add_points(result, current)
+        current = add_points(current, current)
+        scalar >>= 1
+    return result
+
+
+BASE_Y = 4 * inverse(5) % FIELD
+BASE_X = recover_x(BASE_Y)
+if BASE_X & 1:
+    BASE_X = FIELD - BASE_X
+BASE_POINT = (BASE_X, BASE_Y)
+
+message = open(sys.argv[1], "rb").read()
+signature = open(sys.argv[2], "rb").read()
+if len(signature) != 64:
+    raise SystemExit("assinatura Ed25519 inválida")
+try:
+    public_point = decode_point(PUBLIC_KEY)
+    signature_point = decode_point(signature[:32])
+except ValueError as error:
+    raise SystemExit(str(error)) from error
+scalar = int.from_bytes(signature[32:], "little")
+if scalar >= ORDER:
+    raise SystemExit("assinatura Ed25519 não canônica")
+challenge = int.from_bytes(
+    hashlib.sha512(signature[:32] + PUBLIC_KEY + message).digest(),
+    "little",
+) % ORDER
+if multiply_point(BASE_POINT, scalar) != add_points(
+    signature_point,
+    multiply_point(public_point, challenge),
+):
+    raise SystemExit("assinatura Ed25519 não confere")
+""".strip()
+
+
 def _bootstrap_update_script(
     url: str,
     sha256: str,
@@ -473,9 +566,6 @@ def _bootstrap_update_script(
 ) -> str:
     safe_source = re.sub(r"[^0-9A-Za-z._-]", "-", source_version or "unknown")
     safe_target = re.sub(r"[^0-9A-Za-z._-]", "-", target_version)
-    public_key = """-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAdK8RtUcm2hdrv0CFCNMFago1e+8RmT3ab9fbDyK8hmg=
------END PUBLIC KEY-----"""
     return f"""set -euo pipefail
 current_sha="$(sha256sum /usr/local/bin/printora-agent | awk '{{print $1}}')"
 if [ "$current_sha" = {shlex.quote(sha256)} ]; then
@@ -493,13 +583,11 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 curl -4 -fsSL --retry 5 --retry-delay 2 --connect-timeout 10 {shlex.quote(url)} -o "$work/agent"
 echo {shlex.quote(sha256 + "  ")}"$work/agent" | sha256sum -c -
-cat > "$work/public.pem" <<'KEY'
-{public_key}
-KEY
 printf '%s' {shlex.quote(signature)} | openssl base64 -d -A -out "$work/signature.bin"
 printf '%s' {shlex.quote(sha256)} > "$work/digest.txt"
-openssl pkeyutl -verify -pubin -inkey "$work/public.pem" -rawin \
-  -in "$work/digest.txt" -sigfile "$work/signature.bin" >/dev/null
+python3 - "$work/digest.txt" "$work/signature.bin" <<'PY'
+{_ED25519_VERIFY_PYTHON}
+PY
 install -d -m 0700 /var/lib/printora-agent/updates
 install -m 0755 /usr/local/bin/printora-agent \
   /var/lib/printora-agent/updates/printora-agent.backup-{safe_source}
