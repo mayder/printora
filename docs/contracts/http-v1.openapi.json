@@ -1377,7 +1377,6 @@
                 "type": "null"
               }
             ],
-            "default": "0.1.34",
             "title": "Candidate Version"
           },
           "manifest_version": {
@@ -1406,7 +1405,7 @@
             "type": "integer"
           },
           "recommended_version": {
-            "default": "0.1.33",
+            "default": "0.1.34",
             "title": "Recommended Version",
             "type": "string"
           },

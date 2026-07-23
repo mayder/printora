@@ -19,8 +19,8 @@ def test_agent_update_manifest_is_public_and_versioned(tmp_path: Path, monkeypat
             payload = response.json()
             assert payload["manifest_version"] == 1
             assert payload["minimum_version"] == "0.1.17"
-            assert payload["recommended_version"] == "0.1.33"
-            assert payload["candidate_version"] == "0.1.34"
+            assert payload["recommended_version"] == "0.1.34"
+            assert payload["candidate_version"] is None
             assert payload["protocol_min"] == 1
             assert payload["protocol_max"] == 1
             assert payload["signature_algorithm"] == "ed25519-sha256"
@@ -31,10 +31,10 @@ def test_agent_update_manifest_is_public_and_versioned(tmp_path: Path, monkeypat
             linux_arm64 = next(
                 release
                 for release in payload["releases"]
-                if release["platform"] == "linux/arm64" and release["version"] == "0.1.33"
+                if release["platform"] == "linux/arm64" and release["version"] == "0.1.34"
             )
-            assert linux_arm64["version"] == "0.1.33"
-            assert linux_arm64["url"].endswith("/api/agent/update/releases/0.1.33/linux-arm64")
+            assert linux_arm64["version"] == "0.1.34"
+            assert linux_arm64["url"].endswith("/api/agent/update/releases/0.1.34/linux-arm64")
             assert len(linux_arm64["sha256"]) == 64
             assert linux_arm64["signature"]
 
@@ -61,8 +61,8 @@ def test_agent_update_manifest_is_public_and_versioned(tmp_path: Path, monkeypat
                 "/api/agent/update/manifest/candidate",
                 headers=_auth(credential),
             )
-            assert candidate_manifest.status_code == 200
-            assert candidate_manifest.json()["recommended_version"] == "0.1.34"
+            assert candidate_manifest.status_code == 404
+            assert candidate_manifest.json()["detail"] == "agent candidate release not found"
     finally:
         get_settings.cache_clear()
 

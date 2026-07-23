@@ -123,15 +123,17 @@ class AgentSupportRepository:
             raise ValueError("agente precisa estar ativo para receber update remoto")
         manifest = load_agent_update_manifest(public_base_url)
         target_version = manifest.recommended_version
+        release = None
         if channel == "candidate":
             if not manifest.candidate_version:
                 raise ValueError("release candidata indisponível")
             target_version = manifest.candidate_version
-        release = _release_for_version(manifest, target_version)
+        elif channel == "rollback":
+            release = _previous_release(manifest, agent.agent_version)
+            target_version = release.version
+        release = release or _release_for_version(manifest, target_version)
         if agent.platform not in (None, release.platform):
             raise ValueError(f"release {release.platform} incompatível com agente {agent.platform}")
-        if channel == "rollback" and _version_tuple(agent.agent_version) <= _version_tuple(target_version):
-            raise ValueError("rollback exige agente em versão superior à recomendada")
         job_type = "remote_agent_update_check"
         payload: dict[str, Any] = {
             "safe_mode": "agent_self_update",
@@ -468,6 +470,18 @@ def _release_for_version(manifest, version: str):
         if release.platform == "linux/arm64" and release.version == version:
             return release
     raise ValueError(f"release linux/arm64 {version} indisponível para atualização remota")
+
+
+def _previous_release(manifest, current_version: str | None):
+    current = _version_tuple(current_version)
+    releases = [
+        release
+        for release in manifest.releases
+        if release.platform == "linux/arm64" and _version_tuple(release.version) < current
+    ]
+    if not releases:
+        raise ValueError("rollback exige uma release N-1 publicada")
+    return max(releases, key=lambda release: _version_tuple(release.version))
 
 
 _ED25519_VERIFY_PYTHON = r"""

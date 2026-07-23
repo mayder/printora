@@ -14,7 +14,7 @@ AGENT_MAX_PAYLOAD_BYTES = 64 * 1024
 AGENT_MAX_RESULT_BYTES = 512 * 1024
 
 
-EXPECTED_AGENT_VERSION = "0.1.33"
+EXPECTED_AGENT_VERSION = "0.1.34"
 
 
 AgentStatus = Literal["active", "revoked", "removed"]

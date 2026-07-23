@@ -1,8 +1,8 @@
 {
   "manifest_version": 1,
   "minimum_version": "0.1.17",
-  "recommended_version": "0.1.33",
-  "candidate_version": "0.1.34",
+  "recommended_version": "0.1.34",
+  "candidate_version": null,
   "blocked_versions": [],
   "protocol_version": 1,
   "protocol_min": 1,

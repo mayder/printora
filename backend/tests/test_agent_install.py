@@ -30,9 +30,9 @@ def test_agent_install_plan_generates_single_use_token_and_command(tmp_path: Pat
             assert plan["install_command"].startswith("curl -fsSL")
             assert "/api/agent/install/linux.sh" in plan["install_command"]
             assert "PRINTORA_PAIRING_TOKEN='ptr_pair_" in plan["install_command"]
-            assert "PRINTORA_AGENT_VERSION='0.1.33'" in plan["install_command"]
-            assert "PRINTORA_AGENT_BIN_URL='http://testserver/api/agent/update/releases/0.1.33/linux-arm64'" in plan["install_command"]
-            assert "PRINTORA_AGENT_SHA256='1373f97a" in plan["install_command"]
+            assert "PRINTORA_AGENT_VERSION='0.1.34'" in plan["install_command"]
+            assert "PRINTORA_AGENT_BIN_URL='http://testserver/api/agent/update/releases/0.1.34/linux-arm64'" in plan["install_command"]
+            assert "PRINTORA_AGENT_SHA256='c430f3b1" in plan["install_command"]
             assert "PRINTORA_AGENT_SIGNATURE=" in plan["install_command"]
             assert "PRINTORA_MOONRAKER_URL='http://127.0.0.1:7125'" in plan["install_command"]
             assert plan["token_prefix"] in plan["install_command"]
@@ -40,12 +40,12 @@ def test_agent_install_plan_generates_single_use_token_and_command(tmp_path: Pat
             token = _extract_token(plan["install_command"])
             exchanged = client.post(
                 "/api/agent/pairing/exchange",
-                json={"pairing_token": token, "stable_id": "agent-install-001", "agent_version": "0.1.33"},
+                json={"pairing_token": token, "stable_id": "agent-install-001", "agent_version": "0.1.34"},
             )
             assert exchanged.status_code == 200
             reused = client.post(
                 "/api/agent/pairing/exchange",
-                json={"pairing_token": token, "stable_id": "agent-install-002", "agent_version": "0.1.33"},
+                json={"pairing_token": token, "stable_id": "agent-install-002", "agent_version": "0.1.34"},
             )
             assert reused.status_code == 400
     finally:
@@ -69,7 +69,7 @@ def test_agent_install_status_requires_heartbeat_and_expected_version(tmp_path: 
             token = _extract_token(plan["install_command"])
             credential = client.post(
                 "/api/agent/pairing/exchange",
-                json={"pairing_token": token, "stable_id": "agent-install-status", "agent_version": "0.1.33"},
+                json={"pairing_token": token, "stable_id": "agent-install-status", "agent_version": "0.1.34"},
             ).json()["credential"]
             paired = client.get(f"/api/printers/{printer['id']}/agent/install-status", headers=_auth(owner_token)).json()
             assert paired["ready"] is False
@@ -77,13 +77,13 @@ def test_agent_install_status_requires_heartbeat_and_expected_version(tmp_path: 
 
             heartbeat = client.post(
                 "/api/agent/heartbeat",
-                json={"agent_version": "0.1.33", "platform": "linux/arm64", "capabilities": {"installer": True}},
+                json={"agent_version": "0.1.34", "platform": "linux/arm64", "capabilities": {"installer": True}},
                 headers=_auth(credential),
             )
             assert heartbeat.status_code == 200
             ready = client.get(f"/api/printers/{printer['id']}/agent/install-status", headers=_auth(owner_token)).json()
             assert ready["ready"] is True
-            assert ready["latest_version"] == "0.1.33"
+            assert ready["latest_version"] == "0.1.34"
 
             with connect_database(tmp_path / "printora.db") as connection:
                 connection.execute(

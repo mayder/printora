@@ -14,7 +14,7 @@ from app.database import connect_database
 AGENT_UPDATE_MANIFEST_VERSION = 1
 AGENT_UPDATE_PROTOCOL_VERSION = 1
 AGENT_CURRENT_VERSION = "0.1.34"
-AGENT_RECOMMENDED_VERSION = "0.1.33"
+AGENT_RECOMMENDED_VERSION = "0.1.34"
 AGENT_MANIFEST_PATH = Path(__file__).resolve().parent / "data" / "agent_update_manifest.json"
 AGENT_SIGNATURE_ALGORITHM = "ed25519-sha256"
 AGENT_SIGNING_KEY_ID = "sha256:e241d16ebb469da7436ff050a36212635557eab1322495a2c62e2ca6caf24cdc"
@@ -36,7 +36,7 @@ class AgentUpdateManifest(BaseModel):
     manifest_version: int = AGENT_UPDATE_MANIFEST_VERSION
     minimum_version: str = "0.1.17"
     recommended_version: str = AGENT_RECOMMENDED_VERSION
-    candidate_version: str | None = AGENT_CURRENT_VERSION
+    candidate_version: str | None = None
     blocked_versions: list[str] = Field(default_factory=list)
     protocol_version: int = AGENT_UPDATE_PROTOCOL_VERSION
     protocol_min: int = AGENT_UPDATE_PROTOCOL_VERSION
