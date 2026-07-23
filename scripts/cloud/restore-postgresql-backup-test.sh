@@ -34,16 +34,35 @@ restic restore latest --tag printora-cloud-postgresql --target "$restored" \
   --include '/tmp/**/base/pg_wal.tar*' \
   --include '/tmp/**/manifest.json' \
   --include '/tmp/**/printora-postgresql.dump' \
+  --include '/tmp/**/configuration/**' \
   --include '/tmp/**/object-storage/**'
 dump="$(find "$restored" -type f -name printora-postgresql.dump -print -quit)"
 manifest="$(find "$restored" -type f -name manifest.json -print -quit)"
 base_tar="$(find "$restored" -type f -name base.tar.zst -print -quit)"
 wal_tar="$(find "$restored" -type f \( -name pg_wal.tar.zst -o -name pg_wal.tar \) -print -quit)"
 object_manifest="$(find "$restored" -type f -path '*/object-storage/object-manifest.json' -print -quit)"
-[[ -n "$dump" && -n "$manifest" && -n "$base_tar" && -n "$wal_tar" && -n "$object_manifest" ]] || {
+configuration_dir="$(find "$restored" -type d -name configuration -print -quit)"
+[[ -n "$dump" && -n "$manifest" && -n "$base_tar" && -n "$wal_tar" && -n "$object_manifest" && -n "$configuration_dir" ]] || {
   echo "backup restaurado incompleto" >&2
   exit 1
 }
+python3 - "$manifest" "$configuration_dir" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+manifest = json.loads(pathlib.Path(sys.argv[1]).read_text())
+root = pathlib.Path(sys.argv[2])
+expected = manifest.get("configuration_sha256", {})
+if not manifest.get("recovery_custody_id") or len(expected) != int(manifest.get("configuration_file_count", -1)):
+    raise SystemExit("manifesto de configuração/custódia inválido")
+for name, digest in expected.items():
+    path = root / name
+    if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+        raise SystemExit(f"configuração restaurada divergente: {name}")
+print(json.dumps({"configuration_files_restored": len(expected), "configuration_checksums": "passed"}, sort_keys=True))
+PY
 expected_sha256="$(python3 - "$manifest" <<'PY'
 import json
 import sys

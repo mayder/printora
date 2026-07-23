@@ -134,7 +134,14 @@ class S3ObjectStorage:
             region_name=settings.object_storage_region,
             aws_access_key_id=settings.object_storage_access_key,
             aws_secret_access_key=settings.object_storage_secret_key,
-            config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+            config=Config(
+                signature_version="s3v4",
+                connect_timeout=2,
+                read_timeout=10,
+                max_pool_connections=16,
+                retries={"max_attempts": 3, "mode": "standard"},
+                s3={"addressing_style": "path"},
+            ),
         )
 
     def write_quarantine(self, checksum: str, extension: str, body: bytes) -> StoredObject:

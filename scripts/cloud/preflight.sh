@@ -36,8 +36,9 @@ for raw_line in open(sys.argv[1], encoding="utf-8"):
     values[key.strip()] = value.strip().strip("'\"")
 repository = values.get("RESTIC_REPOSITORY", "")
 password_file = values.get("RESTIC_PASSWORD_FILE", "")
+custody_id = values.get("PRINTORA_RECOVERY_CUSTODY_ID", "")
 external_prefixes = ("s3:", "sftp:", "rest:", "azure:", "gs:", "b2:", "rclone:")
-if not repository.startswith(external_prefixes) or not password_file.startswith("/"):
+if not repository.startswith(external_prefixes) or not password_file.startswith("/") or not custody_id:
     raise SystemExit(1)
 PY
 }

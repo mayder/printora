@@ -36,7 +36,13 @@ class FakeS3Client:
 
 def test_s3_quarantine_and_promotion_reconcile_checksum(monkeypatch) -> None:
     client = FakeS3Client()
-    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: client)
+    client_options = {}
+
+    def fake_client(*args, **kwargs):
+        client_options.update(kwargs)
+        return client
+
+    monkeypatch.setattr(boto3, "client", fake_client)
     settings = Settings(
         object_storage_mode="s3",
         object_storage_endpoint_url="http://127.0.0.1:9100",
@@ -56,6 +62,10 @@ def test_s3_quarantine_and_promotion_reconcile_checksum(monkeypatch) -> None:
     assert promoted.bucket == "printora-objects"
     assert promoted.sha256 == checksum
     assert promoted.version_id == "v2"
+    assert client_options["config"].connect_timeout == 2
+    assert client_options["config"].read_timeout == 10
+    assert client_options["config"].max_pool_connections == 16
+    assert client_options["config"].retries["max_attempts"] == 3
 
 
 def test_cloud_profile_rejects_local_object_storage(tmp_path, monkeypatch) -> None:

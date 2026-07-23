@@ -134,6 +134,20 @@ def test_cloud_upstream_balances_two_instances_of_the_same_release() -> None:
     assert "upstream atual foi preservado" in common
 
 
+def test_cloud_process_chaos_is_scoped_and_recovers_active_instance() -> None:
+    chaos = (ROOT_DIR / "scripts/cloud/probe-active-active.sh").read_text()
+    soak = (ROOT_DIR / "scripts/cloud/soak-cloud.sh").read_text()
+
+    assert 'systemctl stop "printora-cloud@$active.service"' in chaos
+    assert "printora-cloud@replica.service" not in chaos
+    assert "trap restore_active EXIT" in chaos
+    assert "--requests 300" in chaos
+    assert "Moonraker" not in chaos
+    assert "Klipper" not in chaos
+    assert "PRINTORA_SOAK_SECONDS" in soak
+    assert "errors=0 status=passed" in soak
+
+
 def test_cloud_rollback_never_restores_database_snapshot() -> None:
     rollback = (ROOT_DIR / "scripts/cloud/rollback-blue-green.sh").read_text()
 
@@ -149,13 +163,20 @@ def test_cloud_backup_has_external_restore_test_without_automatic_deletion() -> 
     backup = (ROOT_DIR / "scripts/cloud/backup-postgresql.sh").read_text()
     bootstrap = (ROOT_DIR / "scripts/cloud/bootstrap-blue-green.sh").read_text()
     restore = (ROOT_DIR / "scripts/cloud/restore-postgresql-backup-test.sh").read_text()
+    retention = (ROOT_DIR / "scripts/cloud/preview-backup-retention.sh").read_text()
     timer = (ROOT_DIR / "packaging/systemd/printora-cloud-backup.timer").read_text()
 
     assert "restic backup" in backup
+    assert "configuration_sha256" in backup
+    assert "PRINTORA_RECOVERY_CUSTODY_ID" in backup
     assert "restic restore latest" in restore
+    assert "configuration_checksums" in restore
     assert "aplicação não foi iniciada" in restore
     assert "forget" not in backup
     assert "prune" not in backup
+    assert "--dry-run" in retention
+    assert "--keep-daily 14" in retention
+    assert "nenhum snapshot ou bloco foi removido" in retention
     assert "Persistent=true" in timer
     assert "systemctl enable --now printora-cloud-backup.timer" in bootstrap
 

@@ -28,6 +28,7 @@ install -d -o root -g deploy -m 0750 /etc/printora-cloud/workers
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/common.sh" /usr/local/libexec/printora-cloud/common.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/backup-postgresql.sh" /usr/local/libexec/printora-cloud/backup-postgresql.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/restore-postgresql-backup-test.sh" /usr/local/libexec/printora-cloud/restore-postgresql-backup-test.sh
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/preview-backup-retention.sh" /usr/local/libexec/printora-cloud/preview-backup-retention.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/apply-postgresql-schema.sh" /usr/local/libexec/printora-cloud/apply-postgresql-schema.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/start-worker.sh" /usr/local/libexec/printora-cloud/start-worker.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/run-object-storage-tool.sh" /usr/local/libexec/printora-cloud/run-object-storage-tool.sh
@@ -42,6 +43,8 @@ install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/audit-durable-execution
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/retention-durable-execution.py" /usr/local/libexec/printora-cloud/retention-durable-execution.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/load-durable-execution.py" /usr/local/libexec/printora-cloud/load-durable-execution.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/probe-worker-recovery.py" /usr/local/libexec/printora-cloud/probe-worker-recovery.py
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/probe-active-active.sh" /usr/local/libexec/printora-cloud/probe-active-active.sh
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/soak-cloud.sh" /usr/local/libexec/printora-cloud/soak-cloud.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/deploy-blue-green.sh" /usr/local/sbin/printora-cloud-deploy
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/rollback-blue-green.sh" /usr/local/sbin/printora-cloud-rollback
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/preflight.sh" /usr/local/sbin/printora-cloud-preflight

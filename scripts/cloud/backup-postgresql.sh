@@ -32,6 +32,31 @@ install -d -o root -g root -m 0700 "$RESTIC_CACHE_DIR"
 install -d -o postgres -g postgres -m 0700 "$work_dir/base"
 dump="$work_dir/printora-postgresql.dump"
 manifest="$work_dir/manifest.json"
+configuration_dir="$work_dir/configuration"
+install -d -o root -g root -m 0700 "$configuration_dir"
+copy_configuration() {
+  local source="$1"
+  local destination="$2"
+  local required="${3:-true}"
+  if [[ ! -f "$source" ]]; then
+    [[ "$required" == "false" ]] && return 0
+    echo "configuração obrigatória ausente: $source" >&2
+    exit 1
+  fi
+  install -o root -g root -m 0600 "$source" "$configuration_dir/$destination"
+}
+copy_configuration "$base_path/shared/printora-cloud.env" printora-cloud.env
+copy_configuration "$base_path/shared/active-slot" active-slot
+copy_configuration /etc/printora-cloud/postgresql.env postgresql.env
+copy_configuration /etc/printora-cloud/redis.env redis.env
+copy_configuration /etc/printora-cloud/object-storage.env object-storage.env
+copy_configuration /etc/printora-cloud/workers/outbox.env worker-outbox.env
+copy_configuration /etc/printora-cloud/workers/critical.env worker-critical.env
+copy_configuration /etc/printora-cloud/workers/default.env worker-default.env
+copy_configuration /etc/printora-cloud/workers/bulk.env worker-bulk.env
+copy_configuration /etc/nginx/sites-available/print3dmaker.xyz.conf nginx-vhost.conf
+copy_configuration "$base_path/shared/nginx/upstream-blue.conf" nginx-upstream-blue.conf
+copy_configuration "$base_path/shared/nginx/upstream-green.conf" nginx-upstream-green.conf
 set -a
 source /etc/printora-object-storage/credentials.env
 set +a
@@ -70,17 +95,29 @@ last_archived_wal="$requested_wal"
 dump_sha256="$(sha256sum "$dump" | awk '{print $1}')"
 object_manifest_sha256="$(sha256sum "$work_dir/object-storage/object-manifest.json" | awk '{print $1}')"
 object_version_count="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version_count"])' "$work_dir/object-storage/object-manifest.json")"
-python3 - "$manifest" "$database_size" "$dump_sha256" "$last_archived_wal" "$object_manifest_sha256" "$object_version_count" <<'PY'
+python3 - "$manifest" "$database_size" "$dump_sha256" "$last_archived_wal" "$object_manifest_sha256" "$object_version_count" "$configuration_dir" "${PRINTORA_RECOVERY_CUSTODY_ID:-}" <<'PY'
+import hashlib
 import json
+import pathlib
 import sys
 from datetime import datetime, timezone
 
+configuration_dir = pathlib.Path(sys.argv[7])
+custody_id = sys.argv[8].strip()
+if not custody_id:
+    raise SystemExit("PRINTORA_RECOVERY_CUSTODY_ID ausente")
+configuration_sha256 = {}
+for path in sorted(configuration_dir.iterdir()):
+    configuration_sha256[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
 payload = {
     "backend": "postgresql",
     "cluster": "16/printora",
     "created_at": datetime.now(timezone.utc).isoformat(),
     "database": "printora_cloud",
     "database_size_bytes": int(sys.argv[2]),
+    "configuration_file_count": len(configuration_sha256),
+    "configuration_sha256": configuration_sha256,
+    "recovery_custody_id": custody_id,
     "dump_file": "printora-postgresql.dump",
     "dump_sha256": sys.argv[3],
     "last_archived_wal": sys.argv[4],
@@ -94,6 +131,6 @@ with open(sys.argv[1], "w", encoding="utf-8") as output:
     output.write("\n")
 PY
 
-restic backup "$work_dir/base" "$dump" "$manifest" "$archive_dir" "$work_dir/object-storage" \
+restic backup "$work_dir/base" "$dump" "$manifest" "$archive_dir" "$work_dir/object-storage" "$configuration_dir" \
   --tag printora-cloud-postgresql --host printora-cloud
 echo "backup PostgreSQL externo criptografado concluído; retenção exige execução supervisionada separada"
