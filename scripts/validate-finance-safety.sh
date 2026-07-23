@@ -4,30 +4,30 @@ set -euo pipefail
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root_dir"
 
-if rg -ni '(^|[,[:space:]])(pan|cvv|cvc|card_number|security_code)[[:space:]]+(text|varchar|char|integer|bigint)' \
+if grep -Eni '(^|[,[:space:]])(pan|cvv|cvc|card_number|security_code)[[:space:]]+(text|varchar|char|integer|bigint)' \
   backend/sql/0*_finance_*.sql backend/sql/postgresql/0*_finance_*.sql; then
   echo "schema financeiro não pode persistir dado bruto de cartão" >&2
   exit 1
 fi
 
-rg -q 'PaymentMode = Literal\["disabled", "sandbox"\]' backend/app/config.py || {
+grep -Fq 'PaymentMode = Literal["disabled", "sandbox"]' backend/app/config.py || {
   echo "runtime financeiro deve permanecer limitado a disabled/sandbox" >&2
   exit 1
 }
-rg -q 'payload_sha256' backend/sql/078_finance_payments.sql || {
+grep -q 'payload_sha256' backend/sql/078_finance_payments.sql || {
   echo "webhook financeiro deve persistir somente digest" >&2
   exit 1
 }
-if rg -n 'payment_webhook_events.*payload_json|payload_json.*payment_webhook_events' backend; then
+if grep -REn 'payment_webhook_events.*payload_json|payload_json.*payment_webhook_events' backend; then
   echo "payload bruto de webhook financeiro detectado" >&2
   exit 1
 fi
-rg -q 'checkout\.sandbox\.invalid' backend/app/payment_provider.py || {
+grep -q 'checkout\.sandbox\.invalid' backend/app/payment_provider.py || {
   echo "checkout sandbox deve permanecer hospedado fora da aplicação" >&2
   exit 1
 }
-if rg -n 'router\.(get|post|put|patch|delete)\([^\n]*(checkout|payment|orders)' \
-  backend/app --glob '*.py' | rg -v 'backend/app/modules/finance/api.py'; then
+if grep -REn --include='*.py' 'router\.(get|post|put|patch|delete).*\(.*(checkout|payment|orders)' \
+  backend/app | grep -v 'backend/app/modules/finance/api.py'; then
   echo "endpoint comercial legado fora do módulo financeiro detectado" >&2
   exit 1
 fi
