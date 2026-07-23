@@ -18,8 +18,8 @@ Estado: em execução
 - Host do agente: placa não Raspberry Pi; métricas específicas de Raspberry não
   são aplicáveis. Doctor confirmou API local e Moonraker saudáveis, fila local
   vazia, protocolo compatível e ausência de alerta.
-- Voron 2.4: agente offline durante a abertura do pacote. Permanece fora de
-  qualquer ação mutável até voltar online, ociosa e fria.
+- Voron 2.4: voltou online com agente `0.1.34` e iniciou uma impressão real.
+  Permanece estritamente read-only até concluir e voltar a ficar ociosa/fria.
 - UI Cloud antes da correção publicada: detalhe da Voron 0.2 ainda mostrava
   `Registro aberto: Voron 2.4`. A origem era a preferência global antiga; a
   correção `df084dd` faz o shell usar o registro efetivamente aberto.
@@ -56,7 +56,7 @@ Estado: em execução
 | Ociosa/fria | Voron 0.2 em `standby`, hotend/mesa sem alvo | aprovado |
 | Offline | Voron 2.4 exibida offline sem ação mutável | aprovado read-only |
 | Moonraker/Klipper prontos | leitura ao vivo da Voron 0.2 | aprovado |
-| Imprimindo | pendente de janela física controlada | pendente |
+| Imprimindo | Voron 2.4 confirmada por resultado remoto: `printing`, hotend ~190 °C e mesa ~75 °C | aprovado read-only; nenhuma ação enviada |
 | Pausada | pendente de impressão controlada | pendente |
 | Concluída | pendente de impressão controlada e histórico | pendente |
 | Cancelada | pendente de cenário seguro e operador presente | pendente |
@@ -102,5 +102,14 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
 - Correção: `load-smoke.py` passou a distribuir o início das requisições pela
   taxa configurada. O reteste público focado fez 25 requisições a 5 req/s,
   sem erro, p95 de 319 ms e p99 de 339 ms.
+- Validação read-only durante impressão: a Voron 2.4 tinha agente distinto,
+  `0.1.34` e heartbeat atual. O último resultado remoto sanitizado confirmou
+  `printing`, hotend em cerca de 190 °C e mesa em cerca de 75 °C. Nenhum
+  comando, atualização ou reinício foi enviado à impressora.
+- Incidente visual: ao trocar da Voron 0.2 para a 2.4, a aba Operação preservou
+  temporariamente o status da 0.2 enquanto a nova leitura aguardava resposta.
+  A causa era falta de escopo e ordenação na preservação assíncrona do hook.
+  A correção limpa dados de outra impressora imediatamente e ignora respostas
+  atrasadas de requisições anteriores; publicação e reteste real pendentes.
 - Soak inicial de 24 horas: não iniciado.
 - Soak final contínuo de 72 horas: não iniciado.
