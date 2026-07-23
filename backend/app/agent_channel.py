@@ -67,6 +67,15 @@ class AgentWebSocketManager:
         if current is not None:
             await asyncio.to_thread(self._disconnect_session, current.session_id)
 
+    async def disconnect_all(self) -> None:
+        async with self._lock:
+            sessions = list(self._sessions.values())
+            self._sessions.clear()
+        if sessions:
+            await asyncio.gather(
+                *(asyncio.to_thread(self._disconnect_session, session.session_id) for session in sessions)
+            )
+
     async def send(self, agent_id: int, message: dict) -> bool:
         async with self._lock:
             session = self._sessions.get(agent_id)

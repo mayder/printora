@@ -32,6 +32,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        await agent_ws_manager.disconnect_all()
         await realtime_broker.stop()
 
 
