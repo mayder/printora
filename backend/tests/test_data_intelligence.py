@@ -69,12 +69,21 @@ def test_multilingual_moderation_requires_human_review_and_discards_context(tmp_
     resolved = repo.review_appeal(
         appeal["appeal_key"], "upheld", "Decisão revertida após revisão independente.", "reviewer-2@example.com",
     )
+    duplicate = repo.ingest(event(
+        "moderation-event-0001",
+        "moderation.content_submitted",
+        "safety_moderation",
+        {"entity_type": "post", "entity_id": 42, "text": "Você é idiota, meu telefone está aqui"},
+    ))
+    replay = repo.replay("replay-moderation-0001", "moderation.content_submitted")
 
     assert cases[0]["detected_language"] == "pt"
     assert cases[0]["human_review_required"] == 1
     assert {"harassment", "privacy"}.issubset(set(cases[0]["labels"]))
     assert reviewed["status"] == "rejected"
     assert resolved["status"] == "upheld"
+    assert duplicate["idempotent"] is True
+    assert replay["processed_count"] == replay["unchanged_count"] == 1
     with connect_database(repo.database_path) as connection:
         stored = connection.execute(
             "SELECT payload_json FROM analytics_events WHERE event_id='moderation-event-0001'"

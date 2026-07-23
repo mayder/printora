@@ -48,7 +48,13 @@ impressora física, agente, Moonraker, Klipper, MCU ou Raspberry Pi.
 - 600 leituras simultâneas de readiness: zero erro, máximo 83 ms;
 - a primeira carga real encontrou conversão de `CURRENT_TIMESTAMP` para texto no
   adapter PostgreSQL. A transação reverteu sem dado parcial; todos os timestamps
-  do serviço passaram a usar parâmetros ISO. Nova publicação e probe pendentes.
+  do serviço passaram a usar parâmetros ISO;
+- workflow `29983809937`: release `8457aac` publicada com sucesso;
+- carga de 1.004 eventos processada; 600 readiness simultâneas tiveram zero erro
+  e máximo 75 ms. O replay global revelou que a minimização de moderação removia
+  features necessárias à reprodução. O evento agora preserva somente idioma,
+  rótulos, confiança, flag humana e digests, sem texto, e o digest original
+  continua imutável para deduplicação. Nova publicação e probe pendentes.
 
 ## Retenção e rollback
 

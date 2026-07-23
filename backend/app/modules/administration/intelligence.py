@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import re
+import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -14,6 +15,8 @@ from app.modules.platform.database_target import uses_postgresql
 
 
 TRANSFORMATION_VERSION = "analytics-v1"
+_SCHEMA_READY_TARGETS: set[str] = set()
+_SCHEMA_READY_LOCK = threading.Lock()
 SENSITIVE_KEYS = {
     "password", "token", "secret", "email", "phone", "telephone", "address",
     "cpf", "cnpj", "ip", "access_token", "refresh_token", "authorization",
@@ -33,7 +36,12 @@ class IntelligenceRepository:
         self.database_path = database_path
 
     def ensure_schema(self) -> None:
-        initialize_database(self.database_path)
+        target = "postgresql" if uses_postgresql() else str(self.database_path.resolve())
+        with _SCHEMA_READY_LOCK:
+            if target in _SCHEMA_READY_TARGETS:
+                return
+            initialize_database(self.database_path)
+            _SCHEMA_READY_TARGETS.add(target)
 
     def ingest(self, event: SanitizedEventCreate) -> dict[str, Any]:
         self.ensure_schema()
@@ -474,11 +482,29 @@ class IntelligenceRepository:
 
     def _process_moderation(self, connection, row, payload):
         text = str(payload.get("text") or payload.get("detail") or payload.get("reason") or "")
-        assessment = assess_text(text)
+        stored_classification = payload.get("classification")
+        if isinstance(stored_classification, dict):
+            language = str(stored_classification.get("language", "und"))[:12]
+            labels = tuple(
+                str(label)[:40]
+                for label in list(stored_classification.get("labels") or [])[:20]
+            )
+            confidence = max(0.0, min(float(stored_classification.get("confidence", 0)), 1.0))
+            human_review_required = bool(stored_classification.get("human_review_required"))
+            context_sha = str(payload.get("context_sha256") or _sha(""))[:64]
+        else:
+            assessment = assess_text(text)
+            language = assessment.language
+            labels = assessment.labels
+            confidence = assessment.confidence
+            human_review_required = assessment.human_review_required
+            context_sha = _sha(text)
         case_key = f"moderation:{row['event_id']}"
-        labels_json = _canonical(list(assessment.labels))
+        labels_json = _canonical(list(labels))
         entity_type = str(payload.get("entity_type", "unknown"))[:80]
-        entity_reference_hash = _sha(str(payload.get("entity_id", "unknown")))
+        entity_reference_hash = str(
+            payload.get("entity_reference_hash") or _sha(str(payload.get("entity_id", "unknown")))
+        )[:64]
         connection.execute(
             """
             INSERT INTO analytics_moderation_cases(
@@ -490,21 +516,32 @@ class IntelligenceRepository:
                 human_review_required=excluded.human_review_required,updated_at=?
             """,
             (
-                case_key, row["event_id"], entity_type, entity_reference_hash, assessment.language,
-                assessment.confidence, labels_json, _sha(text), int(assessment.human_review_required),
+                case_key, row["event_id"], entity_type, entity_reference_hash, language,
+                confidence, labels_json, context_sha, int(human_review_required),
                 _iso(_now()),
             ),
         )
-        # Raw context is transient: only non-reversible evidence remains after classification.
-        minimized = _canonical({"entity_type": entity_type, "context_sha256": _sha(text)})
+        # Raw context is transient. Features permit deterministic replay without
+        # retaining the text or a reversible subject/entity identifier.
+        minimized = _canonical({
+            "entity_type": entity_type,
+            "entity_reference_hash": entity_reference_hash,
+            "context_sha256": context_sha,
+            "classification": {
+                "language": language,
+                "labels": list(labels),
+                "confidence": confidence,
+                "human_review_required": human_review_required,
+            },
+        })
         connection.execute(
-            "UPDATE analytics_events SET payload_json=?,payload_sha256=? WHERE event_id=?",
-            (minimized, _sha(minimized), row["event_id"]),
+            "UPDATE analytics_events SET payload_json=? WHERE event_id=?",
+            (minimized, row["event_id"]),
         )
         return "moderation_case", case_key, {
-            "language": assessment.language,
-            "labels": assessment.labels,
-            "human_review_required": assessment.human_review_required,
+            "language": language,
+            "labels": labels,
+            "human_review_required": human_review_required,
         }
 
     def _process_geometry(self, connection, row, payload):

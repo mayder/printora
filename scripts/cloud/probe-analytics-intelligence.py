@@ -61,8 +61,8 @@ def main() -> None:
         if result["processed"] == 0:
             break
     replay_key = f"probe-replay-{safe_key}"
-    replay = repository.replay(replay_key)
-    replay_again = repository.replay(replay_key)
+    replay = repository.replay(replay_key, "impact.observed")
+    replay_again = repository.replay(replay_key, "impact.observed")
     anonymization = repository.anonymize_subject("synthetic-subject-1", "product_impact")
     before = _model_state(repository, "recommendation-baseline", "1.0.0")
     try:
