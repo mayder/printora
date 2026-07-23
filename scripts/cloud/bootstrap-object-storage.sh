@@ -76,8 +76,12 @@ for bucket in printora-quarantine printora-objects printora-artifacts; do
   "${mc[@]}" version enable "printora/$bucket" >/dev/null
   "${mc[@]}" quota set --size 30GiB "printora/$bucket" >/dev/null
 done
-"${mc[@]}" admin user add printora "$PRINTORA_OBJECT_STORAGE_ACCESS_KEY" "$PRINTORA_OBJECT_STORAGE_SECRET_KEY" >/dev/null
-"${mc[@]}" admin policy create printora printora-app "$ROOT_DIR/packaging/minio/printora-app-policy.json" >/dev/null
+if ! "${mc[@]}" admin user info printora "$PRINTORA_OBJECT_STORAGE_ACCESS_KEY" >/dev/null 2>&1; then
+  "${mc[@]}" admin user add printora "$PRINTORA_OBJECT_STORAGE_ACCESS_KEY" "$PRINTORA_OBJECT_STORAGE_SECRET_KEY" >/dev/null
+fi
+if ! "${mc[@]}" admin policy info printora printora-app >/dev/null 2>&1; then
+  "${mc[@]}" admin policy create printora printora-app "$ROOT_DIR/packaging/minio/printora-app-policy.json" >/dev/null
+fi
 "${mc[@]}" admin policy attach printora printora-app --user "$PRINTORA_OBJECT_STORAGE_ACCESS_KEY" >/dev/null
 "${mc[@]}" anonymous set none printora/printora-quarantine >/dev/null
 "${mc[@]}" anonymous set none printora/printora-objects >/dev/null

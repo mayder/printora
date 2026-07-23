@@ -5632,8 +5632,11 @@ Estado atual:
 - Em execução desde 2026-07-22.
 - Lote 1 em validação: MinIO Community source-only foi escolhido por suportar
   S3 SigV4, versionamento, quotas e políticas mínimas. A build está fixada na
-  release/commit oficial, o endpoint será somente loopback e PostgreSQL continuará
-  canônico. Garage foi rejeitado por não oferecer bucket versioning.
+  release/commit oficial, o endpoint opera somente em loopback e PostgreSQL
+  continuará canônico. Garage foi rejeitado por não oferecer bucket versioning.
+  Em 2026-07-22, a instalação e o replay do bootstrap passaram no host: três
+  buckets privados versionados com quota de 30 GiB, checksum de promoção válido,
+  acesso anônimo `403`, exclusão de promovido negada e serviço limitado a 1,5 GiB.
 
 ## PKG-91: Núcleo Financeiro, Pagamentos E Pedidos
 
