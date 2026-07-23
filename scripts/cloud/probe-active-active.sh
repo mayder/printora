@@ -16,7 +16,7 @@ chaos_url="${PRINTORA_CHAOS_URL:-https://print3dmaker.xyz/health}"
 [[ -x "$load_script" ]] || fail "script de carga ausente"
 wait_until_ready "$active_port" 5 || fail "instância ativa não está ready"
 wait_until_ready "$replica_port" 5 || fail "réplica não está ready"
-nginx -T 2>&1 | grep -q "127.0.0.1:$replica_port" || fail "réplica ausente do upstream carregado"
+nginx -T 2>&1 | grep "127.0.0.1:$replica_port" >/dev/null || fail "réplica ausente do upstream carregado"
 
 restore_active() {
   systemctl start "printora-cloud@$active.service" || true
