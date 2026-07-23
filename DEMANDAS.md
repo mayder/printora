@@ -5744,7 +5744,12 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado; implementação não iniciada.
+- Em execução desde 2026-07-22.
+- Lote 1 concluído: ledger de partidas dobradas usa inteiro + moeda explícita,
+  posting em duas fases com balanceamento também protegido no banco, linhas
+  imutáveis após posting, chave idempotente com digest e reconciliação
+  independente. SQL SQLite/PostgreSQL é aditivo e idempotente; não há `DELETE`,
+  `DROP` ou cálculo monetário com `float`.
 
 ## PKG-92: Fabricação, Qualidade, Logística E Cadeia De Custódia
 

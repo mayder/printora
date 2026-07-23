@@ -48,6 +48,12 @@ BOUNDARIES = (
         ),
     ),
     Boundary(
+        "finance",
+        "Finanças e pedidos",
+        "Ledger, pedidos, pagamentos, reconciliação, risco e repasses.",
+        ("finance_", "commerce_", "payment_"),
+    ),
+    Boundary(
         "operations",
         "Operação e agentes",
         "Impressoras, agentes, impressão, calibração, manutenção, setup e firmware.",
@@ -264,6 +270,8 @@ def infer_table_owner(table: str) -> str:
         return "identity"
     if table.startswith(("social_", "community", "library", "print_project")):
         return "community"
+    if table.startswith(("finance_", "commerce_", "payment_")):
+        return "finance"
     if table.startswith(("agent", "printer", "print_", "calibration", "maintenance")):
         return "operations"
     return "administration"

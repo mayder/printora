@@ -1233,3 +1233,36 @@ release anterior não restaura nem apaga fonte; reativação exige novo rebuild.
 
 Como reverter: pausar jobs `search.rebuild`, publicar a release anterior e manter
 `search_documents`/outbox para diagnóstico. Não remover eventos ou documentos.
+
+### DEC-20260722-08 - Finanças usam módulo isolado e ledger imutável
+
+Status: aceita
+Data: 2026-07-22
+Contexto: preço preparado em projetos não constitui pedido, pagamento, saldo ou
+receita. O domínio comercial precisa tolerar duplicidade, timeout e reconciliação
+sem derivar dinheiro de conteúdo mutável ou receber dados brutos de cartão.
+
+Decisão: criar a fronteira `finance` dentro do monólito modular. Dinheiro usa
+unidade mínima inteira e moeda ISO explícita. Toda alteração de saldo nasce de
+uma transação de partidas dobradas, criada como rascunho, validada e então
+postada; banco e aplicação exigem débitos iguais a créditos. Transação postada e
+lançamentos são imutáveis. Correção ocorre por transação compensatória, nunca
+por edição ou exclusão. Pagamento real permanece bloqueado; checkout deve ser
+hospedado/tokenizado pelo adapter do provedor.
+
+Alternativas consideradas: saldo mutável em uma coluna; cálculo de receita a
+partir do preço atual do projeto; `float`; edição administrativa do ledger;
+microserviço financeiro antes de estabilizar contratos.
+
+Consequências: pedido deve carregar snapshot imutável e operações financeiras
+precisam de chave idempotente, correlation id, reconciliação e segregação de
+função. O módulo social não importa a infraestrutura financeira.
+
+Impacto em testes: invariantes do ledger, concorrência, replay, estados fora de
+ordem, reconciliação, compensação, permissões e ausência de PAN/CVV são gates.
+
+Impacto em rollback: tabelas aditivas e postings permanecem para auditoria. Uma
+release anterior pode ignorar o módulo, mas não deve alterar ou apagar o ledger.
+
+Como reverter: bloquear novos comandos financeiros, publicar a release anterior
+e preservar integralmente contas, transações e lançamentos para forward-fix.

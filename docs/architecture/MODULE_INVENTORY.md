@@ -4,10 +4,10 @@
 
 ## Resumo
 
-- módulos Python: 148;
+- módulos Python: 151;
 - endpoints HTTP/WebSocket: 329;
 - contratos tipados: 341;
-- tabelas declaradas em SQL: 113;
+- tabelas declaradas em SQL: 116;
 - ciclos de import detectados: 0.
 
 ## Fronteiras E Owners
@@ -16,6 +16,7 @@
 |---|---|---|---:|---:|
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 10 | 8 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 29 | 45 |
+| `finance` | Finanças e pedidos | Ledger, pedidos, pagamentos, reconciliação, risco e repasses. | 3 | 3 |
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 55 | 32 |
 | `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 26 | 28 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 7 | 0 |
@@ -44,7 +45,7 @@
 | `routes.calibration` | `operations` | 674 | 15 | 0 |
 | `setup_wizard` | `operations` | 643 | 0 | 7 |
 | `printers` | `operations` | 635 | 0 | 3 |
-| `database` | `shared` | 547 | 0 | 0 |
+| `database` | `shared` | 550 | 0 | 0 |
 | `gcode_files` | `operations` | 543 | 0 | 10 |
 | `health` | `administration` | 513 | 0 | 0 |
 | `setup_firmware` | `operations` | 513 | 0 | 5 |

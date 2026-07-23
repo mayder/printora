@@ -23,6 +23,9 @@ if not uses_postgresql():
 SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
 POSTGRESQL_SQL_DIR = SQL_DIR / "postgresql"
 POSTGRESQL_REQUIRED_EXTENSION_TABLES = (
+    "finance_accounts",
+    "finance_ledger_entries",
+    "finance_ledger_transactions",
     "cloud_object_reconciliation_runs",
     "cloud_object_references",
     "cloud_object_download_tokens",

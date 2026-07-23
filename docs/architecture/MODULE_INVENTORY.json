@@ -23,6 +23,16 @@
       ]
     },
     {
+      "key": "finance",
+      "owner": "Finanças e pedidos",
+      "description": "Ledger, pedidos, pagamentos, reconciliação, risco e repasses.",
+      "prefixes": [
+        "finance_",
+        "commerce_",
+        "payment_"
+      ]
+    },
+    {
       "key": "operations",
       "owner": "Operação e agentes",
       "description": "Impressoras, agentes, impressão, calibração, manutenção, setup e firmware.",
@@ -83,14 +93,15 @@
     }
   ],
   "summary": {
-    "modules": 148,
+    "modules": 151,
     "routes": 329,
     "contracts": 341,
-    "tables": 113,
+    "tables": 116,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 26,
       "community": 29,
+      "finance": 3,
       "identity": 10,
       "integrations": 7,
       "operations": 55,
@@ -326,7 +337,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 547,
+      "lines": 550,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -363,6 +374,17 @@
         "ExternalReferenceRecord",
         "ExternalImportPreview"
       ]
+    },
+    {
+      "module": "finance_ledger",
+      "owner": "finance",
+      "lines": 161,
+      "imports": [
+        "database",
+        "modules.finance.domain"
+      ],
+      "routes": [],
+      "contracts": []
     },
     {
       "module": "firmware.__init__",
@@ -812,6 +834,22 @@
       "module": "modules.community.validation",
       "owner": "community",
       "lines": 124,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.finance.__init__",
+      "owner": "finance",
+      "lines": 2,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.finance.domain",
+      "owner": "finance",
+      "lines": 100,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -4440,6 +4478,21 @@
       "table": "search_documents",
       "owner": "administration",
       "script": "076_postgresql_search.sql"
+    },
+    {
+      "table": "finance_accounts",
+      "owner": "finance",
+      "script": "077_finance_ledger.sql"
+    },
+    {
+      "table": "finance_ledger_transactions",
+      "owner": "finance",
+      "script": "077_finance_ledger.sql"
+    },
+    {
+      "table": "finance_ledger_entries",
+      "owner": "finance",
+      "script": "077_finance_ledger.sql"
     }
   ]
 }
