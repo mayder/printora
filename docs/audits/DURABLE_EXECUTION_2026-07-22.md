@@ -38,8 +38,31 @@ Rollback drena workers, publica código N-1 compatível e preserva PostgreSQL. U
 release sem worker deixa jobs enfileirados para forward-fix; Redis pode ser
 recriado vazio. Nunca restaurar snapshot antigo sobre jobs/eventos confirmados.
 
-## Evidência Remota Pendente
+## Evidência Remota
 
-Preencher no fechamento com release, schema, serviços, carga/soak, worker morto,
-Redis reiniciado, drain/rollback e smoke público. A impressora física e seu host
-não fazem parte desta validação.
+- workflow `29968900686` passou gate completo, auditorias de dependência, SBOM,
+  preflight, blue/green e smoke; release ativa `79084f8`;
+- `preflight` validou os dois slots, PostgreSQL, Redis, workers, backup, recursos,
+  nginx e certificado;
+- auditoria final: zero jobs de agente sem evento, zero leases expirados, 73
+  eventos publicados e 73 jobs críticos concluídos;
+- carga PostgreSQL: 500 jobs, oito consumidores, 500 conclusões, zero
+  duplicidade, 10,29 jobs/s e p95 de claim em 484,162 ms;
+- saturação solicitada de 2.000 jobs foi bloqueada na quota de 1.000. Os 1.000
+  probes sintéticos pendentes foram marcados `canceled`, sem exclusão física;
+- falha controlada: job `1574` foi retomado na tentativa 2 após expiração do
+  lease e rejeitou o completion token antigo;
+- restart de Redis manteve as contagens PostgreSQL em 1.537 jobs e 37 eventos,
+  recompôs o socket com `PONG` e preservou dois apps e quatro workers ativos;
+- rollback real para N-1 `686e5ca` e forward-deploy para `79084f8` passaram com
+  drain/restart de workers, `data_restored=false` e schema revision 74;
+- backpressure HTTP aceitou 600/1.000 e respondeu 429 nas 400 excedentes. Após
+  recomposição do Redis, smoke controlado passou 500/500, zero erro e p95 de
+  953,159 ms;
+- o agente físico, Moonraker, Klipper, MCU e Raspberry Pi não foram acessados ou
+  reiniciados durante a comprovação.
+
+## Resultado
+
+Todos os critérios do pacote foram comprovados. O arquivo SQLite anterior e os
+backups continuam preservados; nenhuma retenção ou exclusão física foi executada.

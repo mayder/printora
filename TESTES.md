@@ -1810,7 +1810,7 @@ Evidência de fechamento em 2026-07-22:
 - escanear zero registry/fila autoritativa em memória;
 - fechamento: carga/soak, falha controlada, suíte completa e smoke.
 
-Evidência parcial em 2026-07-22:
+Evidência de fechamento em 2026-07-22:
 
 - testes focados cobrem atomicidade negócio/outbox, inbox, ordenação,
   deduplicação, lease expirado, completion token, retry, dead-letter e replay;
@@ -1821,9 +1821,13 @@ Evidência parcial em 2026-07-22:
 - Redis ausente degrada sem bloquear negócio; cache, rate limit, presença e
   pub/sub foram exercitados também contra processo Redis efêmero real;
 - carga SQLite controlada concluiu 500/500 jobs, oito consumidores, zero
-  duplicidade e 170,38 jobs/s;
-- fechamento remoto ainda depende de instalar Redis/workers, reiniciar Redis,
-  matar worker com lease, executar drain blue/green, soak e smoke público.
+  duplicidade e 170,38 jobs/s; PostgreSQL remoto concluiu outros 500/500, zero
+  duplicidade, 10,29 jobs/s e p95 de claim em 484,162 ms;
+- saturação acima da quota foi recusada, lease expirado retomou na tentativa 2 e
+  rejeitou completion token antigo;
+- restart de Redis preservou contagens PostgreSQL e manteve apps/workers ativos;
+- rollback N-1 e forward-deploy drenaram/reiniciaram quatro classes sem restore;
+- smoke público: 500 requisições, zero erro e p95 de 953,159 ms.
 
 ### PKG-90 - Objetos, Quarentena E Busca Reconstruível
 

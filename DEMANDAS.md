@@ -5543,7 +5543,7 @@ Critério de aceite:
 
 Estado atual:
 
-- Em execução desde 2026-07-22.
+- Concluído em 2026-07-22 na release `79084f8`.
 - Lote 1 concluído: envelope de evento V1, contrato de jobs/leases,
   idempotência, ordenação, compatibilidade N/N-1, filas por criticidade, threat
   model e schemas portáveis foram definidos. As tabelas aditivas de
@@ -5568,14 +5568,15 @@ Estado atual:
 - Lote 6 concluído: sessões realtime possuem owner de instância, expiração,
   fencing PostgreSQL, heartbeat e último ACK. Pub/sub acorda a instância dona e
   reconnect com jitter retoma jobs persistidos.
-- Lote 7 em validação: quotas por classe/owner, payload máximo, métricas,
-  dead-letter, preview/replay administrativo, retenção supervisionada e carga
-  sintética estão implementados. Falha, drain e soak ainda serão comprovados no
-  host antes do fechamento.
-- Lote 8 concluído no código: entrega imediata e port realtime autoritativa foram
+- Lote 7 concluído: quota recusou saturação acima de 1.000 jobs, carga controlada
+  concluiu 500/500 sem duplicidade, lease expirado retomou com rejeição do token
+  antigo, Redis vazio preservou dados canônicos, smoke público passou e o ciclo
+  rollback N-1/forward-deploy drenou e retomou as quatro classes de worker.
+- Lote 8 concluído: entrega imediata e port realtime autoritativa foram
   removidas; o gate bloqueia filas Python em memória e qualquer retorno do
   `push_job`. Registry local conserva somente objetos socket efêmeros e é cercado
   pelo owner canônico da sessão no PostgreSQL.
+- Evidência integral em `docs/audits/DURABLE_EXECUTION_2026-07-22.md`.
 
 ## PKG-90: Objetos, Quarentena E Busca Reconstruível
 
