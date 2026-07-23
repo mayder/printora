@@ -4111,7 +4111,7 @@
     {
       "module": "self_update",
       "owner": "administration",
-      "lines": 1001,
+      "lines": 1007,
       "imports": [
         "auth",
         "database",
