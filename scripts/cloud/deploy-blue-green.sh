@@ -46,6 +46,14 @@ install -o root -g root -m 0755 "$release_dir/scripts/cloud/preflight.sh" /usr/l
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/deploy-blue-green.sh" /usr/local/sbin/printora-cloud-deploy
 systemctl daemon-reload
 
+replica_env="$PRINTORA_BASE_PATH/shared/slots/replica.env"
+if [[ ! -s "$replica_env" ]]; then
+  printf 'PRINTORA_PORT=8071\nPRINTORA_SLOT=replica\nPRINTORA_RUNTIME_PROFILE=cloud\n' > "$replica_env.next"
+  chown deploy:deploy "$replica_env.next"
+  chmod 0640 "$replica_env.next"
+  mv -Tf "$replica_env.next" "$replica_env"
+fi
+
 "$SCRIPT_DIR/apply-postgresql-schema.sh" "$release_dir"
 
 current_slot="$(active_slot)"

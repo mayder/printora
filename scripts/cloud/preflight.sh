@@ -97,6 +97,22 @@ validate_durable_workers() {
   done
 }
 
+validate_application_slots() {
+  local slot config expected_port
+  for slot in blue green replica; do
+    config="$PRINTORA_BASE_PATH/shared/slots/$slot.env"
+    case "$slot" in
+      blue) expected_port=8069 ;;
+      green) expected_port=8070 ;;
+      replica) expected_port=8071 ;;
+    esac
+    [[ "$(stat -c '%a:%U:%G' "$config")" == "640:deploy:deploy" ]] || return 1
+    grep -qx "PRINTORA_PORT=$expected_port" "$config" || return 1
+    grep -qx "PRINTORA_SLOT=$slot" "$config" || return 1
+    grep -qx "PRINTORA_RUNTIME_PROFILE=cloud" "$config" || return 1
+  done
+}
+
 validate_recomposable_redis() {
   local config=/etc/printora-cloud/redis.env
   [[ "$(stat -c '%a:%U:%G' "$config")" == "640:root:deploy" ]] || return 1
@@ -136,6 +152,7 @@ check backup_repository validate_backup_repository
 check resource_budget validate_resource_budget
 check postgresql_environment validate_postgresql_environment
 check postgresql_runtime validate_postgresql_runtime
+check application_slots validate_application_slots
 check durable_workers validate_durable_workers
 check recomposable_redis validate_recomposable_redis
 check object_storage validate_object_storage

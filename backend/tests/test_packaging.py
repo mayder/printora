@@ -106,6 +106,8 @@ def test_cloud_blue_green_packaging_is_independent_and_fail_closed() -> None:
     assert "location = /metrics" in nginx
     assert "wait_until_ready" in deploy
     assert 'activate_replica "$release_dir"' in deploy
+    assert "shared/slots/replica.env" in deploy
+    assert "PRINTORA_PORT=8071" in deploy
     assert "switch_nginx_to_slot" in deploy
     assert "data_restored" not in deploy
     assert "shared/venv" not in workflow
