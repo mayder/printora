@@ -5629,15 +5629,18 @@ Critério de aceite:
 
 Estado atual:
 
-- Em execução desde 2026-07-22.
-- Lote 1 em validação: MinIO Community source-only foi escolhido por suportar
+- Concluído 100% em 2026-07-22; lotes 1 a 8 entregues e revisados.
+- Lote 1 concluído: MinIO Community source-only foi escolhido por suportar
   S3 SigV4, versionamento, quotas e políticas mínimas. A build está fixada na
   release/commit oficial, o endpoint opera somente em loopback e PostgreSQL
   continuará canônico. Garage foi rejeitado por não oferecer bucket versioning.
   Em 2026-07-22, a instalação e o replay do bootstrap passaram no host: três
   buckets privados versionados com quota de 30 GiB, checksum de promoção válido,
   acesso anônimo `403`, exclusão de promovido negada e serviço limitado a 1,5 GiB.
-- Lote 2 implementado localmente em 2026-07-22: adapter S3 SigV4, bloqueio de
+  A prova final gravou/promoveu 25 MiB no limite do contrato, reconciliou seis
+  objetos sem ausência, corrupção ou órfão e ensaiou instalação atômica,
+  rollback e avanço do binário com checksum preservado e serviço saudável.
+- Lote 2 concluído em 2026-07-22: adapter S3 SigV4, bloqueio de
   fallback local no perfil cloud, ingestão HTTP incremental com limite de 25 MiB,
   metadados/referências/sessões/reconciliação em SQL idempotente, dependência
   explícita dos serviços e preflight do endpoint privado. Validação focada:
@@ -5655,11 +5658,11 @@ Estado atual:
   manifesto real teve zero entradas históricas, coerente com o path local vazio.
   Reconciliação de banco/buckets adotou dois probes conhecidos sem apagar bytes e
   o replay fechou com 4 objetos, zero ausente, zero corrompido e zero órfão.
-- Lote 4 implementado localmente: validação aprovada promove por cópia e `HEAD`,
+- Lote 4 concluído: validação aprovada promove por cópia e `HEAD`,
   download recalcula owner/publicação/moderação no PostgreSQL e usa token aleatório
   de 60 segundos, uso único, persistido somente como hash e enviado por header.
   Quarentena não possui rota de leitura. Validação focada: 81 testes passaram.
-- Lote 5 implementado localmente: `search_documents` PostgreSQL usa `tsvector`
+- Lote 5 concluído: `search_documents` PostgreSQL usa `tsvector`
   gerado + GIN, fontes emitem outbox sanitizada e worker bulk executa rebuild
   idempotente sem `DELETE`. Consulta reaplica fonte ativa, publicação comercial,
   membership e bloqueios. Validação focada de busca/worker/schema: 102 testes.
@@ -5668,14 +5671,20 @@ Estado atual:
   publicada e o job bulk terminou em 4,222 s. Comparação de termos e filtros de
   geração/permissão passou. O primeiro CI expôs um teste WebSocket intermitente;
   cinco repetições locais e o rerun integral (530 testes) passaram sem mudança.
-- Lote 7 implementado localmente: backup Restic criptografado passa a reunir
+- Lote 7 concluído no Cloud: backup Restic criptografado reúne
   PostgreSQL físico/lógico + WAL e todas as versões/delimitadores dos três buckets
   com manifesto/checksum. Restore isolado reconcilia metadado/conteúdo e executa
-  rebuild da busca sem iniciar aplicação ou alterar produção.
-- Lote 8 implementado localmente: gate bloqueia fallback de filesystem, upload
+  rebuild da busca sem iniciar aplicação ou alterar produção. O snapshot externo
+  `3183edf8` restaurou seis versões, 114 tabelas, 78 revisões de schema e quatro
+  objetos canônicos; checksums, FKs e rebuild de 364 documentos passaram.
+- Lote 8 concluído: gate bloqueia fallback de filesystem, upload
   sem limite incremental, busca request-time/`LIKE` no perfil cloud e unit sem
   dependência do storage privado. Adapter e índice antigos permanecem somente no
   perfil local; dados/paths de origem não foram apagados.
+- Publicação final `29972901814` promoveu o commit `51fe58e`, após 530 testes,
+  auditoria de dependências, SBOM, blue/green e smoke público. Comparação FTS
+  confirmou GIN, zero documento inativo visível e paridade integral dos termos
+  existentes; aplicação, workers e MinIO permaneceram ativos.
 
 ## PKG-91: Núcleo Financeiro, Pagamentos E Pedidos
 

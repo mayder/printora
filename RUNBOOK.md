@@ -1963,6 +1963,17 @@ Comandos no host, executados como `deploy`:
 /usr/local/libexec/printora-cloud/run-object-storage-tool.sh search-rebuild
 ```
 
+Para provar o limite máximo de uma requisição sem ultrapassá-lo:
+
+```bash
+PRINTORA_STORAGE_PROBE_SIZE_MIB=25 \
+  /usr/local/libexec/printora-cloud/run-object-storage-tool.sh validate
+```
+
+O valor aceito fica entre `0` e `25`. A prova cria referências canônicas para a
+quarentena e para o promovido; em seguida, `reconcile` deve terminar sem objeto
+ausente, corrompido ou órfão. Ela não remove versões ou conteúdo.
+
 - `migrate` sem `--apply` gera somente manifesto e reconciliação dry-run;
 - manifesto é criado com modo `0600` e não contém credenciais nem path absoluto;
 - `migrate --apply` copia incrementalmente e registra a referência; não remove a origem;
@@ -1987,6 +1998,12 @@ conteúdo com SHA-256 e inclui manifesto junto do backup físico/lógico Postgre
 WAL no snapshot Restic criptografado. O teste de restore extrai ambos em destino
 isolado, valida todos os checksums, reconcilia `cloud_objects` com o conteúdo e
 reconstrói `search_documents`. Ele não inicia a aplicação nem altera produção.
+
+Uma atualização do MinIO deve preservar uma cópia executável do binário anterior,
+validar SHA-256 do candidato, reiniciar somente `minio-printora.service`, aguardar
+`/minio/health/ready` e executar `reconcile`. Em falha, reinstalar a cópia anterior
+e repetir health + reconciliação. Não alterar buckets, metadados ou versões durante
+o rollback.
 
 ## Validacao por risco
 

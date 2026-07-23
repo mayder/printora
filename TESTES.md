@@ -59,6 +59,15 @@ Comando obrigatório antes de commit:
 ./check.sh
 ```
 
+## Objetos e busca Cloud
+
+No fechamento do contrato de objetos e busca, executar o gate completo e, no
+host Cloud, comprovar: upload no limite de 25 MiB, quarentena/promoção, restart e
+reconciliação sem ausência/corrupção/órfão, busca com GIN e filtro de geração,
+backup externo e restore físico isolado com checksums de banco, WAL e objetos.
+O restore deve reconstruir a busca sem iniciar a aplicação restaurada nem escrever
+no cluster de produção.
+
 ## Impressão, marketplace e fontes externas
 
 Validação focada:

@@ -20,7 +20,17 @@ def main() -> None:
     if not isinstance(storage, S3ObjectStorage):
         raise RuntimeError("perfil cloud não resolveu o adapter S3")
 
-    body = f"printora-storage-proof:{uuid.uuid4()}".encode()
+    probe_size_mib = int(os.environ.get("PRINTORA_STORAGE_PROBE_SIZE_MIB", "0"))
+    if probe_size_mib < 0 or probe_size_mib > 25:
+        raise RuntimeError("tamanho da prova deve permanecer entre 0 e 25 MiB")
+    seed = f"printora-storage-proof:{uuid.uuid4()}".encode()
+    body = (
+        (seed * ((probe_size_mib * 1024 * 1024 + len(seed) - 1) // len(seed)))[
+            : probe_size_mib * 1024 * 1024
+        ]
+        if probe_size_mib
+        else seed
+    )
     checksum = hashlib.sha256(body).hexdigest()
     quarantined = storage.write_quarantine(checksum, ".probe", body)
     if hashlib.sha256(storage.read_quarantine(quarantined.key)).hexdigest() != checksum:
