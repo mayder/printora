@@ -104,6 +104,9 @@ if [[ "${RUN_FRONTEND_CHECKS:-0}" == "1" ]]; then
     if node -e "const s=require('./frontend/package.json').scripts||{}; process.exit(s['test:gcode-preview']?0:1)"; then
       (cd frontend && npm run test:gcode-preview)
     fi
+    if node -e "const s=require('./frontend/package.json').scripts||{}; process.exit(s['test:sequential-poll']?0:1)"; then
+      (cd frontend && npm run test:sequential-poll)
+    fi
   else
     fail "frontend/node_modules ausente para RUN_FRONTEND_CHECKS=1"
   fi

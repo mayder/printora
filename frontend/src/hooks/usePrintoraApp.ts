@@ -58,6 +58,7 @@ import { maintenanceApi } from "../services/maintenanceApi";
 import { printerApi } from "../services/printerApi";
 import { updatesApi } from "../services/updatesApi";
 import * as formatters from "../utils/formatters";
+import { startSequentialPoll } from "../utils/sequentialPoll";
 import * as selfUpdateHelpers from "../selfUpdate";
 import { useAppShell } from "./domains/useAppShell";
 import { useAuth } from "./domains/useAuth";
@@ -474,13 +475,15 @@ export function usePrintoraApp() {
     if (!contextPrinterId || !operationActive) {
       return;
     }
-    void operation.loadOperationStatus(contextPrinterId, { preserveData: true });
-    const refreshId = window.setInterval(() => {
-      void operation.loadOperationStatus(contextPrinterId!, { preserveData: true });
-      void settings.loadPrinterHealth(contextPrinterId!);
-      void settings.loadCanRecords(contextPrinterId!);
+    return startSequentialPoll(async () => {
+      await Promise.allSettled([
+        operation.loadOperationStatus(contextPrinterId, { preserveData: true }),
+      ]);
+      await Promise.allSettled([
+        settings.loadPrinterHealth(contextPrinterId),
+        settings.loadCanRecords(contextPrinterId),
+      ]);
     }, 5000);
-    return () => window.clearInterval(refreshId);
   }, [auth.authUser, shell.activeSection, printerDetailTab, contextPrinterId]);
 
   React.useEffect(() => {

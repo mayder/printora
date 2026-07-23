@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test:releases": "node tests/releaseStates.test.mjs",
-    "test:gcode-preview": "node tests/gcodePreview.test.mjs"
+    "test:gcode-preview": "node tests/gcodePreview.test.mjs",
+    "test:sequential-poll": "node tests/sequentialPoll.test.mjs"
   },
   "dependencies": {
     "@sindarius/gcodeviewer": "^3.7.17",
