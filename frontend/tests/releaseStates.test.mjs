@@ -103,6 +103,8 @@ assert.match(appHookSource, /printerAvailability !== "offline"/);
 assert.match(appHookSource, /window\.setInterval\(\(\) => \{[\s\S]*settings\.loadPrinterHealth\(contextPrinterId!\);[\s\S]*\}, 60000\);/);
 assert.match(appHookSource, /setDetailPrinterId\(printerId\);[\s\S]*shell\.setActiveSection\("printer-detail"\);/);
 assert.doesNotMatch(appHookSource, /function openPrinterDetail[\s\S]*printers\.selectPrinter\(printerId\);/);
+assert.match(appHookSource, /selectedPrinter: contextPrinter,[\s\S]*selectedPrinterId: contextPrinterId,/);
+assert.doesNotMatch(appHookSource, /selectedPrinter: printers\.selectedPrinter,[\s\S]*selectedPrinterId: printers\.selectedPrinterId,/);
 assert.match(alertCenterSource, /const printerOffline = Boolean\(health && !health\.connected\);/);
 assert.match(alertCenterSource, /if \(printerOffline\) \{[\s\S]*return dedupeAlertCenterItems\(items\);[\s\S]*\}/);
 assert.doesNotMatch(updatesHookSource, /window\.confirm|window\.alert/);
