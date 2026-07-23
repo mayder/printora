@@ -1158,3 +1158,45 @@ Como reverter: pausar os worker controls, drenar leases, publicar a release N-1
 e manter as estruturas duráveis para forward-fix ou replay supervisionado.
 
 Referência: `docs/audits/POSTGRESQL_CLOUD_TRANSITION_2026-07-22.md`.
+
+### DEC-20260722-06 - Objetos cloud usam MinIO privado e chaves imutáveis
+
+Status: aceita
+Data: 2026-07-22
+Contexto: uploads sociais, projetos e artefatos de fatiamento ainda usam paths
+locais, enquanto o perfil cloud precisa de quarentena não servível, checksum,
+ownership, versionamento, restore conjunto e URLs autorizadas sem expor o host.
+O servidor atual possui um único disco e 116 GiB livres; portanto nenhum serviço
+local fornece alta disponibilidade física e a cópia externa continua obrigatória.
+
+Decisão: executar MinIO Community `RELEASE.2025-10-15T17-29-55Z`, código-fonte
+oficial fixado no commit `9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a`,
+como unit systemd privada em `127.0.0.1:9100`. O binário é compilado do código
+AGPLv3 sem modificação. Buckets privados separam quarentena, objetos promovidos e
+artefatos; versionamento e quotas ficam ativos. A aplicação recebe uma chave de
+escopo mínimo, usa chaves content-addressed imutáveis e mantém PostgreSQL como
+fonte de ownership, estado, checksum e referências. Downloads passam por token
+curto da aplicação; o endpoint S3 nunca é publicado.
+
+Alternativas consideradas: Garage, rejeitado porque não implementa bucket
+versioning; filesystem local, rejeitado por manter path autoritativo; Ceph,
+rejeitado pelo custo operacional no host único; serviço gerenciado, fora da
+restrição atual de executar os componentes do Printora no servidor existente.
+
+Consequências: a aplicação deixa de depender de paths e pode reconstruir busca e
+reconciliar conteúdo. Single-node não protege contra perda física do host; backup
+externo criptografado e restore de metadados mais objetos são gates. A licença e
+o source pin do MinIO devem permanecer inventariados em cada atualização.
+
+Impacto em testes: streaming interrompido, limite, conteúdo hostil, quarentena,
+promoção, checksum, ownership, token expirado, órfãos, versionamento, backup,
+restore, carga e falha do serviço são obrigatórios.
+
+Impacto em rollback: código N-1 continua lendo a origem preservada somente antes
+do cutover. Depois do cutover, rollback reutiliza PostgreSQL e MinIO atuais; não
+restaura snapshot antigo nem apaga versões. A origem local permanece read-only
+até reconciliação e confirmação explícita para remoção.
+
+Como reverter: pausar promoções, drenar jobs de storage, publicar a release N-1
+S3-compatible e manter buckets/metadados intactos. Falha física exige restore
+integral validado, nunca retorno silencioso a paths locais.

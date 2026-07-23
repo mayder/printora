@@ -5629,7 +5629,11 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado; implementação não iniciada.
+- Em execução desde 2026-07-22.
+- Lote 1 em validação: MinIO Community source-only foi escolhido por suportar
+  S3 SigV4, versionamento, quotas e políticas mínimas. A build está fixada na
+  release/commit oficial, o endpoint será somente loopback e PostgreSQL continuará
+  canônico. Garage foi rejeitado por não oferecer bucket versioning.
 
 ## PKG-91: Núcleo Financeiro, Pagamentos E Pedidos
 

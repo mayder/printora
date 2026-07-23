@@ -1,0 +1,30 @@
+[Unit]
+Description=MinIO privado do Printora Cloud
+Documentation=https://min.io/docs/minio/linux/index.html
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=minio-printora
+Group=minio-printora
+WorkingDirectory=/var/lib/minio-printora
+Environment=HOME=/var/lib/minio-printora
+EnvironmentFile=/etc/printora-object-storage/minio.env
+ExecStart=/usr/local/bin/minio-printora server --address 127.0.0.1:9100 --console-address 127.0.0.1:9101 /var/www/print3dmaker.xyz/shared/object-storage
+Restart=always
+RestartSec=5
+TimeoutStopSec=60
+LimitNOFILE=65536
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/minio-printora /var/www/print3dmaker.xyz/shared/object-storage
+MemoryHigh=1G
+MemoryMax=1536M
+CPUQuota=200%
+TasksMax=512
+
+[Install]
+WantedBy=multi-user.target
