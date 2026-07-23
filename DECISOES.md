@@ -1637,9 +1637,9 @@ Decisão: jobs read-only de alta frequência reutilizam um job `pending` ou
 `in_progress` quando impressora, agente, tipo e payload são idênticos. A decisão
 é atômica em PostgreSQL por advisory lock transacional derivado de SHA-256 do
 escopo. Jobs mutáveis continuam criando registros independentes e nunca são
-coalescidos. O heartbeat renova somente o job `in_progress` mais antigo do
-agente, que corresponde à execução serial corrente; ele não mantém todos os
-órfãos vivos indefinidamente. Não há nova tabela, script SQL ou retenção.
+coalescidos. A renovação implícita pelo heartbeat foi substituída pela
+`DEC-20260723-13`; progresso exige resultado do job. Não há nova tabela, script
+SQL ou retenção.
 
 Alternativas consideradas: aumentar o limite do soak; cancelar jobs existentes;
 reduzir polling somente na UI; desativar WebSocket; reiniciar o agente durante a
@@ -1648,9 +1648,7 @@ impressão.
 Consequências: pollings concorrentes aguardam o mesmo resultado e deixam de
 amplificar backlog durante reconnect. O correlation ID original permanece como
 identidade do job compartilhado; chamadas posteriores a uma conclusão criam
-nova leitura. Falha ou expiração continua fail-closed para todos os aguardantes,
-e jobs `in_progress` antigos voltam a expirar depois que o job serial corrente
-avança.
+nova leitura. Falha ou expiração continua fail-closed para todos os aguardantes.
 
 Impacto em testes: aplicação valida a política read-only versus mutação, e o
 repositório valida reuso apenas no mesmo payload/escopo.
@@ -1686,3 +1684,36 @@ Impacto em rollback: reverter restaura a comparação textual anterior e pode
 voltar a atrasar expiração conforme o fuso da sessão.
 
 Como reverter: reverter a decisão e o repositório sem alterar ou remover jobs.
+
+### DEC-20260723-13 - Heartbeat não é lease de execução de job
+
+Status: aceita
+Data: 2026-07-23
+Contexto: após a correção de expiração UTC, a fila real caiu para cinco jobs,
+mas um `remote_gcode_files_list` com mais de duas horas continuava
+`in_progress`. O agente seguia vivo e seu heartbeat renovava esse registro,
+embora não houvesse resultado nem evidência de progresso.
+
+Decisão: heartbeat atualiza somente liveness, versão, plataforma e capacidades
+do agente. Ele não renova `updated_at` de job. Todo `in_progress` sem
+`result`/`error` expira após cinco minutos, independentemente de o processo do
+agente continuar online. Reconciliação específica do updater por versão
+permanece independente.
+
+Alternativas consideradas: manter renovação do job mais antigo; elevar o
+timeout; cancelar manualmente a fila; exigir imediatamente um novo protocolo de
+lease.
+
+Consequências: executor travado deixa de bloquear indefinidamente jobs
+posteriores e a fila se recupera sem exclusão manual. Trabalho que realmente
+precise durar mais de cinco minutos deverá adotar lease explícito e vinculado ao
+job em uma evolução de protocolo; heartbeat genérico não será usado como prova.
+
+Impacto em testes: heartbeat com dois jobs mutáveis em progresso deve preservar
+os dois timestamps, permitindo que a expiração normal trate ambos.
+
+Impacto em rollback: reintroduzir a renovação pode recriar starvation e backlog
+sem limite quando o executor travar.
+
+Como reverter: somente após implementar lease explícito por job com deadline,
+fencing e teste de executor interrompido.

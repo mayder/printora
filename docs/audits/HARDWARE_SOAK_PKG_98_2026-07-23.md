@@ -124,5 +124,11 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   expiração em três horas. A correção usa instante UTC tipado para `expires_at`
   e timestamp com offset para `updated_at`; nenhuma linha foi excluída e a
   janela permanece invalidada até republicação, drenagem natural e reteste.
+- Incidente de lease implícito: após `ecdec49`, 289 pendências expiraram pelo
+  fluxo normal e o backlog caiu para cinco, mas um
+  `remote_gcode_files_list` permaneceu `in_progress` por mais de duas horas
+  porque o heartbeat renovava seu timestamp sem provar progresso. Heartbeat
+  passa a representar somente liveness; qualquer job sem resultado expira em
+  cinco minutos. Nenhuma linha foi cancelada ou excluída manualmente.
 - Soak inicial de 24 horas: não iniciado.
 - Soak final contínuo de 72 horas: não iniciado.

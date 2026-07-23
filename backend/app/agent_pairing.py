@@ -541,20 +541,6 @@ class AgentPairingRepository:
                 """,
                 (request.agent_version, request.platform, json.dumps(request.capabilities), agent.id),
             )
-            connection.execute(
-                """
-                UPDATE agent_jobs
-                SET updated_at = CURRENT_TIMESTAMP
-                WHERE id = (
-                    SELECT id
-                    FROM agent_jobs
-                    WHERE agent_id = ? AND status = 'in_progress'
-                    ORDER BY created_at, id
-                    LIMIT 1
-                )
-                """,
-                (agent.id,),
-            )
             self._reconcile_agent_update_jobs(connection, agent, request)
             self._record_event(connection, agent.printer_id, agent.id, "heartbeat", "ok", request.agent_version)
         return AgentHeartbeatResponse(accepted=True, agent_id=agent.id, printer_id=agent.printer_id, status="active")

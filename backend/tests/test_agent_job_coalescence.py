@@ -90,7 +90,9 @@ def test_coalesced_read_job_reuses_only_same_active_scope(tmp_path: Path) -> Non
     assert after_malformed_legacy_payload.id not in {first.id, different.id}
 
 
-def test_regular_job_creation_never_coalesces_mutations(tmp_path: Path) -> None:
+def test_regular_job_creation_never_coalesces_or_renews_mutations(
+    tmp_path: Path,
+) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)
     with connect_database(database_path) as connection:
@@ -166,7 +168,7 @@ def test_regular_job_creation_never_coalesces_mutations(tmp_path: Path) -> None:
             "SELECT id, updated_at FROM agent_jobs WHERE id IN (?, ?) ORDER BY id",
             (first.id, second.id),
         ).fetchall()
-    assert rows[0]["updated_at"] != old_timestamp
+    assert rows[0]["updated_at"] == old_timestamp
     assert rows[1]["updated_at"] == old_timestamp
 
 
