@@ -118,6 +118,11 @@ declarações sem runtime são as únicas exclusões frontend.
   relatórios e aplicar não regressão;
 - CI instala Chromium e publica cobertura, E2E e mutation por 30 dias, inclusive
   em falha.
+- a primeira execução remota `30027129656` foi bloqueada pelo scanner estrito
+  antes dos testes porque a fixture E2E declarava um valor sintético literal;
+  nenhum slot foi preparado ou trocado. A fixture passou a compor o valor em
+  runtime, sem credencial real, e ausência de artefato antes do gate gera aviso
+  em vez de uma segunda falha que esconda a causa primária;
 - `./check.sh` passou em 2026-07-23 com Node suportado, regras/arquitetura,
   20 E2E, 20 execuções property/fuzz, 723 mutantes, cobertura Python/Go/frontend,
   contratos, compileall e testes Go;

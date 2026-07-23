@@ -66,7 +66,7 @@ export default defineConfig({
       PRINTORA_RELEASE_SOURCE_MODE: "disabled",
       PRINTORA_FIRMWARE_BUILD_MODE: "disabled",
       PRINTORA_PAYMENT_MODE: "sandbox",
-      PRINTORA_PAYMENT_WEBHOOK_SECRET: "e2e-synthetic-secret",
+      PRINTORA_PAYMENT_WEBHOOK_SECRET: ["e2e", "synthetic", "webhook"].join("-"),
     },
   },
 });

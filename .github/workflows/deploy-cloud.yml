@@ -75,7 +75,7 @@ jobs:
             .artifacts/coverage
             .artifacts/e2e
             .artifacts/mutation
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
 
       - name: Audit production dependencies
