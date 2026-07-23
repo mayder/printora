@@ -1,7 +1,8 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
@@ -13,6 +14,7 @@ from app.rate_limit_middleware import redis_rate_limit_middleware as apply_rate_
 from app.modules import module_routers
 from app.modules.platform.realtime_broker import RealtimeBroker
 from app.modules.platform.recomposable_redis import RecomposableRedis
+from app.frontend_assets import resolve_frontend_asset_path
 from app.operational import request_observability_middleware
 from app.social_catalog import SocialCatalogRepository
 @asynccontextmanager
@@ -74,12 +76,24 @@ async def auth_context_middleware(request, call_next):
     return await call_next(request)
 
 _frontend_dist_dir = get_settings().frontend_dist_dir
-_frontend_assets_dir = _frontend_dist_dir / "assets"
 _frontend_brand_dir = _frontend_dist_dir / "brand"
-if _frontend_assets_dir.is_dir():
-    app.mount("/assets", StaticFiles(directory=_frontend_assets_dir), name="frontend-assets")
 if _frontend_brand_dir.is_dir():
     app.mount("/brand", StaticFiles(directory=_frontend_brand_dir), name="frontend-brand")
+
+
+@app.get("/assets/{asset_path:path}", include_in_schema=False)
+async def frontend_asset(asset_path: str) -> FileResponse:
+    asset_file = resolve_frontend_asset_path(asset_path, _frontend_dist_dir)
+    if asset_file is None:
+        raise HTTPException(
+            status_code=404,
+            detail="frontend asset not found",
+            headers={"Cache-Control": "no-store"},
+        )
+    return FileResponse(
+        asset_file,
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
 
 for module_router in module_routers():
     app.include_router(module_router)

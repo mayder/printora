@@ -96,13 +96,13 @@
     }
   ],
   "summary": {
-    "modules": 172,
-    "routes": 372,
+    "modules": 173,
+    "routes": 373,
     "contracts": 385,
     "tables": 156,
     "cycles": 0,
     "modules_by_owner": {
-      "administration": 30,
+      "administration": 31,
       "community": 29,
       "finance": 13,
       "identity": 13,
@@ -615,6 +615,14 @@
       ]
     },
     {
+      "module": "frontend_assets",
+      "owner": "administration",
+      "lines": 90,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "gcode_cache",
       "owner": "operations",
       "lines": 175,
@@ -709,12 +717,13 @@
     {
       "module": "main",
       "owner": "shared",
-      "lines": 85,
+      "lines": 99,
       "imports": [
         "agent_channel",
         "auth",
         "config",
         "database",
+        "frontend_assets",
         "idempotency_middleware",
         "modules",
         "modules.platform.realtime_broker",
@@ -723,7 +732,13 @@
         "rate_limit_middleware",
         "social_catalog"
       ],
-      "routes": [],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/assets/{asset_path:path}",
+          "handler": "frontend_asset"
+        }
+      ],
       "contracts": []
     },
     {

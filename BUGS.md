@@ -993,3 +993,21 @@ Correção:
 - cada encerramento ou expiração incrementa a geração local da autenticação;
 - respostas de leitura iniciadas em geração anterior são descartadas;
 - o E2E confirma a resposta `200` do logout e a transição para a tela de login.
+
+### Preview 3D Quebrava Em Abas Abertas Após Publicação
+
+Estado: corrigido em 2026-07-23.
+
+Impacto:
+
+- uma aba aberta antes da publicação podia tentar carregar um chunk antigo do
+  visualizador G-code, como `/assets/sindarius-gcodeviewer...js`;
+- como o backend servia somente os assets do release atual, o navegador recebia
+  `404` e a Operação mantinha `Preview 3D indisponível` durante a impressão.
+
+Correção:
+
+- `/assets/*` agora resolve o arquivo atual e, se ele não existir, procura o
+  mesmo asset nos releases anteriores ainda presentes no servidor;
+- paths suspeitos e extensões fora da lista de assets continuam bloqueados;
+- teste unitário cobre asset atual, fallback de release anterior e traversal.
