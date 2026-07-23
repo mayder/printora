@@ -175,14 +175,14 @@ def test_agent_websocket_contract_version_and_job_flow(tmp_path: Path, monkeypat
                 assert result_ack["payload"]["status"] == "succeeded"
 
             assert client.get("/api/agent/jobs/next", headers=_auth(credential)).json()["jobs"] == []
-            for _attempt in range(100):
-                with connect_database(tmp_path / "printora.db") as connection:
-                    disconnected = connection.execute(
-                        "SELECT disconnected_at FROM realtime_sessions ORDER BY connected_at DESC LIMIT 1"
-                    ).fetchone()
-                if disconnected["disconnected_at"] is not None:
-                    break
-                time.sleep(0.02)
+        for _attempt in range(100):
+            with connect_database(tmp_path / "printora.db") as connection:
+                disconnected = connection.execute(
+                    "SELECT disconnected_at FROM realtime_sessions ORDER BY connected_at DESC LIMIT 1"
+                ).fetchone()
+            if disconnected["disconnected_at"] is not None:
+                break
+            time.sleep(0.02)
         with connect_database(tmp_path / "printora.db") as connection:
             session = connection.execute(
                 "SELECT disconnected_at, last_acknowledged_job_id FROM realtime_sessions ORDER BY connected_at DESC LIMIT 1"
