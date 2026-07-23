@@ -64,6 +64,12 @@ def test_postgresql_adapter_rewrites_parameters_without_touching_literals() -> N
     assert translated == "SELECT '?' AS literal, name FROM users WHERE id = %s"
 
 
+def test_postgresql_adapter_escapes_literal_percent_for_psycopg() -> None:
+    translated = translate_sql("SELECT 1 WHERE code LIKE 'creator:%'")
+
+    assert translated == "SELECT 1 WHERE code LIKE 'creator:%%'"
+
+
 def test_postgresql_adapter_rewrites_insert_or_ignore() -> None:
     translated = translate_sql(
         "INSERT OR IGNORE INTO social_favorites (user_id, item_id) VALUES (?, ?);"

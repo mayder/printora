@@ -138,7 +138,7 @@ def _replace_qmark_placeholders(statement: str) -> str:
     while index < len(statement):
         character = statement[index]
         if quote is not None:
-            output.append(character)
+            output.append("%%" if character == "%" else character)
             if character == quote:
                 if index + 1 < len(statement) and statement[index + 1] == quote:
                     output.append(statement[index + 1])
@@ -150,6 +150,8 @@ def _replace_qmark_placeholders(statement: str) -> str:
             output.append(character)
         elif character == "?":
             output.append("%s")
+        elif character == "%":
+            output.append("%%")
         else:
             output.append(character)
         index += 1
