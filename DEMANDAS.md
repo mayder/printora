@@ -5646,6 +5646,10 @@ Estado atual:
   entraram saudáveis. A validação pós-release detectou e corrigiu drift dos
   templates systemd no deploy incremental; os contratos de runtime passam a ser
   instalados da própria release imutável antes de iniciar o slot candidato.
+- Prova do adapter no runtime Cloud passou: processo ativo com modo `s3`, quatro
+  tabelas canônicas presentes, quarentena/leitura/promoção com checksum válido e
+  duas referências persistidas. O path local legado tinha zero arquivos e o
+  endpoint público permaneceu `200` após recarregar aplicação e workers.
 
 ## PKG-91: Núcleo Financeiro, Pagamentos E Pedidos
 
