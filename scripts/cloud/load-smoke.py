@@ -8,6 +8,7 @@ import statistics
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from datetime import UTC, datetime
 
 
@@ -31,20 +32,61 @@ def request_once(url: str, timeout: float) -> tuple[bool, float, str | None]:
     return ok, time.monotonic() - started_at, error
 
 
+def run_requests(
+    url: str,
+    request_count: int,
+    concurrency: int,
+    timeout: float,
+    target_rps: float,
+    *,
+    clock: Callable[[], float] = time.monotonic,
+    sleeper: Callable[[float], None] = time.sleep,
+    requester: Callable[[str, float], tuple[bool, float, str | None]] = request_once,
+) -> list[tuple[bool, float, str | None]]:
+    started_at = clock()
+    futures: list[concurrent.futures.Future[tuple[bool, float, str | None]]] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
+        for index in range(request_count):
+            if target_rps > 0:
+                scheduled_at = started_at + (index / target_rps)
+                delay = scheduled_at - clock()
+                if delay > 0:
+                    sleeper(delay)
+            futures.append(executor.submit(requester, url, timeout))
+        return [future.result() for future in futures]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Carga HTTP pequena e verificável para o smoke blue/green")
     parser.add_argument("url")
     parser.add_argument("--requests", type=int, default=500)
     parser.add_argument("--concurrency", type=int, default=20)
+    parser.add_argument(
+        "--target-rps",
+        type=float,
+        default=0.0,
+        help="distribui os inícios das requisições; zero mantém o modo burst",
+    )
     parser.add_argument("--timeout", type=float, default=5.0)
     parser.add_argument("--p95-ms", type=float, default=1000.0)
     parser.add_argument("--p99-ms", type=float, default=2500.0)
     args = parser.parse_args()
-    if args.requests < 1 or args.concurrency < 1 or args.concurrency > 200:
-        parser.error("requests/concurrency fora do limite")
+    if (
+        args.requests < 1
+        or args.concurrency < 1
+        or args.concurrency > 200
+        or args.target_rps < 0
+        or args.target_rps > 1000
+    ):
+        parser.error("requests/concurrency/target-rps fora do limite")
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as executor:
-        results = list(executor.map(lambda _: request_once(args.url, args.timeout), range(args.requests)))
+    results = run_requests(
+        args.url,
+        args.requests,
+        args.concurrency,
+        args.timeout,
+        args.target_rps,
+    )
     latencies = sorted(duration * 1000 for _, duration, _ in results)
     errors: dict[str, int] = {}
     for ok, _, error in results:
@@ -56,6 +98,7 @@ def main() -> int:
         "kind": "load",
         "timestamp_utc": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "requests": len(results),
+        "target_rps": args.target_rps,
         "errors": errors,
         "error_count": sum(errors.values()),
         "latency_ms": {

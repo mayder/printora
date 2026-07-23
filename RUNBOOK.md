@@ -2241,6 +2241,9 @@ RSS, FD, tasks, reinícios e disco. O observador falha fechado em heartbeat
 vencido, serviço indisponível, erro novo, backlog ou crescimento acima dos
 limites. O arquivo é sanitizado: identifica o agente somente por fingerprint e
 não registra URL de banco, token, IP, path privado ou payload.
+`PRINTORA_SOAK_TARGET_RPS` distribui o início das requisições ao longo do lote;
+não é uma rajada seguida de espera. O modo burst continua disponível somente
+para o smoke curto ao executar `load-smoke.py` sem `--target-rps`.
 O gate de disco combina os limites: falha somente quando a reserva fica abaixo
 de 15% e de 50 GiB, evitando falso bloqueio em volumes grandes sem deixar de
 proteger a capacidade absoluta.

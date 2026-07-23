@@ -89,6 +89,18 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
 
 - `df084dd`: corrigido o contexto visual da impressora aberta.
 - `c2836de`: implementada telemetria fail-closed e retenção do soak.
-- Deploy da instrumentação: em execução pelo workflow oficial.
+- `efca67d`: calibrado o gate combinado de disco após o probe real confirmar
+  cerca de 114 GB livres apesar de 11,8% de reserva percentual.
+- Deploy da instrumentação: workflow `30043834953` concluído com sucesso.
+- Probe pós-deploy: aprovado, com agente `0.1.34` ativo, heartbeat de 3,6 s,
+  backlog 1, zero dead letter, zero correlação duplicada, serviços obrigatórios
+  ativos e observador sem falha.
+- Primeira janela curta: invalidada antes do soak prolongado. Não houve erro
+  HTTP, mas o gerador enviava rajadas de concorrência 20 e só depois esperava,
+  embora declarasse 5 req/s; p95 observado de 2.407 ms excedeu o SLO de
+  1.500 ms. A janela não será somada nem reaproveitada.
+- Correção: `load-smoke.py` passou a distribuir o início das requisições pela
+  taxa configurada. O reteste público focado fez 25 requisições a 5 req/s,
+  sem erro, p95 de 319 ms e p99 de 339 ms.
 - Soak inicial de 24 horas: não iniciado.
 - Soak final contínuo de 72 horas: não iniciado.
