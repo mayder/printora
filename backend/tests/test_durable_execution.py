@@ -71,6 +71,7 @@ def test_expired_lease_is_recovered_without_two_effective_completions(tmp_path: 
     assert repository.complete_job(first.id, first.lease_token or "", {"worker": "a"}) is None
     completed = repository.complete_job(recovered.id, recovered.lease_token or "", {"worker": "b"})
     assert completed is not None and completed.status == "succeeded"
+    assert repository.complete_job(first.id, first.lease_token or "", {"worker": "stale"}) is None
 
 
 def test_retry_reaches_dead_letter_at_attempt_limit(tmp_path: Path) -> None:

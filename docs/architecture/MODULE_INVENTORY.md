@@ -35,7 +35,7 @@
 | `auth` | `identity` | 911 | 0 | 0 |
 | `calibration` | `operations` | 910 | 0 | 12 |
 | `routes.operation` | `operations` | 776 | 13 | 0 |
-| `modules.platform.durable_execution` | `shared` | 765 | 0 | 1 |
+| `modules.platform.durable_execution` | `shared` | 763 | 0 | 1 |
 | `setup_flash` | `operations` | 753 | 0 | 7 |
 | `setup_can` | `operations` | 699 | 0 | 7 |
 | `routes.agents` | `operations` | 693 | 35 | 0 |

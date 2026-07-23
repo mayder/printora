@@ -1019,7 +1019,7 @@
     {
       "module": "modules.platform.durable_execution",
       "owner": "shared",
-      "lines": 765,
+      "lines": 763,
       "imports": [
         "database",
         "modules.platform.database_target"

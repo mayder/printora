@@ -1,9 +1,18 @@
-#!/usr/bin/env python3
+#!/var/www/print3dmaker.xyz/current/venv/bin/python
 from __future__ import annotations
 
 import json
 import os
 import sys
+from pathlib import Path
+
+for _backend in (
+    Path("/var/www/print3dmaker.xyz/current/backend"),
+    Path(__file__).resolve().parents[2] / "backend",
+):
+    if _backend.is_dir():
+        sys.path.insert(0, str(_backend))
+        break
 
 import psycopg
 from psycopg.rows import dict_row

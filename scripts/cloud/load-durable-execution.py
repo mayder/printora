@@ -1,13 +1,25 @@
-#!/usr/bin/env python3
+#!/var/www/print3dmaker.xyz/current/venv/bin/python
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import statistics
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from uuid import uuid4
+
+for _backend in (
+    Path("/var/www/print3dmaker.xyz/current/backend"),
+    Path(__file__).resolve().parents[2] / "backend",
+):
+    if _backend.is_dir():
+        sys.path.insert(0, str(_backend))
+        os.chdir(_backend)
+        break
 
 from app.config import get_settings
 from app.database import initialize_database
@@ -19,7 +31,7 @@ def main() -> int:
     parser.add_argument("--jobs", type=int, default=500)
     parser.add_argument("--workers", type=int, default=8)
     args = parser.parse_args()
-    total = max(1, min(args.jobs, 5_000))
+    total = max(1, min(args.jobs, 500))
     workers = max(1, min(args.workers, 32))
     settings = get_settings()
     initialize_database(settings.database_path)

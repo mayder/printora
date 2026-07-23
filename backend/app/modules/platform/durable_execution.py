@@ -387,20 +387,18 @@ class DurableExecutionRepository:
     def complete_job(self, job_id: int, lease_token: str, result: dict[str, Any]) -> DurableJob | None:
         now = _utc_now()
         with connect_database(self.database_path) as connection:
-            connection.execute(
+            row = connection.execute(
                 """
                 UPDATE durable_jobs
                 SET status = 'succeeded', result_json = ?, error_message = NULL,
                     completed_at = ?, lease_owner = NULL, lease_token = NULL,
                     lease_expires_at = NULL, updated_at = ?
                 WHERE id = ? AND status = 'leased' AND lease_token = ?
+                RETURNING *
                 """,
                 (_canonical_json(result), _timestamp(now), _timestamp(now), job_id, lease_token),
-            )
-            row = connection.execute("SELECT * FROM durable_jobs WHERE id = ?", (job_id,)).fetchone()
-        if row is None or row["status"] != "succeeded":
-            return None
-        return _job_from_row(row)
+            ).fetchone()
+        return _job_from_row(row) if row else None
 
     def retry_job(self, job_id: int, lease_token: str, error: str, backoff_seconds: int) -> DurableJob | None:
         now = _utc_now()
