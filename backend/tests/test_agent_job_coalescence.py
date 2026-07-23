@@ -1,6 +1,11 @@
 from pathlib import Path
 
-from app.agent_pairing import AgentPairingRepository
+from app.agent_pairing import (
+    AgentPairingRepository,
+    _active_job_expiration_condition,
+    _in_progress_job_expiration_condition,
+    _pending_job_expiration_condition,
+)
 from app.database import connect_database, initialize_database
 from app.modules.operations.contracts import AgentHeartbeatRequest, AgentJobCreateRequest
 from app.printers import PrinterRepository
@@ -163,3 +168,84 @@ def test_regular_job_creation_never_coalesces_mutations(tmp_path: Path) -> None:
         ).fetchall()
     assert rows[0]["updated_at"] != old_timestamp
     assert rows[1]["updated_at"] == old_timestamp
+
+
+def test_expired_read_job_is_failed_before_coalescence(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    with connect_database(database_path) as connection:
+        printer_id = int(
+            connection.execute(
+                """
+                INSERT INTO printers (name, moonraker_url, host_audit_mode)
+                VALUES (?, ?, 'disabled')
+                """,
+                ("Voron Expiration", "http://127.0.0.1:7125"),
+            ).lastrowid
+        )
+        agent_id = int(
+            connection.execute(
+                """
+                INSERT INTO printer_agents (
+                    printer_id, stable_id, credential_hash, credential_prefix,
+                    agent_version, platform, status, last_seen_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
+                """,
+                (
+                    printer_id,
+                    "agent-expiration",
+                    "hash-expiration",
+                    "prefix-expiration",
+                    "0.1.34",
+                    "linux-arm64",
+                ),
+            ).lastrowid
+        )
+
+    printer = PrinterRepository(database_path).get_printer(printer_id)
+    assert printer is not None
+    repository = AgentPairingRepository(database_path)
+    expired = repository.create_or_reuse_job(
+        printer,
+        AgentJobCreateRequest(
+            job_type="remote_operation_status",
+            agent_id=agent_id,
+            correlation_id="expired-read-001",
+            expires_at="2000-01-01 00:00:00",
+            payload={"include": ["status"]},
+        ),
+    )
+    current = repository.create_or_reuse_job(
+        printer,
+        AgentJobCreateRequest(
+            job_type="remote_operation_status",
+            agent_id=agent_id,
+            correlation_id="current-read-001",
+            payload={"include": ["status"]},
+        ),
+    )
+
+    assert current.id != expired.id
+    with connect_database(database_path) as connection:
+        row = connection.execute(
+            "SELECT status, error_message FROM agent_jobs WHERE id = ?",
+            (expired.id,),
+        ).fetchone()
+    assert row["status"] == "failed"
+    assert row["error_message"] == "job expirado antes do agente consumir"
+
+
+def test_postgresql_job_expiration_uses_utc_and_typed_instants(monkeypatch) -> None:
+    monkeypatch.setattr("app.agent_pairing.uses_postgresql", lambda: True)
+
+    assert _active_job_expiration_condition() == (
+        "(expires_at IS NULL OR "
+        "(expires_at::timestamp AT TIME ZONE 'UTC') > NOW())"
+    )
+    assert _pending_job_expiration_condition() == (
+        "(expires_at::timestamp AT TIME ZONE 'UTC') <= NOW()"
+    )
+    assert _in_progress_job_expiration_condition() == (
+        "updated_at::timestamptz <= NOW() - INTERVAL '5 minutes'",
+        (),
+    )

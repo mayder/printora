@@ -1660,3 +1660,29 @@ request, sem alterar schema ou registros existentes.
 
 Como reverter: reverter o serviço/repositório de jobs e monitorar backlog antes
 de reabrir polling real.
+
+### DEC-20260723-12 - Expiração de jobs usa instante UTC tipado no PostgreSQL
+
+Status: aceita
+Data: 2026-07-23
+Contexto: a aceitação real da coalescência encontrou jobs `pending` antigos que
+não expiravam. `expires_at` é texto UTC sem offset por compatibilidade com
+SQLite, enquanto `CURRENT_TIMESTAMP` no PostgreSQL era convertido em texto no
+fuso da sessão. A comparação lexicográfica adiava o vencimento em três horas.
+
+Decisão: no repositório de jobs, PostgreSQL interpreta `expires_at` explicitamente
+como timestamp UTC e `updated_at` como instante com offset antes de comparar com
+`NOW()`. SQLite preserva a comparação textual UTC existente. A política fica
+local ao contrato de jobs e não altera schema, dados ou o adaptador compartilhado.
+
+Consequências: pending vencido falha no próximo acesso normal, in-progress órfão
+falha após cinco minutos e jobs ativos continuam elegíveis sem depender do fuso
+do processo ou da sessão. Registros existentes são reconciliados sem exclusão.
+
+Impacto em testes: regressões cobrem expiração antes da coalescência e as
+expressões PostgreSQL tipadas.
+
+Impacto em rollback: reverter restaura a comparação textual anterior e pode
+voltar a atrasar expiração conforme o fuso da sessão.
+
+Como reverter: reverter a decisão e o repositório sem alterar ou remover jobs.

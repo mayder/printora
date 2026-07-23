@@ -118,5 +118,11 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   violando o limite de backlog antes do soak. A impressão permaneceu intocada.
   A correção coalesce leituras ativas pelo mesmo escopo e preserva jobs mutáveis
   independentes; a janela curta continua invalidada até publicação e drenagem.
+- Incidente temporal pós-publicação: uma leitura read-only real mostrou que jobs
+  `pending` antigos continuavam ativos. O vencimento UTC sem offset era comparado
+  ao `CURRENT_TIMESTAMP` textual no fuso da sessão PostgreSQL, adiando a
+  expiração em três horas. A correção usa instante UTC tipado para `expires_at`
+  e timestamp com offset para `updated_at`; nenhuma linha foi excluída e a
+  janela permanece invalidada até republicação, drenagem natural e reteste.
 - Soak inicial de 24 horas: não iniciado.
 - Soak final contínuo de 72 horas: não iniciado.

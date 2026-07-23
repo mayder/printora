@@ -172,7 +172,7 @@
     {
       "module": "agent_pairing",
       "owner": "operations",
-      "lines": 981,
+      "lines": 1011,
       "imports": [
         "auth",
         "database",

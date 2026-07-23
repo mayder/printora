@@ -51,6 +51,33 @@ AGENT_JOB_TTL = timedelta(minutes=2)
 AGENT_JOB_IN_PROGRESS_TIMEOUT = timedelta(minutes=5)
 
 
+def _active_job_expiration_condition() -> str:
+    if uses_postgresql():
+        return (
+            "(expires_at IS NULL OR "
+            "(expires_at::timestamp AT TIME ZONE 'UTC') > NOW())"
+        )
+    return "(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)"
+
+
+def _pending_job_expiration_condition() -> str:
+    if uses_postgresql():
+        return "(expires_at::timestamp AT TIME ZONE 'UTC') <= NOW()"
+    return "expires_at <= CURRENT_TIMESTAMP"
+
+
+def _in_progress_job_expiration_condition() -> tuple[str, tuple[object, ...]]:
+    if uses_postgresql():
+        return (
+            "updated_at::timestamptz <= NOW() - INTERVAL '5 minutes'",
+            (),
+        )
+    return (
+        "updated_at <= datetime(CURRENT_TIMESTAMP, ?)",
+        (f"-{int(AGENT_JOB_IN_PROGRESS_TIMEOUT.total_seconds())} seconds",),
+    )
+
+
 def _acquire_agent_job_coalescence_lock(connection, printer_id: int, request: AgentJobCreateRequest) -> None:
     if not uses_postgresql():
         return
@@ -571,14 +598,14 @@ class AgentPairingRepository:
                     raise ValueError("agente não pertence à impressora")
             if reuse_active:
                 active_rows = connection.execute(
-                    """
+                    f"""
                     SELECT *
                     FROM agent_jobs
                     WHERE printer_id = ?
                       AND agent_id = ?
                       AND job_type = ?
                       AND status IN ('pending', 'in_progress')
-                      AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+                      AND {_active_job_expiration_condition()}
                     ORDER BY id DESC
                     LIMIT 20
                     """,
@@ -656,14 +683,14 @@ class AgentPairingRepository:
         with connect_database(self.database_path) as connection:
             self._expire_jobs(connection, agent.printer_id)
             rows = connection.execute(
-                """
+                f"""
                 SELECT *
                 FROM agent_jobs
                 WHERE printer_id = ?
                   AND (status = 'pending' OR (status = 'in_progress' AND agent_id = ?))
                   AND (agent_id IS NULL OR agent_id = ?)
                   AND available_at <= CURRENT_TIMESTAMP
-                  AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+                  AND {_active_job_expiration_condition()}
                 ORDER BY created_at, id
                 LIMIT ?
                 """,
@@ -780,7 +807,7 @@ class AgentPairingRepository:
 
     def _expire_jobs(self, connection, printer_id: int) -> None:
         connection.execute(
-            """
+            f"""
             UPDATE agent_jobs
             SET status = 'failed',
                 error_message = 'job expirado antes do agente consumir',
@@ -789,12 +816,15 @@ class AgentPairingRepository:
             WHERE printer_id = ?
               AND status = 'pending'
               AND expires_at IS NOT NULL
-              AND expires_at <= CURRENT_TIMESTAMP
+              AND {_pending_job_expiration_condition()}
             """,
             (printer_id,),
         )
+        in_progress_condition, in_progress_parameters = (
+            _in_progress_job_expiration_condition()
+        )
         connection.execute(
-            """
+            f"""
             UPDATE agent_jobs
             SET status = 'failed',
                 error_message = 'job em execução expirou sem retorno do agente',
@@ -802,9 +832,9 @@ class AgentPairingRepository:
                 updated_at = CURRENT_TIMESTAMP
             WHERE printer_id = ?
               AND status = 'in_progress'
-              AND updated_at <= datetime(CURRENT_TIMESTAMP, ?)
+              AND {in_progress_condition}
             """,
-            (printer_id, f"-{int(AGENT_JOB_IN_PROGRESS_TIMEOUT.total_seconds())} seconds"),
+            (printer_id, *in_progress_parameters),
         )
 
     def _reconcile_agent_update_jobs(self, connection, agent: AgentRecord, request: AgentHeartbeatRequest) -> None:
