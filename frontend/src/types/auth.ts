@@ -49,6 +49,7 @@ export interface AuthUser {
   timezone: string;
   mfa_enabled: boolean;
   is_active: boolean;
+  platform_admin: boolean;
   created_at: string;
   organizations: AuthOrganization[];
 }

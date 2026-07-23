@@ -4,7 +4,7 @@
 
 ## Resumo
 
-- módulos Python: 169;
+- módulos Python: 171;
 - endpoints HTTP/WebSocket: 372;
 - contratos tipados: 384;
 - tabelas declaradas em SQL: 156;
@@ -14,7 +14,7 @@
 
 | Fronteira | Owner | Responsabilidade | Módulos | Tabelas |
 |---|---|---|---:|---:|
-| `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 10 | 8 |
+| `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 12 | 8 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 29 | 45 |
 | `finance` | Finanças e pedidos | Ledger, pedidos, pagamentos, reconciliação, risco e repasses. | 13 | 20 |
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 58 | 44 |
@@ -29,11 +29,11 @@
 | `social_catalog` | `community` | 3377 | 0 | 0 |
 | `operation` | `operations` | 1153 | 0 | 0 |
 | `maintenance` | `operations` | 1147 | 0 | 8 |
-| `routes.social_catalog` | `community` | 1119 | 59 | 0 |
+| `routes.social_catalog` | `community` | 1120 | 59 | 0 |
 | `print_projects` | `community` | 1059 | 0 | 14 |
 | `self_update` | `administration` | 1001 | 0 | 10 |
 | `agent_pairing` | `operations` | 925 | 0 | 0 |
-| `auth` | `identity` | 911 | 0 | 0 |
+| `auth` | `identity` | 913 | 0 | 0 |
 | `calibration` | `operations` | 910 | 0 | 12 |
 | `routes.operation` | `operations` | 776 | 13 | 0 |
 | `modules.platform.durable_execution` | `shared` | 763 | 0 | 1 |

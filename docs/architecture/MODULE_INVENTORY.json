@@ -7,7 +7,8 @@
       "description": "Autenticação, sessão, organizações, autorização e auditoria de acesso.",
       "prefixes": [
         "auth",
-        "audit"
+        "audit",
+        "platform_access"
       ]
     },
     {
@@ -95,7 +96,7 @@
     }
   ],
   "summary": {
-    "modules": 169,
+    "modules": 171,
     "routes": 372,
     "contracts": 384,
     "tables": 156,
@@ -104,7 +105,7 @@
       "administration": 30,
       "community": 29,
       "finance": 13,
-      "identity": 10,
+      "identity": 12,
       "integrations": 7,
       "operations": 58,
       "shared": 22
@@ -246,12 +247,13 @@
     {
       "module": "auth",
       "owner": "identity",
-      "lines": 911,
+      "lines": 913,
       "imports": [
         "database",
         "modules.identity.application",
         "modules.identity.contracts",
-        "modules.identity.security"
+        "modules.identity.security",
+        "platform_access"
       ],
       "routes": [],
       "contracts": []
@@ -320,7 +322,7 @@
     {
       "module": "config",
       "owner": "administration",
-      "lines": 78,
+      "lines": 96,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -998,7 +1000,7 @@
     {
       "module": "modules.finance.api",
       "owner": "finance",
-      "lines": 382,
+      "lines": 383,
       "imports": [
         "auth",
         "config",
@@ -1014,6 +1016,7 @@
         "modules.finance.domain",
         "modules.identity.contracts",
         "payment_provider",
+        "platform_access",
         "routes.auth"
       ],
       "routes": [
@@ -1194,7 +1197,7 @@
     {
       "module": "modules.identity.contracts",
       "owner": "identity",
-      "lines": 266,
+      "lines": 267,
       "imports": [],
       "routes": [],
       "contracts": [
@@ -1223,6 +1226,20 @@
         "AgentCredentialResponse",
         "AgentCredentialRecord"
       ]
+    },
+    {
+      "module": "modules.identity.platform_admin_provisioning",
+      "owner": "identity",
+      "lines": 68,
+      "imports": [
+        "auth",
+        "config",
+        "database",
+        "modules.identity.contracts",
+        "platform_access"
+      ],
+      "routes": [],
+      "contracts": []
     },
     {
       "module": "modules.identity.ports",
@@ -1335,13 +1352,14 @@
     {
       "module": "modules.operations.manufacturing_api",
       "owner": "operations",
-      "lines": 133,
+      "lines": 134,
       "imports": [
         "config",
         "database",
         "manufacturing_workflow",
         "modules.identity.contracts",
         "modules.operations.manufacturing_contracts",
+        "platform_access",
         "routes.auth"
       ],
       "routes": [
@@ -1585,6 +1603,16 @@
       "lines": 132,
       "imports": [
         "modules.finance.domain"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "platform_access",
+      "owner": "identity",
+      "lines": 8,
+      "imports": [
+        "config"
       ],
       "routes": [],
       "contracts": []
@@ -2010,14 +2038,15 @@
     {
       "module": "routes.auth",
       "owner": "identity",
-      "lines": 392,
+      "lines": 398,
       "imports": [
         "auth",
         "config",
         "database",
         "modules.identity.application",
         "modules.identity.contracts",
-        "modules.identity.security"
+        "modules.identity.security",
+        "platform_access"
       ],
       "routes": [
         {
@@ -2355,12 +2384,13 @@
     {
       "module": "routes.data_intelligence",
       "owner": "administration",
-      "lines": 173,
+      "lines": 174,
       "imports": [
         "config",
         "modules.administration.intelligence",
         "modules.administration.intelligence_contracts",
         "modules.identity.contracts",
+        "platform_access",
         "routes.auth"
       ],
       "routes": [
@@ -3032,10 +3062,11 @@
     {
       "module": "routes.search_discovery",
       "owner": "community",
-      "lines": 74,
+      "lines": 75,
       "imports": [
         "auth",
         "config",
+        "platform_access",
         "routes.auth",
         "routes.social_catalog",
         "search_discovery"
@@ -3305,12 +3336,13 @@
     {
       "module": "routes.social_catalog",
       "owner": "community",
-      "lines": 1119,
+      "lines": 1120,
       "imports": [
         "config",
         "modules.community.contracts",
         "modules.community.ports",
         "modules.identity.contracts",
+        "platform_access",
         "routes.auth",
         "social_catalog",
         "social_notifications",
@@ -3619,10 +3651,11 @@
     {
       "module": "routes.social_moderation",
       "owner": "community",
-      "lines": 77,
+      "lines": 78,
       "imports": [
         "auth",
         "config",
+        "platform_access",
         "routes.auth",
         "social_moderation",
         "social_safety"
@@ -3721,10 +3754,11 @@
     {
       "module": "routes.social_safety",
       "owner": "community",
-      "lines": 57,
+      "lines": 58,
       "imports": [
         "auth",
         "config",
+        "platform_access",
         "routes.auth",
         "social_safety"
       ],
@@ -3833,11 +3867,12 @@
     {
       "module": "routes.system",
       "owner": "administration",
-      "lines": 248,
+      "lines": 249,
       "imports": [
         "database",
         "install_diagnostics",
         "operational",
+        "platform_access",
         "routes.auth",
         "routes.support"
       ],
@@ -3967,12 +4002,13 @@
     {
       "module": "routes.worker_admin",
       "owner": "administration",
-      "lines": 112,
+      "lines": 113,
       "imports": [
         "config",
         "database",
         "modules.identity.contracts",
         "modules.platform.durable_execution",
+        "platform_access",
         "routes.auth"
       ],
       "routes": [

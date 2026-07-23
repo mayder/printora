@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import CurrentUser
 from app.config import get_settings
+from app.platform_access import is_platform_admin
 from app.routes.auth import require_current_user
 from app.routes.social_catalog import optional_current_user
 from app.search_discovery import SearchDiscoveryRepository, SearchEntityType, SearchOrder, SearchResponse, TagRecord
@@ -17,7 +18,7 @@ def get_search_repository() -> SearchDiscoveryRepository:
 
 
 def require_search_admin(current: CurrentUser = Depends(require_current_user)) -> CurrentUser:
-    if current.user.email.lower() != "breno@mayder.com.br":
+    if not is_platform_admin(current.user.email):
         raise HTTPException(status_code=403, detail="curadoria de tags restrita ao administrador")
     return current
 

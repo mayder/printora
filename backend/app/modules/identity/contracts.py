@@ -211,6 +211,7 @@ class AuthUser(BaseModel):
     timezone: str
     mfa_enabled: bool
     is_active: bool
+    platform_admin: bool = False
     created_at: str
     organizations: list[AuthOrganization] = Field(default_factory=list)
 

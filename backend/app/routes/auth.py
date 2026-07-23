@@ -37,6 +37,7 @@ from app.modules.identity.contracts import (
 )
 from app.modules.identity.security import verify_totp
 from app.config import get_settings
+from app.platform_access import is_platform_admin
 
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -81,6 +82,11 @@ async def register_user(
     payload: UserRegisterRequest,
     repository: AuthRepository = Depends(get_auth_repository),
 ) -> AuthSessionResponse:
+    if is_platform_admin(payload.email):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="conta administrativa deve ser provisionada por canal operacional",
+        )
     try:
         user = repository.create_user(payload)
         token, expires_at = repository.create_session(user.id)

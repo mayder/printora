@@ -88,6 +88,39 @@ escopo até autorização específica. Usar
 `docs/audits/PENTEST_SCOPE_PKG_97_2026-07-23.md` como checklist contratual e
 registro de autorização; campos pendentes não autorizam execução.
 
+Ambientes isolados devem declarar administradores sintéticos fora do release:
+
+```bash
+PRINTORA_PLATFORM_ADMIN_EMAILS=pentest-admin@example.test
+```
+
+A lista aceita emails separados por vírgula. Valor vazio nega toda ação
+administrativa; entrada inválida falha fechado. Produção pode manter o default
+compatível até a variável ser configurada em janela controlada.
+
+O endpoint público de cadastro rejeita emails dessa lista com `403`. A conta
+administrativa deve existir antes da janela e ser provisionada localmente pelo
+procedimento operacional do ambiente; nunca compartilhar senha ou sessão no
+relatório de pentest.
+
+Em base nova e isolada, criar um arquivo de senha com permissão `0600` e executar
+uma única vez:
+
+```bash
+cd backend
+PRINTORA_PLATFORM_ADMIN_EMAILS=pentest-admin@example.test \
+  uv run python -m scripts.provision_platform_admin \
+  --data-dir /caminho/isolado \
+  --email pentest-admin@example.test \
+  --password-file /caminho/seguro/admin-password \
+  --display-name "Pentest Admin" \
+  --initialize-empty
+```
+
+`--initialize-empty` é aceito apenas quando a base ainda não existe. Em base
+existente, omitir a opção. A execução é idempotente, não redefine senha e imprime
+somente ID, email, caminho da base, estado administrativo e se criou a conta.
+
 ## Publicacao Cloud
 
 O deploy publico planejado do Printora usa o dominio `print3dmaker.xyz`, com

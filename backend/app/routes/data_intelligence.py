@@ -16,6 +16,7 @@ from app.modules.administration.intelligence_contracts import (
     SubjectAnonymizationRequest,
 )
 from app.modules.identity.contracts import CurrentUser
+from app.platform_access import is_platform_admin
 from app.routes.auth import require_current_user
 
 
@@ -25,7 +26,7 @@ router = APIRouter(prefix="/api/admin/data-intelligence", tags=["data-intelligen
 def require_intelligence_admin(
     current: CurrentUser = Depends(require_current_user),
 ) -> CurrentUser:
-    if current.user.email.lower() != "breno@mayder.com.br":
+    if not is_platform_admin(current.user.email):
         raise HTTPException(status_code=403, detail="inteligência de dados restrita ao administrador")
     return current
 

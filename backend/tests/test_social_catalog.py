@@ -23,6 +23,18 @@ from app.social_storage import SocialStorageRepository
 from app.technical_profiles import TechnicalPrinterConfigPayload, TechnicalProfilesRepository
 
 
+def _provision_admin_token(database_path: Path, client: TestClient) -> str:
+    AuthRepository(database_path).create_user(
+        UserRegisterRequest(email="breno@mayder.com.br", password="correct-horse")
+    )
+    response = client.post(
+        "/api/auth/login",
+        json={"email": "breno@mayder.com.br", "password": "correct-horse"},
+    )
+    assert response.status_code == 200
+    return response.json()["access_token"]
+
+
 def test_catalog_seed_has_voron_models_and_variants(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)
@@ -646,9 +658,8 @@ def test_catalog_detail_api_allows_common_read_and_blocks_common_write(tmp_path,
         initialize_database(tmp_path / "printora.db")
         with TestClient(app) as client:
             common = client.post("/api/auth/register", json={"email": "user@example.com", "password": "correct-horse"})
-            admin = client.post("/api/auth/register", json={"email": "breno@mayder.com.br", "password": "correct-horse"})
             common_token = common.json()["access_token"]
-            admin_token = admin.json()["access_token"]
+            admin_token = _provision_admin_token(tmp_path / "printora.db", client)
 
             common_read = client.get("/api/catalog/admin", headers={"Authorization": f"Bearer {common_token}"})
             allowed = client.get("/api/catalog/admin", headers={"Authorization": f"Bearer {admin_token}"})
@@ -2593,9 +2604,8 @@ def test_social_safety_api_controls_and_admin_abuse_queue(tmp_path, monkeypatch)
     try:
         initialize_database(tmp_path / "printora.db")
         with TestClient(app) as client:
-            admin = client.post("/api/auth/register", json={"email": "breno@mayder.com.br", "password": "correct-horse"})
             user = client.post("/api/auth/register", json={"email": "safety-user@example.com", "password": "correct-horse"})
-            admin_token = admin.json()["access_token"]
+            admin_token = _provision_admin_token(tmp_path / "printora.db", client)
             user_token = user.json()["access_token"]
             user_id = user.json()["user"]["id"]
 
@@ -2643,8 +2653,7 @@ def test_social_safety_limits_anonymous_profile_enumeration_across_queries(tmp_p
         initialize_database(tmp_path / "printora.db")
         with TestClient(app) as client:
             statuses = [client.get(f"/api/social/profiles?q=unknown-{index}").status_code for index in range(31)]
-            admin = client.post("/api/auth/register", json={"email": "breno@mayder.com.br", "password": "correct-horse"})
-            admin_token = admin.json()["access_token"]
+            admin_token = _provision_admin_token(tmp_path / "printora.db", client)
             signals = client.get("/api/social/moderation/abuse-signals", headers={"Authorization": f"Bearer {admin_token}"})
 
             assert statuses[:30] == [200] * 30
@@ -2709,15 +2718,11 @@ def test_social_moderation_queue_is_admin_only_and_curates_tags(tmp_path, monkey
     try:
         initialize_database(tmp_path / "printora.db")
         with TestClient(app) as client:
-            admin_response = client.post(
-                "/api/auth/register",
-                json={"email": "breno@mayder.com.br", "password": "correct-horse", "display_name": "Moderador"},
-            )
+            admin_token = _provision_admin_token(tmp_path / "printora.db", client)
             user_response = client.post(
                 "/api/auth/register",
                 json={"email": "maker@example.com", "password": "correct-horse", "display_name": "Maker"},
             )
-            admin_token = admin_response.json()["access_token"]
             user_token = user_response.json()["access_token"]
             with connect_database(tmp_path / "printora.db") as connection:
                 cursor = connection.execute("INSERT INTO social_content_tags (slug, label, source) VALUES ('unsafe-tag', 'Unsafe Tag', 'user')")

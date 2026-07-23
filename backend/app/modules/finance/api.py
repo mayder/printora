@@ -40,6 +40,7 @@ from app.modules.finance.contracts import (
 from app.modules.finance.domain import Money
 from app.modules.identity.contracts import CurrentUser
 from app.payment_provider import PaymentProviderCircuitBreaker, SandboxPaymentAdapter
+from app.platform_access import is_platform_admin
 from app.routes.auth import require_current_user
 
 
@@ -50,7 +51,7 @@ PAYMENT_PROVIDER_BREAKER = PaymentProviderCircuitBreaker()
 def require_platform_admin(
     current: CurrentUser = Depends(require_current_user),
 ) -> CurrentUser:
-    if current.user.email.lower() != "breno@mayder.com.br":
+    if not is_platform_admin(current.user.email):
         raise HTTPException(status_code=403, detail="acesso financeiro obrigatório")
     return current
 

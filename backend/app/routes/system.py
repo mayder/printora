@@ -7,6 +7,7 @@ from fastapi import Depends, Response
 from app.install_diagnostics import InstallationDiagnosticsResponse, build_installation_diagnostics
 from app.database import get_database_version_info, get_public_database_version_info
 from app.operational import http_metrics, readiness, render_durable_metrics
+from app.platform_access import is_platform_admin
 from app.routes.auth import require_current_user, require_current_user_when_configured
 from app.routes.support import *
 
@@ -44,7 +45,7 @@ async def system_version() -> dict[str, object]:
 
 @router.get("/api/system/version/internal")
 async def system_version_internal(current=Depends(require_current_user)) -> dict[str, object]:
-    if current.user.email.lower() != "breno@mayder.com.br":
+    if not is_platform_admin(current.user.email):
         raise HTTPException(status_code=403, detail="acesso restrito ao suporte")
     settings = get_settings()
     return get_database_version_info(settings.database_path, settings.data_dir)

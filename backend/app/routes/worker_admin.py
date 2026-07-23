@@ -9,6 +9,7 @@ from app.config import get_settings
 from app.database import connect_database
 from app.modules.identity.contracts import CurrentUser
 from app.modules.platform.durable_execution import DurableExecutionRepository
+from app.platform_access import is_platform_admin
 from app.routes.auth import require_current_user
 
 
@@ -25,7 +26,7 @@ class DeadLetterReplayRequest(BaseModel):
 
 
 def require_worker_admin(current: CurrentUser = Depends(require_current_user)) -> CurrentUser:
-    if current.user.email.lower() != "breno@mayder.com.br":
+    if not is_platform_admin(current.user.email):
         raise HTTPException(status_code=403, detail="acesso administrativo obrigatório")
     return current
 

@@ -1527,3 +1527,44 @@ de teste contaminado para liberar deploy.
 
 Como reverter: restaurar temporariamente o comando anterior do CI, preservar
 artefatos/corpus/seed e corrigir o gate antes de reativá-lo.
+
+### DEC-20260723-08 - Administração de plataforma usa política configurável única
+
+Status: aceita
+Data: 2026-07-23
+Contexto: nove fronteiras administrativas comparavam diretamente um email
+pessoal no código. Isso duplicava autorização, impedia conta administrativa
+sintética no ambiente de pentest e tornava uma troca operacional dependente de
+alteração e deploy de código.
+
+Decisão: centralizar a verificação em `platform_access.is_platform_admin` e
+configurar uma lista normalizada por `PRINTORA_PLATFORM_ADMIN_EMAILS`. A
+configuração vazia nega todos; item sintaticamente inválido falha fechado. O
+valor legado permanece como default de compatibilidade até a operação definir a
+variável fora do release. O handoff de pentest deve usar somente domínio
+`example.test`.
+
+Contas presentes nessa lista não podem usar o cadastro público. Elas devem ser
+provisionadas diretamente no ambiente por ferramenta operacional autenticada,
+antes da abertura da janela, para impedir que terceiros reivindiquem a
+identidade administrativa.
+
+Alternativas consideradas: manter comparações por rota; criar papéis diferentes
+sem consolidar a política existente; persistir administradores em nova tabela.
+
+Consequências: catálogo, moderação, segurança social, busca, dados,
+trabalhadores, fabricação, finanças e suporte interno consultam a mesma
+política. O contrato autenticado expõe o booleano `platform_admin` para a UI,
+que não mantém lista ou comparação de email. A mudança não cria tabela, migração
+ou log persistido. Alterar a lista continua sendo ação privilegiada de
+configuração e exige restart controlado.
+
+Impacto em testes: configuração customizada, normalização, deny-all, entrada
+inválida, bloqueio do cadastro público e ausência de identidade embutida no
+runtime são regressões obrigatórias.
+
+Impacto em rollback: restaurar temporariamente o default anterior na variável
+de ambiente; não reintroduzir comparações distribuídas nas rotas.
+
+Como reverter: remover a variável do ambiente para usar o default compatível e
+reimplantar, preservando a política central.

@@ -6351,6 +6351,11 @@ Estado atual:
   `docs/audits/PENTEST_SCOPE_PKG_97_2026-07-23.md`; identificação do fornecedor,
   ambiente, janela e assinaturas permanecem pendentes. Nenhum pentest foi
   autoatestatado ou executado em produção.
+- Preparação adicional do lote 9: as nove verificações administrativas deixaram
+  de embutir identidade pessoal e usam política única configurável. O ambiente
+  isolado pode declarar `pentest-admin@example.test`, enquanto configuração
+  vazia ou inválida falha fechado. Cadastro público de identidade administrativa
+  foi bloqueado para evitar apropriação da conta antes do provisionamento.
 - Lote 10 depende do relatório independente e do reteste dos achados. Gate,
   runbook e evidência automatizada já estão consolidados; fechamento, publicação
   e aceite do pacote permanecem bloqueados pelos lotes 9 e 10.

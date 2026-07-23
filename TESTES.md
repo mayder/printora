@@ -45,6 +45,10 @@ PRINTORA_E2E_REPEAT_EACH=10 scripts/run-e2e-gate.sh
   offline, timeout, `429` e `5xx`.
 - Fluxos P0 não usam retry nem quarentena; repetição deve usar identidade única
   por projeto e índice para revelar colisão ou vazamento entre execuções.
+- O E2E provisiona `pentest-admin@example.test` por canal local antes de iniciar
+  o backend. Cadastro público dessa identidade deve retornar `403`, login deve
+  funcionar e o contrato autenticado deve expor somente
+  `platform_admin=true`, nunca senha ou sessão.
 
 ## Cobertura mínima por criticidade
 
@@ -2006,6 +2010,9 @@ Não avançar se:
 - ativar limiar global, limiar P0 e não regressão em `PATHS.toml`;
 - impedir exclusão artificial de código crítico para elevar percentual;
 - executar E2E em navegador real para anônimo, usuário e papéis privilegiados;
+- validar que autorização administrativa vem do contrato autenticado, que
+  identidade configurada não pode ser reivindicada por cadastro público e que o
+  provisionador exige arquivo de senha `0600`;
 - executar dois usuários/organizações e provar isolamento ponta a ponta;
 - validar desktop/mobile, tema claro/escuro, teclado e acessibilidade;
 - injetar offline, timeout, 429, 5xx, reconnect e dependência degradada;

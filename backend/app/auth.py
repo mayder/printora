@@ -50,6 +50,7 @@ from app.modules.identity.contracts import (
     clean_timezone,
 )
 from app.modules.identity.security import hash_password, totp_code, verify_password, verify_totp
+from app.platform_access import is_platform_admin
 
 
 SESSION_TTL = timedelta(hours=12)
@@ -836,6 +837,7 @@ def _user_from_row(row, organizations: list[AuthOrganization]) -> AuthUser:
         timezone=str(row["timezone"] or "America/Sao_Paulo"),
         mfa_enabled=bool(row["mfa_enabled"]),
         is_active=bool(row["is_active"]),
+        platform_admin=is_platform_admin(str(row["email"])),
         created_at=str(row["created_at"]),
         organizations=organizations,
     )

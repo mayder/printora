@@ -33,7 +33,7 @@ BOUNDARIES = (
         "identity",
         "Identidade e permissões",
         "Autenticação, sessão, organizações, autorização e auditoria de acesso.",
-        ("auth", "audit"),
+        ("auth", "audit", "platform_access"),
     ),
     Boundary(
         "community",

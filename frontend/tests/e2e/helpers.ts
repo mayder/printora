@@ -3,7 +3,7 @@ import { expect } from "@playwright/test";
 
 const PASSWORD = "synthetic-correct-horse-97";
 export const SYNTHETIC_PASSWORD = PASSWORD;
-export const PLATFORM_ADMIN_EMAIL = "breno@mayder.com.br";
+export const PLATFORM_ADMIN_EMAIL = "pentest-admin@example.test";
 
 export function syntheticEmail(testInfo: TestInfo, role: string) {
   const project = testInfo.project.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
@@ -21,7 +21,7 @@ export async function ensureUser(
   if (registration.ok()) {
     return registration.json();
   }
-  expect(registration.status()).toBe(400);
+  expect([400, 403]).toContain(registration.status());
   const login = await request.post("/api/auth/login", {
     data: { email, password: PASSWORD },
   });

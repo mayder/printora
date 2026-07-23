@@ -13,7 +13,7 @@ const catalogPageSize = 10;
 const catalogFilterKeys: Array<keyof CatalogAdminFilters> = ["manufacturer", "model", "variant", "component", "kinematics", "firmware_family", "trust_state"];
 
 export function CatalogAdminScreen({ authUser, setError }: CatalogAdminScreenProps) {
-  const canCurate = authUser?.email.toLowerCase() === "breno@mayder.com.br";
+  const canCurate = authUser?.platform_admin === true;
   const [catalog, setCatalog] = React.useState<CatalogAdminSummary>(emptyCatalog);
   const [referenceCatalog, setReferenceCatalog] = React.useState<CatalogAdminSummary>(emptyCatalog);
   const [filters, setFilters] = React.useState<CatalogAdminFilters>(() => readCatalogFiltersFromUrl());

@@ -955,3 +955,24 @@ Correção:
 - paths G-code rejeitam NUL, absolutos e traversal após até duas decodificações;
 - corpus/seed e properties reproduzem os casos e passam em perfil determinístico
   e fuzz aleatório.
+
+### Administrador De Plataforma Embutido Em Nove Rotas
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- autorização administrativa dependia de um email pessoal repetido em nove
+  fronteiras;
+- ambiente isolado não conseguia usar identidade sintética para pentest;
+- rotação exigiria mudança de código e poderia divergir entre módulos.
+
+Correção:
+
+- política única em `platform_access.is_platform_admin`;
+- lista configurável por `PRINTORA_PLATFORM_ADMIN_EMAILS`, normalizada e
+  fail-closed;
+- configuração vazia nega todos e identidade inválida interrompe a leitura;
+- cadastro público de qualquer email configurado como administrador retorna
+  `403`; essas contas são criadas somente por canal operacional;
+- teste de fronteira impede novo email administrativo embutido no runtime.

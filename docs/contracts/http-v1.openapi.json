@@ -1829,6 +1829,11 @@
             "title": "Organizations",
             "type": "array"
           },
+          "platform_admin": {
+            "default": false,
+            "title": "Platform Admin",
+            "type": "boolean"
+          },
           "social_links": {
             "additionalProperties": {
               "anyOf": [

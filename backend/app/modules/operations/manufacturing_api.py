@@ -12,13 +12,14 @@ from app.modules.operations.manufacturing_contracts import (
     AcceptQuoteRequest, QualityRequest, QuoteRequest, RecallRequest,
     ShipmentRequest, TrackingRequest, TransitionRequest,
 )
+from app.platform_access import is_platform_admin
 from app.routes.auth import require_current_user
 
 router = APIRouter(tags=["manufacturing"])
 
 
 def require_platform_admin(current: CurrentUser = Depends(require_current_user)) -> CurrentUser:
-    if current.user.email.lower() != "breno@mayder.com.br":
+    if not is_platform_admin(current.user.email):
         raise HTTPException(status_code=403, detail="administração da plataforma obrigatória")
     return current
 

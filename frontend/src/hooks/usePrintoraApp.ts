@@ -408,7 +408,7 @@ export function usePrintoraApp() {
       await catalogSummaryLoad;
       void settings.loadGlobalDiagnostics();
       void setup.loadSetupHistory();
-      if (user.email.toLowerCase() === "breno@mayder.com.br") {
+      if (user.platform_admin) {
         void selfUpdate.loadSelfUpdateHistory();
       }
     } catch (err) {
@@ -439,7 +439,7 @@ export function usePrintoraApp() {
     if (!auth.authUser) {
       return;
     }
-    const isPlatformAdmin = auth.authUser.email.toLowerCase() === "breno@mayder.com.br";
+    const isPlatformAdmin = auth.authUser.platform_admin;
     if (shell.activeSection === "settings" && isPlatformAdmin && !selfUpdate.systemReleases && !selfUpdate.releaseLoading) {
       void selfUpdate.loadSystemReleases();
     }

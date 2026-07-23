@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     object_storage_artifacts_bucket: str = "printora-artifacts"
     payment_mode: PaymentMode = "disabled"
     payment_webhook_secret: str = ""
+    platform_admin_emails: str = "breno@mayder.com.br"
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -63,6 +64,10 @@ class Settings(BaseSettings):
     @property
     def database_path(self) -> Path:
         return self.data_dir / "printora.db"
+
+    @property
+    def platform_admin_email_set(self) -> frozenset[str]:
+        return parse_platform_admin_emails(self.platform_admin_emails)
 
 
 @lru_cache
@@ -76,3 +81,16 @@ def _default_data_dir() -> Path:
     if platform.system() == "Windows":
         return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / "Printora"
     return Path.home() / ".local/share/printora"
+
+
+def parse_platform_admin_emails(value: str) -> frozenset[str]:
+    emails = frozenset(item.strip().casefold() for item in value.split(",") if item.strip())
+    if any(
+        email.count("@") != 1
+        or email.startswith("@")
+        or email.endswith("@")
+        or any(character.isspace() for character in email)
+        for email in emails
+    ):
+        raise ValueError("PRINTORA_PLATFORM_ADMIN_EMAILS contém email inválido")
+    return emails

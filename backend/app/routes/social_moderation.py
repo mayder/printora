@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth import CurrentUser
 from app.config import get_settings
+from app.platform_access import is_platform_admin
 from app.routes.auth import require_current_user
 from app.social_moderation import (
     ModerationActionPayload,
@@ -28,7 +29,7 @@ def get_safety_repository() -> SocialSafetyRepository:
 
 
 def require_moderation_admin(current: CurrentUser = Depends(require_current_user)) -> CurrentUser:
-    if current.user.email.lower() != "breno@mayder.com.br":
+    if not is_platform_admin(current.user.email):
         raise HTTPException(status_code=403, detail="moderação restrita ao administrador")
     return current
 

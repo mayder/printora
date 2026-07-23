@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from app.config import get_settings
 from app.upload_stream import read_limited_upload
 from app.modules.identity.contracts import CurrentUser
+from app.platform_access import is_platform_admin
 from app.modules.community.ports import CommunityRepositoryPort
 from app.modules.community.contracts import (
     CatalogAdminSummary,
@@ -76,7 +77,7 @@ def require_catalog_admin(
     authorization: str | None = Header(default=None),
 ) -> CurrentUser:
     current = require_current_user(authorization=authorization, repository=get_auth_repository())
-    if current.user.email.lower() != "breno@mayder.com.br":
+    if not is_platform_admin(current.user.email):
         raise HTTPException(status_code=403, detail="curadoria do catálogo restrita ao administrador")
     return current
 
@@ -94,7 +95,7 @@ def optional_current_user(
 
 
 def is_social_admin(current: CurrentUser) -> bool:
-    return current.user.email.lower() == "breno@mayder.com.br"
+    return is_platform_admin(current.user.email)
 
 
 def _request_subject(request: Request, current: CurrentUser | None) -> str:

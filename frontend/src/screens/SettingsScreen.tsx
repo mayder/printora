@@ -48,7 +48,7 @@ export function SettingsScreen(props: SettingsScreenProps) {
     selfUpdateRunClass,
     systemReleases,
   } = props;
-  const isPlatformAdmin = authUser?.email?.toLowerCase() === "breno@mayder.com.br";
+  const isPlatformAdmin = authUser?.platform_admin === true;
   const [slicingEngine, setSlicingEngine] = React.useState<SlicingEngineInfo | null>(null);
   const [slicingLoading, setSlicingLoading] = React.useState(false);
   const [slicingError, setSlicingError] = React.useState<string | null>(null);

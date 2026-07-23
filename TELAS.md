@@ -69,6 +69,11 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Sobre | `about` | `/?section=about`, `/#about` | `frontend/src/screens/AboutScreen.tsx` | Apresentacao do autor, motivacao do projeto, funcionalidades, roadmap publico, redes sociais e identidade visual | Nao exige impressora ativa | existente |
 | Licenca | `license` | `/?section=license`, `/#license` | `frontend/src/screens/LicenseScreen.tsx` | Resumo de licenca open source, limites de garantia e responsabilidade operacional | Nao exige impressora ativa | existente |
 
+As superfícies administrativas condicionais usam `platform_admin` retornado no
+contrato autenticado. A UI não compara email nem mantém lista própria de
+identidades; o backend continua sendo a fronteira autoritativa e retorna `403`
+quando a ação não é permitida.
+
 ## Componentes e modais por dominio
 
 | Dominio | Arquivo | Responsabilidade |

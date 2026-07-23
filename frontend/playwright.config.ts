@@ -15,6 +15,13 @@ const artifactDirectory =
 const distDirectory =
   process.env.PRINTORA_E2E_DIST_DIR ??
   path.join(artifactDirectory, "dist");
+const adminPasswordFile =
+  process.env.PRINTORA_E2E_ADMIN_PASSWORD_FILE ??
+  path.join(dataDirectory, "e2e-admin-password");
+
+function shellQuote(value: string) {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -51,6 +58,13 @@ export default defineConfig({
     command: [
       "cd ../backend",
       "&&",
+      "uv run python -m scripts.provision_platform_admin",
+      `--data-dir ${shellQuote(dataDirectory)}`,
+      "--email pentest-admin@example.test",
+      `--password-file ${shellQuote(adminPasswordFile)}`,
+      "--display-name 'Platform Admin'",
+      "--initialize-empty",
+      "&&",
       "uv run uvicorn app.main:app",
       "--host 127.0.0.1",
       `--port ${port}`,
@@ -66,6 +80,7 @@ export default defineConfig({
       PRINTORA_RELEASE_SOURCE_MODE: "disabled",
       PRINTORA_FIRMWARE_BUILD_MODE: "disabled",
       PRINTORA_PAYMENT_MODE: "sandbox",
+      PRINTORA_PLATFORM_ADMIN_EMAILS: "pentest-admin@example.test",
       PRINTORA_PAYMENT_WEBHOOK_SECRET: ["e2e", "synthetic", "webhook"].join("-"),
     },
   },
