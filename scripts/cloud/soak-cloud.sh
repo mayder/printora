@@ -12,7 +12,7 @@ agent_stable_id="${PRINTORA_SOAK_AGENT_STABLE_ID:-}"
 expected_agent_version="${PRINTORA_SOAK_EXPECTED_AGENT_VERSION:-}"
 url="${PRINTORA_SOAK_URL:-https://print3dmaker.xyz/health}"
 load_script="$base_path/current/scripts/cloud/load-smoke.py"
-observer_script="$base_path/current/scripts/cloud/soak-observer.py"
+observer_script="${PRINTORA_SOAK_OBSERVER_SCRIPT:-/usr/local/libexec/printora-cloud/soak-observer.py}"
 runtime_python="$base_path/current/venv/bin/python"
 evidence_file="${PRINTORA_SOAK_EVIDENCE_FILE:-$base_path/shared/logs/soak-$(date -u +%Y%m%dT%H%M%SZ).jsonl}"
 [[ "$duration_seconds" =~ ^[1-9][0-9]*$ ]] || { echo "duração inválida" >&2; exit 64; }
@@ -24,7 +24,7 @@ evidence_file="${PRINTORA_SOAK_EVIDENCE_FILE:-$base_path/shared/logs/soak-$(date
 if [[ "$observe" == "1" ]]; then
   [[ -n "$agent_stable_id" ]] || { echo "agente de soak ausente" >&2; exit 64; }
   [[ -n "$expected_agent_version" ]] || { echo "versão esperada do agente ausente" >&2; exit 64; }
-  [[ -x "$observer_script" && -x "$runtime_python" ]] || { echo "observador de soak ausente" >&2; exit 66; }
+  [[ -r "$observer_script" && -x "$runtime_python" ]] || { echo "observador de soak ausente" >&2; exit 66; }
   [[ "$evidence_file" == "$base_path/shared/logs/"* ]] || { echo "evidência fora do diretório permitido" >&2; exit 64; }
   install -d -o deploy -g deploy -m 0750 "$(dirname "$evidence_file")"
   touch "$evidence_file"

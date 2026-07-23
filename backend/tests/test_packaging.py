@@ -153,6 +153,7 @@ def test_cloud_process_chaos_is_scoped_and_recovers_active_instance() -> None:
     assert "PRINTORA_SOAK_OBSERVE" in soak
     assert "PRINTORA_SOAK_AGENT_STABLE_ID" in soak
     assert "soak-observer.py" in soak
+    assert "/usr/local/libexec/printora-cloud/soak-observer.py" in soak
     assert "shared/logs/" in soak
     assert "batch_interval" in soak
     assert "errors=0 observed=$observe" in soak
