@@ -5642,6 +5642,10 @@ Estado atual:
   metadados/referências/sessões/reconciliação em SQL idempotente, dependência
   explícita dos serviços e preflight do endpoint privado. Validação focada:
   80 testes de storage/social/projetos e 41 testes de schema/packaging passaram.
+- Publicação `29970593732` concluída no commit `0114887`; schema e aplicação
+  entraram saudáveis. A validação pós-release detectou e corrigiu drift dos
+  templates systemd no deploy incremental; os contratos de runtime passam a ser
+  instalados da própria release imutável antes de iniciar o slot candidato.
 
 ## PKG-91: Núcleo Financeiro, Pagamentos E Pedidos
 

@@ -15,6 +15,20 @@ release_dir="$PRINTORA_BASE_PATH/releases/$release_sha"
 [[ -d "$release_dir/backend" ]] || fail "backend da release ausente"
 [[ -x "$release_dir/venv/bin/python" ]] || fail "venv imutável da release ausente"
 [[ -s "$release_dir/frontend/dist/index.html" ]] || fail "frontend da release ausente"
+
+# Runtime contracts are versioned with the immutable release. Updating them
+# before the candidate starts prevents code/env drift while the active slot
+# continues serving with its already loaded unit definition.
+install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud@.service" /etc/systemd/system/printora-cloud@.service
+install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-worker@.service" /etc/systemd/system/printora-cloud-worker@.service
+install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-workers.target" /etc/systemd/system/printora-cloud-workers.target
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/common.sh" /usr/local/libexec/printora-cloud/common.sh
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/apply-postgresql-schema.sh" /usr/local/libexec/printora-cloud/apply-postgresql-schema.sh
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/start-worker.sh" /usr/local/libexec/printora-cloud/start-worker.sh
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/preflight.sh" /usr/local/sbin/printora-cloud-preflight
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/deploy-blue-green.sh" /usr/local/sbin/printora-cloud-deploy
+systemctl daemon-reload
+
 "$SCRIPT_DIR/apply-postgresql-schema.sh" "$release_dir"
 
 current_slot="$(active_slot)"
