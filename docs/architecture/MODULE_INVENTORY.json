@@ -78,6 +78,7 @@
         "support",
         "system",
         "worker_admin",
+        "data_intelligence",
         "technical_profiles",
         "frontend"
       ]
@@ -94,19 +95,19 @@
     }
   ],
   "summary": {
-    "modules": 164,
-    "routes": 357,
-    "contracts": 375,
-    "tables": 145,
+    "modules": 169,
+    "routes": 370,
+    "contracts": 384,
+    "tables": 156,
     "cycles": 0,
     "modules_by_owner": {
-      "administration": 26,
+      "administration": 30,
       "community": 29,
       "finance": 13,
       "identity": 10,
       "integrations": 7,
       "operations": 58,
-      "shared": 21
+      "shared": 22
     }
   },
   "cycles": [],
@@ -338,7 +339,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 579,
+      "lines": 590,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -693,6 +694,17 @@
       ]
     },
     {
+      "module": "intelligence_worker",
+      "owner": "shared",
+      "lines": 35,
+      "imports": [
+        "config",
+        "modules.administration.intelligence"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "main",
       "owner": "shared",
       "lines": 84,
@@ -762,7 +774,7 @@
     {
       "module": "modules.administration.api",
       "owner": "administration",
-      "lines": 18,
+      "lines": 28,
       "imports": [
         "modules.assembly",
         "routes"
@@ -786,6 +798,45 @@
         "BackupRestorePlanResponse",
         "BackupRestoreGateResponse"
       ]
+    },
+    {
+      "module": "modules.administration.intelligence",
+      "owner": "administration",
+      "lines": 619,
+      "imports": [
+        "database",
+        "modules.administration.intelligence_contracts",
+        "modules.administration.intelligence_moderation",
+        "modules.platform.database_target"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.administration.intelligence_contracts",
+      "owner": "administration",
+      "lines": 86,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "SanitizedEventCreate",
+        "ReplayRequest",
+        "SubjectAnonymizationRequest",
+        "ModerationReviewRequest",
+        "ModerationAppealRequest",
+        "ModerationAppealReviewRequest",
+        "ModelControlRequest",
+        "RecommendationRequest",
+        "GeometrySearchRequest"
+      ]
+    },
+    {
+      "module": "modules.administration.intelligence_moderation",
+      "owner": "administration",
+      "lines": 56,
+      "imports": [],
+      "routes": [],
+      "contracts": []
     },
     {
       "module": "modules.administration.ports",
@@ -2287,6 +2338,86 @@
           "method": "GET",
           "path": "/api/printers/{printer_id}/checklist/post-update",
           "handler": "printer_post_update_checklist"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.data_intelligence",
+      "owner": "administration",
+      "lines": 173,
+      "imports": [
+        "config",
+        "modules.administration.intelligence",
+        "modules.administration.intelligence_contracts",
+        "modules.identity.contracts",
+        "routes.auth"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/dashboard",
+          "handler": "dashboard"
+        },
+        {
+          "method": "POST",
+          "path": "/events",
+          "handler": "ingest_event"
+        },
+        {
+          "method": "POST",
+          "path": "/process",
+          "handler": "process_pending"
+        },
+        {
+          "method": "POST",
+          "path": "/replay",
+          "handler": "replay"
+        },
+        {
+          "method": "POST",
+          "path": "/subjects/anonymize",
+          "handler": "anonymize_subject"
+        },
+        {
+          "method": "GET",
+          "path": "/moderation",
+          "handler": "moderation_queue"
+        },
+        {
+          "method": "POST",
+          "path": "/moderation/{case_key}/review",
+          "handler": "review_case"
+        },
+        {
+          "method": "POST",
+          "path": "/moderation/{case_key}/appeals",
+          "handler": "create_appeal"
+        },
+        {
+          "method": "POST",
+          "path": "/appeals/{appeal_key}/review",
+          "handler": "review_appeal"
+        },
+        {
+          "method": "POST",
+          "path": "/models/{model_key}/{version}/control",
+          "handler": "control_model"
+        },
+        {
+          "method": "POST",
+          "path": "/recommendations",
+          "handler": "recommend"
+        },
+        {
+          "method": "POST",
+          "path": "/geometry/search",
+          "handler": "geometry_search"
+        },
+        {
+          "method": "GET",
+          "path": "/retention/preview",
+          "handler": "retention_preview"
         }
       ],
       "contracts": []
@@ -4095,9 +4226,10 @@
     {
       "module": "social_moderation",
       "owner": "community",
-      "lines": 322,
+      "lines": 350,
       "imports": [
-        "database"
+        "database",
+        "modules.platform.durable_execution"
       ],
       "routes": [],
       "contracts": [
@@ -4230,9 +4362,11 @@
     {
       "module": "worker",
       "owner": "shared",
-      "lines": 270,
+      "lines": 297,
       "imports": [
         "config",
+        "modules.administration.intelligence",
+        "modules.administration.intelligence_contracts",
         "modules.platform.durable_execution",
         "modules.platform.event_dispatcher",
         "modules.platform.recomposable_redis",
@@ -4983,6 +5117,61 @@
       "table": "manufacturing_recall_items",
       "owner": "operations",
       "script": "084_manufacturing_workflow.sql"
+    },
+    {
+      "table": "analytics_events",
+      "owner": "administration",
+      "script": "085_analytics_intelligence.sql"
+    },
+    {
+      "table": "analytics_metric_facts",
+      "owner": "administration",
+      "script": "085_analytics_intelligence.sql"
+    },
+    {
+      "table": "analytics_lineage",
+      "owner": "administration",
+      "script": "085_analytics_intelligence.sql"
+    },
+    {
+      "table": "analytics_subject_controls",
+      "owner": "administration",
+      "script": "085_analytics_intelligence.sql"
+    },
+    {
+      "table": "analytics_moderation_cases",
+      "owner": "administration",
+      "script": "085_analytics_intelligence.sql"
+    },
+    {
+      "table": "analytics_moderation_appeals",
+      "owner": "administration",
+      "script": "085_analytics_intelligence.sql"
+    },
+    {
+      "table": "analytics_model_registry",
+      "owner": "administration",
+      "script": "085_analytics_intelligence.sql"
+    },
+    {
+      "table": "analytics_model_decisions",
+      "owner": "administration",
+      "script": "085_analytics_intelligence.sql"
+    },
+    {
+      "table": "analytics_geometry_items",
+      "owner": "administration",
+      "script": "085_analytics_intelligence.sql"
+    },
+    {
+      "table": "analytics_replay_runs",
+      "owner": "administration",
+      "script": "085_analytics_intelligence.sql"
+    },
+    {
+      "table": "analytics_retention_policies",
+      "owner": "administration",
+      "script": "085_analytics_intelligence.sql"
     }
   ]
 }

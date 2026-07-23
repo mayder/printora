@@ -1301,3 +1301,41 @@ nunca são restaurados durante rollback de código.
 Como reverter: executar `printora-cloud-rollback`, confirmar os dois processos
 da release N-1 e manter a release atual como standby. Não alterar dados nem
 substituir o upstream manualmente.
+
+### DEC-20260723-02 - Inteligência consome eventos sanitizados sob role restrita
+
+Status: aceita
+Data: 2026-07-23
+Contexto: analytics, moderação e recomendação precisam evoluir sem transformar
+o OLTP em warehouse, ampliar permissões do runtime ou tornar login, impressão,
+pedido e segurança dependentes de modelo.
+
+Decisão: eventos analíticos possuem finalidade, versão, digest, pseudônimo e
+retenção. O consumidor dedicado executa `SET LOCAL ROLE printora_analytics`; a
+role não lê nem escreve tabelas transacionais e acessa somente derivados
+`analytics_*`. Contexto de moderação é transitório e vira digest após
+classificação. Decisões automatizadas usam baselines determinísticos internos,
+registro de owner/dataset/licença/métrica/bias, canário, drift, rollback lógico
+e kill switch. Alto impacto nunca aplica ação no conteúdo: exige revisão humana
+e permite recurso.
+
+Alternativas consideradas: consultas analíticas diretas no OLTP; credencial com
+permissão global; modelo externo sem licença aprovada; moderação automática;
+cluster/warehouse adicional antes de existir capacidade e operação justificadas.
+
+Consequências: o primeiro baseline não promete qualidade de um modelo treinado
+externamente. Seu valor é isolamento, contrato, auditabilidade e fallback. O
+worker possui cgroup próprio e falha sem bloquear P0/P1. Retenção começa com
+preview não destrutivo; limpeza real exige confirmação operacional separada.
+
+Impacto em testes: role, sanitização, replay, lineage, anonimização, idiomas,
+revisão/recurso, registry, canário/drift, kill switch, quota, carga e readiness
+simultânea são gates.
+
+Impacto em rollback: release anterior ignora tabelas aditivas; o helper para o
+worker de inteligência o interrompe quando a release N-1 não é compatível.
+Eventos e derivados são preservados para forward-fix.
+
+Como reverter: ativar kill switch, interromper somente
+`printora-cloud-intelligence.service`, publicar a release anterior e preservar
+as tabelas `analytics_*`. Não conceder acesso ao OLTP nem excluir derivados.

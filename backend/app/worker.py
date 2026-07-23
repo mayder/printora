@@ -144,6 +144,14 @@ class OutboxWorker:
                         priority=80,
                     ),
                 ),
+                "moderation.report.created": (
+                    EventSubscription(
+                        consumer_name="analytics-moderation-v1",
+                        queue_name="bulk",
+                        job_type="analytics.ingest_event",
+                        priority=90,
+                    ),
+                ),
             },
         )
 
@@ -213,11 +221,30 @@ def _rebuild_search(_job: DurableJob) -> dict[str, Any]:
     return {"indexed_count": indexed_count, "materialization": "search_documents"}
 
 
+def _ingest_analytics_event(job: DurableJob) -> dict[str, Any]:
+    from app.modules.administration.intelligence import IntelligenceRepository
+    from app.modules.administration.intelligence_contracts import SanitizedEventCreate
+
+    settings = get_settings()
+    event_type = str(job.payload["event_type"])
+    payload = SanitizedEventCreate(
+        event_id=str(job.payload["event_id"]),
+        event_type=event_type,
+        schema_version=int(job.payload.get("schema_version", 1)),
+        purpose="safety_moderation",
+        occurred_at=str(job.available_at),
+        payload=dict(job.payload.get("payload") or {}),
+    )
+    result = IntelligenceRepository(settings.database_path).ingest(payload)
+    return {"event_id": result["event_id"], "status": result["status"]}
+
+
 def _handlers() -> dict[str, JobHandler]:
     return {
         "realtime.agent_job_available": _realtime_notification,
         "slicing.execute": _execute_slicing,
         "search.rebuild": _rebuild_search,
+        "analytics.ingest_event": _ingest_analytics_event,
     }
 
 

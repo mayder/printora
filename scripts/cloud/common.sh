@@ -111,6 +111,20 @@ restart_durable_workers() {
   echo "[printora-cloud] workers=restarted status=ready"
 }
 
+restart_intelligence_worker() {
+  local unit=printora-cloud-intelligence.service
+  if [[ ! -f /etc/systemd/system/$unit ]]; then return 0; fi
+  if [[ ! -f "$PRINTORA_BASE_PATH/current/backend/app/intelligence_worker.py" ]]; then
+    systemctl stop "$unit" || true
+    echo "[printora-cloud] intelligence=disabled release=not_compatible"
+    return 0
+  fi
+  systemctl enable "$unit" >/dev/null
+  systemctl restart "$unit"
+  systemctl is-active --quiet "$unit" || fail "worker de inteligência não iniciou"
+  echo "[printora-cloud] intelligence=restarted status=ready"
+}
+
 switch_nginx_to_slot() {
   local slot="$1"
   local target="$PRINTORA_BASE_PATH/shared/nginx/upstream-$slot.conf"

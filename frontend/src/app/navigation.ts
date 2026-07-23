@@ -1,4 +1,4 @@
-import { Activity, Database, Factory, FileArchive, FileText, Home, Info, Landmark, Network, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
+import { Activity, BrainCircuit, Database, Factory, FileArchive, FileText, Home, Info, Landmark, Network, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
@@ -20,6 +20,7 @@ export type AppSection =
   | "settings"
   | "finance"
   | "manufacturing"
+  | "data-intelligence"
   | "account"
   | "about"
   | "license";
@@ -31,6 +32,13 @@ export const appSections: Array<{
   detail: string;
   purpose: string;
 }> = [
+  {
+    key: "data-intelligence",
+    icon: BrainCircuit,
+    label: "Dados e inteligência",
+    detail: "Analytics, moderação e modelos isolados do OLTP.",
+    purpose: "Acompanhe eventos sanitizados, impacto, revisão humana, lineage, retenção e fallback dos modelos.",
+  },
   {
     key: "overview",
     icon: Home,
@@ -182,7 +190,7 @@ export const appSections: Array<{
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Principal", sections: ["overview", "printers", "agents", "projects", "social", "catalog", "setup"] },
-  { title: "Sistema", sections: ["finance", "manufacturing", "settings"] },
+  { title: "Sistema", sections: ["finance", "manufacturing", "data-intelligence", "settings"] },
 ];
 
 export const onlinePrinterSections = new Set<AppSection>([

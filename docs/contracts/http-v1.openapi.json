@@ -8800,6 +8800,45 @@
         "title": "GcodeFileThumbnail",
         "type": "object"
       },
+      "GeometrySearchRequest": {
+        "properties": {
+          "decision_key": {
+            "maxLength": 160,
+            "minLength": 8,
+            "title": "Decision Key",
+            "type": "string"
+          },
+          "entity_type": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "maxProperties": 32,
+            "minProperties": 1,
+            "title": "Features",
+            "type": "object"
+          },
+          "limit": {
+            "default": 10,
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "decision_key",
+          "entity_type",
+          "features"
+        ],
+        "title": "GeometrySearchRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -11618,6 +11657,38 @@
         "title": "MfaSetupResponse",
         "type": "object"
       },
+      "ModelControlRequest": {
+        "properties": {
+          "canary_percent": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Canary Percent",
+            "type": "integer"
+          },
+          "drift_score": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Drift Score",
+            "type": "number"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "kill_switch": {
+            "title": "Kill Switch",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "kill_switch",
+          "canary_percent",
+          "drift_score"
+        ],
+        "title": "ModelControlRequest",
+        "type": "object"
+      },
       "ModelDimensions": {
         "properties": {
           "x_mm": {
@@ -11785,6 +11856,59 @@
           "created_at"
         ],
         "title": "ModerationActionRecord",
+        "type": "object"
+      },
+      "ModerationAppealRequest": {
+        "properties": {
+          "appeal_key": {
+            "maxLength": 160,
+            "minLength": 8,
+            "title": "Appeal Key",
+            "type": "string"
+          },
+          "appellant_key": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Appellant Key",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "appeal_key",
+          "appellant_key",
+          "reason"
+        ],
+        "title": "ModerationAppealRequest",
+        "type": "object"
+      },
+      "ModerationAppealReviewRequest": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "upheld",
+              "denied"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "resolution": {
+            "maxLength": 1000,
+            "minLength": 3,
+            "title": "Resolution",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "resolution"
+        ],
+        "title": "ModerationAppealReviewRequest",
         "type": "object"
       },
       "ModerationQueueResponse": {
@@ -12001,6 +12125,31 @@
           "resolved_at"
         ],
         "title": "ModerationReportRecord",
+        "type": "object"
+      },
+      "ModerationReviewRequest": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "approved",
+              "rejected",
+              "closed"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 1000,
+            "minLength": 3,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "rationale"
+        ],
+        "title": "ModerationReviewRequest",
         "type": "object"
       },
       "NotificationCenterResponse": {
@@ -16532,6 +16681,43 @@
         "title": "RecommendationItem",
         "type": "object"
       },
+      "RecommendationRequest": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Candidates",
+            "type": "array"
+          },
+          "decision_key": {
+            "maxLength": 160,
+            "minLength": 8,
+            "title": "Decision Key",
+            "type": "string"
+          },
+          "subject_key": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Key"
+          }
+        },
+        "required": [
+          "decision_key",
+          "candidates"
+        ],
+        "title": "RecommendationRequest",
+        "type": "object"
+      },
       "RecommendationResponse": {
         "properties": {
           "indexed_count": {
@@ -17182,6 +17368,33 @@
         "title": "RemoteParityRunRequest",
         "type": "object"
       },
+      "ReplayRequest": {
+        "properties": {
+          "event_type": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Type"
+          },
+          "replay_key": {
+            "maxLength": 160,
+            "minLength": 8,
+            "title": "Replay Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "replay_key"
+        ],
+        "title": "ReplayRequest",
+        "type": "object"
+      },
       "ReputationRecord": {
         "properties": {
           "breakdown": {
@@ -17429,6 +17642,74 @@
           "idempotency_key"
         ],
         "title": "SandboxIntentRequest",
+        "type": "object"
+      },
+      "SanitizedEventCreate": {
+        "properties": {
+          "event_id": {
+            "maxLength": 160,
+            "minLength": 8,
+            "title": "Event Id",
+            "type": "string"
+          },
+          "event_type": {
+            "enum": [
+              "impact.observed",
+              "moderation.content_submitted",
+              "moderation.report.created",
+              "recommendation.signal",
+              "geometry.indexed",
+              "subject.removal_requested"
+            ],
+            "title": "Event Type",
+            "type": "string"
+          },
+          "occurred_at": {
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "purpose": {
+            "enum": [
+              "product_impact",
+              "safety_moderation",
+              "recommendation",
+              "geometry_search"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": 1,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "subject_key": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Key"
+          }
+        },
+        "required": [
+          "event_id",
+          "event_type",
+          "purpose",
+          "occurred_at"
+        ],
+        "title": "SanitizedEventCreate",
         "type": "object"
       },
       "SanitizedReport": {
@@ -21941,6 +22222,28 @@
         "title": "StorageUsageSummary",
         "type": "object"
       },
+      "SubjectAnonymizationRequest": {
+        "properties": {
+          "purpose": {
+            "default": "product_impact",
+            "maxLength": 80,
+            "minLength": 3,
+            "title": "Purpose",
+            "type": "string"
+          },
+          "subject_key": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Subject Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_key"
+        ],
+        "title": "SubjectAnonymizationRequest",
+        "type": "object"
+      },
       "TagRecord": {
         "properties": {
           "label": {
@@ -23897,6 +24200,816 @@
           }
         },
         "summary": "Frontend Index"
+      }
+    },
+    "/api/admin/data-intelligence/appeals/{appeal_key}/review": {
+      "post": {
+        "operationId": "review_appeal_api_admin_data_intelligence_appeals__appeal_key__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appeal_key",
+            "required": true,
+            "schema": {
+              "title": "Appeal Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModerationAppealReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Appeal Api Admin Data Intelligence Appeals  Appeal Key  Review Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Appeal",
+        "tags": [
+          "data-intelligence"
+        ]
+      }
+    },
+    "/api/admin/data-intelligence/dashboard": {
+      "get": {
+        "operationId": "dashboard_api_admin_data_intelligence_dashboard_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Dashboard Api Admin Data Intelligence Dashboard Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dashboard",
+        "tags": [
+          "data-intelligence"
+        ]
+      }
+    },
+    "/api/admin/data-intelligence/events": {
+      "post": {
+        "operationId": "ingest_event_api_admin_data_intelligence_events_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SanitizedEventCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Ingest Event Api Admin Data Intelligence Events Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ingest Event",
+        "tags": [
+          "data-intelligence"
+        ]
+      }
+    },
+    "/api/admin/data-intelligence/geometry/search": {
+      "post": {
+        "operationId": "geometry_search_api_admin_data_intelligence_geometry_search_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeometrySearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Geometry Search Api Admin Data Intelligence Geometry Search Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Geometry Search",
+        "tags": [
+          "data-intelligence"
+        ]
+      }
+    },
+    "/api/admin/data-intelligence/models/{model_key}/{version}/control": {
+      "post": {
+        "operationId": "control_model_api_admin_data_intelligence_models__model_key___version__control_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_key",
+            "required": true,
+            "schema": {
+              "title": "Model Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelControlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Control Model Api Admin Data Intelligence Models  Model Key   Version  Control Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Control Model",
+        "tags": [
+          "data-intelligence"
+        ]
+      }
+    },
+    "/api/admin/data-intelligence/moderation": {
+      "get": {
+        "operationId": "moderation_queue_api_admin_data_intelligence_moderation_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Moderation Queue Api Admin Data Intelligence Moderation Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Moderation Queue",
+        "tags": [
+          "data-intelligence"
+        ]
+      }
+    },
+    "/api/admin/data-intelligence/moderation/{case_key}/appeals": {
+      "post": {
+        "operationId": "create_appeal_api_admin_data_intelligence_moderation__case_key__appeals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_key",
+            "required": true,
+            "schema": {
+              "title": "Case Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModerationAppealRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Appeal Api Admin Data Intelligence Moderation  Case Key  Appeals Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Appeal",
+        "tags": [
+          "data-intelligence"
+        ]
+      }
+    },
+    "/api/admin/data-intelligence/moderation/{case_key}/review": {
+      "post": {
+        "operationId": "review_case_api_admin_data_intelligence_moderation__case_key__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_key",
+            "required": true,
+            "schema": {
+              "title": "Case Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModerationReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Case Api Admin Data Intelligence Moderation  Case Key  Review Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Case",
+        "tags": [
+          "data-intelligence"
+        ]
+      }
+    },
+    "/api/admin/data-intelligence/process": {
+      "post": {
+        "operationId": "process_pending_api_admin_data_intelligence_process_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Process Pending Api Admin Data Intelligence Process Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Process Pending",
+        "tags": [
+          "data-intelligence"
+        ]
+      }
+    },
+    "/api/admin/data-intelligence/recommendations": {
+      "post": {
+        "operationId": "recommend_api_admin_data_intelligence_recommendations_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Recommend Api Admin Data Intelligence Recommendations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recommend",
+        "tags": [
+          "data-intelligence"
+        ]
+      }
+    },
+    "/api/admin/data-intelligence/replay": {
+      "post": {
+        "operationId": "replay_api_admin_data_intelligence_replay_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplayRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Replay Api Admin Data Intelligence Replay Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replay",
+        "tags": [
+          "data-intelligence"
+        ]
+      }
+    },
+    "/api/admin/data-intelligence/retention/preview": {
+      "get": {
+        "operationId": "retention_preview_api_admin_data_intelligence_retention_preview_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Retention Preview Api Admin Data Intelligence Retention Preview Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retention Preview",
+        "tags": [
+          "data-intelligence"
+        ]
+      }
+    },
+    "/api/admin/data-intelligence/subjects/anonymize": {
+      "post": {
+        "operationId": "anonymize_subject_api_admin_data_intelligence_subjects_anonymize_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubjectAnonymizationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Anonymize Subject Api Admin Data Intelligence Subjects Anonymize Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Anonymize Subject",
+        "tags": [
+          "data-intelligence"
+        ]
       }
     },
     "/api/admin/finance/closings": {

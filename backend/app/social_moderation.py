@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
 from app.database import connect_database, initialize_database
+from app.modules.platform.durable_execution import DurableExecutionRepository, EventEnvelope
 
 ModerationEntityType = Literal["post", "comment", "profile", "library_item", "catalog_variant", "community", "tag"]
 ModerationReason = Literal["spam", "unsafe", "illegal", "harassment", "privacy", "wrong_metadata", "other"]
@@ -101,6 +103,32 @@ class SocialModerationRepository:
                 """,
                 (payload.entity_type, payload.entity_id, reporter_user_id, payload.reason),
             ).fetchone()["id"]
+            event_payload = {
+                "entity_type": payload.entity_type,
+                "entity_id": payload.entity_id,
+                "reason": payload.reason,
+                "detail": payload.detail,
+            }
+            payload_digest = hashlib.sha256(
+                json.dumps(event_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+            ).hexdigest()
+            sequence = connection.execute(
+                "SELECT COALESCE(MAX(sequence_no), 0) + 1 AS value FROM outbox_events WHERE ordering_key = ?",
+                (f"moderation-report:{report_id}",),
+            ).fetchone()["value"]
+            DurableExecutionRepository(self.database_path).append_event(
+                connection,
+                EventEnvelope(
+                    event_id=f"moderation-report:{report_id}:{payload_digest[:24]}",
+                    aggregate_type="moderation_report",
+                    aggregate_id=str(report_id),
+                    event_type="moderation.report.created",
+                    ordering_key=f"moderation-report:{report_id}",
+                    sequence_no=int(sequence),
+                    payload=event_payload,
+                    headers={"purpose": "safety_moderation", "sanitization": "transient-context-v1"},
+                ),
+            )
             self._audit(connection, "report", payload.entity_type, payload.entity_id, reporter_user_id, {"report_id": report_id, "reason": payload.reason})
             return self._report_by_id(connection, int(report_id))
 

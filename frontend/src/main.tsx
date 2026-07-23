@@ -23,6 +23,7 @@ import { ReportsScreen } from "./screens/ReportsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { FinanceAdminScreen } from "./screens/FinanceAdminScreen";
 import { ManufacturingAdminScreen } from "./screens/ManufacturingAdminScreen";
+import { DataIntelligenceScreen } from "./screens/DataIntelligenceScreen";
 import { AuthScreen } from "./screens/AuthScreen";
 import { AboutScreen } from "./screens/AboutScreen";
 import { LicenseScreen } from "./screens/LicenseScreen";
@@ -52,6 +53,7 @@ import "./styles/about.css";
 import "./styles/print-projects.css";
 import "./styles/social.css";
 import "./styles/catalog-admin.css";
+import "./styles/data-intelligence.css";
 import { readDocumentTheme } from "./services/localPreferences";
 
 type AccountTab = "profile" | "organizations";
@@ -161,6 +163,8 @@ function App() {
         return <FinanceAdminScreen {...screenProps} />;
       case "manufacturing":
         return <ManufacturingAdminScreen {...screenProps} />;
+      case "data-intelligence":
+        return <DataIntelligenceScreen {...screenProps} />;
       case "account":
         return <AuthScreen {...screenProps} />;
       case "about":

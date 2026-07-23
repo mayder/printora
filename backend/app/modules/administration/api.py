@@ -1,5 +1,14 @@
 from app.modules.assembly import ModuleDefinition, RouterRegistration
-from app.routes import backups, frontend, reports, snapshots, system, technical_profiles, worker_admin
+from app.routes import (
+    backups,
+    data_intelligence,
+    frontend,
+    reports,
+    snapshots,
+    system,
+    technical_profiles,
+    worker_admin,
+)
 
 
 MODULE = ModuleDefinition(
@@ -12,6 +21,7 @@ MODULE = ModuleDefinition(
         RouterRegistration(210, snapshots.router),
         RouterRegistration(290, system.router),
         RouterRegistration(295, worker_admin.router),
+        RouterRegistration(297, data_intelligence.router),
         RouterRegistration(300, technical_profiles.router),
         RouterRegistration(320, frontend.router),
     ),

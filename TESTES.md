@@ -1911,6 +1911,12 @@ coluna para cartão/payload bruto. Ela não remove nem altera dados anteriores.
 
 ### PKG-94 - Analytics, Moderação Multilíngue E Inteligência Isolada
 
+- executar `pytest -q tests/test_data_intelligence.py`: cobre sanitização,
+  finalidade, evento divergente, deduplicação, lineage, replay idempotente,
+  anonimização sem delete, PT/EN/ES, revisão humana, recurso, modelo, canário,
+  drift, kill switch, fallback determinístico, busca geométrica e quotas;
+- executar `scripts/cloud/probe-analytics-intelligence.py` com dados sintéticos,
+  serviço isolado controlado e monitoramento simultâneo de `/ready`;
 - validar role impedindo analytics/ML de escrever no OLTP;
 - testar replay/deduplicação, lineage, consentimento, remoção e anonimização;
 - revisar moderação multilíngue, falsos positivos, recurso e decisão humana;
@@ -1919,6 +1925,11 @@ coluna para cartão/payload bruto. Ela não remove nem altera dados anteriores.
 - saturar analytics/ML e provar quotas sem afetar P0/P1;
 - testar retenção/limpeza de dataset e modelo temporário;
 - fechamento: privacidade, segurança, carga, suíte completa e smoke.
+
+O probe remoto preserva a evidência sintética, não executa `DELETE`, não acessa
+impressora/agente/Moonraker/Klipper/MCU e restaura o estado anterior do modelo
+após exercitar o kill switch. A retenção é comprovada inicialmente por preview;
+remoção física exige confirmação separada e não faz parte do pacote.
 
 ### PKG-95 - Consolidação E Erradicação Legada
 

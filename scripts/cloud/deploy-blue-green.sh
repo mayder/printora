@@ -22,6 +22,7 @@ release_dir="$PRINTORA_BASE_PATH/releases/$release_sha"
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud@.service" /etc/systemd/system/printora-cloud@.service
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-worker@.service" /etc/systemd/system/printora-cloud-worker@.service
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-workers.target" /etc/systemd/system/printora-cloud-workers.target
+install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-intelligence.service" /etc/systemd/system/printora-cloud-intelligence.service
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-backup.service" /etc/systemd/system/printora-cloud-backup.service
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-backup.timer" /etc/systemd/system/printora-cloud-backup.timer
 install -o root -g root -m 0644 "$release_dir/packaging/nginx/printora-cloud-upstream-blue.conf" "$PRINTORA_BASE_PATH/shared/nginx/upstream-blue.conf"
@@ -43,6 +44,7 @@ install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-search-quality
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-active-active.sh" /usr/local/libexec/printora-cloud/probe-active-active.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/soak-cloud.sh" /usr/local/libexec/printora-cloud/soak-cloud.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/audit-capacity.sh" /usr/local/libexec/printora-cloud/audit-capacity.sh
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-analytics-intelligence.py" /usr/local/libexec/printora-cloud/probe-analytics-intelligence.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/preflight.sh" /usr/local/sbin/printora-cloud-preflight
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/deploy-blue-green.sh" /usr/local/sbin/printora-cloud-deploy
 systemctl daemon-reload
@@ -82,6 +84,7 @@ mv -f "$PRINTORA_ACTIVE_SLOT_FILE.tmp" "$PRINTORA_ACTIVE_SLOT_FILE"
 ln -sfn "$release_dir" "$PRINTORA_BASE_PATH/current.next"
 mv -Tf "$PRINTORA_BASE_PATH/current.next" "$PRINTORA_BASE_PATH/current"
 restart_durable_workers
+restart_intelligence_worker
 
 drain_seconds="${PRINTORA_DRAIN_SECONDS:-30}"
 sleep "$drain_seconds"

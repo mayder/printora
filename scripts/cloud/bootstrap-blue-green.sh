@@ -19,6 +19,7 @@ install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-back
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-backup.timer" /etc/systemd/system/printora-cloud-backup.timer
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-worker@.service" /etc/systemd/system/printora-cloud-worker@.service
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-workers.target" /etc/systemd/system/printora-cloud-workers.target
+install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-intelligence.service" /etc/systemd/system/printora-cloud-intelligence.service
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/redis-printora.service" /etc/systemd/system/redis-printora.service
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/nginx/printora-cloud-upstream-blue.conf" "$BASE_PATH/shared/nginx/upstream-blue.conf"
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/nginx/printora-cloud-upstream-green.conf" "$BASE_PATH/shared/nginx/upstream-green.conf"
@@ -46,6 +47,7 @@ install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/probe-worker-recovery.p
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/probe-active-active.sh" /usr/local/libexec/printora-cloud/probe-active-active.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/soak-cloud.sh" /usr/local/libexec/printora-cloud/soak-cloud.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/audit-capacity.sh" /usr/local/libexec/printora-cloud/audit-capacity.sh
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/probe-analytics-intelligence.py" /usr/local/libexec/printora-cloud/probe-analytics-intelligence.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/deploy-blue-green.sh" /usr/local/sbin/printora-cloud-deploy
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/rollback-blue-green.sh" /usr/local/sbin/printora-cloud-rollback
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/preflight.sh" /usr/local/sbin/printora-cloud-preflight
@@ -74,6 +76,7 @@ visudo -cf /etc/sudoers.d/printora-cloud-deploy
 systemctl daemon-reload
 systemctl enable --now printora-cloud-backup.timer
 systemctl enable printora-cloud-workers.target
+systemctl enable printora-cloud-intelligence.service
 nginx -t
 systemctl reload nginx
 echo "Bootstrap instalado sem interromper a instância legada em 8069."

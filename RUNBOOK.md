@@ -2114,6 +2114,54 @@ pool limitado, timeout e retries finitos. Pagamentos usam circuit breaker.
 Workers são isolados por fila, concorrência e unit; quotas por fila e owner
 aplicam backpressure antes de esgotar recursos.
 
+## Analytics e inteligência isolada
+
+O serviço `printora-cloud-intelligence.service` consome somente
+`analytics_events`, ativa `printora_analytics` em cada transação e grava apenas
+derivados `analytics_*`. A role deve possuir update em `analytics_events` e
+nenhum select/update em `auth_users` ou demais tabelas do OLTP.
+
+Diagnóstico read-only:
+
+```bash
+systemctl is-active printora-cloud-intelligence.service
+systemctl show printora-cloud-intelligence.service \
+  -p CPUQuotaPerSecUSec -p MemoryHigh -p MemoryMax -p TasksMax -p IOWeight
+sudo -u postgres psql -p 5433 -d printora_cloud -X -Atqc \
+  "SELECT has_table_privilege('printora_analytics','analytics_events','UPDATE'),
+          has_table_privilege('printora_analytics','auth_users','SELECT'),
+          has_table_privilege('printora_analytics','auth_users','UPDATE')"
+```
+
+Probe sintético controlado:
+
+```bash
+sudo systemctl stop printora-cloud-intelligence.service
+sudo -u deploy bash -c '
+  set -a
+  source /var/www/print3dmaker.xyz/shared/printora-cloud.env
+  source /etc/printora-cloud/postgresql.env
+  set +a
+  cd /var/www/print3dmaker.xyz/current/backend
+  /var/www/print3dmaker.xyz/current/venv/bin/python \
+    /usr/local/libexec/printora-cloud/probe-analytics-intelligence.py \
+    --run-key probe-AAAAMMDD --events 500
+'
+sudo systemctl start printora-cloud-intelligence.service
+```
+
+Durante o probe, monitorar `/ready` nas duas instâncias ativas. O script usa
+somente registros sintéticos, restaura o controle anterior do modelo e não
+remove dados. A prova de retenção é `GET
+/api/admin/data-intelligence/retention/preview`; qualquer limpeza física exige
+preview revisado, confirmação explícita, backup e plano de rollback.
+
+Falha ou drift: ativar kill switch pelo endpoint administrativo, confirmar
+fallback determinístico e interromper somente a unit de inteligência se
+necessário. Login, autorização, pedido, ledger, fabricação, operação e impressão
+não dependem desse serviço. Rollback de código preserva derivados e não restaura
+snapshot.
+
 ## Validacao por risco
 
 - Documentacao, label ou ajuste local simples: validar arquivo alterado e executar `./check.sh` se a alteracao tocar regra do modelo.

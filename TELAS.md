@@ -388,6 +388,22 @@ erro/degradado, permissão por ação, confirmação forte e auditoria sanitizad
 - transições permanecem nas APIs autorizadas e nunca enviam comando direto à
   impressora física; estados vazio, loading, acesso negado e detalhe são responsivos.
 
+## Administração > Dados e inteligência
+
+- rota/estado: `?section=data-intelligence`;
+- acesso exige conta administrativa e não revela eventos, modelos ou derivados
+  quando a permissão é negada;
+- `Dashboard` mostra pipeline, impacto, temporários, retenção e o contrato de
+  isolamento sem consultar tabelas transacionais;
+- `Moderação` separa lista e detalhe, informa idioma/confiança/rótulos e oferece
+  decisão humana; recurso permanece uma etapa independente e revisável;
+- `Modelos` separa registro e detalhe com owner, versão, dataset/licença,
+  canário, drift, fallback e kill switch;
+- `Lineage` separa derivações e detalhe de proveniência e informa replays
+  idempotentes;
+- estados loading, vazio, acesso negado e detalhe são responsivos. A tela não
+  recebe contexto bruto de moderação, subject key, segredo ou payload de OLTP.
+
 ## Boundary De Preferências Locais
 
 Tema e progresso do guia de setup preservam o comportamento visual atual, mas

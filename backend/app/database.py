@@ -23,6 +23,17 @@ if not uses_postgresql():
 SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
 POSTGRESQL_SQL_DIR = SQL_DIR / "postgresql"
 POSTGRESQL_REQUIRED_EXTENSION_TABLES = (
+    "analytics_events",
+    "analytics_metric_facts",
+    "analytics_lineage",
+    "analytics_subject_controls",
+    "analytics_moderation_cases",
+    "analytics_moderation_appeals",
+    "analytics_model_registry",
+    "analytics_model_decisions",
+    "analytics_geometry_items",
+    "analytics_replay_runs",
+    "analytics_retention_policies",
     "manufacturing_quotes",
     "manufacturing_role_assignments",
     "manufacturing_resources",

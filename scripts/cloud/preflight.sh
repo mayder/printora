@@ -83,6 +83,9 @@ validate_postgresql_runtime() {
   [[ -d /var/lib/postgresql/16/printora-wal-archive ]]
   [[ "$(runuser -u postgres -- psql -p 5433 -d printora_cloud -X -Atqc \
     "SELECT current_setting('data_checksums') || ':' || current_setting('archive_mode')")" == "on:on" ]]
+  [[ "$(runuser -u postgres -- psql -p 5433 -d printora_cloud -X -Atqc \
+    "SELECT has_table_privilege('printora_analytics','analytics_events','UPDATE')::int || ':' ||
+            has_table_privilege('printora_analytics','auth_users','SELECT')::int")" == "1:0" ]]
 }
 
 validate_durable_workers() {
@@ -90,6 +93,7 @@ validate_durable_workers() {
   test -x /usr/local/libexec/printora-cloud/start-worker.sh
   systemctl cat printora-cloud-worker@.service >/dev/null
   systemctl cat printora-cloud-workers.target >/dev/null
+  systemctl cat printora-cloud-intelligence.service >/dev/null
   for queue in outbox critical default bulk; do
     config="/etc/printora-cloud/workers/$queue.env"
     [[ "$(stat -c '%a:%U:%G' "$config")" == "640:root:deploy" ]] || return 1

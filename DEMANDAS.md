@@ -5997,7 +5997,16 @@ Critério de aceite:
 
 Estado atual:
 
-- Planejado; implementação não iniciada.
+- Lotes 1 a 6 implementados: contrato sanitizado versionado, lineage, replay,
+  read models, dashboard, moderação multilíngue com revisão/recurso, recomendação,
+  busca geométrica, registro de modelos, canário, drift e kill switch.
+- Role `printora_analytics` recebe acesso somente às tabelas derivadas; o worker
+  dedicado ativa essa role e possui quotas próprias de CPU, RAM, tasks e I/O.
+- Anonimização altera somente derivados e a retenção opera em preview, sem
+  exclusão automática. O baseline usa apenas eventos internos sanitizados, sem
+  dataset ou modelo externo.
+- Testes locais e suíte completa passaram. Lotes 7 e 8 aguardam publicação,
+  carga/isolamento remotos e comprovação final de capacidade e retenção.
 
 ## PKG-95: Consolidação, Erradicação Legada E Aceite Arquitetural
 
