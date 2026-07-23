@@ -30,6 +30,10 @@ impressora física, agente, Moonraker, Klipper, MCU ou Raspberry Pi.
   teste de navegação; a expectativa foi atualizada;
 - reteste completo final: `./check.sh` aprovado com 566 testes backend, Go,
   build frontend e testes de release/G-code.
+- workflow remoto `29982441050`: 565 testes passaram e um teste preexistente de
+  desconexão WebSocket excedeu a espera de consistência de 2 s antes do deploy;
+  a espera do teste foi ampliada para tolerar runner compartilhado, sem mudança
+  no runtime. Reteste remoto pendente.
 
 ## Evidência remota
 

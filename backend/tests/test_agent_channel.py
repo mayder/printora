@@ -175,7 +175,9 @@ def test_agent_websocket_contract_version_and_job_flow(tmp_path: Path, monkeypat
                 assert result_ack["payload"]["status"] == "succeeded"
 
             assert client.get("/api/agent/jobs/next", headers=_auth(credential)).json()["jobs"] == []
-        for _attempt in range(100):
+        # Runners compartilhados podem atrasar a finalização assíncrona da
+        # conexão mesmo depois de o contexto WebSocket ter sido encerrado.
+        for _attempt in range(500):
             with connect_database(tmp_path / "printora.db") as connection:
                 disconnected = connection.execute(
                     "SELECT disconnected_at FROM realtime_sessions ORDER BY connected_at DESC LIMIT 1"
