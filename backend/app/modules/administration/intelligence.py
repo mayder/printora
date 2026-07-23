@@ -45,6 +45,7 @@ class IntelligenceRepository:
         payload_sha = _sha(canonical_payload)
         subject_hash = hash_subject(event.subject_key) if event.subject_key else None
         retention_until = _iso(_now() + timedelta(days=_retention_days(event.purpose)))
+        updated_at = _iso(_now())
         with connect_database(self.database_path) as connection:
             existing = connection.execute(
                 "SELECT payload_sha256, status FROM analytics_events WHERE event_id = ?",
@@ -71,9 +72,9 @@ class IntelligenceRepository:
                     """
                     INSERT INTO analytics_subject_controls(subject_key_hash,purpose,consent_state)
                     VALUES(?,?,'not_required')
-                    ON CONFLICT(subject_key_hash) DO UPDATE SET purpose=excluded.purpose,updated_at=CURRENT_TIMESTAMP
+                    ON CONFLICT(subject_key_hash) DO UPDATE SET purpose=excluded.purpose,updated_at=?
                     """,
-                    (subject_hash, event.purpose),
+                    (subject_hash, event.purpose, updated_at),
                 )
         return {"event_id": event.event_id, "status": "pending", "idempotent": False}
 
@@ -125,10 +126,10 @@ class IntelligenceRepository:
             connection.execute(
                 """
                 UPDATE analytics_replay_runs
-                SET status='completed',processed_count=?,unchanged_count=?,output_sha256=?,completed_at=CURRENT_TIMESTAMP
+                SET status='completed',processed_count=?,unchanged_count=?,output_sha256=?,completed_at=?
                 WHERE replay_key=?
                 """,
-                (len(rows), unchanged, after, replay_key),
+                (len(rows), unchanged, after, _iso(_now()), replay_key),
             )
             result = connection.execute(
                 "SELECT * FROM analytics_replay_runs WHERE replay_key=?", (replay_key,)
@@ -206,9 +207,12 @@ class IntelligenceRepository:
             updated = connection.execute(
                 """
                 UPDATE analytics_moderation_cases SET status=?,rationale=?,reviewer_key_hash=?,
-                    reviewed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE case_key=?
+                    reviewed_at=?,updated_at=? WHERE case_key=?
                 """,
-                (decision, rationale, hash_subject(reviewer_key), case_key),
+                (
+                    decision, rationale, hash_subject(reviewer_key),
+                    _iso(_now()), _iso(_now()), case_key,
+                ),
             )
             if updated.rowcount != 1:
                 raise ValueError("caso de moderação não encontrado")
@@ -234,8 +238,8 @@ class IntelligenceRepository:
                 (appeal_key, case_key, hash_subject(appellant_key), _sha(reason)),
             )
             connection.execute(
-                "UPDATE analytics_moderation_cases SET status='appealed',updated_at=CURRENT_TIMESTAMP WHERE case_key=?",
-                (case_key,),
+                "UPDATE analytics_moderation_cases SET status='appealed',updated_at=? WHERE case_key=?",
+                (_iso(_now()), case_key),
             )
             row = connection.execute(
                 "SELECT * FROM analytics_moderation_appeals WHERE appeal_key=?", (appeal_key,)
@@ -248,9 +252,9 @@ class IntelligenceRepository:
             updated = connection.execute(
                 """
                 UPDATE analytics_moderation_appeals SET status=?,resolution=?,reviewer_key_hash=?,
-                    resolved_at=CURRENT_TIMESTAMP WHERE appeal_key=? AND status='open'
+                    resolved_at=? WHERE appeal_key=? AND status='open'
                 """,
-                (decision, resolution, hash_subject(reviewer_key), appeal_key),
+                (decision, resolution, hash_subject(reviewer_key), _iso(_now()), appeal_key),
             )
             if updated.rowcount != 1:
                 raise ValueError("recurso aberto não encontrado")
@@ -262,17 +266,21 @@ class IntelligenceRepository:
     def anonymize_subject(self, subject_key: str, purpose: str) -> dict[str, Any]:
         subject_hash = hash_subject(subject_key)
         anonymous_hash = _sha(f"anonymized:{subject_hash}")
+        now = _iso(_now())
         with connect_database(self.database_path) as connection:
             self._activate_analytics_role(connection)
             connection.execute(
                 """
                 INSERT INTO analytics_subject_controls(
                     subject_key_hash,purpose,consent_state,removal_requested_at,deadline_at
-                ) VALUES(?,?,'withdrawn',CURRENT_TIMESTAMP,?)
+                ) VALUES(?,?,'withdrawn',?,?)
                 ON CONFLICT(subject_key_hash) DO UPDATE SET consent_state='withdrawn',
-                    removal_requested_at=CURRENT_TIMESTAMP,deadline_at=excluded.deadline_at,updated_at=CURRENT_TIMESTAMP
+                    removal_requested_at=excluded.removal_requested_at,
+                    deadline_at=excluded.deadline_at,updated_at=?
                 """,
-                (subject_hash, purpose, _iso(_now() + timedelta(hours=24))),
+                (
+                    subject_hash, purpose, now, _iso(_now() + timedelta(hours=24)), now,
+                ),
             )
             counts: dict[str, int] = {}
             for table in ("analytics_events", "analytics_model_decisions"):
@@ -283,10 +291,10 @@ class IntelligenceRepository:
                 counts[table] = result.rowcount
             connection.execute(
                 """
-                UPDATE analytics_subject_controls SET anonymized_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+                UPDATE analytics_subject_controls SET anonymized_at=?,updated_at=?
                 WHERE subject_key_hash=?
                 """,
-                (subject_hash,),
+                (now, now, subject_hash),
             )
         return {"subject_key_hash": subject_hash, "anonymized": True, "derivatives_updated": counts}
 
@@ -299,9 +307,12 @@ class IntelligenceRepository:
             updated = connection.execute(
                 """
                 UPDATE analytics_model_registry SET enabled=?,kill_switch=?,canary_percent=?,
-                    drift_score=?,updated_at=CURRENT_TIMESTAMP WHERE model_key=? AND version=?
+                    drift_score=?,updated_at=? WHERE model_key=? AND version=?
                 """,
-                (int(enabled), int(kill_switch), canary_percent, drift_score, model_key, version),
+                (
+                    int(enabled), int(kill_switch), canary_percent, drift_score,
+                    _iso(_now()), model_key, version,
+                ),
             )
             if updated.rowcount != 1:
                 raise ValueError("modelo não encontrado")
@@ -355,8 +366,9 @@ class IntelligenceRepository:
             expired = connection.execute(
                 """
                 SELECT purpose,COUNT(*) total FROM analytics_events
-                WHERE retention_until < CURRENT_TIMESTAMP GROUP BY purpose ORDER BY purpose
-                """
+                WHERE retention_until < ? GROUP BY purpose ORDER BY purpose
+                """,
+                (_iso(_now()),),
             ).fetchall()
         return {
             "mode": "preview_only",
@@ -435,8 +447,8 @@ class IntelligenceRepository:
         )
         if not replay:
             connection.execute(
-                "UPDATE analytics_events SET status='processed',processed_at=CURRENT_TIMESTAMP WHERE event_id=?",
-                (row["event_id"],),
+                "UPDATE analytics_events SET status='processed',processed_at=? WHERE event_id=?",
+                (_iso(_now()), row["event_id"]),
             )
 
     def _process_metric(self, connection, row, payload):
@@ -451,9 +463,12 @@ class IntelligenceRepository:
             INSERT INTO analytics_metric_facts(
                 fact_key,source_event_id,metric_name,dimension_key,value,bucket_at
             ) VALUES(?,?,?,?,?,?)
-            ON CONFLICT(fact_key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP
+            ON CONFLICT(fact_key) DO UPDATE SET value=excluded.value,updated_at=?
             """,
-            (fact_key, row["event_id"], metric_name, dimension, value, row["occurred_at"]),
+            (
+                fact_key, row["event_id"], metric_name, dimension, value,
+                row["occurred_at"], _iso(_now()),
+            ),
         )
         return "metric_fact", fact_key, {"metric": metric_name, "dimension": dimension, "value": value}
 
@@ -472,11 +487,12 @@ class IntelligenceRepository:
             ) VALUES(?,?,?,?,?,?,?,?,?,'awaiting_review')
             ON CONFLICT(case_key) DO UPDATE SET detected_language=excluded.detected_language,
                 confidence=excluded.confidence,labels_json=excluded.labels_json,
-                human_review_required=excluded.human_review_required,updated_at=CURRENT_TIMESTAMP
+                human_review_required=excluded.human_review_required,updated_at=?
             """,
             (
                 case_key, row["event_id"], entity_type, entity_reference_hash, assessment.language,
                 assessment.confidence, labels_json, _sha(text), int(assessment.human_review_required),
+                _iso(_now()),
             ),
         )
         # Raw context is transient: only non-reversible evidence remains after classification.
@@ -508,11 +524,12 @@ class IntelligenceRepository:
             ) VALUES(?,?,?,?,?,?)
             ON CONFLICT(item_key) DO UPDATE SET features_json=excluded.features_json,
                 features_sha256=excluded.features_sha256,source_event_id=excluded.source_event_id,
-                active=1,updated_at=CURRENT_TIMESTAMP
+                active=1,updated_at=?
             """,
             (
                 item_key, str(payload.get("entity_type", "model"))[:80], _sha(item_key),
                 canonical, _sha(canonical), row["event_id"],
+                _iso(_now()),
             ),
         )
         return "geometry_item", item_key, features

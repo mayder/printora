@@ -10,6 +10,7 @@ source "$SCRIPT_DIR/common.sh"
 require_root
 release_sha="${1:-}"
 [[ "$release_sha" =~ ^[0-9a-f]{7,64}$ ]] || fail "SHA de release inválido"
+running_script_sha="$(sha256sum "$0" | awk '{print $1}')"
 
 release_dir="$PRINTORA_BASE_PATH/releases/$release_sha"
 [[ -d "$release_dir/backend" ]] || fail "backend da release ausente"
@@ -47,6 +48,11 @@ install -o root -g root -m 0755 "$release_dir/scripts/cloud/audit-capacity.sh" /
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-analytics-intelligence.py" /usr/local/libexec/printora-cloud/probe-analytics-intelligence.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/preflight.sh" /usr/local/sbin/printora-cloud-preflight
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/deploy-blue-green.sh" /usr/local/sbin/printora-cloud-deploy
+installed_script_sha="$(sha256sum /usr/local/sbin/printora-cloud-deploy | awk '{print $1}')"
+if [[ "${PRINTORA_DEPLOY_REEXECUTED:-0}" != "1" && "$running_script_sha" != "$installed_script_sha" ]]; then
+  echo "[printora-cloud] deploy_entrypoint=updated action=reexec"
+  exec env PRINTORA_DEPLOY_REEXECUTED=1 /usr/local/sbin/printora-cloud-deploy "$release_sha"
+fi
 systemctl daemon-reload
 
 replica_env="$PRINTORA_BASE_PATH/shared/slots/replica.env"

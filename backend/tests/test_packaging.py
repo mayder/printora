@@ -105,6 +105,8 @@ def test_cloud_blue_green_packaging_is_independent_and_fail_closed() -> None:
     assert "proxy_pass http://printora_cloud" in nginx
     assert "location = /metrics" in nginx
     assert "wait_until_ready" in deploy
+    assert "deploy_entrypoint=updated action=reexec" in deploy
+    assert "PRINTORA_DEPLOY_REEXECUTED=1" in deploy
     assert 'activate_replica "$release_dir"' in deploy
     assert "shared/slots/replica.env" in deploy
     assert "PRINTORA_PORT=8071" in deploy

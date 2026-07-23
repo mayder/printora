@@ -802,7 +802,7 @@
     {
       "module": "modules.administration.intelligence",
       "owner": "administration",
-      "lines": 619,
+      "lines": 636,
       "imports": [
         "database",
         "modules.administration.intelligence_contracts",

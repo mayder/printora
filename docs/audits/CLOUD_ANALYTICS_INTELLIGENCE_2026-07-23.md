@@ -39,7 +39,16 @@ impressora física, agente, Moonraker, Klipper, MCU ou Raspberry Pi.
 
 ## Evidência remota
 
-Pendente de publicação e probe controlado.
+- workflow `29983090499`: release `1636411` publicada com gate, dependências,
+  SBOM, preflight, blue/green e endpoint público aprovados;
+- três processos web ready no schema 86; role comprovada com update em derivados
+  e sem select/update em `auth_users`;
+- unit isolada instalada e ativa com CPU 50%, MemoryHigh 512 MiB, MemoryMax
+  1 GiB, TasksMax 128 e IOWeight 25;
+- 600 leituras simultâneas de readiness: zero erro, máximo 83 ms;
+- a primeira carga real encontrou conversão de `CURRENT_TIMESTAMP` para texto no
+  adapter PostgreSQL. A transação reverteu sem dado parcial; todos os timestamps
+  do serviço passaram a usar parâmetros ISO. Nova publicação e probe pendentes.
 
 ## Retenção e rollback
 

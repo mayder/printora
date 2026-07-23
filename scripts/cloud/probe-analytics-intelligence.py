@@ -3,8 +3,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from datetime import datetime, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path.cwd()))
 
 from app.config import get_settings
 from app.database import connect_database

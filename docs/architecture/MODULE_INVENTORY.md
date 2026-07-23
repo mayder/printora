@@ -44,8 +44,8 @@
 | `slicing_pipeline` | `operations` | 680 | 0 | 5 |
 | `routes.calibration` | `operations` | 674 | 15 | 0 |
 | `setup_wizard` | `operations` | 643 | 0 | 7 |
+| `modules.administration.intelligence` | `administration` | 636 | 0 | 0 |
 | `printers` | `operations` | 635 | 0 | 3 |
-| `modules.administration.intelligence` | `administration` | 619 | 0 | 0 |
 | `database` | `shared` | 590 | 0 | 0 |
 | `gcode_files` | `operations` | 543 | 0 | 10 |
 | `health` | `administration` | 513 | 0 | 0 |
