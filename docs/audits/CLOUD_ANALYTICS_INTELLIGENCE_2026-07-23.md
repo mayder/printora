@@ -32,8 +32,10 @@ impressora física, agente, Moonraker, Klipper, MCU ou Raspberry Pi.
   build frontend e testes de release/G-code.
 - workflow remoto `29982441050`: 565 testes passaram e um teste preexistente de
   desconexão WebSocket excedeu a espera de consistência de 2 s antes do deploy;
-  a espera do teste foi ampliada para tolerar runner compartilhado, sem mudança
-  no runtime. Reteste remoto pendente.
+  o workflow `29982767486` confirmou que o runner cancela o fechamento implícito
+  do client sem entregar a desconexão ao servidor. O teste passou a fechar o
+  WebSocket explicitamente, como faz o agente real, sem mudança no runtime.
+  Reteste remoto pendente.
 
 ## Evidência remota
 
