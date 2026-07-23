@@ -1591,3 +1591,35 @@ migração, dado produtivo ou observabilidade persistida nova.
 
 Como reverter: descartar exclusivamente o ambiente isolado conforme autorização
 e retenção acordadas; preservar o manifesto sanitizado e o relatório assinado.
+
+### DEC-20260723-10 - Owner dispensa pentest externo e aceita risco residual
+
+Status: aceita
+Data: 2026-07-23
+Contexto: o PKG-97 previa pentest independente como gate de fechamento. O owner
+determinou explicitamente que essa dependência externa fosse removida do ciclo e
+que a continuidade usasse somente os testes internos já implementados.
+
+Decisão: dispensar o lote de execução do pentest para o fechamento do PKG-97.
+Preservar o escopo preparado para uso futuro, registrar como não testadas as
+fronteiras que exigiriam avaliação independente e não classificar E2E, fuzz,
+mutation, scans ou revisão interna como pentest ou prova equivalente.
+
+Alternativas consideradas: manter o pacote bloqueado; autoatestar um pentest;
+executar teste ativo em produção sem fornecedor e regras assinadas.
+
+Consequências: PKG-98 e PKG-99 podem avançar, mas permanece risco residual de
+falhas exploráveis não identificadas por revisão interna em web, API, realtime,
+sessões, autorização, uploads, SSRF, rate limit, multi-tenant, financeiro
+sandbox e supply chain. Uma avaliação independente futura continua recomendada,
+sem bloquear este ciclo.
+
+Impacto em testes: todos os gates internos, repetição sem retry, scans,
+dependências, SBOM, smoke e validações operacionais continuam obrigatórios. O
+relatório final deve listar explicitamente o pentest como não executado.
+
+Impacto em rollback: a dispensa pode ser revogada a qualquer momento, reabrindo
+o escopo preservado sem desfazer os gates internos ou a evidência existente.
+
+Como reverter: contratar avaliador independente, aprovar o escopo e executar o
+handoff sanitizado em ambiente isolado antes de tratar os achados.

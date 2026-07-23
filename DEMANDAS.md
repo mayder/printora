@@ -6315,7 +6315,8 @@ Rollback:
 
 Estado atual:
 
-- Em implementação em 2026-07-23.
+- Concluído em 2026-07-23 com dispensa explícita do pentest externo e risco
+  residual registrado.
 - Lote 1 concluído: Node `22.22.x` e npm `11.7.x` são gates bloqueantes antes
   de instalação/build, com versões de referência fixadas em arquivos de runtime,
   pacote, Docker e CI.
@@ -6344,13 +6345,9 @@ Estado atual:
   sobreviventes, 214 sem cobertura e score testado de `61,30%`, acima do gate
   bloqueante de `60%`. Todo sobrevivente permanece enumerado no artefato CI e
   recebe backlog por domínio, owner e prazo na auditoria do pacote.
-- Lote 9 bloqueado por dependência externa: falta contratar profissional/empresa
-  independente e aprovar por escrito o escopo e o ambiente antes de qualquer
-  teste ativo. Escopo, regras de engajamento, casos mínimos, parada de
-  emergência e aceite estão prontos em
-  `docs/audits/PENTEST_SCOPE_PKG_97_2026-07-23.md`; identificação do fornecedor,
-  ambiente, janela e assinaturas permanecem pendentes. Nenhum pentest foi
-  autoatestatado ou executado em produção.
+- Lote 9 dispensado pelo owner em 2026-07-23. Nenhum pentest foi autoatestado ou
+  executado em produção; escopo e regras de engajamento foram preservados em
+  `docs/audits/PENTEST_SCOPE_PKG_97_2026-07-23.md` para eventual execução futura.
 - Preparação adicional do lote 9: as nove verificações administrativas deixaram
   de embutir identidade pessoal e usam política única configurável. O ambiente
   isolado pode declarar `pentest-admin@example.test`, enquanto configuração
@@ -6368,9 +6365,9 @@ Estado atual:
   foi publicada pelo deploy blue/green `30034513130`, commit `9f2fcc1`, com gate,
   SBOM, troca, drain e smoke público aprovados. Produção respondeu saudável em
   `0.1.41`/schema `86`, com duas impressoras e dois agentes `0.1.34` online.
-- Lote 10 depende do relatório independente e do reteste dos achados. Gate,
-  runbook e evidência automatizada já estão consolidados; fechamento, publicação
-  e aceite do pacote permanecem bloqueados pelos lotes 9 e 10.
+- Lote 10 concluído: gate, runbook, evidência automatizada, correções internas,
+  publicação blue/green e aceite com risco residual estão consolidados. Os
+  testes internos não são apresentados como equivalentes ao pentest dispensado.
 - Evidência em `docs/audits/QUALITY_GATE_PKG_97_2026-07-23.md`.
 
 ## PKG-98: Homologação Física E Soak Prolongado

@@ -2,7 +2,7 @@
 
 Data de início: 2026-07-23
 Pacote: PKG-97
-Estado: em implementação
+Estado: concluído com pentest externo dispensado pelo owner
 
 ## Toolchain
 
@@ -152,10 +152,25 @@ declarações sem runtime são as únicas exclusões frontend.
   Dados e inteligência com 2.145 px úteis em viewport de 2.461 px, zero overflow
   horizontal e lista/detalhe de Fabricação sem sobreposição.
 
-## Evidência Pendente
+## Escopo Não Testado E Risco Residual
 
-- contratação, identificação e assinatura independente do escopo preparado em
-  `PENTEST_SCOPE_PKG_97_2026-07-23.md`;
-- correção e reteste de achados críticos/altos e tratamento dos médios;
-- gate completo final depois do pentest;
-- publicação, auditoria e fechamento do pacote.
+- o owner dispensou explicitamente o pentest externo em 2026-07-23 e determinou
+  continuidade somente com os testes internos;
+- não houve avaliação independente de web, API, WebSocket, autenticação,
+  autorização, uploads, SSRF, rate limit, multi-tenant, financeiro sandbox ou
+  supply chain;
+- E2E, fuzz, mutation, scans, SBOM e testes internos reduzem risco, mas não são
+  pentest nem prova equivalente;
+- permanece risco residual de falha explorável não identificada por revisão
+  interna. O escopo preparado foi preservado para execução futura sem bloquear
+  os pacotes seguintes.
+
+## Fechamento
+
+- lotes 1 a 8 concluídos e publicados;
+- lote 9 dispensado por decisão explícita do owner;
+- lote 10 concluído pela consolidação do gate, correções encontradas pelos testes
+  internos, publicação blue/green e auditoria;
+- commit runtime publicado: `9f2fcc1`;
+- workflow aprovado: `30034513130`;
+- pacote aceito com o risco residual acima, sem afirmar ausência de defeitos.

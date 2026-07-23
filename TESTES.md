@@ -2026,9 +2026,11 @@ Não avançar se:
 - guardar corpus/seed mínimo reproduzível sem dado sensível;
 - executar mutation testing nas regras P0/P1;
 - repetir suíte crítica para detectar flakiness;
-- executar pentest independente com escopo autorizado;
-- corrigir e retestar todo achado crítico/alto;
-- registrar médios com owner, prazo, mitigação e risco aceito;
+- executar pentest independente com escopo autorizado, salvo dispensa explícita
+  do owner registrada em decisão e no relatório final;
+- quando executado, corrigir e retestar todo achado crítico/alto;
+- registrar médios com owner, prazo, mitigação e risco aceito; quando dispensado,
+  registrar como não testado o escopo que somente o pentest cobriria;
 - executar scans de segredo/dependência/SBOM e gate completo.
 
 Comandos bloqueantes implantados:
@@ -2052,7 +2054,8 @@ Não avançar se:
 - E2E P0 estiver ausente, flaky ou depender de dado produtivo instável;
 - fuzz encontrar crash/hang/leak/traversal/SSRF não resolvido;
 - mutation score crítico ficar abaixo do limiar;
-- pentest deixar crítico/alto aberto;
+- pentest deixar crítico/alto aberto ou ser dispensado sem risco residual e
+  escopo não testado explícitos;
 - relatório contiver segredo, PAN/CVV ou dado pessoal real.
 
 ### PKG-98 - Hardware Real E Soak De 72 Horas
