@@ -150,8 +150,20 @@ def test_cloud_process_chaos_is_scoped_and_recovers_active_instance() -> None:
     assert "Klipper" not in chaos
     assert "PRINTORA_SOAK_SECONDS" in soak
     assert "PRINTORA_SOAK_TARGET_RPS" in soak
+    assert "PRINTORA_SOAK_OBSERVE" in soak
+    assert "PRINTORA_SOAK_AGENT_STABLE_ID" in soak
+    assert "soak-observer.py" in soak
+    assert "shared/logs/" in soak
     assert "batch_interval" in soak
-    assert "errors=0 status=passed" in soak
+    assert "errors=0 observed=$observe" in soak
+    assert "status=passed" in soak
+    logrotate = (ROOT_DIR / "packaging/logrotate/printora-cloud").read_text()
+    assert "*.jsonl" in logrotate
+    assert "weekly" in logrotate
+    assert "rotate 8" in logrotate
+    assert "packaging/logrotate/printora-cloud" in (
+        ROOT_DIR / "scripts/cloud/deploy-blue-green.sh"
+    ).read_text()
 
 
 def test_cloud_rollback_never_restores_database_snapshot() -> None:
@@ -284,3 +296,6 @@ def test_cloud_load_smoke_reports_zero_errors() -> None:
     report = json.loads(result.stdout)
     assert report["requests"] == 20
     assert report["error_count"] == 0
+    assert report["kind"] == "load"
+    assert report["latency_ms"]["p99"] >= report["latency_ms"]["p95"]
+    assert report["slo"]["p99_ms"] == 2500

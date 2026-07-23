@@ -2233,6 +2233,33 @@ sudo systemd-run --wait --collect --unit=printora-cloud-restore-test \
 sudo /usr/local/libexec/printora-cloud/preview-backup-retention.sh
 ```
 
+O soak prolongado exige uma impressora de validação explícita, agente na versão
+esperada e evidência dentro de `shared/logs`. Ele mede p95/p99 de cada lote,
+heartbeat e versão do agente, Redis, filas, dead letters, duplicidade de
+correlation ID, conexões e tamanho do PostgreSQL, WAL, serviços, CPU acumulada,
+RSS, FD, tasks, reinícios e disco. O observador falha fechado em heartbeat
+vencido, serviço indisponível, erro novo, backlog ou crescimento acima dos
+limites. O arquivo é sanitizado: identifica o agente somente por fingerprint e
+não registra URL de banco, token, IP, path privado ou payload.
+
+```bash
+sudo systemd-run --unit=printora-cloud-soak --collect \
+  --property=EnvironmentFile=/etc/printora-cloud/postgresql.env \
+  --setenv=PRINTORA_SOAK_SECONDS=86400 \
+  --setenv=PRINTORA_SOAK_OBSERVE=1 \
+  --setenv=PRINTORA_SOAK_AGENT_STABLE_ID='<identificador aprovado>' \
+  --setenv=PRINTORA_SOAK_EXPECTED_AGENT_VERSION='0.1.34' \
+  /usr/local/libexec/printora-cloud/soak-cloud.sh
+systemctl status printora-cloud-soak.service
+journalctl -u printora-cloud-soak.service --since today
+```
+
+O ensaio inicial usa `86400` segundos e o final usa `259200`, sempre como uma
+janela contínua. Qualquer falha encerra a unit e invalida a janela afetada. A
+evidência JSONL tem retenção operacional semanal por oito rotações; depois da
+janela, copiar somente o resumo sanitizado para `docs/audits/`, sem segredos ou
+identificadores privados.
+
 Redis e busca podem degradar/recompor; PostgreSQL, autenticação, autorização,
 ledger, fabricação e ownership nunca degradam para memória local. Storage usa
 pool limitado, timeout e retries finitos. Pagamentos usam circuit breaker.

@@ -7,3 +7,13 @@
     notifempty
     copytruncate
 }
+
+/var/www/print3dmaker.xyz/shared/logs/*.jsonl {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

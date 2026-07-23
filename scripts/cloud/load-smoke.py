@@ -8,6 +8,7 @@ import statistics
 import time
 import urllib.error
 import urllib.request
+from datetime import UTC, datetime
 
 
 def request_once(url: str, timeout: float) -> tuple[bool, float, str | None]:
@@ -37,6 +38,7 @@ def main() -> int:
     parser.add_argument("--concurrency", type=int, default=20)
     parser.add_argument("--timeout", type=float, default=5.0)
     parser.add_argument("--p95-ms", type=float, default=1000.0)
+    parser.add_argument("--p99-ms", type=float, default=2500.0)
     args = parser.parse_args()
     if args.requests < 1 or args.concurrency < 1 or args.concurrency > 200:
         parser.error("requests/concurrency fora do limite")
@@ -49,19 +51,29 @@ def main() -> int:
         if not ok:
             errors[error or "unknown"] = errors.get(error or "unknown", 0) + 1
     p95_index = max(0, min(len(latencies) - 1, round(len(latencies) * 0.95) - 1))
+    p99_index = max(0, min(len(latencies) - 1, round(len(latencies) * 0.99) - 1))
     report = {
+        "kind": "load",
+        "timestamp_utc": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "requests": len(results),
         "errors": errors,
         "error_count": sum(errors.values()),
         "latency_ms": {
             "mean": round(statistics.fmean(latencies), 3),
             "p95": round(latencies[p95_index], 3),
+            "p99": round(latencies[p99_index], 3),
             "max": round(max(latencies), 3),
         },
-        "slo": {"zero_errors": True, "p95_ms": args.p95_ms},
+        "slo": {"zero_errors": True, "p95_ms": args.p95_ms, "p99_ms": args.p99_ms},
     }
     print(json.dumps(report, sort_keys=True))
-    return 0 if report["error_count"] == 0 and latencies[p95_index] <= args.p95_ms else 1
+    return (
+        0
+        if report["error_count"] == 0
+        and latencies[p95_index] <= args.p95_ms
+        and latencies[p99_index] <= args.p99_ms
+        else 1
+    )
 
 
 if __name__ == "__main__":

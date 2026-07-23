@@ -26,6 +26,7 @@ install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-w
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-intelligence.service" /etc/systemd/system/printora-cloud-intelligence.service
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-backup.service" /etc/systemd/system/printora-cloud-backup.service
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-backup.timer" /etc/systemd/system/printora-cloud-backup.timer
+install -o root -g root -m 0644 "$release_dir/packaging/logrotate/printora-cloud" /etc/logrotate.d/printora-cloud
 install -o root -g root -m 0644 "$release_dir/packaging/nginx/printora-cloud-upstream-blue.conf" "$PRINTORA_BASE_PATH/shared/nginx/upstream-blue.conf"
 install -o root -g root -m 0644 "$release_dir/packaging/nginx/printora-cloud-upstream-green.conf" "$PRINTORA_BASE_PATH/shared/nginx/upstream-green.conf"
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/common.sh" /usr/local/libexec/printora-cloud/common.sh
@@ -44,6 +45,7 @@ install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-search-outbox.
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-search-quality.py" /usr/local/libexec/printora-cloud/probe-search-quality.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-active-active.sh" /usr/local/libexec/printora-cloud/probe-active-active.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/soak-cloud.sh" /usr/local/libexec/printora-cloud/soak-cloud.sh
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/soak-observer.py" /usr/local/libexec/printora-cloud/soak-observer.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/audit-capacity.sh" /usr/local/libexec/printora-cloud/audit-capacity.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-analytics-intelligence.py" /usr/local/libexec/printora-cloud/probe-analytics-intelligence.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/audit-final-architecture.sh" /usr/local/libexec/printora-cloud/audit-final-architecture.sh

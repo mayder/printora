@@ -46,6 +46,7 @@ install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/load-durable-execution.
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/probe-worker-recovery.py" /usr/local/libexec/printora-cloud/probe-worker-recovery.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/probe-active-active.sh" /usr/local/libexec/printora-cloud/probe-active-active.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/soak-cloud.sh" /usr/local/libexec/printora-cloud/soak-cloud.sh
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/soak-observer.py" /usr/local/libexec/printora-cloud/soak-observer.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/audit-capacity.sh" /usr/local/libexec/printora-cloud/audit-capacity.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/probe-analytics-intelligence.py" /usr/local/libexec/printora-cloud/probe-analytics-intelligence.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/audit-final-architecture.sh" /usr/local/libexec/printora-cloud/audit-final-architecture.sh
