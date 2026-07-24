@@ -517,7 +517,7 @@
   color: var(--muted);
 }
 
-@media (max-width: 920px) {
+@media (max-width: 1240px) {
   .maintenance-layout,
   .maintenance-workspace,
   .maintenance-hero,
