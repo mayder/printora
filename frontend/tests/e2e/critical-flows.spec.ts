@@ -15,9 +15,10 @@ const VALID_STL = Buffer.from(
 );
 
 async function findUncontainedHorizontalOverflow(page: Page, rootSelector = ".workspace") {
-  return page.locator(rootSelector).evaluate((workspace) => {
+  const checkDocument = rootSelector === ".workspace";
+  return page.locator(rootSelector).evaluate((workspace, shouldCheckDocument) => {
     const viewportWidth = document.documentElement.clientWidth;
-    return Array.from(workspace.querySelectorAll<HTMLElement>("*"))
+    const overflowingElements = Array.from(workspace.querySelectorAll<HTMLElement>("*"))
       .filter((element) => {
         const rect = element.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0) return false;
@@ -40,7 +41,19 @@ async function findUncontainedHorizontalOverflow(page: Page, rootSelector = ".wo
           right: Math.round(element.getBoundingClientRect().right),
         },
       }));
-  });
+    if (shouldCheckDocument && document.documentElement.scrollWidth > viewportWidth + 1) {
+      overflowingElements.unshift({
+        tag: "html",
+        className: "document-overflow",
+        text: "Documento ultrapassa o viewport",
+        bounds: {
+          left: 0,
+          right: document.documentElement.scrollWidth,
+        },
+      });
+    }
+    return overflowingElements.slice(0, 10);
+  }, checkDocument);
 }
 
 test("comunidade, busca, projeto e quarentena percorrem contratos reais", async ({

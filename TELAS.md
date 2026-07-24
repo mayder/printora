@@ -443,8 +443,8 @@ layering React impede regressão para acesso direto de HTTP/storage na UI.
 - O cabeçalho e as nove abas do detalhe da impressora devem permanecer dentro
   do viewport. Em 1024 px, o cabeçalho e a grade de tokens usam uma coluna
   porque a barra lateral reduz a largura útil do workspace; os cards de
-  manutenção seguem a mesma regra. Cada aba precisa ser visível, acionável e
-  indicar sua seleção.
+  manutenção e os cards da visão geral seguem a mesma regra. Cada aba precisa
+  ser visível, acionável e indicar sua seleção.
 - Modais de alerta, cadastro, manutenção, relatório, backup e restore precisam
   permanecer operáveis no viewport mínimo; rolagem vertical interna é permitida,
   mas conteúdo ou ação não podem escapar horizontalmente.
