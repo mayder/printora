@@ -1717,3 +1717,35 @@ sem limite quando o executor travar.
 
 Como reverter: somente após implementar lease explícito por job com deadline,
 fencing e teste de executor interrompido.
+
+### DEC-20260723-14 - Soak representativo reutiliza conexões HTTP
+
+Status: aceita
+Data: 2026-07-23
+Contexto: a primeira janela de 24 horas encerrou após cinco minutos porque um
+lote público mediu p95 de 1.844 ms e p99 de 2.779 ms. Os slots locais
+permaneceram abaixo de 50 ms e não houve erro, backlog, restart ou serviço
+inativo. O gerador abria uma conexão DNS/TCP/TLS nova para cada requisição,
+divergindo do comportamento de browser e agente com keep-alive.
+
+Decisão: a carga representativa de 24/72 horas usa um `httpx.Client`
+compartilhado, pool limitado pela concorrência e keep-alive. O modo de conexão
+fria permanece explícito para diagnóstico separado de DNS/TCP/TLS. O SLO,
+taxa, lote, concorrência e endpoint público não são relaxados.
+
+Alternativas consideradas: elevar p95/p99; medir somente os slots locais;
+ignorar lotes isolados; manter conexões frias como modelo único.
+
+Consequências: o soak mede a latência do fluxo HTTP real sob conexões
+reutilizadas sem transformar handshake em cinco novas conexões por segundo.
+Cold start continua verificável, mas não é somado à janela representativa.
+
+Impacto em testes: pacing e burst permanecem cobertos; cliente compartilhado,
+erro `httpx`, modo padrão e smoke integrado são validados.
+
+Impacto em rollback: reverter restaura uma conexão por requisição e pode
+reintroduzir variância de handshake que invalida a janela sem degradação dos
+slots.
+
+Como reverter: reverter o gerador e reiniciar integralmente qualquer janela
+iniciada com o modelo anterior.

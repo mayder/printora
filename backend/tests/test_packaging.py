@@ -298,5 +298,6 @@ def test_cloud_load_smoke_reports_zero_errors() -> None:
     assert report["requests"] == 20
     assert report["error_count"] == 0
     assert report["kind"] == "load"
+    assert report["connection_mode"] == "pooled"
     assert report["latency_ms"]["p99"] >= report["latency_ms"]["p95"]
     assert report["slo"]["p99_ms"] == 2500

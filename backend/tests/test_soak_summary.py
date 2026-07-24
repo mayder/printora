@@ -61,6 +61,7 @@ def _load(timestamp: str, *, p95: float = 200, p99: float = 300, errors: int = 0
         "timestamp_utc": timestamp,
         "requests": 100,
         "target_rps": 5,
+        "connection_mode": "pooled",
         "error_count": errors,
         "latency_ms": {"p95": p95, "p99": p99, "max": max(p95, p99)},
         "slo": {"p95_ms": 1_500, "p99_ms": 2_500},
@@ -81,6 +82,7 @@ def test_summary_consolidates_sanitized_trends() -> None:
         "requests": 200,
         "errors": 0,
         "target_rps": [5.0],
+        "connection_modes": ["pooled"],
         "worst_latency_ms": {"p95": 450.0, "p99": 700.0, "max": 700.0},
     }
     assert result["observations"]["rss_bytes"] == {

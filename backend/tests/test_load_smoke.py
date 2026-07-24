@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
+
+import httpx
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -68,3 +71,39 @@ def test_run_requests_keeps_burst_mode_when_rate_is_zero() -> None:
 
     assert clock.sleeps == []
     assert clock.now() == 100.0
+
+
+def test_request_with_client_reuses_the_supplied_client() -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, float]] = []
+
+        def get(self, url: str, *, timeout: float) -> SimpleNamespace:
+            self.calls.append((url, timeout))
+            return SimpleNamespace(status_code=200)
+
+    client = FakeClient()
+    first = LOAD_SMOKE.request_with_client(client, "https://example.invalid/health", 2)
+    second = LOAD_SMOKE.request_with_client(client, "https://example.invalid/health", 2)
+
+    assert first[0] is True
+    assert second[0] is True
+    assert client.calls == [
+        ("https://example.invalid/health", 2),
+        ("https://example.invalid/health", 2),
+    ]
+
+
+def test_request_with_client_reports_sanitized_httpx_error() -> None:
+    class FailingClient:
+        def get(self, url: str, *, timeout: float) -> None:
+            request = httpx.Request("GET", url)
+            raise httpx.ConnectTimeout("timeout", request=request)
+
+    ok, _duration, error = LOAD_SMOKE.request_with_client(
+        FailingClient(),
+        "https://example.invalid/health",
+        2,
+    )
+    assert ok is False
+    assert error == "ConnectTimeout"

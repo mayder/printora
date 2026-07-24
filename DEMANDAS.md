@@ -6457,8 +6457,10 @@ Estado atual:
   produção no workflow `30053826438`.
 - Correções de coalescência, expiração UTC e lease implícito validadas na fila
   real sem exclusão ou cancelamento manual; backlog observado voltou a zero.
-- Lote 7 em execução: probe e repetição curta de `600` requisições aprovados; a
-  janela contínua de 24 horas começou em `2026-07-24T00:09:56Z`.
+- Lote 7 em execução: a primeira janela de 24 horas foi invalidada após cinco
+  minutos por SLO público. O gerador de carga passa a reutilizar keep-alive sem
+  alterar taxa ou limites; publicação e repetição curta são obrigatórias antes
+  de reiniciar a contagem.
 
 ## PKG-99: RPO Físico, Recuperação Contínua E Prontidão De Desastre
 

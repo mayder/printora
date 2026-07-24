@@ -176,6 +176,9 @@ def summarize(records: list[dict[str, Any]], *, minimum_seconds: int, tolerance_
             "requests": sum(_integer(record.get("requests")) for record in loads),
             "errors": sum(_integer(record.get("error_count")) for record in loads),
             "target_rps": sorted({_number(record.get("target_rps")) for record in loads}),
+            "connection_modes": sorted(
+                {str(record.get("connection_mode") or "legacy") for record in loads}
+            ),
             "worst_latency_ms": {
                 "p95": round(max(_series(loads, "latency_ms", "p95"), default=0.0), 3),
                 "p99": round(max(_series(loads, "latency_ms", "p99"), default=0.0), 3),

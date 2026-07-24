@@ -147,7 +147,13 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   passou com p95 de `401 ms` e p99 de `1.096 ms`.
 - Repetição curta integral aprovada: `600` requisições em seis lotes a
   `5 req/s`, zero erro, observador aprovado e todos os lotes dentro do SLO.
-- Soak inicial de 24 horas: iniciado em `2026-07-24T00:09:56Z` na unit
-  transitória `printora-cloud-soak.service`; a primeira carga e observação
-  passaram, sem restart.
+- Primeira janela de 24 horas: invalidada após cinco minutos. O agregador
+  sanitizado encontrou no 16º lote p95 de `1.844 ms` e p99 de `2.779 ms`;
+  a unit encerrou fail-closed, sem erro HTTP, backlog, restart ou serviço
+  inativo. O acompanhamento por recortes recentes não substitui a consolidação
+  integral do JSONL.
+- Diagnóstico: o gerador público abria uma conexão DNS/TCP/TLS por requisição,
+  enquanto browser e agente reutilizam keep-alive. A carga representativa passa
+  a usar pool limitado; o modo frio continua separado e o SLO não muda. Nova
+  janela só começa após publicação e repetição curta integral.
 - Soak final contínuo de 72 horas: não iniciado.

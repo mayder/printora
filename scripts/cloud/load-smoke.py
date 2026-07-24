@@ -6,30 +6,32 @@ import concurrent.futures
 import json
 import statistics
 import time
-import urllib.error
-import urllib.request
 from collections.abc import Callable
 from datetime import UTC, datetime
+from functools import partial
+
+import httpx
 
 
-def request_once(url: str, timeout: float) -> tuple[bool, float, str | None]:
+def request_with_client(client: httpx.Client, url: str, timeout: float) -> tuple[bool, float, str | None]:
     started_at = time.monotonic()
     try:
-        request = urllib.request.Request(
-            url,
-            headers={"Accept": "application/json", "User-Agent": "Printora-Load-Smoke/1.0"},
-        )
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            response.read(4096)
-            ok = 200 <= response.status < 400
-            error = None if ok else f"http_{response.status}"
-    except urllib.error.HTTPError as exc:
-        ok = False
-        error = f"http_{exc.code}"
-    except (OSError, urllib.error.URLError) as exc:
+        response = client.get(url, timeout=timeout)
+        ok = 200 <= response.status_code < 400
+        error = None if ok else f"http_{response.status_code}"
+    except httpx.HTTPError as exc:
         ok = False
         error = type(exc).__name__
     return ok, time.monotonic() - started_at, error
+
+
+def request_once(url: str, timeout: float) -> tuple[bool, float, str | None]:
+    with httpx.Client(
+        headers={"Accept": "application/json", "User-Agent": "Printora-Load-Smoke/1.0"},
+        follow_redirects=True,
+        timeout=timeout,
+    ) as client:
+        return request_with_client(client, url, timeout)
 
 
 def run_requests(
@@ -70,6 +72,12 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=5.0)
     parser.add_argument("--p95-ms", type=float, default=1000.0)
     parser.add_argument("--p99-ms", type=float, default=2500.0)
+    parser.add_argument(
+        "--connection-mode",
+        choices=("pooled", "cold"),
+        default="pooled",
+        help="pooled reutiliza keep-alive; cold abre uma conexão por requisição",
+    )
     args = parser.parse_args()
     if (
         args.requests < 1
@@ -80,13 +88,34 @@ def main() -> int:
     ):
         parser.error("requests/concurrency/target-rps fora do limite")
 
-    results = run_requests(
-        args.url,
-        args.requests,
-        args.concurrency,
-        args.timeout,
-        args.target_rps,
-    )
+    if args.connection_mode == "pooled":
+        limits = httpx.Limits(
+            max_connections=args.concurrency,
+            max_keepalive_connections=args.concurrency,
+            keepalive_expiry=30,
+        )
+        with httpx.Client(
+            headers={"Accept": "application/json", "User-Agent": "Printora-Load-Smoke/1.0"},
+            follow_redirects=True,
+            timeout=args.timeout,
+            limits=limits,
+        ) as client:
+            results = run_requests(
+                args.url,
+                args.requests,
+                args.concurrency,
+                args.timeout,
+                args.target_rps,
+                requester=partial(request_with_client, client),
+            )
+    else:
+        results = run_requests(
+            args.url,
+            args.requests,
+            args.concurrency,
+            args.timeout,
+            args.target_rps,
+        )
     latencies = sorted(duration * 1000 for _, duration, _ in results)
     errors: dict[str, int] = {}
     for ok, _, error in results:
@@ -99,6 +128,7 @@ def main() -> int:
         "timestamp_utc": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "requests": len(results),
         "target_rps": args.target_rps,
+        "connection_mode": args.connection_mode,
         "errors": errors,
         "error_count": sum(errors.values()),
         "latency_ms": {

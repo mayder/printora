@@ -39,7 +39,7 @@ batches=0
 requests=0
 while (( SECONDS < deadline )); do
   batch_started=$SECONDS
-  if ! load_report="$("$load_script" "$url" --requests "$batch_requests" --concurrency "$concurrency" --target-rps "$target_rps" --p95-ms 1500 --p99-ms 2500)"; then
+  if ! load_report="$("$load_script" "$url" --requests "$batch_requests" --concurrency "$concurrency" --target-rps "$target_rps" --connection-mode pooled --p95-ms 1500 --p99-ms 2500)"; then
     echo "$load_report"
     if [[ "$observe" == "1" ]]; then printf '%s\n' "$load_report" >> "$evidence_file"; fi
     exit 1
