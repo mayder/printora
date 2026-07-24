@@ -16,4 +16,4 @@ ReadOnlyPaths=/var/lib/printora-cloud /var/lib/postgresql/16/printora-wal-archiv
 MemoryMax=256M
 CPUQuota=25%
 TasksMax=32
-RuntimeMaxSec=30
+TimeoutStartSec=30

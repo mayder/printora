@@ -16,4 +16,4 @@ ReadWritePaths=/var/lib/printora-cloud
 MemoryMax=128M
 CPUQuota=20%
 TasksMax=16
-RuntimeMaxSec=20
+TimeoutStartSec=20

@@ -271,7 +271,7 @@ def test_physical_rpo_uses_external_wal_and_fails_before_five_minutes() -> None:
     assert "prune" not in sync
     assert "OnUnitActiveSec=60s" in timer
     assert "AccuracySec=5s" in timer
-    assert "RuntimeMaxSec=110" in service
+    assert "TimeoutStartSec=110" in service
     assert "CONFIGURED_RPO_SECONDS = 120 + 60 + 110" in monitor
     assert 'MAX_SYNC_AGE = int' in monitor
     assert '"210"' in monitor
@@ -294,7 +294,7 @@ def test_periodic_restore_replays_external_wal_with_resource_limits() -> None:
     assert '"wal_replay"' in wrapper
     assert "CPUQuota=20%" in service
     assert "IOWeight=10" in service
-    assert "RuntimeMaxSec=930" in service
+    assert "TimeoutStartSec=930" in service
     assert "Persistent=true" in timer
     assert "printora-cloud-restore-test.timer" in deploy
     assert "printora-cloud-recovery-monitor.timer" in audit
