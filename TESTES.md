@@ -2076,6 +2076,9 @@ Não avançar se:
 - executar soak inicial de 24 horas;
 - monitorar erro, p95/p99, CPU, RSS, FD, goroutines, conexões, filas, Redis,
   PostgreSQL, objetos, busca, disco, WAL e logs;
+- consolidar a evidência JSONL com falha fechada para duração mínima, zero erro,
+  SLO por lote, observações aprovadas e tendências sanitizadas sem fingerprint,
+  URL, token, IP, path ou payload;
 - corrigir qualquer regressão e reiniciar a janela afetada;
 - executar soak final contínuo de 72 horas;
 - executar gate completo e smoke público após o soak.

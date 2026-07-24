@@ -46,6 +46,7 @@ install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-search-quality
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-active-active.sh" /usr/local/libexec/printora-cloud/probe-active-active.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/soak-cloud.sh" /usr/local/libexec/printora-cloud/soak-cloud.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/soak-observer.py" /usr/local/libexec/printora-cloud/soak-observer.py
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/summarize-soak.py" /usr/local/libexec/printora-cloud/summarize-soak.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/audit-capacity.sh" /usr/local/libexec/printora-cloud/audit-capacity.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-analytics-intelligence.py" /usr/local/libexec/printora-cloud/probe-analytics-intelligence.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/audit-final-architecture.sh" /usr/local/libexec/printora-cloud/audit-final-architecture.sh

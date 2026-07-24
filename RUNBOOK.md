@@ -2275,6 +2275,20 @@ evidência JSONL tem retenção operacional semanal por oito rotações; depois 
 janela, copiar somente o resumo sanitizado para `docs/audits/`, sem segredos ou
 identificadores privados.
 
+Após a unit terminar com sucesso, consolidar o arquivo JSONL correspondente. O
+resumo falha fechado em evidência inválida, erro, SLO violado, observação falha
+ou duração insuficiente. Ele publica somente contagens, pior latência e
+tendências agregadas; não inclui fingerprint, URL, token, IP, path ou payload.
+A tolerância padrão de 60 segundos cobre o intervalo entre a última amostra e o
+deadline da unit, mas o status final da unit continua obrigatório para provar a
+janela completa.
+
+```bash
+/usr/local/libexec/printora-cloud/summarize-soak.py \
+  /var/www/print3dmaker.xyz/shared/logs/soak-<UTC>.jsonl \
+  --minimum-seconds 86400
+```
+
 Redis e busca podem degradar/recompor; PostgreSQL, autenticação, autorização,
 ledger, fabricação e ownership nunca degradam para memória local. Storage usa
 pool limitado, timeout e retries finitos. Pagamentos usam circuit breaker.
