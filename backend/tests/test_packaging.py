@@ -266,6 +266,7 @@ def test_physical_rpo_uses_external_wal_and_fails_before_five_minutes() -> None:
     assert "restic backup" in sync
     assert "--tag printora-cloud-wal" in sync
     assert "restic ls latest" in sync
+    assert "external_snapshot_count" in sync
     assert "forget" not in sync
     assert "prune" not in sync
     assert "OnUnitActiveSec=60s" in timer
@@ -299,6 +300,10 @@ def test_periodic_restore_replays_external_wal_with_resource_limits() -> None:
     assert "printora-cloud-recovery-monitor.timer" in audit
     assert "recovery-readiness.py" in audit
     assert "install -o root -g postgres -m 0640" in deploy
+    retention = (ROOT_DIR / "scripts/cloud/preview-backup-retention.sh").read_text()
+    assert "--tag printora-cloud-wal" in retention
+    assert "--keep-hourly 48" in retention
+    assert "--dry-run" in retention
 
 
 def test_cloud_runtime_is_postgresql_only_after_transition_cleanup() -> None:

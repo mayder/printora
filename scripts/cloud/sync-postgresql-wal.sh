@@ -75,13 +75,19 @@ PY
 )"
 fi
 
+external_snapshot_count="$(
+  restic snapshots --tag printora-cloud-wal --json \
+    | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))'
+)"
+
 checked_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 finished_epoch="$(date +%s)"
 wal_count="$(find "$archive_dir" -maxdepth 1 -type f -regextype posix-extended -regex '.*/[0-9A-F]{24}' | wc -l | tr -d ' ')"
 archive_bytes="$(du -sb "$archive_dir" | awk '{print $1}')"
 state_next="$state_file.next"
 python3 - "$state_next" "$checked_at" "$uploaded_at" "$latest_wal" \
-  "$wal_count" "$archive_bytes" "$((finished_epoch - started_epoch))" <<'PY'
+  "$wal_count" "$archive_bytes" "$((finished_epoch - started_epoch))" \
+  "$external_snapshot_count" <<'PY'
 import json
 import pathlib
 import sys
@@ -90,6 +96,7 @@ payload = {
     "archive_bytes": int(sys.argv[6]),
     "checked_at": sys.argv[2],
     "duration_seconds": int(sys.argv[7]),
+    "external_snapshot_count": int(sys.argv[8]),
     "status": "passed",
     "uploaded_at": sys.argv[3],
     "uploaded_wal": sys.argv[4],

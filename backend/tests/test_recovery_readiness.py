@@ -39,6 +39,7 @@ def configure_healthy_state(module: ModuleType, tmp_path: Path) -> None:
             "archive_bytes": 3,
             "checked_at": now,
             "duration_seconds": 4,
+            "external_snapshot_count": 2,
             "uploaded_at": now,
             "uploaded_wal": wal,
             "wal_file_count": 1,

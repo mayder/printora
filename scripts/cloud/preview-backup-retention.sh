@@ -15,4 +15,11 @@ restic forget \
   --keep-weekly 8 \
   --keep-monthly 12 \
   --dry-run
+restic forget \
+  --tag printora-cloud-wal \
+  --keep-hourly 48 \
+  --keep-daily 14 \
+  --keep-weekly 8 \
+  --keep-monthly 12 \
+  --dry-run
 echo "retenção apenas pré-visualizada; nenhum snapshot ou bloco foi removido"

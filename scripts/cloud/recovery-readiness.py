@@ -125,6 +125,7 @@ def collect() -> tuple[dict[str, Any], list[str]]:
         report["wal_sync_duration_seconds"] = int(wal_state["duration_seconds"])
         report["wal_files"] = int(wal_state["wal_file_count"])
         report["wal_archive_bytes"] = int(wal_state["archive_bytes"])
+        report["wal_external_snapshots"] = int(wal_state["external_snapshot_count"])
         report["wal_external_current"] = wal_state["uploaded_wal"] == latest_local_wal()
         if sync_age > MAX_SYNC_AGE:
             failures.append("wal_sync_late")
