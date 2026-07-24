@@ -1757,3 +1757,38 @@ slots.
 
 Como reverter: reverter o gerador e reiniciar integralmente qualquer janela
 iniciada com o modelo anterior.
+
+### DEC-20260724-15 - I/O síncrono de jobs não bloqueia o event loop
+
+Status: aceita
+Data: 2026-07-24
+Contexto: a janela inicial de 24 horas do PKG-98 encerrou após 3.320 segundos
+com cinco timeouts e violação de p95/p99. Os dois slots degradaram
+simultaneamente em diversas rotas, embora agentes, backlog, PostgreSQL, kernel
+e serviços permanecessem saudáveis. A autenticação e cada etapa do polling de
+jobs executavam acesso PostgreSQL síncrono diretamente no event loop único.
+
+Decisão: lookup de sessão e operações síncronas do repositório de jobs são
+executados no executor de I/O do processo. O fluxo assíncrono continua
+responsável por timeout, backoff, coalescência e resposta; schema, protocolo do
+agente, número de workers, SLO e timeout público não mudam.
+
+Alternativas consideradas: relaxar p95/p99; aumentar o timeout do gerador;
+somar o período inválido; adicionar workers para mascarar o bloqueio; converter
+todo o acesso a banco para assíncrono no mesmo incidente.
+
+Consequências: uma consulta ou conexão síncrona deixa de bloquear health,
+WebSocket e demais coroutines do slot. O executor padrão limita a concorrência
+de threads; saturação ainda produz backpressure sem criar processos ou
+conexões sem limite. A migração integral para acesso assíncrono continua sendo
+uma evolução possível, não requisito desta correção localizada.
+
+Impacto em testes: teste controlado bloqueia o repositório e exige que o event
+loop continue avançando. Autenticação, coalescência, expiração e falhas de jobs
+continuam cobertas pelas suítes existentes.
+
+Impacto em rollback: reverter apenas a delegação ao executor restaura o risco
+de bloqueio de cabeça de fila; não há alteração de dados, schema ou agente.
+
+Como reverter: reverter a implementação e invalidar qualquer soak iniciado com
+a versão revertida antes de reavaliar capacidade.

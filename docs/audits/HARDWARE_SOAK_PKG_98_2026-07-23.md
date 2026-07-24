@@ -249,6 +249,23 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   falho, dead letter, duplicidade, restart ou serviço inativo. A janela só será
   válida se a mesma invocation completar continuamente por 86.400 s; qualquer
   falha invalida todo o período e nenhuma tentativa anterior será somada.
+- Janela de `2026-07-24T11:29:43Z` invalidada integralmente: a mesma invocation
+  encerrou após `3.320 s`, 167 lotes e 16.700 requisições. O último lote teve
+  cinco `ReadTimeout`, pior p95 de `4.835,255 ms` e pior p99 de
+  `5.006,434 ms`; os gates `load_error`, `load_p95_slo` e `load_p99_slo`
+  falharam. Até a observação imediatamente anterior, os dois agentes
+  permaneciam ativos em `0.1.34`, backlog máximo 2, serviços sem restart e
+  banco sem dead letter, duplicidade ou novo job falho. O host e os endpoints
+  de saúde se recuperaram sem intervenção.
+- Diagnóstico da invalidação: os dois slots apresentaram degradação simultânea
+  e ampla, com 134 requests acima de um segundo e 62 acima de cinco segundos
+  em 100 segundos, sem falha de PostgreSQL, kernel ou serviço. O código
+  confirmou I/O síncrono de autenticação e polling de jobs executado dentro do
+  event loop único de cada slot, criando bloqueio de cabeça de fila quando
+  várias leituras reais aguardavam o agente. A correção move essas operações
+  para o executor de I/O, sem alterar SLO, timeout, coalescência, persistência
+  ou protocolo do agente. A nova janela permanece bloqueada até publicação,
+  probes e repetições observadas de 120 segundos nas duas Voron.
 - Soak final contínuo de 72 horas: não iniciado.
 
 ## Auditoria de fechamento por lote
@@ -264,8 +281,8 @@ matriz física, o fluxo real ou o E2E visual.
 | 4. Update/rollback do agente | concluído | `docs/audits/AGENT_RELEASE_0.1.34_2026-07-23.md` comprova `0.1.34 -> 0.1.33 -> 0.1.34` nas duas Voron somente pela web | nenhum |
 | 5. Projeto até histórico real | pendente | contratos e testes existem, mas não substituem aceite físico desta janela | validar projeto, G-code, preview, preflight, salvar/enviar e histórico com fixture aprovada |
 | 6. E2E visual real | parcial | matriz local, superfícies públicas e onze áreas privadas autenticadas passaram em desktop/escuro e mobile/claro sem erro de console | validar desktop, mobile e temas no fluxo físico de operação, preview, entrega e histórico |
-| 7. Soak inicial de 24 horas | em execução | as duas Voron passaram em `0.1.34`; a Voron 0.2 concluiu probe e repetição observada de 120 s/700 requisições; invocation `277cf0966b024f42963c2df5d902dfc8` iniciou com primeira amostra aprovada | completar a mesma invocation continuamente por 86.400 s e consolidar a evidência sanitizada |
-| 8. Correções e repetição | em execução | incidentes de UI, fila, UTC, lease, conexão fria, runtime e ciclo do pool foram corrigidos e retestados | reiniciar integralmente qualquer janela que falhar |
+| 7. Soak inicial de 24 horas | bloqueado para correção | a invocation `277cf0966b024f42963c2df5d902dfc8` foi invalidada integralmente após 3.320 s por cinco timeouts e violação de p95/p99 | publicar a correção, repetir probes e 120 s observados nas duas Voron e iniciar uma nova janela integral |
+| 8. Correções e repetição | em execução | incidentes anteriores foram corrigidos; a invalidação atual identificou I/O síncrono no event loop de autenticação e polling de jobs | validar e publicar a correção sem relaxar SLO, então reiniciar integralmente a sequência |
 | 9. Soak final de 72 horas | pendente | não iniciado | iniciar somente após lotes anteriores e completar continuamente por 259.200 s |
 | 10. Consolidação e runbook | pendente | cronologia parcial registrada | consolidar tendências, incidentes, capacidade, evidência sanitizada e operação final |
 

@@ -718,7 +718,7 @@
     {
       "module": "main",
       "owner": "shared",
-      "lines": 99,
+      "lines": 103,
       "imports": [
         "agent_channel",
         "auth",
@@ -1339,7 +1339,7 @@
     {
       "module": "modules.operations.application",
       "owner": "operations",
-      "lines": 129,
+      "lines": 137,
       "imports": [
         "modules.operations.contracts",
         "modules.operations.ports"

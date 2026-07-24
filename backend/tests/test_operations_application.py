@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import threading
+import time
 from dataclasses import dataclass
 
 import pytest
@@ -115,3 +117,27 @@ def test_agent_job_service_reports_failed_job_without_fastapi_error() -> None:
         asyncio.run(service.run(Printer(), job_type="status"))
 
     assert exc_info.value.job.error_message == "falha controlada"
+
+
+def test_agent_job_service_keeps_event_loop_responsive_during_repository_io() -> None:
+    entered = threading.Event()
+    release = threading.Event()
+
+    class BlockingRepository(Repository):
+        def latest_active_agent(self, printer_id: int) -> AgentRecord | None:
+            entered.set()
+            release.wait(timeout=0.5)
+            return super().latest_active_agent(printer_id)
+
+    async def run_scenario() -> None:
+        started_at = time.perf_counter()
+        task = asyncio.create_task(
+            AgentJobService(BlockingRepository()).run(Printer(), job_type="status")
+        )
+        assert await asyncio.to_thread(entered.wait, 0.2)
+        await asyncio.sleep(0.02)
+        assert time.perf_counter() - started_at < 0.2
+        release.set()
+        assert (await task).status == "succeeded"
+
+    asyncio.run(run_scenario())

@@ -61,7 +61,7 @@ class AgentJobService:
         timeout_seconds: float = 12.0,
         require_online: bool = True,
     ) -> AgentJobRecord:
-        agent = self.repository.latest_active_agent(printer.id)
+        agent = await asyncio.to_thread(self.repository.latest_active_agent, printer.id)
         if require_online and agent is None:
             raise AgentUnavailableError()
         expires_at = _format_datetime(
@@ -76,9 +76,17 @@ class AgentJobService:
                 expires_at=expires_at,
             )
             if job_type in COALESCIBLE_AGENT_JOB_TYPES:
-                job = self.repository.create_or_reuse_job(printer, request)
+                job = await asyncio.to_thread(
+                    self.repository.create_or_reuse_job,
+                    printer,
+                    request,
+                )
             else:
-                job = self.repository.create_job(printer, request)
+                job = await asyncio.to_thread(
+                    self.repository.create_job,
+                    printer,
+                    request,
+                )
         except ValueError as exc:
             raise AgentJobRejectedError(str(exc)) from exc
         return await self._wait(
@@ -99,7 +107,7 @@ class AgentJobService:
         deadline = asyncio.get_running_loop().time() + max(1.0, timeout_seconds)
         interval = 0.15
         while True:
-            job = self.repository.get_job(printer_id, job_id)
+            job = await asyncio.to_thread(self.repository.get_job, printer_id, job_id)
             if job is None:
                 raise AgentJobNotFoundError()
             if job.status == "succeeded":

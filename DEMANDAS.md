@@ -6496,10 +6496,15 @@ Estado atual:
   cancelamento. A Voron 0.2 voltou em `0.1.34`, passou no probe e na repetição
   observada de 120 s com 700 requisições, pool contínuo, zero erro, backlog
   máximo 2 e p95/p99 dentro do SLO. Os dois agentes foram revalidados com
-  heartbeat abaixo de 10 s e backlog zero. Uma nova janela integral de 24 horas
-  foi iniciada em `2026-07-24T11:29:43Z`, invocation
-  `277cf0966b024f42963c2df5d902dfc8`; a primeira carga e observação passaram.
-  Ela só será aceita se completar continuamente por 86.400 s.
+  heartbeat abaixo de 10 s e backlog zero. A janela iniciada em
+  `2026-07-24T11:29:43Z`, invocation
+  `277cf0966b024f42963c2df5d902dfc8`, foi invalidada integralmente após
+  3.320 s/16.700 requisições: o último lote teve cinco `ReadTimeout` e violou
+  p95/p99. Agentes, backlog, banco e serviços permaneceram saudáveis. O
+  diagnóstico encontrou I/O síncrono de autenticação e polling de jobs
+  bloqueando o event loop dos dois slots sob leituras concorrentes. A correção
+  move essas operações para o executor de I/O sem relaxar SLO ou timeout; nova
+  janela exige publicação e novos probes/curtos observados nas duas Voron.
 
 ## PKG-99: RPO Físico, Recuperação Contínua E Prontidão De Desastre
 

@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
@@ -71,7 +72,10 @@ async def auth_context_middleware(request, call_next):
     if authorization:
         scheme, _, token = authorization.partition(" ")
         if scheme.lower() == "bearer" and token:
-            user = AuthRepository(get_settings().database_path).get_user_by_session(token.strip())
+            user = await asyncio.to_thread(
+                AuthRepository(get_settings().database_path).get_user_by_session,
+                token.strip(),
+            )
             set_current_auth_context(user)
     return await call_next(request)
 
