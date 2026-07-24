@@ -2266,6 +2266,11 @@ relatório ao observador; reiniciar o pool a cada lote invalida a
 representatividade. O modo
 `--connection-mode cold` permanece disponível para medir DNS/TCP/TLS por
 requisição, mas sua latência não é somada à janela representativa de 24/72h.
+Como o alvo da carga é exclusivamente o `GET /health` idempotente, um
+`RemoteProtocolError` causado pelo fechamento remoto de uma conexão keep-alive
+recebe uma única reconexão no mesmo pool. A evidência mantém `retry_count` e
+`retries` sanitizados; erro HTTP, timeout, segunda falha de protocolo ou falha
+da reconexão continuam encerrando o lote e invalidando a janela.
 O gate de disco combina os limites: falha somente quando a reserva fica abaixo
 de 15% e de 50 GiB, evitando falso bloqueio em volumes grandes sem deixar de
 proteger a capacidade absoluta.

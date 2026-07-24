@@ -128,6 +128,18 @@ def _trend(records: list[dict[str, Any]], *keys: str) -> dict[str, int | float]:
     }
 
 
+def _aggregate_counts(records: Iterable[dict[str, Any]], key: str) -> dict[str, int]:
+    totals: dict[str, int] = {}
+    for record in records:
+        counts = record.get(key)
+        if not isinstance(counts, dict):
+            continue
+        for category, value in counts.items():
+            name = str(category)
+            totals[name] = totals.get(name, 0) + _integer(value)
+    return dict(sorted(totals.items()))
+
+
 def summarize(records: list[dict[str, Any]], *, minimum_seconds: int, tolerance_seconds: int) -> dict[str, Any]:
     ordered = sorted(records, key=lambda item: _timestamp(item["timestamp_utc"]))
     started_at = _timestamp(ordered[0]["timestamp_utc"])
@@ -175,6 +187,8 @@ def summarize(records: list[dict[str, Any]], *, minimum_seconds: int, tolerance_
             "batches": len(loads),
             "requests": sum(_integer(record.get("requests")) for record in loads),
             "errors": sum(_integer(record.get("error_count")) for record in loads),
+            "retries": sum(_integer(record.get("retry_count")) for record in loads),
+            "retry_types": _aggregate_counts(loads, "retries"),
             "target_rps": sorted({_number(record.get("target_rps")) for record in loads}),
             "connection_modes": sorted(
                 {str(record.get("connection_mode") or "legacy") for record in loads}

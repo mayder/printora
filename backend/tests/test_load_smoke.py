@@ -109,6 +109,58 @@ def test_request_with_client_reports_sanitized_httpx_error() -> None:
     assert error == "ConnectTimeout"
 
 
+def test_request_with_client_reconnects_once_after_remote_protocol_error() -> None:
+    class RecoveringClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def get(self, url: str, *, timeout: float) -> SimpleNamespace:
+            self.calls += 1
+            if self.calls == 1:
+                request = httpx.Request("GET", url)
+                raise httpx.RemoteProtocolError("connection closed", request=request)
+            return SimpleNamespace(status_code=200)
+
+    client = RecoveringClient()
+    result = LOAD_SMOKE.request_with_client(client, "https://example.invalid/health", 2)
+    report = LOAD_SMOKE.build_report(
+        [result],
+        target_rps=5,
+        connection_mode="pooled",
+        p95_ms=1500,
+        p99_ms=2500,
+    )
+
+    assert client.calls == 2
+    assert result[0] is True
+    assert report["error_count"] == 0
+    assert report["retry_count"] == 1
+    assert report["retries"] == {"RemoteProtocolError": 1}
+    assert LOAD_SMOKE.report_passes(report)
+
+
+def test_request_with_client_fails_after_second_remote_protocol_error() -> None:
+    class FailingClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def get(self, url: str, *, timeout: float) -> None:
+            self.calls += 1
+            request = httpx.Request("GET", url)
+            raise httpx.RemoteProtocolError("connection closed", request=request)
+
+    client = FailingClient()
+    ok, _duration, error = LOAD_SMOKE.request_with_client(
+        client,
+        "https://example.invalid/health",
+        2,
+    )
+
+    assert client.calls == 2
+    assert ok is False
+    assert error == "RemoteProtocolError"
+
+
 def test_run_batches_reuses_requester_until_duration_finishes() -> None:
     clock = FakeClock()
     calls: list[float] = []

@@ -314,6 +314,24 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   e disco dentro dos limites. A janela só será válida se esta mesma invocation
   permanecer contínua e terminar com sucesso após
   `2026-07-25T15:49:13Z`; nenhuma tentativa anterior será somada.
+- Janela de `2026-07-24T15:49:13Z` invalidada integralmente: a mesma invocation
+  encerrou após `2.287 s`, 116 lotes e 11.600 requisições. O último lote teve
+  um `RemoteProtocolError`, embora p95 de `94,530 ms` e p99 de `137,588 ms`
+  permanecessem dentro do SLO. Até a observação imediatamente anterior, o
+  agente monitorado permanecia ativo em `0.1.36`, heartbeat de `3,226 s`,
+  backlog zero, nenhum novo job falho, dead letter, duplicidade, restart ou
+  serviço inativo. Os dois agentes foram confirmados depois da falha em
+  `0.1.36`, com heartbeat abaixo de 10 s e backlog zero.
+- Auditoria do fechamento de conexão: o Nginx registrou somente respostas
+  `HTTP 200` do gerador no minuto da falha, sem entrada de erro, reload ou
+  restart; serviços e health permaneceram ativos. O mesmo fechamento isolado
+  já havia invalidado um curto anterior e não representa erro retornado pela
+  aplicação, mas continua violando o gate do cliente. Como a carga chama
+  exclusivamente o `GET /health` idempotente, o cliente passa a reconectar uma
+  única vez para `RemoteProtocolError` e registra `retry_count`/`retries` no
+  JSONL e no resumo. Segunda falha consecutiva, HTTP não 2xx/3xx, timeout ou
+  erro da reconexão permanecem fail-closed. Nova janela exige publicação,
+  probes e curtos integrais observados nas duas Voron.
 - Soak final contínuo de 72 horas: não iniciado.
 
 ## Auditoria de fechamento por lote
@@ -329,8 +347,8 @@ matriz física, o fluxo real ou o E2E visual.
 | 4. Update/rollback do agente | concluído | `docs/audits/AGENT_RELEASE_0.1.34_2026-07-23.md` comprova `0.1.34 -> 0.1.33 -> 0.1.34` nas duas Voron somente pela web | nenhum |
 | 5. Projeto até histórico real | pendente | contratos e testes existem, mas não substituem aceite físico desta janela | validar projeto, G-code, preview, preflight, salvar/enviar e histórico com fixture aprovada |
 | 6. E2E visual real | parcial | matriz local, superfícies públicas e onze áreas privadas autenticadas passaram em desktop/escuro e mobile/claro sem erro de console | validar desktop, mobile e temas no fluxo físico de operação, preview, entrega e histórico |
-| 7. Soak inicial de 24 horas | em execução | nova janela contínua iniciada em `2026-07-24T15:49:13Z`, invocation `049ba8c3ac72479093d768b75da64152`; primeira consolidação parcial aprovada | manter exatamente a mesma invocation ativa e concluir após `2026-07-25T15:49:13Z`, então consolidar com duração mínima de 86.400 s |
-| 8. Correções e repetição | concluído para abrir a nova janela | event loop e recarga involuntária da listagem corrigidos e publicados; probes e repetições integrais de 120 s passaram nas duas Voron em `0.1.36` | reabrir somente se a janela atual revelar nova regressão |
+| 7. Soak inicial de 24 horas | bloqueado para correção | a janela de `2026-07-24T15:49:13Z` foi invalidada após 2.287 s por fechamento remoto isolado da conexão do cliente | publicar a reconexão idempotente observável, repetir probes e 120 s nas duas Voron e iniciar nova janela integral |
+| 8. Correções e repetição | em execução | event loop e recarga G-code corrigidos; novo incidente exige reconexão única e explícita para GET idempotente após `RemoteProtocolError` | validar, publicar e repetir integralmente a sequência sem relaxar erro final, SLO ou demais gates |
 | 9. Soak final de 72 horas | pendente | não iniciado | iniciar somente após lotes anteriores e completar continuamente por 259.200 s |
 | 10. Consolidação e runbook | pendente | cronologia parcial registrada | consolidar tendências, incidentes, capacidade, evidência sanitizada e operação final |
 

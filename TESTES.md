@@ -2079,6 +2079,9 @@ Não avançar se:
 - validar carga representativa com um único pool/keep-alive durante toda a
   janela, incluindo reutilização entre lotes, e manter o modo de conexão fria
   separado para diagnóstico de DNS/TCP/TLS;
+- simular fechamento remoto de conexão keep-alive no GET idempotente de health,
+  comprovar uma única reconexão, erro final zero e retry sanitizado na evidência;
+  a segunda falha consecutiva deve permanecer fail-closed;
 - manter o event loop responsivo enquanto autenticação e polling de jobs
   executam I/O síncrono de repositório; a regressão deve bloquear o repositório
   de forma controlada e comprovar que outra coroutine continua avançando;

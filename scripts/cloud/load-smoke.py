@@ -13,15 +13,31 @@ from functools import partial
 import httpx
 
 
+RECOVERED_RETRY_PREFIX = "retried_"
+
+
 def request_with_client(client: httpx.Client, url: str, timeout: float) -> tuple[bool, float, str | None]:
     started_at = time.monotonic()
-    try:
-        response = client.get(url, timeout=timeout)
-        ok = 200 <= response.status_code < 400
-        error = None if ok else f"http_{response.status_code}"
-    except httpx.HTTPError as exc:
-        ok = False
-        error = type(exc).__name__
+    retried_error: str | None = None
+    while True:
+        try:
+            response = client.get(url, timeout=timeout)
+            ok = 200 <= response.status_code < 400
+            error = None if ok else f"http_{response.status_code}"
+            break
+        except httpx.RemoteProtocolError as exc:
+            if retried_error is None:
+                retried_error = type(exc).__name__
+                continue
+            ok = False
+            error = type(exc).__name__
+            break
+        except httpx.HTTPError as exc:
+            ok = False
+            error = type(exc).__name__
+            break
+    if ok and retried_error:
+        error = f"{RECOVERED_RETRY_PREFIX}{retried_error}"
     return ok, time.monotonic() - started_at, error
 
 
@@ -68,8 +84,12 @@ def build_report(
 ) -> dict[str, object]:
     latencies = sorted(duration * 1000 for _, duration, _ in results)
     errors: dict[str, int] = {}
+    retries: dict[str, int] = {}
     for ok, _, error in results:
-        if not ok:
+        if ok and error and error.startswith(RECOVERED_RETRY_PREFIX):
+            retry_type = error.removeprefix(RECOVERED_RETRY_PREFIX)
+            retries[retry_type] = retries.get(retry_type, 0) + 1
+        elif not ok:
             errors[error or "unknown"] = errors.get(error or "unknown", 0) + 1
     p95_index = max(0, min(len(latencies) - 1, round(len(latencies) * 0.95) - 1))
     p99_index = max(0, min(len(latencies) - 1, round(len(latencies) * 0.99) - 1))
@@ -81,6 +101,8 @@ def build_report(
         "connection_mode": connection_mode,
         "errors": errors,
         "error_count": sum(errors.values()),
+        "retries": retries,
+        "retry_count": sum(retries.values()),
         "latency_ms": {
             "mean": round(statistics.fmean(latencies), 3),
             "p95": round(latencies[p95_index], 3),

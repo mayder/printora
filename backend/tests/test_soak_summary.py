@@ -55,7 +55,14 @@ def _observation(timestamp: str, *, rss: int, status: str = "passed") -> dict:
     }
 
 
-def _load(timestamp: str, *, p95: float = 200, p99: float = 300, errors: int = 0) -> dict:
+def _load(
+    timestamp: str,
+    *,
+    p95: float = 200,
+    p99: float = 300,
+    errors: int = 0,
+    retries: int = 0,
+) -> dict:
     return {
         "kind": "load",
         "timestamp_utc": timestamp,
@@ -63,6 +70,8 @@ def _load(timestamp: str, *, p95: float = 200, p99: float = 300, errors: int = 0
         "target_rps": 5,
         "connection_mode": "pooled",
         "error_count": errors,
+        "retry_count": retries,
+        "retries": {"RemoteProtocolError": retries} if retries else {},
         "latency_ms": {"p95": p95, "p99": p99, "max": max(p95, p99)},
         "slo": {"p95_ms": 1_500, "p99_ms": 2_500},
     }
@@ -72,7 +81,7 @@ def test_summary_consolidates_sanitized_trends() -> None:
     records = [
         _load("2026-07-24T00:00:00Z"),
         _observation("2026-07-24T00:00:01Z", rss=1_000),
-        _load("2026-07-24T00:01:00Z", p95=450, p99=700),
+        _load("2026-07-24T00:01:00Z", p95=450, p99=700, retries=1),
         _observation("2026-07-24T00:01:01Z", rss=1_250),
     ]
     result = summary_module.summarize(records, minimum_seconds=60, tolerance_seconds=1)
@@ -81,6 +90,8 @@ def test_summary_consolidates_sanitized_trends() -> None:
         "batches": 2,
         "requests": 200,
         "errors": 0,
+        "retries": 1,
+        "retry_types": {"RemoteProtocolError": 1},
         "target_rps": [5.0],
         "connection_modes": ["pooled"],
         "worst_latency_ms": {"p95": 450.0, "p99": 700.0, "max": 700.0},

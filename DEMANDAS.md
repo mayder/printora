@@ -6525,7 +6525,14 @@ Estado atual:
   `soak-24h-20260724T154913Z.jsonl`. A primeira consolidação parcial passou
   com `connection_modes=["pooled"]`, zero erro e backlog zero. A janela só
   pode ser aceita se a mesma invocation permanecer contínua até depois de
-  `2026-07-25T15:49:13Z`.
+  `2026-07-25T15:49:13Z`. Esta tentativa foi invalidada integralmente após
+  2.287 s/11.600 requisições por um `RemoteProtocolError` isolado no cliente
+  de carga. Todas as requisições registradas pelo servidor no intervalo
+  retornaram `HTTP 200`; não houve erro Nginx, reload, restart, novo job falho,
+  dead letter, duplicidade ou backlog crescente. O GET idempotente de health
+  passa a reconectar uma única vez quando o peer fecha uma conexão keep-alive,
+  registrando o retry sanitizado sem ocultar erro final. Nova janela exige
+  publicação, probes e dois curtos integrais observados.
 
 ## PKG-99: RPO Físico, Recuperação Contínua E Prontidão De Desastre
 
