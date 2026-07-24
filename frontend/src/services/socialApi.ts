@@ -53,6 +53,34 @@ import type {
 } from "../types";
 
 const jsonHeaders = { "Content-Type": "application/json" };
+const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
+
+let catalogCache: { payload: CatalogSummary; expiresAt: number } | null = null;
+let catalogRequest: Promise<CatalogSummary> | null = null;
+
+function invalidateCatalogCache(): void {
+  catalogCache = null;
+  catalogRequest = null;
+}
+
+function requestCatalog(): Promise<CatalogSummary> {
+  const now = Date.now();
+  if (catalogCache && catalogCache.expiresAt > now) {
+    return Promise.resolve(catalogCache.payload);
+  }
+  if (catalogRequest) {
+    return catalogRequest;
+  }
+  catalogRequest = apiRequest<CatalogSummary>("/api/catalog")
+    .then((payload) => {
+      catalogCache = { payload, expiresAt: Date.now() + CATALOG_CACHE_TTL_MS };
+      return payload;
+    })
+    .finally(() => {
+      catalogRequest = null;
+    });
+  return catalogRequest;
+}
 
 export interface ProfilePayload {
   slug?: string | null;
@@ -280,7 +308,7 @@ export interface NotificationPreferencePayload {
 }
 
 export const socialApi = {
-  catalog: () => apiRequest<CatalogSummary>("/api/catalog"),
+  catalog: () => requestCatalog(),
   adminCatalog: (filters: CatalogAdminFilters = {}) => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
@@ -289,18 +317,24 @@ export const socialApi = {
     const query = params.toString();
     return apiRequest<CatalogAdminSummary>(`/api/catalog/admin${query ? `?${query}` : ""}`);
   },
-  updateCatalogVariant: (variantId: number, payload: CatalogVariantUpdatePayload) =>
-    apiRequest(`/api/catalog/variants/${variantId}`, {
+  updateCatalogVariant: async (variantId: number, payload: CatalogVariantUpdatePayload) => {
+    const updated = await apiRequest(`/api/catalog/variants/${variantId}`, {
       method: "PUT",
       headers: jsonHeaders,
       body: JSON.stringify(payload),
-    }),
-  createCatalogVariant: (payload: CatalogVariantCreatePayload) =>
-    apiRequest(`/api/catalog/variants`, {
+    });
+    invalidateCatalogCache();
+    return updated;
+  },
+  createCatalogVariant: async (payload: CatalogVariantCreatePayload) => {
+    const created = await apiRequest(`/api/catalog/variants`, {
       method: "POST",
       headers: jsonHeaders,
       body: JSON.stringify(payload),
-    }),
+    });
+    invalidateCatalogCache();
+    return created;
+  },
   myProfile: () => apiRequest<PublicProfile>("/api/social/me/profile"),
   publicProfile: (slug: string) => apiRequest<PublicProfile>(`/api/social/profiles/${encodeURIComponent(slug)}`),
   searchProfiles: (query: string) => apiRequest<PublicProfile[]>(`/api/social/profiles?q=${encodeURIComponent(query)}`),
