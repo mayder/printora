@@ -6504,7 +6504,13 @@ Estado atual:
   diagnóstico encontrou I/O síncrono de autenticação e polling de jobs
   bloqueando o event loop dos dois slots sob leituras concorrentes. A correção
   move essas operações para o executor de I/O sem relaxar SLO ou timeout; nova
-  janela exige publicação e novos probes/curtos observados nas duas Voron.
+  janela exige publicação e novos probes/curtos observados nas duas Voron. A
+  publicação `3be8abe` passou, os dois probes e o primeiro curto passaram, mas
+  o segundo curto foi invalidado por jobs read-only expirados. O diagnóstico
+  encontrou a tela de Arquivos G-code recarregando a listagem quando apenas a
+  referência do callback de toast mudava; a dependência foi estabilizada e uma
+  regressão cobre o rerender sem nova consulta. A sequência permanece
+  bloqueada até publicação, drenagem natural e dois curtos integrais.
 
 ## PKG-99: RPO Físico, Recuperação Contínua E Prontidão De Desastre
 

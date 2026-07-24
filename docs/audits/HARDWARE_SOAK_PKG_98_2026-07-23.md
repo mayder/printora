@@ -266,6 +266,24 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   para o executor de I/O, sem alterar SLO, timeout, coalescência, persistência
   ou protocolo do agente. A nova janela permanece bloqueada até publicação,
   probes e repetições observadas de 120 segundos nas duas Voron.
+- Reteste pós-correção: a release `3be8abea6474ecfebea39b91ce5399d127e440ab`
+  foi publicada pelo workflow `30099059580`, com gate completo, build
+  reproduzível, blue/green, drain e endpoint público aprovados. Produção
+  confirmou o SHA exato, `/health`, `/ready`, versão `0.1.41`, schema `86`,
+  integridade e serviços obrigatórios. Os dois agentes `0.1.34` passaram no
+  probe. O primeiro curto observado passou por 120 segundos e 700 requisições,
+  com pool único, zero erro, pior p95 de `319,993 ms`, pior p99 de
+  `720,965 ms`, backlog máximo 3 e nenhuma falha operacional. O segundo foi
+  invalidado após 80 segundos: a carga manteve zero erro e SLO, mas o
+  observador detectou nove novos jobs falhos e encerrou fail-closed.
+- Diagnóstico do segundo curto: a tela de Arquivos G-code mantida aberta
+  recriava sua consulta remota quando o shell atualizava e entregava uma nova
+  referência de toast. As listagens pesadas se acumulavam e os jobs read-only
+  de status expiravam antes do consumo ou em execução. A correção estabiliza a
+  dependência do callback e inclui regressão que rerenderiza a tela com novo
+  callback sem permitir uma segunda listagem. Nenhum job foi excluído ou
+  cancelado; a janela de 24 horas continua bloqueada até publicação, drenagem
+  natural, novos probes e curtos integrais aprovados nas duas Voron.
 - Soak final contínuo de 72 horas: não iniciado.
 
 ## Auditoria de fechamento por lote
@@ -281,8 +299,8 @@ matriz física, o fluxo real ou o E2E visual.
 | 4. Update/rollback do agente | concluído | `docs/audits/AGENT_RELEASE_0.1.34_2026-07-23.md` comprova `0.1.34 -> 0.1.33 -> 0.1.34` nas duas Voron somente pela web | nenhum |
 | 5. Projeto até histórico real | pendente | contratos e testes existem, mas não substituem aceite físico desta janela | validar projeto, G-code, preview, preflight, salvar/enviar e histórico com fixture aprovada |
 | 6. E2E visual real | parcial | matriz local, superfícies públicas e onze áreas privadas autenticadas passaram em desktop/escuro e mobile/claro sem erro de console | validar desktop, mobile e temas no fluxo físico de operação, preview, entrega e histórico |
-| 7. Soak inicial de 24 horas | bloqueado para correção | a invocation `277cf0966b024f42963c2df5d902dfc8` foi invalidada integralmente após 3.320 s por cinco timeouts e violação de p95/p99 | publicar a correção, repetir probes e 120 s observados nas duas Voron e iniciar uma nova janela integral |
-| 8. Correções e repetição | em execução | incidentes anteriores foram corrigidos; a invalidação atual identificou I/O síncrono no event loop de autenticação e polling de jobs | validar e publicar a correção sem relaxar SLO, então reiniciar integralmente a sequência |
+| 7. Soak inicial de 24 horas | bloqueado para correção | a correção de event loop foi publicada e um curto passou; o segundo curto foi invalidado por novos jobs read-only expirados | publicar a estabilização da tela, drenar naturalmente, repetir probes e 120 s observados nas duas Voron e iniciar uma nova janela integral |
+| 8. Correções e repetição | em execução | event loop corrigido; a repetição revelou recarga involuntária da listagem G-code em rerender do shell | validar e publicar a estabilização sem relaxar SLO, então reiniciar integralmente a sequência |
 | 9. Soak final de 72 horas | pendente | não iniciado | iniciar somente após lotes anteriores e completar continuamente por 259.200 s |
 | 10. Consolidação e runbook | pendente | cronologia parcial registrada | consolidar tendências, incidentes, capacidade, evidência sanitizada e operação final |
 

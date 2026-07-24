@@ -2082,6 +2082,8 @@ Não avançar se:
 - manter o event loop responsivo enquanto autenticação e polling de jobs
   executam I/O síncrono de repositório; a regressão deve bloquear o repositório
   de forma controlada e comprovar que outra coroutine continua avançando;
+- rerenderizar Arquivos G-code com nova referência de callback de UI sem
+  disparar outra listagem remota enquanto impressora e filtros não mudarem;
 - consolidar a evidência JSONL com falha fechada para duração mínima, zero erro,
   SLO por lote, observações aprovadas e tendências sanitizadas sem fingerprint,
   URL, token, IP, path ou payload;
