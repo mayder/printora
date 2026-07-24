@@ -467,7 +467,7 @@
   background: var(--warning-soft);
 }
 
-@media (max-width: 920px) {
+@media (max-width: 1240px) {
   .firmware-workspace,
   .firmware-focus-grid,
   .firmware-result-grid,
