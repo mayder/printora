@@ -1128,6 +1128,16 @@
     flex-direction: column;
   }
 
+  .social-result-summary {
+    max-width: 100%;
+  }
+
+  .social-result-toolbar span {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
   .social-section-heading,
   .social-notification-tools {
     align-items: stretch;

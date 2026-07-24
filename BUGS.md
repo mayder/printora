@@ -1131,3 +1131,20 @@ Correção:
 - administrador máximo mantém somente leitura dos overviews sem ganhar ações
   financeiras sensíveis;
 - teste de portabilidade verifica o parâmetro e o contrato de agrupamento.
+
+### Resumo Social Excedia 320 Px No Runner Linux
+
+Estado: corrigido e retestado em 2026-07-24.
+
+Impacto:
+
+- o resumo de comunidades mantinha a contagem inteira em uma única linha;
+- a fonte do navegador Linux tornou o conteúdo maior que a área útil em 320 px,
+  embora o mesmo cenário coubesse no navegador local;
+- o gate de deploy bloqueou a publicação antes de alterar produção.
+
+Correção:
+
+- o resumo limita a própria largura e permite quebra segura do texto;
+- a matriz E2E continua bloqueando qualquer elemento visível fora do viewport;
+- o deploy anterior falhou antes do empacotamento e não exigiu rollback.
