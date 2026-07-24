@@ -298,6 +298,7 @@ def test_periodic_restore_replays_external_wal_with_resource_limits() -> None:
     assert "printora-cloud-restore-test.timer" in deploy
     assert "printora-cloud-recovery-monitor.timer" in audit
     assert "recovery-readiness.py" in audit
+    assert "install -o root -g postgres -m 0640" in deploy
 
 
 def test_cloud_runtime_is_postgresql_only_after_transition_cleanup() -> None:

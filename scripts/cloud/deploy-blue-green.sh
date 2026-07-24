@@ -69,8 +69,8 @@ if [[ "${PRINTORA_DEPLOY_REEXECUTED:-0}" != "1" && "$running_script_sha" != "$in
   exec env PRINTORA_DEPLOY_REEXECUTED=1 /usr/local/sbin/printora-cloud-deploy "$release_sha"
 fi
 systemctl daemon-reload
-install -d -o root -g root -m 0755 /etc/postgresql/16/printora/conf.d
-install -o postgres -g postgres -m 0644 \
+install -d -o root -g postgres -m 0750 /etc/postgresql/16/printora/conf.d
+install -o root -g postgres -m 0640 \
   "$release_dir/packaging/postgresql/printora.conf" \
   /etc/postgresql/16/printora/conf.d/printora.conf
 pg_ctlcluster 16 printora reload
