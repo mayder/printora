@@ -6467,10 +6467,13 @@ Estado atual:
   `501b4b7db21dc496bcee6cbe1450e56d2e3ed5c2` foi publicada pelo workflow
   `30065361518`, passou pelo gate Linux completo e foi confirmada no slot ativo,
   com `/health`, `/ready`, versão, integridade e serviços cloud saudáveis.
-  O smoke público encontrou e o código corrigiu uma incompatibilidade
-  PostgreSQL na biblioteca do perfil; essa correção ainda aguarda publicação.
-  O smoke visual autenticado também permanece pendente porque a sessão
-  controlável estava desautenticada; esses dois pontos ainda não fecham o lote.
+  A incompatibilidade PostgreSQL restante da biblioteca do perfil público foi
+  corrigida em `3769015` e publicada na release
+  `0c0c51b8de62927660651b0d86dcdc1b2ae7fcdd` pelo workflow `30067724915`.
+  `/health`, `/ready`, versão e a API da biblioteca passaram; o perfil público
+  `/u/tiago-jesus` foi retestado no Chrome sem erro de console. O smoke das
+  rotas privadas continua pendente por ausência de sessão autenticada e ainda
+  não fecha o lote.
 - Lote 7 aguarda nova janela observada: a janela iniciada em
   `2026-07-24T01:27:10Z` foi invalidada integralmente. O 19º lote violou p95/p99
   porque o processo e o pool ainda eram recriados a cada lote, embora houvesse
