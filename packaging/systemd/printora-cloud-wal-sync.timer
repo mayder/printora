@@ -1,0 +1,12 @@
+[Unit]
+Description=Agenda sincronização contínua do WAL do Printora Cloud
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=60s
+AccuracySec=5s
+Persistent=true
+Unit=printora-cloud-wal-sync.service
+
+[Install]
+WantedBy=timers.target

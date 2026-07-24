@@ -23,11 +23,17 @@ for unit in \
   printora-cloud-workers.target \
   printora-cloud-intelligence.service \
   printora-cloud-backup.timer \
+  printora-cloud-wal-sync.timer \
+  printora-cloud-restore-test.timer \
+  printora-cloud-recovery-monitor.timer \
   postgresql@16-printora.service \
   redis-printora.service \
   minio-printora.service; do
   systemctl is-active --quiet "$unit" || fail "unit inativa: $unit"
 done
+
+/usr/local/libexec/printora-cloud/recovery-readiness.py >/dev/null \
+  || fail "prontidão de recuperação divergente"
 
 obsolete=(
   transition_outbox.py

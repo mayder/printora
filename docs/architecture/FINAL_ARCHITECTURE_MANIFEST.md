@@ -1,6 +1,6 @@
 # Manifesto Da Arquitetura Final
 
-Data de corte: 2026-07-23
+Data de corte: 2026-07-24
 
 ## Topologia canônica
 
@@ -28,6 +28,13 @@ Data de corte: 2026-07-23
 | `printora-cloud-intelligence.service` | cloud | Dados | mesma release web | heartbeat, drift e journal | ativar kill switch e parar |
 | `printora-cloud-backup.service` | cloud | SRE | scripts da release | timer, snapshot e restore | preservar último snapshot antes de desativar |
 | `printora-cloud-backup.timer` | cloud | SRE | systemd da release | atraso do último backup | desativar somente após destino substituto |
+| `printora-cloud-wal-sync.service` | cloud | SRE | scripts da release | atraso, duração e WAL externo corrente | preservar WAL e substituir a cópia antes de parar |
+| `printora-cloud-wal-sync.timer` | cloud | SRE | systemd da release | monitor de RPO a cada minuto | desativar somente após proteção equivalente |
+| `printora-cloud-recovery-monitor.service` | cloud | SRE | scripts da release | alerta fail-closed antes do RPO/RTO | corrigir a causa antes de desativar |
+| `printora-cloud-recovery-monitor.timer` | cloud | SRE | systemd da release | execução a cada minuto | desativar somente após monitor equivalente |
+| `printora-cloud-restore-test.service` | cloud | SRE | scripts da release | resultado, duração e reconciliação | preservar a última evidência válida |
+| `printora-cloud-restore-test.timer` | cloud | SRE | systemd da release | atraso do teste semanal | desativar somente após ensaio substituto |
+| `printora-cloud-recovery-alert@.service` | cloud | SRE | scripts da release | journal crítico e webhook opcional | manter owner e canal substituto |
 | `redis-printora.service` | cloud | Plataforma | pacote do SO | readiness e memória | esvaziar cache e parar após consumidores |
 | `minio-printora.service` | cloud | Plataforma | binário com checksum | readiness, capacidade e backup | reconciliar e copiar objetos antes de parar |
 | `postgresql-printora-limits.conf` | cloud | SRE | pacote PostgreSQL 16 | memória, I/O e conexões | remover apenas junto da instância |

@@ -139,6 +139,16 @@ validate_object_storage() {
   [[ -x /usr/local/libexec/printora-cloud/run-object-storage-tool.sh ]]
 }
 
+validate_recovery_readiness() {
+  [[ -x /usr/local/libexec/printora-cloud/sync-postgresql-wal.sh ]]
+  [[ -x /usr/local/libexec/printora-cloud/recovery-readiness.py ]]
+  [[ -x /usr/local/libexec/printora-cloud/run-restore-test.sh ]]
+  systemctl is-active --quiet printora-cloud-wal-sync.timer
+  systemctl is-active --quiet printora-cloud-restore-test.timer
+  systemctl is-active --quiet printora-cloud-recovery-monitor.timer
+  /usr/local/libexec/printora-cloud/recovery-readiness.py >/dev/null
+}
+
 check python python3 --version
 check nginx nginx -t
 check systemd systemctl cat printora-cloud@.service
@@ -160,5 +170,6 @@ check application_slots validate_application_slots
 check durable_workers validate_durable_workers
 check recomposable_redis validate_recomposable_redis
 check object_storage validate_object_storage
+check recovery_readiness validate_recovery_readiness
 
 [[ "$failures" -eq 0 ]] || fail "$failures item(ns) de preflight falharam"

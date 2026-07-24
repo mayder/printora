@@ -6,6 +6,9 @@ backup_config="$base_path/shared/backup-target.conf"
 cluster="${PRINTORA_POSTGRESQL_CLUSTER:-printora}"
 port="${PRINTORA_POSTGRESQL_PORT:-5433}"
 archive_dir="/var/lib/postgresql/16/$cluster-wal-archive"
+state_dir="${PRINTORA_RECOVERY_STATE_DIR:-/var/lib/printora-cloud/recovery}"
+state_file="$state_dir/full-backup.json"
+started_epoch="$(date +%s)"
 
 [[ "$(id -u)" -eq 0 ]] || { echo "ERRO: execute como root" >&2; exit 1; }
 [[ -s "$backup_config" ]] || { echo "configuração de backup externo ausente" >&2; exit 1; }
@@ -133,4 +136,26 @@ PY
 
 restic backup "$work_dir/base" "$dump" "$manifest" "$archive_dir" "$work_dir/object-storage" "$configuration_dir" \
   --tag printora-cloud-postgresql --host printora-cloud
+install -d -o root -g root -m 0700 "$state_dir"
+state_next="$state_file.next"
+python3 - "$state_next" "$database_size" "$object_version_count" \
+  "$(( $(date +%s) - started_epoch ))" <<'PY'
+import json
+import pathlib
+import sys
+from datetime import datetime, timezone
+
+payload = {
+    "completed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "database_size_bytes": int(sys.argv[2]),
+    "duration_seconds": int(sys.argv[4]),
+    "includes": ["configuration", "logical", "objects", "physical", "wal"],
+    "object_version_count": int(sys.argv[3]),
+    "status": "passed",
+}
+path = pathlib.Path(sys.argv[1])
+path.write_text(json.dumps(payload, sort_keys=True) + "\n")
+path.chmod(0o600)
+PY
+mv -f "$state_next" "$state_file"
 echo "backup PostgreSQL externo criptografado concluído; retenção exige execução supervisionada separada"

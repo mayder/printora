@@ -79,9 +79,20 @@ with open(sys.argv[1], encoding="utf-8") as source:
     print(json.load(source)["last_archived_wal"])
 PY
 )"
+continuous_state=/var/lib/printora-cloud/recovery/wal-sync.json
+[[ -s "$continuous_state" ]] || { echo "estado do WAL contínuo ausente" >&2; exit 1; }
+continuous_wal="$(python3 - "$continuous_state" <<'PY'
+import json
+import sys
+
+print(json.load(open(sys.argv[1]))["uploaded_wal"])
+PY
+)"
+[[ "$continuous_wal" =~ ^[0-9A-F]{24}$ ]] || { echo "WAL contínuo inválido" >&2; exit 1; }
+restic restore latest --tag printora-cloud-wal --target "$restored" \
+  --include '/var/lib/postgresql/16/printora-wal-archive/**'
+last_archived_wal="$continuous_wal"
 [[ "$last_archived_wal" =~ ^[0-9A-F]{24}$ ]] || { echo "WAL final inválido" >&2; exit 1; }
-restic restore latest --tag printora-cloud-postgresql --target "$restored" \
-  --include "/var/lib/postgresql/16/printora-wal-archive/$last_archived_wal"
 archive_dir="$(find "$restored" -type d -name printora-wal-archive -print -quit)"
 [[ -s "$archive_dir/$last_archived_wal" ]] || { echo "WAL final ausente" >&2; exit 1; }
 "$(pg_config --bindir)/pg_waldump" -n 1 "$archive_dir/$last_archived_wal" >/dev/null
@@ -167,6 +178,13 @@ done
   exit 1
 }
 export PGDATABASE=printora_cloud
+replayed_wal="$(runuser -u postgres -- "$pg_bin/psql" -X -Atqc \
+  "SELECT COALESCE(pg_walfile_name(pg_last_wal_replay_lsn()), '')")"
+[[ "$replayed_wal" =~ ^[0-9A-F]{24}$ && \
+   ( "$replayed_wal" == "$last_archived_wal" || "$replayed_wal" > "$last_archived_wal" ) ]] || {
+  echo "WAL externo contínuo não foi reproduzido integralmente" >&2
+  exit 1
+}
 
 runuser -u postgres -- "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -At <<'SQL'
 DO $$

@@ -17,6 +17,13 @@ install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0750 \
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud@.service" /etc/systemd/system/printora-cloud@.service
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-backup.service" /etc/systemd/system/printora-cloud-backup.service
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-backup.timer" /etc/systemd/system/printora-cloud-backup.timer
+install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-wal-sync.service" /etc/systemd/system/printora-cloud-wal-sync.service
+install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-wal-sync.timer" /etc/systemd/system/printora-cloud-wal-sync.timer
+install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-recovery-monitor.service" /etc/systemd/system/printora-cloud-recovery-monitor.service
+install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-recovery-monitor.timer" /etc/systemd/system/printora-cloud-recovery-monitor.timer
+install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-restore-test.service" /etc/systemd/system/printora-cloud-restore-test.service
+install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-restore-test.timer" /etc/systemd/system/printora-cloud-restore-test.timer
+install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-recovery-alert@.service" /etc/systemd/system/printora-cloud-recovery-alert@.service
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-worker@.service" /etc/systemd/system/printora-cloud-worker@.service
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-workers.target" /etc/systemd/system/printora-cloud-workers.target
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/printora-cloud-intelligence.service" /etc/systemd/system/printora-cloud-intelligence.service
@@ -29,6 +36,10 @@ install -d -o root -g deploy -m 0750 /etc/printora-cloud/workers
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/common.sh" /usr/local/libexec/printora-cloud/common.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/backup-postgresql.sh" /usr/local/libexec/printora-cloud/backup-postgresql.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/restore-postgresql-backup-test.sh" /usr/local/libexec/printora-cloud/restore-postgresql-backup-test.sh
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/sync-postgresql-wal.sh" /usr/local/libexec/printora-cloud/sync-postgresql-wal.sh
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/recovery-readiness.py" /usr/local/libexec/printora-cloud/recovery-readiness.py
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/run-restore-test.sh" /usr/local/libexec/printora-cloud/run-restore-test.sh
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/emit-recovery-alert.sh" /usr/local/libexec/printora-cloud/emit-recovery-alert.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/preview-backup-retention.sh" /usr/local/libexec/printora-cloud/preview-backup-retention.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/apply-postgresql-schema.sh" /usr/local/libexec/printora-cloud/apply-postgresql-schema.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/start-worker.sh" /usr/local/libexec/printora-cloud/start-worker.sh
@@ -78,6 +89,9 @@ install -o root -g root -m 0440 "$ROOT_DIR/packaging/sudoers/printora-cloud-depl
 visudo -cf /etc/sudoers.d/printora-cloud-deploy
 systemctl daemon-reload
 systemctl enable --now printora-cloud-backup.timer
+systemctl enable --now printora-cloud-wal-sync.timer
+systemctl enable --now printora-cloud-restore-test.timer
+systemctl enable --now printora-cloud-recovery-monitor.timer
 systemctl enable printora-cloud-workers.target
 systemctl enable printora-cloud-intelligence.service
 nginx -t

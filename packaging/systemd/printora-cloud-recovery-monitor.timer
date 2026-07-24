@@ -1,0 +1,12 @@
+[Unit]
+Description=Agenda monitoramento de recuperação do Printora Cloud
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=60s
+AccuracySec=5s
+Persistent=true
+Unit=printora-cloud-recovery-monitor.service
+
+[Install]
+WantedBy=timers.target

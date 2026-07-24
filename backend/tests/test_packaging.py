@@ -254,6 +254,52 @@ def test_postgresql_wal_archive_is_published_atomically() -> None:
     assert "rm -f" in archive
 
 
+def test_physical_rpo_uses_external_wal_and_fails_before_five_minutes() -> None:
+    sync = (ROOT_DIR / "scripts/cloud/sync-postgresql-wal.sh").read_text()
+    monitor = (ROOT_DIR / "scripts/cloud/recovery-readiness.py").read_text()
+    config = (ROOT_DIR / "packaging/postgresql/printora.conf").read_text()
+    service = (ROOT_DIR / "packaging/systemd/printora-cloud-wal-sync.service").read_text()
+    timer = (ROOT_DIR / "packaging/systemd/printora-cloud-wal-sync.timer").read_text()
+    alert = (ROOT_DIR / "scripts/cloud/emit-recovery-alert.sh").read_text()
+
+    assert "archive_timeout = '120s'" in config
+    assert "restic backup" in sync
+    assert "--tag printora-cloud-wal" in sync
+    assert "restic ls latest" in sync
+    assert "forget" not in sync
+    assert "prune" not in sync
+    assert "OnUnitActiveSec=60s" in timer
+    assert "AccuracySec=5s" in timer
+    assert "RuntimeMaxSec=110" in service
+    assert "CONFIGURED_RPO_SECONDS = 120 + 60 + 110" in monitor
+    assert 'MAX_SYNC_AGE = int' in monitor
+    assert '"210"' in monitor
+    assert "OnFailure=printora-cloud-recovery-alert@%n.service" in service
+    assert "owner=operations" in alert
+    assert "PRINTORA_RECOVERY_ALERT_WEBHOOK_URL" in alert
+
+
+def test_periodic_restore_replays_external_wal_with_resource_limits() -> None:
+    restore = (ROOT_DIR / "scripts/cloud/restore-postgresql-backup-test.sh").read_text()
+    wrapper = (ROOT_DIR / "scripts/cloud/run-restore-test.sh").read_text()
+    service = (ROOT_DIR / "packaging/systemd/printora-cloud-restore-test.service").read_text()
+    timer = (ROOT_DIR / "packaging/systemd/printora-cloud-restore-test.timer").read_text()
+    deploy = (ROOT_DIR / "scripts/cloud/deploy-blue-green.sh").read_text()
+    audit = (ROOT_DIR / "scripts/cloud/audit-final-architecture.sh").read_text()
+
+    assert "--tag printora-cloud-wal" in restore
+    assert "pg_last_wal_replay_lsn" in restore
+    assert "timeout 900" in wrapper
+    assert '"wal_replay"' in wrapper
+    assert "CPUQuota=20%" in service
+    assert "IOWeight=10" in service
+    assert "RuntimeMaxSec=930" in service
+    assert "Persistent=true" in timer
+    assert "printora-cloud-restore-test.timer" in deploy
+    assert "printora-cloud-recovery-monitor.timer" in audit
+    assert "recovery-readiness.py" in audit
+
+
 def test_cloud_runtime_is_postgresql_only_after_transition_cleanup() -> None:
     bootstrap = (ROOT_DIR / "scripts/cloud/bootstrap-blue-green.sh").read_text()
     preflight = (ROOT_DIR / "scripts/cloud/preflight.sh").read_text()
