@@ -6481,6 +6481,21 @@ Estado atual:
   Chrome sem erro de console. A sessão autenticada real foi recuperada e as
   onze áreas principais passaram no Chrome em desktop/tema escuro e mobile
   `390x844`/tema claro, sem erro de console; tema e viewport foram restaurados.
+  O fechamento responsivo adicional corrigiu a Visão geral em `0218e3d` e a
+  grade de Firmware em `1ac9cbb`. O workflow `30106292559` passou pelos gates,
+  mas falhou fechado antes de preparar ou trocar o slot porque `.artifacts`
+  ampliava o bundle para cerca de 1,7 GB e o `scp` encerrou com `Broken pipe`.
+  A correção operacional `7d57f9a` exclui evidências de CI do release, mantém
+  keep-alive e tentativas limitadas; o bundle validado caiu para 40 MB. O
+  workflow `30110476951` publicou a release `4e3d7c7`, completou gate, build
+  reproduzível, auditorias, SBOM, preflight, upload, blue/green, drain e smoke
+  público. `/health`, `/ready` e versão passaram; produção serviu
+  `index-CVVzMZLJ.js` e `index-YhTXcbPw.css`. No Chrome autenticado como Breno
+  Mayder, as onze áreas passaram em 320x568, 390x844, 768x1024, 1024x768 e
+  1440x900 sem overflow, erro ou negação. As nove abas da Voron 2.4 passaram
+  em 1024x768 e Firmware passou separadamente nas cinco resoluções. A
+  Administração não expôs linguagem, framework ou banco de dados. Nenhuma ação
+  operacional da impressora foi disparada; viewport e abas foram restaurados.
   O fluxo visual ligado à operação física continua pendente e ainda não fecha
   o lote.
 - Lote 7 aguarda nova janela observada: a janela iniciada em
