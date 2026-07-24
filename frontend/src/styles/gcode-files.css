@@ -15,6 +15,12 @@
   align-items: start;
 }
 
+.gcode-files-topbar > div,
+.gcode-upload-heading > div,
+.gcode-manager-section > div:first-child {
+  min-width: 0;
+}
+
 .gcode-files-topbar h2 {
   margin: 0;
 }
@@ -120,6 +126,7 @@
   gap: 12px;
   border: 1px dashed var(--border-soft);
   border-radius: 8px;
+  padding: 12px;
 }
 
 .gcode-upload-heading,
@@ -129,6 +136,26 @@
   gap: 10px;
   align-items: center;
   justify-content: space-between;
+}
+
+.gcode-upload-heading > div,
+.gcode-manager-section > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.gcode-upload-heading strong,
+.gcode-upload-heading span,
+.gcode-manager-section strong,
+.gcode-manager-section span {
+  display: block;
+  min-width: 0;
+}
+
+.gcode-upload-heading span,
+.gcode-manager-section span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .gcode-upload-list {
@@ -555,9 +582,46 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .gcode-files-metrics,
+  .gcode-files-topbar > .secondary-button {
+    justify-self: start;
+  }
+
+  .gcode-files-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .gcode-files-controls {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gcode-upload-heading,
+  .gcode-upload-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .gcode-upload-heading .secondary-button,
+  .gcode-upload-actions button {
+    width: 100%;
+  }
+
+  .gcode-manager-section {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    padding: 14px;
+  }
+
+  .gcode-manager-section > div:first-child {
+    min-width: 0;
+  }
+
+  .gcode-manager-section input,
+  .gcode-manager-section select,
+  .gcode-manager-section button {
+    width: 100%;
+    min-width: 0;
   }
 
   .gcode-files-table-wrap {
@@ -586,15 +650,36 @@
   }
 
   .gcode-files-full-table tr {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
     border: 1px solid var(--border-soft);
     border-radius: 8px;
     background: var(--surface-2);
-    padding: 10px;
+    padding: 16px;
   }
 
   .gcode-files-full-table td {
     border: 0;
-    padding: 7px 0;
+    min-width: 0;
+    padding: 0;
+  }
+
+  .gcode-files-full-table td:first-child {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1;
+  }
+
+  .gcode-files-full-table td:nth-child(2) {
+    grid-column: 1 / -1;
+    padding-right: 48px;
+  }
+
+  .gcode-files-full-table td.gcode-file-empty-value {
+    display: none;
   }
 
   .gcode-files-full-table td:not(:first-child)::before {
@@ -676,5 +761,19 @@
 
   .gcode-file-name-cell {
     min-width: 0;
+  }
+
+  .gcode-file-open-button {
+    overflow: visible;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 360px) {
+  .gcode-files-metrics,
+  .gcode-files-full-table tr {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

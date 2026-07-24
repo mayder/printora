@@ -2194,6 +2194,13 @@ O gate E2E deve validar com backend real e dados sintéticos isolados:
   específicos e autenticação reforçada aplicável;
 - ausência de plataforma do host, URL interna e tecnologia de infraestrutura
   nas superfícies operacionais cobertas.
+- rótulos da Visão geral não podem ultrapassar a própria caixa e invadir o
+  valor, mesmo quando o documento não possui overflow horizontal;
+- Arquivos G-code deve usar fixture com metadados completos e vazios, validar
+  cartões em 320 e 390 px, omitir apenas valores ausentes e limitar a altura
+  para impedir a reprodução de uma tabela desktop vertical infinita;
+- títulos e descrições do upload/gerenciador devem ocupar blocos separados,
+  sem colisão visual.
 
 Além do gate, a aceitação visual deve usar navegador real nas cinco dimensões,
 abrir cada aba e registrar qualquer diferença entre DOM, screenshot e ação

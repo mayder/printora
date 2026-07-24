@@ -472,3 +472,8 @@ layering React impede regressão para acesso direto de HTTP/storage na UI.
   editor limitado a 5 MB, rescan, pré-aquecimento, preview 3D e ações protegidas.
 - Estados loading, vazio, offline, erro, bloqueio de agente e progresso devem
   permanecer operáveis em desktop e mobile.
+- No mobile, título e descrição de upload, Pastas, Ações em lote e Fila ficam em
+  linhas separadas, com respiro interno e controles sem colisão.
+- Arquivos viram cartões compactos: nome e seleção ficam no topo, metadados
+  disponíveis usam até duas colunas e campos sem valor são omitidos. Nenhum
+  dado existente é ocultado.

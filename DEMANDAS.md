@@ -6684,3 +6684,8 @@ Estado atual:
   movimento, extrusão ou aquecimento.
 - Validação completa aprovada: 22/22 E2E, 627 testes Python, testes Go,
   cobertura, build, release, preview, budget e `./check.sh`.
+- Correção responsiva posterior elimina rótulos sobre valores na Visão geral,
+  separa títulos/descrições dos painéis de upload, Pastas e lote, e compacta os
+  cartões G-code no mobile sem remover metadados disponíveis. O gate E2E passa
+  a detectar vazamento interno de texto e valida arquivos completos/vazios em
+  320x568 e 390x844.

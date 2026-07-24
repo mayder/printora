@@ -452,6 +452,14 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
             <tbody>
               {files.map((file) => {
                 const key = file.path ?? file.filename;
+                const objectHeight = formatMillimeters(file.object_height);
+                const layer = formatLayer(file);
+                const nozzle = formatMillimeters(file.nozzle_diameter);
+                const filament = formatGcodeFileFilament(file);
+                const duration = formatDuration(file.estimated_time);
+                const temperatures = formatTemperatures(file);
+                const slicer = formatSlicer(file.slicer, file.slicer_version);
+                const lastPrint = formatLastPrint(file);
                 return (
                   <tr key={key} className={selection.has(key) ? "is-selected" : ""}>
                     <td>
@@ -472,14 +480,14 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
                     </td>
                     <td>{formatUnixDate(file.modified)}</td>
                     <td>{formatBytes(file.size)}</td>
-                    <td>{formatMillimeters(file.object_height)}</td>
-                    <td>{formatLayer(file)}</td>
-                    <td>{formatMillimeters(file.nozzle_diameter)}</td>
-                    <td>{formatGcodeFileFilament(file)}</td>
-                    <td>{formatDuration(file.estimated_time)}</td>
-                    <td>{formatTemperatures(file)}</td>
-                    <td>{formatSlicer(file.slicer, file.slicer_version)}</td>
-                    <td>{formatLastPrint(file)}</td>
+                    <td className={emptyGcodeValueClass(objectHeight)}>{objectHeight}</td>
+                    <td className={emptyGcodeValueClass(layer)}>{layer}</td>
+                    <td className={emptyGcodeValueClass(nozzle)}>{nozzle}</td>
+                    <td className={emptyGcodeValueClass(filament)}>{filament}</td>
+                    <td className={emptyGcodeValueClass(duration)}>{duration}</td>
+                    <td className={emptyGcodeValueClass(temperatures)}>{temperatures}</td>
+                    <td className={emptyGcodeValueClass(slicer)}>{slicer}</td>
+                    <td className={emptyGcodeValueClass(lastPrint)}>{lastPrint}</td>
                   </tr>
                 );
               })}
@@ -528,6 +536,10 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
       ) : null}
     </article>
   );
+}
+
+function emptyGcodeValueClass(value: string) {
+  return value === "-" ? "gcode-file-empty-value" : undefined;
 }
 
 function mergeGcodeFiles(current: OperationGcodeFile[], incoming: OperationGcodeFile[]) {

@@ -6,6 +6,39 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Dashboard E Arquivos G-code Sobrepunham Texto No Celular
+
+Sintoma:
+
+- rótulos como `Offline/degradadas` e `Desatualizados` invadiam os valores da
+  Visão geral;
+- upload, Pastas e Ações em lote juntavam título e descrição sem espaço;
+- cada arquivo G-code virava um cartão vertical excessivamente alto, inclusive
+  com metadados vazios.
+
+Causa:
+
+- a regra responsiva do dashboard mantinha uma coluna de rótulo menor que o
+  texto e permitia vazamento visível;
+- títulos e descrições dos painéis G-code permaneciam inline;
+- a tabela mobile apenas empilhava todas as células do desktop.
+
+Correção:
+
+- métricas do dashboard empilham rótulo e valor abaixo de 720 px;
+- upload e gerenciador usam blocos com espaçamento, padding e controles de
+  largura total no mobile;
+- cartões de arquivo usam duas colunas entre 361 e 720 px, uma coluna abaixo
+  disso, ocultam somente metadados sem valor e permitem quebra segura do nome.
+
+Validação:
+
+- regressão E2E verifica vazamento de texto, 320x568, 390x844, metadados vazios,
+  altura dos cartões e ausência de overflow;
+- `npm --prefix frontend run build`;
+- `npm --prefix frontend run test:unit`;
+- `scripts/run-e2e-gate.sh`: 22/22 testes aprovados.
+
 ### Verificação Ed25519 Do Instalador Era Dependente Do OpenSSL Local
 
 Sintoma:

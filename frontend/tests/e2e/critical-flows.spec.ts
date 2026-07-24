@@ -56,6 +56,22 @@ async function findUncontainedHorizontalOverflow(page: Page, rootSelector = ".wo
   }, checkDocument);
 }
 
+async function findVisibleTextBoxOverflow(page: Page, selector: string) {
+  return page.locator(selector).evaluateAll((elements) =>
+    elements
+      .filter((element) => {
+        const item = element as HTMLElement;
+        const style = getComputedStyle(item);
+        return style.overflowX === "visible" && item.scrollWidth > item.clientWidth + 1;
+      })
+      .map((element) => ({
+        text: element.textContent?.trim() ?? "",
+        clientWidth: (element as HTMLElement).clientWidth,
+        scrollWidth: (element as HTMLElement).scrollWidth,
+      })),
+  );
+}
+
 test("comunidade, busca, projeto e quarentena percorrem contratos reais", async ({
   page,
   request,
@@ -291,6 +307,62 @@ test("agente sintético pareia, envia heartbeat e aparece na frota", async ({
   expect(responsiveBounds.tabsRight).toBeLessThanOrEqual(responsiveBounds.viewportWidth + 1);
   await expect(page.getByText("http://voron-e2e.invalid:7125", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Auditoria", { exact: true })).toHaveCount(0);
+  await page.route(
+    new RegExp(`/api/printers/${printer.id}/gcode-files(?:\\?.*)?$`),
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          printer_id: printer.id,
+          safe_mode: "read_only",
+          data_state: "live",
+          root: "gcodes",
+          summary: "2 arquivos disponíveis",
+          files: [
+            {
+              filename: "flap_final_ABS_20m35s.gcode",
+              path: "flap_final_ABS_20m35s.gcode",
+              name: "flap_final_ABS_20m35s.gcode",
+              directory: "",
+              size: 1_940_000,
+              modified: 1_782_420_900,
+              object_height: 20.4,
+              layer_height: 0.2,
+              layer_count: 102,
+              nozzle_diameter: 0.4,
+              filament_type: "ABS",
+              filament_weight_total: 4.1,
+              estimated_time: 1235,
+              first_layer_extr_temp: 250,
+              first_layer_bed_temp: 110,
+              slicer: "OrcaSlicer",
+              slicer_version: "2.3.0",
+              print_end_time: 1_782_420_960,
+            },
+            {
+              filename: "printora-safe-smoke.gcode",
+              path: "printora-safe-smoke.gcode",
+              name: "printora-safe-smoke.gcode",
+              directory: "",
+              size: 118,
+              modified: 1_782_420_900,
+            },
+          ],
+          directories: [],
+          storage: { total: 28_200_000_000, used: 14_300_000_000, free: 13_900_000_000 },
+          total: 2,
+          offset: 0,
+          limit: 50,
+          has_more: false,
+          directory: "",
+          query: "",
+          sort: "modified",
+          direction: "desc",
+        }),
+      });
+    },
+  );
   for (const tabName of [
     "Resumo",
     "Operação",
@@ -305,6 +377,43 @@ test("agente sintético pareia, envia heartbeat e aparece na frota", async ({
     const tab = page.getByRole("tab", { name: tabName, exact: true });
     await tab.click();
     await expect(tab).toHaveAttribute("aria-selected", "true");
+    if (tabName === "Arquivos G-code") {
+      await expect(page.getByText("flap_final_ABS_20m35s.gcode", { exact: true })).toBeVisible();
+      const responsiveViewports = testInfo.project.name === "mobile-chromium"
+        ? [{ width: 320, height: 568 }, { width: 390, height: 844 }]
+        : [{ width: 1024, height: 768 }];
+      for (const viewport of responsiveViewports) {
+        await page.setViewportSize(viewport);
+        expect(await findVisibleTextBoxOverflow(page, ".gcode-upload-heading strong, .gcode-upload-heading span, .gcode-manager-section strong, .gcode-manager-section span")).toEqual([]);
+        const layout = await page.locator(".gcode-files-screen").evaluate((screen) => {
+          const uploadTitle = screen.querySelector<HTMLElement>(".gcode-upload-heading strong");
+          const uploadDetail = screen.querySelector<HTMLElement>(".gcode-upload-heading span");
+          const fileRows = Array.from(screen.querySelectorAll<HTMLElement>(".gcode-files-full-table tbody tr"));
+          const emptyValues = Array.from(screen.querySelectorAll<HTMLElement>(".gcode-file-empty-value"));
+          return {
+            uploadTitleDisplay: uploadTitle ? getComputedStyle(uploadTitle).display : null,
+            uploadDetailDisplay: uploadDetail ? getComputedStyle(uploadDetail).display : null,
+            rowColumns: fileRows.map((row) => getComputedStyle(row).gridTemplateColumns.split(" ").length),
+            rowHeights: fileRows.map((row) => Math.round(row.getBoundingClientRect().height)),
+            visibleEmptyValues: emptyValues.filter((value) => getComputedStyle(value).display !== "none").length,
+          };
+        });
+        if (layout.uploadTitleDisplay !== null || layout.uploadDetailDisplay !== null) {
+          expect(layout.uploadTitleDisplay).toBe("block");
+          expect(layout.uploadDetailDisplay).toBe("block");
+        }
+        if (viewport.width <= 360) {
+          expect(layout.rowColumns.every((count) => count === 1)).toBe(true);
+        } else if (viewport.width <= 720) {
+          expect(layout.rowColumns.every((count) => count === 2)).toBe(true);
+        }
+        if (viewport.width <= 720) {
+          expect(layout.visibleEmptyValues).toBe(0);
+          expect(Math.max(...layout.rowHeights)).toBeLessThan(viewport.width <= 360 ? 720 : 520);
+        }
+        expect(await findUncontainedHorizontalOverflow(page)).toEqual([]);
+      }
+    }
     if (tabName === "Manutenção") {
       await page.getByRole("button", { name: "Adicionar registro", exact: true }).click();
       const maintenanceDialog = page.getByRole("dialog", { name: "Registro livre de manutenção", exact: true });
@@ -465,6 +574,7 @@ test("telas principais permanecem utilizáveis em desktop, tablet e celular", as
     for (const [section, heading] of routes) {
       await openSection(page, section, heading);
       if (section === "overview") {
+        expect(await findVisibleTextBoxOverflow(page, ".fleet-dashboard-metrics .metric span")).toEqual([]);
         await page.getByRole("button", { name: /alertas da frota/i }).click();
         const alertsDialog = page.getByRole("dialog", { name: "Central de alertas", exact: true });
         await expect(alertsDialog).toBeVisible();
