@@ -27,6 +27,7 @@ import type { GcodeFileActionName, GcodeFileActionState, GcodeFileDetailResponse
 import type { PrintoraScreenProps } from "../hooks/usePrintoraApp";
 import { GcodePrintViewer } from "../components/monitoring/GcodePrintViewer";
 import type { GcodePreviewMode } from "../components/monitoring/gcodePreview";
+import { formatGcodeSlicer, normalizeGcodeMaterial } from "../utils/formatters/gcodeMetadata";
 
 type SortKey = "modified" | "name" | "size" | "estimated_time" | "slicer";
 type MetadataFilter = "all" | "with_metadata" | "without_metadata";
@@ -458,7 +459,7 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
                 const filament = formatGcodeFileFilament(file);
                 const duration = formatDuration(file.estimated_time);
                 const temperatures = formatTemperatures(file);
-                const slicer = formatSlicer(file.slicer, file.slicer_version);
+                const slicer = formatGcodeSlicer(file.slicer, file.slicer_version);
                 const lastPrint = formatLastPrint(file);
                 return (
                   <tr key={key} className={selection.has(key) ? "is-selected" : ""}>
@@ -662,7 +663,7 @@ function GcodeFileDetailDrawer({
             </section>
 
             <section className="gcode-file-detail-grid">
-              <DetailItem label="Slicer" value={formatSlicer(file.slicer, file.slicer_version)} />
+              <DetailItem label="Slicer" value={formatGcodeSlicer(file.slicer, file.slicer_version)} />
               <DetailItem label="Objeto" value={formatMillimeters(file.object_height)} />
               <DetailItem label="Bico" value={formatMillimeters(file.nozzle_diameter)} />
               <DetailItem label="Filamento" value={formatGcodeFileFilament(file)} />
@@ -845,7 +846,7 @@ function filterAndSortFiles(files: OperationGcodeFile[], query: string, director
 
 function compareFiles(left: OperationGcodeFile, right: OperationGcodeFile, sortKey: SortKey) {
   if (sortKey === "name") return (left.name ?? left.filename).localeCompare(right.name ?? right.filename, "pt-BR");
-  if (sortKey === "slicer") return formatSlicer(left.slicer, left.slicer_version).localeCompare(formatSlicer(right.slicer, right.slicer_version), "pt-BR");
+  if (sortKey === "slicer") return formatGcodeSlicer(left.slicer, left.slicer_version).localeCompare(formatGcodeSlicer(right.slicer, right.slicer_version), "pt-BR");
   return numericValue(right[sortKey]) - numericValue(left[sortKey]);
 }
 
@@ -896,7 +897,7 @@ function formatLayer(file: OperationGcodeFile) {
 }
 
 function formatGcodeFileFilament(file: OperationGcodeFile) {
-  const material = file.filament_type || file.filament_name || "";
+  const material = normalizeGcodeMaterial(file.filament_type || file.filament_name);
   const weight = typeof file.filament_weight_total === "number" ? `${file.filament_weight_total.toFixed(1)} g` : "";
   const length = typeof file.filament_total === "number" ? `${Math.round(file.filament_total)} mm` : "";
   return [material, weight || length].filter(Boolean).join(" · ") || "-";
@@ -916,11 +917,6 @@ function formatTemperatures(file: OperationGcodeFile) {
   const extruder = typeof file.first_layer_extr_temp === "number" ? `${Math.round(file.first_layer_extr_temp)}C` : "";
   const bed = typeof file.first_layer_bed_temp === "number" ? `${Math.round(file.first_layer_bed_temp)}C mesa` : "";
   return [extruder, bed].filter(Boolean).join(" · ") || "-";
-}
-
-function formatSlicer(slicer?: string | null, version?: string | null) {
-  if (!slicer && !version) return "-";
-  return [slicer, version].filter(Boolean).join(" ");
 }
 
 function formatLastPrint(file: OperationGcodeFile) {

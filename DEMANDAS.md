@@ -6689,3 +6689,6 @@ Estado atual:
   cartões G-code no mobile sem remover metadados disponíveis. O gate E2E passa
   a detectar vazamento interno de texto e valida arquivos completos/vazios em
   320x568 e 390x844.
+- Metadados vindos do agente em formato técnico são normalizados para o usuário:
+  listas de materiais repetidos viram nomes únicos e `Unknown ?` deixa de ser
+  apresentado como informação útil.

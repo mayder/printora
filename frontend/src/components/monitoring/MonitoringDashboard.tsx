@@ -7,6 +7,7 @@ import { PrintVisual } from "./PrintPreview";
 import { TemperatureMonitor, buildTemperatureSeries } from "./temperature";
 import { canTone, formatCanAlert, formatDataState, formatDecision, formatOperationValue, formatOptional, formatPercent, formatTemperature, healthTone } from "./formatters";
 import { formatDateTime } from "../../utils/formatters";
+import { formatGcodeSlicer, normalizeGcodeMaterial } from "../../utils/formatters/gcodeMetadata";
 import type { CanBusRecord, CanBusRecordComparison, CanBusSummary, HealthResponse } from "./types";
 import type {
   OperationAction,
@@ -536,7 +537,7 @@ function IdleGcodeFilesPanel({
             </div>
             <div>
               <dt>Slicer</dt>
-              <dd>{formatSlicer(lastJob.slicer, lastJob.slicer_version)}</dd>
+              <dd>{formatGcodeSlicer(lastJob.slicer, lastJob.slicer_version)}</dd>
             </div>
           </dl>
         </div>
@@ -719,7 +720,7 @@ function buildPrintFacts(
     { label: "Estimativa", value: formatDuration(estimatedTime) },
     { label: "Arquivo", value: completedPreview ? "100%" : formatPercent(miscellaneous?.file_progress) },
     { label: "Filamento", value: formatFilament(operationStatus, completedFile, completedPreview) },
-    { label: "Slicer", value: formatSlicer(miscellaneous?.slicer ?? completedFile?.slicer, miscellaneous?.slicer_version ?? completedFile?.slicer_version) },
+    { label: "Slicer", value: formatGcodeSlicer(miscellaneous?.slicer ?? completedFile?.slicer, miscellaneous?.slicer_version ?? completedFile?.slicer_version) },
     { label: "Material", value: miscellaneous?.filament_type || miscellaneous?.filament_name || completedFile?.filament_type || completedFile?.filament_name || "-" },
     { label: "G-code", value: filenameOverride || miscellaneous?.filename || completedFile?.path || completedFile?.filename || "-" },
     { label: "Mensagem", value: miscellaneous?.message || "-" },
@@ -777,11 +778,6 @@ function formatFilament(operationStatus: OperationStatusResponse | null, complet
   return typeof weight === "number" ? formatOperationValue(weight, "g") : "-";
 }
 
-function formatSlicer(slicer?: string | null, version?: string | null) {
-  if (!slicer && !version) return "-";
-  return [slicer, version].filter(Boolean).join(" ");
-}
-
 function displayGcodeFileName(filename?: string | null) {
   const clean = (filename ?? "").trim();
   if (!clean) return "-";
@@ -818,7 +814,7 @@ function formatMillimeters(value?: number | null) {
 }
 
 function formatGcodeFileFilament(file: OperationGcodeFile) {
-  const material = file.filament_type || file.filament_name || "";
+  const material = normalizeGcodeMaterial(file.filament_type || file.filament_name);
   const weight = typeof file.filament_weight_total === "number" ? formatOperationValue(file.filament_weight_total, "g") : "";
   const length = typeof file.filament_total === "number" ? formatOperationValue(file.filament_total, "mm") : "";
   return [material, weight || length].filter(Boolean).join(" · ") || "-";

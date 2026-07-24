@@ -1226,3 +1226,21 @@ Correção:
   ambíguos;
 - o gate de portabilidade bloqueia regressão para `GROUP BY li.id` ou
   `GROUP BY col.id`.
+
+### Metadados De G-code Exibiam Formato Técnico Bruto
+
+Estado: corrigido e retestado em 2026-07-24.
+
+Impacto:
+
+- alguns agentes retornavam o material como lista JSON ou sequência repetida,
+  por exemplo `["PLA","PLA","PLA"]` e `PLA;ABS;ABS`;
+- arquivos sem identificação do fatiador exibiam `Unknown ?` ao usuário final.
+
+Correção:
+
+- materiais são convertidos em nomes únicos e legíveis, preservando materiais
+  diferentes;
+- marcadores técnicos de ausência são omitidos e fatiadores identificados
+  mantêm apenas nome e versão válidos;
+- o mesmo formatador atende listagem, detalhe e painel de operação.

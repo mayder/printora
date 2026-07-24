@@ -477,3 +477,6 @@ layering React impede regressão para acesso direto de HTTP/storage na UI.
 - Arquivos viram cartões compactos: nome e seleção ficam no topo, metadados
   disponíveis usam até duas colunas e campos sem valor são omitidos. Nenhum
   dado existente é ocultado.
+- Materiais serializados como lista ou sequência são apresentados como nomes
+  únicos; marcadores internos como `Unknown`, `?`, `null` e `undefined` não são
+  exibidos como metadados válidos.
