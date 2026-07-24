@@ -284,6 +284,36 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   callback sem permitir uma segunda listagem. Nenhum job foi excluído ou
   cancelado; a janela de 24 horas continua bloqueada até publicação, drenagem
   natural, novos probes e curtos integrais aprovados nas duas Voron.
+- Publicação da estabilização: o workflow `30102603946` publicou com sucesso a
+  release exata `4e53912cd92620d1d8cf29978fea56594bbb611e`, com gate completo,
+  build reproduzível, auditorias, SBOM, blue/green, drain e endpoint público
+  aprovados. Produção confirmou `/health`, `/ready`, versão `0.1.41`, schema
+  `86`, integridade e serviços obrigatórios. Os dois agentes passaram a
+  `0.1.36`, com heartbeat atual, backlog zero e probes sanitizados aprovados.
+- Primeiro par de curtos em `0.1.36`: a Voron 0.2 completou 700 requisições em
+  120 s, pool contínuo, zero erro, pior p95 de `1.094,397 ms`, pior p99 de
+  `1.491,853 ms`, backlog zero e nenhuma falha operacional. O curto da Voron
+  2.4 foi invalidado após 300 requisições por um `RemoteProtocolError` isolado
+  do cliente; o servidor registrou todas as respostas do intervalo como
+  `HTTP 200`, sem erro, reload ou restart, mas o gate de erro zero permaneceu
+  fail-closed.
+- Repetição conservadora dos dois curtos: após novos probes com agentes
+  `0.1.36`, heartbeat atual, backlog zero e observadores aprovados, a Voron 0.2
+  completou 700 requisições em 120 s, pool contínuo, zero erro, pior p95 de
+  `249,304 ms` e pior p99 de `819,685 ms`. A Voron 2.4 completou outras 700
+  requisições em 120 s, pool contínuo, zero erro, pior p95 de `119,800 ms` e
+  pior p99 de `478,980 ms`. Nos dois ensaios não houve novo job falho, dead
+  letter, duplicidade, restart, serviço inativo ou backlog.
+- Nova janela integral de 24 horas: iniciada em `2026-07-24T15:49:13Z`, unit
+  `printora-cloud-soak.service`, invocation
+  `049ba8c3ac72479093d768b75da64152`, evidência sanitizada
+  `soak-24h-20260724T154913Z.jsonl`. A primeira consolidação parcial confirmou
+  `connection_modes=["pooled"]`, zero erro, p95/p99 por lote dentro do SLO,
+  backlog zero, nenhum dead letter, duplicidade, novo job falho, restart ou
+  serviço inativo e tendências iniciais de conexões, RSS, FD, tasks, WAL, logs
+  e disco dentro dos limites. A janela só será válida se esta mesma invocation
+  permanecer contínua e terminar com sucesso após
+  `2026-07-25T15:49:13Z`; nenhuma tentativa anterior será somada.
 - Soak final contínuo de 72 horas: não iniciado.
 
 ## Auditoria de fechamento por lote
@@ -299,8 +329,8 @@ matriz física, o fluxo real ou o E2E visual.
 | 4. Update/rollback do agente | concluído | `docs/audits/AGENT_RELEASE_0.1.34_2026-07-23.md` comprova `0.1.34 -> 0.1.33 -> 0.1.34` nas duas Voron somente pela web | nenhum |
 | 5. Projeto até histórico real | pendente | contratos e testes existem, mas não substituem aceite físico desta janela | validar projeto, G-code, preview, preflight, salvar/enviar e histórico com fixture aprovada |
 | 6. E2E visual real | parcial | matriz local, superfícies públicas e onze áreas privadas autenticadas passaram em desktop/escuro e mobile/claro sem erro de console | validar desktop, mobile e temas no fluxo físico de operação, preview, entrega e histórico |
-| 7. Soak inicial de 24 horas | bloqueado para correção | a correção de event loop foi publicada e um curto passou; o segundo curto foi invalidado por novos jobs read-only expirados | publicar a estabilização da tela, drenar naturalmente, repetir probes e 120 s observados nas duas Voron e iniciar uma nova janela integral |
-| 8. Correções e repetição | em execução | event loop corrigido; a repetição revelou recarga involuntária da listagem G-code em rerender do shell | validar e publicar a estabilização sem relaxar SLO, então reiniciar integralmente a sequência |
+| 7. Soak inicial de 24 horas | em execução | nova janela contínua iniciada em `2026-07-24T15:49:13Z`, invocation `049ba8c3ac72479093d768b75da64152`; primeira consolidação parcial aprovada | manter exatamente a mesma invocation ativa e concluir após `2026-07-25T15:49:13Z`, então consolidar com duração mínima de 86.400 s |
+| 8. Correções e repetição | concluído para abrir a nova janela | event loop e recarga involuntária da listagem corrigidos e publicados; probes e repetições integrais de 120 s passaram nas duas Voron em `0.1.36` | reabrir somente se a janela atual revelar nova regressão |
 | 9. Soak final de 72 horas | pendente | não iniciado | iniciar somente após lotes anteriores e completar continuamente por 259.200 s |
 | 10. Consolidação e runbook | pendente | cronologia parcial registrada | consolidar tendências, incidentes, capacidade, evidência sanitizada e operação final |
 

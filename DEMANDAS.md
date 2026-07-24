@@ -6383,7 +6383,8 @@ Prioridade: P0 operacional.
 Dependências:
 
 - PKG-97 fechado;
-- agente `0.1.34` instalado e saudável;
+- agente `0.1.36` instalado e saudável; a transição e o rollback real do lote 4
+  permanecem comprovados em `0.1.34`;
 - Voron de validação identificada e janela operacional aprovada;
 - impressão/teste controlado, arquivo conhecido e material disponível;
 - métricas do host, agente, Raspberry, Moonraker, Klipper e browser coletáveis;
@@ -6509,8 +6510,22 @@ Estado atual:
   o segundo curto foi invalidado por jobs read-only expirados. O diagnóstico
   encontrou a tela de Arquivos G-code recarregando a listagem quando apenas a
   referência do callback de toast mudava; a dependência foi estabilizada e uma
-  regressão cobre o rerender sem nova consulta. A sequência permanece
-  bloqueada até publicação, drenagem natural e dois curtos integrais.
+  regressão cobre o rerender sem nova consulta. O workflow `30102603946`
+  publicou a correção na release exata
+  `4e53912cd92620d1d8cf29978fea56594bbb611e`. Os dois agentes passaram a
+  `0.1.36`, drenaram para backlog zero e passaram em novos probes. Um primeiro
+  curto passou; o segundo foi invalidado por um fechamento isolado de conexão
+  do cliente, sem erro HTTP no servidor. Por segurança, ambos foram repetidos
+  integralmente: cada repetição completou 700 requisições em 120 s, com pool
+  contínuo, zero erro, p95/p99 dentro do SLO e nenhum novo job falho, dead
+  letter, duplicidade, restart ou serviço inativo. Uma nova janela integral
+  começou em `2026-07-24T15:49:13Z`, unit
+  `printora-cloud-soak.service`, invocation
+  `049ba8c3ac72479093d768b75da64152`, evidência sanitizada
+  `soak-24h-20260724T154913Z.jsonl`. A primeira consolidação parcial passou
+  com `connection_modes=["pooled"]`, zero erro e backlog zero. A janela só
+  pode ser aceita se a mesma invocation permanecer contínua até depois de
+  `2026-07-25T15:49:13Z`.
 
 ## PKG-99: RPO Físico, Recuperação Contínua E Prontidão De Desastre
 
