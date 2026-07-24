@@ -150,6 +150,8 @@ def test_cloud_process_chaos_is_scoped_and_recovers_active_instance() -> None:
     assert "printora-cloud@replica.service" not in chaos
     assert "trap restore_active EXIT" in chaos
     assert "--requests 300" in chaos
+    assert '"$runtime_python" "$load_script"' in chaos
+    assert "--connection-mode pooled" in chaos
     assert "Moonraker" not in chaos
     assert "Klipper" not in chaos
     assert "PRINTORA_SOAK_SECONDS" in soak
