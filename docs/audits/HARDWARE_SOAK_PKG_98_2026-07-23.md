@@ -225,9 +225,30 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   heartbeat máximo de `7,605 s`; dead letters, duplicidades, novos jobs falhos,
   restarts e serviços inativos ficaram em zero. Conexões PostgreSQL ficaram em
   1, RSS cresceu cerca de 5,9 MiB e FD em 3, dentro dos limites.
-- Gate de 24 horas permanece fechado: a Voron 0.2 continua offline. A janela
-  integral só poderá começar após seu heartbeat `0.1.34`, probe e repetição
-  curta observada aprovados; nenhuma tentativa anterior será somada.
+- Retorno da Voron 0.2: o probe de `2026-07-24T11:26:09Z` confirmou agente
+  `0.1.34`, heartbeat de `8,779 s`, backlog zero, serviços ativos e nenhuma
+  duplicidade, dead letter ou restart.
+- Repetição curta da Voron 0.2 aprovada: unit
+  `printora-cloud-soak-short-v02-112625.service`, invocation
+  `219add4b4bca48b9ba64a6098a277aba`, janela sanitizada de
+  `2026-07-24T11:26:45Z` a `2026-07-24T11:28:45Z`. Foram 700 requisições em
+  sete lotes a `5 req/s`, `connection_modes=["pooled"]`, zero erro, pior p95 de
+  `889,383 ms`, pior p99 de `1.685,524 ms` e backlog máximo 2. Heartbeat máximo
+  foi `5,158 s`; não houve novo job falho, dead letter, duplicidade, restart ou
+  serviço inativo. Conexões PostgreSQL chegaram a 4, RSS cresceu cerca de
+  8,6 MiB e FD em 4, dentro dos limites.
+- Gate imediatamente anterior às 24 horas: Voron 0.2 e Voron 2.4 foram
+  revalidadas em `0.1.34`, com heartbeats de `1,895 s` e `8,993 s`, backlog
+  zero e observadores aprovados.
+- Nova janela integral de 24 horas: iniciada em `2026-07-24T11:29:43Z`, unit
+  `printora-cloud-soak.service`, invocation
+  `277cf0966b024f42963c2df5d902dfc8`, evidência sanitizada
+  `soak-24h-20260724T112943Z.jsonl`. A primeira carga completou 100 requisições
+  com zero erro, p95 de `126,418 ms` e p99 de `1.247,100 ms`; a primeira
+  observação passou com heartbeat de `5,268 s`, backlog 3, nenhum novo job
+  falho, dead letter, duplicidade, restart ou serviço inativo. A janela só será
+  válida se a mesma invocation completar continuamente por 86.400 s; qualquer
+  falha invalida todo o período e nenhuma tentativa anterior será somada.
 - Soak final contínuo de 72 horas: não iniciado.
 
 ## Auditoria de fechamento por lote
@@ -243,7 +264,7 @@ matriz física, o fluxo real ou o E2E visual.
 | 4. Update/rollback do agente | concluído | `docs/audits/AGENT_RELEASE_0.1.34_2026-07-23.md` comprova `0.1.34 -> 0.1.33 -> 0.1.34` nas duas Voron somente pela web | nenhum |
 | 5. Projeto até histórico real | pendente | contratos e testes existem, mas não substituem aceite físico desta janela | validar projeto, G-code, preview, preflight, salvar/enviar e histórico com fixture aprovada |
 | 6. E2E visual real | parcial | matriz local, superfícies públicas e onze áreas privadas autenticadas passaram em desktop/escuro e mobile/claro sem erro de console | validar desktop, mobile e temas no fluxo físico de operação, preview, entrega e histórico |
-| 7. Soak inicial de 24 horas | aguardando a Voron 0.2 | Voron 2.4 voltou em `0.1.34`; probe e repetição observada de 120 s/700 requisições passaram com pool contínuo, zero erro e backlog máximo 1 | obter heartbeat `0.1.34`, probe e repetição observada aprovados também na Voron 0.2; então completar continuamente por 86.400 s |
+| 7. Soak inicial de 24 horas | em execução | as duas Voron passaram em `0.1.34`; a Voron 0.2 concluiu probe e repetição observada de 120 s/700 requisições; invocation `277cf0966b024f42963c2df5d902dfc8` iniciou com primeira amostra aprovada | completar a mesma invocation continuamente por 86.400 s e consolidar a evidência sanitizada |
 | 8. Correções e repetição | em execução | incidentes de UI, fila, UTC, lease, conexão fria, runtime e ciclo do pool foram corrigidos e retestados | reiniciar integralmente qualquer janela que falhar |
 | 9. Soak final de 72 horas | pendente | não iniciado | iniciar somente após lotes anteriores e completar continuamente por 259.200 s |
 | 10. Consolidação e runbook | pendente | cronologia parcial registrada | consolidar tendências, incidentes, capacidade, evidência sanitizada e operação final |

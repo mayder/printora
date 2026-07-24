@@ -6493,9 +6493,13 @@ Estado atual:
   dentro do SLO. Duas tentativas anteriores foram invalidadas por jobs
   read-only criados pela tela de diagnóstico antes do ensaio e expirados
   durante a observação; a fila drenou naturalmente, sem exclusão ou
-  cancelamento. A Voron 0.2 continua offline, portanto a contagem de 24 horas
-  ainda não foi iniciada e só poderá começar após probe e repetição observada
-  aprovados também nela.
+  cancelamento. A Voron 0.2 voltou em `0.1.34`, passou no probe e na repetição
+  observada de 120 s com 700 requisições, pool contínuo, zero erro, backlog
+  máximo 2 e p95/p99 dentro do SLO. Os dois agentes foram revalidados com
+  heartbeat abaixo de 10 s e backlog zero. Uma nova janela integral de 24 horas
+  foi iniciada em `2026-07-24T11:29:43Z`, invocation
+  `277cf0966b024f42963c2df5d902dfc8`; a primeira carga e observação passaram.
+  Ela só será aceita se completar continuamente por 86.400 s.
 
 ## PKG-99: RPO Físico, Recuperação Contínua E Prontidão De Desastre
 
