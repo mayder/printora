@@ -238,7 +238,7 @@
 
   .overview-status-grid .metric,
   .fleet-dashboard-metrics .metric {
-    grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+    grid-template-columns: minmax(170px, 0.42fr) minmax(0, 1fr);
     gap: 10px;
   }
 
@@ -259,11 +259,14 @@
 }
 
 @media (max-width: 720px) {
+  .overview-status-grid .metric,
   .fleet-dashboard-metrics .metric {
     grid-template-columns: minmax(0, 1fr);
     gap: 3px;
   }
 
+  .overview-status-grid .metric span,
+  .overview-status-grid .metric strong,
   .fleet-dashboard-metrics .metric span,
   .fleet-dashboard-metrics .metric strong {
     width: 100%;

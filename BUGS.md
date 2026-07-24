@@ -26,6 +26,8 @@ Causa:
 Correção:
 
 - métricas do dashboard empilham rótulo e valor abaixo de 720 px;
+- entre 721 e 1240 px, a coluna de rótulo reserva largura suficiente para a
+  fonte do navegador em Linux e macOS;
 - upload e gerenciador usam blocos com espaçamento, padding e controles de
   largura total no mobile;
 - cartões de arquivo usam duas colunas entre 361 e 720 px, uma coluna abaixo
@@ -38,6 +40,8 @@ Validação:
 - `npm --prefix frontend run build`;
 - `npm --prefix frontend run test:unit`;
 - `scripts/run-e2e-gate.sh`: 22/22 testes aprovados.
+- o primeiro deploy foi bloqueado com segurança pelo mesmo teste em 1024 px;
+  após ampliar a coluna intermediária, o reteste E2E e `./check.sh` passaram.
 
 ### Verificação Ed25519 Do Instalador Era Dependente Do OpenSSL Local
 
