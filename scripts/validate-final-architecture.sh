@@ -55,6 +55,11 @@ for unit in packaging/systemd/*.service packaging/systemd/*.timer packaging/syst
   grep -Fq "$(basename "$unit")" "$manifest" \
     || fail "unit sem owner no manifesto: $(basename "$unit")"
 done
+for unit in packaging/systemd/*.service; do
+  if grep -Fqx 'Type=oneshot' "$unit" && grep -Eq '^RuntimeMaxSec=' "$unit"; then
+    fail "RuntimeMaxSec é inefetivo em oneshot; use TimeoutStartSec: $(basename "$unit")"
+  fi
+done
 
 python_command=(python3)
 python_workdir="$ROOT_DIR"

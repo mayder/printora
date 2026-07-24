@@ -278,6 +278,10 @@ def test_physical_rpo_uses_external_wal_and_fails_before_five_minutes() -> None:
     assert "OnFailure=printora-cloud-recovery-alert@%n.service" in service
     assert "owner=operations" in alert
     assert "PRINTORA_RECOVERY_ALERT_WEBHOOK_URL" in alert
+    for unit_path in (ROOT_DIR / "packaging/systemd").glob("*.service"):
+        unit = unit_path.read_text()
+        if "Type=oneshot" in unit:
+            assert "RuntimeMaxSec=" not in unit
 
 
 def test_periodic_restore_replays_external_wal_with_resource_limits() -> None:
