@@ -1132,19 +1132,37 @@ Correção:
   financeiras sensíveis;
 - teste de portabilidade verifica o parâmetro e o contrato de agrupamento.
 
-### Resumo Social Excedia 320 Px No Runner Linux
+### Textos Responsivos Excediam 320 Px No Runner Linux
 
 Estado: corrigido e retestado em 2026-07-24.
 
 Impacto:
 
-- o resumo de comunidades mantinha a contagem inteira em uma única linha;
+- o resumo de comunidades e o estado de etapas do Setup mantinham o texto
+  inteiro em uma única linha;
 - a fonte do navegador Linux tornou o conteúdo maior que a área útil em 320 px,
   embora o mesmo cenário coubesse no navegador local;
 - o gate de deploy bloqueou a publicação antes de alterar produção.
 
 Correção:
 
-- o resumo limita a própria largura e permite quebra segura do texto;
+- resumos, títulos de etapa, estados e links limitam a própria largura e
+  permitem quebra segura do texto;
 - a matriz E2E continua bloqueando qualquer elemento visível fora do viewport;
 - o deploy anterior falhou antes do empacotamento e não exigiu rollback.
+
+### Status Da Receita De Setup Excedia 320 Px No Runner Linux
+
+Estado: corrigido e retestado em 2026-07-24.
+
+Impacto:
+
+- o rótulo `aguardando` podia manter a largura mínima do título da etapa;
+- em 320 px, a combinação ultrapassava o viewport no navegador Linux;
+- o gate de deploy bloqueou a publicação antes de empacotar ou alterar produção.
+
+Correção:
+
+- o conteúdo da etapa agora pode encolher e quebrar palavras longas com segurança;
+- em celulares estreitos, título e status podem ocupar linhas separadas;
+- a matriz E2E continua verificando todos os elementos visíveis em 320 px.
