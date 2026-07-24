@@ -67,6 +67,14 @@ class GcodeFilesResponse(BaseModel):
     storage: GcodeStorage | None = None
     fetched_at: str | None = None
     cache_ttl_seconds: int | None = None
+    total: int = 0
+    offset: int = 0
+    limit: int = 50
+    has_more: bool = False
+    directory: str = ""
+    query: str = ""
+    sort: str = "modified"
+    direction: Literal["asc", "desc"] = "desc"
     error: str | None = None
     agent: dict[str, Any] | None = None
 
@@ -147,6 +155,17 @@ class GcodeFileActionResponse(BaseModel):
     result: dict[str, Any] = Field(default_factory=dict)
 
 
+class GcodeFileUploadResponse(BaseModel):
+    printer_id: int
+    status: Literal["uploaded", "started", "blocked", "failed"]
+    filename: str
+    size_bytes: int
+    sha256: str
+    job_id: int | None = None
+    summary: str
+    blockers: list[str] = Field(default_factory=list)
+
+
 GCODE_FILE_EXTENSIONS = (".gcode", ".gcode.gz", ".gco", ".g", ".gc", ".nc", ".ngc", ".tap")
 MUTABLE_GCODE_FILE_ACTIONS = {"print", "rename", "move", "duplicate", "delete"}
 DESTRUCTIVE_GCODE_FILE_ACTIONS = {"print", "rename", "move", "delete"}
@@ -186,6 +205,14 @@ def build_gcode_files_response(
         storage=_storage(source.get("storage")),
         fetched_at=_text(source.get("fetched_at")) or None,
         cache_ttl_seconds=_int_or_none(source.get("cache_ttl_seconds")),
+        total=_int_or_none(source.get("total")) or len(files),
+        offset=_int_or_none(source.get("offset")) or 0,
+        limit=_int_or_none(source.get("limit")) or max(len(files), 1),
+        has_more=bool(source.get("has_more")),
+        directory=_text(source.get("directory")),
+        query=_text(source.get("query")),
+        sort=_text(source.get("sort")) or "modified",
+        direction="asc" if _text(source.get("direction")) == "asc" else "desc",
         error=_text(source.get("error")) or None,
         agent=agent,
     )

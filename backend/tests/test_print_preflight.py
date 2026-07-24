@@ -155,11 +155,11 @@ def _pair_agent(client: TestClient, token: str, printer_id: int, stable_id: str)
     pairing = client.post(f"/api/printers/{printer_id}/pairing/tokens", json={"ttl_minutes": 15}, headers=_auth(token)).json()
     exchanged = client.post(
         "/api/agent/pairing/exchange",
-        json={"pairing_token": pairing["token"], "stable_id": stable_id, "agent_version": "0.1.35"},
+        json={"pairing_token": pairing["token"], "stable_id": stable_id, "agent_version": "0.1.36"},
     )
     assert exchanged.status_code == 200
     credential = exchanged.json()["credential"]
-    heartbeat = client.post("/api/agent/heartbeat", json={"agent_version": "0.1.35", "platform": "test"}, headers=_auth(credential))
+    heartbeat = client.post("/api/agent/heartbeat", json={"agent_version": "0.1.36", "platform": "test"}, headers=_auth(credential))
     assert heartbeat.status_code == 200
     return credential
 

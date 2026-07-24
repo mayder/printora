@@ -6586,3 +6586,50 @@ Rollback:
 Estado atual:
 
 - Planejado; implementação não iniciada.
+
+## PKG-100: Gerenciador Completo De Arquivos G-code
+
+Objetivo:
+
+Entregar na aba `Arquivos G-code` o fluxo operacional necessário para substituir
+o uso cotidiano do gerenciador do Mainsail, sem reduzir as proteções do
+Printora.
+
+Prioridade: P0 operacional.
+
+Entregáveis:
+
+- eliminar consultas duplicadas, starvation e timeout da listagem;
+- listar por pasta e página, com busca, ordenação, metadados e thumbnails sob
+  demanda;
+- detalhe com download, histórico, reprocessamento de metadados e preview 3D;
+- upload simples/múltiplo, drag-and-drop, progresso, destino e upload com
+  impressão protegida;
+- criar, renomear, mover e excluir pasta vazia;
+- imprimir, renomear, mover, duplicar e excluir arquivo com preflight,
+  confirmação, step-up e auditoria;
+- ações em lote seguras e fila Moonraker;
+- publicação cloud/agente e aceite nas duas impressoras ligadas.
+
+Critério de aceite:
+
+- abrir a aba gera uma única consulta e apresenta arquivos antes do timeout;
+- listagem grande não bloqueia heartbeat, operação ou outro job;
+- upload não grava G-code bruto em banco, job ou log;
+- overwrite, impressão e exclusão exigem confirmação explícita;
+- impressão ativa bloqueia ações incompatíveis antes de chamar Moonraker;
+- preview 3D usa cache sob demanda e mostra o G-code completo;
+- pastas, upload, detalhes, arquivos e fila funcionam nas duas impressoras;
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh` passa;
+- pacote termina com commit, push, publicação e aceite operacional.
+
+Rollback:
+
+- reverter cloud pelo slot blue/green e agente para N-1;
+- preservar arquivos remotos; nunca apagá-los como rollback de código;
+- manter caches temporários sujeitos à retenção existente;
+- não restaurar banco para reverter código.
+
+Estado atual:
+
+- Em execução.

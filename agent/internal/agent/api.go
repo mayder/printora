@@ -152,6 +152,31 @@ func (c *APIClient) UploadGcodeCache(ctx context.Context, cacheKey string, filen
 	return result, nil
 }
 
+func (c *APIClient) DownloadGcodeUpload(ctx context.Context, uploadKey string) (io.ReadCloser, error) {
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		c.baseURL+"/api/agent/gcode-uploads/"+url.PathEscape(uploadKey),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.credential)
+	client := *c.http
+	client.Timeout = 2 * time.Minute
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		defer resp.Body.Close()
+		data, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		return nil, fmt.Errorf("api gcode upload download: status %d: %s", resp.StatusCode, strings.TrimSpace(string(data)))
+	}
+	return resp.Body, nil
+}
+
 func (c *APIClient) post(ctx context.Context, path string, payload any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {

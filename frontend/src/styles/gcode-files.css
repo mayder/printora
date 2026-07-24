@@ -115,6 +115,80 @@
   margin: 0;
 }
 
+.gcode-upload-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px dashed var(--border-soft);
+  border-radius: 8px;
+}
+
+.gcode-upload-heading,
+.gcode-upload-actions,
+.gcode-upload-list li {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gcode-upload-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gcode-upload-list li {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 8px;
+}
+
+.gcode-manager-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.gcode-manager-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 10px;
+}
+
+.gcode-manager-section > div:first-child {
+  min-width: 210px;
+  flex: 1;
+}
+
+.gcode-manager-section input,
+.gcode-manager-section select {
+  min-height: 38px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 0 9px;
+}
+
+.gcode-file-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.gcode-file-editor textarea {
+  width: 100%;
+  min-height: 360px;
+  resize: vertical;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+}
+
+
 .gcode-files-empty-state {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

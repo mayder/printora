@@ -96,9 +96,9 @@
     }
   ],
   "summary": {
-    "modules": 173,
-    "routes": 373,
-    "contracts": 385,
+    "modules": 174,
+    "routes": 377,
+    "contracts": 389,
     "tables": 156,
     "cycles": 0,
     "modules_by_owner": {
@@ -107,7 +107,7 @@
       "finance": 13,
       "identity": 13,
       "integrations": 7,
-      "operations": 58,
+      "operations": 59,
       "shared": 22
     }
   },
@@ -626,7 +626,7 @@
     {
       "module": "gcode_cache",
       "owner": "operations",
-      "lines": 175,
+      "lines": 283,
       "imports": [
         "agent_pairing",
         "config"
@@ -634,13 +634,14 @@
       "routes": [],
       "contracts": [
         "GcodeCachePrepareRequest",
-        "GcodeCacheEntry"
+        "GcodeCacheEntry",
+        "GcodeUploadEntry"
       ]
     },
     {
       "module": "gcode_files",
       "owner": "operations",
-      "lines": 547,
+      "lines": 574,
       "imports": [],
       "routes": [],
       "contracts": [
@@ -653,7 +654,21 @@
         "GcodeFileHistoryEntry",
         "GcodeFileDetailResponse",
         "GcodeFileActionRequest",
-        "GcodeFileActionResponse"
+        "GcodeFileActionResponse",
+        "GcodeFileUploadResponse"
+      ]
+    },
+    {
+      "module": "gcode_manager",
+      "owner": "operations",
+      "lines": 91,
+      "imports": [
+        "gcode_cache"
+      ],
+      "routes": [],
+      "contracts": [
+        "GcodeManagerRequest",
+        "GcodeManagerResponse"
       ]
     },
     {
@@ -1829,7 +1844,7 @@
     {
       "module": "routes.agents",
       "owner": "operations",
-      "lines": 750,
+      "lines": 759,
       "imports": [
         "agent_channel",
         "agent_pairing",
@@ -1993,6 +2008,11 @@
           "method": "PUT",
           "path": "/api/agent/gcode-cache/{cache_key}",
           "handler": "upload_agent_gcode_cache"
+        },
+        {
+          "method": "GET",
+          "path": "/api/agent/gcode-uploads/{upload_key}",
+          "handler": "download_staged_gcode_upload"
         },
         {
           "method": "GET",
@@ -2718,7 +2738,7 @@
     {
       "module": "routes.operation",
       "owner": "operations",
-      "lines": 905,
+      "lines": 1153,
       "imports": [
         "agent_executor",
         "agent_moonraker",
@@ -2727,6 +2747,7 @@
         "database",
         "gcode_cache",
         "gcode_files",
+        "gcode_manager",
         "operation",
         "routes.auth",
         "routes.support"
@@ -2741,6 +2762,21 @@
           "method": "GET",
           "path": "/api/printers/{printer_id}/gcode-files",
           "handler": "list_printer_gcode_files"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/gcode-files/upload",
+          "handler": "upload_printer_gcode_file"
+        },
+        {
+          "method": "GET",
+          "path": "/api/printers/{printer_id}/gcode-files/queue",
+          "handler": "get_printer_gcode_queue"
+        },
+        {
+          "method": "POST",
+          "path": "/api/printers/{printer_id}/gcode-files/manage",
+          "handler": "manage_printer_gcode_files"
         },
         {
           "method": "GET",

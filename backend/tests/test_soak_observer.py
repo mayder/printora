@@ -25,8 +25,8 @@ def _sample() -> dict:
         "agent": {
             "heartbeat_age_seconds": 20,
             "maximum_heartbeat_age_seconds": 120,
-            "version": "0.1.34",
-            "expected_version": "0.1.34",
+            "version": "0.1.36",
+            "expected_version": "0.1.36",
             "status": "active",
         },
         "platform": {

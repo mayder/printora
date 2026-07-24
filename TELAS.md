@@ -459,3 +459,16 @@ layering React impede regressão para acesso direto de HTTP/storage na UI.
   Fabricação para teste e supervisão. Ações financeiras ou produtivas sensíveis
   continuam exigindo o papel específico e, quando aplicável, autenticação
   reforçada; acesso máximo não elimina separação de funções.
+
+## Arquivos G-code
+
+- A aba lista arquivos por página e pasta, com busca, ordenação, metadados,
+  thumbnail, armazenamento e seleção em lote.
+- Upload aceita um ou vários G-codes, drag-and-drop, progresso, pasta de destino,
+  sobrescrita confirmada e envio com impressão protegida.
+- Pastas, lote e fila permanecem em painéis próprios; a tabela não incorpora
+  formulários de mutação.
+- O detalhe fica em drawer separado e reúne metadados, histórico, download,
+  editor limitado a 5 MB, rescan, pré-aquecimento, preview 3D e ações protegidas.
+- Estados loading, vazio, offline, erro, bloqueio de agente e progresso devem
+  permanecer operáveis em desktop e mobile.

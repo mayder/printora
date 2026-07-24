@@ -37,7 +37,7 @@ def test_coalesced_read_job_reuses_only_same_active_scope(tmp_path: Path) -> Non
                     "agent-coalescence",
                     "hash-coalescence",
                     "prefix-coalescence",
-                    "0.1.34",
+                    "0.1.36",
                     "linux-arm64",
                 ),
             ).lastrowid
@@ -118,7 +118,7 @@ def test_regular_job_creation_never_coalesces_or_renews_mutations(
                     "agent-mutation",
                     "hash-mutation",
                     "prefix-mutation",
-                    "0.1.34",
+                    "0.1.36",
                     "linux-arm64",
                 ),
             ).lastrowid
@@ -198,7 +198,7 @@ def test_expired_read_job_is_failed_before_coalescence(tmp_path: Path) -> None:
                     "agent-expiration",
                     "hash-expiration",
                     "prefix-expiration",
-                    "0.1.34",
+                    "0.1.36",
                     "linux-arm64",
                 ),
             ).lastrowid

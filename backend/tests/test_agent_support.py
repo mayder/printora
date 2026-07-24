@@ -143,7 +143,7 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
             assert current_created.json()["websocket_delivered"] is False
             assert current_created.json()["job"]["job_type"] == "remote_agent_update_check"
             assert current_created.json()["job"]["payload"]["safe_mode"] == "agent_self_update"
-            assert current_created.json()["job"]["payload"]["target_version"] == "0.1.34"
+            assert current_created.json()["job"]["payload"]["target_version"] == "0.1.36"
 
             candidate_created = client.post(
                 f"/api/printers/{printer['id']}/agents/{agent_id}/update-check?channel=candidate",
@@ -159,7 +159,7 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
             assert premature_rollback.status_code == 400
 
             with connect_database(tmp_path / "printora.db") as connection:
-                connection.execute("UPDATE printer_agents SET agent_version = '0.1.34' WHERE id = ?", (agent_id,))
+                connection.execute("UPDATE printer_agents SET agent_version = '0.1.36' WHERE id = ?", (agent_id,))
             rollback_created = client.post(
                 f"/api/printers/{printer['id']}/agents/{agent_id}/update-check?channel=rollback",
                 headers=_auth(owner_token),
@@ -167,9 +167,9 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
             assert rollback_created.status_code == 200
             rollback_job = rollback_created.json()["job"]
             assert rollback_job["job_type"] == "remote_host_script"
-            assert rollback_job["payload"]["target_version"] == "0.1.33"
+            assert rollback_job["payload"]["target_version"] == "0.1.35"
             assert rollback_job["payload"]["update_channel"] == "rollback"
-            assert "/api/agent/update/releases/0.1.33/linux-arm64" in rollback_job["payload"]["script"]
+            assert "/api/agent/update/releases/0.1.35/linux-arm64" in rollback_job["payload"]["script"]
             assert "systemctl restart printora-agent" in rollback_job["payload"]["script"]
             assert "systemctl restart klipper" not in rollback_job["payload"]["script"]
             assert "systemctl restart moonraker" not in rollback_job["payload"]["script"]
@@ -185,7 +185,7 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
 
 def test_bootstrap_ed25519_verifier_is_portable_and_rejects_tampering(tmp_path: Path) -> None:
     manifest = load_agent_update_manifest()
-    release = next(item for item in manifest.releases if item.version == "0.1.34")
+    release = next(item for item in manifest.releases if item.version == "0.1.36")
     digest_path = tmp_path / "digest.txt"
     signature_path = tmp_path / "signature.bin"
     digest_path.write_text(release.sha256, encoding="ascii")
@@ -245,7 +245,7 @@ def test_agent_update_job_is_reconciled_after_restart_heartbeat(tmp_path: Path, 
             assert ack.status_code == 200
             heartbeat = client.post(
                 "/api/agent/heartbeat",
-                json={"agent_version": "0.1.34", "platform": "linux/arm64", "capabilities": {"websocket": True}},
+                json={"agent_version": "0.1.36", "platform": "linux/arm64", "capabilities": {"websocket": True}},
                 headers=_auth(credential),
             )
             assert heartbeat.status_code == 200

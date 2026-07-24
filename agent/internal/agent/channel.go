@@ -268,6 +268,13 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 		} else {
 			r.failJob(ctx, job, stringValue(payload["detail"]), mapValueOrEmpty(payload))
 		}
+	case "remote_gcode_manager":
+		payload := r.Moonraker.RemoteGcodeManager(ctx, job.Payload)
+		if payload["status"] == "executed" {
+			r.completeJob(ctx, job, mapValueOrEmpty(payload))
+		} else {
+			r.failJob(ctx, job, stringValue(payload["detail"]), mapValueOrEmpty(payload))
+		}
 	case "remote_update_action":
 		payload := r.Moonraker.RemoteUpdateAction(ctx, job.Payload)
 		if payload["status"] == "accepted" {
@@ -296,7 +303,7 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 			r.failJob(ctx, job, stringValue(payload["detail"]), mapValueOrEmpty(payload))
 		}
 	case "remote_gcode_upload":
-		payload := r.Moonraker.RemoteGcodeUpload(ctx, job.Payload)
+		payload := r.RemoteGcodeUpload(ctx, job.Payload)
 		if payload["status"] == "uploaded" || payload["status"] == "started" {
 			r.completeJob(ctx, job, mapValueOrEmpty(payload))
 		} else {
@@ -403,6 +410,7 @@ func (r *Runner) failJob(ctx context.Context, job AgentJob, message string, resu
 func isNonRepeatableJob(jobType string) bool {
 	switch jobType {
 	case "remote_gcode_file_action",
+		"remote_gcode_manager",
 		"remote_update_action",
 		"remote_mutation_execute",
 		"remote_gcode_execute",

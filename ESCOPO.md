@@ -507,3 +507,15 @@ pacotes `PKG-96` a `PKG-99`:
 
 Esses pacotes elevam a confiança sem bloquear a evolução funcional futura e sem
 prometer ausência absoluta de defeitos.
+
+## Gerenciador Completo De Arquivos G-code
+
+O `PKG-100` consolida a aba `Arquivos G-code` como gerenciador operacional da
+impressora, com listagem paginada, pastas, upload, metadados, preview 3D,
+download, fila e ações protegidas. A cloud nunca acessa o Moonraker diretamente:
+todo acesso passa pelo agente pareado e respeita permissão, estado real da
+impressora, confirmação reforçada, limite de arquivo e auditoria sanitizada.
+
+O fluxo deve permanecer leve na Raspberry. A listagem inicial não pode baixar
+todos os G-codes, thumbnails ou metadados individualmente; enriquecimento e
+conteúdo completo são carregados somente para a página ou arquivo solicitado.

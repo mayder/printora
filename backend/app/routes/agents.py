@@ -49,7 +49,7 @@ from app.agent_updates import (
     load_agent_update_manifest,
 )
 from app.config import Settings, get_settings
-from app.gcode_cache import GcodeCacheEntry, store_gcode_cache_upload
+from app.gcode_cache import GcodeCacheEntry, gcode_upload_file_response, store_gcode_cache_upload
 from app.modules.identity.contracts import CurrentUser
 from app.routes.auth import require_current_user
 from app.remote_operations import (
@@ -555,6 +555,15 @@ async def upload_agent_gcode_cache(
     settings: Settings = Depends(get_settings),
 ) -> GcodeCacheEntry:
     return await store_gcode_cache_upload(settings, agent, cache_key, filename or "", request)
+
+
+@router.get("/api/agent/gcode-uploads/{upload_key}")
+async def download_staged_gcode_upload(
+    upload_key: str,
+    agent: AgentRecord = Depends(require_agent),
+    settings: Settings = Depends(get_settings),
+):
+    return gcode_upload_file_response(settings, agent, upload_key)
 
 
 @router.get("/api/agent/jobs/next", response_model=AgentJobResponse)

@@ -14,9 +14,11 @@ import {
   Pencil,
   Play,
   RefreshCw,
+  Save,
   Search,
   Square,
   SquareCheckBig,
+  Thermometer,
   Trash2,
   X,
 } from "lucide-react";
@@ -28,6 +30,8 @@ import type { GcodePreviewMode } from "../components/monitoring/gcodePreview";
 
 type SortKey = "modified" | "name" | "size" | "estimated_time" | "slicer";
 type MetadataFilter = "all" | "with_metadata" | "without_metadata";
+const GCODE_FILES_PAGE_SIZE = 50;
+const GcodeToolsPanel = React.lazy(() => import("../components/gcode/GcodeToolsPanel").then((module) => ({ default: module.GcodeToolsPanel })));
 
 export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrinterId, showToast }: PrintoraScreenProps) {
   const [payload, setPayload] = React.useState<GcodeFilesResponse | null>(null);
@@ -40,36 +44,73 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const [previewMode, setPreviewMode] = React.useState<GcodePreviewMode>("full");
   const [previewLayer, setPreviewLayer] = React.useState(1);
+  const [editorText, setEditorText] = React.useState<string | null>(null);
+  const [editorLoading, setEditorLoading] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [directory, setDirectory] = React.useState("all");
   const [metadataFilter, setMetadataFilter] = React.useState<MetadataFilter>("all");
   const [sortKey, setSortKey] = React.useState<SortKey>("modified");
   const [selection, setSelection] = React.useState<Set<string>>(() => new Set());
+  const showToastRef = React.useRef(showToast);
+  const payloadRef = React.useRef<GcodeFilesResponse | null>(null);
+  const requestSequenceRef = React.useRef(0);
+
+  React.useEffect(() => {
+    showToastRef.current = showToast;
+  }, [showToast]);
 
   const loadFiles = React.useCallback(
-    async (refresh = false) => {
+    async (options?: { refresh?: boolean; append?: boolean; signal?: AbortSignal }) => {
       if (!selectedPrinterId) return;
+      const sequence = requestSequenceRef.current + 1;
+      requestSequenceRef.current = sequence;
       setLoading(true);
       try {
-        const result = await operationApi.gcodeFiles(selectedPrinterId, { refresh, limit: 500 });
-        setPayload(result);
-        setSelection(new Set());
+        const result = await operationApi.gcodeFiles(selectedPrinterId, {
+          refresh: options?.refresh,
+          limit: GCODE_FILES_PAGE_SIZE,
+          offset: options?.append ? payloadRef.current?.files.length ?? 0 : 0,
+          directory: directory === "all" ? "" : directory,
+          query,
+          sort: sortKey === "name" || sortKey === "size" ? sortKey : "modified",
+          direction: sortKey === "name" ? "asc" : "desc",
+          signal: options?.signal,
+        });
+        if (sequence !== requestSequenceRef.current) return;
+        setPayload((current) => {
+          const next = options?.append && current
+            ? { ...result, files: mergeGcodeFiles(current.files, result.files), offset: 0 }
+            : result;
+          payloadRef.current = next;
+          return next;
+        });
+        if (!options?.append) setSelection(new Set());
         if (result.data_state === "offline" || result.data_state === "error" || result.data_state === "unsupported") {
-          showToast({ tone: "warning", title: "Arquivos G-code indisponíveis", detail: result.error || result.summary });
+          showToastRef.current({ tone: "warning", title: "Arquivos G-code indisponíveis", detail: result.error || result.summary });
         }
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (sequence !== requestSequenceRef.current) return;
         const detail = err instanceof Error ? err.message : "Falha ao carregar arquivos G-code";
+        payloadRef.current = null;
         setPayload(null);
-        showToast({ tone: "danger", title: "Falha ao carregar G-code", detail });
+        showToastRef.current({ tone: "danger", title: "Falha ao carregar G-code", detail });
       } finally {
-        setLoading(false);
+        if (sequence === requestSequenceRef.current) setLoading(false);
       }
     },
-    [selectedPrinterId, showToast],
+    [directory, query, selectedPrinterId, sortKey],
   );
 
   React.useEffect(() => {
-    void loadFiles(false);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      void loadFiles({ signal: controller.signal });
+    }, query ? 250 : 0);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [loadFiles]);
 
   const files = React.useMemo(
@@ -107,6 +148,7 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
     const filename = file.path ?? file.filename;
     setDetailLoading(true);
     setPreviewOpen(false);
+    setEditorText(null);
     setConfirmationDraft("");
     setTargetDraft(defaultCopyName(filename));
     setPreviewMode("full");
@@ -177,7 +219,7 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
       });
       if (result.status === "executed") {
         showToast({ tone: "success", title: "Ação concluída", detail: result.summary });
-        await loadFiles(true);
+        await loadFiles({ refresh: true });
         if (action.action === "delete") {
           setDetail(null);
           setPreviewOpen(false);
@@ -191,6 +233,114 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
       showToast({ tone: "warning", title: "Ação bloqueada", detail: result.blockers.join(" ") || result.summary });
     } catch (err) {
       showToast({ tone: "danger", title: "Falha na ação", detail: err instanceof Error ? err.message : "Ação não confirmada" });
+    } finally {
+      setActionBusy(null);
+    }
+  }
+
+  async function rescanMetadata() {
+    if (!selectedPrinterId || !detail) return;
+    const filename = detail.file.path ?? detail.file.filename;
+    setActionBusy("history");
+    try {
+      const result = await operationApi.manageGcodeFiles(selectedPrinterId, { action: "metadata_scan", filename });
+      if (result.status !== "executed") {
+        showToast({ tone: "warning", title: "Metadados não atualizados", detail: result.blockers.join(" ") || result.summary });
+        return;
+      }
+      await loadFiles({ refresh: true });
+      setDetail(await operationApi.gcodeFileDetail(selectedPrinterId, filename));
+      showToast({ tone: "success", title: "Metadados atualizados", detail: displayGcodeFileName(filename) });
+    } catch (error) {
+      showToast({ tone: "danger", title: "Falha ao atualizar metadados", detail: error instanceof Error ? error.message : "Ação não concluída." });
+    } finally {
+      setActionBusy(null);
+    }
+  }
+
+  async function openEditor() {
+    if (!selectedPrinterId || !detail) return;
+    const filename = detail.file.path ?? detail.file.filename;
+    if ((detail.file.size ?? 0) > 5 * 1024 * 1024) {
+      showToast({ tone: "warning", title: "Arquivo grande demais para edição", detail: "Baixe, edite localmente e envie novamente. O editor aceita até 5 MB." });
+      return;
+    }
+    setEditorLoading(true);
+    try {
+      const cached = await operationApi.ensureGcodeCache(selectedPrinterId, filename);
+      setEditorText(await operationApi.gcodeCacheText(selectedPrinterId, cached.cache_key));
+    } catch (error) {
+      showToast({ tone: "danger", title: "Falha ao abrir editor", detail: error instanceof Error ? error.message : "Arquivo indisponível." });
+    } finally {
+      setEditorLoading(false);
+    }
+  }
+
+  async function saveEditor() {
+    if (!selectedPrinterId || !detail || editorText === null) return;
+    const filename = detail.file.path ?? detail.file.filename;
+    const confirmation = `SOBRESCREVER ${filename}`;
+    const confirmed = await confirmAction({
+      tone: "warning",
+      title: "Salvar G-code",
+      detail: `Sobrescrever ${displayGcodeFileName(filename)} com o conteúdo editado.`,
+      evidence: confirmation,
+      confirmLabel: "Salvar",
+    });
+    if (!confirmed) return;
+    setEditorLoading(true);
+    try {
+      const result = await operationApi.uploadGcodeFile(
+        selectedPrinterId,
+        new Blob([editorText], { type: "text/plain;charset=utf-8" }),
+        { filename, overwrite: true, confirmationPhrase: confirmation },
+      );
+      if (result.status !== "uploaded") {
+        showToast({ tone: "warning", title: "Arquivo não salvo", detail: result.blockers.join(" ") || result.summary });
+        return;
+      }
+      await loadFiles({ refresh: true });
+      setDetail(await operationApi.gcodeFileDetail(selectedPrinterId, filename));
+      showToast({ tone: "success", title: "G-code salvo", detail: displayGcodeFileName(filename) });
+    } catch (error) {
+      showToast({ tone: "danger", title: "Falha ao salvar G-code", detail: error instanceof Error ? error.message : "Arquivo não salvo." });
+    } finally {
+      setEditorLoading(false);
+    }
+  }
+
+  async function preheatFromFile() {
+    if (!selectedPrinterId || !detail) return;
+    const hotend = Math.round(detail.file.first_layer_extr_temp ?? 0);
+    const bed = Math.round(detail.file.first_layer_bed_temp ?? 0);
+    if (!hotend && !bed) {
+      showToast({ tone: "warning", title: "Temperaturas indisponíveis", detail: "Atualize os metadados do arquivo antes de pré-aquecer." });
+      return;
+    }
+    const confirmation = `PRE-AQUECER ${hotend}C / ${bed}C`;
+    const confirmed = await confirmAction({
+      tone: "warning",
+      title: "Pré-aquecer pela primeira camada",
+      detail: `Hotend ${hotend} °C e mesa ${bed} °C.`,
+      evidence: confirmation,
+      confirmLabel: "Pré-aquecer",
+    });
+    if (!confirmed) return;
+    setActionBusy("history");
+    try {
+      const result = await operationApi.manageGcodeFiles(selectedPrinterId, {
+        action: "preheat",
+        hotend_temperature: hotend,
+        bed_temperature: bed,
+        confirmation_phrase: confirmation,
+      });
+      showToast({
+        tone: result.status === "executed" ? "success" : "warning",
+        title: result.status === "executed" ? "Pré-aquecimento enviado" : "Pré-aquecimento bloqueado",
+        detail: result.blockers.join(" ") || result.summary,
+      });
+    } catch (error) {
+      showToast({ tone: "danger", title: "Falha ao pré-aquecer", detail: error instanceof Error ? error.message : "Comando não confirmado." });
     } finally {
       setActionBusy(null);
     }
@@ -211,18 +361,33 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
           <h2>Arquivos G-code</h2>
           <p className="muted">{payload?.summary ?? `Arquivos de ${selectedPrinter.name}`}</p>
         </div>
-        <button type="button" className="secondary-button" onClick={() => void loadFiles(true)} disabled={loading}>
+        <button type="button" className="secondary-button" onClick={() => void loadFiles({ refresh: true })} disabled={loading}>
           <RefreshCw className={loading ? "button-busy-icon" : undefined} size={15} />
           Atualizar
         </button>
       </div>
 
       <div className="gcode-files-metrics">
-        <Metric icon={FileText} label="Arquivos" value={String(payload?.files.length ?? 0)} />
+        <Metric icon={FileText} label="Arquivos" value={String(payload?.total ?? payload?.files.length ?? 0)} />
         <Metric icon={Folder} label="Pastas" value={String(directories.length)} />
         <Metric icon={SquareCheckBig} label="Selecionados" value={String(selectedCount)} />
         <Metric icon={HardDrive} label="Livre" value={formatBytes(payload?.storage?.free)} detail={formatStorageDetail(payload)} />
       </div>
+
+      <React.Suspense fallback={<EmptyState title="Carregando gerenciador" detail="Preparando upload, pastas e fila de impressão." />}>
+        <GcodeToolsPanel
+          confirmAction={confirmAction}
+          currentDirectory={directory}
+          directories={directories.map((item) => item.path)}
+          onChanged={async () => {
+            setSelection(new Set());
+            await loadFiles({ refresh: true });
+          }}
+          printerId={selectedPrinterId}
+          selectedFiles={[...selection]}
+          showToast={showToast}
+        />
+      </React.Suspense>
 
       <div className="gcode-files-controls">
         <label className="gcode-search-field">
@@ -322,20 +487,36 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
           </table>
         </div>
       ) : null}
+      {payload?.has_more ? (
+        <div className="gcode-files-load-more">
+          <button type="button" className="secondary-button" onClick={() => void loadFiles({ append: true })} disabled={loading}>
+            <RefreshCw className={loading ? "button-busy-icon" : undefined} size={15} />
+            {loading ? "Carregando" : `Carregar mais (${payload.files.length} de ${payload.total})`}
+          </button>
+        </div>
+      ) : null}
       {detail || detailLoading ? (
         <GcodeFileDetailDrawer
           actionBusy={actionBusy}
           confirmationDraft={confirmationDraft}
           detail={detail}
           detailLoading={detailLoading}
+          editorLoading={editorLoading}
+          editorText={editorText}
           onClose={() => {
             setDetail(null);
             setPreviewOpen(false);
+            setEditorText(null);
             setConfirmationDraft("");
           }}
           onConfirmationChange={setConfirmationDraft}
+          onEditorChange={setEditorText}
           onMutableAction={(action) => void runMutableAction(action)}
+          onOpenEditor={() => void openEditor()}
+          onPreheat={() => void preheatFromFile()}
           onReadOnlyAction={(action) => void runReadOnlyAction(action)}
+          onRescanMetadata={() => void rescanMetadata()}
+          onSaveEditor={() => void saveEditor()}
           onPreviewLayerChange={setPreviewLayer}
           onPreviewModeChange={setPreviewMode}
           onTargetChange={setTargetDraft}
@@ -347,6 +528,12 @@ export function GcodeFilesScreen({ confirmAction, selectedPrinter, selectedPrint
       ) : null}
     </article>
   );
+}
+
+function mergeGcodeFiles(current: OperationGcodeFile[], incoming: OperationGcodeFile[]) {
+  const byPath = new Map(current.map((file) => [file.path ?? file.filename, file]));
+  incoming.forEach((file) => byPath.set(file.path ?? file.filename, file));
+  return [...byPath.values()];
 }
 
 function Metric({ icon: Icon, label, value, detail }: { icon: React.ComponentType<{ size?: number }>; label: string; value: string; detail?: string }) {
@@ -389,12 +576,19 @@ function GcodeFileDetailDrawer({
   confirmationDraft,
   detail,
   detailLoading,
+  editorLoading,
+  editorText,
   onClose,
   onConfirmationChange,
+  onEditorChange,
   onMutableAction,
+  onOpenEditor,
+  onPreheat,
   onPreviewLayerChange,
   onPreviewModeChange,
   onReadOnlyAction,
+  onRescanMetadata,
+  onSaveEditor,
   onTargetChange,
   previewLayer,
   previewMode,
@@ -405,12 +599,19 @@ function GcodeFileDetailDrawer({
   confirmationDraft: string;
   detail: GcodeFileDetailResponse | null;
   detailLoading: boolean;
+  editorLoading: boolean;
+  editorText: string | null;
   onClose: () => void;
   onConfirmationChange: (value: string) => void;
+  onEditorChange: (value: string | null) => void;
   onMutableAction: (action: GcodeFileActionState) => void;
+  onOpenEditor: () => void;
+  onPreheat: () => void;
   onPreviewLayerChange: (value: number) => void;
   onPreviewModeChange: (value: GcodePreviewMode) => void;
   onReadOnlyAction: (action: GcodeFileActionName) => void;
+  onRescanMetadata: () => void;
+  onSaveEditor: () => void;
   onTargetChange: (value: string) => void;
   previewLayer: number;
   previewMode: GcodePreviewMode;
@@ -466,8 +667,37 @@ function GcodeFileDetailDrawer({
                     {actionBusy === action.action ? "Aguarde" : action.label}
                   </button>
                 ))}
+                <button type="button" className="secondary-button" onClick={onRescanMetadata} disabled={actionBusy !== null}>
+                  <RefreshCw size={15} />
+                  Atualizar metadados
+                </button>
+                <button type="button" className="secondary-button" onClick={onOpenEditor} disabled={actionBusy !== null || editorLoading}>
+                  <Pencil size={15} />
+                  {editorLoading ? "Abrindo editor" : "Editar G-code"}
+                </button>
+                <button type="button" className="secondary-button" onClick={onPreheat} disabled={actionBusy !== null}>
+                  <Thermometer size={15} />
+                  Pré-aquecer
+                </button>
               </div>
             </section>
+
+            {editorText !== null ? (
+              <section className="gcode-file-editor">
+                <div>
+                  <h4>Editor G-code</h4>
+                  <button type="button" className="ghost-button" onClick={() => onEditorChange(null)} disabled={editorLoading}>
+                    <X size={14} />
+                    Fechar editor
+                  </button>
+                </div>
+                <textarea value={editorText} onChange={(event) => onEditorChange(event.target.value)} spellCheck={false} aria-label="Conteúdo do G-code" />
+                <button type="button" className="primary-button" onClick={onSaveEditor} disabled={editorLoading}>
+                  <Save size={15} />
+                  {editorLoading ? "Salvando" : "Salvar e sobrescrever"}
+                </button>
+              </section>
+            ) : null}
 
             {previewOpen ? (
               <section className="gcode-file-preview gcode-file-preview-3d">

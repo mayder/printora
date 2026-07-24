@@ -130,6 +130,14 @@ export type GcodeFilesResponse = {
   storage?: OperationGcodeStorage | null;
   fetched_at?: string | null;
   cache_ttl_seconds?: number | null;
+  total: number;
+  offset: number;
+  limit: number;
+  has_more: boolean;
+  directory: string;
+  query: string;
+  sort: "modified" | "name" | "size";
+  direction: "asc" | "desc";
   error?: string | null;
   agent?: {
     version?: string | null;
@@ -209,6 +217,42 @@ export type GcodeFileActionResponse = {
   confirmation_matched: boolean;
   blockers: string[];
   summary: string;
+  job_id?: number | null;
+  result: Record<string, unknown>;
+};
+
+export type GcodeFileUploadResponse = {
+  printer_id: number;
+  status: "uploaded" | "started" | "blocked" | "failed";
+  filename: string;
+  size_bytes: number;
+  sha256: string;
+  job_id?: number | null;
+  summary: string;
+  blockers: string[];
+};
+
+export type GcodeManagerAction =
+  | "metadata_scan"
+  | "preheat"
+  | "directory_create"
+  | "directory_move"
+  | "directory_delete"
+  | "batch_delete"
+  | "batch_duplicate"
+  | "batch_move"
+  | "queue_add"
+  | "queue_remove"
+  | "queue_pause"
+  | "queue_resume"
+  | "queue_start";
+
+export type GcodeManagerResponse = {
+  printer_id: number;
+  action: GcodeManagerAction | "queue_status";
+  status: "ready" | "blocked" | "executed" | "failed";
+  summary: string;
+  blockers: string[];
   job_id?: number | null;
   result: Record<string, unknown>;
 };

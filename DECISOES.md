@@ -1792,3 +1792,26 @@ de bloqueio de cabeça de fila; não há alteração de dados, schema ou agente.
 
 Como reverter: reverter a implementação e invalidar qualquer soak iniciado com
 a versão revertida antes de reavaliar capacidade.
+
+### DEC-20260724-16 - Upload G-code passa por staging efêmero e streaming
+
+Status: aceita
+Data: 2026-07-24
+Contexto: o gerenciador precisa receber arquivos grandes no navegador e
+entregá-los a um Moonraker que não é acessível diretamente pela cloud.
+
+Decisão: a cloud grava o corpo em arquivo temporário limitado a 96 MB, registra
+somente chave aleatória, nome, tamanho e SHA-256 e entrega essa chave ao agente.
+O agente baixa uma única vez e transmite multipart por streaming ao Moonraker.
+Após a resposta do download, dados e metadados temporários são removidos. O
+conteúdo não entra no banco, job, log ou resposta.
+
+Consequências: o fluxo suporta progresso e arquivos grandes sem ampliar o
+payload do protocolo ou a memória do agente. Sobrescrita e upload com impressão
+exigem confirmação textual e autenticação reforçada; upload simples continua
+reversível pela exclusão manual do arquivo remoto. Os painéis de upload e fila
+são carregados em chunk separado; o teto total gzip sobe de 830 KB para 835 KB,
+sem alterar os tetos do entrypoint, CSS ou maior asset.
+
+Como reverter: voltar cloud e agente em conjunto para a versão anterior; manter
+arquivos já enviados e remover somente temporários expirados.

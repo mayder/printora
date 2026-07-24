@@ -2203,3 +2203,19 @@ Consultas compartilhadas entre SQLite de teste e PostgreSQL Cloud devem manter:
 - consultas agregadas com todas as chaves externas necessárias no `GROUP BY`;
 - teste focado do adaptador e do repositório afetado;
 - smoke do endpoint no PostgreSQL real após a publicação.
+
+## PKG-100: Arquivos G-code
+
+- provar que a montagem da aba dispara uma única listagem e que busca/filtro
+  cancelam a leitura anterior;
+- validar paginação, ordenação, diretório e enriquecimento concorrente limitado;
+- testar path traversal, extensões, limite de 96 MB, digest e escopo por
+  impressora do upload temporário;
+- comprovar streaming cloud-agente-Moonraker sem G-code no payload persistido;
+- impedir sobrescrita sem confirmação e impedir imprimir/preaquecer quando o
+  preflight detectar estado incompatível;
+- cobrir pasta, metascan, fila, lote, editor e frases exatas/step-up;
+- executar build/budget, testes backend/agente, `./check.sh`, smoke público e
+  aceite navegável nas duas impressoras;
+- nos testes físicos, usar arquivo inofensivo e não iniciar impressão real até
+  confirmar que a impressora está ociosa.

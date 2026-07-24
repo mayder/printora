@@ -4,7 +4,7 @@ from app.routes.support import *
 from datetime import datetime, timezone
 import json
 
-from fastapi import Depends, Header, Query
+from fastapi import Depends, Header, Query, Request
 
 from app.agent_executor import AgentCommandExecutor, AgentJobFailedError
 from app.agent_moonraker import agent_preflight_payload, operation_payload
@@ -16,6 +16,7 @@ from app.gcode_files import (
     GcodeFileActionResponse,
     GcodeFileDetailResponse,
     GcodeFileHistoryEntry,
+    GcodeFileUploadResponse,
     build_gcode_file_action_response,
     build_gcode_file_detail_response,
     build_gcode_files_response,
@@ -35,6 +36,13 @@ from app.gcode_cache import (
     gcode_cache_key,
     normalize_gcode_filename,
     read_gcode_cache_entry,
+    store_user_gcode_upload,
+)
+from app.gcode_manager import (
+    GcodeManagerRequest,
+    GcodeManagerResponse,
+    manager_confirmation_phrase,
+    manager_requires_step_up,
 )
 from app.operation import build_operation_actions, operation_action_blocks_when_printing, operation_action_requires_step_up
 from app.routes.auth import require_current_user_when_configured
@@ -111,7 +119,12 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
 async def list_printer_gcode_files(
     printer_id: int,
     refresh: bool = False,
-    limit: int = Query(default=300, ge=1, le=500),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0, le=100_000),
+    directory: str = Query(default="", max_length=300),
+    query: str = Query(default="", max_length=120),
+    sort: str = Query(default="modified", pattern="^(modified|name|size)$"),
+    direction: str = Query(default="desc", pattern="^(asc|desc)$"),
     current: CurrentUser = Depends(require_current_user),
 ) -> dict[str, Any]:
     settings = get_settings()
@@ -131,7 +144,17 @@ async def list_printer_gcode_files(
         job = await AgentCommandExecutor(settings.database_path).run(
             printer,
             job_type="remote_gcode_files_list",
-            payload={"refresh": refresh, "limit": limit, "include_metadata": True, "include_thumbnails": True},
+            payload={
+                "refresh": refresh,
+                "limit": limit,
+                "offset": offset,
+                "directory": directory,
+                "query": query,
+                "sort": sort,
+                "direction": direction,
+                "include_metadata": True,
+                "include_thumbnails": True,
+            },
             timeout_seconds=max(settings.request_timeout_seconds, GCODE_FILES_TIMEOUT_SECONDS),
         )
     except AgentJobFailedError as exc:
@@ -155,6 +178,218 @@ async def list_printer_gcode_files(
     return response.model_dump()
 
 
+@router.post("/api/printers/{printer_id}/gcode-files/upload", response_model=GcodeFileUploadResponse)
+async def upload_printer_gcode_file(
+    printer_id: int,
+    request: Request,
+    filename: str = Query(min_length=1, max_length=512),
+    start_print: bool = Query(default=False),
+    overwrite: bool = Query(default=False),
+    confirmation_phrase: str | None = Header(default=None, alias="X-Printora-Confirmation"),
+    step_up_token: str | None = Header(default=None, alias="X-Printora-Step-Up"),
+    authorization: str | None = Header(default=None),
+    current: CurrentUser = Depends(require_current_user),
+) -> GcodeFileUploadResponse:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    remote_filename = normalize_gcode_filename(filename)
+    expected_confirmation = ""
+    if start_print:
+        expected_confirmation = f"ENVIAR E IMPRIMIR {remote_filename}"
+    elif overwrite:
+        expected_confirmation = f"SOBRESCREVER {remote_filename}"
+    if expected_confirmation and (confirmation_phrase or "").strip() != expected_confirmation:
+        return GcodeFileUploadResponse(
+            printer_id=printer.id,
+            status="blocked",
+            filename=remote_filename,
+            size_bytes=0,
+            sha256="",
+            summary="Confirmação textual obrigatória.",
+            blockers=[f"Digite exatamente: {expected_confirmation}"],
+        )
+    if start_print or overwrite:
+        _require_step_up_when_authenticated(
+            settings,
+            authorization,
+            step_up_token,
+            "gcode_file_upload",
+            force=True,
+        )
+    agent_status = _agent_operation_status(settings, printer.id)
+    if not agent_status["ready"]:
+        return GcodeFileUploadResponse(
+            printer_id=printer.id,
+            status="blocked",
+            filename=remote_filename,
+            size_bytes=0,
+            sha256="",
+            summary="Agente atualizado e online é necessário para enviar G-code.",
+            blockers=[agent_status["diagnostic"] or "Agente indisponível."],
+        )
+    staged = await store_user_gcode_upload(settings, printer.id, remote_filename, request)
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_gcode_upload",
+            payload={
+                "upload_key": staged.upload_key,
+                "remote_filename": remote_filename,
+                "start_print": start_print,
+                "overwrite": overwrite,
+            },
+            timeout_seconds=max(settings.request_timeout_seconds, OPERATION_GCODE_CACHE_TIMEOUT_SECONDS),
+        )
+    except AgentJobFailedError as exc:
+        return GcodeFileUploadResponse(
+            printer_id=printer.id,
+            status="failed",
+            filename=remote_filename,
+            size_bytes=staged.size_bytes,
+            sha256=staged.sha256,
+            job_id=exc.job.id,
+            summary="Agente não concluiu o envio.",
+            blockers=[_remote_gcode_failure_detail(exc.job.result or {}) or exc.detail],
+        )
+    except HTTPException as exc:
+        return GcodeFileUploadResponse(
+            printer_id=printer.id,
+            status="failed",
+            filename=remote_filename,
+            size_bytes=staged.size_bytes,
+            sha256=staged.sha256,
+            summary="Envio não confirmado pelo agente.",
+            blockers=[_http_exception_detail(exc)],
+        )
+    result = job.result or {}
+    remote_status = str(result.get("status") or "")
+    if remote_status not in {"uploaded", "started"}:
+        return GcodeFileUploadResponse(
+            printer_id=printer.id,
+            status="blocked" if remote_status == "blocked" else "failed",
+            filename=remote_filename,
+            size_bytes=staged.size_bytes,
+            sha256=staged.sha256,
+            job_id=job.id,
+            summary="Moonraker não confirmou o envio.",
+            blockers=[_remote_gcode_failure_detail(result) or "Envio não confirmado."],
+        )
+    return GcodeFileUploadResponse(
+        printer_id=printer.id,
+        status="started" if remote_status == "started" else "uploaded",
+        filename=remote_filename,
+        size_bytes=staged.size_bytes,
+        sha256=staged.sha256,
+        job_id=job.id,
+        summary="Arquivo enviado e impressão iniciada." if remote_status == "started" else "Arquivo enviado para a impressora.",
+    )
+
+
+@router.get("/api/printers/{printer_id}/gcode-files/queue", response_model=GcodeManagerResponse)
+async def get_printer_gcode_queue(
+    printer_id: int,
+    current: CurrentUser = Depends(require_current_user),
+) -> GcodeManagerResponse:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_gcode_manager",
+            payload={"action": "queue_status"},
+            timeout_seconds=max(settings.request_timeout_seconds, GCODE_FILE_ACTION_TIMEOUT_SECONDS),
+        )
+    except (AgentJobFailedError, HTTPException) as exc:
+        return GcodeManagerResponse(
+            printer_id=printer.id,
+            action="queue_status",
+            status="failed",
+            summary="Fila do Moonraker indisponível.",
+            blockers=[_operation_failure_detail(exc)],
+        )
+    return GcodeManagerResponse(
+        printer_id=printer.id,
+        action="queue_status",
+        status="executed",
+        summary="Fila do Moonraker carregada.",
+        job_id=job.id,
+        result=job.result or {},
+    )
+
+
+@router.post("/api/printers/{printer_id}/gcode-files/manage", response_model=GcodeManagerResponse)
+async def manage_printer_gcode_files(
+    printer_id: int,
+    payload: GcodeManagerRequest,
+    authorization: str | None = Header(default=None),
+    current: CurrentUser = Depends(require_current_user),
+) -> GcodeManagerResponse:
+    settings = get_settings()
+    printer = printer_for_user(settings.database_path, current.user, printer_id)
+    if printer is None:
+        raise HTTPException(status_code=404, detail="printer not found")
+    expected = manager_confirmation_phrase(payload)
+    if expected and payload.confirmation_phrase.strip() != expected:
+        return GcodeManagerResponse(
+            printer_id=printer.id,
+            action=payload.action,
+            status="blocked",
+            summary="Confirmação textual obrigatória.",
+            blockers=[f"Digite exatamente: {expected}"],
+        )
+    if manager_requires_step_up(payload.action):
+        _require_step_up_when_authenticated(settings, authorization, payload.step_up_token, payload.action, force=True)
+    agent_status = _agent_operation_status(settings, printer.id)
+    if not agent_status["ready"]:
+        return GcodeManagerResponse(
+            printer_id=printer.id,
+            action=payload.action,
+            status="blocked",
+            summary="Agente atualizado e online é necessário.",
+            blockers=[agent_status["diagnostic"] or "Agente indisponível."],
+        )
+    job_payload = payload.model_dump(exclude={"confirmation_phrase", "step_up_token"})
+    try:
+        job = await AgentCommandExecutor(settings.database_path).run(
+            printer,
+            job_type="remote_gcode_manager",
+            payload=job_payload,
+            timeout_seconds=max(settings.request_timeout_seconds, 120 if payload.action.startswith("batch_") else GCODE_FILE_ACTION_TIMEOUT_SECONDS),
+        )
+    except AgentJobFailedError as exc:
+        result = exc.job.result or {}
+        return GcodeManagerResponse(
+            printer_id=printer.id,
+            action=payload.action,
+            status="blocked" if result.get("status") == "blocked" else "failed",
+            summary="Agente não concluiu a ação.",
+            blockers=[_remote_gcode_failure_detail(result) or exc.detail],
+            job_id=exc.job.id,
+            result=result,
+        )
+    except HTTPException as exc:
+        return GcodeManagerResponse(
+            printer_id=printer.id,
+            action=payload.action,
+            status="failed",
+            summary="Ação não confirmada pelo agente.",
+            blockers=[_http_exception_detail(exc)],
+        )
+    result = job.result or {}
+    return GcodeManagerResponse(
+        printer_id=printer.id,
+        action=payload.action,
+        status="executed" if result.get("status") == "executed" else "failed",
+        summary="Ação concluída no Moonraker." if result.get("status") == "executed" else "Moonraker não confirmou a ação.",
+        job_id=job.id,
+        result=result,
+    )
+
+
 @router.get("/api/printers/{printer_id}/gcode-files/detail", response_model=GcodeFileDetailResponse)
 async def get_printer_gcode_file_detail(
     printer_id: int,
@@ -166,7 +401,7 @@ async def get_printer_gcode_file_detail(
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
     clean_filename = _require_gcode_filename(filename)
-    files_response = await _load_gcode_files_for_action(settings, printer, refresh=False)
+    files_response = await _load_gcode_files_for_action(settings, printer, filename=clean_filename, refresh=False)
     file = next((item for item in files_response.files if item.path == clean_filename or item.filename == clean_filename), None)
     if file is None:
         raise HTTPException(status_code=404, detail="arquivo G-code não encontrado")
@@ -215,8 +450,8 @@ async def execute_printer_gcode_file_action(
             blockers=[f"Digite exatamente: {expected_confirmation}"],
         )
     if gcode_file_action_requires_step_up(payload.action):
-        _require_step_up_when_authenticated(settings, authorization, payload.step_up_token, payload.action)
-    files_response = await _load_gcode_files_for_action(settings, printer, refresh=False)
+        _require_step_up_when_authenticated(settings, authorization, payload.step_up_token, payload.action, force=True)
+    files_response = await _load_gcode_files_for_action(settings, printer, filename=clean_filename, refresh=False)
     file = next((item for item in files_response.files if item.path == clean_filename or item.filename == clean_filename), None)
     if file is None:
         raise HTTPException(status_code=404, detail="arquivo G-code não encontrado")
@@ -462,8 +697,15 @@ async def execute_direct_printer_operation_action(
     )
 
 
-def _require_step_up_when_authenticated(settings, authorization: str | None, step_up_token: str | None, action_id: str) -> None:
-    if not operation_action_requires_step_up(action_id):
+def _require_step_up_when_authenticated(
+    settings,
+    authorization: str | None,
+    step_up_token: str | None,
+    action_id: str,
+    *,
+    force: bool = False,
+) -> None:
+    if not force and not operation_action_requires_step_up(action_id):
         return
     if not authorization:
         return
@@ -483,7 +725,7 @@ def _agent_operation_status(settings, printer_id: int) -> dict[str, Any]:
     }
 
 
-async def _load_gcode_files_for_action(settings, printer, *, refresh: bool):
+async def _load_gcode_files_for_action(settings, printer, *, filename: str, refresh: bool):
     agent_status = _agent_operation_status(settings, printer.id)
     if not agent_status["ready"]:
         raise HTTPException(status_code=409, detail=agent_status["diagnostic"] or f"agente {EXPECTED_AGENT_VERSION} ou superior é necessário")
@@ -491,7 +733,13 @@ async def _load_gcode_files_for_action(settings, printer, *, refresh: bool):
         job = await AgentCommandExecutor(settings.database_path).run(
             printer,
             job_type="remote_gcode_files_list",
-            payload={"refresh": refresh, "limit": 500, "include_metadata": True, "include_thumbnails": True},
+            payload={
+                "refresh": refresh,
+                "limit": 20,
+                "query": filename,
+                "include_metadata": True,
+                "include_thumbnails": True,
+            },
             timeout_seconds=max(settings.request_timeout_seconds, GCODE_FILES_TIMEOUT_SECONDS),
         )
     except AgentJobFailedError as exc:

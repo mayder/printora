@@ -331,7 +331,7 @@ func TestGcodeFilesListFetchesMetadataAndUsesShortCache(t *testing.T) {
 		t.Fatalf("unexpected storage: %#v", storage)
 	}
 
-	cached := client.GcodeFiles(context.Background(), map[string]any{"limit": 10.0})
+	cached := client.GcodeFiles(context.Background(), map[string]any{"limit": 10.0, "include_metadata": true, "include_thumbnails": false})
 	if cached["cache_state"] != "hit" {
 		t.Fatalf("expected cache hit: %#v", cached)
 	}
@@ -1344,6 +1344,79 @@ func TestRemoteGcodeUploadSendsMultipartFileAndCanStartPrint(t *testing.T) {
 	}
 	if _, leaked := result["gcode_content"]; leaked {
 		t.Fatalf("gcode content leaked in result: %#v", result)
+	}
+}
+
+func TestRemoteGcodeUploadBlocksExistingFileWithoutOverwrite(t *testing.T) {
+	var sawUpload bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/server/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"klippy_state": "ready"}})
+		case "/printer/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"state": "ready"}})
+		case "/printer/objects/list":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"objects": []any{"print_stats"}}})
+		case "/printer/objects/query":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"status": map[string]any{"print_stats": map[string]any{"state": "standby"}}}})
+		case "/server/files/metadata":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"size": 12}})
+		case "/server/files/upload":
+			sawUpload = true
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewMoonrakerClient(server.URL, time.Second)
+	result := client.RemoteGcodeUpload(context.Background(), map[string]any{
+		"remote_filename": "existing.gcode",
+		"gcode_content":   "G28\n",
+	})
+	if result["status"] != "blocked" || !strings.Contains(stringValue(result["detail"]), "sobrescrita") {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if sawUpload {
+		t.Fatal("existing file must not be overwritten without confirmation")
+	}
+}
+
+func TestRemoteGcodeManagerCreatesDirectoryAndScansMetadata(t *testing.T) {
+	var createdPath string
+	var scannedFilename string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/server/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"klippy_state": "ready"}})
+		case "/printer/info":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"state": "ready"}})
+		case "/printer/objects/list":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"objects": []any{"print_stats"}}})
+		case "/printer/objects/query":
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"status": map[string]any{"print_stats": map[string]any{"state": "standby"}}}})
+		case "/server/files/directory":
+			var payload map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&payload)
+			createdPath = stringValue(payload["path"])
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"action": "create_dir"}})
+		case "/server/files/metascan":
+			scannedFilename = r.URL.Query().Get("filename")
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"filename": scannedFilename}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewMoonrakerClient(server.URL, time.Second)
+	created := client.RemoteGcodeManager(context.Background(), map[string]any{"action": "directory_create", "directory": "jobs/today"})
+	if created["status"] != "executed" || createdPath != "gcodes/jobs/today" {
+		t.Fatalf("unexpected directory result: %#v path=%s", created, createdPath)
+	}
+	scanned := client.RemoteGcodeManager(context.Background(), map[string]any{"action": "metadata_scan", "filename": "jobs/today/cube.gcode"})
+	if scanned["status"] != "executed" || scannedFilename != "jobs/today/cube.gcode" {
+		t.Fatalf("unexpected metascan result: %#v filename=%s", scanned, scannedFilename)
 	}
 }
 

@@ -1405,7 +1405,7 @@
             "type": "integer"
           },
           "recommended_version": {
-            "default": "0.1.34",
+            "default": "0.1.36",
             "title": "Recommended Version",
             "type": "string"
           },
@@ -8823,6 +8823,242 @@
           }
         },
         "title": "GcodeFileThumbnail",
+        "type": "object"
+      },
+      "GcodeFileUploadResponse": {
+        "properties": {
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "printer_id": {
+            "title": "Printer Id",
+            "type": "integer"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "uploaded",
+              "started",
+              "blocked",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "printer_id",
+          "status",
+          "filename",
+          "size_bytes",
+          "sha256",
+          "summary"
+        ],
+        "title": "GcodeFileUploadResponse",
+        "type": "object"
+      },
+      "GcodeManagerRequest": {
+        "properties": {
+          "action": {
+            "enum": [
+              "metadata_scan",
+              "preheat",
+              "directory_create",
+              "directory_move",
+              "directory_delete",
+              "batch_delete",
+              "batch_duplicate",
+              "batch_move",
+              "queue_add",
+              "queue_remove",
+              "queue_pause",
+              "queue_resume",
+              "queue_start"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "bed_temperature": {
+            "default": 0,
+            "maximum": 130.0,
+            "minimum": 0.0,
+            "title": "Bed Temperature",
+            "type": "integer"
+          },
+          "confirmation_phrase": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Confirmation Phrase",
+            "type": "string"
+          },
+          "directory": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Directory",
+            "type": "string"
+          },
+          "filename": {
+            "default": "",
+            "maxLength": 512,
+            "title": "Filename",
+            "type": "string"
+          },
+          "filenames": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Filenames",
+            "type": "array"
+          },
+          "hotend_temperature": {
+            "default": 0,
+            "maximum": 300.0,
+            "minimum": 0.0,
+            "title": "Hotend Temperature",
+            "type": "integer"
+          },
+          "job_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Job Ids",
+            "type": "array"
+          },
+          "step_up_token": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Up Token"
+          },
+          "target_directory": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Target Directory",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "GcodeManagerRequest",
+        "type": "object"
+      },
+      "GcodeManagerResponse": {
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "enum": [
+                  "metadata_scan",
+                  "preheat",
+                  "directory_create",
+                  "directory_move",
+                  "directory_delete",
+                  "batch_delete",
+                  "batch_duplicate",
+                  "batch_move",
+                  "queue_add",
+                  "queue_remove",
+                  "queue_pause",
+                  "queue_resume",
+                  "queue_start"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "queue_status",
+                "type": "string"
+              }
+            ],
+            "title": "Action"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "printer_id": {
+            "title": "Printer Id",
+            "type": "integer"
+          },
+          "result": {
+            "additionalProperties": true,
+            "title": "Result",
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "blocked",
+              "executed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "printer_id",
+          "action",
+          "status",
+          "summary"
+        ],
+        "title": "GcodeManagerResponse",
         "type": "object"
       },
       "GeometrySearchRequest": {
@@ -26662,6 +26898,59 @@
         "summary": "Upload Agent Gcode Cache"
       }
     },
+    "/api/agent/gcode-uploads/{upload_key}": {
+      "get": {
+        "operationId": "download_staged_gcode_upload_api_agent_gcode_uploads__upload_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_key",
+            "required": true,
+            "schema": {
+              "title": "Upload Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Staged Gcode Upload"
+      }
+    },
     "/api/agent/heartbeat": {
       "post": {
         "operationId": "agent_heartbeat_api_agent_heartbeat_post",
@@ -34943,11 +35232,67 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 300,
-              "maximum": 500,
+              "default": 50,
+              "maximum": 100,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 100000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "directory",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 300,
+              "title": "Directory",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 120,
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "modified",
+              "pattern": "^(modified|name|size)$",
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "pattern": "^(asc|desc)$",
+              "title": "Direction",
+              "type": "string"
             }
           },
           {
@@ -35123,6 +35468,244 @@
           }
         },
         "summary": "Get Printer Gcode File Detail"
+      }
+    },
+    "/api/printers/{printer_id}/gcode-files/manage": {
+      "post": {
+        "operationId": "manage_printer_gcode_files_api_printers__printer_id__gcode_files_manage_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "printer_id",
+            "required": true,
+            "schema": {
+              "title": "Printer Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GcodeManagerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GcodeManagerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Manage Printer Gcode Files"
+      }
+    },
+    "/api/printers/{printer_id}/gcode-files/queue": {
+      "get": {
+        "operationId": "get_printer_gcode_queue_api_printers__printer_id__gcode_files_queue_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "printer_id",
+            "required": true,
+            "schema": {
+              "title": "Printer Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GcodeManagerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Printer Gcode Queue"
+      }
+    },
+    "/api/printers/{printer_id}/gcode-files/upload": {
+      "post": {
+        "operationId": "upload_printer_gcode_file_api_printers__printer_id__gcode_files_upload_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "printer_id",
+            "required": true,
+            "schema": {
+              "title": "Printer Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "filename",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Filename",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start_print",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Start Print",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "overwrite",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Overwrite",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Printora-Confirmation",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Printora-Confirmation"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Printora-Step-Up",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Printora-Step-Up"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GcodeFileUploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Printer Gcode File"
       }
     },
     "/api/printers/{printer_id}/health": {

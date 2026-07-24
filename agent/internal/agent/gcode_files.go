@@ -12,21 +12,31 @@ import (
 )
 
 const gcodeFilesCacheTTL = 20 * time.Second
-const maxGcodeFilesListLimit = 500
-const maxGcodeFileMetadataRequests = 300
-const maxGcodeFileThumbnailRequests = 80
+const maxGcodeFilesListLimit = 100
+const defaultGcodeFilesListLimit = 50
+const maxGcodeFileThumbnailRequests = 24
+const gcodeFileEnrichmentConcurrency = 4
 
 type gcodeFilesListCache struct {
 	mu        sync.Mutex
 	expiresAt time.Time
+	key       string
 	payload   map[string]any
 }
 
 func (c *MoonrakerClient) GcodeFiles(ctx context.Context, jobPayload map[string]any) map[string]any {
 	limit := intFromAny(jobPayload["limit"])
 	if limit <= 0 || limit > maxGcodeFilesListLimit {
-		limit = maxGcodeFilesListLimit
+		limit = defaultGcodeFilesListLimit
 	}
+	offset := intFromAny(jobPayload["offset"])
+	if offset < 0 {
+		offset = 0
+	}
+	directory := normalizedMoonrakerDirectoryPath(stringValue(jobPayload["directory"]))
+	query := strings.ToLower(strings.TrimSpace(stringValue(jobPayload["query"])))
+	sortKey := normalizedGcodeFileSortKey(stringValue(jobPayload["sort"]))
+	sortDirection := normalizedGcodeFileSortDirection(stringValue(jobPayload["direction"]))
 	refresh := boolFromAny(jobPayload["refresh"])
 	includeMetadata := boolFromAny(jobPayload["include_metadata"])
 	includeThumbnails := boolFromAny(jobPayload["include_thumbnails"])
@@ -36,8 +46,18 @@ func (c *MoonrakerClient) GcodeFiles(ctx context.Context, jobPayload map[string]
 	if includeThumbnails == false && jobPayload["include_thumbnails"] == nil {
 		includeThumbnails = true
 	}
+	cacheKey := strings.Join([]string{
+		intString(limit),
+		intString(offset),
+		directory,
+		query,
+		sortKey,
+		sortDirection,
+		strconv.FormatBool(includeMetadata),
+		strconv.FormatBool(includeThumbnails),
+	}, "\x00")
 	if !refresh {
-		if cached := c.gcodeFiles.get(); cached != nil {
+		if cached := c.gcodeFiles.get(cacheKey); cached != nil {
 			cached["cache_state"] = "hit"
 			return cached
 		}
@@ -51,6 +71,12 @@ func (c *MoonrakerClient) GcodeFiles(ctx context.Context, jobPayload map[string]
 		"cache_state":       "miss",
 		"cache_ttl_seconds": int(gcodeFilesCacheTTL.Seconds()),
 		"fetched_at":        time.Now().UTC().Format(time.RFC3339),
+		"offset":            offset,
+		"limit":             limit,
+		"directory":         directory,
+		"query":             query,
+		"sort":              sortKey,
+		"direction":         sortDirection,
 	}
 	listPayload := map[string]any{}
 	if err := c.get(ctx, "/server/files/list?root=gcodes", "gcode_files", listPayload); err != nil {
@@ -60,16 +86,28 @@ func (c *MoonrakerClient) GcodeFiles(ctx context.Context, jobPayload map[string]
 		return payload
 	}
 
-	files := c.normalizeGcodeFileList(ctx, listPayload["gcode_files"], limit, includeMetadata, includeThumbnails)
+	allFiles := normalizeGcodeFileList(listPayload["gcode_files"])
+	filtered := filterGcodeFiles(allFiles, directory, query)
+	sortGcodeFiles(filtered, sortKey, sortDirection)
+	total := len(filtered)
+	if offset > total {
+		offset = total
+	}
+	end := min(offset+limit, total)
+	files := filtered[offset:end]
+	c.enrichGcodeFileList(ctx, files, includeMetadata, includeThumbnails)
+	payload["offset"] = offset
 	payload["files"] = files
-	payload["directories"] = directoriesFromGcodeFiles(files)
+	payload["directories"] = directoriesFromGcodeFiles(allFiles)
 	payload["storage"] = c.gcodeStorage(ctx)
-	payload["summary"] = gcodeFilesSummary(files)
-	c.gcodeFiles.set(payload, gcodeFilesCacheTTL)
+	payload["total"] = total
+	payload["has_more"] = end < total
+	payload["summary"] = gcodeFilesSummary(total)
+	c.gcodeFiles.set(cacheKey, payload, gcodeFilesCacheTTL)
 	return copyMap(payload)
 }
 
-func (c *MoonrakerClient) normalizeGcodeFileList(ctx context.Context, raw any, limit int, includeMetadata bool, includeThumbnails bool) []map[string]any {
+func normalizeGcodeFileList(raw any) []map[string]any {
 	items := unwrapGcodeFileItems(raw)
 	files := make([]map[string]any, 0, len(items))
 	for _, item := range items {
@@ -82,28 +120,81 @@ func (c *MoonrakerClient) normalizeGcodeFileList(ctx context.Context, raw any, l
 		file["path"] = filename
 		files = append(files, file)
 	}
-	sort.SliceStable(files, func(i, j int) bool {
-		left, _ := numberFromAny(files[i]["modified"])
-		right, _ := numberFromAny(files[j]["modified"])
-		return left > right
-	})
-	if limit > 0 && len(files) > limit {
-		files = files[:limit]
-	}
-	metadataLimit := min(len(files), maxGcodeFileMetadataRequests)
-	thumbnailLimit := min(len(files), maxGcodeFileThumbnailRequests)
-	for index, file := range files {
-		var metadata map[string]any
-		filename := stringValue(file["filename"])
-		if includeMetadata && index < metadataLimit {
-			metadata = c.gcodeFileMetadata(ctx, filename)
-			mergeGcodeMetadata(file, metadata)
-		}
-		if includeThumbnails && index < thumbnailLimit {
-			file["thumbnail"] = c.gcodeFileThumbnail(ctx, filename, metadata)
-		}
-	}
 	return files
+}
+
+func (c *MoonrakerClient) enrichGcodeFileList(ctx context.Context, files []map[string]any, includeMetadata bool, includeThumbnails bool) {
+	thumbnailLimit := min(len(files), maxGcodeFileThumbnailRequests)
+	var wait sync.WaitGroup
+	semaphore := make(chan struct{}, gcodeFileEnrichmentConcurrency)
+	for index, file := range files {
+		index := index
+		file := file
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			select {
+			case semaphore <- struct{}{}:
+				defer func() { <-semaphore }()
+			case <-ctx.Done():
+				return
+			}
+			var metadata map[string]any
+			filename := stringValue(file["filename"])
+			if includeMetadata {
+				metadata = c.gcodeFileMetadata(ctx, filename)
+				mergeGcodeMetadata(file, metadata)
+			}
+			if includeThumbnails && index < thumbnailLimit {
+				file["thumbnail"] = c.gcodeFileThumbnail(ctx, filename, metadata)
+			}
+		}()
+	}
+	wait.Wait()
+}
+
+func filterGcodeFiles(files []map[string]any, directory string, query string) []map[string]any {
+	filtered := make([]map[string]any, 0, len(files))
+	for _, file := range files {
+		filename := stringValue(file["filename"])
+		if directory != "" && parentDirectory(filename) != directory {
+			continue
+		}
+		if query != "" && !strings.Contains(strings.ToLower(filename), query) {
+			continue
+		}
+		filtered = append(filtered, file)
+	}
+	return filtered
+}
+
+func sortGcodeFiles(files []map[string]any, sortKey string, direction string) {
+	descending := direction != "asc"
+	sort.SliceStable(files, func(i, j int) bool {
+		switch sortKey {
+		case "name":
+			left := strings.ToLower(stringValue(files[i]["filename"]))
+			right := strings.ToLower(stringValue(files[j]["filename"]))
+			if descending {
+				return left > right
+			}
+			return left < right
+		case "size":
+			left, _ := numberFromAny(files[i]["size"])
+			right, _ := numberFromAny(files[j]["size"])
+			if descending {
+				return left > right
+			}
+			return left < right
+		default:
+			left, _ := numberFromAny(files[i]["modified"])
+			right, _ := numberFromAny(files[j]["modified"])
+			if descending {
+				return left > right
+			}
+			return left < right
+		}
+	})
 }
 
 func (c *MoonrakerClient) gcodeFileMetadata(ctx context.Context, filename string) map[string]any {
@@ -269,25 +360,26 @@ func (c *MoonrakerClient) gcodeStorage(ctx context.Context) map[string]any {
 	return storage
 }
 
-func gcodeFilesSummary(files []map[string]any) string {
-	if len(files) == 0 {
+func gcodeFilesSummary(total int) string {
+	if total == 0 {
 		return "Nenhum arquivo G-code retornado pelo Moonraker."
 	}
-	return strings.TrimSpace(strings.Join([]string{intString(len(files)), "arquivo(s) G-code retornado(s) pelo Moonraker."}, " "))
+	return strings.TrimSpace(strings.Join([]string{intString(total), "arquivo(s) G-code retornado(s) pelo Moonraker."}, " "))
 }
 
-func (c *gcodeFilesListCache) get() map[string]any {
+func (c *gcodeFilesListCache) get(key string) map[string]any {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.payload == nil || time.Now().After(c.expiresAt) {
+	if c.payload == nil || c.key != key || time.Now().After(c.expiresAt) {
 		return nil
 	}
 	return copyMap(c.payload)
 }
 
-func (c *gcodeFilesListCache) set(payload map[string]any, ttl time.Duration) {
+func (c *gcodeFilesListCache) set(key string, payload map[string]any, ttl time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.key = key
 	c.payload = copyMap(payload)
 	c.expiresAt = time.Now().Add(ttl)
 }
@@ -317,6 +409,30 @@ func normalizedMoonrakerGcodePath(value string) string {
 		parts = append(parts, part)
 	}
 	return strings.Join(parts, "/")
+}
+
+func normalizedMoonrakerDirectoryPath(value string) string {
+	cleaned := normalizedMoonrakerGcodePath(value)
+	if cleaned == "gcodes" {
+		return ""
+	}
+	return strings.TrimPrefix(cleaned, "gcodes/")
+}
+
+func normalizedGcodeFileSortKey(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "name", "size":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return "modified"
+	}
+}
+
+func normalizedGcodeFileSortDirection(value string) string {
+	if strings.EqualFold(strings.TrimSpace(value), "asc") {
+		return "asc"
+	}
+	return "desc"
 }
 
 func parentDirectory(value string) string {

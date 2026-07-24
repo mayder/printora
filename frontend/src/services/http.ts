@@ -91,7 +91,7 @@ function notifyUnauthorizedSession(response: Response): void {
   window.dispatchEvent(new CustomEvent(AUTH_SESSION_EXPIRED_EVENT));
 }
 
-function apiInput(input: RequestInfo | URL): RequestInfo | URL {
+export function apiInput(input: RequestInfo | URL): RequestInfo | URL {
   if (typeof input !== "string" || !input.startsWith("/")) {
     return input;
   }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "minimum_version": "0.1.17",
-  "recommended_version": "0.1.34",
+  "recommended_version": "0.1.36",
   "candidate_version": null,
   "blocked_versions": [],
   "protocol_version": 1,
@@ -26,6 +26,24 @@
       "url": "/api/agent/update/releases/0.1.34/linux-arm64",
       "sha256": "c430f3b16f0785808b09ecacce63fb734c434864262dc22a50dcc3642a6ff9dc",
       "signature": "+uYOT28B41qHiJPqs0P/OndKLjfSgzm+i5PESRwb+RLQr+K5oAJzCDvCj8EuAevYtzcPKzMPZgLs29g6Yf3eCA==",
+      "protocol_min": 1,
+      "protocol_max": 1
+    },
+    {
+      "platform": "linux/arm64",
+      "version": "0.1.35",
+      "url": "/api/agent/update/releases/0.1.35/linux-arm64",
+      "sha256": "fd5bc116aa5b709fa3abf86f153959b0f00f9fdb90e0fae23078fbf3ce2f415f",
+      "signature": "X8fjzZx+/9o93aoLiVoKULAYCdvr0QFMK/r3Zpug/obnEeEjemtU4VzQDOPzldu75VCT5aszaMT+L2bxrOlrCg==",
+      "protocol_min": 1,
+      "protocol_max": 1
+    },
+    {
+      "platform": "linux/arm64",
+      "version": "0.1.36",
+      "url": "/api/agent/update/releases/0.1.36/linux-arm64",
+      "sha256": "ffcddf957bd3645288f18f7a06f35f29606fd132ee338a5c49605d4792559226",
+      "signature": "Pr3+91qbRBfOl7VMfyb6fq/7WeoDce0VzGGAJoCSjvms08k+QlwEPoN9ZGCVhQFNqEWrdTsqHgf9DTEBxLitDA==",
       "protocol_min": 1,
       "protocol_max": 1
     }

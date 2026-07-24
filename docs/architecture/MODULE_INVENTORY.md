@@ -4,9 +4,9 @@
 
 ## Resumo
 
-- módulos Python: 173;
-- endpoints HTTP/WebSocket: 373;
-- contratos tipados: 385;
+- módulos Python: 174;
+- endpoints HTTP/WebSocket: 377;
+- contratos tipados: 389;
 - tabelas declaradas em SQL: 156;
 - ciclos de import detectados: 0.
 
@@ -17,7 +17,7 @@
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 13 | 8 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 29 | 45 |
 | `finance` | Finanças e pedidos | Ledger, pedidos, pagamentos, reconciliação, risco e repasses. | 13 | 20 |
-| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 58 | 44 |
+| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 59 | 44 |
 | `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 31 | 39 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 7 | 0 |
 | `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 22 | 0 |
@@ -28,6 +28,7 @@
 |---|---|---:|---:|---:|
 | `social_catalog` | `community` | 3402 | 0 | 0 |
 | `operation` | `operations` | 1158 | 0 | 0 |
+| `routes.operation` | `operations` | 1153 | 16 | 0 |
 | `maintenance` | `operations` | 1147 | 0 | 8 |
 | `routes.social_catalog` | `community` | 1120 | 59 | 0 |
 | `print_projects` | `community` | 1064 | 0 | 14 |
@@ -35,10 +36,9 @@
 | `agent_pairing` | `operations` | 997 | 0 | 0 |
 | `auth` | `identity` | 913 | 0 | 0 |
 | `calibration` | `operations` | 910 | 0 | 12 |
-| `routes.operation` | `operations` | 905 | 13 | 0 |
 | `modules.platform.durable_execution` | `shared` | 763 | 0 | 1 |
+| `routes.agents` | `operations` | 759 | 38 | 0 |
 | `setup_flash` | `operations` | 753 | 0 | 7 |
-| `routes.agents` | `operations` | 750 | 37 | 0 |
 | `search_discovery` | `community` | 733 | 0 | 5 |
 | `setup_can` | `operations` | 699 | 0 | 7 |
 | `slicing_pipeline` | `operations` | 680 | 0 | 5 |
@@ -48,7 +48,7 @@
 | `setup_wizard` | `operations` | 643 | 0 | 7 |
 | `printers` | `operations` | 635 | 0 | 3 |
 | `database` | `shared` | 590 | 0 | 0 |
-| `gcode_files` | `operations` | 547 | 0 | 10 |
+| `gcode_files` | `operations` | 574 | 0 | 11 |
 | `health` | `administration` | 513 | 0 | 0 |
 | `setup_firmware` | `operations` | 513 | 0 | 5 |
 | `setup_final_validation` | `operations` | 509 | 0 | 4 |
