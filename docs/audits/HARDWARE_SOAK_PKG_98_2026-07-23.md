@@ -192,8 +192,13 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   responsivo e de conteúdo `d524af6`. Gate completo, build reproduzível,
   auditorias, SBOM, blue/green, drain e endpoint público passaram. Produção
   serviu `index-DrJ9_ddD.js`; o Chrome confirmou `Origem no catálogo` e o estado
-  vazio de mods em `/c/maker-annex-engineering`, sem erro de console. As rotas
-  privadas continuam sem smoke real por ausência de sessão autenticada.
+  vazio de mods em `/c/maker-annex-engineering`, sem erro de console.
+- Smoke privado autenticado: uma sessão real existente percorreu `Visão geral`,
+  `Impressoras`, `Agentes`, `Projetos de impressão`, `Social`, `Catálogo`,
+  `Setup`, `Finanças`, `Fabricação`, `Dados e inteligência` e `Administração`
+  no Chrome. Desktop/tema escuro e mobile `390x844`/tema claro exibiram o
+  heading correto em todas as áreas, sem erro de console. Tema, viewport e tela
+  inicial foram restaurados; nenhum refresh, job ou comando foi disparado.
 - Gate de hardware pós-deploy: não iniciado. Voron 0.2 e Voron 2.4 estavam
   intencionalmente desligadas, conforme confirmação do responsável, portanto o
   observador falhou fechado por heartbeat vencido. Nenhuma janela de 24 horas
@@ -213,7 +218,7 @@ matriz física, o fluxo real ou o E2E visual.
 | 3. Ações protegidas e falhas controladas | parcial | fila, expiração, reconnect e bloqueios foram exercitados sem afetar a impressão | validar pausada, concluída, cancelada, agente reiniciando, Moonraker indisponível e rede degradada em janela segura |
 | 4. Update/rollback do agente | concluído | `docs/audits/AGENT_RELEASE_0.1.34_2026-07-23.md` comprova `0.1.34 -> 0.1.33 -> 0.1.34` nas duas Voron somente pela web | nenhum |
 | 5. Projeto até histórico real | pendente | contratos e testes existem, mas não substituem aceite físico desta janela | validar projeto, G-code, preview, preflight, salvar/enviar e histórico com fixture aprovada |
-| 6. E2E visual real | parcial | matriz local passou; perfil e comunidade públicos foram retestados nas releases exatas sem erro de console | validar rotas privadas com sessão real e desktop, mobile, tema claro/escuro no fluxo físico |
+| 6. E2E visual real | parcial | matriz local, superfícies públicas e onze áreas privadas autenticadas passaram em desktop/escuro e mobile/claro sem erro de console | validar desktop, mobile e temas no fluxo físico de operação, preview, entrega e histórico |
 | 7. Soak inicial de 24 horas | aguardando hardware | duas tentativas foram invalidadas; pool contínuo publicado e smoke Cloud de 120 s/700 requisições aprovado | ligar uma Voron, aprovar probe e smoke curto observados e completar continuamente por 86.400 s |
 | 8. Correções e repetição | em execução | incidentes de UI, fila, UTC, lease, conexão fria, runtime e ciclo do pool foram corrigidos e retestados | reiniciar integralmente qualquer janela que falhar |
 | 9. Soak final de 72 horas | pendente | não iniciado | iniciar somente após lotes anteriores e completar continuamente por 259.200 s |

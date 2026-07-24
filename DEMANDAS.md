@@ -6477,8 +6477,11 @@ Estado atual:
   `30069338745`, com gate completo, build reproduzível, auditorias, SBOM,
   blue/green, drain e smoke público aprovados. Produção serviu o asset
   `index-DrJ9_ddD.js`; `/c/maker-annex-engineering` exibiu os textos finais no
-  Chrome sem erro de console. O smoke das rotas privadas continua pendente por
-  ausência de sessão autenticada e ainda não fecha o lote.
+  Chrome sem erro de console. A sessão autenticada real foi recuperada e as
+  onze áreas principais passaram no Chrome em desktop/tema escuro e mobile
+  `390x844`/tema claro, sem erro de console; tema e viewport foram restaurados.
+  O fluxo visual ligado à operação física continua pendente e ainda não fecha
+  o lote.
 - Lote 7 aguarda nova janela observada: a janela iniciada em
   `2026-07-24T01:27:10Z` foi invalidada integralmente. O 19º lote violou p95/p99
   porque o processo e o pool ainda eram recriados a cada lote, embora houvesse
