@@ -6471,9 +6471,14 @@ Estado atual:
   corrigida em `3769015` e publicada na release
   `0c0c51b8de62927660651b0d86dcdc1b2ae7fcdd` pelo workflow `30067724915`.
   `/health`, `/ready`, versão e a API da biblioteca passaram; o perfil público
-  `/u/tiago-jesus` foi retestado no Chrome sem erro de console. O smoke das
-  rotas privadas continua pendente por ausência de sessão autenticada e ainda
-  não fecha o lote.
+  `/u/tiago-jesus` foi retestado no Chrome sem erro de console. Os ajustes
+  finais de conteúdo e o bundle responsivo de `d524af6` foram publicados na
+  release exata `0700533c489087ab83cf26318b1ec8d0c62b0bc6` pelo workflow
+  `30069338745`, com gate completo, build reproduzível, auditorias, SBOM,
+  blue/green, drain e smoke público aprovados. Produção serviu o asset
+  `index-DrJ9_ddD.js`; `/c/maker-annex-engineering` exibiu os textos finais no
+  Chrome sem erro de console. O smoke das rotas privadas continua pendente por
+  ausência de sessão autenticada e ainda não fecha o lote.
 - Lote 7 aguarda nova janela observada: a janela iniciada em
   `2026-07-24T01:27:10Z` foi invalidada integralmente. O 19º lote violou p95/p99
   porque o processo e o pool ainda eram recriados a cada lote, embora houvesse
