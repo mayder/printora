@@ -201,6 +201,10 @@
   gap: 8px;
 }
 
+.fleet-dashboard-metrics .metric {
+  grid-template-columns: minmax(170px, 1fr) auto;
+}
+
 .fleet-action-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

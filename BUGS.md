@@ -40,8 +40,10 @@ Validação:
 - `npm --prefix frontend run build`;
 - `npm --prefix frontend run test:unit`;
 - `scripts/run-e2e-gate.sh`: 22/22 testes aprovados.
-- o primeiro deploy foi bloqueado com segurança pelo mesmo teste em 1024 px;
-  após ampliar a coluna intermediária, o reteste E2E e `./check.sh` passaram.
+- o primeiro deploy foi bloqueado com segurança pelo mesmo teste em 1024 px e
+  o segundo expôs a regra-base de 140 px em 1440 px;
+- a coluna segura foi aplicada tanto na base quanto no breakpoint intermediário;
+  após o ajuste, o reteste E2E e `./check.sh` passaram.
 
 ### Verificação Ed25519 Do Instalador Era Dependente Do OpenSSL Local
 

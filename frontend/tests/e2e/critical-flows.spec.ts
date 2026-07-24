@@ -574,7 +574,10 @@ test("telas principais permanecem utilizáveis em desktop, tablet e celular", as
     for (const [section, heading] of routes) {
       await openSection(page, section, heading);
       if (section === "overview") {
-        expect(await findVisibleTextBoxOverflow(page, ".fleet-dashboard-metrics .metric span")).toEqual([]);
+        expect(
+          await findVisibleTextBoxOverflow(page, ".fleet-dashboard-metrics .metric span"),
+          `rótulo da Visão geral ultrapassou a própria caixa em ${viewport.width}x${viewport.height}`,
+        ).toEqual([]);
         await page.getByRole("button", { name: /alertas da frota/i }).click();
         const alertsDialog = page.getByRole("dialog", { name: "Central de alertas", exact: true });
         await expect(alertsDialog).toBeVisible();
