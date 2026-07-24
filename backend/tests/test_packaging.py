@@ -272,6 +272,8 @@ def test_physical_rpo_uses_external_wal_and_fails_before_five_minutes() -> None:
     assert "OnUnitActiveSec=60s" in timer
     assert "AccuracySec=5s" in timer
     assert "TimeoutStartSec=110" in service
+    assert "RuntimeDirectory=printora-cloud" in service
+    assert "/run/printora-cloud/wal-sync.lock" in sync
     assert "CONFIGURED_RPO_SECONDS = 120 + 60 + 110" in monitor
     assert 'MAX_SYNC_AGE = int' in monitor
     assert '"210"' in monitor
