@@ -6487,8 +6487,15 @@ Estado atual:
   porque o processo e o pool ainda eram recriados a cada lote, embora houvesse
   keep-alive dentro dele. A correção que mantém um único pool durante toda a
   janela foi publicada em `0b6e963` pelo workflow `30061267780`; o probe
-  cloud curto passou com 700 requisições em 120 s. A contagem de 24 horas só
-  será reiniciada após heartbeat real das impressoras e repetição observada.
+  cloud curto passou com 700 requisições em 120 s. Em 2026-07-24, a Voron 2.4
+  voltou com agente `0.1.34`: probe real e repetição observada de 120 s passaram
+  com 700 requisições, pool contínuo, zero erro, backlog máximo 1 e p95/p99
+  dentro do SLO. Duas tentativas anteriores foram invalidadas por jobs
+  read-only criados pela tela de diagnóstico antes do ensaio e expirados
+  durante a observação; a fila drenou naturalmente, sem exclusão ou
+  cancelamento. A Voron 0.2 continua offline, portanto a contagem de 24 horas
+  ainda não foi iniciada e só poderá começar após probe e repetição observada
+  aprovados também nela.
 
 ## PKG-99: RPO Físico, Recuperação Contínua E Prontidão De Desastre
 
