@@ -199,7 +199,7 @@ const technicalGuides: Record<string, SetupGuide> = {
     options: [
       "Interface: use can0 salvo se seu sistema usa outro nome.",
       "Bitrate: 1000000 é comum em setups Klipper CAN modernos; mantenha igual entre U2C, mainboard e toolhead.",
-      "Aplicar CAN só fica efetivo quando o backend estiver em modo remoto e você digitar a confirmação.",
+      "Aplicar CAN só fica disponível quando a instalação permite configuração remota e você digita a confirmação.",
     ],
     steps: [
       "Confira interface e bitrate.",
@@ -215,7 +215,7 @@ const technicalGuides: Record<string, SetupGuide> = {
     pitfalls: [
       "Bitrate diferente entre placas impede comunicação.",
       "Aplicar CAN pode reiniciar interface de rede CAN; faça com a máquina parada.",
-      "Sem modo remoto habilitado no backend, a aplicação fica bloqueada por segurança.",
+      "Sem configuração remota habilitada, a aplicação fica bloqueada por segurança.",
     ],
   },
   firmware: {
@@ -894,7 +894,7 @@ export function SetupScreen(props: SetupScreenProps) {
             <AlertTriangle className={setupBusy ? "button-busy-icon" : undefined} size={16} />
             Aplicar CAN
           </button>
-          <p>O backend ainda exige <code>PRINTORA_CAN_SETUP_MODE=remote</code>; sem isso a tentativa fica registrada como bloqueada.</p>
+          <p>A configuração remota precisa estar habilitada; caso contrário, a tentativa permanece bloqueada e registrada.</p>
         </div>
         {setupCanApplyResult ? (
           <div className={`action-result ${setupCanApplyResult.status === "ok" ? "success" : "warning"}`}>
@@ -984,7 +984,7 @@ export function SetupScreen(props: SetupScreenProps) {
             <AlertTriangle className={setupBusy ? "button-busy-icon" : undefined} size={16} />
             Build remoto
           </button>
-          <p>O backend exige <code>PRINTORA_REMOTE_FIRMWARE_BUILD_MODE=remote</code>; o build nunca executa flash.</p>
+          <p>A compilação remota precisa estar habilitada e nunca executa flash automaticamente.</p>
         </div>
         {setupFirmwareBuildResult ? (
           <div className={`action-result ${setupFirmwareBuildResult.status === "ok" ? "success" : "warning"}`}>
@@ -1085,7 +1085,7 @@ export function SetupScreen(props: SetupScreenProps) {
             <AlertTriangle className={setupBusy ? "button-busy-icon" : undefined} size={16} />
             Executar flash
           </button>
-          <p>O backend exige <code>PRINTORA_REMOTE_FLASH_MODE=remote</code>; sem isso a tentativa fica bloqueada e registrada.</p>
+          <p>O flash remoto precisa estar habilitado; caso contrário, a tentativa permanece bloqueada e registrada.</p>
         </div>
         {setupFlashExecuteResult ? (
           <div className={`action-result ${setupFlashExecuteResult.status === "ok" ? "success" : "warning"}`}>

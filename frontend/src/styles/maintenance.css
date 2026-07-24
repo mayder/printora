@@ -551,9 +551,22 @@
   }
 
   .maintenance-filter-row {
+    display: grid;
     grid-template-columns: 1fr;
     align-items: stretch;
     justify-content: stretch;
+  }
+
+  .maintenance-filter-row .filter-toolbar {
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .maintenance-filter-row .filter-toolbar button {
+    flex: 1 1 calc(33.333% - 6px);
+    min-width: 0;
+    white-space: normal;
   }
 
   .maintenance-area-select {

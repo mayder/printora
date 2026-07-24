@@ -2164,3 +2164,39 @@ Mínimo por prioridade:
 - `P4`: experimento isolado com hipótese, opt-in, privacidade, orçamento, critério de parada e nenhuma dependência crítica.
 
 Nenhum experimento pode usar produção, criança, dado biométrico, comando de impressora ou dispositivo assistivo sem fluxo específico aprovado. Métrica de sucesso deve ser acompanhada de métrica de dano e recortes de equidade quando aplicável.
+
+## Matriz Responsiva Do Shell E Detalhe
+
+O gate E2E deve validar com backend real e dados sintéticos isolados:
+
+- as catorze rotas autenticadas em 320x568, 390x844, 768x1024, 1024x768 e
+  1440x900;
+- perfil público, impressora pública e as seis abas da comunidade nas mesmas
+  cinco dimensões;
+- ausência de elementos visíveis fora do viewport, exceto dentro de um
+  container com rolagem horizontal explícita;
+- abertura e seleção das nove abas do detalhe da impressora em 320 px;
+- abertura sem overflow da Central de alertas, cadastro de impressora, registro
+  livre de manutenção e quatro modais de relatório/backup/restore;
+- cabeçalho e barra de abas inteiramente contidos no viewport;
+- lista de agentes como cartões rotulados em largura reduzida;
+- administrador da plataforma com leitura dos overviews de Finanças e
+  Fabricação antes da atribuição de papéis operacionais;
+- ações financeiras e produtivas sensíveis ainda protegidas pelos papéis
+  específicos e autenticação reforçada aplicável;
+- ausência de plataforma do host, URL interna e tecnologia de infraestrutura
+  nas superfícies operacionais cobertas.
+
+Além do gate, a aceitação visual deve usar navegador real nas cinco dimensões,
+abrir cada aba e registrar qualquer diferença entre DOM, screenshot e ação
+efetivamente executável.
+
+## Portabilidade Das Consultas Operacionais
+
+Consultas compartilhadas entre SQLite de teste e PostgreSQL Cloud devem manter:
+
+- booleanos PostgreSQL comparados por parâmetro booleano, nunca por literal
+  inteiro;
+- consultas agregadas com todas as chaves externas necessárias no `GROUP BY`;
+- teste focado do adaptador e do repositório afetado;
+- smoke do endpoint no PostgreSQL real após a publicação.

@@ -1253,7 +1253,6 @@ export function AuthScreen(props: AuthScreenProps) {
                   <div className="organization-data-table printers" role="table" aria-label="Impressoras vinculadas">
                     <div className="organization-data-header" role="row">
                       <span>Impressora</span>
-                      <span>Moonraker</span>
                       <span>Vinculada em</span>
                       <span>Ações</span>
                     </div>
@@ -1261,7 +1260,6 @@ export function AuthScreen(props: AuthScreenProps) {
                     {organizationDetail.printers.map((printer) => (
                       <div key={printer.printer_id} className="organization-data-row" role="row">
                         <strong>{printer.name}</strong>
-                        <span>{printer.moonraker_url}</span>
                         <span>{formatDateTime(printer.linked_at)}</span>
                         <span className="organization-row-actions">
                         {canManageSelectedOrganization ? (

@@ -126,7 +126,7 @@ export function useUpdates(options: UseUpdatesOptions) {
       });
       if (!response.ok) {
         if (response.status === 405) {
-          throw new Error("Backend ainda não carregou a rota de silêncio. Reinicie o Printora e tente novamente.");
+          throw new Error("Esta função ainda não está disponível nesta versão. Atualize o Printora e tente novamente.");
         }
         throw new Error(await readApiError(response));
       }
@@ -138,7 +138,7 @@ export function useUpdates(options: UseUpdatesOptions) {
       });
     } catch (err) {
       const message = err instanceof DOMException && err.name === "AbortError"
-        ? "Tempo esgotado ao silenciar versão. Verifique se o backend respondeu e tente novamente."
+        ? "A solicitação demorou além do esperado. Tente novamente."
         : unknownErrorMessage(err);
       setError(message);
       showToast({ tone: "danger", title: "Falha ao silenciar versão", detail: message });
@@ -172,7 +172,7 @@ export function useUpdates(options: UseUpdatesOptions) {
       }, { signal: controller.signal });
       if (!response.ok) {
         if (response.status === 405) {
-          throw new Error("Backend ainda não carregou a rota de silêncio. Reinicie o Printora e tente novamente.");
+          throw new Error("Esta função ainda não está disponível nesta versão. Atualize o Printora e tente novamente.");
         }
         throw new Error(await readApiError(response));
       }
@@ -184,7 +184,7 @@ export function useUpdates(options: UseUpdatesOptions) {
       });
     } catch (err) {
       const message = err instanceof DOMException && err.name === "AbortError"
-        ? "Tempo esgotado ao reativar alerta. Verifique se o backend respondeu e tente novamente."
+        ? "A solicitação demorou além do esperado. Tente novamente."
         : unknownErrorMessage(err);
       setError(message);
       showToast({ tone: "danger", title: "Falha ao reativar alerta", detail: message });

@@ -89,7 +89,7 @@ export function OperationActions({
 
   return (
     <div className="operation-actions-layout">
-      {actions.length === 0 ? <p className="muted">Nenhuma ação operacional retornada pelo backend.</p> : null}
+      {actions.length === 0 ? <p className="muted">Nenhuma ação operacional disponível para esta impressora.</p> : null}
 
       <div className="operation-console-grid">
         <ToolheadPanel

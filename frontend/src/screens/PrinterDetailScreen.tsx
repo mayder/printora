@@ -35,14 +35,12 @@ export function PrinterDetailScreen(props: PrinterDetailScreenProps) {
     Printer,
     Radio,
     RefreshCw,
-    Settings,
     ShieldCheck,
     captureSnapshot,
     countPendingUpdates,
     formatChecklistDataState,
     formatDecision,
     formatHours,
-    formatSshStatus,
     formatUnknown,
     handleAlertCenterAction,
     health,
@@ -129,14 +127,12 @@ export function PrinterDetailScreen(props: PrinterDetailScreenProps) {
                   Moonraker {moonrakerOnline ? "online" : "offline"}
                 </span>
                 <h2>{selectedPrinter.name}</h2>
-                <p>{selectedPrinter.moonraker_url}</p>
                 <div className="overview-status-grid">
                   <Metric label="Estado" value={formatUnknown(operationState)} />
                   <Metric label="Horas impressas" value={typeof totalPrintHours === "number" ? formatHours(totalPrintHours) : "-"} />
                   <Metric label="Última leitura" value={lastReadingLabel} />
                   <Metric label="Origem" value={health?.data_state ? formatChecklistDataState(health.data_state) : "-"} />
                   <Metric label="Updates" value={String(countPendingUpdates(updateStatus))} />
-                  <Metric label="SSH" value={formatSshStatus(selectedPrinter)} />
                 </div>
               </div>
               <div className={`overview-risk-card ${riskClass}`}>
@@ -218,7 +214,6 @@ export function PrinterDetailScreen(props: PrinterDetailScreenProps) {
                 </button>
               ) : null}
             </div>
-            <Badge icon={Settings} label="Auditoria" value={selectedPrinter.host_audit_mode} />
           </div>
         </div>
         <div className="detail-tabbar" role="tablist" aria-label="Navegação da impressora">

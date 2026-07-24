@@ -7,7 +7,7 @@ export type SetActiveSection = React.Dispatch<React.SetStateAction<AppSection>>;
 
 export function unknownErrorMessage(error: unknown) {
   if (error instanceof TypeError && error.message === "Failed to fetch") {
-    return "API do Printora indisponível. Abra pelo launcher ou verifique se o backend está rodando em http://127.0.0.1:8069.";
+    return "O Printora está indisponível no momento. Verifique sua conexão e tente novamente.";
   }
   if (!(error instanceof Error)) {
     return "Erro desconhecido";
@@ -21,7 +21,7 @@ function friendlyErrorMessage(message: string) {
     return "Ação crítica bloqueada. Gere uma autorização em Conta > 2FA e autenticação reforçada e tente novamente.";
   }
   if (detail === "api route not found") {
-    return "Rota da API não encontrada. Atualize a página e confirme se backend e frontend estão na mesma versão.";
+    return "Esta função ainda não está disponível nesta versão. Atualize a página e tente novamente.";
   }
   return detail;
 }

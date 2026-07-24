@@ -326,9 +326,9 @@ export function AgentsScreen(props: AgentsScreenProps) {
             {agentRows.length === 0 ? <div className="agent-fleet-empty">Nenhum agente pareado ainda.</div> : null}
             {agentRows.map((row) => (
               <div key={agentKey(row)} className={`agent-fleet-row ${selectedAgentRow && agentKey(row) === agentKey(selectedAgentRow) ? "active" : ""}`}>
-                <strong>{row.agent.stable_id}</strong>
-                <span>{row.printer.name}</span>
-                <span className="status-inline-actions">
+                <strong data-label="Agente">{row.agent.stable_id}</strong>
+                <span data-label="Impressora">{row.printer.name}</span>
+                <span className="status-inline-actions" data-label="Status">
                   <span className={`status-pill ${agentStatusTone(row)}`}>{agentStatusLabel(row)}</span>
                   {shouldShowAgentRefresh(row) ? (
                     <button
@@ -343,9 +343,9 @@ export function AgentsScreen(props: AgentsScreenProps) {
                     </button>
                   ) : null}
                 </span>
-                <span>{agentVersionLabel(row.agent.agent_version, expectedAgentVersion)}</span>
-                <span>{formatDateTime(row.agent.last_seen_at)}</span>
-                <div className="printer-card-actions">
+                <span data-label="Versão">{agentVersionLabel(row.agent.agent_version, expectedAgentVersion)}</span>
+                <span data-label="Último contato">{formatDateTime(row.agent.last_seen_at)}</span>
+                <div className="printer-card-actions" data-label="Ações">
                   <button type="button" className="secondary-button" onClick={() => selectAgent(row)} disabled={loading}>
                     <Printer size={15} />
                     Contexto
@@ -375,7 +375,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
                 <div className="printer-card-header">
                   <div>
                     <strong>{selectedAgentRow.agent.stable_id}</strong>
-                    <span>{selectedAgentRow.printer.name} · {selectedAgentRow.agent.platform || "-"}</span>
+                    <span>{selectedAgentRow.printer.name}</span>
                   </div>
                   <div className="status-inline-actions">
                     <span className={`status-pill ${agentStatusTone(selectedAgentRow)}`}>{agentStatusLabel(selectedAgentRow)}</span>
@@ -395,11 +395,9 @@ export function AgentsScreen(props: AgentsScreenProps) {
                 </div>
                 <div className="printer-card-grid">
                   <Metric label="Impressora" value={selectedAgentRow.printer.name} />
-                  <Metric label="URL" value={selectedAgentRow.printer.moonraker_url} />
                   <Metric label="Versão" value={selectedAgentRow.agent.agent_version ?? "-"} />
                   <Metric label="Versão esperada" value={expectedAgentVersion} />
                   <Metric label="Canário disponível" value={candidateAgentVersion} />
-                  <Metric label="Plataforma" value={selectedAgentRow.agent.platform ?? "-"} />
                   <Metric label="Pareado em" value={formatDateTime(selectedAgentRow.agent.paired_at)} />
                   <Metric label="Último contato" value={formatDateTime(selectedAgentRow.agent.last_seen_at)} />
                   <Metric label="Credencial" value={agentCredentialStatus(selectedAgentRow.agent.status)} />
@@ -467,7 +465,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
               <div className="printer-card-header">
                 <div>
                   <strong>{row.agent.stable_id}</strong>
-                  <span>{row.agent.platform || "-"} · v{row.agent.agent_version || "-"}</span>
+                  <span>Versão {row.agent.agent_version || "-"}</span>
                 </div>
                 <span className={`status-pill ${agentStatusTone(row)}`}>{agentStatusLabel(row)}</span>
               </div>
@@ -605,7 +603,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
         <div className="panel-heading">
           <div>
             <h2>Saúde e suporte</h2>
-            <p className="muted">Diagnóstico da impressora selecionada para diferenciar agente, API, credencial, Moonraker, Klipper, versão e fila.</p>
+            <p className="muted">Verifique conectividade, credencial, Moonraker, Klipper, versão e fila do agente.</p>
           </div>
           <div className="printer-card-actions">
             <button type="button" className="secondary-button" onClick={() => void loadAgentSupport()} disabled={!selectedPrinterId || loading}>
@@ -614,7 +612,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
             </button>
             <button type="button" className="secondary-button" onClick={() => void createAgentDoctorJob()} disabled={!selectedPrinterId || loading || !agentInstallStatus?.ready}>
               <ClipboardCheck size={15} />
-              Doctor remoto
+              Verificar dispositivo
             </button>
             <button type="button" className="primary-button" onClick={() => void loadAgentSupportBundle()} disabled={!selectedPrinterId || loading}>
               <FileText size={16} />
@@ -644,7 +642,7 @@ export function AgentsScreen(props: AgentsScreenProps) {
               <div className="printer-card-header">
                 <div>
                   <strong>{item.agent.stable_id}</strong>
-                  <span>{item.state} · {item.agent.platform || "-"} · v{item.agent.agent_version || "-"}</span>
+                  <span>{item.state} · versão {item.agent.agent_version || "-"}</span>
                 </div>
                 <span className={item.online ? "status-pill active" : "status-pill"}>{item.online ? "online" : "offline"}</span>
               </div>

@@ -6457,6 +6457,14 @@ Estado atual:
   produção no workflow `30053826438`.
 - Correções de coalescência, expiração UTC e lease implícito validadas na fila
   real sem exclusão ou cancelamento manual; backlog observado voltou a zero.
+- Lote 6 reaberto para regressões responsivas e de conteúdo: build local
+  corrigido e validado em 320, 390, 768, 1024 e 1440 px, com as catorze rotas
+  autenticadas, três superfícies públicas, nove abas da impressora,
+  simplificação de dados técnicos e acesso read-only do administrador máximo
+  aos overviews. As incompatibilidades
+  PostgreSQL de projetos e papel financeiro encontradas no diagnóstico de
+  produção também foram corrigidas localmente. Publicação e aceite visual em
+  produção permanecem pendentes; isso ainda não fecha o lote.
 - Lote 7 em execução: a janela iniciada em `2026-07-24T01:27:10Z` também foi
   invalidada integralmente. O 19º lote violou p95/p99 porque o processo e o pool
   ainda eram recriados a cada lote, embora houvesse keep-alive dentro dele. A

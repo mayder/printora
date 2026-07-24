@@ -138,7 +138,6 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
   }
 
   const raspberryCheck = getDoctorCheck(latestDoctor, "raspberry_throttling");
-  const devicePlatform = stringFromRecord(latestDoctor?.result, "platform") || row.agent.platform || "-";
   const doctorGeneratedAt = formatDateTime(latestDoctor?.finished_at ?? latestDoctor?.updated_at);
   const hostMetrics = parseHostMetrics(row.agent.capabilities.host_metrics);
   const moonrakerStatus = getDoctorCheck(latestDoctor, "moonraker");
@@ -154,7 +153,7 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
               Voltar para agentes
             </button>
             <h2>{row.agent.stable_id}</h2>
-            <p className="muted">{row.printer.name} · {row.agent.platform || "plataforma não informada"}</p>
+            <p className="muted">{row.printer.name}</p>
           </div>
           <div className="printer-card-actions">
             <button type="button" className="secondary-button" onClick={() => openPrinterDetail(row.printer.id, "summary")} disabled={loading}>
@@ -204,7 +203,6 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
           <Metric label="Impressora vinculada" value={row.printer.name} />
           <Metric label="Organização" value={row.printer.organization_id ? `org #${row.printer.organization_id}` : "individual"} />
           <Metric label="Pareado em" value={formatDateTime(row.agent.paired_at)} />
-          <Metric label="Plataforma" value={row.agent.platform ?? "-"} />
           <Metric label="Agentes na impressora" value={String(row.overview.agents.length)} />
           <Metric label="Tokens pendentes" value={String(row.overview.pairing_tokens.filter((token) => token.status === "active").length)} />
         </div>
@@ -230,20 +228,19 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
         <div className="panel-heading">
           <div>
             <h2>Dispositivo do agente</h2>
-            <p className="muted">Host onde o agente roda: versão, conectividade, serviço e sinais físicos do Raspberry quando disponíveis.</p>
+            <p className="muted">Conectividade, saúde do serviço e sinais físicos do Raspberry quando disponíveis.</p>
           </div>
           <button type="button" className="secondary-button" onClick={() => void createAgentDoctorJob(row.printer.id)} disabled={loading || row.agent.status !== "active"}>
             <ClipboardCheck size={15} />
-            Doctor remoto
+            Verificar dispositivo
           </button>
         </div>
         <div className="overview-strip agent-summary-strip">
-          <Badge icon={Server} label="Plataforma" value={devicePlatform} />
           <Badge icon={Gauge} label="Agente" value={row.agent.agent_version ?? "-"} />
           <Badge icon={RefreshCw} label="Esperada" value={expectedAgentVersion} />
           <Badge icon={ShieldAlert} label="Canário" value={candidateAgentVersion} />
           <Badge icon={Radio} label="Moonraker" value={moonrakerStatus?.status ?? "sem doctor"} />
-          <Badge icon={AlertTriangle} label="Raio Raspberry" value={formatRaspberryStatus(raspberryCheck)} />
+          <Badge icon={AlertTriangle} label="Energia Raspberry" value={formatRaspberryStatus(raspberryCheck)} />
         </div>
         <div className="agent-device-grid">
           <div className="agent-device-card moonraker-card">
@@ -254,21 +251,18 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
                 <strong>{moonrakerStatus?.status ?? "sem doctor"}</strong>
               </div>
             </div>
-            <code>{row.printer.moonraker_url}</code>
             <p>{moonrakerStatus?.detail ?? "Execute o doctor remoto para confirmar a leitura ao vivo do Moonraker."}</p>
           </div>
           <div className="agent-device-card">
             <div className="agent-device-card-heading">
               <ClipboardCheck size={18} />
               <div>
-                <span>Último doctor</span>
+                <span>Última verificação</span>
                 <strong>{doctorGeneratedAt}</strong>
               </div>
             </div>
             <div className="agent-mini-grid">
-              <Metric label="API" value={getDoctorCheck(latestDoctor, "api")?.status ?? "-"} />
               <Metric label="Fila local" value={getDoctorCheck(latestDoctor, "queue")?.detail ?? "-"} />
-              <Metric label="Log local" value={getDoctorCheck(latestDoctor, "log")?.detail ?? "-"} />
               <Metric label="Throttling" value={raspberryCheck?.detail ?? "Sem leitura do agente"} />
             </div>
           </div>
@@ -319,7 +313,6 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
                 <div>
                   <span>Consumo do Printora</span>
                   <strong>{formatPercent(printoraService.cpuPercent)} CPU · {formatBytes(printoraService.rssBytes)} RAM</strong>
-                  <p>{printoraService.command || "printora-agent"}</p>
                 </div>
                 <div className="printora-consumption-bars">
                   <ResourceBar label="CPU do agente" value={formatPercent(printoraService.cpuPercent)} percent={printoraService.cpuPercent} />
@@ -334,15 +327,12 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
                     <div className="agent-service-card-header">
                       <div>
                         <strong>{service.name}</strong>
-                        <code title={service.command || undefined}>{service.command || `${service.pidCount} processo(s)`}</code>
                       </div>
                       <span className="status-pill active">{service.pidCount} proc.</span>
                     </div>
                     <div className="service-bars">
                       <ResourceBar label="CPU" value={formatPercent(service.cpuPercent)} percent={service.cpuPercent} />
                       <ResourceBar label="Memória RSS" value={formatBytes(service.rssBytes)} percent={serviceMemoryPercent(service, hostMetrics)} />
-                      <ResourceBar label="Memória virtual" value={formatBytes(service.vszBytes)} percent={null} />
-                      <ResourceBar label="Rede" value="agregada no host" percent={null} />
                     </div>
                   </div>
                 ))}
@@ -371,7 +361,7 @@ export function AgentDetailScreen(props: AgentDetailScreenProps) {
           <div className="printer-card-actions">
             <button type="button" className="secondary-button" onClick={() => void createAgentDoctorJob(row.printer.id)} disabled={loading || row.agent.status !== "active"}>
               <ClipboardCheck size={15} />
-              Doctor remoto
+              Verificar dispositivo
             </button>
             <button type="button" className="primary-button" onClick={() => void loadAgentSupportBundle(row.printer.id)} disabled={loading}>
               <FileText size={16} />
@@ -530,11 +520,6 @@ function getDoctorCheck(job: AgentJobRecord | null | undefined, name: string): {
     status: typeof check.status === "string" ? check.status : "-",
     detail: typeof check.detail === "string" ? check.detail : "-",
   };
-}
-
-function stringFromRecord(record: Record<string, unknown> | null | undefined, key: string) {
-  const value = record?.[key];
-  return typeof value === "string" ? value : "";
 }
 
 function parseHostMetrics(value: unknown): HostMetricsSnapshot | null {

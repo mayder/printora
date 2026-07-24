@@ -1011,3 +1011,123 @@ Correção:
   mesmo asset nos releases anteriores ainda presentes no servidor;
 - paths suspeitos e extensões fora da lista de assets continuam bloqueados;
 - teste unitário cobre asset atual, fallback de release anterior e traversal.
+
+### Detalhe Da Impressora Cortava Abas No Celular
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- o strip de status importado depois do CSS global restaurava três colunas com
+  largura intrínseca próxima de 610 px;
+- o cabeçalho e a barra de abas ultrapassavam o viewport em 390 px;
+- abas da segunda coluna apareciam cortadas e não podiam ser abertas.
+
+Correção:
+
+- cabeçalho e strip zeram `min-width`, limitam a largura ao container e usam uma
+  coluna abaixo de 920 px;
+- todas as nove abas foram abertas em navegador real a 390 px;
+- E2E repete a abertura em 320 px e bloqueia overflow não contido.
+
+### Lista De Agentes Era Cortada Em Largura Intermediária
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- em 1024 px, a sidebar reduzia a área útil sem ativar o breakpoint de 900 px;
+- as colunas Último contato e Ações ficavam fora da tela e o container escondia
+  o excedente.
+
+Correção:
+
+- a tabela admite rolagem horizontal segura quando necessária;
+- até 1240 px, linhas viram cartões com rótulos explícitos e ações acessíveis;
+- a matriz E2E cobre as catorze rotas autenticadas em cinco resoluções.
+
+### Ações Administrativas Ultrapassavam 320 Px
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- ações com texto longo mantinham uma linha dentro de resultados flexíveis;
+- o link para Projetos ultrapassava o viewport mínimo.
+
+Correção:
+
+- resultados empilham conteúdo e ações abaixo de 920 px;
+- botões e links podem quebrar texto sem exceder o container;
+- o detector E2E de overflow valida 320, 390, 768, 1024 e 1440 px.
+
+### Componentes Restauravam Larguras De Desktop No Mobile
+
+Estado: corrigido e retestado em 2026-07-23.
+
+Impacto:
+
+- regras locais carregadas depois do CSS global restauravam grids e larguras
+  mínimas de desktop em Firmware e Manutenção;
+- formulário, cartões, filtros e linhas de token administrativo podiam exceder
+  320 px mesmo com o shell responsivo.
+
+Correção:
+
+- Firmware reorganiza foco, resultado, placas, referências e formulários em uma
+  coluna abaixo de 920 px;
+- filtros de Manutenção e linhas de token administrativo quebram para grids
+  compactos;
+- o reteste em navegador real confirmou formulários e ações dentro de 320 px.
+
+### Cabeçalho Do Sistema Bloqueava Ações De Modais
+
+Estado: corrigido e retestado em 2026-07-24.
+
+Impacto:
+
+- o backdrop dos modais usava uma camada inferior à do cabeçalho fixo;
+- em desktop e celular, o modal era visível, mas o cabeçalho interceptava o
+  clique em Fechar e podia encobrir outros controles superiores;
+- o defeito afetava cadastro de impressora, manutenção e relatórios.
+
+Correção:
+
+- modais passaram a ocupar uma camada acima do shell, menus e popovers;
+- o E2E abre, mede e fecha os modais representativos em cinco dimensões;
+- nenhuma ação real de impressora, backup ou restore é executada no reteste.
+
+### Projetos De Impressão Falhavam No PostgreSQL
+
+Estado: corrigido e retestado em 2026-07-24.
+
+Impacto:
+
+- a consulta agregada agrupava somente pela chave do projeto;
+- o SQLite aceitava as colunas do arquivo primário sem agrupamento explícito,
+  mas o PostgreSQL respondia `500` ao exigir `pf.id` no `GROUP BY`;
+- a listagem de projetos ficava indisponível no ambiente Cloud.
+
+Correção:
+
+- listagem pública, projetos do usuário e detalhe agrupam pelas chaves do
+  projeto e do arquivo primário;
+- o gate de portabilidade bloqueia regressão para `GROUP BY p.id` isolado;
+- os testes focados do repositório e o E2E completo passaram.
+
+### Papel Financeiro Comparava Booleano Com Inteiro
+
+Estado: corrigido e retestado em 2026-07-24.
+
+Impacto:
+
+- `finance_role_assignments.is_active` é booleano no PostgreSQL;
+- a consulta de autorização comparava o campo com o inteiro `1`;
+- usuários com papel financeiro recebiam `500` antes da avaliação de acesso.
+
+Correção:
+
+- a consulta usa parâmetro booleano tipado, compatível com PostgreSQL e SQLite;
+- administrador máximo mantém somente leitura dos overviews sem ganhar ações
+  financeiras sensíveis;
+- teste de portabilidade verifica o parâmetro e o contrato de agrupamento.

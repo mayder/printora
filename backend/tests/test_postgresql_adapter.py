@@ -8,6 +8,8 @@ import pytest
 from app.modules.platform.database_target import uses_postgresql
 from app.modules.platform.postgresql import translate_sql
 
+ROOT_DIR = Path(__file__).resolve().parents[2]
+
 
 def test_local_profile_keeps_sqlite_without_database_url(monkeypatch) -> None:
     monkeypatch.delenv("PRINTORA_DATABASE_URL", raising=False)
@@ -112,3 +114,13 @@ def test_postgresql_adapter_rewrites_plain_group_concat() -> None:
 
     assert "STRING_AGG(file_kind, ',')" in translated
     assert "item_id = %s" in translated
+
+
+def test_postgresql_queries_preserve_boolean_and_grouping_types() -> None:
+    finance_security = (ROOT_DIR / "backend/app/finance_security.py").read_text()
+    print_projects = (ROOT_DIR / "backend/app/print_projects.py").read_text()
+
+    assert "AND is_active = ? LIMIT 1" in finance_security
+    assert "(user_id, *sorted(roles), True)" in finance_security
+    assert 'PROJECT_GROUP_BY = "GROUP BY p.id, pf.id"' in print_projects
+    assert "GROUP BY p.id\n" not in print_projects

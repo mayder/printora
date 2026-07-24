@@ -49,9 +49,7 @@ export function UpdateDialogModal(props: UpdateDialogModalProps) {
                     <RefreshCw size={20} />
                     {updateDialog.action === "rollback" ? "Rollback" : "Atualizar"} {updateDialog.label}
                   </h2>
-                  <p>
-                    {selectedPrinter?.name ?? "Impressora"} · {selectedPrinter?.moonraker_url ?? "Moonraker não selecionado"}
-                  </p>
+                  <p>{selectedPrinter?.name ?? "Impressora"}</p>
                 </div>
                 <button
                   type="button"

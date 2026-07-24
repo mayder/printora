@@ -1016,7 +1016,7 @@
     {
       "module": "modules.finance.api",
       "owner": "finance",
-      "lines": 383,
+      "lines": 393,
       "imports": [
         "auth",
         "config",
@@ -1378,7 +1378,7 @@
     {
       "module": "modules.operations.manufacturing_api",
       "owner": "operations",
-      "lines": 134,
+      "lines": 137,
       "imports": [
         "config",
         "database",
@@ -1726,7 +1726,7 @@
     {
       "module": "print_projects",
       "owner": "community",
-      "lines": 1059,
+      "lines": 1064,
       "imports": [
         "database",
         "modules.community.contracts",

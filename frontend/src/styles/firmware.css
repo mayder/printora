@@ -466,3 +466,48 @@
 .firmware-check.blocked {
   background: var(--warning-soft);
 }
+
+@media (max-width: 920px) {
+  .firmware-workspace,
+  .firmware-focus-grid,
+  .firmware-result-grid,
+  .firmware-board-section,
+  .firmware-control-panel,
+  .firmware-card,
+  .firmware-board-card,
+  .firmware-result-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .firmware-focus-grid,
+  .firmware-result-grid,
+  .firmware-board-card,
+  .firmware-board-form,
+  .firmware-board-row,
+  .firmware-build-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .firmware-card-heading,
+  .firmware-section-heading,
+  .firmware-board-title,
+  .firmware-component-row,
+  .firmware-reference-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .firmware-card-heading > .status-pill,
+  .firmware-board-title .status-pill {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 560px) {
+  .firmware-status-grid,
+  .firmware-board-form.guided,
+  .firmware-build-controls.compact {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

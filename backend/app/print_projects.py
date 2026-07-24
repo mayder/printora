@@ -271,7 +271,7 @@ class PrintProjectsRepository:
                 PROJECT_SQL
                 + f"""
                 {where}
-                GROUP BY p.id
+                {PROJECT_GROUP_BY}
                 ORDER BY p.updated_at DESC, p.id DESC
                 LIMIT ?
                 """,
@@ -292,7 +292,9 @@ class PrintProjectsRepository:
                           AND ps.owner_user_id = ?
                           AND ps.status = 'active'
                    )
-                GROUP BY p.id
+                """
+                + PROJECT_GROUP_BY
+                + """
                 ORDER BY p.updated_at DESC, p.id DESC
                 """,
                 (actor_user_id, actor_user_id),
@@ -340,7 +342,9 @@ class PrintProjectsRepository:
                         p.owner_user_id = ?
                         OR (p.visibility IN ('public', 'unlisted') AND p.publication_status = 'approved')
                   )
-                GROUP BY p.id
+                """
+                + PROJECT_GROUP_BY
+                + """
                 """,
                 (slug, viewer_user_id or -1),
             ).fetchone()
@@ -837,6 +841,7 @@ LEFT JOIN print_project_files f ON f.project_id = p.id
 LEFT JOIN print_project_community_shares pcs ON pcs.project_id = p.id AND pcs.status = 'active'
 LEFT JOIN social_communities c ON c.id = pcs.community_id
 """
+PROJECT_GROUP_BY = "GROUP BY p.id, pf.id"
 
 
 def _project_from_row(row) -> PrintProjectSummary:

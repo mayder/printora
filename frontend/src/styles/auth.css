@@ -1792,7 +1792,7 @@
 
 .organization-data-table.printers .organization-data-header,
 .organization-data-table.printers .organization-data-row {
-  grid-template-columns: minmax(160px, 0.8fr) minmax(280px, 1.4fr) 170px minmax(130px, 0.55fr);
+  grid-template-columns: minmax(180px, 1fr) 170px minmax(130px, 0.55fr);
 }
 
 .organization-data-table.invites .organization-data-header,
@@ -1891,6 +1891,21 @@
   box-shadow: 0 2px 10px rgb(31 42 55 / 0.08);
 }
 
+@media (max-width: 1240px) {
+  .organization-table-header {
+    display: none;
+  }
+
+  .organization-table-row {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: flex-start;
+  }
+
+  .organization-row-actions {
+    justify-content: flex-start;
+  }
+}
+
 @media (max-width: 720px) {
   .auth-only-shell {
     align-items: start;
@@ -1962,6 +1977,23 @@
   }
 
   .profile-card-actions button {
+    width: 100%;
+  }
+
+  .auth-list > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .auth-list > div > .printer-card-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+  }
+
+  .auth-list > div > .printer-card-actions button {
     width: 100%;
   }
 

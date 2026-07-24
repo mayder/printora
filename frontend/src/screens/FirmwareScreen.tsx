@@ -274,7 +274,7 @@ export function FirmwareScreen(props: FirmwareScreenProps) {
             <div className="firmware-card-heading">
               <div>
                 <strong>Build local controlado</strong>
-                <span>O backend mantém o bloqueio por modo e exige confirmação textual antes de executar.</span>
+                <span>A proteção por modo e a confirmação textual continuam obrigatórias antes da execução.</span>
               </div>
               <span className="status-pill warning">sem flash</span>
             </div>
@@ -558,7 +558,7 @@ function ConfigPreviewCard({ preview }: { preview: FirmwareConfigPreview | null 
       {preview ? (
         <pre className="firmware-config-preview">{preview.content}</pre>
       ) : (
-        <small className="muted">A geração é feita pelo backend e não salva arquivo no Klipper.</small>
+        <small className="muted">A prévia é gerada sem salvar arquivos no Klipper.</small>
       )}
     </div>
   );
@@ -642,13 +642,13 @@ function formatFirmwareError(value: string | null) {
     return "Não foi possível ler o inventário de firmware desta impressora.";
   }
   if (/<html[\s>]/i.test(value) || /cloudflare/i.test(value) || /bad gateway/i.test(value)) {
-    return "A API do Printora retornou 502 ao consultar o inventário de firmware. Tente novamente em alguns segundos; se repetir, o agente ou o backend não respondeu dentro do prazo.";
+    return "O Printora não conseguiu consultar o firmware agora. Tente novamente em alguns segundos; se repetir, verifique a conexão do agente.";
   }
   try {
     const parsed = JSON.parse(value) as { detail?: string };
     const detail = parsed.detail ?? value;
     if (/<html[\s>]/i.test(detail) || /cloudflare/i.test(detail) || /bad gateway/i.test(detail)) {
-      return "A API do Printora retornou 502 ao consultar o inventário de firmware. Tente novamente em alguns segundos; se repetir, o agente ou o backend não respondeu dentro do prazo.";
+      return "O Printora não conseguiu consultar o firmware agora. Tente novamente em alguns segundos; se repetir, verifique a conexão do agente.";
     }
     return detail;
   } catch {

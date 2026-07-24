@@ -1588,6 +1588,22 @@ label {
     text-align: left;
   }
 
+  .action-result {
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .action-result > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .action-result .secondary-button {
+    white-space: normal;
+    text-align: center;
+  }
+
   .topbar-account {
     flex: 1 1 0;
     min-width: 0;

@@ -25,9 +25,9 @@ class FinanceSecurityService:
             row = connection.execute(
                 f"""
                 SELECT 1 FROM finance_role_assignments
-                WHERE user_id = ? AND role IN ({placeholders}) AND is_active = 1 LIMIT 1
+                WHERE user_id = ? AND role IN ({placeholders}) AND is_active = ? LIMIT 1
                 """,
-                (user_id, *sorted(roles)),
+                (user_id, *sorted(roles), True),
             ).fetchone()
         return row is not None
 

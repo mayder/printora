@@ -5,6 +5,7 @@ test("login apresenta 429 sanitizado e permite nova tentativa", async ({
   page,
   request,
 }, testInfo) => {
+  test.setTimeout(60_000);
   const email = syntheticEmail(testInfo, "rate-limit");
   await ensureUser(request, email, "Rate Limited User");
   let intercepted = false;
@@ -24,9 +25,17 @@ test("login apresenta 429 sanitizado e permite nova tentativa", async ({
   await page.goto("/");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Senha").fill("synthetic-correct-horse-97");
-  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  const submit = page.getByRole("button", { name: "Entrar", exact: true });
+  await submit.click();
   await expect(page.getByText("limite sintético atingido")).toBeVisible();
-  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(submit).toBeEnabled();
+  const retryResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/auth/login",
+  );
+  await submit.click();
+  expect((await retryResponse).status()).toBe(200);
   await expect(
     page.getByRole("heading", { name: "Visão geral", exact: true }),
   ).toBeVisible();

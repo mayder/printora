@@ -78,7 +78,6 @@ export function MaintenanceFreeModal(props: MaintenanceFreeModalProps) {
           <div className="maintenance-selected-printer">
             <span>Impressora selecionada</span>
             <strong>{selectedPrinter?.name ?? "Impressora"}</strong>
-            <small>{selectedPrinter?.moonraker_url ?? "-"}</small>
           </div>
           <div className="form-grid two-columns">
             <label className="form-field">

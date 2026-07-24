@@ -428,3 +428,28 @@ Tema e progresso do guia de setup preservam o comportamento visual atual, mas
 pages/components não acessam mais `localStorage` diretamente. Leitura, escrita,
 parse inválido e limpeza ficam no client de preferências locais; o gate de
 layering React impede regressão para acesso direto de HTTP/storage na UI.
+
+## Responsividade E Informação Para O Usuário
+
+- As catorze rotas autenticadas acessíveis diretamente devem permanecer
+  operáveis em 320, 390, 768, 1024 e 1440 px, sem conteúdo cortado fora de um
+  container de rolagem explícito.
+- Perfil público, impressora pública e comunidade pública seguem a mesma matriz.
+  As seis abas da comunidade devem abrir sem revelar URL interna ou dados
+  operacionais da impressora.
+- O cabeçalho e as nove abas do detalhe da impressora devem permanecer dentro
+  do viewport. Cada aba precisa ser visível, acionável e indicar sua seleção.
+- Modais de alerta, cadastro, manutenção, relatório, backup e restore precisam
+  permanecer operáveis no viewport mínimo; rolagem vertical interna é permitida,
+  mas conteúdo ou ação não podem escapar horizontalmente.
+- A tabela global de agentes usa linhas tabulares somente quando há largura
+  útil. Em larguras menores, cada agente vira um cartão com os rótulos Agente,
+  Impressora, Status, Versão, Último contato e Ações.
+- URL interna do Moonraker, plataforma do host, linha de comando, caminhos,
+  consumo bruto de logs/API, linguagem e tecnologia de banco não aparecem nas
+  telas operacionais. Dados técnicos permanecem apenas em cadastro, diagnóstico
+  ou relatório explicitamente técnico quando forem necessários para a ação.
+- O administrador máximo configurado pode abrir os overviews de Finanças e
+  Fabricação para teste e supervisão. Ações financeiras ou produtivas sensíveis
+  continuam exigindo o papel específico e, quando aplicável, autenticação
+  reforçada; acesso máximo não elimina separação de funções.

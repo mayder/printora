@@ -18,7 +18,6 @@ type PrintersScreenProps = ScreenPropsFor<
   | "Server"
   | "Settings"
   | "captureSnapshotForPrinter"
-  | "formatSshStatus"
   | "loadFleetAgentPairings"
   | "loadPrinterPairing"
   | "loadPrinters"
@@ -46,7 +45,6 @@ export function PrintersScreen(props: PrintersScreenProps) {
     Server,
     Settings,
     captureSnapshotForPrinter,
-    formatSshStatus,
     loadFleetAgentPairings,
     loadPrinterPairing,
     loadPrinters,
@@ -147,10 +145,7 @@ export function PrintersScreen(props: PrintersScreenProps) {
                 <Metric label="Agente" value={formatAgentSummary(printer)} />
                 <Metric label="Último snapshot" value={formatDateTime(printer.latest_snapshot_at)} />
                 <Metric label="Último agente" value={formatDateTime(printer.latest_agent_last_seen_at)} />
-                <Metric label="Host audit" value={printer.host_audit_mode} />
-                <Metric label="SSH" value={formatSshStatus(printer)} />
-                <Metric label="Status cloud" value={formatAgentStatus(printer)} />
-                <Metric label="URL Moonraker" value={printer.moonraker_url} />
+                <Metric label="Conectividade" value={formatAgentStatus(printer)} />
               </div>
               {printer.cloud_tags?.length ? (
                 <div className="auth-list">

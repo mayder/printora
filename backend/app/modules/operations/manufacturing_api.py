@@ -24,8 +24,10 @@ def require_platform_admin(current: CurrentUser = Depends(require_current_user))
     return current
 
 
-def require_role(*roles: str):
+def require_role(*roles: str, allow_platform_admin: bool = False):
     def dependency(current: CurrentUser = Depends(require_current_user)) -> CurrentUser:
+        if allow_platform_admin and is_platform_admin(current.user.email):
+            return current
         with connect_database(get_settings().database_path) as connection:
             row = connection.execute(
                 "SELECT 1 FROM manufacturing_role_assignments WHERE user_id=? AND active=1 AND role IN (" +
@@ -39,7 +41,8 @@ def require_role(*roles: str):
 
 @router.get("/api/admin/manufacturing/overview")
 async def overview(current: CurrentUser = Depends(require_role(
-    "production_operator", "quality_inspector", "quality_approver", "logistics_operator", "safety_manager"
+    "production_operator", "quality_inspector", "quality_approver", "logistics_operator", "safety_manager",
+    allow_platform_admin=True,
 ))):
     del current
     with connect_database(get_settings().database_path) as connection:

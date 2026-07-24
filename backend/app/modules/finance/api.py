@@ -62,6 +62,15 @@ def _require_finance_role(current: CurrentUser, roles: set[str]) -> CurrentUser:
     return current
 
 
+def _require_finance_role_or_platform_admin(
+    current: CurrentUser,
+    roles: set[str],
+) -> CurrentUser:
+    if is_platform_admin(current.user.email):
+        return current
+    return _require_finance_role(current, roles)
+
+
 def require_finance_operator(current: CurrentUser = Depends(require_current_user)) -> CurrentUser:
     return _require_finance_role(current, {"finance_operator"})
 
@@ -79,7 +88,7 @@ def require_finance_risk(current: CurrentUser = Depends(require_current_user)) -
 
 
 def require_finance_any(current: CurrentUser = Depends(require_current_user)) -> CurrentUser:
-    return _require_finance_role(
+    return _require_finance_role_or_platform_admin(
         current,
         {"finance_operator", "finance_approver", "finance_risk", "finance_support", "finance_auditor"},
     )
@@ -328,8 +337,9 @@ async def appeal_risk_case(
 
 @router.get("/api/admin/finance/readiness", response_model=FinanceReadinessResponse)
 async def finance_readiness(
-    _current: CurrentUser = Depends(require_finance_auditor),
+    current: CurrentUser = Depends(require_current_user),
 ) -> FinanceReadinessResponse:
+    _require_finance_role_or_platform_admin(current, {"finance_auditor"})
     return FinanceComplianceService(get_settings().database_path).readiness()
 
 

@@ -7,7 +7,6 @@ import { PrintVisual } from "./PrintPreview";
 import { TemperatureMonitor, buildTemperatureSeries } from "./temperature";
 import { canTone, formatCanAlert, formatDataState, formatDecision, formatOperationValue, formatOptional, formatPercent, formatTemperature, healthTone } from "./formatters";
 import { formatDateTime } from "../../utils/formatters";
-import { apiResponse } from "../../services/http";
 import type { CanBusRecord, CanBusRecordComparison, CanBusSummary, HealthResponse } from "./types";
 import type {
   OperationAction,
@@ -20,11 +19,6 @@ import type {
 } from "../../types";
 
 type CapabilityStatus = OperationCapability["status"];
-type DatabaseRuntimeStatus = {
-  backend: "sqlite" | "postgresql";
-  state: string;
-};
-
 const PRIMARY_PRINT_FACT_LABELS = new Set(["Estado", "Camada", "Tempo", "Restante"]);
 const MIN_GCODE_VIEWER_AGENT_VERSION = "0.1.30";
 const MIN_GCODE_FILES_AGENT_VERSION = "0.1.31";
@@ -77,7 +71,6 @@ export function MonitoringDashboard({
   onOpenGcodeFiles: () => void;
 }) {
   const [capabilityModalStatus, setCapabilityModalStatus] = React.useState<CapabilityStatus | null>(null);
-  const [databaseRuntime, setDatabaseRuntime] = React.useState<DatabaseRuntimeStatus | null>(null);
   const printBodyRef = React.useRef<HTMLDivElement | null>(null);
   const temperatureSeries = buildTemperatureSeries(operationStatus?.temperature_history ?? [], operationStatus?.temperatures ?? []);
   const latestCanRecords = canRecords.slice(0, 4);
@@ -93,31 +86,6 @@ export function MonitoringDashboard({
   const completedPrintFile = completedPrintPreviewFile(operationStatus, idleGcodeFiles);
   const completedPreview = Boolean(!printActive && completedPrintFile);
 
-  React.useEffect(() => {
-    let cancelled = false;
-    let refreshTimer: number | undefined;
-    async function loadDatabaseRuntime() {
-      try {
-        const response = await apiResponse("/api/system/version/internal");
-        if (!response.ok || cancelled) return;
-        const payload = (await response.json()) as { database_runtime?: DatabaseRuntimeStatus };
-        if (!cancelled && payload.database_runtime) {
-          setDatabaseRuntime(payload.database_runtime);
-        }
-      } catch {
-        // This support-only status must not affect the operational dashboard.
-      } finally {
-        if (!cancelled) {
-          refreshTimer = window.setTimeout(() => void loadDatabaseRuntime(), 15_000);
-        }
-      }
-    }
-    void loadDatabaseRuntime();
-    return () => {
-      cancelled = true;
-      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
-    };
-  }, []);
   const gcodeFilename = printActive
     ? (operationStatus?.miscellaneous.filename ?? "").trim()
     : ((operationStatus?.miscellaneous.filename ?? "").trim() || operationGcodeFilePath(completedPrintFile));
@@ -217,19 +185,6 @@ export function MonitoringDashboard({
         <MonitorBadge icon={Thermometer} label="Mesa" value={formatTemperature(bed?.temperature)} />
         <MonitorBadge icon={Database} label="Origem" value={formatDataState(operationStatus?.data_state)} />
       </div>
-
-      {databaseRuntime ? (
-        <section className="monitor-card database-runtime-card" aria-label="Estado do banco da plataforma">
-          <div className="monitor-card-title">
-            <Database size={18} />
-            <h3>Banco da plataforma</h3>
-          </div>
-          <div className="monitor-status-strip">
-            <MonitorBadge icon={Database} label="Backend" value={databaseRuntime.backend} tone="ok" />
-            <MonitorBadge icon={Activity} label="Estado" value={databaseRuntime.state} tone="ok" />
-          </div>
-        </section>
-      ) : null}
 
       {liveUnavailable ? (
         <div className="monitor-note monitor-live-unavailable">

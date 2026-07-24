@@ -191,6 +191,18 @@
 @media (max-width: 920px) {
   .printer-detail-header .panel-heading {
     grid-template-columns: 1fr;
+    min-width: 0;
+  }
+
+  .printer-detail-header .panel-heading > *,
+  .printer-detail-header .printer-detail-strip {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .printer-detail-header .printer-detail-strip {
+    grid-template-columns: 1fr;
+    justify-self: stretch;
   }
 }
 
@@ -240,10 +252,12 @@
 
 .agent-fleet-table {
   display: grid;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface-3);
+  scrollbar-gutter: stable;
 }
 
 .agent-fleet-header,
@@ -690,6 +704,37 @@
   font-weight: 700;
 }
 
+@media (max-width: 1240px) {
+  .agent-fleet-header {
+    display: none;
+  }
+
+  .agent-fleet-table {
+    gap: 10px;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .agent-fleet-row {
+    grid-template-columns: 1fr;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-3);
+  }
+
+  .agent-fleet-row > [data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+}
+
 @media (max-width: 900px) {
   .agent-fleet-layout,
   .agent-token-grid,
@@ -703,14 +748,6 @@
   }
 
   .printora-consumption-focus {
-    grid-template-columns: 1fr;
-  }
-
-  .agent-fleet-header {
-    display: none;
-  }
-
-  .agent-fleet-row {
     grid-template-columns: 1fr;
   }
 }
