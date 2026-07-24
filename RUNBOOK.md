@@ -2236,6 +2236,102 @@ objetos e configuração cifrada. A política é 14 diários, 8 semanais e 12 me
 `preview-backup-retention.sh` usa `restic forget --dry-run`; nenhuma remoção ou
 `prune` pode ocorrer sem revisão do preview e confirmação explícita.
 
+### SLO de recuperação física
+
+| Classe | Fonte canônica | RPO | RTO | Proteção |
+| --- | --- | --- | --- | --- |
+| escrita PostgreSQL confirmada | PostgreSQL | até 5 min | até 15 min | `archive_timeout=120s`, cópia externa a cada 60 s e execução limitada a 110 s |
+| deploy/cutover | release e banco compartilhado | zero | até 5 min | blue/green sem restore de dados |
+| objetos e configuração | S3 local e arquivos protegidos | até 24 h 15 min | até 15 min no volume atual | snapshot externo diário com checksum |
+| Redis | PostgreSQL e serviços canônicos | zero dado canônico | até 5 min | recomposição; Redis não é restaurado |
+| busca | PostgreSQL canônico | zero dado canônico | até 15 min | rebuild após restore |
+| release | Git e bundle verificável | último commit publicado | até 15 min | commit, checksum, SBOM e release imutável |
+
+O pior caso configurado do PostgreSQL é `120 + 60 + 110 = 290 segundos`.
+`printora-cloud-recovery-monitor.timer` executa a cada minuto e falha a partir
+de 210 segundos sem verificação externa válida, antes do limite de 300 segundos.
+O alerta tem owner `operations`, sempre grava evento crítico no journal e pode
+enviar o mesmo evento sanitizado ao webhook definido fora do Git em
+`/etc/printora-cloud/recovery-alert.env`.
+
+Estado operacional:
+
+```bash
+sudo systemctl status \
+  printora-cloud-wal-sync.timer \
+  printora-cloud-recovery-monitor.timer \
+  printora-cloud-restore-test.timer \
+  printora-cloud-backup.timer
+sudo /usr/local/libexec/printora-cloud/recovery-readiness.py
+sudo journalctl -u printora-cloud-recovery-monitor.service \
+  -u printora-cloud-wal-sync.service --since -30min
+```
+
+O relatório público/sanitizado pode conter idade, duração, bytes, quantidade de
+WAL e gates. Não copiar `stable_id`, fingerprint, credencial, URL do repositório,
+snapshot ID, path privado ou payload para tickets e auditorias.
+
+O backup completo continua diário. O WAL externo é incremental e contínuo; não
+executa `forget`, `prune` ou remoção local. O restore isolado semanal consome o
+último snapshot completo e a cópia externa contínua de WAL, promove o cluster,
+confere schema/revisões/FKs, objetos, configuração e busca, e deve terminar em
+até 900 segundos. A unit limita CPU, I/O, memória e tarefas.
+
+### Resposta cronológica a desastre
+
+Owner primário: operações da plataforma. Um segundo responsável valida
+custódia, reconciliação e retorno de tráfego.
+
+1. Declarar incidente, horário de corte, classe afetada e responsável. Bloquear
+   novas escritas somente se o banco não puder confirmá-las com segurança.
+2. Preservar releases, logs, WAL, snapshots e estados de monitor. Não executar
+   retenção, prune, cancelamento de job ou correção manual de linha.
+3. Em host limpo, instalar a release exata e dependências verificadas. Obter
+   credencial e chave exclusivamente pela custódia externa.
+4. Restaurar o snapshot completo mais recente e sobrepor todos os WAL externos
+   posteriores. Nunca restaurar sobre o cluster original.
+5. Promover o cluster isolado e exigir: recovery encerrado, revisões esperadas,
+   zero índice/FK inválida, checksums de configuração/objetos válidos e busca
+   reconstruída da fonte canônica.
+6. Reconciliar objetos, jobs/outbox/inbox, dead letters, duplicidades,
+   pagamentos sandbox e fabricação. Redis deve voltar por recomposição.
+7. Medir RPO entre a última escrita recuperada e o incidente e RTO entre a
+   declaração e o fim da reconciliação. Se qualquer alvo falhar, manter tráfego
+   bloqueado e escalar ao owner.
+8. Trocar tráfego apenas após dupla revisão, smoke público/privado e plano de
+   retorno. Comunicar início, decisão, resultado, risco residual e rollback.
+
+O exercício local usa destino isolado, nunca o cluster em produção:
+
+```bash
+sudo systemctl start printora-cloud-wal-sync.service
+sudo systemctl start printora-cloud-backup.service
+sudo systemctl start printora-cloud-restore-test.service
+sudo /usr/local/libexec/printora-cloud/recovery-readiness.py
+sudo /usr/local/libexec/printora-cloud/emit-recovery-alert.sh recovery-drill
+sudo /usr/local/libexec/printora-cloud/preview-backup-retention.sh
+```
+
+O drill de alerta não degrada a aplicação nem altera dados; apenas registra o
+evento e usa o webhook externo quando configurado. O preview de retenção não
+autoriza exclusão. Qualquer `forget` sem `--dry-run`, prune ou remoção de WAL
+exige confirmação explícita separada, evidência de restore válido e hold
+revisado.
+
+### Capacidade e segundo host
+
+Monitorar duração e bytes da cópia WAL, crescimento do repositório, espaço
+livre, duração do snapshot completo e restore. Se a sincronização exceder 110 s,
+se o disco ficar abaixo de 10% livre ou se o restore se aproximar de 900 s, o
+gate falha antes de prometer o SLO.
+
+Um segundo host é a evolução recomendada, não parte automática deste pacote.
+Requer PostgreSQL da mesma versão, rede privada, armazenamento independente,
+custódia própria, slots de replicação monitorados, capacidade equivalente e
+exercício de promoção/retorno. Réplica assíncrona reduz RTO e mantém RPO limitado
+pelo atraso; RPO físico zero exige réplica síncrona e aceita maior latência de
+escrita. O servidor único continua sem classificação de alta disponibilidade.
+
 Ensaios:
 
 ```bash

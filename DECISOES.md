@@ -1822,6 +1822,45 @@ Como reverter a decisão: reabrir o PKG-98, ligar as duas máquinas em janela
 segura, repetir probes e curtos observados e executar novas janelas contínuas
 integrais, sem reaproveitar períodos anteriores.
 
+### DEC-20260724-19 - Recuperação física usa WAL externo contínuo e gate fail-closed
+
+Status: aceita
+Data: 2026-07-24
+Contexto: o snapshot externo diário já restaurava PostgreSQL, objetos e
+configuração em destino isolado, mas o pior caso de destruição física do host
+permanecia em até 24 h 15 min. O rollback blue/green preservava RPO zero de
+deploy, sem resolver perda do servidor.
+
+Decisão: forçar troca de WAL em até 120 segundos, sincronizar o arquivo completo
+para o repositório Restic externo a cada 60 segundos e limitar cada execução a
+110 segundos. O pior caso configurado fica em 290 segundos. Um monitor
+fail-closed executa a cada minuto e alerta a partir de 210 segundos sem
+verificação válida. Backup completo permanece diário; restore isolado passa a
+ser semanal, limitado a 900 segundos e inclui o WAL contínuo.
+
+O alerta sempre grava evento crítico sanitizado com owner `operations`. Webhook
+é opcional e configurado fora do Git; falha do webhook não apaga o alerta local.
+Retenção de snapshots completos e WAL possui apenas preview. Nenhum `forget`
+efetivo, prune, snapshot, objeto ou WAL é removido sem confirmação explícita
+separada.
+
+Consequências: PostgreSQL obtém RPO físico configurado inferior a cinco minutos
+e RTO alvo de quinze minutos no volume atual. Objetos/configuração permanecem
+na classe diária e Redis/busca continuam recomponíveis a partir das fontes
+canônicas. A quantidade de snapshots WAL, bytes locais, duração, atraso e espaço
+livre entram no monitoramento. O host único continua sem promessa de alta
+disponibilidade.
+
+Controles: units com quotas de CPU/I/O/memória/tarefas; `TimeoutStartSec` efetivo
+para oneshot; replay de WAL, schema, revisões, FKs, checksums, objetos e busca no
+restore; preflight e auditoria falham com proteção vencida; configuração
+PostgreSQL permanece `root:postgres` e não gravável pelo processo do banco.
+
+Rollback: se a frequência degradar produção, preservar integralmente todo WAL e
+snapshot, diagnosticar duração/capacidade e restaurar a frequência anterior
+somente com proteção equivalente autorizada. Nunca usar restore para rollback de
+código nem resolver capacidade com prune não aprovado.
+
 ### DEC-20260724-17 - Espera de job coalescido usa um único poller por processo
 
 Status: aceita

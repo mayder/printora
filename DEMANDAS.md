@@ -6656,7 +6656,13 @@ Rollback:
 
 Estado atual:
 
-- Planejado; implementação não iniciada.
+- Em conclusão operacional. Lotes 1 a 9 implementados e validados em produção:
+  RPO PostgreSQL configurado em 290 s, sincronização WAL externa contínua,
+  backup completo em 167 s, restore isolado em 258 s, alerta local aprovado e
+  preview de retenção sem exclusão. O lote 10 aguarda somente publicação oficial
+  do commit final, smoke e consolidação da auditoria.
+- Evidência em
+  `docs/audits/PHYSICAL_RECOVERY_PKG_99_2026-07-24.md`.
 
 ## PKG-100: Gerenciador Completo De Arquivos G-code
 
