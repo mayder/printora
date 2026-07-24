@@ -2221,3 +2221,18 @@ Consultas compartilhadas entre SQLite de teste e PostgreSQL Cloud devem manter:
   aceite navegável nas duas impressoras;
 - nos testes físicos, usar arquivo inofensivo e não iniciar impressão real até
   confirmar que a impressora está ociosa.
+
+Aceite de 2026-07-24:
+
+- `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`: aprovado, com 22/22
+  E2E, 627 testes Python, testes Go e gates de frontend;
+- produção no commit `4e53912`, workflow `30102603946` aprovado e agentes
+  `0.1.36`;
+- Voron 0.2: Moonraker online, listagem única paginada, detalhe e preview 3D,
+  upload de `printora-pkg100-safe-smoke.gcode`, impressão protegida registrada
+  como `succeeded` e estado final `complete`;
+- Voron 2.4: Moonraker online, listagem única paginada, detalhe e preview 3D,
+  upload do mesmo arquivo inofensivo, ação de impressão HTTP 200 registrada
+  como `succeeded` e estado final `complete`;
+- o arquivo de smoke contém somente mensagens no display e espera de 1 segundo,
+  sem comandos de movimento, extrusão ou aquecimento.

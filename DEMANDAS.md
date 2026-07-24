@@ -6653,4 +6653,12 @@ Rollback:
 
 Estado atual:
 
-- Em execução.
+- Concluído 100% em 2026-07-24.
+- Implementação publicada no commit `4e53912` pelo workflow
+  `30102603946`, com agentes `0.1.36` nas duas impressoras.
+- Aceite operacional concluído na Voron 0.2 e na Voron 2.4: listagem paginada
+  com uma consulta, detalhe, preview 3D, upload do G-code inofensivo de 118 B e
+  impressão protegida concluída; ambas terminaram no estado `complete`, sem
+  movimento, extrusão ou aquecimento.
+- Validação completa aprovada: 22/22 E2E, 627 testes Python, testes Go,
+  cobertura, build, release, preview, budget e `./check.sh`.
