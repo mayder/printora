@@ -6463,13 +6463,21 @@ Estado atual:
   simplificação de dados técnicos e acesso read-only do administrador máximo
   aos overviews. As incompatibilidades
   PostgreSQL de projetos e papel financeiro encontradas no diagnóstico de
-  produção também foram corrigidas localmente. Publicação e aceite visual em
-  produção permanecem pendentes; isso ainda não fecha o lote.
-- Lote 7 em execução: a janela iniciada em `2026-07-24T01:27:10Z` também foi
-  invalidada integralmente. O 19º lote violou p95/p99 porque o processo e o pool
-  ainda eram recriados a cada lote, embora houvesse keep-alive dentro dele. A
-  carga passa a manter um único pool durante toda a janela; publicação, probe e
-  repetição curta são obrigatórios antes de reiniciar a contagem.
+  produção também foram corrigidas. A release exata
+  `501b4b7db21dc496bcee6cbe1450e56d2e3ed5c2` foi publicada pelo workflow
+  `30065361518`, passou pelo gate Linux completo e foi confirmada no slot ativo,
+  com `/health`, `/ready`, versão, integridade e serviços cloud saudáveis.
+  O smoke público encontrou e o código corrigiu uma incompatibilidade
+  PostgreSQL na biblioteca do perfil; essa correção ainda aguarda publicação.
+  O smoke visual autenticado também permanece pendente porque a sessão
+  controlável estava desautenticada; esses dois pontos ainda não fecham o lote.
+- Lote 7 aguarda nova janela observada: a janela iniciada em
+  `2026-07-24T01:27:10Z` foi invalidada integralmente. O 19º lote violou p95/p99
+  porque o processo e o pool ainda eram recriados a cada lote, embora houvesse
+  keep-alive dentro dele. A correção que mantém um único pool durante toda a
+  janela foi publicada em `0b6e963` pelo workflow `30061267780`; o probe
+  cloud curto passou com 700 requisições em 120 s. A contagem de 24 horas só
+  será reiniciada após heartbeat real das impressoras e repetição observada.
 
 ## PKG-99: RPO Físico, Recuperação Contínua E Prontidão De Desastre
 
