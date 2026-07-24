@@ -100,7 +100,7 @@ export function PublicCommunityScreen({ slug, embedded = false }: PublicCommunit
           <article className="panel public-profile-panel community-technical-context">
             <h2>Contexto técnico</h2>
             <div className="public-spec-list">
-              <span><Archive size={15} />Catálogo mestre</span>
+              <span><Archive size={15} />Origem no catálogo</span>
               <span><SlidersHorizontal size={15} />{communityContext(community)}</span>
               <span><Lock size={15} />Sem acesso à operação nem dados privados da impressora</span>
             </div>
@@ -222,7 +222,7 @@ function CommunityTabContent({ community, tab }: { community: CommunityDetail; t
         <h2>Mods públicos</h2>
         <div className="community-chip-list">{mods.map((mod) => <span key={mod}>{mod}</span>)}</div>
       </>
-    ) : <Placeholder title="Mods" text="A estrutura inicial usa mods declarados na publicação da impressora. Biblioteca dedicada será ligada ao pacote de arquivos/modelos." />;
+    ) : <Placeholder title="Mods" text="Nenhum mod público foi compartilhado nesta comunidade." />;
   }
   if (tab === "projects") {
     return <CommunityProjects community={community} />;

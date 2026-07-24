@@ -90,8 +90,8 @@ export function OperationScreen(props: OperationScreenProps) {
             <div className="operation-state fixture">
               <Database size={17} />
               <div>
-                <strong>Fixture local</strong>
-                <span>Dados simulados para validar layout com a impressora desligada. Nenhum endpoint da impressora foi chamado.</span>
+                <strong>Modo de demonstração</strong>
+                <span>Dados simulados para visualizar a tela com a impressora desligada. Nenhuma conexão com a impressora foi realizada.</span>
               </div>
             </div>
           ) : null}

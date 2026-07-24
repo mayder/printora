@@ -195,7 +195,7 @@ export function MonitoringDashboard({
       {operationStatus?.data_state === "fixture" ? (
         <div className="monitor-note">
           <Database size={17} />
-          <span>Dados simulados para validar layout com a impressora desligada. Nenhum endpoint da impressora foi chamado.</span>
+          <span>Dados simulados para visualizar a tela com a impressora desligada. Nenhuma conexão com a impressora foi realizada.</span>
         </div>
       ) : null}
       {operationStatus?.data_state === "last_snapshot" ? (
