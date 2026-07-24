@@ -27,7 +27,7 @@
 | Módulo | Owner | Linhas | Rotas | Contratos |
 |---|---|---:|---:|---:|
 | `social_catalog` | `community` | 3377 | 0 | 0 |
-| `operation` | `operations` | 1153 | 0 | 0 |
+| `operation` | `operations` | 1158 | 0 | 0 |
 | `maintenance` | `operations` | 1147 | 0 | 8 |
 | `routes.social_catalog` | `community` | 1120 | 59 | 0 |
 | `print_projects` | `community` | 1059 | 0 | 14 |
@@ -35,7 +35,7 @@
 | `agent_pairing` | `operations` | 997 | 0 | 0 |
 | `auth` | `identity` | 913 | 0 | 0 |
 | `calibration` | `operations` | 910 | 0 | 12 |
-| `routes.operation` | `operations` | 776 | 13 | 0 |
+| `routes.operation` | `operations` | 905 | 13 | 0 |
 | `modules.platform.durable_execution` | `shared` | 763 | 0 | 1 |
 | `setup_flash` | `operations` | 753 | 0 | 7 |
 | `routes.agents` | `operations` | 750 | 37 | 0 |

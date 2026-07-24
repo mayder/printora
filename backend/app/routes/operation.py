@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.routes.support import *
+from datetime import datetime, timezone
 import json
 
 from fastapi import Depends, Header, Query
@@ -35,7 +36,7 @@ from app.gcode_cache import (
     normalize_gcode_filename,
     read_gcode_cache_entry,
 )
-from app.operation import operation_action_blocks_when_printing, operation_action_requires_step_up
+from app.operation import build_operation_actions, operation_action_blocks_when_printing, operation_action_requires_step_up
 from app.routes.auth import require_current_user_when_configured
 from app.routes.auth import require_current_user
 
@@ -46,6 +47,7 @@ OPERATION_PREFLIGHT_TIMEOUT_SECONDS = 12.0
 OPERATION_GCODE_CACHE_TIMEOUT_SECONDS = 120.0
 GCODE_FILES_TIMEOUT_SECONDS = 35.0
 GCODE_FILE_ACTION_TIMEOUT_SECONDS = 45.0
+RECENT_OPERATION_JOB_FALLBACK_SECONDS = 900.0
 
 
 @router.get("/api/printers/{printer_id}/operation/status")
@@ -65,7 +67,15 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
             timeout_seconds=_operation_status_timeout(settings),
         )
         printer_info, server_info, system_info, proc_stats, objects, history_totals, file_metadata, gcode_files = operation_payload(job.result)
-    except HTTPException as exc:
+    except (AgentJobFailedError, HTTPException) as exc:
+        recent_operation = _recent_operation_job_status(settings.database_path, printer.id, recent_snapshots)
+        if recent_operation is not None:
+            return {
+                "printer_id": printer.id,
+                "moonraker_url": "agent",
+                "agent": _agent_operation_status(settings, printer.id),
+                **recent_operation,
+            }
         latest_snapshot = _latest_moonraker_snapshot(snapshot_repository, printer.id)
         if latest_snapshot is not None:
             operation = build_last_known_operation(latest_snapshot)
@@ -75,7 +85,7 @@ async def printer_operation_status(printer_id: int) -> dict[str, Any]:
                 "agent": _agent_operation_status(settings, printer.id),
                 **operation,
             }
-        operation = build_unreachable_operation(printer.moonraker_url, _http_exception_detail(exc))
+        operation = build_unreachable_operation(printer.moonraker_url, _operation_failure_detail(exc))
         return {"printer_id": printer.id, "agent": _agent_operation_status(settings, printer.id), **operation}
 
     operation = build_operation_status(
@@ -497,22 +507,47 @@ async def _gcode_file_current_print_context(settings, printer) -> dict[str, Any]
             timeout_seconds=_operation_status_timeout(settings),
         )
     except (AgentJobFailedError, HTTPException) as exc:
+        fallback = _current_print_context_from_recent_operation_job(settings.database_path, printer.id, exc)
+        if fallback is not None:
+            return fallback
         return {
             "connected": False,
             "printing": False,
             "print_state": "",
             "filename": "",
-            "error": exc.detail if isinstance(exc, HTTPException) else str(exc),
+            "error": _operation_failure_detail(exc),
         }
-    printer_info, server_info, _system_info, _proc_stats, objects, _history, _metadata, _files = operation_payload(job.result)
+    return _current_print_context_from_operation_result(job.result) or {
+        "connected": False,
+        "printing": False,
+        "print_state": "",
+        "filename": "",
+        "error": "agente não retornou estado de impressão",
+    }
+
+
+def _current_print_context_from_recent_operation_job(database_path, printer_id: int, exc: AgentJobFailedError | HTTPException) -> dict[str, Any] | None:
+    context = _current_print_context_from_operation_result(_latest_successful_operation_job_result(database_path, printer_id))
+    if context is None:
+        return None
+    context["connected"] = False
+    context["error"] = _operation_failure_detail(exc)
+    return context
+
+
+def _current_print_context_from_operation_result(result: dict[str, Any] | None) -> dict[str, Any] | None:
+    payload = _operation_status_payload_from_result(result)
+    if payload is None:
+        return None
+    printer_info, server_info, _system_info, _proc_stats, objects, _history, _metadata, _files = payload
     status = objects.get("status") if isinstance(objects.get("status"), dict) else {}
     print_stats = status.get("print_stats") if isinstance(status.get("print_stats"), dict) else {}
     print_state = str(print_stats.get("state") or "").strip()
     filename = str(print_stats.get("filename") or "").strip()
-    connected = bool(server_info.get("klippy_connected", True)) and not any(str(key).endswith("_error") for key in (job.result or {}))
+    connected = bool(server_info.get("klippy_connected", True)) and not any(str(key).endswith("_error") for key in (result or {}))
     return {
         "connected": connected,
-        "printing": print_state not in {"", "standby", "complete", "cancelled", "error"},
+        "printing": print_state.lower() not in {"", "standby", "complete", "cancelled", "canceled", "error"},
         "print_state": print_state,
         "filename": filename,
         "klipper_state": str(printer_info.get("state") or ""),
@@ -576,6 +611,100 @@ def _json_dict(value) -> dict[str, Any]:
     except (TypeError, ValueError):
         return {}
     return parsed if isinstance(parsed, dict) else {}
+
+
+def _recent_operation_job_status(database_path, printer_id: int, recent_snapshots: list[Any]) -> dict[str, Any] | None:
+    payload = _operation_status_payload_from_result(_latest_successful_operation_job_result(database_path, printer_id))
+    if payload is None:
+        return None
+    printer_info, server_info, system_info, proc_stats, objects, history_totals, file_metadata, gcode_files = payload
+    operation = build_operation_status(
+        printer_info=printer_info,
+        server_info=server_info,
+        system_info=system_info,
+        proc_stats=proc_stats,
+        objects=objects,
+        history_totals=history_totals,
+        print_metadata=file_metadata,
+        gcode_files=gcode_files,
+    )
+    status = objects.get("status") if isinstance(objects.get("status"), dict) else {}
+    print_stats = status.get("print_stats") if isinstance(status.get("print_stats"), dict) else {}
+    print_state = str(print_stats.get("state") or operation.get("miscellaneous", {}).get("print_state") or "").strip()
+    operation.update(
+        {
+            "data_state": "last_snapshot",
+            "connected": False,
+            "can_send_commands": False,
+            "safe_mode": "read_only",
+            "summary": _recent_operation_summary(print_state),
+            "moonraker_url": "agent",
+            "temperature_history": build_temperature_history(recent_snapshots),
+            "actions": build_operation_actions(connected=False, print_state=print_state, objects=objects),
+        }
+    )
+    return operation
+
+
+def _operation_status_payload_from_result(result: dict[str, Any] | None):
+    if not result:
+        return None
+    try:
+        return operation_payload(result)
+    except (AttributeError, TypeError, ValueError, KeyError):
+        return None
+
+
+def _latest_successful_operation_job_result(database_path, printer_id: int, max_age_seconds: float = RECENT_OPERATION_JOB_FALLBACK_SECONDS) -> dict[str, Any] | None:
+    with connect_database(database_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT result_json, finished_at, updated_at, created_at
+            FROM agent_jobs
+            WHERE printer_id = ?
+              AND job_type = 'remote_operation_status'
+              AND status = 'succeeded'
+              AND result_json IS NOT NULL
+            ORDER BY id DESC
+            LIMIT 20
+            """,
+            (printer_id,),
+        ).fetchall()
+    for row in rows:
+        age = _age_seconds(row["finished_at"] or row["updated_at"] or row["created_at"])
+        if age is not None and age > max_age_seconds:
+            continue
+        result = _json_dict(row["result_json"])
+        if result:
+            return result
+    return None
+
+
+def _age_seconds(value: Any) -> float | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        timestamp = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+    return max(0.0, (datetime.now(timezone.utc) - timestamp.astimezone(timezone.utc)).total_seconds())
+
+
+def _recent_operation_summary(print_state: str) -> str:
+    state = print_state.strip()
+    if state and state.lower() not in {"standby", "complete", "cancelled", "canceled", "error"}:
+        return f"Última leitura recente do agente. Impressão: {state}. Ações reais bloqueadas até reconectar."
+    return "Última leitura recente do agente. Ações reais bloqueadas até reconectar."
+
+
+def _operation_failure_detail(exc: AgentJobFailedError | HTTPException) -> str:
+    if isinstance(exc, HTTPException):
+        return _http_exception_detail(exc)
+    detail = getattr(exc, "detail", "")
+    return str(detail or exc)
 
 
 def _require_gcode_filename(value: str) -> str:

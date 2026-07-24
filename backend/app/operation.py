@@ -623,6 +623,11 @@ def _int_or_none(value: Any) -> int | None:
     return None
 
 
+def _positive_int_or_none(value: Any) -> int | None:
+    parsed = _int_or_none(value)
+    return parsed if parsed is not None and parsed > 0 else None
+
+
 def _safe_gcode_identifier(value: str) -> str:
     cleaned = "".join(character for character in value.strip() if character.isalnum() or character in {"_", "-", "<", ">"})
     return cleaned[:80]
@@ -1014,8 +1019,8 @@ def _bounded_fraction(value: Any, *, allow_percent: bool = False) -> float | Non
 
 def _print_layer_info(print_stats: dict[str, Any], display: dict[str, Any], status: dict[str, Any], metadata: dict[str, Any]) -> dict[str, int | str | None]:
     info = _dict(print_stats.get("info"))
-    current_layer = _int_or_none(print_stats.get("current_layer") or info.get("current_layer"))
-    direct_total_layers = _int_or_none(print_stats.get("total_layer") or info.get("total_layer") or info.get("total_layers"))
+    current_layer = _positive_int_or_none(print_stats.get("current_layer") or info.get("current_layer"))
+    direct_total_layers = _positive_int_or_none(print_stats.get("total_layer") or info.get("total_layer") or info.get("total_layers"))
     if current_layer is not None or direct_total_layers is not None:
         return {"current_layer": current_layer, "total_layers": direct_total_layers or _metadata_total_layers(metadata), "source": "print_stats"}
     message = str(print_stats.get("message") or display.get("message") or "")
@@ -1035,8 +1040,8 @@ def _parse_layer_message(message: str) -> dict[str, int | None]:
         parts = lowered.replace("layer", "").replace(":", " ").split(separator, 1)
         if len(parts) != 2:
             continue
-        current = _int_or_none(parts[0].strip().split()[-1] if parts[0].strip().split() else None)
-        total = _int_or_none(parts[1].strip().split()[0] if parts[1].strip().split() else None)
+        current = _positive_int_or_none(parts[0].strip().split()[-1] if parts[0].strip().split() else None)
+        total = _positive_int_or_none(parts[1].strip().split()[0] if parts[1].strip().split() else None)
         if current is not None or total is not None:
             return {"current_layer": current, "total_layers": total}
     return {"current_layer": None, "total_layers": None}
@@ -1044,8 +1049,8 @@ def _parse_layer_message(message: str) -> dict[str, int | None]:
 
 def _metadata_total_layers(metadata: dict[str, Any]) -> int | None:
     for key in ("layer_count", "total_layer", "total_layers", "layers"):
-        total = _int_or_none(metadata.get(key))
-        if total is not None and total > 0:
+        total = _positive_int_or_none(metadata.get(key))
+        if total is not None:
             return total
     object_height = _number_or_none(metadata.get("object_height"))
     layer_height = _number_or_none(metadata.get("layer_height"))

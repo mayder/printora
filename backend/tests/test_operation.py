@@ -1,3 +1,10 @@
+import json
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+from fastapi import HTTPException
+
+from app.database import connect_database, initialize_database
 from app.operation import (
     build_last_known_operation,
     build_offline_fixture_operation,
@@ -12,8 +19,70 @@ from app.operation import (
     operation_action_blocks_when_printing,
     operation_action_requires_step_up,
 )
-from app.routes.operation import _operation_status_timeout, _remote_gcode_failure_detail
+from app.routes.operation import (
+    _current_print_context_from_recent_operation_job,
+    _latest_successful_operation_job_result,
+    _operation_status_timeout,
+    _recent_operation_job_status,
+    _remote_gcode_failure_detail,
+)
 from app.snapshots import SnapshotDetail
+
+
+def _operation_job_result(*, state: str = "printing", current_layer: int = 7, total_layers: int = 80) -> dict:
+    return {
+        "printer_info": {"state": "ready"},
+        "server_info": {"klippy_connected": True, "klippy_state": "ready"},
+        "system_info": {},
+        "proc_stats": {},
+        "objects_list": ["print_stats", "display_status", "virtual_sdcard", "gcode_move", "toolhead"],
+        "operation_objects": {
+            "status": {
+                "print_stats": {
+                    "state": state,
+                    "filename": "printora/deck.gcode",
+                    "print_duration": 120,
+                    "filament_used": 42,
+                    "info": {"current_layer": current_layer, "total_layer": total_layers},
+                },
+                "display_status": {"progress": 0.12},
+                "virtual_sdcard": {"progress": 0.08, "file_position": 1234, "is_active": True},
+                "gcode_move": {"gcode_position": [1, 2, 3, 0]},
+                "toolhead": {"position": [1, 2, 3, 0]},
+            }
+        },
+        "file_metadata": {"estimated_time": 1000},
+    }
+
+
+def _seed_operation_job(database_path: Path, *, result: dict | None = None, finished_at: datetime | None = None) -> int:
+    initialize_database(database_path)
+    timestamp = (finished_at or datetime.now(timezone.utc)).isoformat()
+    with connect_database(database_path) as connection:
+        printer_id = int(
+            connection.execute(
+                "INSERT INTO printers (name, moonraker_url) VALUES (?, ?)",
+                ("Voron Operation Job", "http://127.0.0.1:7125"),
+            ).lastrowid
+        )
+        connection.execute(
+            """
+            INSERT INTO agent_jobs (
+                printer_id, correlation_id, job_type, status, result_json,
+                created_at, updated_at, finished_at
+            )
+            VALUES (?, ?, 'remote_operation_status', 'succeeded', ?, ?, ?, ?)
+            """,
+            (
+                printer_id,
+                f"operation-status-{timestamp}",
+                json.dumps(result or _operation_job_result()),
+                timestamp,
+                timestamp,
+                timestamp,
+            ),
+        )
+    return printer_id
 
 
 def test_operation_query_objects_adds_only_discovered_optional_objects() -> None:
@@ -181,6 +250,34 @@ def test_operation_status_defers_layer_preview_until_material_progress() -> None
     assert misc["layer_preview"] is None
 
 
+def test_operation_status_ignores_invalid_negative_current_layer() -> None:
+    result = build_operation_status(
+        printer_info={"state": "ready"},
+        server_info={"klippy_connected": True, "klippy_state": "ready"},
+        system_info={},
+        proc_stats={},
+        objects={
+            "objects": ["print_stats", "display_status", "virtual_sdcard"],
+            "status": {
+                "print_stats": {
+                    "state": "printing",
+                    "filename": "deck.gcode",
+                    "filament_used": 12,
+                    "current_layer": -1,
+                    "total_layer": 714,
+                },
+                "display_status": {"progress": 0.1},
+                "virtual_sdcard": {"progress": 0.1, "file_position": 10},
+            },
+        },
+    )
+
+    misc = result["miscellaneous"]
+    assert misc["current_layer"] is None
+    assert misc["total_layers"] == 714
+    assert misc["layer_source"] == "print_stats"
+
+
 def test_operation_status_lists_idle_gcode_files_sorted_and_filtered() -> None:
     result = build_operation_status(
         printer_info={"state": "ready"},
@@ -310,6 +407,53 @@ def test_operation_status_timeout_covers_agent_polling_window() -> None:
     settings = type("Settings", (), {"request_timeout_seconds": 5.0})()
 
     assert _operation_status_timeout(settings) == 25.0
+
+
+def test_recent_operation_job_status_preserves_active_print_when_live_agent_fails(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    printer_id = _seed_operation_job(database_path)
+
+    result = _recent_operation_job_status(database_path, printer_id, [])
+
+    assert result is not None
+    assert result["data_state"] == "last_snapshot"
+    assert result["connected"] is False
+    assert result["can_send_commands"] is False
+    assert result["safe_mode"] == "read_only"
+    assert result["moonraker_url"] == "agent"
+    assert result["summary"] == "Última leitura recente do agente. Impressão: printing. Ações reais bloqueadas até reconectar."
+    assert result["miscellaneous"]["print_state"] == "printing"
+    assert result["miscellaneous"]["current_layer"] == 7
+    assert result["miscellaneous"]["total_layers"] == 80
+    assert result["miscellaneous"]["progress"] == 0.12
+    assert result["miscellaneous"]["file_progress"] == 0.08
+    assert all(action["enabled"] is False for action in result["actions"])
+
+
+def test_current_print_context_uses_recent_operation_job_after_timeout(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    printer_id = _seed_operation_job(database_path)
+
+    context = _current_print_context_from_recent_operation_job(
+        database_path,
+        printer_id,
+        HTTPException(status_code=504, detail="timeout aguardando resposta do agente"),
+    )
+
+    assert context is not None
+    assert context["connected"] is False
+    assert context["printing"] is True
+    assert context["print_state"] == "printing"
+    assert context["filename"] == "printora/deck.gcode"
+    assert context["error"] == "timeout aguardando resposta do agente"
+
+
+def test_recent_operation_job_status_ignores_stale_operation_jobs(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    printer_id = _seed_operation_job(database_path, finished_at=datetime.now(timezone.utc) - timedelta(minutes=30))
+
+    assert _latest_successful_operation_job_result(database_path, printer_id, max_age_seconds=10) is None
+    assert _recent_operation_job_status(database_path, printer_id, []) is None
 
 
 def test_offline_fixture_populates_panels_without_enabling_commands() -> None:

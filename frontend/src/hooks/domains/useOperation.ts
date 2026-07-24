@@ -279,6 +279,7 @@ const PRINT_SESSION_MISCELLANEOUS_KEYS = [
   "file_progress",
   "file_position",
   "message",
+  "print_state",
   "filename",
   "print_duration",
   "total_duration",
@@ -328,13 +329,25 @@ function preserveLastKnownOperationData(previous: OperationStatusResponse | null
 
   const miscellaneous: Record<string, unknown> = { ...previous.miscellaneous, ...next.miscellaneous };
   const nextPrintIdle = isIdlePrintState(next.miscellaneous.print_state);
-  if (nextPrintIdle) {
+  const shouldKeepPreviousPrintSession =
+    isActivePrintState(previous.miscellaneous.print_state) &&
+    next.data_state !== "live" &&
+    (nextPrintIdle || isMissingOperationValue(next.miscellaneous.print_state));
+  if (nextPrintIdle && !shouldKeepPreviousPrintSession) {
     PRINT_SESSION_MISCELLANEOUS_KEYS.forEach((key) => {
       miscellaneous[key] = next.miscellaneous[key] ?? null;
     });
   }
+  if (shouldKeepPreviousPrintSession) {
+    PRINT_SESSION_MISCELLANEOUS_KEYS.forEach((key) => {
+      const previousValue = previous.miscellaneous[key];
+      if (!isMissingOperationValue(previousValue)) {
+        miscellaneous[key] = previousValue;
+      }
+    });
+  }
   LAST_KNOWN_MISCELLANEOUS_KEYS.forEach((key) => {
-    if (nextPrintIdle && PRINT_SESSION_MISCELLANEOUS_KEY_SET.has(key)) {
+    if (nextPrintIdle && !shouldKeepPreviousPrintSession && PRINT_SESSION_MISCELLANEOUS_KEY_SET.has(key)) {
       return;
     }
     const previousValue = previous.miscellaneous[key];
@@ -362,6 +375,11 @@ function isMissingOperationValue(value: unknown) {
 function isIdlePrintState(value?: string | null) {
   const state = (value ?? "").trim().toLowerCase();
   return state === "standby" || state === "complete" || state === "cancelled" || state === "canceled" || state === "error";
+}
+
+function isActivePrintState(value?: string | null) {
+  const state = (value ?? "").trim().toLowerCase();
+  return Boolean(state) && !isIdlePrintState(state);
 }
 
 function hasOperationObject(value: Record<string, unknown>) {

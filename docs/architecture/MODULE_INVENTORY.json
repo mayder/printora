@@ -1592,7 +1592,7 @@
     {
       "module": "operation",
       "owner": "operations",
-      "lines": 1153,
+      "lines": 1158,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -2718,7 +2718,7 @@
     {
       "module": "routes.operation",
       "owner": "operations",
-      "lines": 776,
+      "lines": 905,
       "imports": [
         "agent_executor",
         "agent_moonraker",
