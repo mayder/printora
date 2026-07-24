@@ -6459,8 +6459,10 @@ Estado atual:
   real sem exclusão ou cancelamento manual; backlog observado voltou a zero.
 - Lote 7 em execução: a primeira janela de 24 horas foi invalidada após cinco
   minutos por SLO público. O gerador de carga passa a reutilizar keep-alive sem
-  alterar taxa ou limites; publicação e repetição curta são obrigatórias antes
-  de reiniciar a contagem.
+  alterar taxa ou limites. O primeiro reteste pós-publicação foi bloqueado antes
+  da carga porque o script usou o Python do sistema, sem a dependência runtime
+  `httpx`; o launcher passa a usar o Python da release imutável. Nova publicação
+  e repetição curta são obrigatórias antes de reiniciar a contagem.
 
 ## PKG-99: RPO Físico, Recuperação Contínua E Prontidão De Desastre
 

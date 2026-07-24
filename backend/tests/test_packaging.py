@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import subprocess
+import sys
 import threading
 
 
@@ -156,6 +157,7 @@ def test_cloud_process_chaos_is_scoped_and_recovers_active_instance() -> None:
     assert "/usr/local/libexec/printora-cloud/soak-observer.py" in soak
     assert "shared/logs/" in soak
     assert "batch_interval" in soak
+    assert '"$runtime_python" "$load_script"' in soak
     assert "errors=0 observed=$observe" in soak
     assert "status=passed" in soak
     logrotate = (ROOT_DIR / "packaging/logrotate/printora-cloud").read_text()
@@ -278,7 +280,7 @@ def test_cloud_load_smoke_reports_zero_errors() -> None:
     try:
         result = subprocess.run(
             [
-                "python3",
+                sys.executable,
                 "scripts/cloud/load-smoke.py",
                 f"http://127.0.0.1:{server.server_port}/health",
                 "--requests",

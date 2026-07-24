@@ -156,4 +156,11 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   enquanto browser e agente reutilizam keep-alive. A carga representativa passa
   a usar pool limitado; o modo frio continua separado e o SLO não muda. Nova
   janela só começa após publicação e repetição curta integral.
+- Publicação pooled: o workflow `30056598258` publicou `266e951` e o probe
+  sanitizado passou com agente `0.1.34`, backlog 1, zero dead letter,
+  duplicidade, restart ou serviço inativo. O soak curto foi bloqueado antes da
+  primeira requisição: o launcher executava `load-smoke.py` com o Python do
+  sistema, que não possui `httpx`, embora a dependência exista no ambiente
+  imutável da aplicação. A correção usa explicitamente o Python da release;
+  nenhuma janela prolongada foi iniciada ou parcialmente aproveitada.
 - Soak final contínuo de 72 horas: não iniciado.
