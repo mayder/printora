@@ -1726,22 +1726,30 @@ Contexto: a primeira janela de 24 horas encerrou após cinco minutos porque um
 lote público mediu p95 de 1.844 ms e p99 de 2.779 ms. Os slots locais
 permaneceram abaixo de 50 ms e não houve erro, backlog, restart ou serviço
 inativo. O gerador abria uma conexão DNS/TCP/TLS nova para cada requisição,
-divergindo do comportamento de browser e agente com keep-alive.
+divergindo do comportamento de browser e agente com keep-alive. A segunda
+janela revelou que o cliente compartilhado ainda era encerrado e recriado a
+cada lote de 100 requisições; no 19º lote, p95 de 2.002 ms e p99 de 2.603 ms
+confirmaram que reutilização apenas dentro do lote não representa uma sessão
+contínua.
 
 Decisão: a carga representativa de 24/72 horas usa um `httpx.Client`
-compartilhado, pool limitado pela concorrência e keep-alive. O modo de conexão
-fria permanece explícito para diagnóstico separado de DNS/TCP/TLS. O SLO,
-taxa, lote, concorrência e endpoint público não são relaxados.
+compartilhado por toda a janela, pool limitado pela concorrência e keep-alive.
+O processo de carga permanece vivo entre lotes e transmite cada relatório ao
+observador fail-closed. O modo de conexão fria permanece explícito para
+diagnóstico separado de DNS/TCP/TLS. O SLO, taxa, lote, concorrência e endpoint
+público não são relaxados.
 
 Alternativas consideradas: elevar p95/p99; medir somente os slots locais;
 ignorar lotes isolados; manter conexões frias como modelo único.
 
 Consequências: o soak mede a latência do fluxo HTTP real sob conexões
-reutilizadas sem transformar handshake em cinco novas conexões por segundo.
-Cold start continua verificável, mas não é somado à janela representativa.
+reutilizadas sem transformar handshake em cinco novas conexões por segundo ou
+recriar todo o pool a cada 20 segundos. Cold start continua verificável, mas não
+é somado à janela representativa.
 
-Impacto em testes: pacing e burst permanecem cobertos; cliente compartilhado,
-erro `httpx`, modo padrão e smoke integrado são validados.
+Impacto em testes: pacing e burst permanecem cobertos; cliente compartilhado
+entre múltiplos lotes, erro `httpx`, modo padrão, streaming e smoke integrado
+são validados.
 
 Impacto em rollback: reverter restaura uma conexão por requisição e pode
 reintroduzir variância de handshake que invalida a janela sem degradação dos

@@ -174,6 +174,13 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   `printora-cloud-soak.service`, invocation
   `0f365c644dd147318fc8130aeb89f25f`. A primeira carga e observação passaram;
   qualquer falha invalida integralmente esta janela.
+- Segunda janela de 24 horas: invalidada após 19 lotes e 1.900 requisições. Não
+  houve erro HTTP, backlog, dead letter, duplicidade, restart ou crescimento
+  anormal de recurso, mas o último lote mediu p95 de `2.002,734 ms` e p99 de
+  `2.602,830 ms`. O processo de carga ainda encerrava o `httpx.Client` ao fim
+  de cada lote, recriando o pool a cada 20 segundos. A correção mantém um único
+  processo e pool durante toda a janela e transmite os relatórios por FIFO ao
+  observador. Nenhum trecho desta tentativa será aproveitado.
 - Soak final contínuo de 72 horas: não iniciado.
 
 ## Auditoria de fechamento por lote
@@ -189,7 +196,7 @@ matriz física, o fluxo real ou o E2E visual.
 | 4. Update/rollback do agente | concluído | `docs/audits/AGENT_RELEASE_0.1.34_2026-07-23.md` comprova `0.1.34 -> 0.1.33 -> 0.1.34` nas duas Voron somente pela web | nenhum |
 | 5. Projeto até histórico real | pendente | contratos e testes existem, mas não substituem aceite físico desta janela | validar projeto, G-code, preview, preflight, salvar/enviar e histórico com fixture aprovada |
 | 6. E2E visual real | pendente | E2E sintético passou no gate completo | validar desktop, mobile, tema claro/escuro e ausência de quebra impeditiva no fluxo físico |
-| 7. Soak inicial de 24 horas | em execução | invocation `0f365c644dd147318fc8130aeb89f25f` iniciada em `2026-07-24T01:27:10Z` | completar continuamente e consolidar com duração mínima de 86.400 s |
+| 7. Soak inicial de 24 horas | em execução | duas tentativas foram invalidadas e a correção de pool contínuo está em validação | publicar, repetir o smoke e completar continuamente com duração mínima de 86.400 s |
 | 8. Correções e repetição | em execução | incidentes de UI, fila, UTC, lease, conexão fria e runtime foram corrigidos e retestados | reiniciar integralmente qualquer janela que falhar |
 | 9. Soak final de 72 horas | pendente | não iniciado | iniciar somente após lotes anteriores e completar continuamente por 259.200 s |
 | 10. Consolidação e runbook | pendente | cronologia parcial registrada | consolidar tendências, incidentes, capacidade, evidência sanitizada e operação final |

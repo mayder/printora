@@ -156,7 +156,8 @@ def test_cloud_process_chaos_is_scoped_and_recovers_active_instance() -> None:
     assert "soak-observer.py" in soak
     assert "/usr/local/libexec/printora-cloud/soak-observer.py" in soak
     assert "shared/logs/" in soak
-    assert "batch_interval" in soak
+    assert "mkfifo" in soak
+    assert "--duration-seconds" in soak
     assert '"$runtime_python" "$load_script"' in soak
     assert "errors=0 observed=$observe" in soak
     assert "status=passed" in soak
@@ -303,3 +304,52 @@ def test_cloud_load_smoke_reports_zero_errors() -> None:
     assert report["connection_mode"] == "pooled"
     assert report["latency_ms"]["p99"] >= report["latency_ms"]["p95"]
     assert report["slo"]["p99_ms"] == 2500
+
+
+def test_cloud_load_smoke_keeps_connection_across_streamed_batches() -> None:
+    class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+        client_ports: set[int] = set()
+
+        def do_GET(self) -> None:  # noqa: N802
+            payload = b'{"status":"ok"}'
+            self.client_ports.add(self.client_address[1])
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, _format: str, *_args) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "scripts/cloud/load-smoke.py",
+                f"http://127.0.0.1:{server.server_port}/health",
+                "--requests",
+                "2",
+                "--concurrency",
+                "1",
+                "--target-rps",
+                "2",
+                "--duration-seconds",
+                "1",
+            ],
+            cwd=ROOT_DIR,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    reports = [json.loads(line) for line in result.stdout.splitlines()]
+    assert len(reports) == 2
+    assert all(report["error_count"] == 0 for report in reports)
+    assert Handler.client_ports and len(Handler.client_ports) == 1

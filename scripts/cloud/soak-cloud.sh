@@ -32,18 +32,32 @@ if [[ "$observe" == "1" ]]; then
   chmod 0640 "$evidence_file"
 fi
 
-deadline=$((SECONDS + duration_seconds))
-batch_interval=$(((batch_requests + target_rps - 1) / target_rps))
 next_observation=$SECONDS
 batches=0
 requests=0
-while (( SECONDS < deadline )); do
-  batch_started=$SECONDS
-  if ! load_report="$("$runtime_python" "$load_script" "$url" --requests "$batch_requests" --concurrency "$concurrency" --target-rps "$target_rps" --connection-mode pooled --p95-ms 1500 --p99-ms 2500)"; then
-    echo "$load_report"
-    if [[ "$observe" == "1" ]]; then printf '%s\n' "$load_report" >> "$evidence_file"; fi
-    exit 1
+stream_dir="$(mktemp -d /tmp/printora-soak-load.XXXXXX)"
+stream_fifo="$stream_dir/reports.fifo"
+load_pid=""
+cleanup_stream() {
+  if [[ -n "$load_pid" ]] && kill -0 "$load_pid" 2>/dev/null; then
+    kill "$load_pid"
+    wait "$load_pid" 2>/dev/null || true
   fi
+  [[ -p "$stream_fifo" ]] && rm -f -- "$stream_fifo"
+  rmdir "$stream_dir" 2>/dev/null || true
+}
+trap cleanup_stream EXIT INT TERM
+mkfifo "$stream_fifo"
+"$runtime_python" "$load_script" "$url" \
+  --requests "$batch_requests" \
+  --concurrency "$concurrency" \
+  --target-rps "$target_rps" \
+  --connection-mode pooled \
+  --duration-seconds "$duration_seconds" \
+  --p95-ms 1500 \
+  --p99-ms 2500 > "$stream_fifo" &
+load_pid=$!
+while IFS= read -r load_report; do
   echo "$load_report"
   if [[ "$observe" == "1" ]]; then
     printf '%s\n' "$load_report" >> "$evidence_file"
@@ -64,11 +78,9 @@ while (( SECONDS < deadline )); do
   fi
   batches=$((batches + 1))
   requests=$((requests + batch_requests))
-  remaining=$((batch_interval - (SECONDS - batch_started)))
-  until_deadline=$((deadline - SECONDS))
-  if (( remaining > 0 && until_deadline > 0 )); then
-    (( remaining > until_deadline )) && remaining=$until_deadline
-    sleep "$remaining"
-  fi
-done
+done < "$stream_fifo"
+load_status=0
+wait "$load_pid" || load_status=$?
+load_pid=""
+(( load_status == 0 )) || exit "$load_status"
 echo "[printora-cloud] soak_seconds=$duration_seconds target_rps=$target_rps batches=$batches requests=$requests errors=0 observed=$observe evidence=$(basename "$evidence_file") status=passed"

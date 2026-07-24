@@ -107,3 +107,34 @@ def test_request_with_client_reports_sanitized_httpx_error() -> None:
     )
     assert ok is False
     assert error == "ConnectTimeout"
+
+
+def test_run_batches_reuses_requester_until_duration_finishes() -> None:
+    clock = FakeClock()
+    calls: list[float] = []
+
+    def requester(_url: str, _timeout: float) -> tuple[bool, float, None]:
+        calls.append(clock.now())
+        return True, 0.01, None
+
+    reports = list(
+        LOAD_SMOKE.run_batches(
+            "https://example.invalid/health",
+            request_count=2,
+            concurrency=1,
+            timeout=1,
+            target_rps=2,
+            connection_mode="pooled",
+            p95_ms=1500,
+            p99_ms=2500,
+            duration_seconds=1,
+            requester=requester,
+            clock=clock.now,
+            sleeper=clock.sleep,
+        )
+    )
+
+    assert len(reports) == 2
+    assert len(calls) == 4
+    assert {report["connection_mode"] for report in reports} == {"pooled"}
+    assert all(LOAD_SMOKE.report_passes(report) for report in reports)

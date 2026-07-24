@@ -2076,8 +2076,9 @@ Não avançar se:
 - executar soak inicial de 24 horas;
 - monitorar erro, p95/p99, CPU, RSS, FD, goroutines, conexões, filas, Redis,
   PostgreSQL, objetos, busca, disco, WAL e logs;
-- validar carga representativa com pool/keep-alive e manter o modo de conexão
-  fria separado para diagnóstico de DNS/TCP/TLS;
+- validar carga representativa com um único pool/keep-alive durante toda a
+  janela, incluindo reutilização entre lotes, e manter o modo de conexão fria
+  separado para diagnóstico de DNS/TCP/TLS;
 - consolidar a evidência JSONL com falha fechada para duração mínima, zero erro,
   SLO por lote, observações aprovadas e tendências sanitizadas sem fingerprint,
   URL, token, IP, path ou payload;

@@ -2253,8 +2253,11 @@ não registra URL de banco, token, IP, path privado ou payload.
 `PRINTORA_SOAK_TARGET_RPS` distribui o início das requisições ao longo do lote;
 não é uma rajada seguida de espera. O modo burst continua disponível somente
 para o smoke curto ao executar `load-smoke.py` sem `--target-rps`.
-O soak usa `--connection-mode pooled`: clientes concorrentes compartilham o
-pool e reutilizam keep-alive, como browser e agente reais. O modo
+O soak usa `--connection-mode pooled`: clientes concorrentes compartilham um
+único pool durante toda a janela e reutilizam keep-alive entre lotes, como
+browser e agente reais. O processo de carga permanece vivo e transmite cada
+relatório ao observador; reiniciar o pool a cada lote invalida a
+representatividade. O modo
 `--connection-mode cold` permanece disponível para medir DNS/TCP/TLS por
 requisição, mas sua latência não é somada à janela representativa de 24/72h.
 O gate de disco combina os limites: falha somente quando a reserva fica abaixo

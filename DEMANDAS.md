@@ -6457,11 +6457,11 @@ Estado atual:
   produção no workflow `30053826438`.
 - Correções de coalescência, expiração UTC e lease implícito validadas na fila
   real sem exclusão ou cancelamento manual; backlog observado voltou a zero.
-- Lote 7 em execução: depois de invalidar a primeira janela por conexão fria e
-  corrigir o launcher para usar o Python da release, a repetição curta pooled
-  passou com 600 requisições, zero erro e SLO aprovado. Uma nova janela integral
-  de 24 horas iniciou em `2026-07-24T01:27:10Z`; nenhuma parte das tentativas
-  anteriores será somada.
+- Lote 7 em execução: a janela iniciada em `2026-07-24T01:27:10Z` também foi
+  invalidada integralmente. O 19º lote violou p95/p99 porque o processo e o pool
+  ainda eram recriados a cada lote, embora houvesse keep-alive dentro dele. A
+  carga passa a manter um único pool durante toda a janela; publicação, probe e
+  repetição curta são obrigatórios antes de reiniciar a contagem.
 
 ## PKG-99: RPO Físico, Recuperação Contínua E Prontidão De Desastre
 
