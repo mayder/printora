@@ -98,6 +98,7 @@ jobs:
           test -s frontend/dist/index.html
           tar \
             --exclude='.git' \
+            --exclude='.artifacts' \
             --exclude='backend/.venv' \
             --exclude='frontend/node_modules' \
             --exclude='agent/bin' \
@@ -131,10 +132,25 @@ jobs:
 
       - name: Upload release bundle
         run: |
-          scp -i ~/.ssh/printora_key -P "$SSH_PORT" \
-            "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz" \
-            "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz.sha256" \
-            "$SSH_USER@$SSH_HOST:/tmp/"
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if scp \
+              -o ServerAliveInterval=30 \
+              -o ServerAliveCountMax=20 \
+              -o TCPKeepAlive=yes \
+              -i ~/.ssh/printora_key \
+              -P "$SSH_PORT" \
+              "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz" \
+              "/tmp/printora-cloud-release-$DEPLOY_SHA.tgz.sha256" \
+              "$SSH_USER@$SSH_HOST:/tmp/"; then
+              break
+            fi
+            if [[ "$attempt" -eq 3 ]]; then
+              echo "::error::Upload do release falhou apos 3 tentativas."
+              exit 1
+            fi
+            sleep 5
+          done
 
       - name: Prepare independent release
         env:
