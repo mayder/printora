@@ -175,3 +175,25 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   `0f365c644dd147318fc8130aeb89f25f`. A primeira carga e observação passaram;
   qualquer falha invalida integralmente esta janela.
 - Soak final contínuo de 72 horas: não iniciado.
+
+## Auditoria de fechamento por lote
+
+Esta tabela é o gate de conclusão do pacote. Soak aprovado não substitui a
+matriz física, o fluxo real ou o E2E visual.
+
+| Lote | Estado | Evidência atual | Necessário para fechar |
+|---|---|---|---|
+| 1. Matriz, fixture, limites e segurança | concluído | baseline, fixture candidata, SLO e regras acima | nenhum |
+| 2. Leitura durante impressão ativa | concluído | Voron 2.4 em `printing`, temperaturas ao vivo e zero comando enviado | nenhum |
+| 3. Ações protegidas e falhas controladas | parcial | fila, expiração, reconnect e bloqueios foram exercitados sem afetar a impressão | validar pausada, concluída, cancelada, agente reiniciando, Moonraker indisponível e rede degradada em janela segura |
+| 4. Update/rollback do agente | concluído | `docs/audits/AGENT_RELEASE_0.1.34_2026-07-23.md` comprova `0.1.34 -> 0.1.33 -> 0.1.34` nas duas Voron somente pela web | nenhum |
+| 5. Projeto até histórico real | pendente | contratos e testes existem, mas não substituem aceite físico desta janela | validar projeto, G-code, preview, preflight, salvar/enviar e histórico com fixture aprovada |
+| 6. E2E visual real | pendente | E2E sintético passou no gate completo | validar desktop, mobile, tema claro/escuro e ausência de quebra impeditiva no fluxo físico |
+| 7. Soak inicial de 24 horas | em execução | invocation `0f365c644dd147318fc8130aeb89f25f` iniciada em `2026-07-24T01:27:10Z` | completar continuamente e consolidar com duração mínima de 86.400 s |
+| 8. Correções e repetição | em execução | incidentes de UI, fila, UTC, lease, conexão fria e runtime foram corrigidos e retestados | reiniciar integralmente qualquer janela que falhar |
+| 9. Soak final de 72 horas | pendente | não iniciado | iniciar somente após lotes anteriores e completar continuamente por 259.200 s |
+| 10. Consolidação e runbook | pendente | cronologia parcial registrada | consolidar tendências, incidentes, capacidade, evidência sanitizada e operação final |
+
+Ordem segura após as 24 horas: consolidar a janela; confirmar as duas máquinas
+ociosas e frias; executar os lotes 3, 5 e 6 sem ação em Klipper, Moonraker, MCU
+ou firmware; corrigir e retestar qualquer regressão; então iniciar as 72 horas.
