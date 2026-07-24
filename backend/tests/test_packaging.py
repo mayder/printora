@@ -298,6 +298,8 @@ def test_periodic_restore_replays_external_wal_with_resource_limits() -> None:
     assert "first <= name <= last" in restore
     assert 'wal_includes+=(--include "$wal_path")' in restore
     assert "pg_last_wal_replay_lsn" in restore
+    assert "recovery_target_lsn = '$recovery_target_lsn'" in restore
+    assert "recovery_target_action = 'promote'" in restore
     assert "timeout 900" in wrapper
     assert '"wal_replay"' in wrapper
     assert "CPUQuota=20%" in service

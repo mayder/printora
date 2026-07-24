@@ -122,6 +122,16 @@ last_archived_wal="$continuous_wal"
 archive_dir="$(find "$restored" -type d -name printora-wal-archive -print -quit)"
 [[ -s "$archive_dir/$last_archived_wal" ]] || { echo "WAL final ausente" >&2; exit 1; }
 "$(pg_config --bindir)/pg_waldump" -n 1 "$archive_dir/$last_archived_wal" >/dev/null
+recovery_target_lsn="$(
+  "$(pg_config --bindir)/pg_waldump" "$archive_dir/$last_archived_wal" 2>/dev/null \
+    | sed -n 's/.*lsn: \([^,]*\),.*/\1/p' \
+    | tail -1 \
+    || true
+)"
+[[ "$recovery_target_lsn" =~ ^[0-9A-Fa-f]+/[0-9A-Fa-f]+$ ]] || {
+  echo "LSN final do WAL contínuo ausente" >&2
+  exit 1
+}
 actual_sha256="$(sha256sum "$dump" | awk '{print $1}')"
 [[ "$actual_sha256" == "$expected_sha256" ]] || { echo "checksum do dump divergente" >&2; exit 1; }
 expected_object_manifest_sha256="$(python3 - "$manifest" <<'PY'
@@ -183,6 +193,8 @@ fsync = off
 full_page_writes = off
 synchronous_commit = off
 restore_command = 'cp $archive_dir/%f %p'
+recovery_target_lsn = '$recovery_target_lsn'
+recovery_target_inclusive = on
 recovery_target_action = 'promote'
 EOF
 cat > "$cluster/pg_hba.conf" <<'EOF'
