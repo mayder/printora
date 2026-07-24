@@ -62,8 +62,15 @@ export RESTIC_CACHE_DIR="$base_path/shared/backup-cache"
 uploaded_at=""
 if [[ "$previous_wal" != "$latest_wal" ]]; then
   restic backup "$archive_dir" --tag printora-cloud-wal --host printora-cloud
-  restic ls latest --tag printora-cloud-wal \
-    | awk '{print $2}' | grep -Fxq "$archive_dir/$latest_wal"
+  restic ls latest --tag printora-cloud-wal --json \
+    | python3 -c '
+import json
+import sys
+
+target = sys.argv[1]
+if not any(json.loads(line).get("path") == target for line in sys.stdin if line.strip()):
+    raise SystemExit(1)
+' "$archive_dir/$latest_wal"
   uploaded_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 else
   restic snapshots --tag printora-cloud-wal --latest 1 >/dev/null

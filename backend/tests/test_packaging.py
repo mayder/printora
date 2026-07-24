@@ -265,7 +265,7 @@ def test_physical_rpo_uses_external_wal_and_fails_before_five_minutes() -> None:
     assert "archive_timeout = '120s'" in config
     assert "restic backup" in sync
     assert "--tag printora-cloud-wal" in sync
-    assert "restic ls latest" in sync
+    assert "restic ls latest --tag printora-cloud-wal --json" in sync
     assert "external_snapshot_count" in sync
     assert "forget" not in sync
     assert "prune" not in sync
