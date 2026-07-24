@@ -181,6 +181,17 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   de cada lote, recriando o pool a cada 20 segundos. A correção mantém um único
   processo e pool durante toda a janela e transmite os relatórios por FIFO ao
   observador. Nenhum trecho desta tentativa será aproveitado.
+- Publicação do pool contínuo: o workflow `30061267780` publicou com sucesso
+  `0b6e963a55a0001afefa9f479cffdabc75dd4500`; o SHA ativo e as três units foram
+  confirmados no host. O smoke público pós-deploy manteve um único pool durante
+  120 segundos, completou 700 requisições em sete lotes, sem erro e com todos os
+  p95/p99 dentro do SLO. A pior medição foi p95 de `402,356 ms` e p99 de
+  `1.187,277 ms`.
+- Gate de hardware pós-deploy: não iniciado. Voron 0.2 e Voron 2.4 estavam
+  intencionalmente desligadas, conforme confirmação do responsável, portanto o
+  observador falhou fechado por heartbeat vencido. Nenhuma janela de 24 horas
+  foi aberta. Quando uma impressora voltar, será obrigatório repetir probe e
+  smoke curto observados antes de iniciar uma nova janela integral.
 - Soak final contínuo de 72 horas: não iniciado.
 
 ## Auditoria de fechamento por lote
@@ -196,8 +207,8 @@ matriz física, o fluxo real ou o E2E visual.
 | 4. Update/rollback do agente | concluído | `docs/audits/AGENT_RELEASE_0.1.34_2026-07-23.md` comprova `0.1.34 -> 0.1.33 -> 0.1.34` nas duas Voron somente pela web | nenhum |
 | 5. Projeto até histórico real | pendente | contratos e testes existem, mas não substituem aceite físico desta janela | validar projeto, G-code, preview, preflight, salvar/enviar e histórico com fixture aprovada |
 | 6. E2E visual real | pendente | E2E sintético passou no gate completo | validar desktop, mobile, tema claro/escuro e ausência de quebra impeditiva no fluxo físico |
-| 7. Soak inicial de 24 horas | em execução | duas tentativas foram invalidadas e a correção de pool contínuo está em validação | publicar, repetir o smoke e completar continuamente com duração mínima de 86.400 s |
-| 8. Correções e repetição | em execução | incidentes de UI, fila, UTC, lease, conexão fria e runtime foram corrigidos e retestados | reiniciar integralmente qualquer janela que falhar |
+| 7. Soak inicial de 24 horas | aguardando hardware | duas tentativas foram invalidadas; pool contínuo publicado e smoke Cloud de 120 s/700 requisições aprovado | ligar uma Voron, aprovar probe e smoke curto observados e completar continuamente por 86.400 s |
+| 8. Correções e repetição | em execução | incidentes de UI, fila, UTC, lease, conexão fria, runtime e ciclo do pool foram corrigidos e retestados | reiniciar integralmente qualquer janela que falhar |
 | 9. Soak final de 72 horas | pendente | não iniciado | iniciar somente após lotes anteriores e completar continuamente por 259.200 s |
 | 10. Consolidação e runbook | pendente | cronologia parcial registrada | consolidar tendências, incidentes, capacidade, evidência sanitizada e operação final |
 
