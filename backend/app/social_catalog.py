@@ -1149,7 +1149,6 @@ class SocialCatalogRepository:
                 LIBRARY_ITEM_SQL
                 + """
                 WHERE c.slug = ? AND li.status = 'active'
-                GROUP BY li.id
                 ORDER BY li.updated_at DESC, li.id DESC
                 LIMIT 100
                 """,
@@ -1171,7 +1170,6 @@ class SocialCatalogRepository:
                 LIBRARY_ITEM_SQL
                 + """
                 WHERE li.owner_user_id = ? AND li.status = 'active'
-                GROUP BY li.id
                 ORDER BY li.updated_at DESC, li.id DESC
                 LIMIT 100
                 """,
@@ -2366,12 +2364,22 @@ class SocialCatalogRepository:
         favorite_rows = connection.execute(
             LIBRARY_ITEM_SQL
             + """
-            WHERE fav.user_id = ? AND li.status = 'active'
-            GROUP BY li.id
-            ORDER BY fav.created_at DESC
+            WHERE EXISTS (
+                SELECT 1
+                FROM social_library_favorites viewer_favorite
+                WHERE viewer_favorite.item_id = li.id
+                  AND viewer_favorite.user_id = ?
+            )
+              AND li.status = 'active'
+            ORDER BY (
+                SELECT viewer_favorite.created_at
+                FROM social_library_favorites viewer_favorite
+                WHERE viewer_favorite.item_id = li.id
+                  AND viewer_favorite.user_id = ?
+            ) DESC
             LIMIT 60
             """,
-            (actor_user_id,),
+            (actor_user_id, actor_user_id),
         ).fetchall()
         favorites = [
             self._library_item_from_row(connection, row).model_copy(update={"viewer_favorite": True})
@@ -2390,12 +2398,14 @@ class SocialCatalogRepository:
             """
             SELECT col.id, col.owner_user_id, col.community_id, c.slug AS community_slug, c.name AS community_name,
                    col.name, col.description, col.visibility, col.created_at, col.updated_at,
-                   COUNT(ci.item_id) AS item_count
+                   (
+                       SELECT COUNT(*)
+                       FROM social_library_collection_items ci
+                       WHERE ci.collection_id = col.id
+                   ) AS item_count
             FROM social_library_collections col
             LEFT JOIN social_communities c ON c.id = col.community_id
-            LEFT JOIN social_library_collection_items ci ON ci.collection_id = col.id
             WHERE col.owner_user_id = ? AND col.status = 'active'
-            GROUP BY col.id
             ORDER BY col.updated_at DESC, col.id DESC
             LIMIT 50
             """,
@@ -2560,7 +2570,6 @@ class SocialCatalogRepository:
             LIBRARY_ITEM_SQL
             + f"""
             WHERE li.id = ?{status_clause}
-            GROUP BY li.id
             """,
             (item_id,),
         ).fetchone()
@@ -2756,21 +2765,37 @@ SELECT li.id, li.owner_user_id, sp.slug AS owner_slug, sp.display_name AS owner_
        remix.title AS remix_source_title, li.publication_terms_accepted_at,
        li.content_class, li.commercial_status, li.commercial_metadata_json, li.promotion_disclosure,
        li.status, li.created_at, li.updated_at,
-       COUNT(DISTINCT fav.user_id) AS favorite_count,
-       COUNT(DISTINCT ci.collection_id) AS collection_count,
-       COUNT(DISTINCT pli.id) AS print_list_count,
-       COUNT(DISTINCT d.id) AS download_count
+       COALESCE(fav_stats.favorite_count, 0) AS favorite_count,
+       COALESCE(collection_stats.collection_count, 0) AS collection_count,
+       COALESCE(print_list_stats.print_list_count, 0) AS print_list_count,
+       COALESCE(download_stats.download_count, 0) AS download_count
 FROM social_library_items li
 JOIN social_profiles sp ON sp.user_id = li.owner_user_id
 LEFT JOIN social_communities c ON c.id = li.community_id
 LEFT JOIN catalog_printer_variants v ON v.id = li.catalog_variant_id
 LEFT JOIN catalog_printer_models m ON m.id = v.model_id
 LEFT JOIN catalog_manufacturers mf ON mf.id = m.manufacturer_id
-LEFT JOIN social_library_downloads d ON d.item_id = li.id
 LEFT JOIN social_library_items remix ON remix.id = li.remix_source_item_id
-LEFT JOIN social_library_favorites fav ON fav.item_id = li.id
-LEFT JOIN social_library_collection_items ci ON ci.item_id = li.id
-LEFT JOIN social_print_list_items pli ON pli.item_id = li.id
+LEFT JOIN (
+    SELECT item_id, COUNT(DISTINCT user_id) AS favorite_count
+    FROM social_library_favorites
+    GROUP BY item_id
+) fav_stats ON fav_stats.item_id = li.id
+LEFT JOIN (
+    SELECT item_id, COUNT(DISTINCT collection_id) AS collection_count
+    FROM social_library_collection_items
+    GROUP BY item_id
+) collection_stats ON collection_stats.item_id = li.id
+LEFT JOIN (
+    SELECT item_id, COUNT(DISTINCT id) AS print_list_count
+    FROM social_print_list_items
+    GROUP BY item_id
+) print_list_stats ON print_list_stats.item_id = li.id
+LEFT JOIN (
+    SELECT item_id, COUNT(DISTINCT id) AS download_count
+    FROM social_library_downloads
+    GROUP BY item_id
+) download_stats ON download_stats.item_id = li.id
 """
 
 FEED_ITEM_SQL = """

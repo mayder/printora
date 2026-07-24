@@ -1166,3 +1166,24 @@ Correção:
 - o conteúdo da etapa agora pode encolher e quebrar palavras longas com segurança;
 - em celulares estreitos, título e status podem ocupar linhas separadas;
 - a matriz E2E continua verificando todos os elementos visíveis em 320 px.
+
+### Biblioteca Pública De Perfil Falhava No PostgreSQL
+
+Estado: corrigido e retestado em 2026-07-24.
+
+Impacto:
+
+- a página pública de perfil recebia `500` ao carregar os itens da biblioteca;
+- a consulta agregava somente pela chave do item, mas também selecionava dados
+  do perfil, comunidade e catálogo;
+- o SQLite aceitava a consulta, enquanto o PostgreSQL exigia todas as colunas
+  externas no agrupamento.
+
+Correção:
+
+- totais de favoritos, coleções, listas e downloads passaram a usar agregações
+  isoladas por item, sem multiplicar as linhas da consulta principal;
+- biblioteca pública, favoritos e coleções deixaram de depender de agrupamentos
+  ambíguos;
+- o gate de portabilidade bloqueia regressão para `GROUP BY li.id` ou
+  `GROUP BY col.id`.

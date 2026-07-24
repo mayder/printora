@@ -26,7 +26,7 @@
 
 | Módulo | Owner | Linhas | Rotas | Contratos |
 |---|---|---:|---:|---:|
-| `social_catalog` | `community` | 3377 | 0 | 0 |
+| `social_catalog` | `community` | 3402 | 0 | 0 |
 | `operation` | `operations` | 1158 | 0 | 0 |
 | `maintenance` | `operations` | 1147 | 0 | 8 |
 | `routes.social_catalog` | `community` | 1120 | 59 | 0 |

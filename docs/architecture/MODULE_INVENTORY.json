@@ -4286,7 +4286,7 @@
     {
       "module": "social_catalog",
       "owner": "community",
-      "lines": 3377,
+      "lines": 3402,
       "imports": [
         "database",
         "modules.community.contracts",

@@ -119,8 +119,12 @@ def test_postgresql_adapter_rewrites_plain_group_concat() -> None:
 def test_postgresql_queries_preserve_boolean_and_grouping_types() -> None:
     finance_security = (ROOT_DIR / "backend/app/finance_security.py").read_text()
     print_projects = (ROOT_DIR / "backend/app/print_projects.py").read_text()
+    social_catalog = (ROOT_DIR / "backend/app/social_catalog.py").read_text()
 
     assert "AND is_active = ? LIMIT 1" in finance_security
     assert "(user_id, *sorted(roles), True)" in finance_security
     assert 'PROJECT_GROUP_BY = "GROUP BY p.id, pf.id"' in print_projects
     assert "GROUP BY p.id\n" not in print_projects
+    assert "GROUP BY li.id" not in social_catalog
+    assert "GROUP BY col.id" not in social_catalog
+    assert "COALESCE(fav_stats.favorite_count, 0)" in social_catalog
