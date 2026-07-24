@@ -6450,7 +6450,11 @@ Rollback:
 
 Estado atual:
 
-- Em execução.
+- Concluído em 2026-07-24 por aceite operacional explícito do owner, com
+  dispensa das janelas contínuas de 24 e 72 horas. A dispensa não transforma
+  períodos invalidados nem cenários físicos não exercitados em evidência
+  aprovada; o escopo não testado e o risco residual permanecem registrados em
+  `docs/audits/HARDWARE_SOAK_PKG_98_2026-07-23.md`.
 - Lote 1 concluído: matriz, fixture candidata, baseline, SLO, limites e plano de
   segurança estão registrados em
   `docs/audits/HARDWARE_SOAK_PKG_98_2026-07-23.md`.
@@ -6548,6 +6552,30 @@ Estado atual:
   passa a reconectar uma única vez quando o peer fecha uma conexão keep-alive,
   registrando o retry sanitizado sem ocultar erro final. Nova janela exige
   publicação, probes e dois curtos integrais observados.
+- Fechamento Cloud: a correção final que compartilha o polling de espera por
+  job coalescido passou por teste focado e gate completo. O workflow
+  `30124637023` publicou a release exata
+  `219e1cf651277ccdac28dc81b3cecd7ccc21b31d`, com build reproduzível,
+  evidências, auditoria de dependências, SBOM, pacote imutável, preflight,
+  blue/green, drain e endpoint público aprovados. A verificação root confirmou
+  blue e réplica atendendo tráfego nessa release e o slot green preservado em
+  N-1 para rollback. `/health`, `/ready`, versão `0.1.41`, schema `86`,
+  integridade, catálogo, asset `index-DazhAt4S.js` e manifesto do agente
+  `0.1.36` passaram.
+- Smoke público final: 700 requisições em 120 segundos a 5 req/s, um único pool
+  HTTP, zero erro e zero retry. O pior lote mediu p95 de `125,994 ms` e p99 de
+  `509,560 ms`, abaixo dos SLOs de `1.500/2.500 ms`.
+- Lotes 1, 2, 4 e a parte não física do lote 6 permanecem comprovados. Os
+  subcenários físicos restantes dos lotes 3, 5 e 6 não foram executados porque
+  ambas as impressoras estavam desligadas no fechamento. Os lotes 7 e 9 foram
+  dispensados pelo owner; nenhuma janela interrompida foi somada ou apresentada
+  como válida. O lote 10 consolida capacidade apenas para os probes, curtos e
+  incidentes efetivamente observados.
+- Risco residual aceito: não há evidência contínua de 24/72 horas para excluir
+  leak, degradação lenta ou backlog tardio, nem aceite físico final de pausa,
+  cancelamento, indisponibilidade controlada do Moonraker e fluxo completo de
+  projeto até histórico. Esses itens ficam como revisão operacional futura e
+  não bloqueiam o início do PKG-99 por decisão explícita do owner.
 
 ## PKG-99: RPO Físico, Recuperação Contínua E Prontidão De Desastre
 

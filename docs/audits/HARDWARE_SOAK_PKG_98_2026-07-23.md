@@ -1,7 +1,7 @@
 # PKG-98 - Homologação física e soak
 
 Data de abertura: 2026-07-23
-Estado: em execução
+Estado: concluído por aceite de risco do owner
 
 ## Escopo físico e baseline
 
@@ -355,3 +355,59 @@ matriz física, o fluxo real ou o E2E visual.
 Ordem segura após as 24 horas: consolidar a janela; confirmar as duas máquinas
 ociosas e frias; executar os lotes 3, 5 e 6 sem ação em Klipper, Moonraker, MCU
 ou firmware; corrigir e retestar qualquer regressão; então iniciar as 72 horas.
+
+## Fechamento por exceção operacional
+
+Em 2026-07-24, o owner dispensou explicitamente as janelas contínuas de 24 e
+72 horas para permitir a continuidade do roadmap. Ambas as impressoras estavam
+desligadas no momento da decisão. Por isso, nenhum probe, job, update, restart,
+movimento, aquecimento ou comando físico adicional foi executado.
+
+A exceção não altera a evidência histórica:
+
+- todas as janelas interrompidas permanecem inválidas e não foram somadas;
+- lotes 3, 5 e 6 permanecem parcialmente não exercitados no fluxo físico;
+- lotes 7 e 9 foram dispensados, não aprovados tecnicamente;
+- os testes internos e smokes curtos não são apresentados como equivalentes ao
+  soak contínuo;
+- o risco residual inclui leak ou degradação tardia, backlog que só apareça após
+  longa duração e regressões nos estados físicos ainda pendentes.
+
+Antes do fechamento, a correção final de contenção de polling passou em dez
+testes focados e no gate completo isolado: E2E, property/fuzz, mutation score
+`70,34%`, cobertura Python `79,42%`, 630 testes backend, testes Go e frontend.
+O workflow `30124637023` publicou exatamente
+`219e1cf651277ccdac28dc81b3cecd7ccc21b31d`, com build reproduzível, auditoria
+de dependências, SBOM, pacote imutável, preflight privilegiado, blue/green,
+drain e endpoint público aprovados.
+
+A verificação root pós-deploy confirmou o slot blue e a réplica no SHA final,
+ambos no upstream, e o green em N-1 fora do tráfego para rollback. O ambiente
+público respondeu `/health`, `/ready`, versão `0.1.41`, schema `86`, integridade
+`ok`, catálogo e manifesto recomendado do agente `0.1.36`; o frontend serviu
+`index-DazhAt4S.js`.
+
+O smoke público final manteve um único pool por 120 segundos e concluiu 700
+requisições a 5 req/s, zero erro e zero retry. O pior lote mediu p95 de
+`125,994 ms` e p99 de `509,560 ms`, abaixo dos limites de `1.500/2.500 ms`.
+
+Resultado de encerramento:
+
+| Lote | Resultado final |
+|---|---|
+| 1 | aprovado |
+| 2 | aprovado |
+| 3 | encerrado com escopo físico residual não testado |
+| 4 | aprovado |
+| 5 | encerrado com fluxo físico residual não testado |
+| 6 | aprovado nas superfícies exercitadas; fluxo físico residual não testado |
+| 7 | dispensado pelo owner; sem janela válida de 24 horas |
+| 8 | aprovado para as correções publicadas e smoke curto final |
+| 9 | dispensado pelo owner; não iniciado |
+| 10 | concluído com consolidação limitada ao escopo efetivamente observado |
+
+Essa decisão diverge do gate de soak contínuo de `GOVERNANCA.md`. O controle
+compensatório é preservar toda a cronologia, manter os SLOs e observadores
+prontos para reexecução futura, não chamar o escopo dispensado de aprovado e
+manter rollback N-1 no blue/green. O PKG-99 pode iniciar por autorização
+explícita do owner, sem reutilizar as tentativas inválidas como evidência.

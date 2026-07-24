@@ -1793,6 +1793,35 @@ de bloqueio de cabeça de fila; não há alteração de dados, schema ou agente.
 Como reverter: reverter a implementação e invalidar qualquer soak iniciado com
 a versão revertida antes de reavaliar capacidade.
 
+### DEC-20260724-18 - PKG-98 fecha com dispensa explícita do soak prolongado
+
+Status: aceita com risco residual
+Data: 2026-07-24
+Contexto: o PKG-98 acumulou probes reais, curtos observados, incidentes
+fail-closed e correções publicadas, mas não completou uma janela contínua válida
+de 24 horas nem o alvo de 72 horas. No momento do fechamento, as duas
+impressoras estavam desligadas e o owner priorizou explicitamente a continuidade
+do roadmap.
+
+Decisão: encerrar o PKG-98 sem exigir novas janelas de 24/72 horas. Tentativas
+interrompidas permanecem inválidas e não são somadas. Cenários físicos não
+exercitados são registrados como escopo não testado, e os testes curtos não são
+tratados como equivalentes ao soak.
+
+Consequências: o PKG-99 pode iniciar, mas permanece risco residual de leak,
+degradação lenta, backlog tardio e regressões nos estados físicos não
+exercitados. A decisão diverge do gate de soak contínuo de `GOVERNANCA.md` e
+deve ser revista se esses sinais aparecerem em produção.
+
+Controles compensatórios: observadores fail-closed e SLOs permanecem
+versionados; toda cronologia é preservada; a release final passou pelo gate
+completo, blue/green e smoke público de 120 segundos; N-1 permanece disponível
+para rollback; nenhum comando físico foi executado com as máquinas desligadas.
+
+Como reverter a decisão: reabrir o PKG-98, ligar as duas máquinas em janela
+segura, repetir probes e curtos observados e executar novas janelas contínuas
+integrais, sem reaproveitar períodos anteriores.
+
 ### DEC-20260724-17 - Espera de job coalescido usa um único poller por processo
 
 Status: aceita
