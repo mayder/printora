@@ -1354,7 +1354,7 @@
     {
       "module": "modules.operations.application",
       "owner": "operations",
-      "lines": 137,
+      "lines": 188,
       "imports": [
         "modules.operations.contracts",
         "modules.operations.ports"

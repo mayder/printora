@@ -27,6 +27,7 @@ class Repository:
         self.request: AgentJobCreateRequest | None = None
         self.create_calls = 0
         self.coalesced_create_calls = 0
+        self.get_calls = 0
 
     def latest_active_agent(self, printer_id: int) -> AgentRecord | None:
         if not self.online:
@@ -57,6 +58,7 @@ class Repository:
         return self._job(printer.id, 11, "pending")
 
     def get_job(self, printer_id: int, job_id: int) -> AgentJobRecord:
+        self.get_calls += 1
         return self._job(printer_id, job_id, self.status)
 
     def _job(self, printer_id: int, job_id: int, status: str) -> AgentJobRecord:
@@ -139,5 +141,42 @@ def test_agent_job_service_keeps_event_loop_responsive_during_repository_io() ->
         assert time.perf_counter() - started_at < 0.2
         release.set()
         assert (await task).status == "succeeded"
+
+    asyncio.run(run_scenario())
+
+
+def test_agent_job_service_shares_polling_for_same_coalesced_job() -> None:
+    entered = threading.Event()
+    release = threading.Event()
+
+    class BlockingRepository(Repository):
+        def get_job(self, printer_id: int, job_id: int) -> AgentJobRecord:
+            self.get_calls += 1
+            entered.set()
+            release.wait(timeout=0.5)
+            return self._job(printer_id, job_id, self.status)
+
+    async def run_scenario() -> None:
+        repository = BlockingRepository()
+        first = asyncio.create_task(
+            AgentJobService(repository).run(
+                Printer(),
+                job_type="remote_moonraker_status",
+                timeout_seconds=10.0,
+            )
+        )
+        second = asyncio.create_task(
+            AgentJobService(repository).run(
+                Printer(),
+                job_type="remote_moonraker_status",
+                timeout_seconds=10.0,
+            )
+        )
+        assert await asyncio.to_thread(entered.wait, 0.2)
+        await asyncio.sleep(0.02)
+        release.set()
+        first_job, second_job = await asyncio.gather(first, second)
+        assert first_job.id == second_job.id == 11
+        assert repository.get_calls == 1
 
     asyncio.run(run_scenario())

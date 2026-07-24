@@ -1793,6 +1793,38 @@ de bloqueio de cabeça de fila; não há alteração de dados, schema ou agente.
 Como reverter: reverter a implementação e invalidar qualquer soak iniciado com
 a versão revertida antes de reavaliar capacidade.
 
+### DEC-20260724-17 - Espera de job coalescido usa um único poller por processo
+
+Status: aceita
+Data: 2026-07-24
+Contexto: os gates reais do PKG-98 mostraram que várias abas podiam reutilizar
+o mesmo job read-only e ainda manter um loop de polling PostgreSQL por request.
+Com dezenas de aguardantes do mesmo job, o executor de I/O saturava e degradava
+até o `/health`, embora o backlog do agente permanecesse dentro do limite.
+
+Decisão: chamadas do mesmo processo que aguardam o mesmo banco, impressora, job
+e timeout compartilham uma única task de polling. Cada consumidor aguarda a
+task protegida contra cancelamento individual; resultado, timeout e falha
+continuam iguais para todos. Instâncias distintas continuam coordenadas pelo
+job persistido e pela coalescência PostgreSQL existente.
+
+Alternativas consideradas: relaxar o SLO; aumentar workers; reaproveitar
+resultado concluído por TTL; reduzir apenas o polling da UI; cancelar jobs.
+
+Consequências: o número de consultas de acompanhamento passa a depender dos
+jobs ativos por processo, não da quantidade de abas ou rotas aguardando o mesmo
+resultado. Não há cache de resultado, mudança de schema, alteração do agente ou
+interferência em jobs mutáveis.
+
+Impacto em testes: regressão concorrente exige duas instâncias do serviço
+aguardando o mesmo job com uma única leitura de acompanhamento.
+
+Impacto em rollback: baixo; reverter o coordenador restaura um poller por
+request e exige invalidar qualquer soak iniciado com a versão revertida.
+
+Como reverter: reverter o coordenador e sua regressão, publicar novamente e
+repetir do zero os gates de latência e soak.
+
 ### DEC-20260724-16 - Upload G-code passa por staging efêmero e streaming
 
 Status: aceita

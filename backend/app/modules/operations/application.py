@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from pathlib import Path
+from typing import Any, Awaitable, Callable, Hashable
 from uuid import uuid4
 
 from app.modules.operations.contracts import AgentJobCreateRequest, AgentJobRecord
@@ -48,6 +49,43 @@ COALESCIBLE_AGENT_JOB_TYPES = frozenset(
 )
 
 
+class AgentJobWaitCoordinator:
+    def __init__(self) -> None:
+        self._tasks: dict[
+            tuple[asyncio.AbstractEventLoop, Hashable, int, int, float],
+            asyncio.Task[AgentJobRecord],
+        ] = {}
+
+    async def wait(
+        self,
+        *,
+        repository_scope: Hashable,
+        printer_id: int,
+        job_id: int,
+        timeout_seconds: float,
+        poll: Callable[[], Awaitable[AgentJobRecord]],
+    ) -> AgentJobRecord:
+        loop = asyncio.get_running_loop()
+        key = (loop, repository_scope, printer_id, job_id, timeout_seconds)
+        task = self._tasks.get(key)
+        if task is None:
+            task = loop.create_task(poll())
+            self._tasks[key] = task
+            task.add_done_callback(lambda completed, task_key=key: self._discard(task_key, completed))
+        return await asyncio.shield(task)
+
+    def _discard(
+        self,
+        key: tuple[asyncio.AbstractEventLoop, Hashable, int, int, float],
+        completed: asyncio.Task[AgentJobRecord],
+    ) -> None:
+        if self._tasks.get(key) is completed:
+            self._tasks.pop(key, None)
+
+
+_WAIT_COORDINATOR = AgentJobWaitCoordinator()
+
+
 @dataclass
 class AgentJobService:
     repository: AgentJobRepositoryPort
@@ -89,14 +127,20 @@ class AgentJobService:
                 )
         except ValueError as exc:
             raise AgentJobRejectedError(str(exc)) from exc
-        return await self._wait(
-            printer.id,
-            job.id,
-            timeout_seconds,
-            websocket_delivered=False,
+        return await _WAIT_COORDINATOR.wait(
+            repository_scope=_repository_scope(self.repository),
+            printer_id=printer.id,
+            job_id=job.id,
+            timeout_seconds=timeout_seconds,
+            poll=lambda: self._poll_job(
+                printer.id,
+                job.id,
+                timeout_seconds,
+                websocket_delivered=False,
+            ),
         )
 
-    async def _wait(
+    async def _poll_job(
         self,
         printer_id: int,
         job_id: int,
@@ -118,6 +162,13 @@ class AgentJobService:
                 raise AgentJobTimeoutError(job.status, websocket_delivered)
             await asyncio.sleep(interval)
             interval = min(0.5, interval * 1.5)
+
+
+def _repository_scope(repository: AgentJobRepositoryPort) -> Hashable:
+    database_path = getattr(repository, "database_path", None)
+    if isinstance(database_path, (Path, str)):
+        return ("database", str(database_path))
+    return ("repository", id(repository))
 
 
 def timeout_detail(error: AgentJobTimeoutError) -> str:
