@@ -441,7 +441,9 @@ layering React impede regressão para acesso direto de HTTP/storage na UI.
   As seis abas da comunidade devem abrir sem revelar URL interna ou dados
   operacionais da impressora.
 - O cabeçalho e as nove abas do detalhe da impressora devem permanecer dentro
-  do viewport. Cada aba precisa ser visível, acionável e indicar sua seleção.
+  do viewport. Em 1024 px, o cabeçalho e a grade de tokens usam uma coluna
+  porque a barra lateral reduz a largura útil do workspace. Cada aba precisa
+  ser visível, acionável e indicar sua seleção.
 - Modais de alerta, cadastro, manutenção, relatório, backup e restore precisam
   permanecer operáveis no viewport mínimo; rolagem vertical interna é permitida,
   mas conteúdo ou ação não podem escapar horizontalmente.

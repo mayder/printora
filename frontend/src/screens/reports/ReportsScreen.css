@@ -411,7 +411,7 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 920px) {
+@media (max-width: 1240px) {
   :is(.section-reports, .section-printer-detail) .report-hero,
   :is(.section-reports, .section-printer-detail) .report-reason-grid,
   :is(.section-reports, .section-printer-detail) .report-snapshot-layout,
@@ -420,6 +420,11 @@
   :is(.section-reports, .section-printer-detail) .report-backup-grid,
   :is(.section-reports, .section-printer-detail) .report-tech-grid {
     grid-template-columns: 1fr;
+  }
+
+  :is(.section-reports, .section-printer-detail) .form-grid.two-columns {
+    grid-template-columns: 1fr;
+    min-width: 0;
   }
 
   :is(.section-reports, .section-printer-detail) .report-snapshot-current,

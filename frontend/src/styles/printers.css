@@ -188,7 +188,7 @@
   width: 100%;
 }
 
-@media (max-width: 920px) {
+@media (max-width: 1240px) {
   .printer-detail-header .panel-heading {
     grid-template-columns: 1fr;
     min-width: 0;
@@ -203,6 +203,10 @@
   .printer-detail-header .printer-detail-strip {
     grid-template-columns: 1fr;
     justify-self: stretch;
+  }
+
+  .agent-token-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -926,7 +930,7 @@
   padding: 10px 12px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1240px) {
   .printer-profile-grid,
   .printer-public-grid,
   .printer-public-preview,

@@ -199,6 +199,8 @@ test("agente sintético pareia, envia heartbeat e aparece na frota", async ({
   test.setTimeout(90_000);
   if (testInfo.project.name === "mobile-chromium") {
     await page.setViewportSize({ width: 320, height: 568 });
+  } else {
+    await page.setViewportSize({ width: 1024, height: 768 });
   }
   const email = syntheticEmail(testInfo, "agent-owner");
   const owner = await ensureUser(request, email, "Agent Owner");
