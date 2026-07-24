@@ -163,4 +163,15 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   sistema, que não possui `httpx`, embora a dependência exista no ambiente
   imutável da aplicação. A correção usa explicitamente o Python da release;
   nenhuma janela prolongada foi iniciada ou parcialmente aproveitada.
+- Correção do runtime: `7b31c16` passou no gate completo e o workflow
+  `30057967799` publicou a release. O probe seguinte passou com backlog zero,
+  agente `0.1.34`, serviços ativos e nenhuma duplicidade, dead letter ou
+  restart. A repetição curta pooled completou 600 requisições em seis lotes,
+  zero erro, pior p95 de `1.003,569 ms` e p99 de `2.005,007 ms`; o resumo
+  sanitizado confirmou `connection_modes=["pooled"]` e tendências dentro dos
+  limites.
+- Nova janela integral de 24 horas: iniciada em `2026-07-24T01:27:10Z`, unit
+  `printora-cloud-soak.service`, invocation
+  `0f365c644dd147318fc8130aeb89f25f`. A primeira carga e observação passaram;
+  qualquer falha invalida integralmente esta janela.
 - Soak final contínuo de 72 horas: não iniciado.

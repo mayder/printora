@@ -6457,12 +6457,11 @@ Estado atual:
   produção no workflow `30053826438`.
 - Correções de coalescência, expiração UTC e lease implícito validadas na fila
   real sem exclusão ou cancelamento manual; backlog observado voltou a zero.
-- Lote 7 em execução: a primeira janela de 24 horas foi invalidada após cinco
-  minutos por SLO público. O gerador de carga passa a reutilizar keep-alive sem
-  alterar taxa ou limites. O primeiro reteste pós-publicação foi bloqueado antes
-  da carga porque o script usou o Python do sistema, sem a dependência runtime
-  `httpx`; o launcher passa a usar o Python da release imutável. Nova publicação
-  e repetição curta são obrigatórias antes de reiniciar a contagem.
+- Lote 7 em execução: depois de invalidar a primeira janela por conexão fria e
+  corrigir o launcher para usar o Python da release, a repetição curta pooled
+  passou com 600 requisições, zero erro e SLO aprovado. Uma nova janela integral
+  de 24 horas iniciou em `2026-07-24T01:27:10Z`; nenhuma parte das tentativas
+  anteriores será somada.
 
 ## PKG-99: RPO Físico, Recuperação Contínua E Prontidão De Desastre
 
