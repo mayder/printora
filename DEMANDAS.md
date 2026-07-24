@@ -6454,7 +6454,11 @@ Estado atual:
   segurança estão registrados em
   `docs/audits/HARDWARE_SOAK_PKG_98_2026-07-23.md`.
 - Instrumentação de soak implementada em `c2836de`; publicação e smoke real em
-  andamento antes da janela inicial de 24 horas.
+  produção no workflow `30053826438`.
+- Correções de coalescência, expiração UTC e lease implícito validadas na fila
+  real sem exclusão ou cancelamento manual; backlog observado voltou a zero.
+- Lote 7 em execução: probe e repetição curta de `600` requisições aprovados; a
+  janela contínua de 24 horas começou em `2026-07-24T00:09:56Z`.
 
 ## PKG-99: RPO Físico, Recuperação Contínua E Prontidão De Desastre
 

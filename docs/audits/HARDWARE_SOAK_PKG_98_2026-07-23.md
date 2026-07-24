@@ -130,5 +130,24 @@ token, IP, path privado ou payload e encerra o soak ao primeiro gate violado.
   porque o heartbeat renovava seu timestamp sem provar progresso. Heartbeat
   passa a representar somente liveness; qualquer job sem resultado expira em
   cinco minutos. Nenhuma linha foi cancelada ou excluída manualmente.
-- Soak inicial de 24 horas: não iniciado.
+- Publicação da correção: o primeiro workflow (`30053178674`) falhou antes de
+  publicar porque o inventário modular preservado não incorporava as seis
+  linhas do commit concorrente `211f472`. `78d1637` regenerou somente o
+  inventário, e o workflow `30053826438` publicou a release com sucesso.
+- Drenagem real pós-publicação: `76440` mudou de `in_progress` para `failed`
+  após cinco minutos com `job em execução expirou sem retorno do agente`, e
+  `76482` expirou antes do consumo. Não houve `DELETE`, cancelamento ou ajuste
+  manual. A leitura web read-only da Voron 0.2 concluiu, o backlog agregado
+  chegou a zero e permaneceu abaixo de 25 no ciclo adicional.
+- Probe observado aprovado: agente `0.1.34`, heartbeat atual, backlog zero,
+  nenhum dead letter, correlação duplicada, restart ou serviço inativo.
+- Primeira repetição curta invalidada: quatrocentas requisições públicas sem
+  erro, mas o quarto lote mediu p95 de `2.021 ms` e p99 de `3.207 ms`.
+  Os dois slots locais passaram com p95 abaixo de `50 ms`; o reteste público
+  passou com p95 de `401 ms` e p99 de `1.096 ms`.
+- Repetição curta integral aprovada: `600` requisições em seis lotes a
+  `5 req/s`, zero erro, observador aprovado e todos os lotes dentro do SLO.
+- Soak inicial de 24 horas: iniciado em `2026-07-24T00:09:56Z` na unit
+  transitória `printora-cloud-soak.service`; a primeira carga e observação
+  passaram, sem restart.
 - Soak final contínuo de 72 horas: não iniciado.
