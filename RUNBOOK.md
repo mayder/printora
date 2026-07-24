@@ -145,6 +145,12 @@ anterior. Não existe fallback para matar processo manualmente ou atualizar venv
 compartilhado. O usuário `deploy` só recebe sudo para os três comandos fixos do
 blue/green definidos em `packaging/sudoers/printora-cloud-deploy`.
 
+O bundle de produção exclui `.artifacts`, que contém apenas evidências de CI e
+é publicado separadamente com retenção de 30 dias. O envio usa keep-alive SSH e
+até três tentativas; falha persistente encerra o workflow antes de preparar ou
+trocar o slot. Nunca incluir cobertura, traces, cópias temporárias de pytest ou
+outros artefatos de validação no release executável.
+
 Bootstrap único, executado por administrador do host depois de backup da
 configuração Nginx:
 

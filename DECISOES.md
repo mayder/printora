@@ -1815,3 +1815,35 @@ sem alterar os tetos do entrypoint, CSS ou maior asset.
 
 Como reverter: voltar cloud e agente em conjunto para a versão anterior; manter
 arquivos já enviados e remover somente temporários expirados.
+
+### DEC-20260724-17 - Evidências de CI não integram o bundle cloud
+
+Status: aceita
+Data: 2026-07-24
+Contexto: o workflow `30106292559` passou por todos os gates, mas o upload do
+release terminou com `Broken pipe` após 22 minutos. O pacote tinha cerca de
+1,7 GB porque incorporava `.artifacts`, incluindo cópias temporárias de pytest,
+traces e relatórios que já são publicados separadamente pelo CI e não são
+consumidos pelo runtime.
+
+Decisão: o release executável exclui integralmente `.artifacts`. As evidências
+continuam publicadas pelo CI com retenção de 30 dias. A transferência do bundle
+mantém keep-alive SSH e repete no máximo três vezes; falha persistente encerra o
+workflow antes da preparação ou troca do slot.
+
+Consequências: o bundle volta a representar somente o conteúdo necessário para
+executar a release, reduz tempo e superfície de transferência e preserva o
+fail-closed do blue/green. Relatórios de qualidade continuam disponíveis no
+artefato próprio do workflow, sem ocupar disco em produção.
+
+Impacto em testes: o contrato de empacotamento exige exclusão de `.artifacts`,
+keep-alive e tentativas limitadas. O gate completo e o checksum do bundle
+permanecem obrigatórios.
+
+Impacto em rollback: reverter a exclusão reinclui evidências volumosas e
+reintroduz risco de interrupção do upload; não altera dados, schema nem slot
+ativo.
+
+Como reverter: remover a exclusão e a política de tentativas somente se houver
+um consumidor de runtime documentado para `.artifacts` e um transporte
+equivalente comprovadamente confiável.

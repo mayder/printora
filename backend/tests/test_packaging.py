@@ -117,6 +117,9 @@ def test_cloud_blue_green_packaging_is_independent_and_fail_closed() -> None:
     assert "RUN_PYTHON_TESTS: \"1\"" in workflow
     assert "RUN_FRONTEND_CHECKS: \"1\"" in workflow
     assert "printora-cloud-preflight" in workflow
+    assert "--exclude='.artifacts'" in workflow
+    assert "ServerAliveInterval=30" in workflow
+    assert "for attempt in 1 2 3" in workflow
 
 
 def test_cloud_upstream_balances_two_instances_of_the_same_release() -> None:
