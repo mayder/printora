@@ -295,6 +295,8 @@ def test_periodic_restore_replays_external_wal_with_resource_limits() -> None:
     audit = (ROOT_DIR / "scripts/cloud/audit-final-architecture.sh").read_text()
 
     assert "--tag printora-cloud-wal" in restore
+    assert "first <= name <= last" in restore
+    assert 'wal_includes+=(--include "$wal_path")' in restore
     assert "pg_last_wal_replay_lsn" in restore
     assert "timeout 900" in wrapper
     assert '"wal_replay"' in wrapper
