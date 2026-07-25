@@ -6656,11 +6656,16 @@ Rollback:
 
 Estado atual:
 
-- Em conclusão operacional. Lotes 1 a 9 implementados e validados em produção:
-  RPO PostgreSQL configurado em 290 s, sincronização WAL externa contínua,
-  backup completo em 167 s, restore isolado em 258 s, alerta local aprovado e
-  preview de retenção sem exclusão. O lote 10 aguarda somente publicação oficial
-  do commit final, smoke e consolidação da auditoria.
+- Concluído em 100%. Lotes 1 a 10 implementados, revisados e validados em
+  produção: RPO PostgreSQL configurado em 290 s, sincronização WAL externa
+  contínua, backup completo em 167 s, restore isolado em 258 s, alerta local
+  aprovado e preview de retenção sem exclusão.
+- Release `debd717662666d556094b9df9d0450e304c5c271` publicada pelo workflow
+  `30134329186` com gate completo, build reproduzível, auditorias, SBOM,
+  blue/green, drain e endpoint público aprovados.
+- Probe de worker/Redis e caos active-active passaram. O smoke público final
+  passou com 700 requisições pooled, zero erro/retry, p95 de 84,146 ms e p99 de
+  499,487 ms.
 - Evidência em
   `docs/audits/PHYSICAL_RECOVERY_PKG_99_2026-07-24.md`.
 

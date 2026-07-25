@@ -87,9 +87,28 @@ O espaço livre de 10,5% está acima do gate de 10%, mas com margem estreita.
 Capacidade permanece risco operacional acompanhado; resolver capacidade por
 prune sem preview, restore válido e confirmação explícita continua proibido.
 
+Publicação e validação final do runtime:
+
+- release `debd717662666d556094b9df9d0450e304c5c271` publicada pelo workflow
+  `30134329186`;
+- gate completo, build reproduzível, evidências de qualidade, auditorias,
+  SBOM, bundle imutável, preflight privilegiado, blue/green, drain e endpoint
+  público aprovados;
+- auditoria independente no servidor confirmou o marcador da release, a mesma
+  release no slot ativo e na réplica, prontidão de recuperação e preflight;
+- probe de worker/Redis passou;
+- o primeiro probe active-active revelou que o launcher de carga usava o Python
+  do sistema sem `httpx`. A tentativa foi inválida, a instância foi restaurada
+  pelo trap e o endpoint público permaneceu saudável;
+- após correção para usar o runtime da release, o probe active-active passou com
+  300 requisições, pool HTTP compartilhado, zero erro e recuperação da
+  instância;
+- smoke público final passou com 700 requisições, pool compartilhado, zero erro,
+  zero retry, p95 de 84,146 ms e p99 de 499,487 ms;
+- `health`, `ready`, catálogo, bundle frontend, versão `0.1.41`, schema `86` e
+  última integridade `ok` foram confirmados publicamente.
+
 IDs privados, paths, fingerprints, credenciais e payloads não foram registrados.
-O SHA e o workflow da publicação final serão adicionados após a execução oficial
-concluir com sucesso.
 
 ## Retenção e capacidade
 
