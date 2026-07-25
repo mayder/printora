@@ -107,6 +107,12 @@ Publicação e validação final do runtime:
   zero retry, p95 de 84,146 ms e p99 de 499,487 ms;
 - `health`, `ready`, catálogo, bundle frontend, versão `0.1.41`, schema `86` e
   última integridade `ok` foram confirmados publicamente.
+- a publicação de encerramento `30135648450` foi bloqueada antes do upload
+  porque um WAL novo surgiu entre a sincronização e o preflight. O estado tinha
+  55 s, dentro do alerta de 210 s e do RPO de 290 s, mas o gate exigia igualdade
+  instantânea. O monitor foi corrigido para registrar
+  `wal_external_current=false` sem falhar dentro da janela; após 210 s continua
+  falhando fechado como `wal_sync_late` e `wal_external_behind`.
 
 IDs privados, paths, fingerprints, credenciais e payloads não foram registrados.
 

@@ -6666,6 +6666,10 @@ Estado atual:
 - Probe de worker/Redis e caos active-active passaram. O smoke público final
   passou com 700 requisições pooled, zero erro/retry, p95 de 84,146 ms e p99 de
   499,487 ms.
+- O preflight de encerramento revelou corrida entre rotação e sincronização WAL:
+  atraso de 55 s era menor que o alerta de 210 s, mas o gate exigia igualdade
+  instantânea. O monitor agora tolera somente essa janela prevista e continua
+  fail-closed antes do RPO de 290 s.
 - Evidência em
   `docs/audits/PHYSICAL_RECOVERY_PKG_99_2026-07-24.md`.
 

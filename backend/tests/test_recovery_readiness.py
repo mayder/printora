@@ -68,9 +68,23 @@ def test_recovery_readiness_passes_with_current_external_wal(tmp_path: Path) -> 
     assert report["configured_physical_rpo_seconds"] == 290
 
 
+def test_recovery_readiness_allows_new_wal_inside_alert_window(tmp_path: Path) -> None:
+    module = load_module()
+    configure_healthy_state(module, tmp_path)
+    (module.ARCHIVE_DIR / "000000010000000000000002").write_bytes(b"new-wal")
+
+    report, failures = module.collect()
+
+    assert failures == []
+    assert report["status"] == "passed"
+    assert report["wal_external_current"] is False
+    assert report["wal_external_within_alert_window"] is True
+
+
 def test_recovery_readiness_fails_before_physical_rpo_breach(tmp_path: Path) -> None:
     module = load_module()
     configure_healthy_state(module, tmp_path)
+    (module.ARCHIVE_DIR / "000000010000000000000002").write_bytes(b"new-wal")
     state_path = module.STATE_DIR / "wal-sync.json"
     state = json.loads(state_path.read_text())
     state["checked_at"] = datetime.fromtimestamp(
@@ -82,4 +96,6 @@ def test_recovery_readiness_fails_before_physical_rpo_breach(tmp_path: Path) -> 
     report, failures = module.collect()
 
     assert "wal_sync_late" in failures
+    assert "wal_external_behind" in failures
+    assert report["wal_external_within_alert_window"] is False
     assert report["status"] == "failed"
