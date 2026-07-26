@@ -2251,16 +2251,26 @@ Entrega isolada:
 - A entrega possui entrada utilizável, contratos completos, persistência/integrações necessárias, métricas, documentação, testes, rollout e rollback próprios.
 - Repetir SQL, request, comando, job, webhook, import, retry ou reconciliação não duplica estado nem efeito externo.
 
+Contrato obrigatório de presets:
+
+- o preset executável canônico preserva o bundle nativo do OrcaSlicer, inicialmente composto por `process`, `filament` e `machine`, sem reduzir o conteúdo aos campos resumidos do perfil social;
+- cada revisão guarda formato/schema do preset, versão da engine, JSON original sanitizado, representação canônica, herança, overrides, compatibilidade e `sha256`;
+- campos desconhecidos de uma versão N/N-1 são preservados no round-trip; qualquer conversão para outro slicer informa perdas antes de salvar;
+- importação entra privada, cria revisão imutável e nunca instala ou ativa configuração local automaticamente;
+- o perfil compartilhável do PKG-63 permanece uma projeção resumida; a revisão nativa do preset é a fonte executável usada pelo fatiamento;
+- cada job de fatiamento referencia uma revisão imutável do bundle e registra versão da engine e checksum para permitir reprodução exata;
+- exportação para OrcaSlicer deve reconstruir um bundle semanticamente equivalente ao importado, sem incluir host, path local, credencial, token ou dado operacional sensível.
+
 Lotes de capacidade:
 
-1. **Editor completo de perfil com níveis básico e avançado** — `CAP-35-01`, `COM-1905` a `COM-1911`, `SCR-0273`, rota planejada `/community/slicing/editor-completo-de-perfil-com-niveis-basico-e-avancado`.
-2. **Herança e diff entre perfil base e ajustes** — `CAP-35-02`, `COM-1912` a `COM-1918`, `SCR-0274`, rota planejada `/community/slicing/heranca-e-diff-entre-perfil-base-e-ajustes`.
-3. **Compatibilidade entre slicers com perdas explícitas** — `CAP-35-03`, `COM-1919` a `COM-1925`, `SCR-0275`, rota planejada `/community/slicing/compatibilidade-entre-slicers-com-perdas-explicitas`.
+1. **Editor completo de perfil com níveis básico e avançado** — `CAP-35-01`, `COM-1905` a `COM-1911`, `SCR-0273`, incluindo importação, persistência, edição e exportação do bundle nativo completo do OrcaSlicer; rota planejada `/community/slicing/editor-completo-de-perfil-com-niveis-basico-e-avancado`.
+2. **Herança e diff entre perfil base e ajustes** — `CAP-35-02`, `COM-1912` a `COM-1918`, `SCR-0274`, incluindo diff por revisão entre `process`, `filament` e `machine`; rota planejada `/community/slicing/heranca-e-diff-entre-perfil-base-e-ajustes`.
+3. **Compatibilidade entre slicers com perdas explícitas** — `CAP-35-03`, `COM-1919` a `COM-1925`, `SCR-0275`, preservando o original nativo e impedindo conversão silenciosa de campos desconhecidos; rota planejada `/community/slicing/compatibilidade-entre-slicers-com-perdas-explicitas`.
 4. **Orientação, suporte e arranjo assistidos** — `CAP-35-04`, `COM-1926` a `COM-1932`, `SCR-0276`, rota planejada `/community/slicing/orientacao-suporte-e-arranjo-assistidos`.
 5. **Estimativa comparativa de tempo, custo e resistência** — `CAP-35-05`, `COM-1933` a `COM-1939`, `SCR-0277`, rota planejada `/community/slicing/estimativa-comparativa-de-tempo-custo-e-resistencia`.
 6. **Preview por recurso, velocidade, fluxo e ferramenta** — `CAP-35-06`, `COM-1940` a `COM-1946`, `SCR-0278`, rota planejada `/community/slicing/preview-por-recurso-velocidade-fluxo-e-ferramenta`.
 7. **Experimentos a/b de perfil com resultado físico** — `CAP-35-07`, `COM-1947` a `COM-1953`, `SCR-0279`, rota planejada `/community/slicing/experimentos-a-b-de-perfil-com-resultado-fisico`.
-8. **Reprodução exata por versão de engine e configuração** — `CAP-35-08`, `COM-1954` a `COM-1960`, `SCR-0280`, rota planejada `/community/slicing/reproducao-exata-por-versao-de-engine-e-configuracao`.
+8. **Reprodução exata por versão de engine e configuração** — `CAP-35-08`, `COM-1954` a `COM-1960`, `SCR-0280`, vinculando job, versão da engine, revisão imutável do bundle e checksums dos presets/artefatos; rota planejada `/community/slicing/reproducao-exata-por-versao-de-engine-e-configuracao`.
 9. **Integração, piloto e impacto** — integrar as oito capacidades, executar jornada ponta a ponta, piloto controlado, métricas de benefício/dano, falhas, abuso, privacidade, mobile, acessibilidade e reexecução idempotente.
 10. **Fechamento** — revisar os 56 `COM` e oito `SCR`, corrigir regressões, validar dependências, idempotência, rollback, retenção e observabilidade, executar gate completo e criar commit exclusivo.
 
@@ -2272,6 +2282,9 @@ Critério de aceite:
 - o pacote pode ser publicado e revertido sem pacote posterior;
 - reexecução e concorrência não duplicam registro, evento, cobrança, mensagem, arquivo ou comando físico;
 - contratos, regras, permissões, consumidores e compatibilidade N/N-1 estão coerentes;
+- round-trip de fixtures reais do OrcaSlicer preserva equivalência semântica e campos desconhecidos;
+- job executado usa exatamente a revisão, versão da engine e checksums registrados, sem ler um perfil mutável posterior;
+- perfil resumido do PKG-63 nunca substitui silenciosamente o bundle nativo executável;
 - desktop/mobile, acessibilidade, offline, timeout, 429, 5xx e conflito são tratados;
 - dados sensíveis são minimizados e logs permanecem sanitizados;
 - métricas medem benefício humano e dano, não apenas engajamento;

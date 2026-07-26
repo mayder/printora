@@ -2019,3 +2019,46 @@ ativo.
 Como reverter: remover a exclusão e a política de tentativas somente se houver
 um consumidor de runtime documentado para `.artifacts` e um transporte
 equivalente comprovadamente confiável.
+
+### DEC-20260726-03 - Preset nativo versionado é a fonte executável do fatiamento
+
+Status: aceita
+Data: 2026-07-26
+Contexto: o perfil resumido criado pelo PKG-63 atende comparação e
+compartilhamento, mas não preserva todos os parâmetros necessários para o
+Printora reproduzir no futuro um fatiamento feito pelo OrcaSlicer. Retração,
+wipe, Z-hop, herança, variantes de extrusor, compatibilidade e campos novos da
+engine não podem ser reduzidos a um dicionário parcial sem perda silenciosa.
+
+Decisão: o PKG-131 introduz uma revisão imutável de preset executável que
+preserva o bundle nativo do OrcaSlicer (`process`, `filament` e `machine`), o
+JSON original sanitizado, uma representação canônica, versão de formato e
+engine, herança, overrides, compatibilidade e SHA-256. O perfil social do
+PKG-63 permanece como projeção resumida e nunca é a fonte autoritativa de um
+job. Cada job de fatiamento referencia a revisão exata do bundle e registra
+engine e checksums. Importação entra privada; instalação ou ativação local
+continua sendo ação explícita.
+
+Alternativas consideradas: ampliar apenas o campo livre do PKG-63; normalizar
+todos os campos do Orca em colunas; guardar somente o JSON nativo sem revisão
+canônica; converter imediatamente para um formato universal.
+
+Consequências: o Printora consegue importar/exportar presets do Orca sem perder
+campos desconhecidos, produzir diff e herança compreensíveis e reproduzir um
+job com a mesma revisão. Conversões para outros slicers precisam declarar
+perdas. O armazenamento deve rejeitar host, path local, token, credencial e
+outro dado operacional sensível.
+
+Impacto em testes: fixtures controladas do Orca devem cobrir round-trip
+semanticamente equivalente, preservação de campos desconhecidos N/N-1,
+sanitização, revisão imutável, checksum, herança/diff, autorização e job preso
+à revisão original.
+
+Impacto em rollback: médio; desativar importação/edição nativa e voltar o
+fatiamento ao estado bloqueado preserva revisões já armazenadas como legado
+somente leitura. Nenhuma revisão ou perfil social deve ser apagado.
+
+Como reverter: remover consumidores e rotas do bundle nativo, manter os dados
+existentes sem execução e restaurar a versão anterior do serviço. Alteração de
+schema futura será entregue por SQL idempotente e rollback por restauração de
+backup, nunca por `DROP` ou `DELETE`.
