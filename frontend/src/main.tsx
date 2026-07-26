@@ -177,7 +177,7 @@ function App() {
       case "design-system":
         return (
           <Suspense fallback={<section aria-live="polite">Carregando design system.</section>}>
-            <DesignSystemScreen />
+            <DesignSystemScreen confirmAction={screenProps.confirmAction} />
           </Suspense>
         );
       case "account":

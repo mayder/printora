@@ -19,6 +19,7 @@ import type {
   DesignDensity,
   DesignState,
 } from "../types/designSystem";
+import type { ScreenPropsFor } from "./ScreenProps";
 import "../styles/design-system.css";
 
 
@@ -28,7 +29,9 @@ const DENSITY_LABELS: Record<DesignDensity, string> = {
   administration: "Administração",
 };
 
-export function DesignSystemScreen() {
+export function DesignSystemScreen({
+  confirmAction,
+}: ScreenPropsFor<"confirmAction">) {
   const lab = useDesignSystemLab();
   const [query, setQuery] = React.useState("");
   const selected = lab.catalog?.capabilities.find((item) => item.slug === lab.route.slug) ?? null;
@@ -78,7 +81,11 @@ export function DesignSystemScreen() {
       {selected && lab.route.mode === "detail" ? (
         <CapabilityDetail capability={selected} onBack={() => lab.navigate(selected.route)} onEdit={() => lab.navigate(selected.route, "edit")} />
       ) : selected && lab.route.mode === "edit" ? (
-        <CapabilityEditor capability={selected} lab={lab} />
+        <CapabilityEditor
+          capability={selected}
+          lab={lab}
+          confirmAction={confirmAction}
+        />
       ) : (
         <CapabilityList
           capabilities={lab.catalog.capabilities}
@@ -197,9 +204,11 @@ function CapabilityDetail({
 function CapabilityEditor({
   capability,
   lab,
+  confirmAction,
 }: {
   capability: DesignCapability;
   lab: ReturnType<typeof useDesignSystemLab>;
+  confirmAction: ScreenPropsFor<"confirmAction">["confirmAction"];
 }) {
   const saveLabel = lab.saveStatus === "saved" ? "Rascunho salvo" : lab.saveStatus === "unchanged" ? "Sem alterações" : "Salvar rascunho";
   return (
@@ -265,8 +274,14 @@ function CapabilityEditor({
           <button
             type="button"
             className="secondary-button"
-            onClick={() => {
-              if (window.confirm("Restaurar os valores documentados deste rascunho local?")) lab.restoreDefaults();
+            onClick={async () => {
+              const confirmed = await confirmAction({
+                tone: "warning",
+                title: "Restaurar rascunho local",
+                detail: "Os valores locais serão substituídos pelo padrão documentado. O servidor não será alterado.",
+                confirmLabel: "Restaurar padrão",
+              });
+              if (confirmed) lab.restoreDefaults();
             }}
           >
             <RefreshCw size={16} /> Restaurar padrão

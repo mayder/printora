@@ -19,10 +19,10 @@ mkdir -p "$ARTIFACT_DIR"
     npx vite build --outDir "$DIST_DIR"
   PRINTORA_E2E_DATA_DIR="$DATA_DIR" \
     PRINTORA_E2E_ARTIFACT_DIR="$ARTIFACT_DIR" \
-  PRINTORA_E2E_DIST_DIR="$DIST_DIR" \
+    PRINTORA_E2E_DIST_DIR="$DIST_DIR" \
     PRINTORA_E2E_ADMIN_PASSWORD_FILE="$ADMIN_PASSWORD_FILE" \
     PRINTORA_E2E_PORT="$PORT" \
-    npm run test:e2e
+    npm run test:e2e -- "$@"
 )
 
 echo "E2E passou com dados sintéticos isolados em $DATA_DIR"

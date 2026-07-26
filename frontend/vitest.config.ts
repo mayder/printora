@@ -34,6 +34,12 @@ export default defineConfig({
           functions: 90,
           lines: 80,
         },
+        "src/services/designSystemDraft.ts": {
+          statements: 90,
+          branches: 85,
+          functions: 100,
+          lines: 90,
+        },
         "src/components/monitoring/gcodePreview.ts": {
           statements: 92,
           branches: 80,

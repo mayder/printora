@@ -28,9 +28,12 @@ const catalog: DesignSystemCatalog = {
 };
 
 describe("DesignSystemScreen", () => {
+  const confirmAction = vi.fn().mockResolvedValue(true);
+
   beforeEach(() => {
     window.localStorage.clear();
     window.history.replaceState(null, "", "/?section=design-system");
+    confirmAction.mockClear();
     vi.spyOn(designSystemApi, "catalog").mockResolvedValue(catalog);
   });
 
@@ -39,7 +42,7 @@ describe("DesignSystemScreen", () => {
   });
 
   it("separates list, detail and editor while preserving a local draft", async () => {
-    render(React.createElement(DesignSystemScreen));
+    render(React.createElement(DesignSystemScreen, { confirmAction }));
 
     expect(await screen.findByText("8 de 8 famílias")).toBeTruthy();
     fireEvent.click(screen.getAllByRole("button", { name: /Detalhe/ })[0]);
@@ -53,10 +56,16 @@ describe("DesignSystemScreen", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /Rascunho salvo/ })).toBeTruthy());
     expect(window.location.pathname).toBe("/community/design_system/capacidade-1/edit");
     expect(window.localStorage.getItem("printora.design-system.lab.v1")).toContain("Fluxo de oficina");
+
+    fireEvent.click(screen.getByRole("button", { name: "Restaurar padrão" }));
+    await waitFor(() => expect(confirmAction).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      expect((screen.getByLabelText("Nome da referência") as HTMLInputElement).value).toBe("");
+    });
   });
 
   it("filters the catalog and exposes an actionable empty state", async () => {
-    render(React.createElement(DesignSystemScreen));
+    render(React.createElement(DesignSystemScreen, { confirmAction }));
     await screen.findByText("8 de 8 famílias");
 
     fireEvent.change(screen.getByPlaceholderText("Buscar por nome ou capacidade"), { target: { value: "inexistente" } });
