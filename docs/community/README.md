@@ -27,6 +27,12 @@ Este diretório é a fonte complementar do backlog para a evolução do Printora
 - `COMMUNITY_SCREENS.csv`: versão filtrável das telas.
 - `PRIORITIES.md`: ordenação por impacto social.
 - `SUMMARY.json`: contagem verificável do inventário.
+- `PACKAGE_ARCHITECTURE.csv`: owner backend, colaboradores, área frontend e
+  perfil de risco dos 55 pacotes.
+- `PACKAGE_EXECUTION_STANDARD.md`: padrão bloqueante de modelagem,
+  implementação, testes, rollout e fechamento.
+- `PACKAGE_MODELING_REVIEW.md`: revisão transversal, brechas tratadas e riscos
+  residuais que não podem ser eliminados por documentação.
 
 ## Regra de uso
 
@@ -36,9 +42,11 @@ O inventário é um mapa de possibilidades, não autorização para implementar 
 2. auditar novamente o que já existe no Printora;
 3. localizar o pacote e os IDs `COM`, `CAP` e `SCR` atribuídos em
    `DEMANDAS.md`, sem criar pacote paralelo ou sobreposto;
-4. definir telas em `TELAS.md`, testes em `TESTES.md` e decisões relevantes em `DECISOES.md`;
-5. pilotar com métricas de benefício e dano;
-6. expandir somente quando o resultado justificar o custo e o risco.
+4. consultar owner, colaboradores e risco em `PACKAGE_ARCHITECTURE.csv`;
+5. cumprir a Definition of Ready de `PACKAGE_EXECUTION_STANDARD.md`;
+6. definir telas em `TELAS.md`, testes em `TESTES.md` e decisões relevantes em `DECISOES.md`;
+7. pilotar com métricas de benefício e dano;
+8. expandir somente quando o resultado justificar o custo e o risco.
 
 Os arquivos gerados são reproduzíveis com:
 

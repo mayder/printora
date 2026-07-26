@@ -290,5 +290,8 @@ AR/scan; copilotos e automação; interfaces futuras. Só avançam depois que de
 - frentes, capacidades, telas e itens atômicos gerados;
 - prioridade por impacto social definida;
 - layout, usabilidade, mobile, acessibilidade, segurança e métricas incorporados a cada capacidade;
+- ownership, colaboradores, área frontend e risco fixados para os 55 pacotes;
+- padrão bloqueante de backend, frontend, banco, testes, compatibilidade,
+  rollout e rollback publicado;
 - fontes oficiais do repositório apontando para o programa;
-- geração reproduzível e checks do repositório aprovados.
+- geração reproduzível, rastreabilidade integral e checks do repositório aprovados.

@@ -99,6 +99,25 @@ contra destruição física desse host. RPO zero é obrigatório para deploy/cut
 desastre físico usa RPO/RTO medidos pela cópia externa até existir réplica
 síncrona autorizada em outro host.
 
+### Gates Dos Pacotes Comunitários
+
+Os pacotes `PKG-101` a `PKG-155` obedecem
+`docs/community/PACKAGE_EXECUTION_STANDARD.md` e à matriz
+`docs/community/PACKAGE_ARCHITECTURE.csv`.
+
+- pacote inicia somente com dependências anteriores concluídas;
+- owner primário e colaboradores não podem ser alterados sem decisão registrada;
+- Definition of Ready incompleta bloqueia o primeiro lote;
+- comportamento consolidado tocado recebe teste de caracterização e regressão;
+- pacote de risco `critical` exige ameaça, abuso, isolamento, E2E, rollback
+  ensaiado, piloto/canário e observação proporcionais;
+- ausência de teste externo deve ser registrada como risco residual, nunca como
+  equivalência a teste executado;
+- pacote não fecha com placeholder, dependência implícita, flag sem expiração,
+  dual-write, adapter temporário ou dívida transferida a pacote futuro;
+- `./check.sh` valida ordem, rastreabilidade e matriz, mas não substitui a
+  evidência funcional, visual, operacional ou física exigida pelo aceite.
+
 Todos os pacotes arquiteturais exigem threat model, autorização backend
 deny-by-default, isolamento owner/tenant, rate limit, idempotência, validação de
 entrada, proteção SSRF/upload, SQL parametrizado, secrets fora do release,

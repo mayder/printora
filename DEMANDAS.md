@@ -22,6 +22,11 @@ Fontes complementares obrigatórias:
 - `docs/community/COMMUNITY_BACKLOG.md`: requisitos atômicos completos;
 - `docs/community/COMMUNITY_SCREENS.md`: telas, rotas e estados;
 - `docs/community/PRIORITIES.md`: prioridade por impacto social;
+- `docs/community/PACKAGE_ARCHITECTURE.csv`: owner, colaboradores, área
+  frontend e risco de cada pacote;
+- `docs/community/PACKAGE_EXECUTION_STANDARD.md`: Definition of Ready,
+  padrões de implementação e Definition of Done bloqueantes;
+- `docs/community/PACKAGE_MODELING_REVIEW.md`: revisão transversal e riscos residuais;
 - `docs/community/SUMMARY.json`: totais verificáveis.
 
 ## Decisão Sobre O Número 101
@@ -198,15 +203,18 @@ nos fluxos mutáveis aplicáveis.
 Antes do primeiro lote, a janela executora deve:
 
 1. reler `PATHS.toml`, `QUALITY_ROADMAP.md`, `GOVERNANCA.md` e este pacote;
-2. auditar código e contratos atuais para reaproveitar capacidades existentes;
-3. confirmar IDs `COM`, `CAP` e `SCR` atribuídos ao lote;
-4. atualizar `TELAS.md`, `TESTES.md`, `BUGS.md` e `DECISOES.md` quando aplicável;
-5. manter frontend sem regra de negócio/persistência e separar lista, detalhe, criação e edição;
-6. definir autorização deny-by-default, isolamento, rate limit, retenção, observabilidade e rollback;
-7. usar fixtures sintéticas, nunca dump ou segredo de produção;
-8. validar mobile a partir de 320 px, teclado, leitor de tela, zoom, contraste, offline e falhas;
-9. provar idempotência e entrega isolada antes do fechamento;
-10. revisar integralmente, executar `./check.sh` e criar commit exclusivo.
+2. cumprir integralmente `docs/community/PACKAGE_EXECUTION_STANDARD.md`;
+3. confirmar owner, colaboradores, área frontend e risco na matriz
+   `docs/community/PACKAGE_ARCHITECTURE.csv`;
+4. auditar código e contratos atuais para reaproveitar capacidades existentes;
+5. confirmar IDs `COM`, `CAP` e `SCR` atribuídos ao lote;
+6. atualizar `TELAS.md`, `TESTES.md`, `BUGS.md` e `DECISOES.md` quando aplicável;
+7. manter frontend sem regra de negócio/persistência e separar lista, detalhe, criação e edição;
+8. definir autorização deny-by-default, isolamento, rate limit, retenção, observabilidade e rollback;
+9. usar fixtures sintéticas, nunca dump ou segredo de produção;
+10. validar mobile a partir de 320 px, teclado, leitor de tela, zoom, contraste, offline e falhas;
+11. provar idempotência, compatibilidade N/N-1 e entrega isolada antes do fechamento;
+12. revisar integralmente, executar `./check.sh` e criar commit exclusivo.
 
 Cada lote cobre as sete lentes contíguas: produto, tela, mobile,
 acessibilidade, confiança, impacto e qualidade. O `SCR` exige lista/filtro,

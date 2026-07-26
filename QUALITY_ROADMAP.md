@@ -151,8 +151,12 @@ Módulo não deve importar detalhe interno de outro módulo sem contrato explíc
 - O commit de fechamento não exige push.
 - Pacote comunitário só pode depender de pacote com ID menor e deve entregar
   uma fatia vertical utilizável, publicável e reversível sem pacote futuro.
+- `docs/community/PACKAGE_EXECUTION_STANDARD.md` é bloqueante para todo pacote
+  comunitário; a matriz `PACKAGE_ARCHITECTURE.csv` fixa owner, colaboradores,
+  área frontend e perfil de risco antes do primeiro lote.
 - `scripts/validate-demand-package-dependencies.py` bloqueia lacuna, referência
-  futura e pacote sem declaração de entrega isolada.
+  futura, cobertura `COM/CAP/SCR` divergente, ownership inválido e pacote sem
+  declaração de entrega isolada.
 
 ### Bug e melhoria simples
 

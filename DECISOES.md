@@ -2062,3 +2062,40 @@ Como reverter: remover consumidores e rotas do bundle nativo, manter os dados
 existentes sem execução e restaurar a versão anterior do serviço. Alteração de
 schema futura será entregue por SQL idempotente e rollback por restauração de
 backup, nunca por `DROP` ou `DELETE`.
+
+### DEC-20260726-04 - Pacotes comunitários usam padrão e ownership bloqueantes
+
+Status: aceita
+Data: 2026-07-26
+Contexto: a ordem topológica e a rastreabilidade dos `PKG-101` a `PKG-155`
+impediam dependência futura explícita, mas não fixavam owner, colaboradores,
+perfil de risco ou um único padrão de execução. Janelas diferentes poderiam
+interpretar backend, frontend, banco e Definition of Done de modos incompatíveis.
+
+Decisão: `docs/community/PACKAGE_ARCHITECTURE.csv` define owner backend
+primário, colaboradores, área frontend e risco dos 55 pacotes.
+`docs/community/PACKAGE_EXECUTION_STANDARD.md` é bloqueante e concentra
+Definition of Ready, modelagem, backend, frontend, SQL, segurança, testes,
+compatibilidade, rollout, rollback e handoff. O validador do backlog deve
+conferir matriz, dependências e cobertura integral `COM/CAP/SCR`.
+
+Alternativas consideradas: repetir todo o padrão em cada pacote; confiar apenas
+no `QUALITY_ROADMAP.md`; criar um módulo técnico por pacote; deixar ownership
+para decisão da janela executora.
+
+Consequências: pacotes podem ser executados em janelas separadas com fronteiras
+e critérios consistentes, sem transformar número de pacote em módulo. Mudança
+de ownership ou risco exige revisão arquitetural explícita. O gate estrutural
+reduz divergência documental, mas não substitui testes e evidência da
+implementação futura.
+
+Impacto em testes: o check valida 55 linhas únicas, owners permitidos, ausência
+de colaborador duplicado, cobertura e unicidade dos IDs, ordem topológica,
+estrutura dos dez lotes e referências ao padrão. Testes negativos comprovam que
+lacuna, sobreposição, owner inválido e dependência futura falham.
+
+Impacto em rollback: baixo e documental. Reverter remove o novo gate e volta a
+permitir interpretação livre, sem alterar runtime ou dados.
+
+Como reverter: reverter matriz, padrão, decisão e extensão do validador no mesmo
+commit; não alterar pacotes implementados nem apagar evidências produzidas.

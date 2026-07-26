@@ -78,6 +78,7 @@ fi
 
 log "validando dependências dos pacotes comunitários"
 python3 scripts/validate-demand-package-dependencies.py
+python3 scripts/test-demand-package-validator.py
 
 log "validando inventário modular"
 python3 scripts/audit_module_boundaries.py --check >/dev/null

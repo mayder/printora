@@ -75,6 +75,34 @@ Comando obrigatório antes de commit:
 ./check.sh
 ```
 
+## Pacotes Comunitários PKG-101 A PKG-155
+
+Cada pacote segue o perfil de risco definido em
+`docs/community/PACKAGE_ARCHITECTURE.csv` e a matriz completa de testes em
+`docs/community/PACKAGE_EXECUTION_STANDARD.md`.
+
+Validação estrutural obrigatória:
+
+```bash
+python3 scripts/generate_community_roadmap.py
+git diff --exit-code -- docs/community/COMMUNITY_BACKLOG.csv docs/community/COMMUNITY_BACKLOG.md docs/community/COMMUNITY_SCREENS.csv docs/community/COMMUNITY_SCREENS.md docs/community/PRIORITIES.md docs/community/SUMMARY.json
+python3 scripts/validate-demand-package-dependencies.py
+```
+
+Além do gate estrutural, todo pacote cobre:
+
+- invariantes e transições de estado;
+- autorização e isolamento em leitura e mutação;
+- idempotência, retry, concorrência e retomada quando houver efeito;
+- contrato API/evento e compatibilidade N/N-1;
+- repository/adapter e falha da dependência;
+- estados frontend, mobile e acessibilidade;
+- regressão dos fluxos consolidados tocados;
+- rollout, smoke e rollback proporcionais ao risco.
+
+Gerador e validador aprovados não significam funcionalidade implementada. O
+fechamento exige evidência real das superfícies alteradas.
+
 ## Objetos e busca Cloud
 
 No fechamento do contrato de objetos e busca, executar o gate completo e, no
