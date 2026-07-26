@@ -146,9 +146,9 @@ function App() {
     };
   }, [screenProps.authUser?.id]);
   const accountMenuItems = [
-    { label: "Acessibilidade", icon: accessibilitySection.icon, tab: "accessibility" as const },
     { label: "Organizações", icon: Users, tab: "organizations" as const },
     { label: "Perfil", icon: UserRound, tab: "profile" as const },
+    { label: "Acessibilidade", icon: accessibilitySection.icon, tab: "accessibility" as const },
   ];
   const shellSection =
     publicCommunitySlug || embeddedProfileSlug

@@ -210,7 +210,7 @@ export const appSections: AppSectionDefinition[] = [
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Principal", sections: ["overview", "printers", "agents", "projects", "social", "catalog", "setup"] },
-  { title: "Sistema", sections: ["accessibility", "finance", "manufacturing", "data-intelligence", "design-system", "settings"] },
+  { title: "Sistema", sections: ["finance", "manufacturing", "data-intelligence", "design-system", "settings"] },
 ];
 
 export const onlinePrinterSections = new Set<AppSection>([

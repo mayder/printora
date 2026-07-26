@@ -2325,8 +2325,11 @@ Aceite de 2026-07-24:
   usuários;
 - rejeitar owner externo, campo desconhecido, enum inválido, escala fora de
   100%–200%, payload sem chave idempotente e sessão ausente;
-- cobrir lista/filtro, detalhe e editor em rotas separadas, navegação
-  voltar/avançar e entrada direta nas oito famílias;
+- cobrir preferências, explicações opcionais e editor em rotas separadas,
+  navegação voltar/avançar e entrada direta nas oito famílias;
+- garantir que `CAP`, `COM`, `SCR`, revisão, contrato e rollback não sejam
+  renderizados na interface do cliente e que a entrada exista somente no menu
+  pessoal aberto pelo avatar;
 - validar loading, vazio, erro, sucesso, parcial, offline, acesso negado e
   conflito; timeout, `429` e `5xx` preservam a entrada e oferecem recuperação;
 - validar semântica, nomes, landmarks, regiões vivas, ordem/foco, teclado,

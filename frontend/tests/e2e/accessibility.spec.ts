@@ -39,8 +39,11 @@ test("central acessível sincroniza preferências e preserva alternativas", asyn
   await loginInBrowser(page, email);
 
   await page.goto(ACCESSIBILITY_ROUTE);
-  await expect(page.getByRole("heading", { name: "Central de acessibilidade" })).toBeVisible();
-  await expect(page.getByText("8 de 8 famílias", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Acessibilidade", exact: true })).toBeVisible();
+  await expect(page.getByText("Escolha como quer usar o Printora", { exact: true })).toBeVisible();
+  await expect(page.getByText("CAP-09-01", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("SCR-0065", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("COM-0449", { exact: true })).toHaveCount(0);
   expect(await findHorizontalOverflow(page)).toEqual({
     documentOverflows: false,
     elements: [],
@@ -74,9 +77,10 @@ test("central acessível sincroniza preferências e preserva alternativas", asyn
   }
   if (originalViewport) await page.setViewportSize(originalViewport);
 
-  await page.getByRole("button", { name: /Detalhe de Conformidade/ }).click();
+  await page.getByText("Conheça os recursos de acessibilidade", { exact: true }).click();
+  await page.getByRole("button", { name: /Saiba mais sobre Usar o Printora com confiança/ }).click();
   await expect(page).toHaveURL(`${ACCESSIBILITY_ROUTE}/detail`);
-  await expect(page.getByText("Evidências atribuídas", { exact: true })).toBeVisible();
+  await expect(page.getByText("Como este recurso ajuda", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("img", {
       name: "Peça retangular com botão circular no canto inferior direito",
@@ -84,7 +88,7 @@ test("central acessível sincroniza preferências e preserva alternativas", asyn
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Exportar alternativa tátil" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Abrir editor de preferências" }).click();
+  await page.getByRole("button", { name: "Ajustar minhas preferências" }).click();
   await expect(page).toHaveURL(`${ACCESSIBILITY_ROUTE}/edit`);
   await page.getByLabel("Tema adaptativo").selectOption("high-contrast");
   await page.getByLabel(/Escala de texto/).fill("125");
@@ -99,7 +103,7 @@ test("central acessível sincroniza preferências e preserva alternativas", asyn
   await page.reload();
   await expect(page.getByLabel("Tema adaptativo")).toHaveValue("high-contrast");
   await expect(page.getByLabel("Reduzir movimento e transições")).toBeChecked();
-  await expect(page.getByText("revisão 1", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ajustar acessibilidade" })).toBeVisible();
 
   await page.evaluate(() => window.dispatchEvent(new Event("offline")));
   await expect(page.getByText("Offline: alterações preservadas nesta tela.")).toBeVisible();
@@ -141,7 +145,9 @@ test("conflito e falha de rede não sobrescrevem preferências", async ({
 
   await page.getByLabel("Usar linguagem simples").check();
   await page.getByRole("button", { name: "Salvar preferências" }).click();
-  await expect(page.getByText("Conflito: recarregue", { exact: false })).toBeVisible();
+  await expect(
+    page.getByText("Suas preferências foram alteradas em outro dispositivo.", { exact: false }),
+  ).toBeVisible();
 
   await page.route("**/api/accessibility/v1/capabilities", (route) => route.abort("timedout"));
   await page.reload();

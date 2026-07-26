@@ -20,9 +20,10 @@ test("login, tema, navegação por teclado e logout", async ({
   await page.locator(".account-menu-button").click();
   await page.getByRole("menuitem", { name: "Acessibilidade" }).click();
   await expect(
-    page.getByRole("heading", { name: "Central de acessibilidade", exact: true }),
+    page.getByRole("heading", { name: "Acessibilidade", exact: true, level: 2 }),
   ).toBeVisible();
   await expect(page).toHaveURL(/section=accessibility/);
+  await expect(page.locator(".sidebar-nav").getByRole("button", { name: "Acessibilidade" })).toHaveCount(0);
 
   await page.locator(".account-menu-button").click();
   const logoutResponse = page.waitForResponse(

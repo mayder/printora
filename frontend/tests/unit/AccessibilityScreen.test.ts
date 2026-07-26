@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AccessibilityScreen } from "../../src/screens/AccessibilityScreen";
 import { accessibilityApi } from "../../src/services/accessibilityApi";
@@ -65,6 +65,7 @@ describe("AccessibilityScreen", () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.restoreAllMocks();
     document.documentElement.style.fontSize = "";
     delete document.documentElement.dataset.contrast;
@@ -73,12 +74,16 @@ describe("AccessibilityScreen", () => {
   it("separates list, detail and edit and synchronizes preferences", async () => {
     render(React.createElement(AccessibilityScreen));
 
-    expect(await screen.findByText("8 de 8 famílias")).toBeTruthy();
-    fireEvent.click(screen.getAllByRole("button", { name: /Detalhe de/ })[0]);
-    expect(await screen.findByText("Evidências atribuídas")).toBeTruthy();
+    expect(await screen.findByText("Escolha como quer usar o Printora")).toBeTruthy();
+    expect(screen.queryByText("CAP-09-01")).toBeNull();
+    expect(screen.queryByText("SCR-0065")).toBeNull();
+    expect(screen.queryByText("COM-0449")).toBeNull();
+    fireEvent.click(screen.getByText("Conheça os recursos de acessibilidade"));
+    fireEvent.click(screen.getAllByRole("button", { name: /Saiba mais sobre/ })[0]);
+    expect(await screen.findByText("Como este recurso ajuda")).toBeTruthy();
     expect(window.location.pathname).toBe("/community/accessibility/capacidade-1/detail");
 
-    fireEvent.click(screen.getByRole("button", { name: "Abrir editor de preferências" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar minhas preferências" }));
     fireEvent.change(screen.getByLabelText("Tema adaptativo"), { target: { value: "high-contrast" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar preferências" }));
 
@@ -86,19 +91,14 @@ describe("AccessibilityScreen", () => {
       expect.objectContaining({ theme: "high-contrast" }),
       1,
     ));
-    expect(await screen.findByText("Preferências sincronizadas.")).toBeTruthy();
+    expect(await screen.findByText("Preferências sincronizadas.", { selector: ".a11y-live" })).toBeTruthy();
     expect(window.location.pathname).toBe("/community/accessibility/capacidade-1/edit");
   });
 
-  it("filters capabilities and recovers an empty result", async () => {
+  it("shows personal preferences before optional explanatory resources", async () => {
     render(React.createElement(AccessibilityScreen));
-    await screen.findByText("8 de 8 famílias");
-
-    fireEvent.change(screen.getByPlaceholderText("Buscar por nome ou capacidade"), {
-      target: { value: "inexistente" },
-    });
-    expect(screen.getByText("Nenhum item encontrado")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Limpar filtros" }));
-    expect(screen.getByText("8 de 8 famílias")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Salvar preferências" })).toBeTruthy();
+    expect(screen.getByText("Conheça os recursos de acessibilidade")).toBeTruthy();
+    expect(document.querySelector<HTMLDetailsElement>(".a11y-resources")?.open).toBe(false);
   });
 });

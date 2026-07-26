@@ -1,8 +1,11 @@
 .accessibility-screen {
   display: grid;
+  grid-column: 1 / -1;
   gap: 1.25rem;
   width: 100%;
+  max-width: 1200px;
   min-width: 0;
+  margin: 0 auto;
 }
 
 .accessibility-screen .sr-only {
@@ -32,6 +35,45 @@
   display: grid;
 }
 
+.a11y-settings,
+.a11y-resources {
+  min-width: 0;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-panel, 12px);
+  background: var(--surface-1);
+}
+
+.a11y-section-heading {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.a11y-section-heading h3,
+.a11y-section-heading p,
+.a11y-resources > p {
+  margin: 0;
+}
+
+.a11y-section-heading p,
+.a11y-resources > p {
+  color: var(--muted);
+}
+
+.a11y-resources > summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.a11y-resources[open] > summary {
+  margin-bottom: 0.5rem;
+}
+
+.a11y-resources .a11y-grid {
+  margin-top: 1rem;
+}
+
 .a11y-hero h2,
 .a11y-detail-header h2,
 .a11y-card h3 {
@@ -59,30 +101,6 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface-2);
-}
-
-.a11y-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.a11y-toolbar label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: min(32rem, 100%);
-  padding: 0 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface-1);
-}
-
-.a11y-toolbar input {
-  width: 100%;
-  border: 0;
-  background: transparent;
 }
 
 .a11y-grid,
@@ -122,12 +140,16 @@
 
 .a11y-card button {
   justify-self: start;
+  margin-top: auto;
 }
 
 .a11y-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .a11y-form fieldset {
@@ -232,5 +254,9 @@
   .a11y-detail-grid,
   .a11y-form {
     grid-template-columns: 1fr;
+  }
+
+  .accessibility-screen {
+    gap: 1rem;
   }
 }

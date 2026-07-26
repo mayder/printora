@@ -451,19 +451,22 @@ erro/degradado, permissão por ação, confirmação forte e auditoria sanitizad
 - a tela é carregada sob demanda para preservar o orçamento da entrada. O CSS
   próprio também é isolado do bundle inicial.
 
-## Sistema > Acessibilidade
+## Conta > Acessibilidade
 
 - entrada: `?section=accessibility`;
-- o menu global da conta, aberto pela foto/avatar no cabeçalho, mantém o item
-  `Acessibilidade` visível em desktop e mobile; o item do menu lateral permanece
-  disponível e ambos abrem a mesma Central;
-- as rotas `SCR-0065` a `SCR-0072` usam
-  `/community/accessibility/{capacidade}` para lista/filtro, `/detail` para
-  detalhe e `/edit` para criação/edição das preferências, sem misturar estados;
-- a lista expõe exatamente oito famílias, busca, rastreabilidade `CAP/COM/SCR`
-  e ação principal com nome acessível;
-- o detalhe apresenta contrato, evidências, rollback, alternativa textual da
-  amostra 3D, transcrição/audiodescrição e exportação tátil SVG/BRF;
+- o acesso fica somente no menu global da conta, aberto pela foto/avatar no
+  cabeçalho, junto de Perfil e Organizações, em desktop e mobile;
+- a rota principal mostra as preferências; explicações opcionais usam
+  `/community/accessibility/{capacidade}/detail` e o ajuste também permanece
+  disponível em `/edit`, sem expor essa estrutura técnica ao usuário;
+- a tela principal prioriza o formulário de preferências com linguagem simples;
+  explicações adicionais ficam recolhidas em `Conheça os recursos de
+  acessibilidade`;
+- identificadores internos `CAP`, `COM`, `SCR`, revisão, contrato e rollback
+  permanecem disponíveis para rastreabilidade técnica, mas nunca são exibidos
+  na interface do cliente;
+- o detalhe explica os benefícios em linguagem simples e oferece alternativa
+  textual da amostra 3D, transcrição/audiodescrição e exportação tátil SVG/BRF;
 - o editor sincroniza uma preferência por usuário com revisão explícita,
   conflito entre dispositivos, retry idempotente e preservação local durante
   falha de rede;
