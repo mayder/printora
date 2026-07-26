@@ -54,6 +54,7 @@ import "./styles/print-projects.css";
 import "./styles/social.css";
 import "./styles/catalog-admin.css";
 import "./styles/data-intelligence.css";
+import "./styles/design-system.css";
 import { readDocumentTheme } from "./services/localPreferences";
 
 type AccountTab = "profile" | "organizations";
