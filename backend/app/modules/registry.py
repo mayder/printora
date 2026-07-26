@@ -8,6 +8,7 @@ from app.modules.assembly import ModuleDefinition
 
 
 def module_definitions() -> tuple[ModuleDefinition, ...]:
+    from app.modules.accessibility.api import MODULE as accessibility
     from app.modules.administration.api import MODULE as administration
     from app.modules.community.api import MODULE as community
     from app.modules.design_system.api import MODULE as design_system
@@ -22,6 +23,7 @@ def module_definitions() -> tuple[ModuleDefinition, ...]:
         operations,
         administration,
         design_system,
+        accessibility,
         finance,
         integrations,
     )

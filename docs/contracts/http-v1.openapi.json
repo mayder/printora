@@ -117,6 +117,311 @@
         "title": "AcceptQuoteRequest",
         "type": "object"
       },
+      "AccessibilityCapabilityContract": {
+        "properties": {
+          "capability_id": {
+            "pattern": "^CAP-09-0[1-8]$",
+            "title": "Capability Id",
+            "type": "string"
+          },
+          "com_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 7,
+            "minItems": 7,
+            "title": "Com Ids",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "route": {
+            "pattern": "^/community/accessibility/[a-z0-9-]+$",
+            "title": "Route",
+            "type": "string"
+          },
+          "screen_id": {
+            "pattern": "^SCR-00(?:6[5-9]|7[0-2])$",
+            "title": "Screen Id",
+            "type": "string"
+          },
+          "slug": {
+            "pattern": "^[a-z0-9-]+$",
+            "title": "Slug",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 280,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          },
+          "supported_states": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Supported States",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "capability_id",
+          "com_ids",
+          "screen_id",
+          "slug",
+          "title",
+          "summary",
+          "route",
+          "evidence",
+          "supported_states"
+        ],
+        "title": "AccessibilityCapabilityContract",
+        "type": "object"
+      },
+      "AccessibilityCatalogContract": {
+        "properties": {
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/AccessibilityCapabilityContract"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "compatible_with": {
+            "default": [
+              "1.x"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "Compatible With",
+            "type": "array"
+          },
+          "contract_version": {
+            "default": "1.0.0",
+            "title": "Contract Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "capabilities"
+        ],
+        "title": "AccessibilityCatalogContract",
+        "type": "object"
+      },
+      "AccessibilityPreferencesContract": {
+        "additionalProperties": false,
+        "properties": {
+          "audio_descriptions": {
+            "default": false,
+            "title": "Audio Descriptions",
+            "type": "boolean"
+          },
+          "captions": {
+            "default": true,
+            "title": "Captions",
+            "type": "boolean"
+          },
+          "compatible_with": {
+            "default": [
+              "1.x"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "Compatible With",
+            "type": "array"
+          },
+          "contract_version": {
+            "default": "1.0.0",
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "keyboard_navigation": {
+            "default": true,
+            "title": "Keyboard Navigation",
+            "type": "boolean"
+          },
+          "low_cognitive_load": {
+            "default": false,
+            "title": "Low Cognitive Load",
+            "type": "boolean"
+          },
+          "reduce_motion": {
+            "default": false,
+            "title": "Reduce Motion",
+            "type": "boolean"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "screen_reader_announcements": {
+            "default": true,
+            "title": "Screen Reader Announcements",
+            "type": "boolean"
+          },
+          "simple_language": {
+            "default": false,
+            "title": "Simple Language",
+            "type": "boolean"
+          },
+          "tactile_format": {
+            "default": "svg",
+            "enum": [
+              "svg",
+              "brf"
+            ],
+            "title": "Tactile Format",
+            "type": "string"
+          },
+          "text_scale_percent": {
+            "default": 100,
+            "maximum": 200.0,
+            "minimum": 100.0,
+            "title": "Text Scale Percent",
+            "type": "integer"
+          },
+          "theme": {
+            "default": "system",
+            "enum": [
+              "system",
+              "light",
+              "dark",
+              "high-contrast"
+            ],
+            "title": "Theme",
+            "type": "string"
+          },
+          "three_d_text_alternative": {
+            "default": true,
+            "title": "Three D Text Alternative",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "voice_navigation": {
+            "default": false,
+            "title": "Voice Navigation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "title": "AccessibilityPreferencesContract",
+        "type": "object"
+      },
+      "AccessibilityPreferencesUpdateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "audio_descriptions": {
+            "default": false,
+            "title": "Audio Descriptions",
+            "type": "boolean"
+          },
+          "captions": {
+            "default": true,
+            "title": "Captions",
+            "type": "boolean"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "keyboard_navigation": {
+            "default": true,
+            "title": "Keyboard Navigation",
+            "type": "boolean"
+          },
+          "low_cognitive_load": {
+            "default": false,
+            "title": "Low Cognitive Load",
+            "type": "boolean"
+          },
+          "reduce_motion": {
+            "default": false,
+            "title": "Reduce Motion",
+            "type": "boolean"
+          },
+          "screen_reader_announcements": {
+            "default": true,
+            "title": "Screen Reader Announcements",
+            "type": "boolean"
+          },
+          "simple_language": {
+            "default": false,
+            "title": "Simple Language",
+            "type": "boolean"
+          },
+          "tactile_format": {
+            "default": "svg",
+            "enum": [
+              "svg",
+              "brf"
+            ],
+            "title": "Tactile Format",
+            "type": "string"
+          },
+          "text_scale_percent": {
+            "default": 100,
+            "maximum": 200.0,
+            "minimum": 100.0,
+            "title": "Text Scale Percent",
+            "type": "integer"
+          },
+          "theme": {
+            "default": "system",
+            "enum": [
+              "system",
+              "light",
+              "dark",
+              "high-contrast"
+            ],
+            "title": "Theme",
+            "type": "string"
+          },
+          "three_d_text_alternative": {
+            "default": true,
+            "title": "Three D Text Alternative",
+            "type": "boolean"
+          },
+          "voice_navigation": {
+            "default": false,
+            "title": "Voice Navigation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "AccessibilityPreferencesUpdateRequest",
+        "type": "object"
+      },
       "AgentCredentialCreateRequest": {
         "properties": {
           "label": {
@@ -24617,6 +24922,172 @@
           }
         },
         "summary": "Frontend Index"
+      }
+    },
+    "/api/accessibility/v1/capabilities": {
+      "get": {
+        "operationId": "list_capabilities_api_accessibility_v1_capabilities_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessibilityCatalogContract"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Capabilities",
+        "tags": [
+          "accessibility"
+        ]
+      }
+    },
+    "/api/accessibility/v1/preferences": {
+      "get": {
+        "operationId": "get_preferences_api_accessibility_v1_preferences_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessibilityPreferencesContract"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Preferences",
+        "tags": [
+          "accessibility"
+        ]
+      },
+      "put": {
+        "operationId": "update_preferences_api_accessibility_v1_preferences_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessibilityPreferencesUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessibilityPreferencesContract"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Preferences",
+        "tags": [
+          "accessibility"
+        ]
       }
     },
     "/api/admin/data-intelligence/appeals/{appeal_key}/review": {

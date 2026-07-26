@@ -4,16 +4,17 @@
 
 ## Resumo
 
-- módulos Python: 179;
-- endpoints HTTP/WebSocket: 378;
-- contratos tipados: 393;
-- tabelas declaradas em SQL: 156;
+- módulos Python: 186;
+- endpoints HTTP/WebSocket: 381;
+- contratos tipados: 396;
+- tabelas declaradas em SQL: 157;
 - ciclos de import detectados: 0.
 
 ## Fronteiras E Owners
 
 | Fronteira | Owner | Responsabilidade | Módulos | Tabelas |
 |---|---|---|---:|---:|
+| `accessibility` | Acessibilidade | Preferências acessíveis, semântica, alternativas e contrato compartilhado. | 7 | 1 |
 | `design_system` | Design system | Tokens, componentes, estados e contratos visuais compartilhados. | 5 | 0 |
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 13 | 8 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 29 | 45 |
@@ -48,7 +49,7 @@
 | `agent_support` | `operations` | 655 | 0 | 5 |
 | `setup_wizard` | `operations` | 643 | 0 | 7 |
 | `printers` | `operations` | 635 | 0 | 3 |
-| `database` | `shared` | 590 | 0 | 0 |
+| `database` | `shared` | 591 | 0 | 0 |
 | `gcode_files` | `operations` | 574 | 0 | 11 |
 | `health` | `administration` | 513 | 0 | 0 |
 | `setup_firmware` | `operations` | 513 | 0 | 5 |

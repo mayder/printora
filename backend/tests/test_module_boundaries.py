@@ -78,6 +78,7 @@ def test_module_registry_has_unique_versioned_owners_and_router_order() -> None:
         "finance",
         "community",
         "design_system",
+        "accessibility",
         "operations",
         "administration",
         "integrations",
@@ -85,7 +86,7 @@ def test_module_registry_has_unique_versioned_owners_and_router_order() -> None:
     assert all(definition.owner for definition in definitions)
     assert all(definition.contract_version == "1.0.0" for definition in definitions)
     orders = [registration.order for definition in definitions for registration in definition.routers]
-    assert len(orders) == 36
+    assert len(orders) == 37
     assert len(orders) == len(set(orders))
     assert list(module_routers())[-1] is frontend.router
 

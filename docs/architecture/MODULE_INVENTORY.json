@@ -2,6 +2,14 @@
   "schema_version": 1,
   "boundaries": [
     {
+      "key": "accessibility",
+      "owner": "Acessibilidade",
+      "description": "Preferências acessíveis, semântica, alternativas e contrato compartilhado.",
+      "prefixes": [
+        "accessibility_"
+      ]
+    },
+    {
       "key": "design_system",
       "owner": "Design system",
       "description": "Tokens, componentes, estados e contratos visuais compartilhados.",
@@ -104,12 +112,13 @@
     }
   ],
   "summary": {
-    "modules": 179,
-    "routes": 378,
-    "contracts": 393,
-    "tables": 156,
+    "modules": 186,
+    "routes": 381,
+    "contracts": 396,
+    "tables": 157,
     "cycles": 0,
     "modules_by_owner": {
+      "accessibility": 7,
       "administration": 31,
       "community": 29,
       "design_system": 5,
@@ -351,7 +360,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 590,
+      "lines": 591,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -802,6 +811,101 @@
       "lines": 5,
       "imports": [
         "modules.registry"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.accessibility.__init__",
+      "owner": "accessibility",
+      "lines": 2,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.accessibility.api",
+      "owner": "accessibility",
+      "lines": 11,
+      "imports": [
+        "modules.accessibility.routes",
+        "modules.assembly"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.accessibility.catalog",
+      "owner": "accessibility",
+      "lines": 108,
+      "imports": [
+        "modules.accessibility.contracts"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.accessibility.contracts",
+      "owner": "accessibility",
+      "lines": 62,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "AccessibilityCapabilityContract",
+        "AccessibilityCatalogContract",
+        "AccessibilityPreferenceValues"
+      ]
+    },
+    {
+      "module": "modules.accessibility.repository",
+      "owner": "accessibility",
+      "lines": 135,
+      "imports": [
+        "database",
+        "modules.accessibility.contracts"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.accessibility.routes",
+      "owner": "accessibility",
+      "lines": 58,
+      "imports": [
+        "config",
+        "modules.accessibility.catalog",
+        "modules.accessibility.contracts",
+        "modules.accessibility.repository",
+        "modules.accessibility.service",
+        "modules.identity.contracts",
+        "routes.auth"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/capabilities",
+          "handler": "list_capabilities"
+        },
+        {
+          "method": "GET",
+          "path": "/preferences",
+          "handler": "get_preferences"
+        },
+        {
+          "method": "PUT",
+          "path": "/preferences",
+          "handler": "update_preferences"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "modules.accessibility.service",
+      "owner": "accessibility",
+      "lines": 42,
+      "imports": [
+        "modules.accessibility.contracts",
+        "modules.accessibility.repository"
       ],
       "routes": [],
       "contracts": []
@@ -1632,8 +1736,9 @@
     {
       "module": "modules.registry",
       "owner": "shared",
-      "lines": 44,
+      "lines": 46,
       "imports": [
+        "modules.accessibility.api",
         "modules.administration.api",
         "modules.assembly",
         "modules.community.api",
@@ -5352,6 +5457,11 @@
       "table": "analytics_retention_policies",
       "owner": "administration",
       "script": "085_analytics_intelligence.sql"
+    },
+    {
+      "table": "accessibility_preferences",
+      "owner": "accessibility",
+      "script": "086_accessibility_preferences.sql"
     }
   ]
 }
