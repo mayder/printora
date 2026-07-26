@@ -2289,8 +2289,11 @@ Aceite de 2026-07-24:
 
 ## PKG-101: Layout, design system e coerência visual
 
-- provar que `GET /api/design-system/v1/capabilities` exige autenticação, mantém
+- provar que `GET /api/design-system/v1/capabilities` exige a conta
+  administradora da plataforma, devolve `403` para usuário comum, mantém
   contrato `1.x`, retorna exatamente oito capacidades e ocupa menos de 64 KiB;
+- provar que usuário comum não vê o menu e não renderiza o laboratório ao abrir
+  uma rota direta, enquanto a conta administradora preserva o fluxo completo;
 - validar unicidade e cobertura contígua de `CAP-18-01`–`CAP-18-08`,
   `COM-0953`–`COM-1008` e `SCR-0137`–`SCR-0144`;
 - cobrir lista, busca/filtro, detalhe e editor em rotas separadas, incluindo

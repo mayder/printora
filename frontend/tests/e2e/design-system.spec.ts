@@ -1,7 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { ensureUser, loginInBrowser, syntheticEmail } from "./helpers";
+import {
+  bearer,
+  ensureUser,
+  loginInBrowser,
+  PLATFORM_ADMIN_EMAIL,
+  syntheticEmail,
+} from "./helpers";
 
 
 const TOKENS_ROUTE =
@@ -34,9 +40,13 @@ test("laboratório visual preserva contrato, acessibilidade e rascunho local", a
   page,
   request,
 }, testInfo) => {
-  const email = syntheticEmail(testInfo, "design-system");
-  await ensureUser(request, email, "Design System User");
-  await loginInBrowser(page, email);
+  const adminSession = await ensureUser(request, PLATFORM_ADMIN_EMAIL, "Platform Admin");
+  const profile = await request.patch("/api/auth/me", {
+    headers: bearer(adminSession.access_token),
+    data: { display_name: "Design System User" },
+  });
+  expect(profile.ok()).toBe(true);
+  await loginInBrowser(page, PLATFORM_ADMIN_EMAIL);
 
   await page.goto(TOKENS_ROUTE);
   await expect(
@@ -152,10 +162,9 @@ test("laboratório visual preserva contrato, acessibilidade e rascunho local", a
 test("falhas do catálogo são seguras e recuperáveis", async ({
   page,
   request,
-}, testInfo) => {
-  const email = syntheticEmail(testInfo, "design-system-recovery");
-  await ensureUser(request, email, "Design System Recovery User");
-  await loginInBrowser(page, email);
+}) => {
+  await ensureUser(request, PLATFORM_ADMIN_EMAIL, "Platform Admin");
+  await loginInBrowser(page, PLATFORM_ADMIN_EMAIL);
 
   let failure: "timeout" | "rate-limit" | "server" | null = "timeout";
   await page.route("**/api/design-system/v1/capabilities", async (route) => {
@@ -198,4 +207,29 @@ test("falhas do catálogo são seguras e recuperáveis", async ({
   await expect(
     page.getByRole("heading", { name: "Design system do Printora", exact: true }),
   ).toBeVisible();
+});
+
+test("usuário comum não vê nem acessa o design system", async ({
+  page,
+  request,
+}, testInfo) => {
+  const email = syntheticEmail(testInfo, "design-system-reader");
+  const session = await ensureUser(request, email, "Design System Reader");
+  const denied = await request.get("/api/design-system/v1/capabilities", {
+    headers: bearer(session.access_token),
+  });
+  expect(denied.status()).toBe(403);
+
+  await loginInBrowser(page, email);
+  await expect(
+    page.getByRole("button", { name: "Design system", exact: true }),
+  ).toHaveCount(0);
+
+  await page.goto(TOKENS_ROUTE);
+  await expect(
+    page.getByRole("heading", { name: "Visão geral", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Design system do Printora", exact: true }),
+  ).toHaveCount(0);
 });

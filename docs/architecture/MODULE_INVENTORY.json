@@ -1179,11 +1179,12 @@
     {
       "module": "modules.design_system.routes",
       "owner": "design_system",
-      "lines": 18,
+      "lines": 27,
       "imports": [
         "modules.design_system.catalog",
         "modules.design_system.contracts",
         "modules.identity.contracts",
+        "platform_access",
         "routes.auth"
       ],
       "routes": [

@@ -431,6 +431,9 @@ erro/degradado, permissão por ação, confirmação forte e auditoria sanitizad
 ## Administração > Design system
 
 - entrada: `?section=design-system`;
+- menu, rotas internas e API são restritos à conta configurada como
+  administradora da plataforma; usuários comuns não veem a entrada, recebem
+  `403` na API e são direcionados à Visão geral ao abrir uma rota diretamente;
 - as rotas `SCR-0137` a `SCR-0144` usam
   `/community/design_system/{capacidade}` para lista/filtro, `/detail` para
   detalhe e `/edit` para cadastro/edição local, sem misturar os três estados;

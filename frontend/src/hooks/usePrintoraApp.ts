@@ -335,7 +335,8 @@ export function usePrintoraApp() {
 
   settings = useSettings({ selectedPrinterId: contextPrinterId, setError, setLoading });
   const printerAvailability = getPrinterAvailability(contextPrinterId, settings.health);
-  const shell = useAppShell(printerAvailability);
+  const platformAdminAccess = auth.authReady ? auth.authUser?.platform_admin === true : null;
+  const shell = useAppShell(printerAvailability, platformAdminAccess);
   function setActiveSection(section: Parameters<typeof shell.setActiveSection>[0]) {
     if (section !== "printer-detail" && section !== "agent-detail") {
       setDetailPrinterId(null);

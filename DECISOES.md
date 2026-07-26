@@ -2182,3 +2182,35 @@ linhas permanecem preservadas, sem dual-write ou efeito operacional.
 
 Como reverter: restaurar a release N-1 e manter schema/dados sem consumidores.
 Não executar `DROP`, `DELETE`, limpeza automática ou restauração de snapshot.
+
+### DEC-20260726-07 - PKG-101 fica restrito ao administrador da plataforma
+
+Status: aceita
+Data: 2026-07-26
+Contexto: o laboratório do Design system é uma ferramenta interna de avaliação
+do PKG-101 e ainda não possui benefício validado para usuários comuns. Expor a
+entrada no menu criava expectativa de funcionalidade operacional ligada ao
+universo 3D, apesar de o catálogo tratar apenas da coerência visual da interface.
+
+Decisão: menu, rotas internas e endpoint de catálogo exigem a identidade
+configurada como administradora da plataforma. A interface oculta a entrada e
+direciona usuários comuns à Visão geral; o backend aplica a autorização
+independentemente da interface e responde `403`. A regra reutiliza a configuração
+central de administradores, sem e-mail fixo no domínio e sem persistência nova.
+
+Alternativas consideradas: manter visível para qualquer usuário autenticado;
+ocultar somente o menu; remover imediatamente o PKG-101.
+
+Consequências: somente a conta administradora configurada pode avaliar o
+laboratório. Usuários comuns não carregam o catálogo nem acessam o fluxo por URL
+direta. A restrição não altera impressoras, STL, fatiamento, banco ou comandos
+físicos.
+
+Impacto em testes: cobrir `401` sem sessão, `403` para usuário comum, acesso
+completo para administrador, menu oculto e defesa de rota direta.
+
+Impacto em rollback: baixo e sem SQL. Reverter a decisão volta a expor o
+catálogo a qualquer usuário autenticado.
+
+Como reverter: reverter em conjunto o guard do endpoint, o filtro de navegação,
+a defesa da rota e esta decisão; não remover dados nem rascunhos locais.

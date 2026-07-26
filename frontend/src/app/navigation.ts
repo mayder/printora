@@ -220,9 +220,16 @@ export const selectedPrinterLocalSections = new Set<AppSection>(["firmware", "ma
 
 export type PrinterAvailability = "none" | "unknown" | "online" | "offline";
 
-export function canShowSection(sectionKey: AppSection, printerAvailability: PrinterAvailability) {
+export function canShowSection(
+  sectionKey: AppSection,
+  printerAvailability: PrinterAvailability,
+  isPlatformAdmin = false,
+) {
   void printerAvailability;
   if (sectionKey === "printer-detail" || sectionKey === "agent-detail") {
+    return false;
+  }
+  if (sectionKey === "design-system" && !isPlatformAdmin) {
     return false;
   }
   if (onlinePrinterSections.has(sectionKey) || selectedPrinterLocalSections.has(sectionKey)) {

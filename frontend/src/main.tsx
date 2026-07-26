@@ -145,9 +145,14 @@ function App() {
     { label: "Organizações", icon: Users, tab: "organizations" as const },
     { label: "Perfil", icon: UserRound, tab: "profile" as const },
   ];
-  const shellSection = publicCommunitySlug || embeddedProfileSlug ? "social" : activeSection;
+  const shellSection =
+    publicCommunitySlug || embeddedProfileSlug
+      ? "social"
+      : activeSection === "design-system" && screenProps.authUser?.platform_admin !== true
+        ? "overview"
+        : activeSection;
   const shellSectionMeta = appSections.find((section) => section.key === shellSection) ?? activeSectionMeta;
-  const ShellIcon = publicCommunitySlug || embeddedProfileSlug ? Users : ActiveIcon;
+  const ShellIcon = publicCommunitySlug || embeddedProfileSlug ? Users : shellSectionMeta.icon;
 
   const activeScreen = (() => {
     if (publicCommunitySlug) {
@@ -156,7 +161,7 @@ function App() {
     if (embeddedProfileSlug) {
       return <PublicProfileScreen slug={embeddedProfileSlug} embedded />;
     }
-    switch (activeSection) {
+    switch (shellSection) {
       case "overview":
         return <OverviewScreen {...screenProps} />;
       case "printers":

@@ -292,6 +292,8 @@ Estado atual:
 - Contrato backend, lista/filtro, detalhe, editor local, tokens, densidades,
   estados, responsividade, acessibilidade, falhas e regressão visual foram
   implementados e validados.
+- Menu, rotas internas e API do Design system ficam restritos à conta
+  configurada como administradora da plataforma.
 - Nenhum SQL, migration, exclusão de dado, comando físico ou dependência futura
   foi introduzido. Publicação não foi executada e depende de autorização
   separada.
