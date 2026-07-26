@@ -6,6 +6,30 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Operacao Repetia Leitura E Acusava Agente Desatualizado Durante Carregamento
+
+Sintoma:
+
+- a primeira abertura da aba Operacao podia demorar mais que a primeira resposta válida;
+- enquanto os dados ainda não tinham chegado, o card `Impressão` mostrava incorretamente que o agente precisava atualizar.
+
+Causa:
+
+- o carregamento do detalhe e o polling da Operacao podiam iniciar a mesma leitura ao mesmo tempo;
+- a resposta mais rápida era descartada pela sequência da segunda requisição;
+- versão ausente durante o carregamento era tratada como versão inferior a `0.1.31`.
+
+Correção:
+
+- leituras simultâneas da mesma impressora reutilizam a requisição já em andamento;
+- o botão e o painel mostram carregamento explícito sem anunciar Moonraker offline;
+- o aviso de update aparece somente quando a versão instalada foi recebida e é realmente inferior ao mínimo.
+
+Validação:
+
+- testes unitários cobrem coalescência da leitura, estado de carregamento e ausência do aviso falso;
+- build e validação focada do frontend.
+
 ### Dashboard E Arquivos G-code Sobrepunham Texto No Celular
 
 Sintoma:

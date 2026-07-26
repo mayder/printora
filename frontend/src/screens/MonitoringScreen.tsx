@@ -11,6 +11,7 @@ type MonitoringScreenProps = ScreenPropsFor<
   | "loading"
   | "executeOperationAction"
   | "operationStatus"
+  | "operationStatusLoading"
   | "operationActionHistory"
   | "operationActionParameters"
   | "operationActionPreview"
@@ -38,6 +39,7 @@ export function MonitoringScreen(props: MonitoringScreenProps) {
     loading,
     executeOperationAction,
     operationStatus,
+    operationStatusLoading,
     operationActionHistory,
     operationActionParameters,
     operationActionPreview,
@@ -59,6 +61,7 @@ export function MonitoringScreen(props: MonitoringScreenProps) {
         <MonitoringDashboard
           selectedPrinterName={selectedPrinter?.name ?? "Impressora não selecionada"}
           operationStatus={operationStatus}
+          operationStatusLoading={operationStatusLoading}
           operationActionHistory={operationActionHistory}
           operationActionParameters={operationActionParameters}
           operationActionPreview={operationActionPreview}

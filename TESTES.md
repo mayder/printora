@@ -1294,6 +1294,7 @@ Critérios:
 - Em Operação, validar preflight e execução controlada de ações como Home, QGL, movimento, temperatura, fan, LED, speed factor e extrusion factor somente com a impressora parada e operador presente.
 - Em Operação > Miscellaneous, validar que fans, output pins e LEDs aparecem quando os valores vierem do agente e que a tela mostra falha de coleta quando o Moonraker detectar objetos sem status dinamico.
 - Em Operação ociosa, validar que o card `Impressão` mostra a lista de G-codes recentes quando o agente/Moonraker retornam arquivos e não preserva thumbnail, progresso ou fatos do job anterior.
+- Em Operação, validar que leituras concorrentes da mesma impressora reutilizam a mesma requisição, que o carregamento inicial não mostra Moonraker offline e que versão ainda não recebida não gera aviso falso de agente desatualizado.
 - Confirmar que o app mostra capacidade, bloqueadores, G-code planejado e histórico da tentativa; comandos são enviados somente quando Moonraker está online, Klipper/Klippy estão `ready`, não há impressão em andamento e a capacidade foi confirmada.
 
 ### UI

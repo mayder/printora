@@ -21,7 +21,9 @@ type UseOperationOptions = {
 
 export function useOperation({ selectedPrinterId, setActiveSection, setError, setLoading }: UseOperationOptions) {
   const [operationStatus, setOperationStatus] = React.useState<OperationStatusResponse | null>(null);
+  const [operationStatusLoading, setOperationStatusLoading] = React.useState(false);
   const operationStatusRequestSequence = React.useRef(0);
+  const operationStatusRequests = React.useRef(new Map<number, Promise<void>>());
   const [operationActionPreview, setOperationActionPreview] = React.useState<OperationActionPreview | null>(null);
   const [operationActionHistory, setOperationActionHistory] = React.useState<OperationActionPreviewRecord[]>([]);
   const [operationExecutionHistory, setOperationExecutionHistory] = React.useState<OperationActionExecutionAttempt[]>([]);
@@ -29,7 +31,11 @@ export function useOperation({ selectedPrinterId, setActiveSection, setError, se
   const [operationExecutionPhrase, setOperationExecutionPhrase] = React.useState("");
   const [operationExecutionAttempt, setOperationExecutionAttempt] = React.useState<OperationActionExecutionAttempt | null>(null);
 
-  async function loadOperationStatus(printerId: number, options?: { preserveData?: boolean }) {
+  function loadOperationStatus(printerId: number, options?: { preserveData?: boolean }) {
+    const pendingRequest = operationStatusRequests.current.get(printerId);
+    if (pendingRequest) {
+      return pendingRequest;
+    }
     const requestSequence = operationStatusRequestSequence.current + 1;
     operationStatusRequestSequence.current = requestSequence;
     const preserveData = Boolean(options?.preserveData);
@@ -41,15 +47,25 @@ export function useOperation({ selectedPrinterId, setActiveSection, setError, se
       setOperationExecutionPhrase("");
       setOperationExecutionAttempt(null);
     }
-    const response = await operationApi.status(printerId);
-    if (!response.ok) {
-      return;
-    }
-    const nextStatus = (await response.json()) as OperationStatusResponse;
-    if (operationStatusRequestSequence.current !== requestSequence) {
-      return;
-    }
-    setOperationStatus((current) => mergeOperationStatus(preserveData ? current : null, nextStatus));
+    setOperationStatusLoading(true);
+    const request = Promise.resolve()
+      .then(() => operationApi.status(printerId))
+      .then(async (response) => {
+        if (!response.ok) {
+          return;
+        }
+        const nextStatus = (await response.json()) as OperationStatusResponse;
+        if (operationStatusRequestSequence.current !== requestSequence) {
+          return;
+        }
+        setOperationStatus((current) => mergeOperationStatus(preserveData ? current : null, nextStatus));
+      })
+      .finally(() => {
+        operationStatusRequests.current.delete(printerId);
+        setOperationStatusLoading(operationStatusRequests.current.size > 0);
+      });
+    operationStatusRequests.current.set(printerId, request);
+    return request;
   }
 
   async function loadOperationActionHistory(printerId: number) {
@@ -226,6 +242,7 @@ export function useOperation({ selectedPrinterId, setActiveSection, setError, se
     operationExecutionHistory,
     operationExecutionPhrase,
     operationStatus,
+    operationStatusLoading,
     preflightOperationAction,
     previewOperationAction,
     resetOperationSelection,

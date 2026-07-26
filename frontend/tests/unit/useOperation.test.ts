@@ -117,6 +117,35 @@ describe("useOperation scoped status", () => {
     expect(hook.result.current.operationStatus?.miscellaneous.print_state).toBe("printing");
   });
 
+  it("reuses an in-flight status request for the same printer", async () => {
+    const pending = deferredResponse();
+    statusMock.mockReturnValueOnce(pending.promise);
+    const hook = renderOperation();
+
+    let firstRequest!: Promise<void>;
+    let secondRequest!: Promise<void>;
+    act(() => {
+      firstRequest = hook.result.current.loadOperationStatus(1);
+      secondRequest = hook.result.current.loadOperationStatus(1, { preserveData: true });
+    });
+
+    expect(statusMock).toHaveBeenCalledTimes(0);
+    expect(hook.result.current.operationStatusLoading).toBe(true);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(statusMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      pending.resolve(Response.json(operationStatus(1, "printing")));
+      await Promise.all([firstRequest, secondRequest]);
+    });
+
+    expect(hook.result.current.operationStatusLoading).toBe(false);
+    expect(hook.result.current.operationStatus?.miscellaneous.print_state).toBe("printing");
+  });
+
   it("keeps active print data when a degraded idle snapshot arrives", async () => {
     statusMock
       .mockResolvedValueOnce(Response.json(operationStatus(1, "printing", {

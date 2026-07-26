@@ -27,6 +27,7 @@ const MIN_GCODE_FILES_AGENT_VERSION = "0.1.31";
 export function MonitoringDashboard({
   selectedPrinterName,
   operationStatus,
+  operationStatusLoading,
   operationActionHistory,
   operationActionParameters,
   operationActionPreview,
@@ -50,6 +51,7 @@ export function MonitoringDashboard({
 }: {
   selectedPrinterName: string;
   operationStatus: OperationStatusResponse | null;
+  operationStatusLoading: boolean;
   operationActionHistory: OperationActionPreviewRecord[];
   operationActionParameters: Record<string, Record<string, string>>;
   operationActionPreview: OperationActionPreview | null;
@@ -164,20 +166,27 @@ export function MonitoringDashboard({
       <div className="panel-heading monitoring-heading">
         <div>
           <h2>Operação em tempo real</h2>
-          <p className="muted">{operationStatus?.summary ?? "Aguardando leitura da impressora selecionada."}</p>
+          <p className="muted">
+            {operationStatus?.summary ?? (operationStatusLoading ? "Buscando leitura da impressora selecionada." : "Aguardando leitura da impressora selecionada.")}
+          </p>
         </div>
         <div className="panel-actions">
           <span className="live-pill">Atualiza sozinho</span>
-          <button type="button" className="secondary-button" onClick={onRefresh} disabled={loading}>
-            <RefreshCw className={loading ? "button-busy-icon" : undefined} size={15} />
-            Atualizar agora
+          <button type="button" className="secondary-button" onClick={onRefresh} disabled={loading || operationStatusLoading}>
+            <RefreshCw className={loading || operationStatusLoading ? "button-busy-icon" : undefined} size={15} />
+            {operationStatusLoading ? "Atualizando" : "Atualizar agora"}
           </button>
         </div>
       </div>
 
       <div className="monitor-status-strip">
-        <MonitorBadge icon={Radio} label="Impressora" value={selectedPrinterName} tone={operationStatus?.connected ? "ok" : "danger"} />
-        <MonitorBadge icon={Radio} label="Moonraker" value={operationStatus?.connected ? "online" : "offline"} tone={operationStatus?.connected ? "ok" : "danger"} />
+        <MonitorBadge icon={Radio} label="Impressora" value={selectedPrinterName} tone={operationStatus ? (operationStatus.connected ? "ok" : "danger") : "warning"} />
+        <MonitorBadge
+          icon={Radio}
+          label="Moonraker"
+          value={operationStatus ? (operationStatus.connected ? "online" : "offline") : operationStatusLoading ? "carregando" : "-"}
+          tone={operationStatus ? (operationStatus.connected ? "ok" : "danger") : "warning"}
+        />
         <MonitorBadge icon={Gauge} label="Estado" value={operationStatus?.miscellaneous.print_state ?? "-"} tone={operationStatus?.connected ? "ok" : "warning"} />
         <MonitorBadge icon={AlertTriangle} label="Risco" value={formatDecision(health?.decision)} tone={healthTone(health?.decision)} />
         <MonitorBadge icon={ShieldCheck} label="Modo" value={operationStatus?.safe_mode ?? "read only"} />
@@ -290,6 +299,7 @@ export function MonitoringDashboard({
                   operationStatus={operationStatus}
                   liveUnavailable={liveUnavailable}
                   agentSupportsFiles={canUseIdleGcodeFiles}
+                  operationStatusLoading={operationStatusLoading}
                   onOpenGcodeFiles={onOpenGcodeFiles}
                 />
                 <div className="print-idle-side">
@@ -491,18 +501,21 @@ function IdleGcodeFilesPanel({
   operationStatus,
   liveUnavailable,
   agentSupportsFiles,
+  operationStatusLoading,
   onOpenGcodeFiles,
 }: {
   files: OperationGcodeFile[];
   operationStatus: OperationStatusResponse | null;
   liveUnavailable: boolean;
   agentSupportsFiles: boolean;
+  operationStatusLoading: boolean;
   onOpenGcodeFiles: () => void;
 }) {
   const visibleFiles = recentGcodeFiles(files).slice(0, 4);
   const reliableLastJob = lastReliablePrintFile(files);
   const lastJob = reliableLastJob ?? (isCompletedPrintState(operationStatus?.miscellaneous.print_state) ? recentGcodeFiles(files)[0] ?? null : null);
   const state = idleOperationState(operationStatus, liveUnavailable);
+  const agentVersionKnown = Boolean(operationStatus?.agent?.version?.trim());
   return (
     <div className="print-idle-panel">
       <div className="print-idle-header">
@@ -545,13 +558,27 @@ function IdleGcodeFilesPanel({
         <div className="print-idle-empty">
           <Database size={18} />
           <div>
-            <strong>{liveUnavailable ? "Sem leitura ao vivo" : agentSupportsFiles ? "Sem histórico confiável" : "Agente precisa atualizar"}</strong>
+            <strong>
+              {operationStatusLoading
+                ? "Buscando dados do agente"
+                : liveUnavailable
+                  ? "Sem leitura ao vivo"
+                  : agentSupportsFiles
+                    ? "Sem histórico confiável"
+                    : agentVersionKnown
+                      ? "Agente precisa atualizar"
+                      : "Versão do agente ainda não recebida"}
+            </strong>
             <span>
-              {liveUnavailable
-                ? "A lista aparece quando o agente reconectar ao Moonraker."
-                : agentSupportsFiles
-                  ? "A Operação não encontrou um trabalho recente com fim ou duração confiável."
-                  : "A lista de arquivos na Operação depende do agente 0.1.31 ou superior."}
+              {operationStatusLoading
+                ? "A primeira leitura pode levar alguns segundos; as próximas atualizações preservam os dados atuais."
+                : liveUnavailable
+                  ? "A lista aparece quando o agente reconectar ao Moonraker."
+                  : agentSupportsFiles
+                    ? "A Operação não encontrou um trabalho recente com fim ou duração confiável."
+                    : agentVersionKnown
+                      ? "A lista de arquivos na Operação depende do agente 0.1.31 ou superior."
+                      : "Aguarde uma leitura válida antes de verificar a compatibilidade do agente."}
             </span>
           </div>
         </div>
