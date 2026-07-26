@@ -2210,6 +2210,9 @@ O gate E2E deve validar com backend real e dados sintéticos isolados:
   sem colisão visual.
 - metadados do agente devem normalizar listas JSON e sequências de materiais,
   remover repetições e omitir marcadores técnicos de valor desconhecido.
+- uma leitura operacional antiga offline nao pode sobrepor health atual online;
+- com agente online e Moonraker ainda nao confirmado, a revalidacao deve ser
+  sequencial, sem sobreposicao, com intervalo de 3 segundos.
 
 Além do gate, a aceitação visual deve usar navegador real nas cinco dimensões,
 abrir cada aba e registrar qualquer diferença entre DOM, screenshot e ação

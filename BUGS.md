@@ -6,6 +6,36 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Moonraker Permanecia Offline Após O Agente Reconectar
+
+Sintoma:
+
+- o cabeçalho já exibia o agente online, mas o resumo mantinha Moonraker
+  offline por vários segundos ou até a revalidação de 60 segundos.
+
+Causa:
+
+- o frontend usava `??` entre fontes booleanas; um
+  `operationStatus.connected=false` antigo bloqueava um `health.connected=true`
+  mais recente;
+- várias consultas remotas eram iniciadas juntas antes do health rápido;
+- após falha transitória, a tela só revalidava em 60 segundos.
+
+Correção:
+
+- o health rápido passa a ser carregado antes das consultas operacionais
+  pesadas;
+- qualquer leitura atual válida que confirme conexão atualiza o indicador;
+- com agente online e Moonraker ainda não confirmado, health e operação são
+  revalidados sequencialmente a cada 3 segundos;
+- com agente offline, apenas a presença é consultada a cada 10 segundos, sem
+  criar jobs Moonraker desnecessários.
+
+Segurança:
+
+- agente online não implica Moonraker online; falha real continua visível e
+  ações permanecem bloqueadas.
+
 ### Preview 3D Falhava Com Nome De G-code Unicode
 
 Sintoma:

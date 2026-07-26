@@ -249,11 +249,11 @@ export function usePrintoraApp() {
   }
 
   async function loadPrinterLiveContext(printerId: number) {
+    await settings.loadPrinterHealth(printerId);
     await Promise.allSettled([
       settings.loadPrinterChecklist(printerId),
       operation.loadOperationStatus(printerId),
       settings.loadPrinterAudit(printerId),
-      settings.loadPrinterHealth(printerId),
       updates.loadUpdateStatus(printerId),
       calibration.loadCalibrationTests(printerId),
     ]);
@@ -504,12 +504,16 @@ export function usePrintoraApp() {
     if (!contextPrinterId || printerAvailability !== "offline") {
       return;
     }
-    const refreshId = window.setInterval(() => {
-      void operation.loadOperationStatus(contextPrinterId!, { preserveData: true });
-      void settings.loadPrinterHealth(contextPrinterId!);
-    }, 60000);
-    return () => window.clearInterval(refreshId);
-  }, [auth.authUser, printerAvailability, contextPrinterId]);
+    const agentOnline = contextPrinter?.cloud_status === "online";
+    return startSequentialPoll(async () => {
+      await printers.loadPrinters();
+      if (!agentOnline) {
+        return;
+      }
+      await settings.loadPrinterHealth(contextPrinterId);
+      await operation.loadOperationStatus(contextPrinterId, { preserveData: true });
+    }, agentOnline ? 3000 : 10000);
+  }, [auth.authUser, printerAvailability, contextPrinterId, contextPrinter?.cloud_status]);
 
   React.useEffect(() => {
     if (!auth.authUser) {
@@ -560,7 +564,16 @@ export function usePrintoraApp() {
     selectedPrinterRiskItems.find((item) => item.severity === "warning") ??
     null;
   const latestSnapshot = reports.snapshots[0];
-  const moonrakerOnline = operation.operationStatus?.connected ?? liveOperationHealth?.connected ?? settings.status?.connected ?? false;
+  const moonrakerOnline = Boolean(
+    (
+      operation.operationStatus?.printer_id === contextPrinterId
+      && operation.operationStatus.connected
+    )
+    || (
+      liveOperationHealth?.printer_id === contextPrinterId
+      && liveOperationHealth.connected
+    ),
+  );
   const displayDecision = formatters.displayHealthDecision(liveOperationHealth);
   const operationState = operation.operationStatus?.miscellaneous.print_state ?? settings.status?.printer?.state ?? settings.health?.metrics.klipper_state ?? "-";
   const totalPrintHours = operation.operationStatus?.miscellaneous.total_print_hours;

@@ -100,7 +100,10 @@ assert.match(appHookSource, /await Promise\.allSettled\(\[firmware\.loadBoardPre
 assert.match(appHookSource, /function getPrinterAvailability\([\s\S]*return health\.connected \? "online" : "offline";/);
 assert.match(appHookSource, /if \(!health\.connected\) \{[\s\S]*return "offline";[\s\S]*\}/);
 assert.match(appHookSource, /printerAvailability !== "offline"/);
-assert.match(appHookSource, /window\.setInterval\(\(\) => \{[\s\S]*settings\.loadPrinterHealth\(contextPrinterId!\);[\s\S]*\}, 60000\);/);
+assert.match(appHookSource, /const agentOnline = contextPrinter\?\.cloud_status === "online";/);
+assert.match(appHookSource, /startSequentialPoll\(async \(\) => \{[\s\S]*await printers\.loadPrinters\(\);[\s\S]*await settings\.loadPrinterHealth\(contextPrinterId\);[\s\S]*await operation\.loadOperationStatus\(contextPrinterId, \{ preserveData: true \}\);[\s\S]*\}, agentOnline \? 3000 : 10000\);/);
+assert.match(appHookSource, /const moonrakerOnline = Boolean\([\s\S]*operation\.operationStatus\?\.printer_id === contextPrinterId[\s\S]*operation\.operationStatus\.connected[\s\S]*\|\|[\s\S]*liveOperationHealth\?\.printer_id === contextPrinterId[\s\S]*liveOperationHealth\.connected/);
+assert.match(appHookSource, /async function loadPrinterLiveContext\(printerId: number\) \{[\s\S]*await settings\.loadPrinterHealth\(printerId\);[\s\S]*await Promise\.allSettled/);
 assert.match(appHookSource, /setDetailPrinterId\(printerId\);[\s\S]*shell\.setActiveSection\("printer-detail"\);/);
 assert.doesNotMatch(appHookSource, /function openPrinterDetail[\s\S]*printers\.selectPrinter\(printerId\);/);
 assert.match(appHookSource, /selectedPrinter: contextPrinter,[\s\S]*selectedPrinterId: contextPrinterId,/);

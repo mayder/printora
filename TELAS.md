@@ -44,7 +44,8 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Secoes que exigem impressora online permanecem acessiveis dentro do detalhe da impressora e devem exibir estado `offline`, `cached`, `blocked` ou `not_supported` quando o agente/Moonraker nao estiver disponivel.
 - Ao trocar o registro aberto, dados operacionais preservados pertencentes a outra impressora devem ser limpos imediatamente; resposta atrasada de uma leitura anterior nunca pode substituir o estado do registro atual.
 - Com Moonraker offline, a Central de alertas exibe apenas o alerta de offline/conexao; pendencias que dependem da impressora ligada ou de snapshot antigo nao contam como alertas ativos atuais.
-- Enquanto a impressora ativa estiver offline, a SPA revalida status e health a cada 60 segundos para liberar as secoes online quando Moonraker voltar.
+- Enquanto o agente estiver offline, a SPA revalida sua presenca a cada 10 segundos. Quando o agente estiver online mas o Moonraker ainda nao estiver confirmado, health e operacao sao revalidados sequencialmente a cada 3 segundos; a tela nunca presume Moonraker online apenas pelo heartbeat do agente.
+- Ao abrir o detalhe da impressora, o health rapido precede consultas operacionais mais pesadas para atualizar primeiro o estado de conexao.
 
 ## Telas atuais
 
