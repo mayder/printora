@@ -106,7 +106,7 @@ button.compact {
 
 .primary-button:hover {
   border-color: var(--brand-start);
-  background: var(--accent);
+  background: color-mix(in srgb, var(--accent-strong) 88%, black);
 }
 
 .secondary-button {
