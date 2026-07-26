@@ -286,9 +286,15 @@ Rollback:
 
 Estado atual:
 
-- Em execução; Definition of Ready e baseline registrados em
-  `docs/community/PKG_101_DESIGN_SYSTEM.md`. Dependências `PKG-01` a `PKG-100`
-  confirmadas na base consolidada; nenhum pacote comunitário futuro é exigido.
+- Concluído em 2026-07-26. Os dez lotes, `CAP-18-01`–`CAP-18-08`,
+  `COM-0953`–`COM-1008` e `SCR-0137`–`SCR-0144` possuem evidência em
+  `docs/community/PKG_101_EVIDENCE.md`.
+- Contrato backend, lista/filtro, detalhe, editor local, tokens, densidades,
+  estados, responsividade, acessibilidade, falhas e regressão visual foram
+  implementados e validados.
+- Nenhum SQL, migration, exclusão de dado, comando físico ou dependência futura
+  foi introduzido. Publicação não foi executada e depende de autorização
+  separada.
 
 ## PKG-102: Acessibilidade universal
 

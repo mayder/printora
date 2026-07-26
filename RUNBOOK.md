@@ -2556,3 +2556,26 @@ gh release list --limit 5
 ```
 
 Se a GitHub Release nao for criada, o app pode continuar mostrando a release anterior como ultima disponivel mesmo com commit e tag locais corretos.
+
+## PKG-101 — Design System
+
+Validação local focada, sem tocar banco ou impressora:
+
+```bash
+cd backend && uv run --extra dev pytest tests/test_design_system.py -q
+cd ../frontend && npm run test:unit -- tests/unit/DesignSystemScreen.test.ts tests/unit/DesignStatePanel.test.ts tests/unit/designSystemDraft.test.ts
+cd .. && scripts/run-e2e-gate.sh design-system.spec.ts
+```
+
+Smoke após publicação autorizada:
+
+1. autenticar com usuário sintético/controlado;
+2. abrir `?section=design-system`;
+3. consultar `GET /api/design-system/v1/capabilities` e confirmar oito famílias;
+4. percorrer uma rota base, `/detail` e `/edit`;
+5. salvar e recarregar um rascunho sem observar POST/PUT/PATCH/DELETE do domínio;
+6. confirmar foco, tema, densidade, offline e ausência de overflow.
+
+Rollback: restaurar a release N-1. Não executar SQL, apagar rascunho, restaurar
+snapshot ou interromper backend, worker, agente, Moonraker ou impressora. O
+endpoint é somente leitura e não possui cleanup.

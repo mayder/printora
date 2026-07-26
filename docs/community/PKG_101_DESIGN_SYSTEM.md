@@ -100,8 +100,8 @@ ready|editing|saved -> offline -> ready
 
 O catálogo é código versionado e o rascunho fica no `localStorage` do navegador
 sob chave versionada. Não há PII, telemetria individual ou dado canônico.
-Restauração do padrão remove apenas a preferência local após confirmação da
-pessoa. Exportação produz JSON local e explícito.
+Restauração do padrão substitui apenas o rascunho local após confirmação da
+pessoa.
 
 Não há mudança de banco no PKG-101. Portanto nenhum SQL é necessário. Caso uma
 evolução futura introduza persistência canônica, ela deverá usar scripts
@@ -185,3 +185,6 @@ Publicação e piloto dependem de autorização separada.
 8. laboratório e regressão desktop/mobile;
 9. integração, smoke e revisão de benefício/dano;
 10. revisão dos 56 `COM`, oito `SCR`, documentação, gate completo e commit.
+
+As evidências finais e a matriz de aceite estão em
+`docs/community/PKG_101_EVIDENCE.md`.

@@ -1332,3 +1332,40 @@ Correção:
 - marcadores técnicos de ausência são omitidos e fatiadores identificados
   mantêm apenas nome e versão válidos;
 - o mesmo formatador atende listagem, detalhe e painel de operação.
+
+### Rótulo Oculto Da Busca Do Design System Ficava Visível
+
+Estado: corrigido e retestado em 2026-07-26.
+
+Impacto:
+
+- a classe de texto exclusivo para leitor de tela não possuía implementação
+  visual no escopo do laboratório;
+- o rótulo `Buscar capacidade` se sobrepunha ao ícone e ao campo em desktop e
+  celular;
+- a falha foi encontrada na inspeção dos snapshots antes do fechamento.
+
+Correção:
+
+- o utilitário local mantém o rótulo disponível à tecnologia assistiva e fora
+  do fluxo visual;
+- snapshots desktop/tema escuro e mobile/tema claro foram regenerados,
+  inspecionados e aprovados;
+- o E2E bloqueia overflow, regressão visual e violações Axe críticas/sérias.
+
+### Estado De Falha Do Design System Era Comprimido No Desktop
+
+Estado: corrigido e retestado em 2026-07-26.
+
+Impacto:
+
+- loading, erro e acesso negado eram renderizados sem o container que ocupa toda
+  a grade do workspace;
+- no desktop, a mensagem de recuperação ficava comprimida na primeira coluna;
+- o fluxo feliz não apresentava o problema porque já usava o container correto.
+
+Correção:
+
+- todos os retornos antecipados usam a mesma fronteira responsiva da tela;
+- timeout, `429` e `5xx` são exercitados em desktop e mobile até recuperação;
+- o rascunho local permanece intacto durante as falhas.

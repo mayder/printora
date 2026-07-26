@@ -37,13 +37,28 @@ export function DesignSystemScreen({
   const selected = lab.catalog?.capabilities.find((item) => item.slug === lab.route.slug) ?? null;
 
   if (lab.loading && !lab.catalog) {
-    return <DesignStatePanel state="loading" />;
+    return (
+      <div className="design-system-screen" data-testid="design-system-screen">
+        <DesignStatePanel state="loading" />
+      </div>
+    );
   }
   if (lab.error && !lab.catalog) {
-    return <DesignStatePanel state={lab.offline ? "offline" : "error"} onAction={() => void lab.loadCatalog()} />;
+    return (
+      <div className="design-system-screen" data-testid="design-system-screen">
+        <DesignStatePanel
+          state={lab.offline ? "offline" : "error"}
+          onAction={() => void lab.loadCatalog()}
+        />
+      </div>
+    );
   }
   if (!lab.catalog?.permissions.can_view) {
-    return <DesignStatePanel state="forbidden" />;
+    return (
+      <div className="design-system-screen" data-testid="design-system-screen">
+        <DesignStatePanel state="forbidden" />
+      </div>
+    );
   }
 
   return (

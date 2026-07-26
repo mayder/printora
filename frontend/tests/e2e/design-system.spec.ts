@@ -59,6 +59,30 @@ test("laboratório visual preserva contrato, acessibilidade e rascunho local", a
     "design-system-list.png",
     { animations: "disabled" },
   );
+  await page.getByPlaceholder("Buscar por nome ou capacidade").focus();
+  await page.keyboard.press("Tab");
+  const listButton = page.getByRole("button", { name: /Lista/ });
+  await expect(listButton).toBeFocused();
+  expect(
+    await listButton.evaluate((element) => getComputedStyle(element).outlineStyle),
+  ).not.toBe("none");
+
+  const originalViewport = page.viewportSize();
+  const viewports = testInfo.project.name === "desktop-chromium"
+    ? [{ width: 1024, height: 768 }, { width: 1440, height: 900 }]
+    : [
+        { width: 320, height: 568 },
+        { width: 375, height: 667 },
+        { width: 768, height: 375 },
+      ];
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
+    expect(
+      await findHorizontalOverflow(page),
+      `laboratório ultrapassou ${viewport.width}x${viewport.height}`,
+    ).toEqual({ documentOverflows: false, elements: [] });
+  }
+  if (originalViewport) await page.setViewportSize(originalViewport);
 
   await page.getByRole("button", { name: /Detalhe/ }).click();
   await expect(page).toHaveURL(`${TOKENS_ROUTE}/detail`);
@@ -67,9 +91,28 @@ test("laboratório visual preserva contrato, acessibilidade e rascunho local", a
 
   await page.getByRole("button", { name: /Abrir editor/ }).click();
   await expect(page).toHaveURL(`${TOKENS_ROUTE}/edit`);
+  await page.goBack();
+  await expect(page).toHaveURL(`${TOKENS_ROUTE}/detail`);
+  await page.goBack();
+  await expect(page).toHaveURL(TOKENS_ROUTE);
+  await page.goForward();
+  await page.goForward();
+  await expect(page).toHaveURL(`${TOKENS_ROUTE}/edit`);
   await page.getByLabel("Nome da referência").fill("Fluxo visual E2E");
   await page.getByLabel("Público e necessidade").fill("Operador validando a oficina.");
+  await page.getByRole("button", { name: "Tabela", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Tabela", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.getByRole("button", { name: "Galeria", exact: true }).click();
+  await page.getByRole("button", { name: "Cards", exact: true }).click();
+  await page.getByLabel("Densidade").selectOption("workshop");
+  await page.getByLabel("Densidade").selectOption("reading");
   await page.getByLabel("Densidade").selectOption("administration");
+  await page.getByLabel("Estado simulado").selectOption("partial");
+  await expect(page.getByText("Conteúdo parcial", { exact: true })).toBeVisible();
+  await page.getByLabel("Estado simulado").selectOption("success");
   await page.getByLabel("Reduzir movimento nesta experiência").check();
   await page.getByRole("button", { name: "Salvar rascunho" }).click();
   await expect(page.getByRole("button", { name: /Rascunho salvo/ })).toBeVisible();
@@ -104,4 +147,55 @@ test("laboratório visual preserva contrato, acessibilidade e rascunho local", a
   ).toBeVisible();
   await page.getByRole("button", { name: "Carregar versão atual" }).click();
   await expect(page.getByText("revisão 2", { exact: false })).toBeVisible();
+});
+
+test("falhas do catálogo são seguras e recuperáveis", async ({
+  page,
+  request,
+}, testInfo) => {
+  const email = syntheticEmail(testInfo, "design-system-recovery");
+  await ensureUser(request, email, "Design System Recovery User");
+  await loginInBrowser(page, email);
+
+  let failure: "timeout" | "rate-limit" | "server" | null = "timeout";
+  await page.route("**/api/design-system/v1/capabilities", async (route) => {
+    if (failure === "timeout") {
+      await route.abort("timedout");
+      return;
+    }
+    if (failure === "rate-limit") {
+      await route.fulfill({
+        status: 429,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "limite sintético" }),
+      });
+      return;
+    }
+    if (failure === "server") {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "falha sintética" }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto(TOKENS_ROUTE);
+  await expect(page.getByText("Não foi possível carregar", { exact: true })).toBeVisible();
+
+  failure = "rate-limit";
+  await page.getByRole("button", { name: "Tentar novamente", exact: true }).click();
+  await expect(page.getByText("Não foi possível carregar", { exact: true })).toBeVisible();
+
+  failure = "server";
+  await page.getByRole("button", { name: "Tentar novamente", exact: true }).click();
+  await expect(page.getByText("Não foi possível carregar", { exact: true })).toBeVisible();
+
+  failure = null;
+  await page.getByRole("button", { name: "Tentar novamente", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Design system do Printora", exact: true }),
+  ).toBeVisible();
 });
