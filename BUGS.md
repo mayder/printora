@@ -6,6 +6,40 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Preview 3D Falhava Com Nome De G-code Unicode
+
+Sintoma:
+
+- ao iniciar uma nova impressão com caracteres Unicode no nome do arquivo, a
+  peça continuava imprimindo, mas a Operação exibia `Preview 3D indisponível`;
+- a mensagem genérica mencionava timeout do gateway e o preview não tentava se
+  recuperar sozinho.
+
+Causa:
+
+- o agente enviava o nome original em um cabeçalho HTTP, que podia chegar
+  alterado ao backend quando continha caracteres fora de ASCII;
+- a validação do cache recalculava outra chave e recusava o upload com `409`;
+- a UI fazia somente uma tentativa de preparar e carregar o cache.
+
+Correção:
+
+- o backend recupera o nome canônico do G-code no job de cache autenticado e
+  ativo, sem confiar no valor alterado do cabeçalho;
+- jobs equivalentes de cache são coalescidos para impedir duplicação;
+- o preview repete automaticamente falhas recuperáveis de cache/gateway com
+  espera progressiva e cancela as tentativas quando a tela é desmontada.
+
+Validação:
+
+- testes backend cobrem nome Unicode recuperado pelo job, chave sem
+  correspondência e coalescência;
+- testes frontend cobrem recuperação após `502` e ausência de repetição em
+  erro permanente `404`;
+- 49 testes backend, 4 testes frontend focados e build com Node `22.22.0`
+  aprovados;
+- nenhuma ação mutável foi executada na impressora durante a validação.
+
 ### Operacao Repetia Leitura E Acusava Agente Desatualizado Durante Carregamento
 
 Sintoma:

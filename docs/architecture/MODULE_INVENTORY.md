@@ -36,8 +36,8 @@
 | `agent_pairing` | `operations` | 997 | 0 | 0 |
 | `auth` | `identity` | 913 | 0 | 0 |
 | `calibration` | `operations` | 910 | 0 | 12 |
+| `routes.agents` | `operations` | 776 | 38 | 0 |
 | `modules.platform.durable_execution` | `shared` | 763 | 0 | 1 |
-| `routes.agents` | `operations` | 759 | 38 | 0 |
 | `setup_flash` | `operations` | 753 | 0 | 7 |
 | `search_discovery` | `community` | 733 | 0 | 5 |
 | `setup_can` | `operations` | 699 | 0 | 7 |

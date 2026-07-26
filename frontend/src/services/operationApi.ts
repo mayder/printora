@@ -11,6 +11,19 @@ export type GcodeCacheEntry = {
   created_at: string;
 };
 
+const GCODE_CACHE_RETRY_DELAYS_MS = [1500, 3000, 6000] as const;
+const RECOVERABLE_GCODE_CACHE_STATUSES = new Set([409, 425, 429, 500, 502, 503, 504, 524]);
+
+class GcodeCacheRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "GcodeCacheRequestError";
+  }
+}
+
 function withStepUp(body: unknown): unknown {
   const stepUpToken = getStoredStepUpToken();
   if (!stepUpToken || typeof body !== "object" || body === null || Array.isArray(body)) {
@@ -135,18 +148,51 @@ export const operationApi = {
   actionHistory: (printerId: number) => apiResponse(`/api/printers/${printerId}/operation/actions/history`),
   executionHistory: (printerId: number) => apiResponse(`/api/printers/${printerId}/operation/actions/executions`),
   offlineFixture: () => apiResponse("/api/operation/fixtures/voron-offline"),
-  ensureGcodeCache: (printerId: number, filename: string) =>
-    apiRequest<GcodeCacheEntry>(`/api/printers/${printerId}/operation/gcode-cache`, {
+  ensureGcodeCache: async (printerId: number, filename: string, signal?: AbortSignal) => {
+    const response = await apiResponse(`/api/printers/${printerId}/operation/gcode-cache`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ filename }),
-    }),
-  gcodeCacheText: async (printerId: number, cacheKey: string) => {
-    const response = await apiResponse(`/api/printers/${printerId}/operation/gcode-cache/${encodeURIComponent(cacheKey)}`);
+      signal,
+    });
     if (!response.ok) {
-      throw new Error(await readApiError(response));
+      throw new GcodeCacheRequestError(await readApiError(response), response.status);
+    }
+    return response.json() as Promise<GcodeCacheEntry>;
+  },
+  gcodeCacheText: async (printerId: number, cacheKey: string, signal?: AbortSignal) => {
+    const response = await apiResponse(`/api/printers/${printerId}/operation/gcode-cache/${encodeURIComponent(cacheKey)}`, {
+      signal,
+    });
+    if (!response.ok) {
+      throw new GcodeCacheRequestError(await readApiError(response), response.status);
     }
     return response.text();
+  },
+  gcodeCacheTextWithRecovery: async (
+    printerId: number,
+    filename: string,
+    options?: {
+      signal?: AbortSignal;
+      onRetry?: (attempt: number, maximum: number) => void;
+    },
+  ) => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= GCODE_CACHE_RETRY_DELAYS_MS.length; attempt += 1) {
+      try {
+        const cache = await operationApi.ensureGcodeCache(printerId, filename, options?.signal);
+        return await operationApi.gcodeCacheText(printerId, cache.cache_key, options?.signal);
+      } catch (error) {
+        lastError = error;
+        const delay = GCODE_CACHE_RETRY_DELAYS_MS[attempt];
+        if (delay === undefined || !isRecoverableGcodeCacheError(error) || options?.signal?.aborted) {
+          throw error;
+        }
+        options?.onRetry?.(attempt + 1, GCODE_CACHE_RETRY_DELAYS_MS.length);
+        await waitForGcodeCacheRetry(delay, options?.signal);
+      }
+    }
+    throw lastError;
   },
   preview: (printerId: number, body: unknown) =>
     apiResponse(`/api/printers/${printerId}/operation/actions/preview`, {
@@ -173,3 +219,28 @@ export const operationApi = {
       body: JSON.stringify(withStepUp(body)),
     }),
 };
+
+function isRecoverableGcodeCacheError(error: unknown) {
+  return (
+    error instanceof TypeError ||
+    (error instanceof GcodeCacheRequestError && RECOVERABLE_GCODE_CACHE_STATUSES.has(error.status))
+  );
+}
+
+function waitForGcodeCacheRetry(delayMs: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Operação cancelada", "AbortError"));
+      return;
+    }
+    const handleAbort = () => {
+      globalThis.clearTimeout(timeout);
+      reject(new DOMException("Operação cancelada", "AbortError"));
+    };
+    const timeout = globalThis.setTimeout(() => {
+      signal?.removeEventListener("abort", handleAbort);
+      resolve();
+    }, delayMs);
+    signal?.addEventListener("abort", handleAbort, { once: true });
+  });
+}

@@ -105,6 +105,22 @@ def test_agent_job_service_coalesces_high_frequency_read_jobs() -> None:
     assert repository.coalesced_create_calls == 1
 
 
+def test_agent_job_service_coalesces_gcode_cache_reads() -> None:
+    repository = Repository()
+
+    job = asyncio.run(
+        AgentJobService(repository).run(
+            Printer(),
+            job_type="remote_gcode_cache",
+            payload={"filename": "跳舞_PLA_23m3s.gcode", "cache_key": "a" * 64},
+        )
+    )
+
+    assert job.status == "succeeded"
+    assert repository.create_calls == 0
+    assert repository.coalesced_create_calls == 1
+
+
 def test_agent_job_service_rejects_required_offline_agent() -> None:
     service = AgentJobService(Repository(online=False))
 

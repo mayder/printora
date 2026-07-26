@@ -41,6 +41,7 @@ COALESCIBLE_AGENT_JOB_TYPES = frozenset(
     {
         "remote_calibration_capabilities",
         "remote_firmware_inventory",
+        "remote_gcode_cache",
         "remote_gcode_files_list",
         "remote_moonraker_status",
         "remote_operation_status",

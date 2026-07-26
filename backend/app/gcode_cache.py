@@ -16,6 +16,7 @@ from starlette.background import BackgroundTask
 
 from app.agent_pairing import AgentRecord
 from app.config import Settings
+from app.database import connect_database
 
 MAX_GCODE_CACHE_BYTES = 96 * 1024 * 1024
 GCODE_CACHE_TTL_SECONDS = 48 * 60 * 60
@@ -67,6 +68,46 @@ def normalize_gcode_filename(filename: str) -> str:
 def gcode_cache_key(printer_id: int, filename: str) -> str:
     normalized = normalize_gcode_filename(filename)
     return hashlib.sha256(f"{printer_id}\0{normalized}".encode("utf-8")).hexdigest()
+
+
+def resolve_gcode_cache_upload_filename(
+    settings: Settings,
+    agent: AgentRecord,
+    cache_key: str,
+    submitted_filename: str,
+) -> str:
+    cache_key = validate_gcode_cache_key(cache_key)
+    try:
+        normalized = normalize_gcode_filename(submitted_filename)
+        if gcode_cache_key(agent.printer_id, normalized) == cache_key:
+            return normalized
+    except HTTPException:
+        pass
+
+    with connect_database(settings.database_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT payload_json
+            FROM agent_jobs
+            WHERE printer_id = ?
+              AND agent_id = ?
+              AND job_type = 'remote_gcode_cache'
+              AND status IN ('pending', 'in_progress')
+            ORDER BY id DESC
+            LIMIT 20
+            """,
+            (agent.printer_id, agent.id),
+        ).fetchall()
+    for row in rows:
+        try:
+            payload = json.loads(row["payload_json"] or "{}")
+            requested_key = validate_gcode_cache_key(str(payload.get("cache_key") or ""))
+            requested_filename = normalize_gcode_filename(str(payload.get("filename") or ""))
+        except (HTTPException, TypeError, ValueError, json.JSONDecodeError):
+            continue
+        if requested_key == cache_key and gcode_cache_key(agent.printer_id, requested_filename) == cache_key:
+            return requested_filename
+    raise HTTPException(status_code=409, detail="cache key não confere com o G-code solicitado")
 
 
 def read_gcode_cache_entry(settings: Settings, printer_id: int, cache_key: str) -> GcodeCacheEntry | None:

@@ -626,10 +626,11 @@
     {
       "module": "gcode_cache",
       "owner": "operations",
-      "lines": 283,
+      "lines": 324,
       "imports": [
         "agent_pairing",
-        "config"
+        "config",
+        "database"
       ],
       "routes": [],
       "contracts": [
@@ -1354,7 +1355,7 @@
     {
       "module": "modules.operations.application",
       "owner": "operations",
-      "lines": 188,
+      "lines": 189,
       "imports": [
         "modules.operations.contracts",
         "modules.operations.ports"
@@ -1844,7 +1845,7 @@
     {
       "module": "routes.agents",
       "owner": "operations",
-      "lines": 759,
+      "lines": 776,
       "imports": [
         "agent_channel",
         "agent_pairing",

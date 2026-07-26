@@ -125,6 +125,7 @@ export function GcodePrintViewer({
   React.useEffect(() => {
     let disposed = false;
     disposedRef.current = false;
+    const abortController = new AbortController();
     const canvas = canvasRef.current;
     if (!canvas || !filename) return undefined;
     const canvasElement = canvas;
@@ -142,13 +143,18 @@ export function GcodePrintViewer({
         viewerRef.current = null;
       }
       try {
-        const [{ default: GCodeViewer }, cache] = await Promise.all([
+        const [{ default: GCodeViewer }, text] = await Promise.all([
           import("@sindarius/gcodeviewer"),
-          operationApi.ensureGcodeCache(printerId, filename),
+          operationApi.gcodeCacheTextWithRecovery(printerId, filename, {
+            signal: abortController.signal,
+            onRetry: (attempt, maximum) => {
+              if (!disposed) {
+                setLoadLabel(`Recuperando preview automaticamente (${attempt}/${maximum})`);
+                setLoadPercent(0);
+              }
+            },
+          }),
         ]);
-        if (disposed) return;
-        setLoadLabel("Baixando G-code");
-        const text = await operationApi.gcodeCacheText(printerId, cache.cache_key);
         if (disposed) return;
         const layerOffsets = buildLayerOffsets(text);
         const sourceFileSize = text.length;
@@ -181,6 +187,7 @@ export function GcodePrintViewer({
     return () => {
       disposed = true;
       disposedRef.current = true;
+      abortController.abort();
       const viewer = viewerRef.current;
       if (viewer) {
         viewer.gcodeProcessor.cancelLoad = true;

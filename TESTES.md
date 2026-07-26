@@ -1722,6 +1722,12 @@ Critérios:
 - Validar navegação com mouse/touch, zoom, pan, barras de deslocamento e navegador 3D sem sobreposição.
 - Validar tema claro/escuro com fundo, grade, peça, linhas e controles coerentes.
 - Validar limites de performance em arquivo grande sem travar UI nem aumentar polling do agente.
+- Validar nome Unicode cujo cabeçalho chegue alterado: o backend deve usar o
+  nome canônico apenas quando existir job de cache ativo e autenticado com a
+  mesma chave; chave sem correspondência deve continuar recusada.
+- Validar recuperação automática após falha transitória `409`, `5xx` ou `524`,
+  com espera progressiva, cancelamento ao desmontar a tela e coalescência de
+  jobs equivalentes; erro permanente como `404` não deve ser repetido.
 - Testes automatizados focados: parser/normalizador de G-code e fixtures de renderização quando aplicável.
 - Validação frontend focada: `npm --prefix frontend run build`.
 - Validação focada executada em 2026-07-20: `npm --prefix frontend run test:gcode-preview`; `npm --prefix frontend run build`. Não foi executada ação live ou mutável na impressora porque ela estava imprimindo.
