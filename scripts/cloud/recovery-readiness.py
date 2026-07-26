@@ -29,6 +29,8 @@ MAX_RESTORE_AGE = int(
     os.environ.get("PRINTORA_RECOVERY_MAX_RESTORE_AGE_SECONDS", "648000")
 )
 CONFIGURED_RPO_SECONDS = 120 + 60 + 110
+DISK_WARNING_PERCENT = 15
+DISK_FAILURE_PERCENT = 10
 
 
 def run(*command: str) -> str:
@@ -74,6 +76,7 @@ def check_unit(name: str) -> None:
 
 def collect() -> tuple[dict[str, Any], list[str]]:
     failures: list[str] = []
+    warnings: list[str] = []
     report: dict[str, Any] = {
         "alert_owner": "operations",
         "configured_physical_rpo_seconds": CONFIGURED_RPO_SECONDS,
@@ -166,7 +169,9 @@ def collect() -> tuple[dict[str, Any], list[str]]:
     try:
         usage = shutil.disk_usage(STATE_DIR)
         report["state_disk_free_percent"] = round(usage.free * 100 / usage.total, 2)
-        if report["state_disk_free_percent"] < 10:
+        if report["state_disk_free_percent"] < DISK_WARNING_PERCENT:
+            warnings.append("disk_capacity")
+        if report["state_disk_free_percent"] < DISK_FAILURE_PERCENT:
             failures.append("disk_capacity")
     except OSError:
         failures.append("disk_capacity_state")
@@ -174,6 +179,7 @@ def collect() -> tuple[dict[str, Any], list[str]]:
     if CONFIGURED_RPO_SECONDS > 300:
         failures.append("configured_rpo")
     report["failures"] = sorted(set(failures))
+    report["warnings"] = sorted(set(warnings))
     report["status"] = "passed" if not failures else "failed"
     return report, failures
 

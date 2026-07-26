@@ -1,2 +1,2 @@
-Cmnd_Alias PRINTORA_CLOUD_RELEASE = /usr/local/sbin/printora-cloud-deploy *, /usr/local/sbin/printora-cloud-rollback, /usr/local/sbin/printora-cloud-preflight
+Cmnd_Alias PRINTORA_CLOUD_RELEASE = /usr/local/sbin/printora-cloud-deploy *, /usr/local/sbin/printora-cloud-rollback, /usr/local/sbin/printora-cloud-preflight, /usr/local/sbin/printora-cloud-preflight --quick, /usr/local/sbin/printora-cloud-retain-releases --dry-run, /usr/local/sbin/printora-cloud-retain-releases --apply
 deploy ALL=(root) NOPASSWD: PRINTORA_CLOUD_RELEASE

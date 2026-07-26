@@ -64,6 +64,18 @@ node frontend/tests/nodeVersionGate.test.mjs
 
 run_model_validations
 
+coverage_ran=0
+if [[ "${SKIP_QUALITY_COVERAGE:-0}" != "1" ]] && python3 - <<'PY'
+import tomllib
+
+with open("PATHS.toml", "rb") as stream:
+    enabled = bool(tomllib.load(stream).get("quality", {}).get("coverage", {}).get("enabled"))
+raise SystemExit(0 if enabled else 1)
+PY
+then
+  coverage_ran=1
+fi
+
 log "validando dependências dos pacotes comunitários"
 python3 scripts/validate-demand-package-dependencies.py
 
@@ -83,11 +95,15 @@ log "python compileall"
 python3 -m compileall -q backend/app backend/tests
 
 if [[ "${RUN_PYTHON_TESTS:-0}" == "1" ]]; then
-  log "pytest backend"
-  if command -v uv >/dev/null 2>&1; then
-    (cd backend && uv run --extra dev pytest -q)
+  if [[ "$coverage_ran" == "1" ]]; then
+    log "pytest backend já executado pelo gate de cobertura"
   else
-    (cd backend && python3 -m pytest -q)
+    log "pytest backend"
+    if command -v uv >/dev/null 2>&1; then
+      (cd backend && uv run --extra dev pytest -q)
+    else
+      (cd backend && python3 -m pytest -q)
+    fi
   fi
 else
   log "pytest backend pulado; use RUN_PYTHON_TESTS=1 ./check.sh"

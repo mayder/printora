@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import subprocess
 import sys
@@ -114,12 +115,86 @@ def test_cloud_blue_green_packaging_is_independent_and_fail_closed() -> None:
     assert "switch_nginx_to_slot" in deploy
     assert "data_restored" not in deploy
     assert "shared/venv" not in workflow
-    assert "RUN_PYTHON_TESTS: \"1\"" in workflow
-    assert "RUN_FRONTEND_CHECKS: \"1\"" in workflow
-    assert "printora-cloud-preflight" in workflow
+    assert "matrix.gate" in workflow
+    assert "gate: [static, e2e, property-fuzz, mutation, coverage]" in workflow
+    assert "needs: infrastructure-preflight" in workflow
+    assert "needs: quality" in workflow
+    assert "ref: ${{ github.sha }}" in workflow
+    assert "SKIP_QUALITY_STACK_TEST=1" in workflow
+    assert "SKIP_QUALITY_COVERAGE=1" in workflow
+    assert "RUN_FRONTEND_CHECKS=1" in workflow
+    assert "printora-cloud-preflight --quick" in workflow
+    assert "Validate definitive privileged preflight" in workflow
+    assert "printora-cloud-retain-releases --apply" in workflow
     assert "--exclude='.artifacts'" in workflow
     assert "ServerAliveInterval=30" in workflow
     assert "for attempt in 1 2 3" in workflow
+
+
+def test_cloud_release_retention_preserves_every_linked_release(tmp_path: Path) -> None:
+    base = tmp_path / "printora"
+    releases = base / "releases"
+    slots = base / "slots"
+    releases.mkdir(parents=True)
+    slots.mkdir()
+    active = releases / ("a" * 40)
+    standby = releases / ("b" * 40)
+    orphan = releases / ("c" * 40)
+    for path in (active, standby, orphan):
+        path.mkdir()
+    (base / "current").symlink_to(active)
+    (slots / "blue").symlink_to(active)
+    (slots / "green").symlink_to(standby)
+    (slots / "replica").symlink_to(active)
+
+    result = subprocess.run(
+        ["bash", "scripts/cloud/retain-releases.sh", "--dry-run"],
+        cwd=ROOT_DIR,
+        env={**os.environ, "PRINTORA_BASE_PATH": str(base)},
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert f"release={active.name} action=preserve reason=linked" in result.stdout
+    assert f"release={standby.name} action=preserve reason=linked" in result.stdout
+    assert f"release={orphan.name} action=would_remove reason=unlinked" in result.stdout
+    assert active.is_dir()
+    assert standby.is_dir()
+    assert orphan.is_dir()
+
+
+def test_cloud_release_retention_refuses_incomplete_topology(tmp_path: Path) -> None:
+    base = tmp_path / "printora"
+    release = base / "releases" / ("a" * 40)
+    release.mkdir(parents=True)
+    (base / "current").symlink_to(release)
+
+    result = subprocess.run(
+        ["bash", "scripts/cloud/retain-releases.sh", "--dry-run"],
+        cwd=ROOT_DIR,
+        env={**os.environ, "PRINTORA_BASE_PATH": str(base)},
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "topologia ativa/rollback incompleta" in result.stderr
+
+
+def test_cloud_journal_and_release_retention_are_installed() -> None:
+    bootstrap = (ROOT_DIR / "scripts/cloud/bootstrap-blue-green.sh").read_text()
+    deploy = (ROOT_DIR / "scripts/cloud/deploy-blue-green.sh").read_text()
+    journald = (ROOT_DIR / "packaging/systemd/journald-printora-cloud.conf").read_text()
+    sudoers = (ROOT_DIR / "packaging/sudoers/printora-cloud-deploy").read_text()
+
+    assert "SystemMaxUse=2G" in journald
+    assert "SystemKeepFree=15%" in journald
+    assert "journald-printora-cloud.conf" in bootstrap
+    assert "printora-cloud-retain-releases" in bootstrap
+    assert "printora-cloud-retain-releases --apply" in deploy
+    assert "retention_status=" in deploy
+    assert "printora-cloud-retain-releases --apply" in sudoers
 
 
 def test_cloud_upstream_balances_two_instances_of_the_same_release() -> None:
@@ -279,6 +354,8 @@ def test_physical_rpo_uses_external_wal_and_fails_before_five_minutes() -> None:
     assert "CONFIGURED_RPO_SECONDS = 120 + 60 + 110" in monitor
     assert 'MAX_SYNC_AGE = int' in monitor
     assert '"210"' in monitor
+    assert "DISK_WARNING_PERCENT = 15" in monitor
+    assert "DISK_FAILURE_PERCENT = 10" in monitor
     assert "OnFailure=printora-cloud-recovery-alert@%n.service" in service
     assert "owner=operations" in alert
     assert "PRINTORA_RECOVERY_ALERT_WEBHOOK_URL" in alert

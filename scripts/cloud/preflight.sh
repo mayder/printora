@@ -8,6 +8,8 @@ fi
 source "$SCRIPT_DIR/common.sh"
 
 require_root
+mode="${1:-}"
+[[ -z "$mode" || "$mode" == "--quick" ]] || fail "modo de preflight inválido"
 failures=0
 check() {
   local label="$1"
@@ -62,6 +64,12 @@ validate_resource_budget() {
   [[ "$available_memory_kb" -ge 2097152 ]]
   [[ "$available_disk_kb" -ge 20971520 ]]
   [[ "$available_inodes" -ge 1000000 ]]
+}
+
+validate_disk_capacity() {
+  local free_percent
+  free_percent="$(df -Pk "$PRINTORA_BASE_PATH" | awk 'NR == 2 {gsub("%", "", $5); print 100 - $5}')"
+  [[ "$free_percent" -ge 10 ]]
 }
 
 validate_postgresql_environment() {
@@ -162,14 +170,17 @@ check certificate test -s /etc/letsencrypt/live/print3dmaker.xyz/fullchain.pem
 check logrotate test -s /etc/logrotate.d/printora-cloud
 check restic restic version
 check backup_target validate_backup_target
-check backup_repository validate_backup_repository
 check resource_budget validate_resource_budget
+check disk_capacity validate_disk_capacity
 check postgresql_environment validate_postgresql_environment
 check postgresql_runtime validate_postgresql_runtime
 check application_slots validate_application_slots
 check durable_workers validate_durable_workers
 check recomposable_redis validate_recomposable_redis
 check object_storage validate_object_storage
-check recovery_readiness validate_recovery_readiness
+if [[ "$mode" != "--quick" ]]; then
+  check backup_repository validate_backup_repository
+  check recovery_readiness validate_recovery_readiness
+fi
 
 [[ "$failures" -eq 0 ]] || fail "$failures item(ns) de preflight falharam"

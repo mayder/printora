@@ -31,6 +31,10 @@ install -o root -g root -m 0644 "$ROOT_DIR/packaging/systemd/redis-printora.serv
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/nginx/printora-cloud-upstream-blue.conf" "$BASE_PATH/shared/nginx/upstream-blue.conf"
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/nginx/printora-cloud-upstream-green.conf" "$BASE_PATH/shared/nginx/upstream-green.conf"
 install -o root -g root -m 0644 "$ROOT_DIR/packaging/logrotate/printora-cloud" /etc/logrotate.d/printora-cloud
+install -d -o root -g root -m 0755 /etc/systemd/journald.conf.d
+install -o root -g root -m 0644 \
+  "$ROOT_DIR/packaging/systemd/journald-printora-cloud.conf" \
+  /etc/systemd/journald.conf.d/printora-cloud.conf
 install -d -o root -g root -m 0755 /usr/local/libexec/printora-cloud
 install -d -o root -g deploy -m 0750 /etc/printora-cloud/workers
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/common.sh" /usr/local/libexec/printora-cloud/common.sh
@@ -65,6 +69,7 @@ install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/audit-final-architectur
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/deploy-blue-green.sh" /usr/local/sbin/printora-cloud-deploy
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/rollback-blue-green.sh" /usr/local/sbin/printora-cloud-rollback
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/preflight.sh" /usr/local/sbin/printora-cloud-preflight
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/retain-releases.sh" /usr/local/sbin/printora-cloud-retain-releases
 
 printf 'PRINTORA_WORKER_CONCURRENCY=1\n' > /etc/printora-cloud/workers/outbox.env
 printf 'PRINTORA_WORKER_CONCURRENCY=2\n' > /etc/printora-cloud/workers/critical.env
@@ -88,6 +93,7 @@ chown "$DEPLOY_USER:$DEPLOY_USER" "$BASE_PATH/shared/active-slot"
 install -o root -g root -m 0440 "$ROOT_DIR/packaging/sudoers/printora-cloud-deploy" /etc/sudoers.d/printora-cloud-deploy
 visudo -cf /etc/sudoers.d/printora-cloud-deploy
 systemctl daemon-reload
+systemctl restart systemd-journald
 systemctl enable --now printora-cloud-backup.timer
 systemctl enable --now printora-cloud-wal-sync.timer
 systemctl enable --now printora-cloud-restore-test.timer

@@ -75,6 +75,11 @@ Os pacotes `PKG-86` a `PKG-95` seguem
 - referências à tecnologia aposentada são zeradas em runtime, configuração, dependências, SQL ativo, scripts, workflow, tests e docs;
 - limpeza de banco, tabela, arquivo, backup ou objeto antigo recebe confirmação humana explícita.
 - release blue/green não compartilha virtualenv, frontend ou dependência mutável;
+- retenção de release preserva obrigatoriamente todos os alvos de `current`,
+  `blue`, `green` e `replica`; somente diretório imutável sem vínculo pode ser
+  removido automaticamente;
+- capacidade de disco gera aviso abaixo de 15% livre e bloqueia deploy abaixo
+  de 10%; o bloqueio não pode ser retirado para acelerar publicação;
 - schema, evento e contrato preservam compatibilidade N/N-1 durante a drenagem;
 - o perfil cloud não carrega SQLite; o adapter SQLite local fica isolado e testado;
 - backup/WAL criptografado possui cópia fora do host e restore independente;

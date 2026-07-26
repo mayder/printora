@@ -34,6 +34,15 @@ install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-r
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-restore-test.timer" /etc/systemd/system/printora-cloud-restore-test.timer
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-recovery-alert@.service" /etc/systemd/system/printora-cloud-recovery-alert@.service
 install -o root -g root -m 0644 "$release_dir/packaging/logrotate/printora-cloud" /etc/logrotate.d/printora-cloud
+install -d -o root -g root -m 0755 /etc/systemd/journald.conf.d
+if ! cmp -s \
+  "$release_dir/packaging/systemd/journald-printora-cloud.conf" \
+  /etc/systemd/journald.conf.d/printora-cloud.conf; then
+  install -o root -g root -m 0644 \
+    "$release_dir/packaging/systemd/journald-printora-cloud.conf" \
+    /etc/systemd/journald.conf.d/printora-cloud.conf
+  systemctl restart systemd-journald
+fi
 install -o root -g root -m 0644 "$release_dir/packaging/nginx/printora-cloud-upstream-blue.conf" "$PRINTORA_BASE_PATH/shared/nginx/upstream-blue.conf"
 install -o root -g root -m 0644 "$release_dir/packaging/nginx/printora-cloud-upstream-green.conf" "$PRINTORA_BASE_PATH/shared/nginx/upstream-green.conf"
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/common.sh" /usr/local/libexec/printora-cloud/common.sh
@@ -63,6 +72,7 @@ install -o root -g root -m 0755 "$release_dir/scripts/cloud/probe-analytics-inte
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/audit-final-architecture.sh" /usr/local/libexec/printora-cloud/audit-final-architecture.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/preflight.sh" /usr/local/sbin/printora-cloud-preflight
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/deploy-blue-green.sh" /usr/local/sbin/printora-cloud-deploy
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/retain-releases.sh" /usr/local/sbin/printora-cloud-retain-releases
 installed_script_sha="$(sha256sum /usr/local/sbin/printora-cloud-deploy | awk '{print $1}')"
 if [[ "${PRINTORA_DEPLOY_REEXECUTED:-0}" != "1" && "$running_script_sha" != "$installed_script_sha" ]]; then
   echo "[printora-cloud] deploy_entrypoint=updated action=reexec"
@@ -126,4 +136,9 @@ sleep "$drain_seconds"
 systemctl stop "printora-cloud@$current_slot.service" || true
 standby_status="ready"
 if ! start_standby "$current_slot"; then standby_status="degraded"; fi
-echo "[printora-cloud] release=$release_sha active_slot=$candidate_slot replica_slot=replica standby_slot=$current_slot standby_status=$standby_status status=deployed"
+retention_status="ok"
+if ! /usr/local/sbin/printora-cloud-retain-releases --apply; then
+  retention_status="failed"
+  echo "[printora-cloud] ALERTA: retenção de releases falhou; links ativos foram preservados" >&2
+fi
+echo "[printora-cloud] release=$release_sha active_slot=$candidate_slot replica_slot=replica standby_slot=$current_slot standby_status=$standby_status retention_status=$retention_status status=deployed"

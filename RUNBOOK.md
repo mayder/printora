@@ -137,13 +137,18 @@ GoDaddy apenas como registrador, DNS/proxy pela Cloudflare e o backend Python/sy
 atrás de Nginx no servidor. O guia operacional fica em
 `docs/DEPLOY_CLOUD.md`.
 
-O workflow `Deploy Printora Cloud` publica a branch `cloud`, executa o gate
-completo, cria frontend e venv imutáveis dentro de cada release, sobe o slot
+O workflow `Deploy Printora Cloud` publica o SHA imutável disparado na branch
+`cloud`. Primeiro executa o preflight rápido do servidor. Depois executa em
+paralelo os gates static, E2E, property/fuzz, mutation e cobertura; empacotamento
+e publicação só iniciam quando todos passam. O pytest da cobertura não é
+repetido pelo `check.sh`. A publicação cria frontend e venv imutáveis dentro de cada release, sobe o slot
 inativo em `8069` ou `8070`, valida `/ready`, `/health` e catálogo, testa a
 configuração Nginx, troca o upstream atomicamente e só então drena o slot
-anterior. Não existe fallback para matar processo manualmente ou atualizar venv
-compartilhado. O usuário `deploy` só recebe sudo para os três comandos fixos do
-blue/green definidos em `packaging/sudoers/printora-cloud-deploy`.
+anterior. Um preflight definitivo é repetido imediatamente antes do upload.
+Não existe fallback para matar processo manualmente ou atualizar venv
+compartilhado. O usuário `deploy` só recebe sudo para os comandos fixos do
+blue/green e da retenção definidos em
+`packaging/sudoers/printora-cloud-deploy`.
 
 O bundle de produção exclui `.artifacts`, que contém apenas evidências de CI e
 é publicado separadamente com retenção de 30 dias. O envio usa keep-alive SSH e
@@ -166,6 +171,23 @@ O preflight só passa com NTP, certificado, logrotate, `restic`, destino externo
 cluster dedicado PostgreSQL, checksums, WAL e permissões válidos. O arquivo
 `shared/backup-target.conf` deve ter modo `0600` e referenciar credenciais fora
 do Git. A chave de recuperação precisa possuir cópia fora do host.
+
+Retenção de releases:
+
+```bash
+sudo /usr/local/sbin/printora-cloud-retain-releases --dry-run
+sudo /usr/local/sbin/printora-cloud-retain-releases --apply
+```
+
+O dry-run é obrigatório em intervenção manual. A aplicação recusa topologia
+incompleta e preserva todo diretório apontado por `current`, `blue`, `green` ou
+`replica`; por isso normalmente ficam dois releases, e não apenas um. Depois de
+um deploy bem-sucedido, a retenção roda automaticamente e remove somente
+diretórios SHA sem vínculo. Banco, storage, backup, WAL e dados compartilhados
+ficam fora do escopo. O journal é limitado por
+`packaging/systemd/journald-printora-cloud.conf` a 2 GB, com 15% do filesystem
+reservado. O monitor registra aviso abaixo de 15% livre e o preflight continua
+bloqueando abaixo de 10%.
 
 Validacao pos-deploy:
 

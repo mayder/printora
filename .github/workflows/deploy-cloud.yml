@@ -12,19 +12,139 @@ env:
   DEFAULT_SSH_PORT: "1158"
   DEFAULT_SSH_USER: deploy
   DEFAULT_DEPLOY_BASE_PATH: /var/www/print3dmaker.xyz
-  DEFAULT_DEPLOY_BRANCH: cloud
 
 jobs:
-  deploy:
-    name: Deploy cloud branch with blue green switch
+  infrastructure-preflight:
+    name: Fast production preflight
     runs-on: ubuntu-latest
     environment: production
-
     steps:
-      - name: Checkout cloud branch
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.PRINTORA_SSH_PRIVATE_KEY }}
+          SSH_HOST_SECRET: ${{ secrets.PRINTORA_SSH_HOST }}
+          SSH_PORT_SECRET: ${{ secrets.PRINTORA_SSH_PORT }}
+          SSH_USER_SECRET: ${{ secrets.PRINTORA_SSH_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_PRIVATE_KEY" || { echo "::error::Secret PRINTORA_SSH_PRIVATE_KEY nao configurado."; exit 1; }
+          SSH_HOST="${SSH_HOST_SECRET:-$DEFAULT_SSH_HOST}"
+          SSH_PORT="${SSH_PORT_SECRET:-$DEFAULT_SSH_PORT}"
+          SSH_USER="${SSH_USER_SECRET:-$DEFAULT_SSH_USER}"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/printora_key
+          chmod 600 ~/.ssh/printora_key
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+          {
+            echo "SSH_HOST=$SSH_HOST"
+            echo "SSH_PORT=$SSH_PORT"
+            echo "SSH_USER=$SSH_USER"
+          } >> "$GITHUB_ENV"
+
+      - name: Retain linked releases and validate capacity
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/printora_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" '
+            set -euo pipefail
+            if sudo -n /usr/local/sbin/printora-cloud-retain-releases --dry-run >/dev/null 2>&1; then
+              sudo -n /usr/local/sbin/printora-cloud-retain-releases --apply
+            fi
+            sudo -n /usr/local/sbin/printora-cloud-preflight --quick
+          '
+
+  quality:
+    name: Quality / ${{ matrix.gate }}
+    needs: infrastructure-preflight
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        gate: [static, e2e, property-fuzz, mutation, coverage]
+    steps:
+      - name: Checkout immutable workflow SHA
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ env.DEFAULT_DEPLOY_BRANCH }}
+          ref: ${{ github.sha }}
+
+      - name: Configure Node.js
+        if: ${{ matrix.gate == 'static' || matrix.gate == 'e2e' || matrix.gate == 'coverage' }}
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: ".node-version"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Configure npm
+        if: ${{ matrix.gate == 'static' || matrix.gate == 'e2e' || matrix.gate == 'coverage' }}
+        run: npm install --global npm@11.7.0
+
+      - name: Configure Go
+        if: ${{ matrix.gate == 'static' || matrix.gate == 'coverage' }}
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.25.12
+          cache-dependency-path: agent/go.sum
+
+      - name: Configure uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: 0.11.0
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install frontend dependencies
+        if: ${{ matrix.gate == 'static' || matrix.gate == 'e2e' || matrix.gate == 'coverage' }}
+        run: npm --prefix frontend ci
+
+      - name: Install E2E browser
+        if: ${{ matrix.gate == 'e2e' }}
+        run: npm --prefix frontend exec -- playwright install --with-deps chromium
+
+      - name: Run isolated gate
+        env:
+          CHECK_STRICT_SECRETS: "1"
+          CHECK_STRICT_RUNTIME_NAMES: "1"
+        run: |
+          set -euo pipefail
+          case "${{ matrix.gate }}" in
+            static)
+              SKIP_QUALITY_STACK_TEST=1 \
+              SKIP_QUALITY_COVERAGE=1 \
+              RUN_PYTHON_TESTS=0 \
+              RUN_FRONTEND_CHECKS=1 \
+                ./check.sh
+              ;;
+            e2e) scripts/run-e2e-gate.sh ;;
+            property-fuzz) scripts/run-property-fuzz-gate.sh ;;
+            mutation) scripts/run-mutation-gate.sh ;;
+            coverage) scripts/run-coverage-gate.sh ;;
+            *) exit 2 ;;
+          esac
+
+      - name: Publish gate evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: quality-${{ matrix.gate }}-${{ github.sha }}
+          path: |
+            .artifacts/coverage
+            .artifacts/e2e
+            .artifacts/mutation
+          if-no-files-found: ignore
+          retention-days: 30
+
+  deploy:
+    name: Package and deploy approved SHA
+    needs: quality
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DEPLOY_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout immutable approved SHA
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
 
       - name: Configure Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -52,31 +172,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm --prefix frontend ci
 
-      - name: Install E2E browser
-        run: npm --prefix frontend exec -- playwright install --with-deps chromium
-
-      - name: Validate complete package gate
-        env:
-          RUN_PYTHON_TESTS: "1"
-          RUN_FRONTEND_CHECKS: "1"
-          CHECK_STRICT_SECRETS: "1"
-          CHECK_STRICT_RUNTIME_NAMES: "1"
-        run: ./check.sh
-
       - name: Validate reproducible frontend build
         run: npm --prefix frontend run build:reproducible
-
-      - name: Publish quality evidence
-        if: ${{ always() }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: quality-${{ github.sha }}
-          path: |
-            .artifacts/coverage
-            .artifacts/e2e
-            .artifacts/mutation
-          if-no-files-found: warn
-          retention-days: 30
 
       - name: Audit production dependencies
         run: |
@@ -90,11 +187,17 @@ jobs:
       - name: Generate reproducible SBOM
         run: scripts/generate-sbom.sh
 
+      - name: Publish SBOM evidence
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: sbom-${{ github.sha }}
+          path: .artifacts/sbom
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Package immutable release
         run: |
           set -euo pipefail
-          DEPLOY_SHA="$(git rev-parse HEAD)"
-          echo "DEPLOY_SHA=$DEPLOY_SHA" >> "$GITHUB_ENV"
           test -s frontend/dist/index.html
           tar \
             --exclude='.git' \
@@ -127,7 +230,7 @@ jobs:
             echo "SSH_USER=$SSH_USER"
           } >> "$GITHUB_ENV"
 
-      - name: Validate privileged preflight
+      - name: Validate definitive privileged preflight
         run: ssh -i ~/.ssh/printora_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" sudo -n /usr/local/sbin/printora-cloud-preflight
 
       - name: Upload release bundle

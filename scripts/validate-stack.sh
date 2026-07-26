@@ -17,13 +17,20 @@ run_optional_command() {
 
 run_optional_command lint
 run_optional_command typecheck
-run_optional_command test
+if [[ "${SKIP_QUALITY_STACK_TEST:-0}" != "1" ]]; then
+  run_optional_command test
+else
+  log "quality.stack.test pulado por execução paralela"
+fi
 run_optional_command build
-if [[ "$(toml_string_value quality.coverage enabled)" == "true" ]]; then
+if [[ "$(toml_string_value quality.coverage enabled)" == "true" && \
+      "${SKIP_QUALITY_COVERAGE:-0}" != "1" ]]; then
   coverage_command="$(toml_string_value quality.coverage command)"
   [[ -n "$coverage_command" ]] || fail "quality.coverage.enabled=true exige quality.coverage.command"
   log "rodando quality.coverage.command: $coverage_command"
   bash -lc "$coverage_command"
+elif [[ "${SKIP_QUALITY_COVERAGE:-0}" == "1" ]]; then
+  log "quality.coverage.command pulado por execução paralela"
 fi
 
 if [[ -z "$(toml_string_value quality.stack lint)" && \

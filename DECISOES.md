@@ -29,6 +29,41 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260726-02 - Deploy paralelo com retenção somente de releases vinculados
+
+Status: aceita
+Data: 2026-07-26
+Contexto: o servidor acumulou 251 releases imutáveis porque cada publicação
+criava um diretório novo e não existia retenção. O preflight de capacidade
+estava depois de aproximadamente 16 minutos de gates sequenciais e os testes
+Python eram executados uma vez com cobertura e outra pelo `check.sh`.
+Decisao: executar preflight de infraestrutura antes da CI; executar static,
+E2E, property/fuzz, mutation e cobertura em jobs paralelos sobre o mesmo SHA;
+empacotar e publicar somente depois de todos passarem; eliminar a segunda
+execução do pytest quando o gate de cobertura já o executou. Após o blue/green,
+remover automaticamente apenas diretórios de release sem vínculo por `current`,
+`blue`, `green` ou `replica`. Limitar o journal persistente a 2 GB e reservar
+15% do filesystem.
+Alternativas consideradas: manter todos os releases; preservar os últimos cinco
+mesmo sem vínculo; apagar tudo exceto `current`; retirar o gate de capacidade;
+continuar com CI sequencial.
+Consequencias: normalmente permanecem dois releases, ativo e rollback N-1, sem
+acúmulo histórico. Falha de infraestrutura aparece antes de instalar
+dependências. Os gates preservam a mesma cobertura, mas o tempo de parede passa
+a ser dominado pelo gate paralelo mais lento. Git e bundle verificável são a
+fonte para reconstruir releases removidos.
+Impacto em testes: testes de topologia da retenção, sintaxe shell/YAML, gate de
+empacotamento, `./check.sh` e execução real do workflow.
+Impacto em rollback: o rollback imediato N-1 permanece porque todo alvo de
+symlink é protegido. Releases antigos removidos exigem reconstrução a partir do
+SHA Git; dados, banco, backups e WAL não são removidos.
+Como reverter: remover a chamada automática de retenção, restaurar o workflow
+sequencial e remover o limite específico do journald. Não restaurar diretórios
+antigos sem validar SHA, bundle e dependências.
+Referencias: `.github/workflows/deploy-cloud.yml`,
+`scripts/cloud/retain-releases.sh`, `scripts/cloud/deploy-blue-green.sh`,
+`packaging/systemd/journald-printora-cloud.conf`, `RUNBOOK.md`.
+
 ### DEC-20260726-01 - Backlog ativo separado do histórico consolidado
 
 Status: aceita
