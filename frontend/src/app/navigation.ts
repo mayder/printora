@@ -1,4 +1,4 @@
-import { Activity, BrainCircuit, Database, Factory, FileArchive, FileText, Home, Info, Landmark, Network, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
+import { Activity, BrainCircuit, Database, Factory, FileArchive, FileText, Home, Info, Landmark, Network, Palette, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
@@ -21,6 +21,7 @@ export type AppSection =
   | "finance"
   | "manufacturing"
   | "data-intelligence"
+  | "design-system"
   | "account"
   | "about"
   | "license";
@@ -32,6 +33,13 @@ export const appSections: Array<{
   detail: string;
   purpose: string;
 }> = [
+  {
+    key: "design-system",
+    icon: Palette,
+    label: "Design system",
+    detail: "Tokens, componentes, estados e laboratório visual.",
+    purpose: "Consulte e experimente padrões visuais compartilhados sem alterar dados ou comandos operacionais.",
+  },
   {
     key: "data-intelligence",
     icon: BrainCircuit,
@@ -190,7 +198,7 @@ export const appSections: Array<{
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Principal", sections: ["overview", "printers", "agents", "projects", "social", "catalog", "setup"] },
-  { title: "Sistema", sections: ["finance", "manufacturing", "data-intelligence", "settings"] },
+  { title: "Sistema", sections: ["finance", "manufacturing", "data-intelligence", "design-system", "settings"] },
 ];
 
 export const onlinePrinterSections = new Set<AppSection>([
@@ -234,6 +242,7 @@ export function canUsePrinterTab(sectionKey: AppSection, printerAvailability: Pr
 }
 
 export function getInitialSection(): AppSection {
+  if (window.location.pathname.startsWith("/community/design_system/")) return "design-system";
   const section = new URLSearchParams(window.location.search).get("section") ?? window.location.hash.replace("#", "");
   if (section === "operation") return "monitoring";
   if (section === "calibration") return "tests";

@@ -2,6 +2,6 @@
   "maxAssetBytes": 1850000,
   "maxEntryBytes": 710000,
   "maxStylesheetBytes": 260000,
-  "maxTotalBytes": 3400000,
-  "maxTotalGzipBytes": 835000
+  "maxTotalBytes": 3440000,
+  "maxTotalGzipBytes": 845000
 }

@@ -428,6 +428,26 @@ erro/degradado, permissão por ação, confirmação forte e auditoria sanitizad
 - o container ocupa toda a largura do workspace para impedir que dashboard,
   tabelas e detalhes sejam comprimidos na primeira coluna da grade global.
 
+## Administração > Design system
+
+- entrada: `?section=design-system`;
+- as rotas `SCR-0137` a `SCR-0144` usam
+  `/community/design_system/{capacidade}` para lista/filtro, `/detail` para
+  detalhe e `/edit` para cadastro/edição local, sem misturar os três estados;
+- a lista oferece busca, rastreabilidade `CAP/COM/SCR` e uma ação principal por
+  família; o detalhe mostra contrato, permissões, rollback, estados e evidências;
+- o editor preserva rascunho local versionado, detecta conflito entre abas,
+  revisa antes de salvar e nunca publica configuração no servidor;
+- densidades Oficina, Leitura e Administração ajustam toque e espaçamento sem
+  esconder conteúdo; cards, tabela e galeria mantêm ações e rótulos;
+- loading, vazio, erro, sucesso, parcial, offline, acesso negado e conflito usam
+  conteúdo e recuperação coerentes, sem depender somente de cor;
+- tokens semânticos, hierarquia, componentes responsivos, formulário longo,
+  microinterações e laboratório visual permanecem operáveis por teclado, foco
+  visível, zoom e redução de movimento;
+- a tela é carregada sob demanda para preservar o orçamento da entrada. O CSS
+  próprio também é isolado do bundle inicial.
+
 ## Boundary De Preferências Locais
 
 Tema e progresso do guia de setup preservam o comportamento visual atual, mas
@@ -437,7 +457,7 @@ layering React impede regressão para acesso direto de HTTP/storage na UI.
 
 ## Responsividade E Informação Para O Usuário
 
-- As catorze rotas autenticadas acessíveis diretamente devem permanecer
+- As quinze rotas autenticadas acessíveis diretamente devem permanecer
   operáveis em 320, 390, 768, 1024 e 1440 px, sem conteúdo cortado fora de um
   container de rolagem explícito.
 - Perfil público, impressora pública e comunidade pública seguem a mesma matriz.

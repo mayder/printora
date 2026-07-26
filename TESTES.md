@@ -2212,7 +2212,7 @@ Nenhum experimento pode usar produção, criança, dado biométrico, comando de 
 
 O gate E2E deve validar com backend real e dados sintéticos isolados:
 
-- as catorze rotas autenticadas em 320x568, 390x844, 768x1024, 1024x768 e
+- as quinze rotas autenticadas em 320x568, 390x844, 768x1024, 1024x768 e
   1440x900;
 - perfil público, impressora pública e as seis abas da comunidade nas mesmas
   cinco dimensões;
@@ -2286,3 +2286,24 @@ Aceite de 2026-07-24:
   como `succeeded` e estado final `complete`;
 - o arquivo de smoke contém somente mensagens no display e espera de 1 segundo,
   sem comandos de movimento, extrusão ou aquecimento.
+
+## PKG-101: Layout, design system e coerência visual
+
+- provar que `GET /api/design-system/v1/capabilities` exige autenticação, mantém
+  contrato `1.x`, retorna exatamente oito capacidades e ocupa menos de 64 KiB;
+- validar unicidade e cobertura contígua de `CAP-18-01`–`CAP-18-08`,
+  `COM-0953`–`COM-1008` e `SCR-0137`–`SCR-0144`;
+- cobrir lista, busca/filtro, detalhe e editor em rotas separadas, incluindo
+  entrada direta e navegação voltar/avançar;
+- testar parse defensivo, limite de 32 KiB, salvamento idempotente, restauração
+  confirmada e conflito de revisão entre abas;
+- exercitar densidades, cards, tabela, galeria, formulário longo e os estados
+  loading, vazio, erro, sucesso, parcial, offline, acesso negado e conflito;
+- validar teclado, foco, landmarks, leitor de tela, temas, zoom 400%, redução de
+  movimento e ausência de overflow em 320, 375, 768, 1024 e 1440 px;
+- executar screenshot desktop/mobile em tema claro e escuro e comparar o
+  laboratório com a referência aprovada;
+- provar que não existe endpoint mutável, comando físico, PII, telemetria
+  individual, SQL ou dependência de pacote posterior;
+- executar testes focados, build/budget, E2E autenticado, validador de
+  dependências e `./check.sh`.

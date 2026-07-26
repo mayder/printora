@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Bell, ChevronDown, Info, LogOut, Menu, UserRound, Users, X } from "lucide-react";
 import { appSections } from "./app/navigation";
 import type { AppSection } from "./app/navigation";
@@ -54,8 +54,13 @@ import "./styles/print-projects.css";
 import "./styles/social.css";
 import "./styles/catalog-admin.css";
 import "./styles/data-intelligence.css";
-import "./styles/design-system.css";
 import { readDocumentTheme } from "./services/localPreferences";
+import { readDesignLabDraft } from "./services/designSystemDraft";
+
+const DesignSystemScreen = lazy(async () => {
+  const module = await import("./screens/DesignSystemScreen");
+  return { default: module.DesignSystemScreen };
+});
 
 type AccountTab = "profile" | "organizations";
 
@@ -67,14 +72,17 @@ function openAccountTab(tab: AccountTab, setActiveSection: (section: AppSection)
   }, 0);
 }
 
-function useStoredDocumentTheme() {
+function useStoredDocumentPreferences() {
   useEffect(() => {
     document.documentElement.dataset.theme = readDocumentTheme();
+    const draft = readDesignLabDraft(window.localStorage);
+    document.documentElement.dataset.density = draft.density;
+    document.documentElement.dataset.reduceMotion = draft.reduce_motion ? "true" : "false";
   }, []);
 }
 
 function App() {
-  useStoredDocumentTheme();
+  useStoredDocumentPreferences();
   const publicProfileSlug = readPublicProfilePathSlug();
   const embeddedProfileSlug = readEmbeddedProfileSlug();
   const publicPrinterId = readPublicPrinterId();
@@ -166,6 +174,12 @@ function App() {
         return <ManufacturingAdminScreen {...screenProps} />;
       case "data-intelligence":
         return <DataIntelligenceScreen {...screenProps} />;
+      case "design-system":
+        return (
+          <Suspense fallback={<section aria-live="polite">Carregando design system.</section>}>
+            <DesignSystemScreen />
+          </Suspense>
+        );
       case "account":
         return <AuthScreen {...screenProps} />;
       case "about":
@@ -233,6 +247,9 @@ function App() {
                     type="button"
                     className={`nav-button ${shellSection === section.key ? "active" : ""}`}
                     onClick={() => {
+                      if (window.location.pathname.startsWith("/community/design_system/") || section.key === "design-system") {
+                        window.history.pushState(null, "", `/?section=${section.key}`);
+                      }
                       setActiveSection(section.key);
                       if (publicCommunitySlug || embeddedProfileSlug) {
                         window.history.pushState(null, "", `/?section=${section.key}`);

@@ -2125,6 +2125,12 @@ continuam testáveis, enquanto repetição local não duplica efeito. Publicaç�
 global ou personalização por organização exigirá pacote próprio e SQL
 idempotente, sem alterar retroativamente este contrato.
 
+A tela e seu CSS são carregados sob demanda. O teto total verificável do bundle
+passa de 3.400.000 para 3.440.000 bytes e o gzip de 835.000 para 845.000 bytes;
+os limites individuais da entrada, stylesheet e asset não aumentam. O build
+medido após o recorte fica abaixo dos novos tetos e impede que o catálogo
+penalize o carregamento inicial.
+
 Impacto em testes: cobrir invariantes do catálogo, autenticação, contrato N/N-1,
 limites do rascunho, parse defensivo, idempotência, conflito entre abas,
 offline, teclado, zoom, temas e redução de movimento.
