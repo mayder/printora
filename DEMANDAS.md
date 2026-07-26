@@ -286,7 +286,9 @@ Rollback:
 
 Estado atual:
 
-- Planejado; implementação não iniciada. Executar somente depois de todas as dependências listadas estarem concluídas.
+- Em execução; Definition of Ready e baseline registrados em
+  `docs/community/PKG_101_DESIGN_SYSTEM.md`. Dependências `PKG-01` a `PKG-100`
+  confirmadas na base consolidada; nenhum pacote comunitário futuro é exigido.
 
 ## PKG-102: Acessibilidade universal
 

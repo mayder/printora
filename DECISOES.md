@@ -2099,3 +2099,39 @@ permitir interpretação livre, sem alterar runtime ou dados.
 
 Como reverter: reverter matriz, padrão, decisão e extensão do validador no mesmo
 commit; não alterar pacotes implementados nem apagar evidências produzidas.
+
+### DEC-20260726-05 - PKG-101 mantém catálogo canônico em código e rascunho local
+
+Status: aceita
+Data: 2026-07-26
+Contexto: tokens e padrões visuais precisam de versão reproduzível junto da
+release. Persistir cada amostra no banco criaria escrita administrativa,
+retenção e concorrência sem benefício para um catálogo pequeno e imutável. Ao
+mesmo tempo, a pessoa precisa experimentar densidade, estados e formulário sem
+arriscar configuração operacional.
+
+Decisão: o domínio compartilhado `design_system` expõe catálogo autenticado,
+somente leitura e versionado em código. A interface mantém somente um rascunho
+de laboratório sem PII no navegador, com schema versionado, limite de tamanho,
+gravação idempotente e conflito entre abas. Não existe endpoint mutável,
+telemetria individual, comando físico ou persistência canônica no PKG-101.
+
+Alternativas consideradas: armazenar tokens e rascunhos no PostgreSQL; manter
+tudo somente no frontend; permitir publicação global de tokens no pacote.
+
+Consequências: catálogo e release permanecem atômicos, rollback é apenas de
+código e o laboratório funciona sem banco novo. A autenticação e o contrato API
+continuam testáveis, enquanto repetição local não duplica efeito. Publicação
+global ou personalização por organização exigirá pacote próprio e SQL
+idempotente, sem alterar retroativamente este contrato.
+
+Impacto em testes: cobrir invariantes do catálogo, autenticação, contrato N/N-1,
+limites do rascunho, parse defensivo, idempotência, conflito entre abas,
+offline, teclado, zoom, temas e redução de movimento.
+
+Impacto em rollback: baixo; reverter a release remove a entrada e o endpoint
+sem tocar banco ou outros fluxos. Rascunhos locais desconhecidos pela versão
+anterior permanecem inertes.
+
+Como reverter: restaurar a release N-1. Não executar SQL, limpeza de banco ou
+remoção automática de dados locais.
