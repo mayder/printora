@@ -5716,6 +5716,162 @@
         "title": "DeadLetterReplayRequest",
         "type": "object"
       },
+      "DesignCapabilityContract": {
+        "properties": {
+          "capability_id": {
+            "pattern": "^CAP-18-0[1-8]$",
+            "title": "Capability Id",
+            "type": "string"
+          },
+          "com_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 7,
+            "minItems": 7,
+            "title": "Com Ids",
+            "type": "array"
+          },
+          "route": {
+            "pattern": "^/community/design_system/[a-z0-9-]+$",
+            "title": "Route",
+            "type": "string"
+          },
+          "screen_id": {
+            "pattern": "^SCR-01(?:3[7-9]|4[0-4])$",
+            "title": "Screen Id",
+            "type": "string"
+          },
+          "slug": {
+            "pattern": "^[a-z0-9-]+$",
+            "title": "Slug",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 280,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          },
+          "supported_states": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Supported States",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "tokens": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DesignTokenContract"
+            },
+            "title": "Tokens",
+            "type": "array"
+          }
+        },
+        "required": [
+          "capability_id",
+          "com_ids",
+          "screen_id",
+          "slug",
+          "title",
+          "summary",
+          "route",
+          "supported_states"
+        ],
+        "title": "DesignCapabilityContract",
+        "type": "object"
+      },
+      "DesignSystemCatalogContract": {
+        "properties": {
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/DesignCapabilityContract"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "compatible_with": {
+            "default": [
+              "1.x"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "Compatible With",
+            "type": "array"
+          },
+          "contract_version": {
+            "default": "1.0.0",
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "permissions": {
+            "$ref": "#/components/schemas/DesignSystemPermissionsContract"
+          }
+        },
+        "required": [
+          "permissions",
+          "capabilities"
+        ],
+        "title": "DesignSystemCatalogContract",
+        "type": "object"
+      },
+      "DesignSystemPermissionsContract": {
+        "properties": {
+          "can_customize_local": {
+            "default": true,
+            "title": "Can Customize Local",
+            "type": "boolean"
+          },
+          "can_publish_global": {
+            "default": false,
+            "title": "Can Publish Global",
+            "type": "boolean"
+          },
+          "can_view": {
+            "default": true,
+            "title": "Can View",
+            "type": "boolean"
+          }
+        },
+        "title": "DesignSystemPermissionsContract",
+        "type": "object"
+      },
+      "DesignTokenContract": {
+        "properties": {
+          "name": {
+            "pattern": "^--[a-z0-9-]+$",
+            "title": "Name",
+            "type": "string"
+          },
+          "purpose": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Purpose",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "purpose"
+        ],
+        "title": "DesignTokenContract",
+        "type": "object"
+      },
       "DiscoveredPrinter": {
         "properties": {
           "address": {
@@ -30060,6 +30216,55 @@
           }
         },
         "summary": "Post Update Checklist"
+      }
+    },
+    "/api/design-system/v1/capabilities": {
+      "get": {
+        "operationId": "list_capabilities_api_design_system_v1_capabilities_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesignSystemCatalogContract"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Capabilities",
+        "tags": [
+          "design-system"
+        ]
       }
     },
     "/api/finance/balance": {

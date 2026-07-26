@@ -30,6 +30,12 @@ class Boundary:
 
 BOUNDARIES = (
     Boundary(
+        "design_system",
+        "Design system",
+        "Tokens, componentes, estados e contratos visuais compartilhados.",
+        ("design_system",),
+    ),
+    Boundary(
         "identity",
         "Identidade e permissões",
         "Autenticação, sessão, organizações, autorização e auditoria de acesso.",

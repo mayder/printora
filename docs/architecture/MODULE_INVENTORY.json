@@ -2,6 +2,14 @@
   "schema_version": 1,
   "boundaries": [
     {
+      "key": "design_system",
+      "owner": "Design system",
+      "description": "Tokens, componentes, estados e contratos visuais compartilhados.",
+      "prefixes": [
+        "design_system"
+      ]
+    },
+    {
       "key": "identity",
       "owner": "Identidade e permissões",
       "description": "Autenticação, sessão, organizações, autorização e auditoria de acesso.",
@@ -96,14 +104,15 @@
     }
   ],
   "summary": {
-    "modules": 174,
-    "routes": 377,
-    "contracts": 389,
+    "modules": 179,
+    "routes": 378,
+    "contracts": 393,
     "tables": 156,
     "cycles": 0,
     "modules_by_owner": {
       "administration": 31,
       "community": 29,
+      "design_system": 5,
       "finance": 13,
       "identity": 13,
       "integrations": 7,
@@ -1022,6 +1031,67 @@
       "contracts": []
     },
     {
+      "module": "modules.design_system.__init__",
+      "owner": "design_system",
+      "lines": 1,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.design_system.api",
+      "owner": "design_system",
+      "lines": 10,
+      "imports": [
+        "modules.assembly",
+        "modules.design_system.routes"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.design_system.catalog",
+      "owner": "design_system",
+      "lines": 110,
+      "imports": [
+        "modules.design_system.contracts"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.design_system.contracts",
+      "owner": "design_system",
+      "lines": 42,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "DesignTokenContract",
+        "DesignCapabilityContract",
+        "DesignSystemPermissionsContract",
+        "DesignSystemCatalogContract"
+      ]
+    },
+    {
+      "module": "modules.design_system.routes",
+      "owner": "design_system",
+      "lines": 18,
+      "imports": [
+        "modules.design_system.catalog",
+        "modules.design_system.contracts",
+        "modules.identity.contracts",
+        "routes.auth"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/capabilities",
+          "handler": "list_capabilities"
+        }
+      ],
+      "contracts": []
+    },
+    {
       "module": "modules.finance.__init__",
       "owner": "finance",
       "lines": 1,
@@ -1562,11 +1632,12 @@
     {
       "module": "modules.registry",
       "owner": "shared",
-      "lines": 35,
+      "lines": 44,
       "imports": [
         "modules.administration.api",
         "modules.assembly",
         "modules.community.api",
+        "modules.design_system.api",
         "modules.finance.api",
         "modules.identity.api",
         "modules.integrations.api",

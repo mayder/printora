@@ -4,9 +4,9 @@
 
 ## Resumo
 
-- módulos Python: 174;
-- endpoints HTTP/WebSocket: 377;
-- contratos tipados: 389;
+- módulos Python: 179;
+- endpoints HTTP/WebSocket: 378;
+- contratos tipados: 393;
 - tabelas declaradas em SQL: 156;
 - ciclos de import detectados: 0.
 
@@ -14,6 +14,7 @@
 
 | Fronteira | Owner | Responsabilidade | Módulos | Tabelas |
 |---|---|---|---:|---:|
+| `design_system` | Design system | Tokens, componentes, estados e contratos visuais compartilhados. | 5 | 0 |
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 13 | 8 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 29 | 45 |
 | `finance` | Finanças e pedidos | Ledger, pedidos, pagamentos, reconciliação, risco e repasses. | 13 | 20 |
