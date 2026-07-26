@@ -2579,3 +2579,45 @@ Smoke após publicação autorizada:
 Rollback: restaurar a release N-1. Não executar SQL, apagar rascunho, restaurar
 snapshot ou interromper backend, worker, agente, Moonraker ou impressora. O
 endpoint é somente leitura e não possui cleanup.
+
+## PKG-102 — Acessibilidade Universal
+
+Validação local focada, sem tocar impressora ou serviço remoto:
+
+```bash
+cd backend
+uv run --extra dev pytest tests/test_accessibility.py tests/test_module_boundaries.py -q
+cd ../frontend
+npm run test:unit -- tests/unit/AccessibilityScreen.test.ts tests/unit/accessibilityUtilities.test.ts
+cd ..
+scripts/run-e2e-gate.sh accessibility.spec.ts
+```
+
+Banco:
+
+1. SQLite local aplica `backend/sql/086_accessibility_preferences.sql` no
+   bootstrap e cria backup somente quando o script estiver pendente;
+2. antes da release cloud, executar
+   `backend/sql/postgresql/018_accessibility_preferences.sql` pelo fluxo
+   privilegiado documentado;
+3. validar tabela, constraints, chave primária `user_id`, revisão, primeira
+   escrita, reexecução e conflito;
+4. não executar `DROP`, `DELETE`, cascade, cleanup ou restauração de snapshot.
+
+Smoke após publicação autorizada:
+
+1. autenticar com usuário sintético e confirmar oito capacidades;
+2. abrir lista, detalhe e editor;
+3. salvar preferências com `Idempotency-Key`, repetir a mesma requisição e
+   confirmar replay sem nova revisão;
+4. recarregar em outro contexto e confirmar sincronização;
+5. provocar revisão divergente e confirmar HTTP 409 sem sobrescrita;
+6. validar teclado, leitor de tela, 320 px, alto contraste, 200%, movimento
+   reduzido, offline e exportação tátil;
+7. confirmar que nenhum comando de impressora, agente, Moonraker ou firmware
+   foi emitido.
+
+Rollback: restaurar release N-1 e preservar
+`accessibility_preferences`. Não interromper backend, worker, agente,
+Moonraker ou impressora para limpar preferências. O schema é aditivo e pode
+permanecer sem consumidor.

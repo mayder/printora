@@ -2307,3 +2307,34 @@ Aceite de 2026-07-24:
   individual, SQL ou dependência de pacote posterior;
 - executar testes focados, build/budget, E2E autenticado, validador de
   dependências e `./check.sh`.
+
+## PKG-102: Acessibilidade universal
+
+- provar que catálogo e preferências exigem autenticação, mantêm contrato
+  `1.x`, payload limitado e cobertura exata de `CAP-09-01`–`CAP-09-08`,
+  `COM-0449`–`COM-0504` e `SCR-0065`–`SCR-0072`;
+- executar primeira aplicação e reexecução dos scripts
+  `086_accessibility_preferences.sql` e
+  `postgresql/018_accessibility_preferences.sql`, incluindo constraints,
+  execução concorrente e retomada sem `DROP`, `DELETE` ou duplicidade;
+- testar defaults sem escrita, primeira gravação, gravação inalterada,
+  atualização, `Idempotency-Key`, revisão divergente e isolamento entre dois
+  usuários;
+- rejeitar owner externo, campo desconhecido, enum inválido, escala fora de
+  100%–200%, payload sem chave idempotente e sessão ausente;
+- cobrir lista/filtro, detalhe e editor em rotas separadas, navegação
+  voltar/avançar e entrada direta nas oito famílias;
+- validar loading, vazio, erro, sucesso, parcial, offline, acesso negado e
+  conflito; timeout, `429` e `5xx` preservam a entrada e oferecem recuperação;
+- validar semântica, nomes, landmarks, regiões vivas, ordem/foco, teclado,
+  switch equivalente, rótulos para voz, contraste, zoom 400%, temas, redução de
+  movimento, legendas, transcrição, audiodescrição e linguagem simples;
+- validar alternativa textual da amostra 3D e exportações SVG/BRF menores que
+  32 KiB, sem HTML arbitrário, upload ou persistência;
+- bloquear overflow em 320, 375, 768, 1024 e 1440 px e comparar screenshots
+  desktop/mobile; Axe não permite violações críticas ou sérias;
+- executar testes backend/frontend focados, build/budget, E2E autenticado,
+  validador de dependências e `./check.sh`;
+- teste com pessoas representativas e publicação são evidências externas
+  separadas. Ausência deve ser registrada como risco residual, sem equivalência
+  a teste executado.

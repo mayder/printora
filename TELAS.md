@@ -448,6 +448,29 @@ erro/degradado, permissão por ação, confirmação forte e auditoria sanitizad
 - a tela é carregada sob demanda para preservar o orçamento da entrada. O CSS
   próprio também é isolado do bundle inicial.
 
+## Sistema > Acessibilidade
+
+- entrada: `?section=accessibility`;
+- as rotas `SCR-0065` a `SCR-0072` usam
+  `/community/accessibility/{capacidade}` para lista/filtro, `/detail` para
+  detalhe e `/edit` para criação/edição das preferências, sem misturar estados;
+- a lista expõe exatamente oito famílias, busca, rastreabilidade `CAP/COM/SCR`
+  e ação principal com nome acessível;
+- o detalhe apresenta contrato, evidências, rollback, alternativa textual da
+  amostra 3D, transcrição/audiodescrição e exportação tátil SVG/BRF;
+- o editor sincroniza uma preferência por usuário com revisão explícita,
+  conflito entre dispositivos, retry idempotente e preservação local durante
+  falha de rede;
+- tema, escala de 100% a 200%, contraste, movimento, teclado/switch, voz,
+  anúncios, legendas, audiodescrição, linguagem simples, carga cognitiva e
+  alternativas 3D são campos limitados, sem texto livre ou diagnóstico;
+- estados loading, vazio, erro, sucesso, parcial, offline, acesso negado e
+  conflito são textuais, recuperáveis e não dependem somente de cor;
+- layout, foco e ação principal permanecem operáveis a 320, 375, 768, 1024 e
+  1440 px, em tema claro/escuro, zoom e movimento reduzido;
+- a tela e clients são carregados sob demanda. A preferência sincronizada é
+  aplicada no shell após autenticação e nunca concede permissão operacional.
+
 ## Boundary De Preferências Locais
 
 Tema e progresso do guia de setup preservam o comportamento visual atual, mas

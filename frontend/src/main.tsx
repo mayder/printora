@@ -62,6 +62,11 @@ const DesignSystemScreen = lazy(async () => {
   return { default: module.DesignSystemScreen };
 });
 
+const AccessibilityScreen = lazy(async () => {
+  const module = await import("./screens/AccessibilityScreen");
+  return { default: module.AccessibilityScreen };
+});
+
 type AccountTab = "profile" | "organizations";
 
 function openAccountTab(tab: AccountTab, setActiveSection: (section: AppSection) => void) {
@@ -120,6 +125,22 @@ function App() {
     }
   }, [publicCommunitySlug, embeddedProfileSlug, setActiveSection]);
   const userLabel = screenProps.authUser?.display_name || screenProps.authUser?.email || "Conta";
+  useEffect(() => {
+    if (!screenProps.authUser) return;
+    let active = true;
+    void Promise.all([
+      import("./services/accessibilityApi"),
+      import("./services/accessibilityDocument"),
+    ]).then(async ([apiModule, documentModule]) => {
+      const preferences = await apiModule.accessibilityApi.preferences();
+      if (active) {
+        documentModule.applyAccessibilityPreferences(preferences);
+      }
+    }).catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [screenProps.authUser?.id]);
   const accountMenuItems = [
     { label: "Organizações", icon: Users, tab: "organizations" as const },
     { label: "Perfil", icon: UserRound, tab: "profile" as const },
@@ -178,6 +199,12 @@ function App() {
         return (
           <Suspense fallback={<section aria-live="polite">Carregando design system.</section>}>
             <DesignSystemScreen confirmAction={screenProps.confirmAction} />
+          </Suspense>
+        );
+      case "accessibility":
+        return (
+          <Suspense fallback={<section aria-live="polite">Carregando acessibilidade.</section>}>
+            <AccessibilityScreen />
           </Suspense>
         );
       case "account":
@@ -247,7 +274,12 @@ function App() {
                     type="button"
                     className={`nav-button ${shellSection === section.key ? "active" : ""}`}
                     onClick={() => {
-                      if (window.location.pathname.startsWith("/community/design_system/") || section.key === "design-system") {
+                      if (
+                        window.location.pathname.startsWith("/community/design_system/")
+                        || window.location.pathname.startsWith("/community/accessibility/")
+                        || section.key === "design-system"
+                        || section.key === "accessibility"
+                      ) {
                         window.history.pushState(null, "", `/?section=${section.key}`);
                       }
                       setActiveSection(section.key);

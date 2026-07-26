@@ -2168,6 +2168,9 @@ conflitos não sobrescrevem silenciosamente e a aplicação local continua
 funcionando durante falha de rede. O payload é pequeno e minimizado, mas deve
 ser tratado como dado pessoal sensível por inferência e nunca aparecer em logs.
 Configurações da organização e diagnóstico clínico permanecem fora do escopo.
+O shell carrega o client de preferências sob demanda e a tela possui chunk
+próprio. O teto gzip total passa de 845.000 para 855.000 bytes; os tetos da
+entrada, asset individual, stylesheet e total bruto não aumentam.
 
 Impacto em testes: cobrir isolamento entre usuários, primeira escrita,
 reexecução, revisão divergente, concorrência, contrato N/N-1, SQL idempotente,

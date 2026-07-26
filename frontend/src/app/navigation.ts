@@ -1,4 +1,4 @@
-import { Activity, BrainCircuit, Database, Factory, FileArchive, FileText, Home, Info, Landmark, Network, Palette, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
+import { Accessibility as AccessibilityIcon, Activity, BrainCircuit, Database, Factory, FileArchive, FileText, Home, Info, Landmark, Network, Palette, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
@@ -22,6 +22,7 @@ export type AppSection =
   | "manufacturing"
   | "data-intelligence"
   | "design-system"
+  | "accessibility"
   | "account"
   | "about"
   | "license";
@@ -33,6 +34,13 @@ export const appSections: Array<{
   detail: string;
   purpose: string;
 }> = [
+  {
+    key: "accessibility",
+    icon: AccessibilityIcon,
+    label: "Acessibilidade",
+    detail: "Preferências sincronizadas e alternativas equivalentes.",
+    purpose: "Ajuste visual, movimento, navegação, mídia, compreensão e alternativas 3D em todos os dispositivos.",
+  },
   {
     key: "design-system",
     icon: Palette,
@@ -198,7 +206,7 @@ export const appSections: Array<{
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
   { title: "Principal", sections: ["overview", "printers", "agents", "projects", "social", "catalog", "setup"] },
-  { title: "Sistema", sections: ["finance", "manufacturing", "data-intelligence", "design-system", "settings"] },
+  { title: "Sistema", sections: ["accessibility", "finance", "manufacturing", "data-intelligence", "design-system", "settings"] },
 ];
 
 export const onlinePrinterSections = new Set<AppSection>([
@@ -242,6 +250,7 @@ export function canUsePrinterTab(sectionKey: AppSection, printerAvailability: Pr
 }
 
 export function getInitialSection(): AppSection {
+  if (window.location.pathname.startsWith("/community/accessibility/")) return "accessibility";
   if (window.location.pathname.startsWith("/community/design_system/")) return "design-system";
   const section = new URLSearchParams(window.location.search).get("section") ?? window.location.hash.replace("#", "");
   if (section === "operation") return "monitoring";
