@@ -27,20 +27,24 @@ export type AppSection =
   | "about"
   | "license";
 
-export const appSections: Array<{
+type AppSectionDefinition = {
   key: AppSection;
   icon: LucideIcon;
   label: string;
   detail: string;
   purpose: string;
-}> = [
-  {
-    key: "accessibility",
-    icon: AccessibilityIcon,
-    label: "Acessibilidade",
-    detail: "Preferências sincronizadas e alternativas equivalentes.",
-    purpose: "Ajuste visual, movimento, navegação, mídia, compreensão e alternativas 3D em todos os dispositivos.",
-  },
+};
+
+export const accessibilitySection: AppSectionDefinition = {
+  key: "accessibility",
+  icon: AccessibilityIcon,
+  label: "Acessibilidade",
+  detail: "Preferências sincronizadas e alternativas equivalentes.",
+  purpose: "Ajuste visual, movimento, navegação, mídia, compreensão e alternativas 3D em todos os dispositivos.",
+};
+
+export const appSections: AppSectionDefinition[] = [
+  accessibilitySection,
   {
     key: "design-system",
     icon: Palette,

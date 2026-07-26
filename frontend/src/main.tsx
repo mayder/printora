@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Bell, ChevronDown, Info, LogOut, Menu, UserRound, Users, X } from "lucide-react";
-import { appSections } from "./app/navigation";
+import { accessibilitySection, appSections } from "./app/navigation";
 import type { AppSection } from "./app/navigation";
 import { AppModals } from "./components/modals";
 import { ToastViewport } from "./components/ToastViewport";
@@ -67,9 +67,13 @@ const AccessibilityScreen = lazy(async () => {
   return { default: module.AccessibilityScreen };
 });
 
-type AccountTab = "profile" | "organizations";
+type AccountTab = "profile" | "organizations" | "accessibility";
 
 function openAccountTab(tab: AccountTab, setActiveSection: (section: AppSection) => void) {
+  if (tab === "accessibility") {
+    window.history.pushState(null, "", "/?section=accessibility");
+    return setActiveSection(tab);
+  }
   (window as Window & { printoraAccountTab?: AccountTab }).printoraAccountTab = tab;
   setActiveSection("account");
   window.setTimeout(() => {
@@ -142,6 +146,7 @@ function App() {
     };
   }, [screenProps.authUser?.id]);
   const accountMenuItems = [
+    { label: "Acessibilidade", icon: accessibilitySection.icon, tab: "accessibility" as const },
     { label: "Organizações", icon: Users, tab: "organizations" as const },
     { label: "Perfil", icon: UserRound, tab: "profile" as const },
   ];
@@ -284,13 +289,12 @@ function App() {
                         || window.location.pathname.startsWith("/community/accessibility/")
                         || section.key === "design-system"
                         || section.key === "accessibility"
+                        || publicCommunitySlug
+                        || embeddedProfileSlug
                       ) {
                         window.history.pushState(null, "", `/?section=${section.key}`);
                       }
                       setActiveSection(section.key);
-                      if (publicCommunitySlug || embeddedProfileSlug) {
-                        window.history.pushState(null, "", `/?section=${section.key}`);
-                      }
                       setMobileNavOpen(false);
                     }}
                   >

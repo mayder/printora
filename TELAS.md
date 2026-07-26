@@ -454,6 +454,9 @@ erro/degradado, permissão por ação, confirmação forte e auditoria sanitizad
 ## Sistema > Acessibilidade
 
 - entrada: `?section=accessibility`;
+- o menu global da conta, aberto pela foto/avatar no cabeçalho, mantém o item
+  `Acessibilidade` visível em desktop e mobile; o item do menu lateral permanece
+  disponível e ambos abrem a mesma Central;
 - as rotas `SCR-0065` a `SCR-0072` usam
   `/community/accessibility/{capacidade}` para lista/filtro, `/detail` para
   detalhe e `/edit` para criação/edição das preferências, sem misturar estados;

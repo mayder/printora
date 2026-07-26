@@ -18,6 +18,13 @@ test("login, tema, navegação por teclado e logout", async ({
   }
 
   await page.locator(".account-menu-button").click();
+  await page.getByRole("menuitem", { name: "Acessibilidade" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Central de acessibilidade", exact: true }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/section=accessibility/);
+
+  await page.locator(".account-menu-button").click();
   const logoutResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
