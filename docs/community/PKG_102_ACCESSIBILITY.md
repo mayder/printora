@@ -213,3 +213,10 @@ de autorização separada. Rollback usa release N-1 e preserva schema/dados.
 9. jornada integrada, piloto local, benefício/dano e falhas;
 10. revisão dos 56 `COM`, oito `SCR`, documentação, gate e commits.
 
+## Evidência De Fechamento
+
+A matriz final, os testes executados, a ordem dos scripts SQL, os limites de
+rollout e o rollback estão registrados em `PKG_102_EVIDENCE.md`. Publicação,
+execução remota do SQL e piloto com pessoas representativas permanecem etapas
+externas condicionadas a autorização; não foram substituídas por evidência
+local.

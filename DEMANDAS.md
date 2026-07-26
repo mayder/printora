@@ -361,7 +361,17 @@ Rollback:
 
 Estado atual:
 
-- Planejado; implementação não iniciada. Executar somente depois de todas as dependências listadas estarem concluídas.
+- Concluído em 2026-07-26. Os dez lotes, `CAP-09-01`–`CAP-09-08`,
+  `COM-0449`–`COM-0504` e `SCR-0065`–`SCR-0072` possuem evidência em
+  `docs/community/PKG_102_EVIDENCE.md`.
+- Contrato backend, preferências sincronizadas, lista/filtro, detalhe, editor,
+  alternativas de mídia/3D, artefato tátil, responsividade, acessibilidade,
+  falhas, concorrência e regressão visual foram implementados e validados.
+- Os scripts `backend/sql/086_accessibility_preferences.sql` e
+  `backend/sql/postgresql/018_accessibility_preferences.sql` são aditivos e
+  idempotentes. Nenhuma exclusão de dado ou comando físico foi executado.
+- Publicação, SQL remoto e piloto com pessoas representativas não foram
+  executados e dependem de autorização e coordenação separadas.
 
 ## PKG-103: Mobilidade, PWA e uso em campo
 
