@@ -29,6 +29,43 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260726-01 - Backlog ativo separado do histórico consolidado
+
+Status: aceita
+Data: 2026-07-26
+Contexto: `DEMANDAS.md` acumulava os detalhes completos de cem pacotes
+consolidados e ainda precisava receber o programa comunitário plurianual com 55
+frentes, 440 capacidades, 3.080 requisitos atômicos e 440 famílias de tela.
+Manter tudo no mesmo fluxo dificultaria localizar trabalho ativo, enquanto
+resumir ou apagar os pacotes antigos destruiria contexto, riscos e evidências.
+Decisao: preservar integralmente o antigo `DEMANDAS.md` em
+`DEMANDAS_CONSOLIDADAS_PKG_01_100.md` e usar `DEMANDAS.md` como backlog
+executável ativo. Os pacotes `PKG-101` a `PKG-155` são numerados em ordem
+topológica de implementação, dependem somente de IDs menores, correspondem uma
+vez cada às 55 frentes e referenciam intervalos exclusivos de `COM`, `CAP` e
+`SCR`. Prioridade social P0-P4 permanece atributo independente da numeração. O
+número 101 não representa pacote de evidência residual: esse pacote nunca foi
+registrado, e as dispensas históricas permanecem nos PKG-97 e PKG-98. O gate
+`scripts/validate-demand-package-dependencies.py` impede lacuna, referência
+futura e ausência de declaração de entrega isolada.
+Alternativas consideradas: manter todos os pacotes no mesmo arquivo; resumir os
+pacotes antigos; criar poucos pacotes genéricos sem rastreabilidade atômica;
+criar um pacote por cada um dos 3.080 itens.
+Consequencias: janelas futuras encontram somente trabalho ativo no arquivo
+principal, executam os pacotes em ordem numérica e continuam capazes de
+consultar a descrição histórica integral. Cada pacote comunitário possui oito
+lotes de capacidade, dependências anteriores explícitas e cobre as sete lentes
+de entrega e a família de tela correspondente, evitando perda, sobreposição e
+espera por pacote futuro.
+Impacto em testes: validação documental de contagem, intervalos sem lacunas,
+IDs únicos, links, diff e `./check.sh`; não altera runtime, banco ou servidor.
+Impacto em rollback: baixo e somente documental.
+Como reverter: restaurar o conteúdo histórico como `DEMANDAS.md` e remover a
+separação, preservando o arquivo comunitário antes da reversão.
+Referencias: `DEMANDAS.md`, `DEMANDAS_CONSOLIDADAS_PKG_01_100.md`,
+`docs/community/COMMUNITY_BACKLOG.md`,
+`docs/community/COMMUNITY_SCREENS.md`, `docs/community/MASTER_PLAN.md`.
+
 ### DEC-20260720-05 - Operação ociosa mostra atalhos, não gerenciador de arquivos
 
 Status: aceita

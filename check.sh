@@ -64,6 +64,9 @@ node frontend/tests/nodeVersionGate.test.mjs
 
 run_model_validations
 
+log "validando dependências dos pacotes comunitários"
+python3 scripts/validate-demand-package-dependencies.py
+
 log "validando inventário modular"
 python3 scripts/audit_module_boundaries.py --check >/dev/null
 

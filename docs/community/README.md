@@ -14,6 +14,11 @@ Este diretório é a fonte complementar do backlog para a evolução do Printora
 
 ## Arquivos
 
+- `../../DEMANDAS.md`: pacotes executáveis `PKG-101` a `PKG-155`, com
+  ordem topológica, dependências somente anteriores e rastreabilidade exata
+  para todos os IDs `COM`, `CAP` e `SCR`.
+- `../../DEMANDAS_CONSOLIDADAS_PKG_01_100.md`: histórico integral dos pacotes
+  consolidados anteriores ao programa comunitário.
 - `MASTER_PLAN.md`: visão, diagnóstico atual, método, arquitetura e fases.
 - `PLATFORM_BENCHMARK.md`: comparação de plataformas e padrões a absorver ou evitar.
 - `COMMUNITY_BACKLOG.md`: lista humana de todos os itens atômicos.
@@ -29,7 +34,8 @@ O inventário é um mapa de possibilidades, não autorização para implementar 
 
 1. validar o problema com pessoas afetadas;
 2. auditar novamente o que já existe no Printora;
-3. recortar um pacote pequeno em `DEMANDAS.md`;
+3. localizar o pacote e os IDs `COM`, `CAP` e `SCR` atribuídos em
+   `DEMANDAS.md`, sem criar pacote paralelo ou sobreposto;
 4. definir telas em `TELAS.md`, testes em `TESTES.md` e decisões relevantes em `DECISOES.md`;
 5. pilotar com métricas de benefício e dano;
 6. expandir somente quando o resultado justificar o custo e o risco.

@@ -11,6 +11,10 @@ Ordem de leitura obrigatória:
 3. `GOVERNANCA.md`
 4. `DEMANDAS.md`
 
+`DEMANDAS.md` contém somente o backlog executável ativo. Pacotes consolidados
+ficam preservados integralmente em `DEMANDAS_CONSOLIDADAS_PKG_01_100.md`; o
+arquivo histórico é fonte de consulta e não recebe novos lotes.
+
 ## Estratégia Técnica Inicial
 
 O projeto deve começar como documentação e especificação operacional. Código só deve ser criado depois que os fluxos críticos estiverem descritos e priorizados.
@@ -145,6 +149,10 @@ Módulo não deve importar detalhe interno de outro módulo sem contrato explíc
 - Durante lotes, rodar teste raso e direcionado.
 - No fechamento do pacote, rodar validação completa, revisar regressões e fazer commit.
 - O commit de fechamento não exige push.
+- Pacote comunitário só pode depender de pacote com ID menor e deve entregar
+  uma fatia vertical utilizável, publicável e reversível sem pacote futuro.
+- `scripts/validate-demand-package-dependencies.py` bloqueia lacuna, referência
+  futura e pacote sem declaração de entrega isolada.
 
 ### Bug e melhoria simples
 
