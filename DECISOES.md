@@ -2141,3 +2141,41 @@ anterior permanecem inertes.
 
 Como reverter: restaurar a release N-1. Não executar SQL, limpeza de banco ou
 remoção automática de dados locais.
+
+### DEC-20260726-06 - Preferências acessíveis são sincronizadas por conta
+
+Status: aceita
+Data: 2026-07-26
+Contexto: o rascunho local do design system não representa uma preferência
+pessoal durável e não sincroniza adaptações entre dispositivos. Preferências de
+contraste, escala, movimento, semântica e mídia também podem revelar
+necessidades pessoais por inferência, portanto não devem virar texto livre,
+telemetria individual ou configuração global.
+
+Decisão: o owner `accessibility` expõe catálogo imutável e uma entidade
+`AccessibilityPreferences` por usuário autenticado. A persistência aceita
+somente enums, booleanos, escala limitada e revisão monotônica. Escritas usam
+idempotência e compare-and-swap por revisão; o owner vem da sessão e não do
+payload. Os scripts SQLite e PostgreSQL são aditivos e idempotentes, usam
+`ON DELETE RESTRICT` e não incluem exclusão ou cleanup.
+
+Alternativas consideradas: manter tudo no navegador; armazenar diagnóstico e
+justificativa; criar preferências por organização; reutilizar o rascunho do
+PKG-101; criar uma tabela por capacidade.
+
+Consequências: uma conta recebe o mesmo perfil em dispositivos diferentes,
+conflitos não sobrescrevem silenciosamente e a aplicação local continua
+funcionando durante falha de rede. O payload é pequeno e minimizado, mas deve
+ser tratado como dado pessoal sensível por inferência e nunca aparecer em logs.
+Configurações da organização e diagnóstico clínico permanecem fora do escopo.
+
+Impacto em testes: cobrir isolamento entre usuários, primeira escrita,
+reexecução, revisão divergente, concorrência, contrato N/N-1, SQL idempotente,
+aplicação local, offline, teclado, leitor de tela, zoom, contraste e redução de
+movimento.
+
+Impacto em rollback: baixo a médio. A release N-1 ignora a tabela aditiva e as
+linhas permanecem preservadas, sem dual-write ou efeito operacional.
+
+Como reverter: restaurar a release N-1 e manter schema/dados sem consumidores.
+Não executar `DROP`, `DELETE`, limpeza automática ou restauração de snapshot.
