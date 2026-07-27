@@ -145,6 +145,9 @@ repetido pelo `check.sh`. A publicação cria frontend e venv imutáveis dentro 
 inativo em `8069` ou `8070`, valida `/ready`, `/health` e catálogo, testa a
 configuração Nginx, troca o upstream atomicamente e só então drena o slot
 anterior. Um preflight definitivo é repetido imediatamente antes do upload.
+Se a prontidão de recuperação bloquear essa etapa, o workflow publica o relatório
+sanitizado com a causa específica, sem expor credenciais, para evitar reruns
+cegos do mesmo SHA.
 Não existe fallback para matar processo manualmente ou atualizar venv
 compartilhado. O usuário `deploy` só recebe sudo para os comandos fixos do
 blue/green e da retenção definidos em

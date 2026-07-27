@@ -231,7 +231,16 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Validate definitive privileged preflight
-        run: ssh -i ~/.ssh/printora_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" sudo -n /usr/local/sbin/printora-cloud-preflight
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/printora_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" '
+            if sudo -n /usr/local/sbin/printora-cloud-preflight; then
+              exit 0
+            fi
+            echo "::error::Diagnóstico seguro do recovery readiness:"
+            sudo -n /usr/local/libexec/printora-cloud/recovery-readiness.py || true
+            exit 1
+          '
 
       - name: Upload release bundle
         run: |

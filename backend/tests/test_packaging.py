@@ -125,6 +125,7 @@ def test_cloud_blue_green_packaging_is_independent_and_fail_closed() -> None:
     assert "RUN_FRONTEND_CHECKS=1" in workflow
     assert "printora-cloud-preflight --quick" in workflow
     assert "Validate definitive privileged preflight" in workflow
+    assert "Diagnóstico seguro do recovery readiness" in workflow
     assert "printora-cloud-retain-releases --apply" in workflow
     assert "--exclude='.artifacts'" in workflow
     assert "ServerAliveInterval=30" in workflow
@@ -405,6 +406,7 @@ def test_cloud_runtime_is_postgresql_only_after_transition_cleanup() -> None:
     assert "postgresql_environment" in preflight
     assert "postgresql_runtime" in preflight
     assert "postgresql@16-printora.service" in preflight
+    assert "check_with_diagnostics recovery_readiness" in preflight
     assert "postgresql-canary" not in sudoers
     assert "postgresql-cutover" not in sudoers
 

@@ -22,6 +22,19 @@ check() {
   fi
 }
 
+check_with_diagnostics() {
+  local label="$1"
+  local output
+  shift
+  if output="$("$@" 2>&1)"; then
+    echo "check=$label status=ok"
+  else
+    echo "check=$label status=failed"
+    [[ -z "$output" ]] || printf 'diagnostic=%s\n' "$output" >&2
+    failures=$((failures + 1))
+  fi
+}
+
 validate_backup_target() {
   local config="$PRINTORA_BASE_PATH/shared/backup-target.conf"
   [[ "$(stat -c '%a' "$config")" == "600" ]] || return 1
@@ -180,7 +193,7 @@ check recomposable_redis validate_recomposable_redis
 check object_storage validate_object_storage
 if [[ "$mode" != "--quick" ]]; then
   check backup_repository validate_backup_repository
-  check recovery_readiness validate_recovery_readiness
+  check_with_diagnostics recovery_readiness validate_recovery_readiness
 fi
 
 [[ "$failures" -eq 0 ]] || fail "$failures item(ns) de preflight falharam"
