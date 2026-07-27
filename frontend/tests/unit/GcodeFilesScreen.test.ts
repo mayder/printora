@@ -1,6 +1,6 @@
 import { createElement } from "react";
-import { render, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PrintoraScreenProps } from "../../src/hooks/usePrintoraApp";
 
 const { gcodeFilesMock } = vi.hoisted(() => ({
@@ -25,6 +25,10 @@ function props(showToast: PrintoraScreenProps["showToast"]): PrintoraScreenProps
 }
 
 describe("GcodeFilesScreen", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     gcodeFilesMock.mockReset();
     gcodeFilesMock.mockResolvedValue({
