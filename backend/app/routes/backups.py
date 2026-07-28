@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+from pathlib import Path, PurePosixPath
+
 from fastapi import Depends
 
-from app.routes.auth import require_current_user_when_configured
+from app.modules.identity.contracts import CurrentUser
+from app.platform_access import is_platform_admin
+from app.routes.auth import require_current_user, require_current_user_when_configured
 from app.routes.support import *
 
 router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
+
+
+def require_backup_administrator(
+    current: CurrentUser = Depends(require_current_user),
+) -> CurrentUser:
+    if not is_platform_admin(current.user.email):
+        raise HTTPException(status_code=403, detail="acesso restrito ao administrador da plataforma")
+    return current
 
 
 @router.get("/api/printers/{printer_id}/backup/policies")
@@ -51,7 +63,11 @@ async def list_backup_runs(printer_id: int, limit: int = 20) -> dict[str, list[B
 @router.post("/api/backup/policies/{policy_id}/dry-run")
 async def create_backup_dry_run(policy_id: int) -> BackupRunRecord:
     settings = get_settings()
+    printer_repository = get_printer_repository(settings)
     backup_repository = get_backup_repository(settings)
+    policy = backup_repository.get_policy(policy_id)
+    if policy is None or printer_repository.get_printer(policy.printer_id) is None:
+        raise HTTPException(status_code=404, detail="backup policy not found")
     run = backup_repository.create_dry_run(policy_id)
     if run is None:
         raise HTTPException(status_code=404, detail="backup policy not found")
@@ -66,16 +82,17 @@ async def execute_local_backup(policy_id: int) -> BackupRunRecord:
     import json
 
     settings = get_settings()
+    printer_repository = get_printer_repository(settings)
     backup_repository = get_backup_repository(settings)
     policy = backup_repository.get_policy(policy_id)
-    if policy is None:
+    if policy is None or printer_repository.get_printer(policy.printer_id) is None:
         raise HTTPException(status_code=404, detail="backup policy not found")
     if policy.dry_run_only:
         run = backup_repository.execute_local_backup(policy_id)
         if run is None:
             raise HTTPException(status_code=404, detail="backup policy not found")
         return run
-    printer_repository = get_printer_repository(settings)
+    _validate_remote_backup_policy(policy)
     printer = printer_repository.get_printer(policy.printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
@@ -115,6 +132,17 @@ async def execute_local_backup(policy_id: int) -> BackupRunRecord:
         total_bytes=int(payload.get("total_bytes") or 0),
         message=str(payload.get("message") or ""),
     )
+
+
+def _validate_remote_backup_policy(policy: BackupPolicyRecord) -> None:
+    source = PurePosixPath(policy.source_path)
+    destination = PurePosixPath(policy.destination_path)
+    allowed_source = PurePosixPath("/home/pi/printer_data/config")
+    allowed_destination = PurePosixPath("/home/pi/printer_data/backups")
+    if source != allowed_source:
+        raise HTTPException(status_code=400, detail="origem remota fora do diretório permitido")
+    if destination != allowed_destination and allowed_destination not in destination.parents:
+        raise HTTPException(status_code=400, detail="destino remoto fora do diretório permitido")
 
 
 def _agent_backup_script(policy_payload_b64: str) -> str:
@@ -164,7 +192,13 @@ PY
 
 
 @router.post("/api/backup/archives/compare")
-async def compare_backup_archives_endpoint(payload: BackupArchiveCompareRequest) -> BackupArchiveCompareResponse:
+async def compare_backup_archives_endpoint(
+    payload: BackupArchiveCompareRequest,
+    _current: CurrentUser = Depends(require_backup_administrator),
+) -> BackupArchiveCompareResponse:
+    settings = get_settings()
+    _require_managed_path(payload.base_archive_path, settings.data_dir / "backups", "arquivo base")
+    _require_managed_path(payload.target_archive_path, settings.data_dir / "backups", "arquivo alvo")
     try:
         return compare_backup_archives(payload)
     except Exception as exc:
@@ -174,7 +208,13 @@ async def compare_backup_archives_endpoint(payload: BackupArchiveCompareRequest)
 
 
 @router.post("/api/backup/restore-plan")
-async def backup_restore_plan(payload: BackupRestorePlanRequest) -> BackupRestorePlanResponse:
+async def backup_restore_plan(
+    payload: BackupRestorePlanRequest,
+    _current: CurrentUser = Depends(require_backup_administrator),
+) -> BackupRestorePlanResponse:
+    settings = get_settings()
+    _require_managed_path(payload.archive_path, settings.data_dir / "backups", "arquivo de backup")
+    _require_managed_path(payload.restore_root, settings.data_dir / "restore", "diretório de restauração")
     try:
         return build_backup_restore_plan(payload)
     except Exception as exc:
@@ -184,8 +224,22 @@ async def backup_restore_plan(payload: BackupRestorePlanRequest) -> BackupRestor
 
 
 @router.post("/api/backup/restore-gate")
-async def backup_restore_gate(payload: BackupRestoreExecuteRequest) -> BackupRestoreGateResponse:
+async def backup_restore_gate(
+    payload: BackupRestoreExecuteRequest,
+    _current: CurrentUser = Depends(require_backup_administrator),
+) -> BackupRestoreGateResponse:
+    settings = get_settings()
+    _require_managed_path(payload.archive_path, settings.data_dir / "backups", "arquivo de backup")
+    _require_managed_path(payload.restore_root, settings.data_dir / "restore", "diretório de restauração")
     try:
         return build_backup_restore_gate(payload)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _require_managed_path(value: str, root: Path, label: str) -> Path:
+    resolved_root = root.resolve()
+    resolved = Path(value).expanduser().resolve()
+    if resolved != resolved_root and resolved_root not in resolved.parents:
+        raise HTTPException(status_code=400, detail=f"{label} fora do diretório gerenciado")
+    return resolved

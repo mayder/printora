@@ -6,7 +6,11 @@ import re
 import textwrap
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+ALLOWED_REMEDIATION_SECTIONS = {"heater_bed", "extruder"}
+ALLOWED_REMEDIATION_OPTIONS = {"pid_Kp", "pid_Ki", "pid_Kd"}
 
 
 class ConfigOptionPatch(BaseModel):
@@ -46,10 +50,24 @@ class ConfigRemediationRequest(BaseModel):
             raise ValueError("seção inválida")
         return clean
 
+    @model_validator(mode="after")
+    def validate_calibration_scope(self) -> "ConfigRemediationRequest":
+        if self.section not in ALLOWED_REMEDIATION_SECTIONS:
+            raise ValueError("seção fora do escopo de calibração permitido")
+        if any(item.option not in ALLOWED_REMEDIATION_OPTIONS for item in self.options):
+            raise ValueError("opção fora do escopo de calibração permitido")
+        return self
+
 
 class ConfigRemediationApplyRequest(ConfigRemediationRequest):
     target_ids: list[str] = Field(min_length=1, max_length=20)
     step_up_token: str | None = Field(default=None, max_length=160)
+
+    @model_validator(mode="after")
+    def validate_execution_binding(self) -> "ConfigRemediationApplyRequest":
+        if self.execution_id is None or not self.source.startswith("calibration:"):
+            raise ValueError("aplicação exige execução de calibração vinculada")
+        return self
 
 
 def build_config_remediation_script(

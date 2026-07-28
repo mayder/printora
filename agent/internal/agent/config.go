@@ -15,6 +15,7 @@ const Version = "0.1.36"
 const ProtocolVersion = 1
 
 const releaseSignatureAlgorithm = "ed25519-sha256"
+const releaseSignatureScope = "printora-agent-release-v1"
 const releaseSigningKeyID = "sha256:e241d16ebb469da7436ff050a36212635557eab1322495a2c62e2ca6caf24cdc"
 
 var releasePublicKeyBase64 = "dK8RtUcm2hdrv0CFCNMFago1e+8RmT3ab9fbDyK8hmg="

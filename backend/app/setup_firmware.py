@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -353,11 +354,11 @@ def _remote_build_script(request: SetupFirmwareBuildRequest, build_output: str, 
     config_name = Path(_preset(request.preset_id).config_file).name
     binary_name = Path(build_output).name
     return f"""set -euo pipefail
-KLIPPER_PATH="{klipper}"
-OUTPUT_ROOT="{output_root}"
-BOARD_SLUG="{board_slug}"
-CAN_IFACE="{request.can_interface}"
-BUILD_OUTPUT="{build_output}"
+KLIPPER_PATH={shlex.quote(klipper)}
+OUTPUT_ROOT={shlex.quote(output_root)}
+BOARD_SLUG={shlex.quote(board_slug)}
+CAN_IFACE={shlex.quote(request.can_interface)}
+BUILD_OUTPUT={shlex.quote(build_output)}
 ARTIFACT_DIR="$OUTPUT_ROOT/$BOARD_SLUG"
 GENERATED_DIR="$ARTIFACT_DIR/generated"
 LOG_DIR="$ARTIFACT_DIR/logs"

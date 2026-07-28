@@ -42,7 +42,11 @@ async def create_maintenance_event(
 @router.delete("/api/maintenance/events/{event_id}")
 async def delete_maintenance_event(event_id: int) -> MaintenanceEventRecord:
     settings = get_settings()
+    printer_repository = get_printer_repository(settings)
     maintenance_repository = get_maintenance_repository(settings)
+    existing = maintenance_repository.get_event(event_id)
+    if existing is None or printer_repository.get_printer(existing.printer_id) is None:
+        raise HTTPException(status_code=404, detail="maintenance event not found")
     event = maintenance_repository.delete_event(event_id)
     if event is None:
         raise HTTPException(status_code=404, detail="maintenance event not found")
@@ -141,7 +145,7 @@ async def complete_maintenance_task(
     printer_repository = get_printer_repository(settings)
     maintenance_repository = get_maintenance_repository(settings)
     task = maintenance_repository.get_task(task_id)
-    if task is None:
+    if task is None or printer_repository.get_printer(task.printer_id) is None:
         raise HTTPException(status_code=404, detail="maintenance task not found")
     interval_kind = payload.next_interval_kind or task.interval_kind
     if interval_kind == "print_hours" and payload.print_hours_at is None:
@@ -175,7 +179,11 @@ async def update_maintenance_task_applicability(
     payload: MaintenanceTaskApplicabilityUpdate,
 ) -> MaintenanceTaskRecord:
     settings = get_settings()
+    printer_repository = get_printer_repository(settings)
     maintenance_repository = get_maintenance_repository(settings)
+    existing = maintenance_repository.get_task(task_id)
+    if existing is None or printer_repository.get_printer(existing.printer_id) is None:
+        raise HTTPException(status_code=404, detail="maintenance task not found")
     task = maintenance_repository.update_task_applicability(task_id, payload)
     if task is None:
         raise HTTPException(status_code=404, detail="maintenance task not found")
@@ -187,7 +195,11 @@ async def update_maintenance_task_applicability(
 @router.delete("/api/maintenance/tasks/{task_id}/latest-event")
 async def delete_latest_maintenance_task_event(task_id: int) -> MaintenanceEventRecord:
     settings = get_settings()
+    printer_repository = get_printer_repository(settings)
     maintenance_repository = get_maintenance_repository(settings)
+    task = maintenance_repository.get_task(task_id)
+    if task is None or printer_repository.get_printer(task.printer_id) is None:
+        raise HTTPException(status_code=404, detail="maintenance task event not found")
     event = maintenance_repository.delete_latest_task_event(task_id)
     if event is None:
         raise HTTPException(status_code=404, detail="maintenance task event not found")

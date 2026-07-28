@@ -38,7 +38,10 @@ class QualityRequest(BaseModel):
     measurement: dict[str, Any]
     passed: bool
     evidence_object_key: str = Field(min_length=3, max_length=500)
-    approver_user_id: int = Field(gt=0)
+
+
+class QualityApprovalRequest(BaseModel):
+    check_key: str = Field(min_length=2, max_length=120)
 
 
 class ShipmentRequest(BaseModel):

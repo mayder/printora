@@ -1094,10 +1094,11 @@ func TestAgentHandlesRemoteSelfUpdateJob(t *testing.T) {
 				SigningKeyID:       releaseSigningKeyID,
 				AutoUpdate:         true,
 				Releases: []UpdateRelease{{
-					Platform:    Platform(),
-					Version:     Version,
-					ProtocolMin: ProtocolVersion,
-					ProtocolMax: ProtocolVersion,
+					Platform:       Platform(),
+					Version:        Version,
+					SignatureScope: releaseSignatureScope,
+					ProtocolMin:    ProtocolVersion,
+					ProtocolMax:    ProtocolVersion,
 				}},
 			})
 		case "/api/agent/update/reports":
@@ -1521,7 +1522,7 @@ func TestAgentUpdateAppliesValidatedBinary(t *testing.T) {
 	}
 	newBinary := []byte("new-binary")
 	sum := sha256.Sum256(newBinary)
-	signature := testReleaseSignature(t, fmt.Sprintf("%x", sum))
+	signature := testReleaseSignature(t, Platform(), targetVersion, fmt.Sprintf("%x", sum))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/manifest":
@@ -1535,13 +1536,14 @@ func TestAgentUpdateAppliesValidatedBinary(t *testing.T) {
 				SigningKeyID:       releaseSigningKeyID,
 				AutoUpdate:         true,
 				Releases: []UpdateRelease{{
-					Platform:    Platform(),
-					Version:     targetVersion,
-					URL:         "http://" + r.Host + "/binary",
-					SHA256:      fmt.Sprintf("%x", sum),
-					Signature:   signature,
-					ProtocolMin: ProtocolVersion,
-					ProtocolMax: ProtocolVersion,
+					Platform:       Platform(),
+					Version:        targetVersion,
+					URL:            "http://" + r.Host + "/binary",
+					SHA256:         fmt.Sprintf("%x", sum),
+					Signature:      signature,
+					SignatureScope: releaseSignatureScope,
+					ProtocolMin:    ProtocolVersion,
+					ProtocolMax:    ProtocolVersion,
 				}},
 			})
 		case "/binary":
@@ -1583,13 +1585,14 @@ func TestAgentUpdateRejectsInvalidHash(t *testing.T) {
 				SigningKeyID:       releaseSigningKeyID,
 				AutoUpdate:         true,
 				Releases: []UpdateRelease{{
-					Platform:    Platform(),
-					Version:     targetVersion,
-					URL:         "http://" + r.Host + "/binary",
-					SHA256:      "bad",
-					Signature:   base64.StdEncoding.EncodeToString(make([]byte, ed25519.SignatureSize)),
-					ProtocolMin: ProtocolVersion,
-					ProtocolMax: ProtocolVersion,
+					Platform:       Platform(),
+					Version:        targetVersion,
+					URL:            "http://" + r.Host + "/binary",
+					SHA256:         "bad",
+					Signature:      base64.StdEncoding.EncodeToString(make([]byte, ed25519.SignatureSize)),
+					SignatureScope: releaseSignatureScope,
+					ProtocolMin:    ProtocolVersion,
+					ProtocolMax:    ProtocolVersion,
 				}},
 			})
 			return
@@ -1617,7 +1620,7 @@ func TestAgentUpdateRejectsInvalidSignature(t *testing.T) {
 	}
 	newBinary := []byte("new-binary")
 	sum := sha256.Sum256(newBinary)
-	_ = testReleaseSignature(t, fmt.Sprintf("%x", sum))
+	_ = testReleaseSignature(t, Platform(), targetVersion, fmt.Sprintf("%x", sum))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/manifest" {
 			_ = json.NewEncoder(w).Encode(UpdateManifest{
@@ -1629,13 +1632,14 @@ func TestAgentUpdateRejectsInvalidSignature(t *testing.T) {
 				SigningKeyID:       releaseSigningKeyID,
 				AutoUpdate:         true,
 				Releases: []UpdateRelease{{
-					Platform:    Platform(),
-					Version:     targetVersion,
-					URL:         "http://" + r.Host + "/binary",
-					SHA256:      fmt.Sprintf("%x", sum),
-					Signature:   base64.StdEncoding.EncodeToString(make([]byte, ed25519.SignatureSize)),
-					ProtocolMin: ProtocolVersion,
-					ProtocolMax: ProtocolVersion,
+					Platform:       Platform(),
+					Version:        targetVersion,
+					URL:            "http://" + r.Host + "/binary",
+					SHA256:         fmt.Sprintf("%x", sum),
+					Signature:      base64.StdEncoding.EncodeToString(make([]byte, ed25519.SignatureSize)),
+					SignatureScope: releaseSignatureScope,
+					ProtocolMin:    ProtocolVersion,
+					ProtocolMax:    ProtocolVersion,
 				}},
 			})
 			return
@@ -1654,6 +1658,25 @@ func TestAgentUpdateRejectsInvalidSignature(t *testing.T) {
 	}
 }
 
+func TestAgentUpdateSignatureBindsReleaseMetadata(t *testing.T) {
+	sum := sha256.Sum256([]byte("signed-binary"))
+	digest := fmt.Sprintf("%x", sum)
+	signature := testReleaseSignature(t, Platform(), "1.2.3", digest)
+	tampered := UpdateRelease{
+		Platform:       Platform(),
+		Version:        "9.9.9",
+		SHA256:         digest,
+		Signature:      signature,
+		SignatureScope: releaseSignatureScope,
+		ProtocolMin:    ProtocolVersion,
+		ProtocolMax:    ProtocolVersion,
+	}
+
+	if err := verifyReleaseSignature(tampered); err == nil {
+		t.Fatal("expected metadata-bound signature to reject a replayed version")
+	}
+}
+
 func TestAgentUpdateRollsBackWhenHealthFails(t *testing.T) {
 	targetVersion := "99.0.0"
 	tmpDir := t.TempDir()
@@ -1663,7 +1686,7 @@ func TestAgentUpdateRollsBackWhenHealthFails(t *testing.T) {
 	}
 	newBinary := []byte("new-binary")
 	sum := sha256.Sum256(newBinary)
-	signature := testReleaseSignature(t, fmt.Sprintf("%x", sum))
+	signature := testReleaseSignature(t, Platform(), targetVersion, fmt.Sprintf("%x", sum))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/manifest" {
 			_ = json.NewEncoder(w).Encode(UpdateManifest{
@@ -1675,13 +1698,14 @@ func TestAgentUpdateRollsBackWhenHealthFails(t *testing.T) {
 				SigningKeyID:       releaseSigningKeyID,
 				AutoUpdate:         true,
 				Releases: []UpdateRelease{{
-					Platform:    Platform(),
-					Version:     targetVersion,
-					URL:         "http://" + r.Host + "/binary",
-					SHA256:      fmt.Sprintf("%x", sum),
-					Signature:   signature,
-					ProtocolMin: ProtocolVersion,
-					ProtocolMax: ProtocolVersion,
+					Platform:       Platform(),
+					Version:        targetVersion,
+					URL:            "http://" + r.Host + "/binary",
+					SHA256:         fmt.Sprintf("%x", sum),
+					Signature:      signature,
+					SignatureScope: releaseSignatureScope,
+					ProtocolMin:    ProtocolVersion,
+					ProtocolMax:    ProtocolVersion,
 				}},
 			})
 			return
@@ -1721,8 +1745,8 @@ func TestAgentUpdateIgnoresCandidateUntilRecommended(t *testing.T) {
 		SignatureAlgorithm: releaseSignatureAlgorithm,
 		SigningKeyID:       releaseSigningKeyID,
 		Releases: []UpdateRelease{
-			{Platform: Platform(), Version: "0.1.34", ProtocolMin: ProtocolVersion, ProtocolMax: ProtocolVersion},
-			{Platform: Platform(), Version: "0.1.33", ProtocolMin: ProtocolVersion, ProtocolMax: ProtocolVersion},
+			{Platform: Platform(), Version: "0.1.34", SignatureScope: releaseSignatureScope, ProtocolMin: ProtocolVersion, ProtocolMax: ProtocolVersion},
+			{Platform: Platform(), Version: "0.1.33", SignatureScope: releaseSignatureScope, ProtocolMin: ProtocolVersion, ProtocolMax: ProtocolVersion},
 		},
 	}, Platform(), "0.1.32")
 	if result.Status != "available" || release.Version != "0.1.33" {
@@ -1742,13 +1766,14 @@ func TestAgentUpdateBlocksWhilePrinting(t *testing.T) {
 			SigningKeyID:       releaseSigningKeyID,
 			AutoUpdate:         true,
 			Releases: []UpdateRelease{{
-				Platform:    Platform(),
-				Version:     targetVersion,
-				URL:         "http://" + r.Host + "/binary",
-				SHA256:      strings.Repeat("a", 64),
-				Signature:   base64.StdEncoding.EncodeToString(make([]byte, ed25519.SignatureSize)),
-				ProtocolMin: ProtocolVersion,
-				ProtocolMax: ProtocolVersion,
+				Platform:       Platform(),
+				Version:        targetVersion,
+				URL:            "http://" + r.Host + "/binary",
+				SHA256:         strings.Repeat("a", 64),
+				Signature:      base64.StdEncoding.EncodeToString(make([]byte, ed25519.SignatureSize)),
+				SignatureScope: releaseSignatureScope,
+				ProtocolMin:    ProtocolVersion,
+				ProtocolMax:    ProtocolVersion,
 			}},
 		})
 	}))
@@ -1786,13 +1811,14 @@ func TestAgentUpdateBlocksWhenIdleStateCannotBeConfirmed(t *testing.T) {
 			SigningKeyID:       releaseSigningKeyID,
 			AutoUpdate:         true,
 			Releases: []UpdateRelease{{
-				Platform:    Platform(),
-				Version:     targetVersion,
-				URL:         "http://" + r.Host + "/binary",
-				SHA256:      strings.Repeat("a", 64),
-				Signature:   base64.StdEncoding.EncodeToString(make([]byte, ed25519.SignatureSize)),
-				ProtocolMin: ProtocolVersion,
-				ProtocolMax: ProtocolVersion,
+				Platform:       Platform(),
+				Version:        targetVersion,
+				URL:            "http://" + r.Host + "/binary",
+				SHA256:         strings.Repeat("a", 64),
+				Signature:      base64.StdEncoding.EncodeToString(make([]byte, ed25519.SignatureSize)),
+				SignatureScope: releaseSignatureScope,
+				ProtocolMin:    ProtocolVersion,
+				ProtocolMax:    ProtocolVersion,
 			}},
 		})
 	}))
@@ -1807,6 +1833,26 @@ func TestAgentUpdateBlocksWhenIdleStateCannotBeConfirmed(t *testing.T) {
 	result := runner.CheckAgentUpdate(context.Background())
 	if result.Status != "blocked" || !strings.Contains(result.Detail, "confirmar impressora ociosa") {
 		t.Fatalf("expected unavailable idle-state block, got %#v", result)
+	}
+}
+
+func TestResolveReleaseURLRequiresManifestOrigin(t *testing.T) {
+	resolved, _, err := resolveReleaseURL(
+		"https://updates.example/agent/manifest.json",
+		"./printora-agent",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved != "https://updates.example/agent/printora-agent" {
+		t.Fatalf("unexpected resolved URL: %s", resolved)
+	}
+
+	if _, _, err := resolveReleaseURL(
+		"https://updates.example/agent/manifest.json",
+		"https://attacker.example/printora-agent",
+	); err == nil {
+		t.Fatal("expected cross-origin release URL to be rejected")
 	}
 }
 
@@ -1850,7 +1896,7 @@ func updateTestRunner(t *testing.T, tmpDir string, binaryPath string, manifestUR
 	}
 }
 
-func testReleaseSignature(t *testing.T, digestHex string) string {
+func testReleaseSignature(t *testing.T, platform string, version string, digestHex string) string {
 	t.Helper()
 	seed := bytes.Repeat([]byte{0x34}, ed25519.SeedSize)
 	privateKey := ed25519.NewKeyFromSeed(seed)
@@ -1859,5 +1905,13 @@ func testReleaseSignature(t *testing.T, digestHex string) string {
 	t.Cleanup(func() {
 		releasePublicKeyBase64 = previousPublicKey
 	})
-	return base64.StdEncoding.EncodeToString(ed25519.Sign(privateKey, []byte(digestHex)))
+	release := UpdateRelease{
+		Platform:       platform,
+		Version:        version,
+		SHA256:         digestHex,
+		SignatureScope: releaseSignatureScope,
+		ProtocolMin:    ProtocolVersion,
+		ProtocolMax:    ProtocolVersion,
+	}
+	return base64.StdEncoding.EncodeToString(ed25519.Sign(privateKey, releaseSignaturePayload(release)))
 }

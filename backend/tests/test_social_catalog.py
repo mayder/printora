@@ -15,7 +15,13 @@ from fastapi.testclient import TestClient
 from app.print_profiles import MaterialProfilePayload, PrintProfilesRepository, SlicingProfilePayload
 from app.search_discovery import SearchDiscoveryRepository
 from app.social_catalog import CatalogVariantUpdate, CommunityFeedCreate, CommunityPostCreate, CommunityPostUpdate, DiscussionCommentCreate, DiscussionCommentUpdate, LibraryCollectionCreate, LibraryCollectionItemCreate, LibraryCommercialReviewCreate, LibraryFileMetadata, LibraryItemCreate, LibraryItemUpdate, LibraryVersionCreate, PrintListCreate, PrintListItemCreate, PrintListItemUpdate, PrinterPublicUpdate, PublicProfileUpdate, SocialCatalogRepository
-from app.social_moderation import ModerationActionPayload, ModerationReportCreate, SocialModerationRepository
+from app.social_moderation import (
+    ModerationActionPayload,
+    ModerationAppealCreate,
+    ModerationAppealDecision,
+    ModerationReportCreate,
+    SocialModerationRepository,
+)
 from app.social_notifications import ContentFollowPayload, NotificationPreferenceUpdate, SocialNotificationsRepository
 from app.social_ranking import SocialRankingRepository
 from app.social_safety import SocialSafetyRepository, SocialSafetySettingsUpdate
@@ -383,9 +389,9 @@ def test_search_discovery_indexes_public_content_and_filters_private(tmp_path: P
     )
 
     repository = SearchDiscoveryRepository(database_path)
-    results = repository.search(query="ABS", page_size=40)
-    material_results = repository.search(query="ABS", material="ABS", page_size=20)
-    library = repository.search(entity_type="library_item", file_kind="stl")
+    results = repository.search(query="ABS", page_size=40, viewer_user_id=user.id)
+    material_results = repository.search(query="ABS", material="ABS", page_size=20, viewer_user_id=user.id)
+    library = repository.search(entity_type="library_item", file_kind="stl", viewer_user_id=user.id)
     tags = {tag.slug for tag in repository.list_tags()}
     dumped = results.model_dump_json().lower()
 
@@ -410,6 +416,21 @@ def test_social_ranking_recommendations_ignore_self_vote_and_explain_score(tmp_p
     variant_id = _variant_id(database_path, "voron-2-4-r2-350")
     social.update_profile(owner.id, PublicProfileUpdate(slug="ranking-owner", display_name="Ranking Owner", visibility="public"))
     social.update_profile(peer.id, PublicProfileUpdate(slug="ranking-peer", display_name="Ranking Peer", visibility="public"))
+    peer_printer = PrinterRepository(database_path, user_id=peer.id).create_printer(
+        PrinterCreate(
+            name="Ranking peer Voron",
+            moonraker_url="http://ranking-peer.local:7125",
+            host_audit_mode="disabled",
+        )
+    )
+    social.update_printer_public(
+        peer_printer.id,
+        peer.id,
+        PrinterPublicUpdate(
+            public_profile_enabled=True,
+            catalog_variant_id=variant_id,
+        ),
+    )
     item = social.create_library_item(
         owner.id,
         LibraryItemCreate(
@@ -432,7 +453,7 @@ def test_social_ranking_recommendations_ignore_self_vote_and_explain_score(tmp_p
     social.register_library_download(item.id, peer.id)
 
     ranking = SocialRankingRepository(database_path)
-    recommendations = ranking.recommendations(query="Duto", material="ABS", page_size=5)
+    recommendations = ranking.recommendations(query="Duto", material="ABS", page_size=5, viewer_user_id=peer.id)
     reputation = ranking.profile_reputation("ranking-owner")
     leaderboard = ranking.leaderboard()
 
@@ -457,7 +478,7 @@ def test_social_ranking_recommendations_ignore_self_vote_and_explain_score(tmp_p
         "_rebuild_index",
         lambda connection: pytest.fail("índice atual não deve reconstruir"),
     )
-    cached = ranking.recommendations(query="Duto", material="ABS", page_size=5)
+    cached = ranking.recommendations(query="Duto", material="ABS", page_size=5, viewer_user_id=peer.id)
     assert cached.items[0].result.title == "Duto recomendado ABS"
 
 
@@ -2558,6 +2579,47 @@ def test_social_safety_settings_hide_profile_from_discovery_but_keep_direct_url(
     assert updated.messages_from == "none"
 
 
+def test_social_block_hides_shared_feed_discussion_comments_and_reactions(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="block-owner@example.com", password="correct-horse"))
+    peer = auth.create_user(UserRegisterRequest(email="block-peer@example.com", password="correct-horse"))
+    social = SocialCatalogRepository(database_path)
+    with connect_database(database_path) as connection:
+        social.sync_all_communities(connection)
+    community = social.list_communities()[0]
+    owner_post = social.create_community_post(
+        community.slug,
+        owner.id,
+        CommunityPostCreate(content_type="question", title="Owner post", body="Owner body"),
+    )
+    peer_post = social.create_community_post(
+        community.slug,
+        peer.id,
+        CommunityPostCreate(content_type="question", title="Peer post", body="Peer body"),
+    )
+    peer_comment = social.create_comment(
+        owner_post.id,
+        peer.id,
+        DiscussionCommentCreate(body="Peer comment"),
+    )
+    social.set_reaction("post", owner_post.id, peer.id, "useful", True)
+
+    social.set_relationship(owner.id, peer.id, "block", "active")
+
+    owner_feed = social.list_community_feed(community.slug, viewer_user_id=owner.id)
+    owner_discussion = social.discussion_detail(owner_post.id, owner.id)
+    hidden_peer_discussion = social.discussion_detail(peer_post.id, owner.id)
+
+    assert owner_feed is not None
+    assert peer_post.id not in {item.id for item in owner_feed.items}
+    assert owner_discussion is not None
+    assert peer_comment.id not in {comment.id for comment in owner_discussion.comments}
+    assert all(reaction.reaction_type != "useful" for reaction in owner_discussion.reactions)
+    assert hidden_peer_discussion is None
+
+
 def test_social_safety_rate_limit_creates_actionable_abuse_signal(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)
@@ -2710,6 +2772,113 @@ def test_social_moderation_reports_hide_restore_and_audit_post(tmp_path: Path) -
         audits = connection.execute("SELECT action FROM catalog_audit_events WHERE entity_type = 'social_moderation_post' AND entity_id = ?", (post.id,)).fetchall()
     assert [row["action"] for row in actions] == ["hide", "restore"]
     assert [row["action"] for row in audits] == ["report", "hide", "restore"]
+
+
+def test_social_moderation_appeal_is_owned_idempotent_and_restores_content(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    admin = auth.create_user(
+        UserRegisterRequest(
+            email="breno@mayder.com.br",
+            password="correct-horse",
+        )
+    )
+    reporter = auth.create_user(
+        UserRegisterRequest(email="reporter-appeal@example.com", password="correct-horse")
+    )
+    author = auth.create_user(
+        UserRegisterRequest(email="author-appeal@example.com", password="correct-horse")
+    )
+    stranger = auth.create_user(
+        UserRegisterRequest(email="stranger-appeal@example.com", password="correct-horse")
+    )
+    social = SocialCatalogRepository(database_path)
+    social.update_profile(
+        author.id,
+        PublicProfileUpdate(
+            slug="author-appeal",
+            display_name="Author",
+            visibility="public",
+        ),
+    )
+    community = social.list_communities(variant="voron-2-4-r2-350")[0]
+    post = social.create_community_post(
+        community.slug,
+        author.id,
+        CommunityPostCreate(
+            content_type="question",
+            title="Conteúdo recorrível",
+            body="Conteúdo para validar o ciclo de recurso.",
+        ),
+    )
+    moderation = SocialModerationRepository(database_path)
+    report = moderation.create_report(
+        reporter.id,
+        ModerationReportCreate(
+            entity_type="post",
+            entity_id=post.id,
+            reason="other",
+            detail="Revisão necessária.",
+        ),
+    )
+    moderation.apply_action(
+        report.id,
+        admin.id,
+        ModerationActionPayload(action="remove", reason="Remoção inicial"),
+    )
+
+    with pytest.raises(PermissionError):
+        moderation.create_appeal(
+            report.id,
+            stranger.id,
+            ModerationAppealCreate(reason="Não sou o autor."),
+        )
+    appeal = moderation.create_appeal(
+        report.id,
+        author.id,
+        ModerationAppealCreate(reason="A decisão deve ser revista."),
+    )
+    retried = moderation.create_appeal(
+        report.id,
+        author.id,
+        ModerationAppealCreate(reason="A decisão deve ser revista."),
+    )
+    decided = moderation.decide_appeal(
+        appeal.id,
+        admin.id,
+        ModerationAppealDecision(
+            status="overturned",
+            resolution_note="Recurso procedente e conteúdo restaurado.",
+        ),
+    )
+    same_decision = moderation.decide_appeal(
+        appeal.id,
+        admin.id,
+        ModerationAppealDecision(
+            status="overturned",
+            resolution_note="Recurso procedente e conteúdo restaurado.",
+        ),
+    )
+
+    assert appeal.id == retried.id
+    assert decided.status == "overturned"
+    assert same_decision.status == "overturned"
+    assert decided.retention_until
+    assert any(
+        item.id == post.id for item in social.list_community_feed(community.slug).items
+    )
+    with pytest.raises(ValueError, match="já decidido"):
+        moderation.decide_appeal(
+            appeal.id,
+            admin.id,
+            ModerationAppealDecision(
+                status="upheld",
+                resolution_note="Decisão conflitante.",
+            ),
+        )
 
 
 def test_social_moderation_queue_is_admin_only_and_curates_tags(tmp_path, monkeypatch) -> None:

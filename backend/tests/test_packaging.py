@@ -132,6 +132,23 @@ def test_cloud_blue_green_packaging_is_independent_and_fail_closed() -> None:
     assert "for attempt in 1 2 3" in workflow
 
 
+def test_release_workflows_and_installers_do_not_bootstrap_remote_trust() -> None:
+    deploy = (ROOT_DIR / ".github/workflows/deploy-cloud.yml").read_text()
+    rollback = (ROOT_DIR / ".github/workflows/rollback-cloud.yml").read_text()
+    node_runtime = (ROOT_DIR / "scripts/ensure_node_runtime.sh").read_text()
+    macos_installer = (ROOT_DIR / "scripts/install-macos.sh").read_text()
+
+    for workflow in (deploy, rollback):
+        assert "PRINTORA_SSH_KNOWN_HOSTS" in workflow
+        assert "ssh-keyscan" not in workflow
+
+    assert 'ROLLBACK_CONFIRMATION: ${{ inputs.confirmation }}' in rollback
+    assert 'test "$ROLLBACK_CONFIRMATION" = ROLLBACK' in rollback
+    assert 'test "${{ inputs.confirmation }}"' not in rollback
+    assert "raw.githubusercontent.com/nvm-sh" not in node_runtime
+    assert "raw.githubusercontent.com/Homebrew" not in macos_installer
+
+
 def test_cloud_release_retention_preserves_every_linked_release(tmp_path: Path) -> None:
     base = tmp_path / "printora"
     releases = base / "releases"

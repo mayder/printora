@@ -599,6 +599,11 @@ async def create_printer_agent_job(
     current: CurrentUser = Depends(require_current_user),
     repository: AgentPairingRepository = Depends(get_pairing_repository),
 ) -> AgentJobRecord:
+    if payload.job_type not in {"ping", "remote_operation_status"}:
+        raise HTTPException(
+            status_code=403,
+            detail="tipo de job não permitido neste endpoint",
+        )
     settings = get_settings()
     printer = printer_for_user(settings.database_path, current.user, printer_id)
     if printer is None:

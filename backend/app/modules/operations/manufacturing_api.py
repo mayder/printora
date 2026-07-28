@@ -9,7 +9,7 @@ from app.database import connect_database
 from app.manufacturing_workflow import ManufacturingWorkflowService
 from app.modules.identity.contracts import CurrentUser
 from app.modules.operations.manufacturing_contracts import (
-    AcceptQuoteRequest, QualityRequest, QuoteRequest, RecallRequest,
+    AcceptQuoteRequest, QualityApprovalRequest, QualityRequest, QuoteRequest, RecallRequest,
     ShipmentRequest, TrackingRequest, TransitionRequest,
 )
 from app.platform_access import is_platform_admin
@@ -37,6 +37,39 @@ def require_role(*roles: str, allow_platform_admin: bool = False):
             raise HTTPException(status_code=403, detail="papel de fabricação obrigatório")
         return current
     return dependency
+
+
+TRANSITION_ROLES = {
+    "queued": "production_operator",
+    "producing": "production_operator",
+    "paused": "production_operator",
+    "failed": "production_operator",
+    "rework": "production_operator",
+    "quality_pending": "production_operator",
+    "cancelled": "production_operator",
+    "quality_approved": "quality_approver",
+    "packed": "logistics_operator",
+    "shipped": "logistics_operator",
+    "delivered": "logistics_operator",
+}
+
+
+def require_transition_role(user_id: int, target: str) -> None:
+    required_role = TRANSITION_ROLES.get(target)
+    if required_role is None:
+        raise HTTPException(status_code=400, detail="transição produtiva sem papel autorizado")
+    with connect_database(get_settings().database_path) as connection:
+        row = connection.execute(
+            """
+            SELECT 1
+            FROM manufacturing_role_assignments
+            WHERE user_id = ? AND active = 1 AND role = ?
+            LIMIT 1
+            """,
+            (user_id, required_role),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=403, detail=f"papel {required_role} obrigatório para esta transição")
 
 
 @router.get("/api/admin/manufacturing/overview")
@@ -76,6 +109,7 @@ async def accept_quote(quote_public_id: str, payload: AcceptQuoteRequest,
 @router.post("/api/admin/manufacturing/orders/{public_id}/transitions")
 async def transition(public_id: str, payload: TransitionRequest,
                      current: CurrentUser = Depends(require_role("production_operator", "quality_approver", "logistics_operator"))):
+    require_transition_role(current.user.id, payload.target)
     return ManufacturingWorkflowService(get_settings().database_path).transition(
         public_id, payload.target, payload.event_key, current.user.id, payload.reason
     )
@@ -84,17 +118,20 @@ async def transition(public_id: str, payload: TransitionRequest,
 @router.post("/api/admin/manufacturing/orders/{public_id}/quality")
 async def quality(public_id: str, payload: QualityRequest,
                   current: CurrentUser = Depends(require_role("quality_inspector"))):
-    with connect_database(get_settings().database_path) as connection:
-        approver = connection.execute(
-            """SELECT 1 FROM manufacturing_role_assignments
-               WHERE user_id=? AND role='quality_approver' AND active=1""",
-            (payload.approver_user_id,),
-        ).fetchone()
-    if not approver:
-        raise HTTPException(status_code=422, detail="aprovador de qualidade inválido")
     return ManufacturingWorkflowService(get_settings().database_path).record_quality(
         public_id, payload.check_key, payload.specification, payload.measurement, payload.passed,
-        payload.evidence_object_key, current.user.id, payload.approver_user_id
+        payload.evidence_object_key, current.user.id, None
+    )
+
+
+@router.post("/api/admin/manufacturing/orders/{public_id}/quality/approve")
+async def approve_quality(
+    public_id: str,
+    payload: QualityApprovalRequest,
+    current: CurrentUser = Depends(require_role("quality_approver")),
+):
+    return ManufacturingWorkflowService(get_settings().database_path).approve_quality(
+        public_id, payload.check_key, current.user.id
     )
 
 

@@ -13,6 +13,7 @@ ModerationEntityType = Literal["post", "comment", "profile", "library_item", "ca
 ModerationReason = Literal["spam", "unsafe", "illegal", "harassment", "privacy", "wrong_metadata", "other"]
 ModerationReportStatus = Literal["open", "reviewing", "resolved", "dismissed"]
 ModerationAction = Literal["mark_reviewing", "hide", "remove", "block", "restore", "dismiss", "curate"]
+ModerationAppealStatus = Literal["open", "upheld", "overturned"]
 
 
 class ModerationReportCreate(BaseModel):
@@ -74,6 +75,39 @@ class ModerationQueueResponse(BaseModel):
     actions: list[ModerationActionRecord]
 
 
+class ModerationAppealCreate(BaseModel):
+    reason: str = Field(min_length=3, max_length=1000)
+
+    @field_validator("reason")
+    @classmethod
+    def clean_reason(cls, value: str) -> str:
+        return value.strip()
+
+
+class ModerationAppealDecision(BaseModel):
+    status: Literal["upheld", "overturned"]
+    resolution_note: str = Field(min_length=3, max_length=1000)
+
+    @field_validator("resolution_note")
+    @classmethod
+    def clean_note(cls, value: str) -> str:
+        return value.strip()
+
+
+class ModerationAppealRecord(BaseModel):
+    id: int
+    report_id: int
+    appellant_user_id: int
+    reason: str
+    status: ModerationAppealStatus
+    reviewed_by_user_id: int | None
+    resolution_note: str | None
+    retention_until: str
+    created_at: str
+    updated_at: str
+    resolved_at: str | None
+
+
 class SocialModerationRepository:
     def __init__(self, database_path):
         self.database_path = database_path
@@ -84,7 +118,7 @@ class SocialModerationRepository:
     def create_report(self, reporter_user_id: int, payload: ModerationReportCreate) -> ModerationReportRecord:
         self.ensure_schema()
         with connect_database(self.database_path) as connection:
-            self._ensure_entity_exists(connection, payload.entity_type, payload.entity_id)
+            self._ensure_reportable_entity(connection, payload.entity_type, payload.entity_id)
             connection.execute(
                 """
                 INSERT INTO social_moderation_reports (
@@ -92,7 +126,7 @@ class SocialModerationRepository:
                 )
                 VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(entity_type, entity_id, reporter_user_id, reason)
-                DO UPDATE SET detail = excluded.detail, status = 'open', updated_at = CURRENT_TIMESTAMP, resolved_at = NULL
+                DO NOTHING
                 """,
                 (payload.entity_type, payload.entity_id, reporter_user_id, payload.reason, payload.detail),
             )
@@ -210,6 +244,160 @@ class SocialModerationRepository:
             self._audit(connection, payload.action, entity_type, entity_id, moderator_user_id, {"report_id": report_id, "reason": payload.reason, "state": new_state})
             return self._report_by_id(connection, report_id)
 
+    def create_appeal(
+        self,
+        report_id: int,
+        appellant_user_id: int,
+        payload: ModerationAppealCreate,
+    ) -> ModerationAppealRecord:
+        self.ensure_schema()
+        with connect_database(self.database_path) as connection:
+            report = self._report_row(connection, report_id)
+            if report is None:
+                raise ValueError("denúncia não encontrada")
+            if str(report["status"]) not in {"resolved", "dismissed"}:
+                raise ValueError("recurso disponível somente após decisão")
+            if not self._is_entity_owner(
+                connection,
+                str(report["entity_type"]),
+                int(report["entity_id"]),
+                appellant_user_id,
+            ):
+                raise PermissionError("recurso permitido somente ao responsável pelo conteúdo")
+            connection.execute(
+                """
+                INSERT INTO social_moderation_appeals (report_id, appellant_user_id, reason)
+                VALUES (?, ?, ?)
+                ON CONFLICT(report_id, appellant_user_id) DO UPDATE SET
+                    reason = excluded.reason,
+                    status = 'open',
+                    reviewed_by_user_id = NULL,
+                    resolution_note = NULL,
+                    resolved_at = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (report_id, appellant_user_id, payload.reason),
+            )
+            row = connection.execute(
+                """
+                SELECT * FROM social_moderation_appeals
+                WHERE report_id = ? AND appellant_user_id = ?
+                """,
+                (report_id, appellant_user_id),
+            ).fetchone()
+            self._audit(
+                connection,
+                "appeal",
+                str(report["entity_type"]),
+                int(report["entity_id"]),
+                appellant_user_id,
+                {"report_id": report_id},
+            )
+            return ModerationAppealRecord(**dict(row))
+
+    def list_appeals(self, status: ModerationAppealStatus | None = None) -> list[ModerationAppealRecord]:
+        self.ensure_schema()
+        with connect_database(self.database_path) as connection:
+            if status is None:
+                rows = connection.execute(
+                    "SELECT * FROM social_moderation_appeals ORDER BY created_at, id"
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    """
+                    SELECT * FROM social_moderation_appeals
+                    WHERE status = ? ORDER BY created_at, id
+                    """,
+                    (status,),
+                ).fetchall()
+        return [ModerationAppealRecord(**dict(row)) for row in rows]
+
+    def decide_appeal(
+        self,
+        appeal_id: int,
+        reviewer_user_id: int,
+        payload: ModerationAppealDecision,
+    ) -> ModerationAppealRecord:
+        self.ensure_schema()
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                "SELECT * FROM social_moderation_appeals WHERE id = ?",
+                (appeal_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError("recurso não encontrado")
+            if str(row["status"]) != "open":
+                if str(row["status"]) == payload.status:
+                    return ModerationAppealRecord(**dict(row))
+                raise ValueError("recurso já decidido")
+            report = self._report_row(connection, int(row["report_id"]))
+            if report is None:
+                raise ValueError("denúncia não encontrada")
+            if payload.status == "overturned":
+                entity_type = str(report["entity_type"])
+                entity_id = int(report["entity_id"])
+                previous = self._entity_state(connection, entity_type, entity_id)
+                restored = self._apply_entity_action(
+                    connection,
+                    entity_type,
+                    entity_id,
+                    ModerationActionPayload(
+                        action="restore",
+                        reason=payload.resolution_note,
+                    ),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO social_moderation_actions (
+                        report_id, entity_type, entity_id, action, previous_state_json,
+                        new_state_json, moderator_user_id, reason
+                    )
+                    VALUES (?, ?, ?, 'restore', ?, ?, ?, ?)
+                    """,
+                    (
+                        int(row["report_id"]),
+                        entity_type,
+                        entity_id,
+                        json.dumps(previous, ensure_ascii=False, sort_keys=True),
+                        json.dumps(restored, ensure_ascii=False, sort_keys=True),
+                        reviewer_user_id,
+                        payload.resolution_note,
+                    ),
+                )
+                self._audit(
+                    connection,
+                    "appeal_overturned",
+                    entity_type,
+                    entity_id,
+                    reviewer_user_id,
+                    {"appeal_id": appeal_id, "state": restored},
+                )
+            connection.execute(
+                """
+                UPDATE social_moderation_appeals
+                SET status = ?, reviewed_by_user_id = ?, resolution_note = ?,
+                    resolved_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND status = 'open'
+                """,
+                (payload.status, reviewer_user_id, payload.resolution_note, appeal_id),
+            )
+            updated = connection.execute(
+                "SELECT * FROM social_moderation_appeals WHERE id = ?",
+                (appeal_id,),
+            ).fetchone()
+            return ModerationAppealRecord(**dict(updated))
+
+    @staticmethod
+    def _is_entity_owner(connection, entity_type: str, entity_id: int, user_id: int) -> bool:
+        owner_queries = {
+            "post": "SELECT 1 FROM social_feed_items WHERE id = ? AND author_user_id = ?",
+            "comment": "SELECT 1 FROM social_discussion_comments WHERE id = ? AND author_user_id = ?",
+            "profile": "SELECT 1 FROM social_profiles WHERE user_id = ? AND user_id = ?",
+            "library_item": "SELECT 1 FROM social_library_items WHERE id = ? AND owner_user_id = ?",
+        }
+        query = owner_queries.get(entity_type)
+        return bool(query and connection.execute(query, (entity_id, user_id)).fetchone())
+
     def _apply_entity_action(self, connection, entity_type: str, entity_id: int, payload: ModerationActionPayload) -> dict[str, object]:
         action = payload.action
         if action == "mark_reviewing":
@@ -268,6 +456,35 @@ class SocialModerationRepository:
     def _ensure_entity_exists(self, connection, entity_type: str, entity_id: int) -> None:
         if not self._entity_state(connection, entity_type, entity_id):
             raise ValueError("entidade não encontrada")
+
+    def _ensure_reportable_entity(self, connection, entity_type: str, entity_id: int) -> None:
+        queries = {
+            "post": """
+                SELECT 1 FROM social_feed_items
+                WHERE id = ? AND visibility = 'public' AND deleted_at IS NULL
+            """,
+            "comment": """
+                SELECT 1
+                FROM social_discussion_comments c
+                JOIN social_feed_items p ON p.id = c.feed_item_id
+                WHERE c.id = ? AND c.deleted_at IS NULL
+                  AND p.visibility = 'public' AND p.deleted_at IS NULL
+            """,
+            "profile": """
+                SELECT 1 FROM social_profiles
+                WHERE user_id = ? AND visibility = 'public'
+            """,
+            "library_item": """
+                SELECT 1 FROM social_library_items
+                WHERE id = ? AND status = 'active' AND visibility = 'public'
+            """,
+        }
+        query = queries.get(entity_type)
+        if query is not None:
+            if connection.execute(query, (entity_id,)).fetchone() is None:
+                raise ValueError("entidade não encontrada")
+            return
+        self._ensure_entity_exists(connection, entity_type, entity_id)
 
     def _entity_state(self, connection, entity_type: str, entity_id: int) -> dict[str, object]:
         table_map = {

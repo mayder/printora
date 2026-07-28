@@ -24,7 +24,6 @@ import { SettingsScreen } from "./screens/SettingsScreen";
 import { FinanceAdminScreen } from "./screens/FinanceAdminScreen";
 import { ManufacturingAdminScreen } from "./screens/ManufacturingAdminScreen";
 import { DataIntelligenceScreen } from "./screens/DataIntelligenceScreen";
-import { AuthScreen } from "./screens/AuthScreen";
 import { AboutScreen } from "./screens/AboutScreen";
 import { LicenseScreen } from "./screens/LicenseScreen";
 import { PublicProfileScreen } from "./screens/PublicProfileScreen";
@@ -65,6 +64,11 @@ const DesignSystemScreen = lazy(async () => {
 const AccessibilityScreen = lazy(async () => {
   const module = await import("./screens/AccessibilityScreen");
   return { default: module.AccessibilityScreen };
+});
+
+const AuthScreen = lazy(async () => {
+  const module = await import("./screens/AuthScreen");
+  return { default: module.AuthScreen };
 });
 
 type AccountTab = "profile" | "organizations" | "accessibility";
@@ -218,7 +222,11 @@ function App() {
           </Suspense>
         );
       case "account":
-        return <AuthScreen {...screenProps} />;
+        return (
+          <Suspense fallback={<section aria-live="polite">Carregando conta.</section>}>
+            <AuthScreen {...screenProps} />
+          </Suspense>
+        );
       case "about":
         return <AboutScreen {...screenProps} />;
       case "license":
@@ -247,7 +255,9 @@ function App() {
     }
     return (
       <main className="auth-only-shell">
-        <AuthScreen {...screenProps} />
+        <Suspense fallback={<section className="auth-card" aria-live="polite">Carregando conta.</section>}>
+          <AuthScreen {...screenProps} />
+        </Suspense>
         <ToastViewport toasts={toasts} dismissToast={dismissToast} />
       </main>
     );

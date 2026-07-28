@@ -197,6 +197,9 @@ quando a ação não é permitida.
 - Na tela Conta, organização não é obrigatória para uso individual; quando existir, a UI permite criar organização e vincular usuários com papel `admin` ou `operator`.
 - Na tela Conta, o setup de 2FA deve exibir segredo/URI, validar código antes de ativar e exigir código atual para desativar quando 2FA estiver ativo.
 - Na tela Conta, autenticação reforçada gera autorização curta para ações críticas; usuários com 2FA usam código, usuários sem 2FA usam senha. Se a autorização faltar durante uma ação crítica de calibração, o usuário deve poder informar senha/código em modal contextual sem sair do fluxo.
+- Em `Conta > Perfil > Segurança`, o usuário visualiza somente metadados opacos das sessões, revoga as demais sessões, exporta seus dados e solicita desativação lógica da conta.
+- Exportação e desativação exigem prova atual e step-up específico; a interface informa retenção de auditoria por 180 dias e nunca exibe token, hash ou segredo MFA.
+- Alterar a senha encerra todas as sessões e direciona o usuário para nova autenticação.
 - Datas visíveis no sistema devem ser exibidas em formato brasileiro usando a timezone do usuário logado. O banco mantém UTC/texto original; a conversão acontece somente na formatação da UI.
 - A tela Social é uma área de descoberta pública e comunidade. Ela responde quais makers, impressoras públicas e comunidades técnicas existem no Printora.
 - A tela Social não é administração de conta, não é gestão operacional de impressora e não é curadoria administrativa de catálogo.

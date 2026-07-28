@@ -81,8 +81,9 @@ async def diff_snapshots(printer_id: int, from_id: int, to_id: int) -> SnapshotD
 @router.get("/api/snapshots/{snapshot_id}")
 async def get_snapshot(snapshot_id: int) -> SnapshotDetail:
     settings = get_settings()
+    printer_repository = get_printer_repository(settings)
     snapshot_repository = get_snapshot_repository(settings)
     snapshot = snapshot_repository.get_snapshot(snapshot_id)
-    if snapshot is None:
+    if snapshot is None or printer_repository.get_printer(snapshot.printer_id) is None:
         raise HTTPException(status_code=404, detail="snapshot not found")
     return snapshot

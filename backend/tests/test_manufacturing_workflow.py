@@ -3,11 +3,13 @@ from pathlib import Path
 import pytest
 
 from app.database import connect_database, initialize_database
+from app.config import get_settings
 from app.finance_orders import FinanceOrderService
 from app.finance_payment_operations import FinancePaymentOperationsService
 from app.finance_payments import FinancePaymentService
 from app.manufacturing_workflow import ManufacturingWorkflowService
 from app.modules.finance.contracts import OrderCreateRequest, OrderItemRequest, PaymentCommandRequest
+from app.modules.operations.manufacturing_api import require_transition_role
 from app.payment_provider import SandboxPaymentAdapter
 
 
@@ -118,3 +120,38 @@ def test_concurrent_capacity_guard_is_atomic(tmp_path: Path) -> None:
     service.accept_and_reserve(quote["public_id"], users[1], [{"resource_key": "machine-hour", "units": 1}], "reserve-final")
     with connect_database(database_path) as connection:
         assert connection.execute("SELECT available_units FROM manufacturing_resources WHERE resource_key='machine-hour'").fetchone()["available_units"] == 0
+
+
+def test_transition_role_is_bound_to_target_state(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        database_path = tmp_path / "printora.db"
+        initialize_database(database_path)
+        with connect_database(database_path) as connection:
+            user_id = int(
+                connection.execute(
+                    "INSERT INTO auth_users (email,password_hash) VALUES (?, 'hash')",
+                    ("transition-role@example.test",),
+                ).lastrowid
+            )
+            connection.execute(
+                """
+                INSERT INTO manufacturing_role_assignments (
+                    user_id, role, active, assigned_by_user_id
+                )
+                VALUES (?, 'production_operator', 1, ?)
+                """,
+                (user_id, user_id),
+            )
+
+        require_transition_role(user_id, "queued")
+        with pytest.raises(Exception, match="quality_approver"):
+            require_transition_role(user_id, "quality_approved")
+        with pytest.raises(Exception, match="sem papel autorizado"):
+            require_transition_role(user_id, "unknown")
+    finally:
+        get_settings.cache_clear()

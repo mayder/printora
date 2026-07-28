@@ -24,7 +24,7 @@ OPTIONAL_OPERATION_OBJECT_PREFIXES = (
     "output_pin ",
     *LED_OBJECT_PREFIXES,
 )
-LOW_RISK_OPERATION_ACTIONS = {"set_fan", "set_led", "set_output_pin"}
+LOW_RISK_OPERATION_ACTIONS: frozenset[str] = frozenset()
 MAX_OPERATION_GCODE_FILES = 20
 GCODE_FILE_EXTENSIONS = (".gcode", ".gcode.gz", ".gco", ".g", ".gc", ".nc", ".ngc", ".tap")
 

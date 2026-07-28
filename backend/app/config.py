@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     payment_mode: PaymentMode = "disabled"
     payment_webhook_secret: str = ""
     platform_admin_emails: str = "breno@mayder.com.br"
+    platform_protection_writes_enabled: bool = True
 
     model_config = SettingsConfigDict(
         env_file=".env",

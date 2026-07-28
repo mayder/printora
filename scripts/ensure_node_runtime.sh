@@ -5,7 +5,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODE="plan"
 NODE_VERSION="${PRINTORA_NODE_VERSION:-$(tr -d '[:space:]' < "${ROOT_DIR}/.node-version")}"
 NPM_VERSION="${PRINTORA_NPM_VERSION:-11.7.0}"
-NVM_VERSION="${PRINTORA_NVM_VERSION:-v0.40.3}"
 ENV_FILE="${ROOT_DIR}/.printora-node-env"
 
 usage() {
@@ -78,7 +77,7 @@ node_version=${node_version:-missing}
 npm_version=${npm_version:-missing}
 node_supported=$node_supported
 env_file=$ENV_FILE
-action=$(if [[ "$node_supported" == "true" && -n "$npm_path" ]]; then echo "usar Node atual"; else echo "instalar Node $NODE_VERSION via nvm para o Printora"; fi)
+action=$(if [[ "$node_supported" == "true" && -n "$npm_path" ]]; then echo "usar Node atual"; else echo "usar nvm já instalado para instalar Node $NODE_VERSION"; fi)
 PLAN
 
 if [[ "$MODE" == "plan" ]]; then
@@ -90,14 +89,10 @@ if [[ "$node_supported" == "true" && -n "$npm_path" ]]; then
   exit 0
 fi
 
-if ! command -v curl >/dev/null 2>&1; then
-  echo "curl não encontrado para instalar nvm." >&2
-  exit 1
-fi
-
 nvm_dir="${NVM_DIR:-$HOME/.nvm}"
 if [[ ! -s "$nvm_dir/nvm.sh" ]]; then
-  curl -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/$NVM_VERSION/install.sh" | PROFILE=/dev/null bash
+  echo "nvm não encontrado. Instale-o por um pacote ou procedimento verificado e execute novamente." >&2
+  exit 1
 fi
 
 # shellcheck source=/dev/null

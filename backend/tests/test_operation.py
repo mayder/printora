@@ -568,16 +568,16 @@ def test_operation_actions_block_printing_and_standby_differently() -> None:
     assert {action["id"] for action in standby_actions} >= {"home_xyz", "quad_gantry_level", "set_hotend_temp"}
     assert all(action["enabled"] is False for action in standby_actions)
     assert printing_actions[0]["block_reason"] == "Bloqueado: impressão em andamento."
-    assert next(action for action in printing_actions if action["id"] == "set_fan")["block_reason"] == ""
-    assert next(action for action in printing_actions if action["id"] == "set_output_pin")["block_reason"] == ""
+    assert next(action for action in printing_actions if action["id"] == "set_fan")["block_reason"] == "Bloqueado: impressão em andamento."
+    assert next(action for action in printing_actions if action["id"] == "set_output_pin")["block_reason"] == "Bloqueado: impressão em andamento."
     assert standby_actions[0]["block_reason"] == ""
     assert "requer macro/comando QUAD_GANTRY_LEVEL" in next(action for action in standby_actions if action["id"] == "quad_gantry_level")["compatibility"]
 
 
-def test_low_risk_operation_actions_do_not_require_step_up_or_print_block() -> None:
-    assert operation_action_requires_step_up("set_output_pin") is False
-    assert operation_action_requires_step_up("set_fan") is False
-    assert operation_action_blocks_when_printing("set_output_pin") is False
+def test_all_operation_actions_require_step_up_and_print_block() -> None:
+    assert operation_action_requires_step_up("set_output_pin") is True
+    assert operation_action_requires_step_up("set_fan") is True
+    assert operation_action_blocks_when_printing("set_output_pin") is True
     assert operation_action_blocks_when_printing("move_z") is True
 
 
@@ -714,7 +714,7 @@ def test_operation_named_fan_preview_uses_set_fan_speed() -> None:
     assert preview["would_send_gcode"] is True
 
 
-def test_output_pin_preview_uses_set_pin_and_allows_printing() -> None:
+def test_output_pin_preview_uses_set_pin_and_blocks_printing() -> None:
     preview = build_operation_action_preview(
         action_id="set_output_pin",
         parameters={"pin_name": "output_pin caselight", "value_percent": 25},
@@ -724,8 +724,8 @@ def test_output_pin_preview_uses_set_pin_and_allows_printing() -> None:
 
     assert preview["parameters"] == {"pin_name": "output_pin caselight", "value_percent": 25}
     assert preview["command_preview"] == ["SET_PIN PIN=caselight VALUE=0.25"]
-    assert preview["would_send_gcode"] is True
-    assert preview["executable"] is True
+    assert preview["would_send_gcode"] is False
+    assert preview["executable"] is False
 
 
 def test_led_preview_requires_generic_led_name() -> None:
@@ -804,7 +804,7 @@ def test_operation_action_preflight_blocks_missing_macro_and_printing() -> None:
     assert preflight["can_execute"] is False
 
 
-def test_operation_action_preflight_allows_output_pin_during_printing() -> None:
+def test_operation_action_preflight_blocks_output_pin_during_printing() -> None:
     preflight = build_operation_action_preflight(
         action_id="set_output_pin",
         parameters={"pin_name": "output_pin caselight", "value_percent": 25},
@@ -820,5 +820,5 @@ def test_operation_action_preflight_allows_output_pin_during_printing() -> None:
     )
 
     assert preflight["command_preview"] == ["SET_PIN PIN=caselight VALUE=0.25"]
-    assert preflight["blockers"] == []
-    assert preflight["can_execute"] is True
+    assert preflight["blockers"] == ["Bloqueado: impressão em andamento."]
+    assert preflight["can_execute"] is False

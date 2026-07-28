@@ -104,6 +104,8 @@ class RemoteOperationRepository:
             raise ValueError("preflight remoto não encontrado")
         if preflight.status != "succeeded":
             raise ValueError("preflight remoto precisa estar aprovado antes da execução")
+        if int((preflight.payload.get("requested_by") or {}).get("user_id") or 0) != user.id:
+            raise ValueError("preflight remoto pertence a outro usuário")
         if _is_expired(str(preflight.payload.get("expires_at") or preflight.finished_at or preflight.created_at)):
             raise ValueError("preflight remoto expirado")
         result = preflight.result or {}
@@ -114,6 +116,20 @@ class RemoteOperationRepository:
         expected_phrase = str(preflight.payload.get("confirmation_phrase") or "")
         if request.confirmation_phrase.strip() != expected_phrase:
             raise ValueError("confirmação forte inválida")
+        with connect_database(self.database_path) as connection:
+            claimed = connection.execute(
+                """
+                INSERT INTO security_operation_claims (
+                    claim_key, operation_type, actor_user_id
+                )
+                VALUES (?, 'remote_operation', ?)
+                ON CONFLICT(claim_key) DO NOTHING
+                RETURNING id
+                """,
+                (f"remote-operation:{preflight.id}", user.id),
+            ).fetchone()
+        if claimed is None:
+            raise ValueError("preflight remoto já utilizado")
         expires_at = format_dt(utc_now() + timedelta(minutes=EXECUTE_TTL_MINUTES))
         payload = {
             "safe_mode": "remote_mutation_confirmed",

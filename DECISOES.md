@@ -2214,3 +2214,81 @@ catálogo a qualquer usuário autenticado.
 
 Como reverter: reverter em conjunto o guard do endpoint, o filtro de navegação,
 a defesa da rota e esta decisão; não remover dados nem rascunhos locais.
+
+### DEC-20260727-01 - Proteção crítica usa step-up por finalidade e retenção aditiva
+
+Status: aceita
+Data: 2026-07-27
+Contexto: sessões, mutações físicas, privacidade e moderação possuíam controles
+parciais, mas não compartilhavam garantia explícita de prova recente, replay,
+idempotência, retenção e rollback.
+
+Decisão: ações críticas usam step-up curto, vinculado a uma finalidade permitida
+e consumido atomicamente uma vez. Troca de senha revoga todas as sessões.
+Exportação é determinística e exclui segredos; exclusão de conta é desativação
+lógica com retenção de 180 dias. Recursos de moderação pertencem ao autor do
+conteúdo e uma decisão favorável restaura logicamente o item. Setup físico exige
+administrador da plataforma e step-up. Os schemas SQLite/PostgreSQL são aditivos
+e usam `ON DELETE RESTRICT`. Assinaturas novas do agente cobrem uma carga
+canônica com plataforma, versão, SHA-256 e limites de protocolo. Artefatos
+legados assinados somente pelo digest permanecem disponíveis para rollback, mas
+o auto-update deles fica desativado e o agente rejeita esse escopo.
+
+Alternativas consideradas: confiar na interface; reutilizar um step-up genérico;
+apagar imediatamente a conta; permitir jobs arbitrários ao owner; criar painel
+administrativo paralelo.
+
+Consequências: replay e concorrência têm efeito único, sessões podem ser
+revogadas sem expor token, privacidade e moderação possuem estado verificável e
+comandos físicos ganham prova recente. A recuperação dentro da retenção é
+operacional e não autoatendimento.
+
+Impacto em testes: concorrência de step-up, idempotência, isolamento, MFA
+pendente, sessão, exportação, desativação, bloqueio, recurso, shell, artefato,
+rate limit, incidente e rollback.
+
+Impacto em rollback: novas exportações, desativações e recursos podem ser
+suspensos por `PRINTORA_PLATFORM_PROTECTION_WRITES_ENABLED=false`, com owner de
+operações e expiração máxima de 24 horas. Schema, solicitações e auditoria são
+preservados.
+
+Como reverter: restaurar release N-1 compatível, manter tabelas aditivas e
+reativar a flag após reteste. Não executar `DROP`, `DELETE`, prune ou restauração
+de snapshot.
+
+### DEC-20260728-01 - Fronteiras críticas falham fechado e a origem de release é fixa
+
+Status: aceita
+Data: 2026-07-28
+Contexto: a auditoria do PKG-104 encontrou identificadores globais sem
+revalidação de escopo, operações administrativas permissivas quando ainda não
+havia usuário, origem de update influenciada pelo cliente, TOFU de SSH e
+instaladores que executavam conteúdo remoto.
+
+Decisão: endpoints administrativos e físicos exigem sessão mesmo no bootstrap;
+recursos globais revalidam seu pai no escopo autenticado; toda ação física exige
+preview, confirmação do cliente, step-up e impressora ociosa. A aplicação usa
+somente o repositório configurado, o agente aceita release e redirecionamento
+apenas na origem do manifesto, e os workflows exigem chave SSH conhecida
+previamente. Instaladores falham fechado quando o gerenciador necessário não
+está instalado.
+
+Alternativas consideradas: manter compatibilidade anônima no primeiro usuário;
+aceitar qualquer URL com SHA-256; descobrir chave SSH no workflow; baixar
+instaladores oficiais sem verificação adicional.
+
+Consequências: instalações novas exigem provisionamento explícito do
+administrador e das dependências, e rotação de host SSH exige atualizar o secret
+validado. Em troca, bootstrap, update, deploy e operação física preservam a mesma
+fronteira de confiança do estado normal.
+
+Impacto em testes: cobrir negação anônima, IDOR cruzado, origem divergente,
+redirecionamento externo, ausência de known hosts, archive bomb, metadado
+excessivo, associação comunitária e confirmação física.
+
+Impacto em rollback: reverter a release restaura os fluxos anteriores sem mudar
+schema. Não remover tabelas nem dados; se a rotação de chave bloquear deploy,
+corrigir o secret por canal operacional e executar novamente o pipeline.
+
+Como reverter: reverter em conjunto guards, escopo, origem de update, política
+de known hosts e documentação. Não liberar URL arbitrária como contingência.

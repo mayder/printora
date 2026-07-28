@@ -1,13 +1,34 @@
 from __future__ import annotations
 
-from fastapi import Depends
+from fastapi import Depends, Header
 
 from app.agent_executor import AgentCommandExecutor
-from app.agent_moonraker import status_payload
-from app.routes.auth import require_current_user_when_configured
+from app.agent_moonraker import agent_preflight_payload, status_payload
+from app.auth import AuthRepository
+from app.modules.identity.contracts import CurrentUser
+from app.platform_access import is_platform_admin
+from app.routes.auth import get_auth_repository, require_current_user_when_configured
 from app.routes.support import *
 
 router = APIRouter(dependencies=[Depends(require_current_user_when_configured)])
+
+
+def require_update_step_up(
+    x_printora_step_up: str | None = Header(default=None),
+    current: CurrentUser | None = Depends(require_current_user_when_configured),
+    repository: AuthRepository = Depends(get_auth_repository),
+) -> CurrentUser | None:
+    if current is None:
+        return None
+    if not is_platform_admin(current.user.email):
+        raise HTTPException(status_code=403, detail="update exige administrador da plataforma")
+    if not x_printora_step_up or not repository.consume_step_up(
+        current.user.id,
+        x_printora_step_up,
+        "setup_physical_operation",
+    ):
+        raise HTTPException(status_code=403, detail="autorização reforçada obrigatória")
+    return current
 
 
 @router.post("/api/printers/{printer_id}/updates/refresh")
@@ -123,7 +144,11 @@ def _looks_like_update_refresh_timeout(detail: Any) -> bool:
 
 
 @router.post("/api/printers/{printer_id}/updates/run")
-async def run_printer_update(printer_id: int, payload: UpdateRunRequest) -> UpdateActionResponse:
+async def run_printer_update(
+    printer_id: int,
+    payload: UpdateRunRequest,
+    _: CurrentUser | None = Depends(require_update_step_up),
+) -> UpdateActionResponse:
     settings = get_settings()
     repository = get_printer_repository(settings)
     printer = repository.get_printer(printer_id)
@@ -131,6 +156,7 @@ async def run_printer_update(printer_id: int, payload: UpdateRunRequest) -> Upda
         raise HTTPException(status_code=404, detail="printer not found")
 
     route, target = update_route_for_target(payload.target)
+    await _require_update_idle(settings, printer)
     await _guard_risky_update(settings, printer, target, payload.confirmation_phrase)
     try:
         job = await AgentCommandExecutor(settings.database_path).run(
@@ -152,7 +178,11 @@ async def run_printer_update(printer_id: int, payload: UpdateRunRequest) -> Upda
 
 
 @router.post("/api/printers/{printer_id}/updates/rollback")
-async def rollback_printer_update(printer_id: int, payload: PrinterUpdateRollbackRequest) -> UpdateActionResponse:
+async def rollback_printer_update(
+    printer_id: int,
+    payload: PrinterUpdateRollbackRequest,
+    _: CurrentUser | None = Depends(require_update_step_up),
+) -> UpdateActionResponse:
     settings = get_settings()
     repository = get_printer_repository(settings)
     printer = repository.get_printer(printer_id)
@@ -164,6 +194,7 @@ async def rollback_printer_update(printer_id: int, payload: PrinterUpdateRollbac
         raise HTTPException(status_code=400, detail="rollback deve ser executado por componente")
     if payload.confirmation_phrase.strip() != ROLLBACK_CONFIRMATION_PHRASE:
         raise HTTPException(status_code=409, detail=f"rollback exige confirmação literal: {ROLLBACK_CONFIRMATION_PHRASE}")
+    await _require_update_idle(settings, printer)
 
     try:
         job = await AgentCommandExecutor(settings.database_path).run(
@@ -207,3 +238,17 @@ async def _guard_risky_update(settings, printer, target: str, confirmation_phras
             f"Para continuar, confirme literalmente: {RISK_UPDATE_CONFIRMATION_PHRASE}"
         ),
     )
+
+
+async def _require_update_idle(settings, printer) -> None:
+    job = await AgentCommandExecutor(settings.database_path).run(
+        printer,
+        job_type="remote_gcode_preflight",
+        payload={"criticality": "update", "command_preview": []},
+        timeout_seconds=max(settings.request_timeout_seconds, 15.0),
+    )
+    preflight = agent_preflight_payload(job.result)
+    if preflight.get("connected") is not True:
+        raise HTTPException(status_code=409, detail="não foi possível confirmar estado ocioso")
+    if preflight.get("printing") is True:
+        raise HTTPException(status_code=409, detail="update bloqueado durante impressão")

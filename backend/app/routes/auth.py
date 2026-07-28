@@ -13,10 +13,14 @@ from app.modules.identity.contracts import (
     AgentCredentialCreateRequest,
     AgentCredentialRecord,
     AgentCredentialResponse,
+    AccountExportResponse,
+    AccountProtectionCommand,
+    AccountRequestRecord,
     AuthOrganization,
     AuthOrganizationDetail,
     AuthOrganizationInvite,
     AuthSessionResponse,
+    AuthSessionRecord,
     AuthUser,
     CurrentUser,
     LoginRequest,
@@ -24,6 +28,7 @@ from app.modules.identity.contracts import (
     MfaCodeRequest,
     MfaLoginRequest,
     MfaSetupResponse,
+    MfaSetupRequest,
     OrganizationCreateRequest,
     OrganizationInviteCreateRequest,
     OrganizationMemberAddRequest,
@@ -36,6 +41,8 @@ from app.modules.identity.contracts import (
     UserProfileUpdateRequest,
 )
 from app.modules.identity.security import verify_totp
+from app.modules.identity.security import verify_password
+from app.modules.identity.protection import AccountProtectionService
 from app.config import get_settings
 from app.platform_access import is_platform_admin
 
@@ -45,6 +52,10 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 def get_auth_repository() -> AuthRepository:
     return AuthRepository(get_settings().database_path)
+
+
+def get_account_protection_service() -> AccountProtectionService:
+    return AccountProtectionService(get_settings().database_path)
 
 
 def require_current_user(
@@ -148,10 +159,12 @@ async def update_auth_password(
     payload: UserPasswordUpdateRequest,
     current: CurrentUser = Depends(require_current_user),
     repository: AuthRepository = Depends(get_auth_repository),
+    protection: AccountProtectionService = Depends(get_account_protection_service),
 ) -> dict[str, bool]:
     try:
         repository.update_user_password(current.user.id, payload)
-        return {"ok": True}
+        protection.revoke_all_sessions(current.user.id)
+        return {"ok": True, "session_revoked": True}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -317,11 +330,20 @@ async def unlink_organization_printer(
 
 @router.post("/mfa/setup", response_model=MfaSetupResponse)
 async def prepare_mfa(
+    payload: MfaSetupRequest,
     current: CurrentUser = Depends(require_current_user),
     repository: AuthRepository = Depends(get_auth_repository),
 ) -> MfaSetupResponse:
+    if current.user.mfa_enabled:
+        secret = repository.get_mfa_secret(current.user.id)
+        if payload.code is None or secret is None or not verify_totp(secret, payload.code):
+            raise HTTPException(status_code=403, detail="código 2FA atual obrigatório para reconfigurar 2FA")
+    else:
+        password_hash = repository.get_password_hash(current.user.id)
+        if payload.password is None or password_hash is None or not verify_password(payload.password, password_hash):
+            raise HTTPException(status_code=403, detail="senha atual obrigatória para configurar 2FA")
     response = setup_mfa(current.user)
-    repository.set_mfa_secret(current.user.id, response.secret, enabled=False)
+    repository.set_pending_mfa_secret(current.user.id, response.secret)
     return response
 
 
@@ -331,10 +353,11 @@ async def enable_mfa(
     current: CurrentUser = Depends(require_current_user),
     repository: AuthRepository = Depends(get_auth_repository),
 ) -> AuthUser:
-    secret = repository.get_mfa_secret(current.user.id)
+    secret = repository.get_pending_mfa_secret(current.user.id)
     if secret is None or not verify_totp(secret, payload.code):
         raise HTTPException(status_code=400, detail="código 2FA inválido")
-    repository.set_mfa_enabled(current.user.id, True)
+    if not repository.activate_pending_mfa_secret(current.user.id):
+        raise HTTPException(status_code=409, detail="configuração 2FA pendente não encontrada")
     user = repository.get_user(current.user.id)
     if user is None:
         raise HTTPException(status_code=404, detail="usuário não encontrado")
@@ -367,6 +390,71 @@ async def create_step_up_token(
         return validate_step_up(repository, current.user, payload)
     except ValueError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.get("/sessions", response_model=list[AuthSessionRecord])
+async def list_auth_sessions(
+    current: CurrentUser = Depends(require_current_user),
+    protection: AccountProtectionService = Depends(get_account_protection_service),
+) -> list[AuthSessionRecord]:
+    return protection.list_sessions(current.user.id, current.token)
+
+
+@router.post("/sessions/revoke-others")
+async def revoke_other_auth_sessions(
+    payload: AccountProtectionCommand,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AuthRepository = Depends(get_auth_repository),
+    protection: AccountProtectionService = Depends(get_account_protection_service),
+) -> dict[str, int]:
+    if not repository.consume_step_up(current.user.id, payload.step_up_token, "session_revoke"):
+        raise HTTPException(status_code=403, detail="autorização reforçada inválida ou expirada")
+    return {"revoked": protection.revoke_all_sessions(current.user.id, except_token=current.token)}
+
+
+@router.delete("/sessions/{session_id}")
+async def revoke_auth_session(
+    session_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    protection: AccountProtectionService = Depends(get_account_protection_service),
+) -> dict[str, bool]:
+    if not protection.revoke_session(current.user.id, session_id):
+        raise HTTPException(status_code=404, detail="sessão não encontrada")
+    return {"ok": True}
+
+
+@router.post("/account/export", response_model=AccountExportResponse)
+async def export_auth_account(
+    payload: AccountProtectionCommand,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AuthRepository = Depends(get_auth_repository),
+    protection: AccountProtectionService = Depends(get_account_protection_service),
+) -> AccountExportResponse:
+    if not get_settings().platform_protection_writes_enabled:
+        raise HTTPException(status_code=503, detail="proteção de conta temporariamente suspensa")
+    if not repository.consume_step_up(current.user.id, payload.step_up_token, "account_export"):
+        raise HTTPException(status_code=403, detail="autorização reforçada inválida ou expirada")
+    try:
+        return protection.export_account(current.user.id, payload.request_key)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/account/deletion", response_model=AccountRequestRecord)
+async def delete_auth_account_logically(
+    payload: AccountProtectionCommand,
+    current: CurrentUser = Depends(require_current_user),
+    repository: AuthRepository = Depends(get_auth_repository),
+    protection: AccountProtectionService = Depends(get_account_protection_service),
+) -> AccountRequestRecord:
+    if not get_settings().platform_protection_writes_enabled:
+        raise HTTPException(status_code=503, detail="proteção de conta temporariamente suspensa")
+    if not repository.consume_step_up(current.user.id, payload.step_up_token, "account_deletion"):
+        raise HTTPException(status_code=403, detail="autorização reforçada inválida ou expirada")
+    try:
+        return protection.deactivate_account(current.user.id, payload.request_key)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/agent-credentials", response_model=AgentCredentialResponse)

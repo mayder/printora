@@ -52,9 +52,20 @@ def test_slicing_routes_record_read_only_checks(tmp_path: Path, monkeypatch) -> 
     initialize_database(tmp_path / "printora.db")
     client = TestClient(app)
 
-    engine_response = client.get("/api/slicing/engine")
+    anonymous = client.get("/api/slicing/engine")
+    registration = client.post(
+        "/api/auth/register",
+        json={
+            "email": "slicing-reader@example.test",
+            "password": "correct-horse",
+        },
+    )
+    token = registration.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    engine_response = client.get("/api/slicing/engine", headers=headers)
     dry_run_response = client.post(
         "/api/slicing/dry-run",
+        headers=headers,
         json={
             "model_reference": "library://benchy.stl",
             "printer_reference": "Voron 0.2",
@@ -63,6 +74,7 @@ def test_slicing_routes_record_read_only_checks(tmp_path: Path, monkeypatch) -> 
         },
     )
 
+    assert anonymous.status_code == 401
     assert engine_response.status_code == 200
     assert engine_response.json()["status"] == "blocked"
     assert dry_run_response.status_code == 200

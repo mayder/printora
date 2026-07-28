@@ -8,6 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 
 from app.database import connect_database
+from app.platform_access import is_platform_admin
 from app.modules.community.contracts import clean_library_file_name, validate_public_url
 from app.social_catalog import _validate_library_upload
 from app.social_storage import DEFAULT_USER_QUOTA_BYTES, SocialStorageRepository
@@ -350,6 +351,14 @@ class PrintProjectsRepository:
             ).fetchone()
             if row is None:
                 return None
+            is_owner = viewer_user_id is not None and int(row["owner_user_id"]) == viewer_user_id
+            is_reviewer = False
+            if viewer_user_id is not None:
+                viewer = connection.execute(
+                    "SELECT email FROM auth_users WHERE id = ?",
+                    (viewer_user_id,),
+                ).fetchone()
+                is_reviewer = bool(viewer and is_platform_admin(str(viewer["email"])))
             files = [
                 _file_from_row(file_row)
                 for file_row in connection.execute(
@@ -384,6 +393,7 @@ class PrintProjectsRepository:
                     (row["id"],),
                 ).fetchall()
             ]
+            immutable_snapshot_ready = bool(versions)
             publication_reviews = [
                 _publication_review_from_row(review_row)
                 for review_row in connection.execute(
@@ -397,6 +407,9 @@ class PrintProjectsRepository:
                     (row["id"],),
                 ).fetchall()
             ]
+            if not (is_owner or is_reviewer):
+                versions = []
+                publication_reviews = []
             saved_by_viewer = False
             if viewer_user_id is not None:
                 saved_by_viewer = bool(
@@ -417,7 +430,7 @@ class PrintProjectsRepository:
             versions=versions,
             publication_reviews=publication_reviews,
             saved_by_viewer=saved_by_viewer,
-            immutable_snapshot_ready=bool(versions),
+            immutable_snapshot_ready=immutable_snapshot_ready,
         )
 
     def save_project(self, actor_user_id: int, project_id: int, payload: PrintProjectSaveRequest) -> PrintProjectDetail:

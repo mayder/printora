@@ -4,6 +4,7 @@ import base64
 import json
 import re
 import textwrap
+import time
 
 from fastapi import Depends, Header
 
@@ -16,6 +17,7 @@ from app.config_remediation import (
     build_config_remediation_script,
     parse_config_remediation_stdout,
 )
+from app.database import connect_database
 from app.routes.auth import require_current_user, require_current_user_when_configured
 from app.routes.support import *
 
@@ -173,6 +175,11 @@ async def apply_calibration_config_remediation(
     if printer is None:
         raise HTTPException(status_code=404, detail="printer not found")
     _require_config_remediation_step_up(settings, authorization, payload.step_up_token)
+    preflight = await _calibration_agent_preflight(settings, printer, "config-remediation")
+    if preflight.get("connected") is not True or preflight.get("printing") is True:
+        raise HTTPException(status_code=409, detail="remediação exige impressora conectada e ociosa")
+    if not _claim_config_remediation(settings, printer.id, payload):
+        raise HTTPException(status_code=409, detail="remediação já executada ou em andamento")
     result = await _run_config_remediation_script(
         settings,
         printer,
@@ -184,6 +191,9 @@ async def apply_calibration_config_remediation(
     if result.get("status") == "applied":
         result["firmware_restart"] = await _restart_firmware_after_config_remediation(settings, printer)
         _append_config_remediation_to_execution(settings, printer.id, payload, result)
+        _finish_config_remediation_claim(settings, printer.id, payload, "completed")
+    else:
+        _finish_config_remediation_claim(settings, printer.id, payload, "failed")
     return {"printer_id": printer.id, **result}
 
 
@@ -287,6 +297,16 @@ async def execute_calibration_test(
                 }
             ],
             message="Execução repetida bloqueada por segurança; aguarde alguns segundos antes de repetir o mesmo teste.",
+        )
+    if not _claim_calibration_execution(settings, printer.id, test.test_key, _calibration_duplicate_window(test)):
+        return repository.create_execution_attempt(
+            printer_id=printer.id,
+            test=test,
+            gate=gate,
+            status="blocked",
+            sent_commands=[],
+            result=[],
+            message="Execução concorrente bloqueada por segurança.",
         )
 
     try:
@@ -539,6 +559,54 @@ def _require_config_remediation_step_up(settings, authorization: str | None, ste
     current = require_current_user(authorization=authorization, repository=repository)
     if not step_up_token or not repository.consume_step_up(current.user.id, step_up_token, "destructive_action"):
         raise HTTPException(status_code=403, detail="autenticação reforçada obrigatória para ação crítica")
+
+
+def _config_remediation_claim_key(printer_id: int, payload: ConfigRemediationApplyRequest) -> str:
+    return f"calibration-remediation:{printer_id}:{payload.execution_id}:{payload.section}"
+
+
+def _claim_calibration_execution(settings, printer_id: int, test_key: str, window_seconds: int) -> bool:
+    bucket = int(time.time() / max(window_seconds, 1))
+    with connect_database(settings.database_path) as connection:
+        row = connection.execute(
+            """
+            INSERT INTO security_operation_claims (claim_key, operation_type, actor_user_id)
+            VALUES (?, 'calibration_execution', ?)
+            ON CONFLICT(claim_key) DO NOTHING
+            RETURNING id
+            """,
+            (
+                f"calibration:{printer_id}:{test_key}:{bucket}",
+                current_auth_scope()[0],
+            ),
+        ).fetchone()
+    return row is not None
+
+
+def _claim_config_remediation(settings, printer_id: int, payload: ConfigRemediationApplyRequest) -> bool:
+    current_user_id = current_auth_scope()[0]
+    with connect_database(settings.database_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO security_operation_claims (claim_key, operation_type, actor_user_id)
+            VALUES (?, 'calibration_remediation', ?)
+            ON CONFLICT(claim_key) DO NOTHING
+            """,
+            (_config_remediation_claim_key(printer_id, payload), current_user_id),
+        )
+    return cursor.rowcount > 0
+
+
+def _finish_config_remediation_claim(settings, printer_id: int, payload: ConfigRemediationApplyRequest, status: str) -> None:
+    with connect_database(settings.database_path) as connection:
+        connection.execute(
+            """
+            UPDATE security_operation_claims
+            SET status = ?, completed_at = CURRENT_TIMESTAMP
+            WHERE claim_key = ?
+            """,
+            (status, _config_remediation_claim_key(printer_id, payload)),
+        )
 
 
 async def _calibration_agent_preflight(settings, printer, test_key: str) -> dict[str, Any]:

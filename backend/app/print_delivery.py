@@ -118,21 +118,26 @@ class PrintDeliveryRepository:
                 audit=audit,
             )
             return PreparedGcodeDelivery(delivery=delivery, gcode_content="", payload={})
-        delivery = self._insert_delivery(
-            actor_user_id=actor_user_id,
-            preflight=preflight,
-            mode=payload.mode,
-            status="pending_remote",
-            remote_filename=remote_filename,
-            checksum=checksum,
-            size_bytes=len(gcode_content.encode("utf-8")),
-            confirmation_phrase=payload.confirmation_phrase,
-            confirmation_matched=confirmation_matched,
-            preflight_snapshot=preflight.model_dump(),
-            remote_result={},
-            blockers=[],
-            audit=audit,
-        )
+        try:
+            delivery = self._insert_delivery(
+                actor_user_id=actor_user_id,
+                preflight=preflight,
+                mode=payload.mode,
+                status="pending_remote",
+                remote_filename=remote_filename,
+                checksum=checksum,
+                size_bytes=len(gcode_content.encode("utf-8")),
+                confirmation_phrase=payload.confirmation_phrase,
+                confirmation_matched=confirmation_matched,
+                preflight_snapshot=preflight.model_dump(),
+                remote_result={},
+                blockers=[],
+                audit=audit,
+            )
+        except Exception as exc:
+            if "idx_print_delivery_active_preflight" in str(exc) or "UNIQUE constraint failed" in str(exc):
+                raise ValueError("preflight já utilizado por outro envio") from exc
+            raise
         remote_payload = {
             "safe_mode": "print_gcode_delivery",
             "delivery_id": delivery.id,
@@ -150,10 +155,24 @@ class PrintDeliveryRepository:
 
     def mark_remote_job(self, delivery_id: int, remote_agent_job_id: int) -> PrintDeliveryRecord:
         with connect_database(self.database_path) as connection:
-            connection.execute(
-                "UPDATE print_gcode_deliveries SET remote_agent_job_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            updated = connection.execute(
+                """
+                UPDATE print_gcode_deliveries
+                SET remote_agent_job_id = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND status = 'pending_remote'
+                """,
                 (remote_agent_job_id, delivery_id),
             )
+            if updated.rowcount == 0:
+                connection.execute(
+                    """
+                    UPDATE agent_jobs
+                    SET status = 'canceled', error_message = 'envio cancelado antes do vínculo',
+                        finished_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND status = 'pending'
+                    """,
+                    (remote_agent_job_id,),
+                )
             row = connection.execute("SELECT * FROM print_gcode_deliveries WHERE id = ?", (delivery_id,)).fetchone()
         return self._record_from_row(row)
 
@@ -169,7 +188,7 @@ class PrintDeliveryRepository:
                 UPDATE print_gcode_deliveries
                 SET status = ?, remote_result_json = ?, updated_at = CURRENT_TIMESTAMP,
                     completed_at = CASE WHEN ? IN ('saved', 'printing') THEN CURRENT_TIMESTAMP ELSE completed_at END
-                WHERE id = ?
+                WHERE id = ? AND status = 'pending_remote'
                 """,
                 (status, json.dumps(result, ensure_ascii=False), status, delivery_id),
             )

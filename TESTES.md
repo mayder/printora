@@ -2344,3 +2344,35 @@ Aceite de 2026-07-24:
 - teste com pessoas representativas e publicação são evidências externas
   separadas. Ausência deve ser registrada como risco residual, sem equivalência
   a teste executado.
+
+## PKG-104: Segurança mínima e verificável
+
+- validar schema aditivo SQLite/PostgreSQL, reexecução, constraints, retenção e
+  ausência de `DROP`, `DELETE`, cascade ou prune;
+- provar sessão opaca, ownership na revogação, revogação coletiva e revogação
+  total após troca de senha;
+- provar MFA pendente, step-up por finalidade, expiração, replay negado e
+  consumo exatamente uma vez sob concorrência;
+- validar isolamento de owner/organização e rejeitar criação, convite ou aceite
+  indevido de papel owner;
+- testar exportação determinística sem hashes, tokens ou segredos; testar
+  desativação lógica idempotente preservando auditoria;
+- negar job genérico de host, exigir administrador e step-up em mutações
+  físicas e exercitar quoting de parâmetros de shell;
+- validar checksum, assinatura, identidade de chave, protocolo, rollback do
+  binário e bloqueio durante impressão;
+- provar bloqueio social bidirecional, denúncia, remoção lógica, recurso do
+  autor, decisão terminal, restauração e retenção;
+- testar rate limit, falha fechada da autenticação, sanitização recursiva de
+  logs/bundles, incidente simulado e rollback por flag;
+- testar IDOR cruzado em backup, manutenção, snapshot e firmware;
+- validar busca SQLite para conteúdo público, associação comunitária e bloqueio
+  bidirecional, além de ocultar chaves internas de armazenamento na API pública;
+- rejeitar archive bomb, metadado externo excessivo, origem de update divergente,
+  release do agente fora da origem e redirecionamento externo;
+- validar workflow sem interpolação direta de input no shell, sem TOFU por
+  `ssh-keyscan` e com `PRINTORA_SSH_KNOWN_HOSTS` obrigatório;
+- provar que instaladores não executam conteúdo remoto por pipe ou substituição
+  de comando;
+- executar testes focados, regressão Python/Go/frontend, build/budget,
+  auditoria de segurança sobre o estado final e `./check.sh`.

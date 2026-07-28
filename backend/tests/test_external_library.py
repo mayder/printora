@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from app.auth import AuthRepository, UserRegisterRequest
 from app.database import connect_database, initialize_database
 from app.external_library import ExternalLibraryRepository, ExternalReferenceCreate, ExternalSourceCreate
@@ -71,3 +73,41 @@ def test_external_reference_detects_duplicate_by_checksum(tmp_path: Path) -> Non
     )
 
     assert reference.duplicate_library_file_id == file_id
+
+
+def test_external_metadata_accepts_bounded_json_shape() -> None:
+    reference = ExternalReferenceCreate(
+        title="Referência limitada",
+        external_url="https://example.com/model",
+        metadata={
+            "nested": {"items": [1, True, None, "ok"]},
+            "score": 1.5,
+        },
+    )
+
+    assert reference.metadata["nested"] == {
+        "items": [1, True, None, "ok"],
+    }
+
+
+@pytest.mark.parametrize(
+    ("metadata", "message"),
+    [
+        ({"a": {"b": {"c": {"d": {"e": {"f": 1}}}}}}, "profundidade"),
+        ({str(index): index for index in range(101)}, "chaves demais"),
+        ({"x" * 121: "value"}, "chave de metadado"),
+        ({"items": list(range(101))}, "itens demais"),
+        ({"invalid": object()}, "tipo de metadado"),
+        ({"payload": "x" * (16 * 1024)}, "16 KiB"),
+    ],
+)
+def test_external_metadata_rejects_unbounded_shape(
+    metadata: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        ExternalReferenceCreate(
+            title="Referência inválida",
+            external_url="https://example.com/model",
+            metadata=metadata,
+        )

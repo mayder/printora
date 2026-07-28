@@ -173,7 +173,14 @@ def _sanitize_job(job: AgentJobRecord) -> AgentJobRecord:
 
 def _sanitize_payload(value: Any) -> Any:
     if isinstance(value, dict):
-        return {str(key): _sanitize_payload(item) for key, item in value.items()}
+        cleaned: dict[str, Any] = {}
+        for key, item in value.items():
+            lower = str(key).lower()
+            if any(secret in lower for secret in ("password", "token", "secret", "credential", "private_key", "api_key")):
+                cleaned[str(key)] = "[redacted]"
+            else:
+                cleaned[str(key)] = _sanitize_payload(item)
+        return cleaned
     if isinstance(value, list):
         return [_sanitize_payload(item) for item in value[:50]]
     if isinstance(value, str):
@@ -186,7 +193,12 @@ def _sanitize_text(value: str | None) -> str | None:
         return None
     text = value[:500]
     text = text.replace("PKG-", "entrega-")
-    return re.sub(r"ptr_(?:agent|pair|sess)_[A-Za-z0-9_-]+", "[redacted]", text)
+    text = re.sub(r"ptr_(?:agent|pair|sess)_[A-Za-z0-9_-]+", "[redacted]", text)
+    return re.sub(
+        r"(?i)(password|passwd|token|secret|credential|private[_-]?key|api[_-]?key)\s*[:=]\s*[^\s,;]+",
+        r"\1=[redacted]",
+        text,
+    )
 
 
 def _job_from_row(row) -> AgentJobRecord:

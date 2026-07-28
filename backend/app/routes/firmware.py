@@ -131,6 +131,7 @@ async def create_firmware_build_dry_run(
     payload: FirmwareBuildDryRunCreate,
 ) -> FirmwareBuildRunRecord:
     settings = get_settings()
+    _require_scoped_firmware_board(settings, board_id)
     firmware_repository = get_firmware_board_repository(settings)
     try:
         return firmware_repository.create_build_dry_run(board_id, payload)
@@ -146,6 +147,7 @@ async def firmware_build_preflight(
     payload: FirmwareBuildDryRunCreate,
 ) -> FirmwareBuildPreflight:
     settings = get_settings()
+    _require_scoped_firmware_board(settings, board_id)
     firmware_repository = get_firmware_board_repository(settings)
     try:
         return firmware_repository.build_build_preflight(
@@ -169,7 +171,7 @@ async def execute_firmware_build_local(
 
     settings = get_settings()
     firmware_repository = get_firmware_board_repository(settings)
-    board = firmware_repository.get_board(board_id)
+    board = _require_scoped_firmware_board(settings, board_id)
     if board is None:
         raise HTTPException(status_code=404, detail="firmware board not found")
     preset = firmware_repository.get_preset(board.preset_id)
@@ -292,6 +294,7 @@ async def create_firmware_flash_dry_run(
     payload: FirmwareFlashDryRunCreate,
 ) -> FirmwareFlashRunRecord:
     settings = get_settings()
+    _require_scoped_firmware_board(settings, board_id)
     firmware_repository = get_firmware_board_repository(settings)
     try:
         return firmware_repository.create_flash_dry_run(board_id, payload)
@@ -307,6 +310,7 @@ async def firmware_flash_preflight(
     payload: FirmwareFlashDryRunCreate,
 ) -> FirmwareFlashPreflight:
     settings = get_settings()
+    _require_scoped_firmware_board(settings, board_id)
     firmware_repository = get_firmware_board_repository(settings)
     board = firmware_repository.get_board(board_id)
     if board is None:
@@ -348,8 +352,20 @@ async def execute_firmware_flash_blocked(
 @router.get("/api/firmware/boards/{board_id}/recovery-plan")
 async def firmware_recovery_plan(board_id: int) -> FirmwareRecoveryPlan:
     settings = get_settings()
+    _require_scoped_firmware_board(settings, board_id)
     firmware_repository = get_firmware_board_repository(settings)
     try:
         return firmware_repository.build_recovery_plan(board_id)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _require_scoped_firmware_board(settings, board_id: int) -> FirmwareBoardRecord:
+    firmware_repository = get_firmware_board_repository(settings)
+    board = firmware_repository.get_board(board_id)
+    if board is None:
+        raise HTTPException(status_code=404, detail="firmware board not found")
+    printer_repository = get_printer_repository(settings)
+    if printer_repository.get_printer(board.printer_id) is None:
+        raise HTTPException(status_code=404, detail="firmware board not found")
+    return board

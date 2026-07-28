@@ -272,15 +272,53 @@ class AuthRepository:
         return unprotect_secret(self.database_path, str(row["mfa_secret_protected"]))
 
     def set_mfa_secret(self, user_id: int, secret: str, enabled: bool) -> None:
+        protected = protect_secret(self.database_path, secret) if secret else None
         with connect_database(self.database_path) as connection:
             connection.execute(
                 """
                 UPDATE auth_users
-                SET mfa_secret_protected = ?, mfa_enabled = ?, updated_at = CURRENT_TIMESTAMP
+                SET mfa_secret_protected = ?, mfa_pending_secret_protected = NULL,
+                    mfa_enabled = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 """,
-                (protect_secret(self.database_path, secret), 1 if enabled else 0, user_id),
+                (protected, 1 if enabled else 0, user_id),
             )
+
+    def get_pending_mfa_secret(self, user_id: int) -> str | None:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                "SELECT mfa_pending_secret_protected FROM auth_users WHERE id = ?",
+                (user_id,),
+            ).fetchone()
+        if row is None or not row["mfa_pending_secret_protected"]:
+            return None
+        return unprotect_secret(self.database_path, str(row["mfa_pending_secret_protected"]))
+
+    def set_pending_mfa_secret(self, user_id: int, secret: str) -> None:
+        with connect_database(self.database_path) as connection:
+            connection.execute(
+                """
+                UPDATE auth_users
+                SET mfa_pending_secret_protected = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (protect_secret(self.database_path, secret), user_id),
+            )
+
+    def activate_pending_mfa_secret(self, user_id: int) -> bool:
+        with connect_database(self.database_path) as connection:
+            cursor = connection.execute(
+                """
+                UPDATE auth_users
+                SET mfa_secret_protected = mfa_pending_secret_protected,
+                    mfa_pending_secret_protected = NULL,
+                    mfa_enabled = 1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND mfa_pending_secret_protected IS NOT NULL
+                """,
+                (user_id,),
+            )
+        return cursor.rowcount > 0
 
     def set_mfa_enabled(self, user_id: int, enabled: bool) -> None:
         with connect_database(self.database_path) as connection:
@@ -365,6 +403,8 @@ class AuthRepository:
             actor_role = self._member_role(connection, organization_id, actor_user_id)
             if actor_role not in ("owner", "admin"):
                 raise PermissionError("usuário sem permissão para vincular membros")
+            if payload.role == "owner":
+                raise PermissionError("transferência de owner exige fluxo dedicado")
             user_row = connection.execute(
                 "SELECT id FROM auth_users WHERE email = ? AND is_active = 1",
                 (payload.email.lower(),),
@@ -455,6 +495,8 @@ class AuthRepository:
         expires_at = format_dt(utc_now() + timedelta(days=7))
         with connect_database(self.database_path) as connection:
             self._require_org_manager(connection, organization_id, actor_user_id, "gerar convite")
+            if payload.role == "owner":
+                raise PermissionError("convite não pode transferir owner")
             cursor = connection.execute(
                 """
                 INSERT INTO auth_organization_invites (
@@ -515,6 +557,8 @@ class AuthRepository:
                 raise ValueError("convite inválido")
             if str(row["expires_at"]) <= format_dt(utc_now()):
                 raise ValueError("convite expirado")
+            if str(row["role"]) == "owner":
+                raise ValueError("convite de owner inválido")
             connection.execute(
                 """
                 INSERT INTO auth_organization_members (organization_id, user_id, role)
@@ -604,23 +648,25 @@ class AuthRepository:
         with connect_database(self.database_path) as connection:
             row = connection.execute(
                 """
-                SELECT id
-                FROM auth_step_up_tokens
-                WHERE user_id = ?
-                  AND token_hash = ?
-                  AND purpose = ?
+                UPDATE auth_step_up_tokens
+                SET consumed_at = CURRENT_TIMESTAMP
+                WHERE id = (
+                    SELECT id
+                    FROM auth_step_up_tokens
+                    WHERE user_id = ?
+                      AND token_hash = ?
+                      AND purpose = ?
+                      AND consumed_at IS NULL
+                      AND expires_at > CURRENT_TIMESTAMP
+                    ORDER BY id
+                    LIMIT 1
+                )
                   AND consumed_at IS NULL
-                  AND expires_at > CURRENT_TIMESTAMP
+                RETURNING id
                 """,
                 (user_id, hash_token(token), purpose),
             ).fetchone()
-            if row is None:
-                return False
-            connection.execute(
-                "UPDATE auth_step_up_tokens SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?",
-                (int(row["id"]),),
-            )
-        return True
+        return row is not None
 
     def create_agent_credential(
         self,

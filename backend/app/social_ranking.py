@@ -52,6 +52,7 @@ class SocialRankingRepository:
         component: str | None = None,
         entity_type: SearchEntityType | None = None,
         page_size: int = 12,
+        viewer_user_id: int | None = None,
     ) -> RecommendationResponse:
         self.ensure_signals_current()
         search = self.search_repository.search(
@@ -63,6 +64,7 @@ class SocialRankingRepository:
             order="popular",
             page=1,
             page_size=min(max(page_size * 3, page_size), 50),
+            viewer_user_id=viewer_user_id,
         )
         with connect_database(self.database_path) as connection:
             scored = [

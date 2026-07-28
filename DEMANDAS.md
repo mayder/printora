@@ -507,7 +507,10 @@ Rollback:
 
 Estado atual:
 
-- Planejado; implementação não iniciada. Executar somente depois de todas as dependências listadas estarem concluídas.
+- Concluído em 2026-07-28. Os dez lotes, `CAP-07-01`–`CAP-07-08`,
+  `COM-0337`–`COM-0392` e `SCR-0049`–`SCR-0056` possuem evidência em
+  `docs/security/PKG_104_EVIDENCE.md`; validação local aprovada sem SSH,
+  deploy ou reinício de serviço existente.
 
 ## PKG-105: Privacidade e soberania de dados
 

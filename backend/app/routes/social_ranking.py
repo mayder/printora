@@ -3,6 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.config import get_settings
+from app.auth import CurrentUser
+from app.routes.social_catalog import optional_current_user
 from app.search_discovery import SearchEntityType
 from app.social_ranking import RecommendationResponse, ReputationRecord, ReputationResponse, SocialRankingRepository
 
@@ -22,6 +24,7 @@ async def social_recommendations(
     component: str | None = None,
     entity_type: SearchEntityType | None = None,
     page_size: int = 12,
+    current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialRankingRepository = Depends(get_ranking_repository),
 ) -> RecommendationResponse:
     return repository.recommendations(
@@ -31,6 +34,7 @@ async def social_recommendations(
         component=component,
         entity_type=entity_type,
         page_size=page_size,
+        viewer_user_id=current.user.id if current else None,
     )
 
 

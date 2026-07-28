@@ -28,6 +28,7 @@ class AgentReleaseAsset(BaseModel):
     url: str = Field(min_length=1)
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     signature: str = Field(min_length=80)
+    signature_scope: Literal["printora-agent-release-v1", "legacy-digest-only"]
     protocol_min: int = AGENT_UPDATE_PROTOCOL_VERSION
     protocol_max: int = AGENT_UPDATE_PROTOCOL_VERSION
 

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,13 +37,14 @@ type UpdateManifest struct {
 }
 
 type UpdateRelease struct {
-	Platform    string `json:"platform"`
-	Version     string `json:"version"`
-	URL         string `json:"url"`
-	SHA256      string `json:"sha256"`
-	Signature   string `json:"signature"`
-	ProtocolMin int    `json:"protocol_min"`
-	ProtocolMax int    `json:"protocol_max"`
+	Platform       string `json:"platform"`
+	Version        string `json:"version"`
+	URL            string `json:"url"`
+	SHA256         string `json:"sha256"`
+	Signature      string `json:"signature"`
+	SignatureScope string `json:"signature_scope"`
+	ProtocolMin    int    `json:"protocol_min"`
+	ProtocolMax    int    `json:"protocol_max"`
 }
 
 type UpdateState struct {
@@ -173,6 +175,9 @@ func selectUpdateRelease(manifest UpdateManifest, platform string, currentVersio
 		if ProtocolVersion < release.ProtocolMin || ProtocolVersion > release.ProtocolMax {
 			return release, UpdateResult{Status: "blocked", TargetVersion: release.Version, Detail: "protocolo incompatível com release"}
 		}
+		if release.SignatureScope != releaseSignatureScope {
+			return release, UpdateResult{Status: "blocked", TargetVersion: release.Version, Detail: "escopo de assinatura incompatível com a release"}
+		}
 		if compareVersion(release.Version, currentVersion) <= 0 {
 			return release, UpdateResult{Status: "skipped", TargetVersion: release.Version, Detail: "agente já está atualizado"}
 		}
@@ -188,11 +193,28 @@ func downloadRelease(ctx context.Context, cfg Config, release UpdateRelease) (st
 	if err := os.MkdirAll(cfg.UpdateStagingDir, 0o700); err != nil {
 		return "", err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, release.URL, nil)
+	releaseURL, allowedOrigin, err := resolveReleaseURL(cfg.UpdateManifestURL, release.URL)
 	if err != nil {
 		return "", err
 	}
-	client := &http.Client{Timeout: updateDownloadTimeout(cfg)}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, releaseURL, nil)
+	if err != nil {
+		return "", err
+	}
+	client := &http.Client{
+		Timeout: updateDownloadTimeout(cfg),
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return errors.New("muitos redirecionamentos no download da release")
+			}
+			if req.URL.Scheme != allowedOrigin.Scheme ||
+				!strings.EqualFold(req.URL.Host, allowedOrigin.Host) ||
+				req.URL.User != nil {
+				return errors.New("redirecionamento da release saiu da origem confiável")
+			}
+			return nil
+		},
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -219,26 +241,56 @@ func downloadRelease(ctx context.Context, cfg Config, release UpdateRelease) (st
 		_ = os.Remove(stagedPath)
 		return "", fmt.Errorf("sha256 inválido: esperado %s, recebido %s", release.SHA256, actual)
 	}
-	if err := verifyReleaseSignature(actual, release.Signature); err != nil {
+	release.SHA256 = actual
+	if err := verifyReleaseSignature(release); err != nil {
 		_ = os.Remove(stagedPath)
 		return "", err
 	}
 	return stagedPath, nil
 }
 
-func verifyReleaseSignature(digestHex string, signatureBase64 string) error {
+func resolveReleaseURL(manifestURL string, releaseURL string) (string, *url.URL, error) {
+	manifest, err := url.Parse(manifestURL)
+	if err != nil || manifest.Scheme == "" || manifest.Host == "" || manifest.User != nil {
+		return "", nil, errors.New("URL do manifesto de update inválida")
+	}
+	release, err := url.Parse(releaseURL)
+	if err != nil {
+		return "", nil, errors.New("URL da release inválida")
+	}
+	resolved := manifest.ResolveReference(release)
+	if resolved.Scheme != manifest.Scheme ||
+		!strings.EqualFold(resolved.Host, manifest.Host) ||
+		resolved.User != nil {
+		return "", nil, errors.New("URL da release saiu da origem confiável do manifesto")
+	}
+	return resolved.String(), manifest, nil
+}
+
+func verifyReleaseSignature(release UpdateRelease) error {
 	publicKey, err := base64.StdEncoding.DecodeString(releasePublicKeyBase64)
 	if err != nil || len(publicKey) != ed25519.PublicKeySize {
 		return errors.New("chave pública de release inválida")
 	}
-	signature, err := base64.StdEncoding.DecodeString(signatureBase64)
+	signature, err := base64.StdEncoding.DecodeString(release.Signature)
 	if err != nil || len(signature) != ed25519.SignatureSize {
 		return errors.New("assinatura de release inválida")
 	}
-	if !ed25519.Verify(ed25519.PublicKey(publicKey), []byte(strings.ToLower(digestHex)), signature) {
+	if !ed25519.Verify(ed25519.PublicKey(publicKey), releaseSignaturePayload(release), signature) {
 		return errors.New("assinatura de release não confere")
 	}
 	return nil
+}
+
+func releaseSignaturePayload(release UpdateRelease) []byte {
+	return []byte(fmt.Sprintf(
+		"printora-agent-release-v1\nplatform=%s\nversion=%s\nsha256=%s\nprotocol_min=%d\nprotocol_max=%d\n",
+		release.Platform,
+		normalizeVersion(release.Version),
+		strings.ToLower(release.SHA256),
+		release.ProtocolMin,
+		release.ProtocolMax,
+	))
 }
 
 func updateDownloadTimeout(cfg Config) time.Duration {

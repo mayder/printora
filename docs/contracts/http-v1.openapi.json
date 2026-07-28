@@ -422,6 +422,144 @@
         "title": "AccessibilityPreferencesUpdateRequest",
         "type": "object"
       },
+      "AccountExportResponse": {
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "request": {
+            "$ref": "#/components/schemas/AccountRequestRecord"
+          }
+        },
+        "required": [
+          "request",
+          "data"
+        ],
+        "title": "AccountExportResponse",
+        "type": "object"
+      },
+      "AccountProtectionCommand": {
+        "properties": {
+          "request_key": {
+            "maxLength": 120,
+            "minLength": 8,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "title": "Request Key",
+            "type": "string"
+          },
+          "step_up_token": {
+            "maxLength": 240,
+            "minLength": 20,
+            "title": "Step Up Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_key",
+          "step_up_token"
+        ],
+        "title": "AccountProtectionCommand",
+        "type": "object"
+      },
+      "AccountRequestRecord": {
+        "properties": {
+          "artifact_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Sha256"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "effective_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective At"
+          },
+          "failure_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Code"
+          },
+          "request_key": {
+            "title": "Request Key",
+            "type": "string"
+          },
+          "request_type": {
+            "enum": [
+              "export",
+              "deletion"
+            ],
+            "title": "Request Type",
+            "type": "string"
+          },
+          "retention_until": {
+            "title": "Retention Until",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "processing",
+              "ready",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_key",
+          "request_type",
+          "status",
+          "artifact_sha256",
+          "failure_code",
+          "effective_at",
+          "retention_until",
+          "created_at",
+          "updated_at",
+          "completed_at"
+        ],
+        "title": "AccountRequestRecord",
+        "type": "object"
+      },
       "AgentCredentialCreateRequest": {
         "properties": {
           "label": {
@@ -1423,6 +1561,14 @@
             "title": "Signature",
             "type": "string"
           },
+          "signature_scope": {
+            "enum": [
+              "printora-agent-release-v1",
+              "legacy-digest-only"
+            ],
+            "title": "Signature Scope",
+            "type": "string"
+          },
           "url": {
             "minLength": 1,
             "title": "Url",
@@ -1438,7 +1584,8 @@
           "version",
           "url",
           "sha256",
-          "signature"
+          "signature",
+          "signature_scope"
         ],
         "title": "AgentReleaseAsset",
         "type": "object"
@@ -2065,6 +2212,58 @@
           "linked_at"
         ],
         "title": "AuthOrganizationPrinter",
+        "type": "object"
+      },
+      "AuthSessionRecord": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "current": {
+            "title": "Current",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          }
+        },
+        "required": [
+          "id",
+          "current",
+          "created_at",
+          "last_seen_at",
+          "expires_at",
+          "revoked_at"
+        ],
+        "title": "AuthSessionRecord",
         "type": "object"
       },
       "AuthSessionResponse": {
@@ -12361,6 +12560,37 @@
         "title": "MfaLoginRequest",
         "type": "object"
       },
+      "MfaSetupRequest": {
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "maxLength": 8,
+                "minLength": 6,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          }
+        },
+        "title": "MfaSetupRequest",
+        "type": "object"
+      },
       "MfaSetupResponse": {
         "properties": {
           "otpauth_uri": {
@@ -12578,6 +12808,134 @@
           "created_at"
         ],
         "title": "ModerationActionRecord",
+        "type": "object"
+      },
+      "ModerationAppealCreate": {
+        "properties": {
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ModerationAppealCreate",
+        "type": "object"
+      },
+      "ModerationAppealDecision": {
+        "properties": {
+          "resolution_note": {
+            "maxLength": 1000,
+            "minLength": 3,
+            "title": "Resolution Note",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "upheld",
+              "overturned"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "resolution_note"
+        ],
+        "title": "ModerationAppealDecision",
+        "type": "object"
+      },
+      "ModerationAppealRecord": {
+        "properties": {
+          "appellant_user_id": {
+            "title": "Appellant User Id",
+            "type": "integer"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "report_id": {
+            "title": "Report Id",
+            "type": "integer"
+          },
+          "resolution_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Note"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "retention_until": {
+            "title": "Retention Until",
+            "type": "string"
+          },
+          "reviewed_by_user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By User Id"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "upheld",
+              "overturned"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "report_id",
+          "appellant_user_id",
+          "reason",
+          "status",
+          "reviewed_by_user_id",
+          "resolution_note",
+          "retention_until",
+          "created_at",
+          "updated_at",
+          "resolved_at"
+        ],
+        "title": "ModerationAppealRecord",
         "type": "object"
       },
       "ModerationAppealRequest": {
@@ -13023,6 +13381,12 @@
             "title": "Action Id",
             "type": "string"
           },
+          "confirmation_phrase": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Confirmation Phrase",
+            "type": "string"
+          },
           "parameters": {
             "additionalProperties": true,
             "title": "Parameters",
@@ -13042,7 +13406,8 @@
           }
         },
         "required": [
-          "action_id"
+          "action_id",
+          "confirmation_phrase"
         ],
         "title": "OperationActionDirectExecuteRequest",
         "type": "object"
@@ -17240,13 +17605,23 @@
         "title": "PublicProfileUpdate",
         "type": "object"
       },
+      "QualityApprovalRequest": {
+        "properties": {
+          "check_key": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Check Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "check_key"
+        ],
+        "title": "QualityApprovalRequest",
+        "type": "object"
+      },
       "QualityRequest": {
         "properties": {
-          "approver_user_id": {
-            "exclusiveMinimum": 0.0,
-            "title": "Approver User Id",
-            "type": "integer"
-          },
           "check_key": {
             "maxLength": 120,
             "minLength": 2,
@@ -17279,8 +17654,7 @@
           "specification",
           "measurement",
           "passed",
-          "evidence_object_key",
-          "approver_user_id"
+          "evidence_object_key"
         ],
         "title": "QualityRequest",
         "type": "object"
@@ -22703,8 +23077,15 @@
           },
           "purpose": {
             "default": "destructive_action",
-            "maxLength": 80,
-            "minLength": 3,
+            "enum": [
+              "destructive_action",
+              "finance_sensitive_action",
+              "account_export",
+              "account_deletion",
+              "mfa_rebind",
+              "session_revoke",
+              "setup_physical_operation"
+            ],
             "title": "Purpose",
             "type": "string"
           }
@@ -26789,6 +27170,72 @@
         ]
       }
     },
+    "/api/admin/manufacturing/orders/{public_id}/quality/approve": {
+      "post": {
+        "operationId": "approve_quality_api_admin_manufacturing_orders__public_id__quality_approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_id",
+            "required": true,
+            "schema": {
+              "title": "Public Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QualityApprovalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Quality",
+        "tags": [
+          "manufacturing"
+        ]
+      }
+    },
     "/api/admin/manufacturing/orders/{public_id}/recall": {
       "post": {
         "operationId": "recall_api_admin_manufacturing_orders__public_id__recall_post",
@@ -28351,6 +28798,124 @@
         "summary": "Read Only Audit"
       }
     },
+    "/api/auth/account/deletion": {
+      "post": {
+        "operationId": "delete_auth_account_logically_api_auth_account_deletion_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountProtectionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountRequestRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Auth Account Logically",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/account/export": {
+      "post": {
+        "operationId": "export_auth_account_api_auth_account_export_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountProtectionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountExportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Auth Account",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/auth/agent-credentials": {
       "get": {
         "operationId": "list_agent_credentials_api_auth_agent_credentials_get",
@@ -28841,6 +29406,16 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaSetupRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -29741,6 +30316,184 @@
           }
         },
         "summary": "Register User",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/sessions": {
+      "get": {
+        "operationId": "list_auth_sessions_api_auth_sessions_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AuthSessionRecord"
+                  },
+                  "title": "Response List Auth Sessions Api Auth Sessions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Auth Sessions",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/sessions/revoke-others": {
+      "post": {
+        "operationId": "revoke_other_auth_sessions_api_auth_sessions_revoke_others_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountProtectionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Revoke Other Auth Sessions Api Auth Sessions Revoke Others Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Other Auth Sessions",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/sessions/{session_id}": {
+      "delete": {
+        "operationId": "revoke_auth_session_api_auth_sessions__session_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Revoke Auth Session Api Auth Sessions  Session Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Auth Session",
         "tags": [
           "auth"
         ]
@@ -38677,6 +39430,22 @@
               ],
               "title": "Authorization"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-printora-step-up",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Printora-Step-Up"
+            }
           }
         ],
         "requestBody": {
@@ -38741,6 +39510,22 @@
                 }
               ],
               "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-printora-step-up",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Printora-Step-Up"
             }
           }
         ],
@@ -39271,6 +40056,22 @@
               ],
               "title": "Authorization"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-printora-step-up",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Printora-Step-Up"
+            }
           }
         ],
         "requestBody": {
@@ -39621,6 +40422,22 @@
               ],
               "title": "Authorization"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-printora-step-up",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Printora-Step-Up"
+            }
           }
         ],
         "requestBody": {
@@ -39795,6 +40612,22 @@
                 }
               ],
               "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-printora-step-up",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Printora-Step-Up"
             }
           }
         ],
@@ -40428,6 +41261,24 @@
     "/api/slicing/dry-run": {
       "post": {
         "operationId": "create_slicing_dry_run_api_slicing_dry_run_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -40488,6 +41339,22 @@
                 }
               ],
               "title": "Engine"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -44443,6 +45310,148 @@
         ]
       }
     },
+    "/api/social/moderation/appeals": {
+      "get": {
+        "operationId": "moderation_appeals_api_social_moderation_appeals_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "open",
+                    "upheld",
+                    "overturned"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModerationAppealRecord"
+                  },
+                  "title": "Response Moderation Appeals Api Social Moderation Appeals Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Moderation Appeals",
+        "tags": [
+          "social-moderation"
+        ]
+      }
+    },
+    "/api/social/moderation/appeals/{appeal_id}/decision": {
+      "post": {
+        "operationId": "decide_moderation_appeal_api_social_moderation_appeals__appeal_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appeal_id",
+            "required": true,
+            "schema": {
+              "title": "Appeal Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModerationAppealDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModerationAppealRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Moderation Appeal",
+        "tags": [
+          "social-moderation"
+        ]
+      }
+    },
     "/api/social/moderation/queue": {
       "get": {
         "operationId": "moderation_queue_api_social_moderation_queue_get",
@@ -44577,6 +45586,74 @@
           }
         },
         "summary": "Apply Moderation Action",
+        "tags": [
+          "social-moderation"
+        ]
+      }
+    },
+    "/api/social/moderation/reports/{report_id}/appeals": {
+      "post": {
+        "operationId": "appeal_moderation_action_api_social_moderation_reports__report_id__appeals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "title": "Report Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModerationAppealCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModerationAppealRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Appeal Moderation Action",
         "tags": [
           "social-moderation"
         ]
@@ -46015,6 +47092,22 @@
               "title": "Page Size",
               "type": "integer"
             }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -47292,6 +48385,24 @@
     "/api/system/install-diagnostics": {
       "get": {
         "operationId": "system_install_diagnostics_api_system_install_diagnostics_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -47302,6 +48413,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "System Install Diagnostics"

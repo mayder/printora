@@ -280,11 +280,21 @@ def test_authenticated_operation_requires_step_up_token(tmp_path, monkeypatch) -
             raised = False
         except Exception:
             raised = True
-        _require_step_up_when_authenticated(settings, f"Bearer {session_token}", None, "set_output_pin")
+        try:
+            _require_step_up_when_authenticated(
+                settings,
+                f"Bearer {session_token}",
+                None,
+                "set_output_pin",
+            )
+            output_pin_raised = False
+        except Exception:
+            output_pin_raised = True
         step_up = validate_step_up(repository, user, StepUpRequest(password="correct-horse"))
         _require_step_up_when_authenticated(settings, f"Bearer {session_token}", step_up.step_up_token, "move_z")
 
         assert raised is True
+        assert output_pin_raised is True
     finally:
         get_settings.cache_clear()
 

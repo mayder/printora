@@ -73,6 +73,36 @@ class ExternalReferenceCreate(BaseModel):
             raise ValueError("checksum SHA-256 inválido")
         return clean
 
+    @field_validator("metadata")
+    @classmethod
+    def bound_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        _validate_metadata_shape(value)
+        encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        if len(encoded) > 16 * 1024:
+            raise ValueError("metadados excedem 16 KiB")
+        return value
+
+
+def _validate_metadata_shape(value: Any, *, depth: int = 0) -> None:
+    if depth > 5:
+        raise ValueError("metadados excedem profundidade permitida")
+    if isinstance(value, dict):
+        if len(value) > 100:
+            raise ValueError("metadados contêm chaves demais")
+        for key, child in value.items():
+            if not isinstance(key, str) or len(key) > 120:
+                raise ValueError("chave de metadado inválida")
+            _validate_metadata_shape(child, depth=depth + 1)
+        return
+    if isinstance(value, list):
+        if len(value) > 100:
+            raise ValueError("metadados contêm itens demais")
+        for child in value:
+            _validate_metadata_shape(child, depth=depth + 1)
+        return
+    if value is not None and not isinstance(value, (str, int, float, bool)):
+        raise ValueError("tipo de metadado inválido")
+
 
 class ExternalReferenceRecord(BaseModel):
     id: int

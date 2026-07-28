@@ -25,16 +25,19 @@ jobs:
           SSH_HOST_SECRET: ${{ secrets.PRINTORA_SSH_HOST }}
           SSH_PORT_SECRET: ${{ secrets.PRINTORA_SSH_PORT }}
           SSH_USER_SECRET: ${{ secrets.PRINTORA_SSH_USER }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PRINTORA_SSH_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
           test -n "$SSH_PRIVATE_KEY" || { echo "::error::Secret PRINTORA_SSH_PRIVATE_KEY nao configurado."; exit 1; }
+          test -n "$SSH_KNOWN_HOSTS" || { echo "::error::Secret PRINTORA_SSH_KNOWN_HOSTS nao configurado."; exit 1; }
           SSH_HOST="${SSH_HOST_SECRET:-$DEFAULT_SSH_HOST}"
           SSH_PORT="${SSH_PORT_SECRET:-$DEFAULT_SSH_PORT}"
           SSH_USER="${SSH_USER_SECRET:-$DEFAULT_SSH_USER}"
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/printora_key
           chmod 600 ~/.ssh/printora_key
-          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
           {
             echo "SSH_HOST=$SSH_HOST"
             echo "SSH_PORT=$SSH_PORT"
@@ -214,16 +217,19 @@ jobs:
           SSH_HOST_SECRET: ${{ secrets.PRINTORA_SSH_HOST }}
           SSH_PORT_SECRET: ${{ secrets.PRINTORA_SSH_PORT }}
           SSH_USER_SECRET: ${{ secrets.PRINTORA_SSH_USER }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PRINTORA_SSH_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
           test -n "$SSH_PRIVATE_KEY" || { echo "::error::Secret PRINTORA_SSH_PRIVATE_KEY nao configurado."; exit 1; }
+          test -n "$SSH_KNOWN_HOSTS" || { echo "::error::Secret PRINTORA_SSH_KNOWN_HOSTS nao configurado."; exit 1; }
           SSH_HOST="${SSH_HOST_SECRET:-$DEFAULT_SSH_HOST}"
           SSH_PORT="${SSH_PORT_SECRET:-$DEFAULT_SSH_PORT}"
           SSH_USER="${SSH_USER_SECRET:-$DEFAULT_SSH_USER}"
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/printora_key
           chmod 600 ~/.ssh/printora_key
-          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
           {
             echo "SSH_HOST=$SSH_HOST"
             echo "SSH_PORT=$SSH_PORT"

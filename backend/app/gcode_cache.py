@@ -77,12 +77,7 @@ def resolve_gcode_cache_upload_filename(
     submitted_filename: str,
 ) -> str:
     cache_key = validate_gcode_cache_key(cache_key)
-    try:
-        normalized = normalize_gcode_filename(submitted_filename)
-        if gcode_cache_key(agent.printer_id, normalized) == cache_key:
-            return normalized
-    except HTTPException:
-        pass
+    del submitted_filename
 
     with connect_database(settings.database_path) as connection:
         rows = connection.execute(

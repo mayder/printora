@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import shlex
 
 from fastapi import Depends
 
@@ -291,7 +292,7 @@ printf 'agent_host='; hostname 2>/dev/null || true
 printf 'moonraker_local='
 curl -fsS --max-time 5 http://127.0.0.1:7125/server/info >/dev/null && printf 'ok\\n' || printf 'erro\\n'
 printf 'moonraker_configured='
-curl -fsS --max-time 5 {moonraker_url!r}/server/info >/dev/null && printf 'ok\\n' || printf 'erro\\n'
+curl -fsS --max-time 5 {shlex.quote(moonraker_url.rstrip("/") + "/server/info")} >/dev/null && printf 'ok\\n' || printf 'erro\\n'
 printf 'ip='
 hostname -I 2>/dev/null || true
 """

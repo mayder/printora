@@ -39,6 +39,7 @@ type AuthScreenProps = ScreenPropsFor<
   | "authMfaCode"
   | "authMode"
   | "authPassword"
+  | "authSessions"
   | "authTimezone"
   | "authUser"
   | "createdOrganizationInvite"
@@ -78,18 +79,22 @@ type AuthScreenProps = ScreenPropsFor<
   | "createAuthOrganization"
   | "createAuthOrganizationInvite"
   | "deleteAuthOrganization"
+  | "deactivateAuthAccount"
   | "disableMfa"
   | "linkAuthOrganizationPrinter"
   | "loadOrganizationDetail"
+  | "loadAuthSessions"
   | "logoutAuth"
   | "removeAuthOrganizationMember"
   | "requestStepUp"
+  | "revokeOtherAuthSessions"
   | "revokeAuthOrganizationInvite"
   | "startMfaSetup"
   | "submitAuth"
   | "submitMfaLogin"
   | "unlinkAuthOrganizationPrinter"
   | "updateAuthPassword"
+  | "exportAuthAccount"
   | "updateAuthProfile"
   | "updateAuthOrganization"
 >;
@@ -115,6 +120,7 @@ export function AuthScreen(props: AuthScreenProps) {
     authMfaCode,
     authMode,
     authPassword,
+    authSessions,
     authTimezone,
     authUser,
     createdOrganizationInvite,
@@ -154,18 +160,22 @@ export function AuthScreen(props: AuthScreenProps) {
     createAuthOrganization,
     createAuthOrganizationInvite,
     deleteAuthOrganization,
+    deactivateAuthAccount,
     disableMfa,
     linkAuthOrganizationPrinter,
     loadOrganizationDetail,
+    loadAuthSessions,
     logoutAuth,
     removeAuthOrganizationMember,
     requestStepUp,
+    revokeOtherAuthSessions,
     revokeAuthOrganizationInvite,
     startMfaSetup,
     submitAuth,
     submitMfaLogin,
     unlinkAuthOrganizationPrinter,
     updateAuthPassword,
+    exportAuthAccount,
     updateAuthProfile,
     updateAuthOrganization,
   } = props;
@@ -220,6 +230,7 @@ export function AuthScreen(props: AuthScreenProps) {
       const tab = (event as CustomEvent<AccountTab | "security">).detail;
       if (tab === "security") {
         setAccountTab("profile");
+        setProfileSection("security");
         return;
       }
       if (accountTabKeys.includes(tab)) {
@@ -234,6 +245,11 @@ export function AuthScreen(props: AuthScreenProps) {
       void loadOrganizationDetail(selectedOrganizationId);
     }
   }, [accountTab, selectedOrganizationId, organizationDetail]);
+  React.useEffect(() => {
+    if (profileSection === "security") {
+      void loadAuthSessions();
+    }
+  }, [profileSection, authUser?.id]);
   React.useEffect(() => {
     if (!authUser || hydratedProfileUserId.current === authUser.id) {
       return;
@@ -340,7 +356,40 @@ export function AuthScreen(props: AuthScreenProps) {
     setCurrentPassword("");
     setNewPassword("");
     setConfirmNewPassword("");
-    showToast({ tone: "success", title: "Senha alterada" });
+    showToast({ tone: "success", title: "Senha alterada", detail: "Todas as sessões foram revogadas. Entre novamente." });
+  }
+
+  async function downloadAccountExport() {
+    if (!authUser) {
+      return;
+    }
+    const response = await exportAuthAccount();
+    if (!response) {
+      return;
+    }
+    const blob = new Blob([`${JSON.stringify(response.data, null, 2)}\n`], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `printora-account-${authUser.id}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    showToast({ tone: "success", title: "Exportação gerada" });
+  }
+
+  async function confirmAccountDeactivation() {
+    const confirmed = await confirmAction({
+      tone: "danger",
+      title: "Desativar conta",
+      detail: "Revoga sessões e remove localização e contatos. A auditoria fica por 180 dias.",
+      confirmLabel: "Desativar conta",
+      cancelLabel: "Cancelar",
+    });
+    if (!confirmed) {
+      return;
+    }
+    await deactivateAuthAccount();
+    showToast({ tone: "success", title: "Conta desativada" });
   }
 
   async function loadSocialProfile() {
@@ -960,6 +1009,19 @@ export function AuthScreen(props: AuthScreenProps) {
                 <p>Controles usados para proteger login e ações críticas na impressora.</p>
               </div>
             </div>
+            <div className="profile-form-grid">
+              {authUser.mfa_enabled ? (
+                <label>
+                  <span>Código 2FA atual</span>
+                  <input value={stepUpCode} onChange={(event) => setStepUpCode(event.target.value)} inputMode="numeric" autoComplete="one-time-code" />
+                </label>
+              ) : (
+                <label>
+                  <span>Senha atual</span>
+                  <input value={stepUpPassword} onChange={(event) => setStepUpPassword(event.target.value)} type="password" autoComplete="current-password" />
+                </label>
+              )}
+            </div>
             <div className="profile-security-grid">
               <section className="profile-security-block">
                 <div className="panel-header-row compact">
@@ -1035,6 +1097,28 @@ export function AuthScreen(props: AuthScreenProps) {
                     Gerar autorização
                   </button>
                   {stepUpResult ? <small>Autorização válida até {formatDateTime(stepUpResult.expires_at)}.</small> : null}
+                </div>
+              </section>
+
+              <section className="profile-security-block">
+                <div className="panel-header-row compact">
+                  <div>
+                    <h3>Sessões</h3>
+                    <p>Revogue acessos antigos sem expor tokens.</p>
+                  </div>
+                  <Shield size={20} />
+                </div>
+                <div className="auth-stack">
+                  <small>{authSessions.filter((session) => !session.revoked_at).length} sessão(ões) ativa(s).</small>
+                  <button type="button" className="secondary-button" onClick={() => void revokeOtherAuthSessions()} disabled={loading || (!stepUpCode.trim() && !stepUpPassword.trim())}>
+                    Revogar outras sessões
+                  </button>
+                  <button type="button" className="secondary-button" onClick={() => void downloadAccountExport()} disabled={loading || (!stepUpCode.trim() && !stepUpPassword.trim())}>
+                    Exportar meus dados
+                  </button>
+                  <button type="button" className="danger-button" onClick={() => void confirmAccountDeactivation()} disabled={loading || (!stepUpCode.trim() && !stepUpPassword.trim())}>
+                    Desativar conta
+                  </button>
                 </div>
               </section>
             </div>

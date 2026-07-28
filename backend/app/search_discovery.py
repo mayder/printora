@@ -367,11 +367,18 @@ class SearchDiscoveryRepository:
         if postgresql:
             clauses = ["idx.is_active = true", _postgresql_visibility_clause(viewer_user_id), _postgresql_canonical_clause()]
         else:
-            clauses = ["idx.visibility IN ('public', 'community')"]
+            clauses = [_sqlite_visibility_clause(viewer_user_id)]
         params: list[object] = []
         if postgresql and viewer_user_id is not None:
             params.append(viewer_user_id)
+        if not postgresql and viewer_user_id is not None:
+            params.append(viewer_user_id)
         if postgresql and viewer_user_id is not None:
+            clauses.append(
+                "NOT EXISTS (SELECT 1 FROM social_relationships blocked WHERE blocked.relation_type = 'block' AND blocked.status = 'active' AND ((blocked.actor_user_id = ? AND blocked.target_user_id = idx.owner_user_id) OR (blocked.target_user_id = ? AND blocked.actor_user_id = idx.owner_user_id)))"
+            )
+            params.extend([viewer_user_id, viewer_user_id])
+        if not postgresql and viewer_user_id is not None:
             clauses.append(
                 "NOT EXISTS (SELECT 1 FROM social_relationships blocked WHERE blocked.relation_type = 'block' AND blocked.status = 'active' AND ((blocked.actor_user_id = ? AND blocked.target_user_id = idx.owner_user_id) OR (blocked.target_user_id = ? AND blocked.actor_user_id = idx.owner_user_id)))"
             )
@@ -425,6 +432,26 @@ class SearchDiscoveryRepository:
 
 
 def _postgresql_visibility_clause(viewer_user_id: int | None) -> str:
+    if viewer_user_id is None:
+        return "idx.visibility = 'public'"
+    return """
+    (
+        idx.visibility = 'public'
+        OR (
+            idx.visibility = 'community'
+            AND idx.community_id IS NOT NULL
+            AND EXISTS (
+                SELECT 1 FROM social_community_members membership
+                WHERE membership.community_id = idx.community_id
+                  AND membership.user_id = ?
+                  AND membership.active = 1
+            )
+        )
+    )
+    """
+
+
+def _sqlite_visibility_clause(viewer_user_id: int | None) -> str:
     if viewer_user_id is None:
         return "idx.visibility = 'public'"
     return """

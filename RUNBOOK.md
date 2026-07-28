@@ -153,6 +153,13 @@ compartilhado. O usuário `deploy` só recebe sudo para os comandos fixos do
 blue/green e da retenção definidos em
 `packaging/sudoers/printora-cloud-deploy`.
 
+Os workflows de deploy e rollback exigem o secret
+`PRINTORA_SSH_KNOWN_HOSTS`. Ele deve conter a linha completa da chave pública
+do host, obtida fora do workflow e conferida por fingerprint em canal
+independente. Ausência do secret falha fechado antes da conexão. Não usar
+`ssh-keyscan` durante o deploy, não aceitar chave nova automaticamente e não
+substituir o secret sem validação operacional da rotação.
+
 O bundle de produção exclui `.artifacts`, que contém apenas evidências de CI e
 é publicado separadamente com retenção de 30 dias. O envio usa keep-alive SSH e
 até três tentativas; falha persistente encerra o workflow antes de preparar ou
@@ -2624,3 +2631,64 @@ Rollback: restaurar release N-1 e preservar
 `accessibility_preferences`. Não interromper backend, worker, agente,
 Moonraker ou impressora para limpar preferências. O schema é aditivo e pode
 permanecer sem consumidor.
+
+## PKG-104 — Proteção essencial
+
+Validação local:
+
+```bash
+cd backend
+.venv/bin/python -m pytest -q tests/test_platform_protection.py tests/test_auth.py tests/test_social_catalog.py tests/test_agent_channel.py
+cd ../agent
+go test ./...
+cd ../frontend
+PATH=/Users/brenomayder/.nvm/versions/node/v22.22.0/bin:$PATH npm run build
+cd ..
+PATH=/Users/brenomayder/.nvm/versions/node/v22.22.0/bin:$PATH RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh
+```
+
+Banco:
+
+1. aplicar `backend/sql/087_platform_protection.sql` no SQLite pelo bootstrap;
+2. aplicar `backend/sql/postgresql/019_platform_protection.sql` no PostgreSQL
+   pelo fluxo privilegiado;
+3. validar coluna MFA pendente, tabelas, índices, constraints, retenção de 180
+   dias e registro em `schema_versions`;
+4. não executar `DROP`, `DELETE`, cascade, prune ou restauração de snapshot.
+
+Incidente de conta:
+
+1. preservar `request_id`, usuário, sessões opacas e trilhas existentes sem
+   copiar token ou payload sensível;
+2. revogar todas as sessões da conta e exigir nova senha/MFA;
+3. se houver abuso ativo, desativar novas operações com
+   `PRINTORA_PLATFORM_PROTECTION_WRITES_ENABLED=false`;
+4. registrar owner de operações e expiração em até 24 horas;
+5. corrigir ou restaurar a release N-1, reativar a flag e retestar login,
+   step-up, exportação e recurso;
+6. manter solicitações e auditoria por 180 dias.
+
+Incidente de artefato:
+
+1. bloquear a versão no manifesto sem interromper impressão em andamento;
+2. confirmar SHA-256, assinatura, identidade da chave e protocolo;
+3. restaurar o binário N-1 pelo backup do agente e executar health check;
+4. publicar correção com nova versão; nunca reutilizar artefato ou tag.
+
+Controles adicionais:
+
+1. updates da aplicação usam somente o repositório GitHub configurado; uma URL
+   informada pelo cliente não pode trocar a origem;
+2. download de release do agente aceita URL relativa ou absoluta somente na
+   mesma origem HTTPS do manifesto e rejeita redirecionamento externo;
+3. instaladores locais não executam scripts baixados diretamente da rede;
+   Homebrew e nvm ausentes devem ser instalados por procedimento verificado;
+4. IDs globais de backup, manutenção, snapshot e firmware são revalidados no
+   escopo do usuário antes de leitura ou mutação;
+5. diagnóstico, fatiamento e mutações de update falham fechado sem sessão;
+6. toda ação física exige preview, confirmação do cliente e step-up, e permanece
+   bloqueada enquanto houver impressão ativa.
+
+Rollback: a flag suspende apenas novas exportações, desativações e recursos. Ela
+não apaga dados nem desfaz ações já concluídas. Preservar schema e auditoria,
+restaurar release N-1 compatível e reativar em até 24 horas.

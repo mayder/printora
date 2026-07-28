@@ -194,32 +194,7 @@ export function useOperation({ selectedPrinterId, setActiveSection, setError, se
   }
 
   async function executeOperationAction(action: OperationAction, parameterOverride?: Record<string, string | number>) {
-    if (!selectedPrinterId) {
-      setError("Selecione uma impressora para executar a ação.");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await operationApi.executeDirect(selectedPrinterId, {
-        action_id: action.id,
-        parameters: buildOperationActionPayload(parameterOverride ?? operationActionParameters[action.id] ?? {}),
-      });
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-      setOperationExecutionAttempt((await response.json()) as OperationActionExecutionAttempt);
-      setOperationActionPreview(null);
-      await Promise.all([
-        loadOperationActionHistory(selectedPrinterId),
-        loadOperationExecutionHistory(selectedPrinterId),
-        loadOperationStatus(selectedPrinterId, { preserveData: true }),
-      ]);
-    } catch (err) {
-      setError(unknownErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
+    await previewOperationAction(action, parameterOverride);
   }
 
   function resetOperationSelection() {

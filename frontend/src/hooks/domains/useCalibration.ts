@@ -353,6 +353,7 @@ export function useCalibration({ authUser, selectedPrinterId, confirmAction, set
       const response = await operationApi.executeDirect(selectedPrinterId, {
         action_id: "save_config",
         parameters: {},
+        confirmation_phrase: "CONFIRM_SAVE_CONFIG",
       });
       if (!response.ok) {
         const apiError = await readOperationApiError(response);

@@ -112,10 +112,10 @@
     }
   ],
   "summary": {
-    "modules": 186,
-    "routes": 381,
-    "contracts": 396,
-    "tables": 157,
+    "modules": 187,
+    "routes": 390,
+    "contracts": 405,
+    "tables": 160,
     "cycles": 0,
     "modules_by_owner": {
       "accessibility": 7,
@@ -123,7 +123,7 @@
       "community": 29,
       "design_system": 5,
       "finance": 13,
-      "identity": 13,
+      "identity": 14,
       "integrations": 7,
       "operations": 59,
       "shared": 22
@@ -205,7 +205,7 @@
     {
       "module": "agent_parity",
       "owner": "operations",
-      "lines": 208,
+      "lines": 220,
       "imports": [
         "agent_pairing",
         "database",
@@ -240,7 +240,7 @@
     {
       "module": "agent_updates",
       "owner": "operations",
-      "lines": 188,
+      "lines": 189,
       "imports": [
         "agent_pairing",
         "database"
@@ -266,7 +266,7 @@
     {
       "module": "auth",
       "owner": "identity",
-      "lines": 913,
+      "lines": 959,
       "imports": [
         "database",
         "modules.identity.application",
@@ -341,7 +341,7 @@
     {
       "module": "config",
       "owner": "administration",
-      "lines": 96,
+      "lines": 97,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -349,7 +349,7 @@
     {
       "module": "config_remediation",
       "owner": "administration",
-      "lines": 312,
+      "lines": 330,
       "imports": [],
       "routes": [],
       "contracts": [
@@ -360,7 +360,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 591,
+      "lines": 594,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -384,7 +384,7 @@
     {
       "module": "external_library",
       "owner": "community",
-      "lines": 289,
+      "lines": 319,
       "imports": [
         "database",
         "modules.community.contracts"
@@ -644,7 +644,7 @@
     {
       "module": "gcode_cache",
       "owner": "operations",
-      "lines": 324,
+      "lines": 319,
       "imports": [
         "agent_pairing",
         "config",
@@ -798,7 +798,7 @@
     {
       "module": "manufacturing_workflow",
       "owner": "operations",
-      "lines": 257,
+      "lines": 289,
       "imports": [
         "database"
       ],
@@ -1089,7 +1089,7 @@
     {
       "module": "modules.community.library_contracts",
       "owner": "community",
-      "lines": 377,
+      "lines": 401,
       "imports": [
         "modules.community.validation"
       ],
@@ -1404,7 +1404,7 @@
     {
       "module": "modules.identity.contracts",
       "owner": "identity",
-      "lines": 267,
+      "lines": 313,
       "imports": [],
       "routes": [],
       "contracts": [
@@ -1419,6 +1419,7 @@
         "OrganizationInviteCreateRequest",
         "OrganizationPrinterLinkRequest",
         "MfaCodeRequest",
+        "MfaSetupRequest",
         "StepUpRequest",
         "AgentCredentialCreateRequest",
         "AuthOrganization",
@@ -1430,6 +1431,10 @@
         "LoginResponse",
         "MfaSetupResponse",
         "StepUpResponse",
+        "AuthSessionRecord",
+        "AccountProtectionCommand",
+        "AccountRequestRecord",
+        "AccountExportResponse",
         "AgentCredentialResponse",
         "AgentCredentialRecord"
       ]
@@ -1469,6 +1474,18 @@
       "contracts": [
         "IdentityRepository"
       ]
+    },
+    {
+      "module": "modules.identity.protection",
+      "owner": "identity",
+      "lines": 238,
+      "imports": [
+        "auth",
+        "database",
+        "modules.identity.contracts"
+      ],
+      "routes": [],
+      "contracts": []
     },
     {
       "module": "modules.identity.security",
@@ -1569,7 +1586,7 @@
     {
       "module": "modules.operations.manufacturing_api",
       "owner": "operations",
-      "lines": 137,
+      "lines": 174,
       "imports": [
         "config",
         "database",
@@ -1607,6 +1624,11 @@
         },
         {
           "method": "POST",
+          "path": "/api/admin/manufacturing/orders/{public_id}/quality/approve",
+          "handler": "approve_quality"
+        },
+        {
+          "method": "POST",
           "path": "/api/admin/manufacturing/orders/{public_id}/shipments",
           "handler": "shipment"
         },
@@ -1631,7 +1653,7 @@
     {
       "module": "modules.operations.manufacturing_contracts",
       "owner": "operations",
-      "lines": 58,
+      "lines": 61,
       "imports": [],
       "routes": [],
       "contracts": [
@@ -1640,6 +1662,7 @@
         "AcceptQuoteRequest",
         "TransitionRequest",
         "QualityRequest",
+        "QualityApprovalRequest",
         "ShipmentRequest",
         "TrackingRequest",
         "RecallRequest"
@@ -1793,7 +1816,7 @@
     {
       "module": "operation_history",
       "owner": "operations",
-      "lines": 304,
+      "lines": 317,
       "imports": [
         "database"
       ],
@@ -1852,7 +1875,7 @@
     {
       "module": "print_delivery",
       "owner": "operations",
-      "lines": 394,
+      "lines": 413,
       "imports": [
         "database",
         "print_preflight",
@@ -1919,10 +1942,11 @@
     {
       "module": "print_projects",
       "owner": "community",
-      "lines": 1064,
+      "lines": 1077,
       "imports": [
         "database",
         "modules.community.contracts",
+        "platform_access",
         "social_catalog",
         "social_storage"
       ],
@@ -1961,7 +1985,7 @@
     {
       "module": "rate_limit_middleware",
       "owner": "shared",
-      "lines": 45,
+      "lines": 54,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -1980,7 +2004,7 @@
     {
       "module": "remote_operations",
       "owner": "administration",
-      "lines": 279,
+      "lines": 295,
       "imports": [
         "agent_pairing",
         "auth",
@@ -2022,7 +2046,7 @@
     {
       "module": "routes.agents",
       "owner": "operations",
-      "lines": 776,
+      "lines": 781,
       "imports": [
         "agent_channel",
         "agent_pairing",
@@ -2262,13 +2286,14 @@
     {
       "module": "routes.auth",
       "owner": "identity",
-      "lines": 398,
+      "lines": 486,
       "imports": [
         "auth",
         "config",
         "database",
         "modules.identity.application",
         "modules.identity.contracts",
+        "modules.identity.protection",
         "modules.identity.security",
         "platform_access"
       ],
@@ -2389,6 +2414,31 @@
           "handler": "create_step_up_token"
         },
         {
+          "method": "GET",
+          "path": "/sessions",
+          "handler": "list_auth_sessions"
+        },
+        {
+          "method": "POST",
+          "path": "/sessions/revoke-others",
+          "handler": "revoke_other_auth_sessions"
+        },
+        {
+          "method": "DELETE",
+          "path": "/sessions/{session_id}",
+          "handler": "revoke_auth_session"
+        },
+        {
+          "method": "POST",
+          "path": "/account/export",
+          "handler": "export_auth_account"
+        },
+        {
+          "method": "POST",
+          "path": "/account/deletion",
+          "handler": "delete_auth_account_logically"
+        },
+        {
           "method": "POST",
           "path": "/agent-credentials",
           "handler": "create_agent_credential"
@@ -2404,8 +2454,10 @@
     {
       "module": "routes.backups",
       "owner": "administration",
-      "lines": 191,
+      "lines": 245,
       "imports": [
+        "modules.identity.contracts",
+        "platform_access",
         "routes.auth",
         "routes.support"
       ],
@@ -2456,12 +2508,13 @@
     {
       "module": "routes.calibration",
       "owner": "operations",
-      "lines": 674,
+      "lines": 742,
       "imports": [
         "agent_executor",
         "agent_moonraker",
         "auth",
         "config_remediation",
+        "database",
         "routes.auth",
         "routes.support"
       ],
@@ -2727,7 +2780,7 @@
     {
       "module": "routes.firmware",
       "owner": "operations",
-      "lines": 355,
+      "lines": 371,
       "imports": [
         "agent_executor",
         "agent_moonraker",
@@ -2849,7 +2902,7 @@
     {
       "module": "routes.maintenance",
       "owner": "operations",
-      "lines": 194,
+      "lines": 206,
       "imports": [
         "routes.auth",
         "routes.support"
@@ -2916,7 +2969,7 @@
     {
       "module": "routes.operation",
       "owner": "operations",
-      "lines": 1153,
+      "lines": 1164,
       "imports": [
         "agent_executor",
         "agent_moonraker",
@@ -3174,10 +3227,13 @@
     {
       "module": "routes.printer_updates",
       "owner": "operations",
-      "lines": 209,
+      "lines": 254,
       "imports": [
         "agent_executor",
         "agent_moonraker",
+        "auth",
+        "modules.identity.contracts",
+        "platform_access",
         "routes.auth",
         "routes.support"
       ],
@@ -3213,7 +3269,7 @@
     {
       "module": "routes.printers",
       "owner": "operations",
-      "lines": 323,
+      "lines": 324,
       "imports": [
         "agent_executor",
         "agent_moonraker",
@@ -3333,9 +3389,11 @@
     {
       "module": "routes.setup",
       "owner": "operations",
-      "lines": 229,
+      "lines": 264,
       "imports": [
         "auth",
+        "modules.identity.contracts",
+        "platform_access",
         "routes.auth",
         "routes.support",
         "setup_can",
@@ -3431,7 +3489,7 @@
     {
       "module": "routes.slicing",
       "owner": "operations",
-      "lines": 319,
+      "lines": 321,
       "imports": [
         "agent_executor",
         "agent_pairing",
@@ -3542,7 +3600,7 @@
     {
       "module": "routes.snapshots",
       "owner": "administration",
-      "lines": 88,
+      "lines": 89,
       "imports": [
         "agent_executor",
         "agent_moonraker",
@@ -3576,7 +3634,7 @@
     {
       "module": "routes.social_catalog",
       "owner": "community",
-      "lines": 1120,
+      "lines": 1150,
       "imports": [
         "config",
         "modules.community.contracts",
@@ -3891,7 +3949,7 @@
     {
       "module": "routes.social_moderation",
       "owner": "community",
-      "lines": 78,
+      "lines": 130,
       "imports": [
         "auth",
         "config",
@@ -3905,6 +3963,21 @@
           "method": "POST",
           "path": "/api/social/reports",
           "handler": "report_social_content"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/moderation/reports/{report_id}/appeals",
+          "handler": "appeal_moderation_action"
+        },
+        {
+          "method": "GET",
+          "path": "/api/social/moderation/appeals",
+          "handler": "moderation_appeals"
+        },
+        {
+          "method": "POST",
+          "path": "/api/social/moderation/appeals/{appeal_id}/decision",
+          "handler": "decide_moderation_appeal"
         },
         {
           "method": "GET",
@@ -3966,9 +4039,11 @@
     {
       "module": "routes.social_ranking",
       "owner": "community",
-      "lines": 53,
+      "lines": 57,
       "imports": [
+        "auth",
         "config",
+        "routes.social_catalog",
         "search_discovery",
         "social_ranking"
       ],
@@ -4065,7 +4140,7 @@
     {
       "module": "routes.support",
       "owner": "administration",
-      "lines": 388,
+      "lines": 389,
       "imports": [
         "agent_executor",
         "agent_moonraker",
@@ -4107,7 +4182,7 @@
     {
       "module": "routes.system",
       "owner": "administration",
-      "lines": 249,
+      "lines": 291,
       "imports": [
         "database",
         "install_diagnostics",
@@ -4308,7 +4383,7 @@
     {
       "module": "search_discovery",
       "owner": "community",
-      "lines": 733,
+      "lines": 760,
       "imports": [
         "database",
         "modules.platform.database_target"
@@ -4389,7 +4464,7 @@
     {
       "module": "setup_firmware",
       "owner": "operations",
-      "lines": 513,
+      "lines": 514,
       "imports": [
         "agent_host",
         "auth",
@@ -4500,7 +4575,7 @@
     {
       "module": "social_catalog",
       "owner": "community",
-      "lines": 3402,
+      "lines": 3496,
       "imports": [
         "database",
         "modules.community.contracts",
@@ -4512,7 +4587,7 @@
     {
       "module": "social_moderation",
       "owner": "community",
-      "lines": 350,
+      "lines": 567,
       "imports": [
         "database",
         "modules.platform.durable_execution"
@@ -4523,7 +4598,10 @@
         "ModerationActionPayload",
         "ModerationReportRecord",
         "ModerationActionRecord",
-        "ModerationQueueResponse"
+        "ModerationQueueResponse",
+        "ModerationAppealCreate",
+        "ModerationAppealDecision",
+        "ModerationAppealRecord"
       ]
     },
     {
@@ -4559,7 +4637,7 @@
     {
       "module": "social_ranking",
       "owner": "community",
-      "lines": 394,
+      "lines": 396,
       "imports": [
         "database",
         "search_discovery"
@@ -5463,6 +5541,21 @@
       "table": "accessibility_preferences",
       "owner": "accessibility",
       "script": "086_accessibility_preferences.sql"
+    },
+    {
+      "table": "auth_account_requests",
+      "owner": "identity",
+      "script": "087_platform_protection.sql"
+    },
+    {
+      "table": "social_moderation_appeals",
+      "owner": "community",
+      "script": "087_platform_protection.sql"
+    },
+    {
+      "table": "security_operation_claims",
+      "owner": "administration",
+      "script": "087_platform_protection.sql"
     }
   ]
 }

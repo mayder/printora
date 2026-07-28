@@ -194,6 +194,7 @@ class OperationActionExecuteRequest(BaseModel):
 class OperationActionDirectExecuteRequest(BaseModel):
     action_id: str = Field(min_length=1, max_length=80)
     parameters: dict[str, Any] = Field(default_factory=dict)
+    confirmation_phrase: str = Field(min_length=1, max_length=120)
     step_up_token: str | None = Field(default=None, max_length=240)
 
 

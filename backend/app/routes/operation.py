@@ -674,6 +674,7 @@ async def execute_direct_printer_operation_action(
     printer_id: int,
     payload: OperationActionDirectExecuteRequest,
     authorization: str | None = Header(default=None),
+    _current: CurrentUser = Depends(require_current_user),
 ) -> OperationActionExecutionAttemptRecord:
     settings = get_settings()
     repository = get_printer_repository(settings)
@@ -693,7 +694,7 @@ async def execute_direct_printer_operation_action(
         history_repository=history_repository,
         printer_id=printer.id,
         preview=preview_record,
-        confirmation_phrase=str(preview.get("confirmation_phrase") or ""),
+        confirmation_phrase=payload.confirmation_phrase,
     )
 
 
@@ -708,7 +709,7 @@ def _require_step_up_when_authenticated(
     if not force and not operation_action_requires_step_up(action_id):
         return
     if not authorization:
-        return
+        raise HTTPException(status_code=401, detail="autenticação obrigatória")
     repository = AuthRepository(settings.database_path)
     current = require_current_user(authorization=authorization, repository=repository)
     if not step_up_token or not repository.consume_step_up(current.user.id, step_up_token, "destructive_action"):
@@ -1051,6 +1052,16 @@ async def _execute_operation_preview_via_agent(
             moonraker_response=None,
             status="blocked",
             block_reason=" ".join(blockers),
+        )
+    if not history_repository.consume_preview(preview.id, printer_id):
+        return history_repository.create_execution_result(
+            printer_id=printer_id,
+            preview=preview,
+            confirmation_phrase=confirmation_phrase,
+            preflight=preflight,
+            moonraker_response=None,
+            status="blocked",
+            block_reason="Preview já utilizado; gere uma nova autorização.",
         )
     try:
         job = await AgentCommandExecutor(settings.database_path).run(

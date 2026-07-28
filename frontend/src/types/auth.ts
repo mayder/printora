@@ -80,6 +80,42 @@ export interface StepUpResponse {
   expires_at: string;
 }
 
+export type StepUpPurpose =
+  | "destructive_action"
+  | "finance_sensitive_action"
+  | "account_export"
+  | "account_deletion"
+  | "mfa_rebind"
+  | "session_revoke"
+  | "setup_physical_operation";
+
+export interface AuthSessionRecord {
+  id: number;
+  current: boolean;
+  created_at: string;
+  last_seen_at?: string | null;
+  expires_at: string;
+  revoked_at?: string | null;
+}
+
+export interface AccountRequestRecord {
+  request_key: string;
+  request_type: "export" | "deletion";
+  status: "processing" | "ready" | "completed" | "failed" | "cancelled";
+  artifact_sha256?: string | null;
+  failure_code?: string | null;
+  effective_at?: string | null;
+  retention_until: string;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string | null;
+}
+
+export interface AccountExportResponse {
+  request: AccountRequestRecord;
+  data: Record<string, unknown>;
+}
+
 export interface AgentCredentialResponse {
   id: number;
   label: string;

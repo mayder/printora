@@ -357,7 +357,7 @@ async def list_social_communities(
     model: str | None = None,
     variant: str | None = None,
     component: str | None = None,
-    _current: CurrentUser | None = Depends(optional_current_user),
+    current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> list[Community]:
     return repository.list_communities(
@@ -371,7 +371,7 @@ async def list_social_communities(
 @router.get("/api/social/communities/{slug}", response_model=CommunityDetail)
 async def get_social_community(
     slug: str,
-    _current: CurrentUser | None = Depends(optional_current_user),
+    current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> CommunityDetail:
     community = repository.community_detail(slug)
@@ -391,7 +391,7 @@ async def get_social_community_feed(
     order: FeedOrder = "recent",
     page: int = 1,
     page_size: int = 20,
-    _current: CurrentUser | None = Depends(optional_current_user),
+    current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> CommunityFeedSummary:
     feed = repository.list_community_feed(
@@ -404,6 +404,7 @@ async def get_social_community_feed(
         order=order,
         page=page,
         page_size=page_size,
+        viewer_user_id=current.user.id if current else None,
     )
     if feed is None:
         raise HTTPException(status_code=404, detail="comunidade não encontrada")
@@ -416,7 +417,11 @@ async def list_community_library(
     current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> list[LibraryItem]:
-    return repository.list_library_for_community(slug, current.user.id if current else None)
+    viewer_user_id = current.user.id if current else None
+    return [
+        _library_item_for_viewer(item, viewer_user_id)
+        for item in repository.list_library_for_community(slug, viewer_user_id)
+    ]
 
 
 @router.get("/api/social/profiles/{slug}/library", response_model=list[LibraryItem])
@@ -425,7 +430,11 @@ async def list_profile_library(
     current: CurrentUser | None = Depends(optional_current_user),
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> list[LibraryItem]:
-    return repository.list_library_for_profile(slug, current.user.id if current else None)
+    viewer_user_id = current.user.id if current else None
+    return [
+        _library_item_for_viewer(item, viewer_user_id)
+        for item in repository.list_library_for_profile(slug, viewer_user_id)
+    ]
 
 
 @router.get("/api/social/me/library/organizer", response_model=LibraryOrganizerSummary)
@@ -526,7 +535,16 @@ async def get_library_item(
     item = repository.library_item(item_id, current.user.id if current else None)
     if item is None:
         raise HTTPException(status_code=404, detail="arquivo não encontrado")
-    return item
+    return _library_item_for_viewer(item, current.user.id if current else None)
+
+
+def _library_item_for_viewer(
+    item: LibraryItem,
+    viewer_user_id: int | None,
+) -> LibraryItem:
+    if viewer_user_id == item.owner_user_id:
+        return item
+    return item.public_projection()
 
 
 @router.post("/api/social/library/{item_id}/favorite", response_model=LibraryItem)
@@ -713,7 +731,13 @@ async def create_community_post(
     try:
         _enforce_social_limit(safety, request, current, "content_mutation", subject_suffix=f"post:{slug}")
         post = repository.create_community_post(slug, current.user.id, payload)
-        feed = repository.list_community_feed(slug, order="recommended", page=1, page_size=20)
+        feed = repository.list_community_feed(
+            slug,
+            order="recommended",
+            page=1,
+            page_size=20,
+            viewer_user_id=current.user.id,
+        )
         _notify_content_followers(
             current.user.id,
             "community",
@@ -733,10 +757,10 @@ async def create_community_post(
 @router.get("/api/social/posts/{post_id}/discussion", response_model=DiscussionDetail)
 async def get_discussion_detail(
     post_id: int,
-    _current: CurrentUser | None = Depends(require_current_user_when_configured),
+    current: CurrentUser | None = Depends(require_current_user_when_configured),
     repository: SocialCatalogRepository = Depends(get_social_repository),
 ) -> DiscussionDetail:
-    discussion = repository.discussion_detail(post_id)
+    discussion = repository.discussion_detail(post_id, current.user.id if current else None)
     if discussion is None:
         raise HTTPException(status_code=404, detail="discussão não encontrada")
     return discussion
@@ -751,7 +775,7 @@ async def update_post(
 ) -> DiscussionDetail:
     try:
         repository.update_post(post_id, current.user.id, is_social_admin(current), payload)
-        discussion = repository.discussion_detail(post_id)
+        discussion = repository.discussion_detail(post_id, current.user.id)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
@@ -787,7 +811,7 @@ async def create_post_comment(
     try:
         _enforce_social_limit(safety, request, current, "content_mutation", subject_suffix=f"comment:{post_id}")
         comment = repository.create_comment(post_id, current.user.id, payload)
-        discussion = repository.discussion_detail(post_id)
+        discussion = repository.discussion_detail(post_id, current.user.id)
         if discussion is not None:
             recipients = {discussion.post.author_user_id} if discussion.post.author_user_id else set()
             _notify_content_followers(
@@ -801,6 +825,8 @@ async def create_post_comment(
                 recipients,
             )
         return comment
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -858,6 +884,8 @@ async def react_to_post(
                 discussion.post.title,
                 "/?section=social",
             )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -883,6 +911,8 @@ async def react_to_comment(
 ) -> None:
     try:
         repository.set_reaction("comment", comment_id, current.user.id, payload.reaction_type, True)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

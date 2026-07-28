@@ -18,7 +18,9 @@ jobs:
     environment: production
     steps:
       - name: Validate confirmation
-        run: test "${{ inputs.confirmation }}" = ROLLBACK
+        env:
+          ROLLBACK_CONFIRMATION: ${{ inputs.confirmation }}
+        run: test "$ROLLBACK_CONFIRMATION" = ROLLBACK
 
       - name: Configure SSH
         env:
@@ -26,12 +28,15 @@ jobs:
           SSH_HOST: ${{ secrets.PRINTORA_SSH_HOST || '187.45.180.181' }}
           SSH_PORT: ${{ secrets.PRINTORA_SSH_PORT || '1158' }}
           SSH_USER: ${{ secrets.PRINTORA_SSH_USER || 'deploy' }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PRINTORA_SSH_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
+          test -n "$SSH_KNOWN_HOSTS" || { echo "::error::Secret PRINTORA_SSH_KNOWN_HOSTS nao configurado."; exit 1; }
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/printora_key
           chmod 600 ~/.ssh/printora_key
-          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
           echo "SSH_HOST=$SSH_HOST" >> "$GITHUB_ENV"
           echo "SSH_PORT=$SSH_PORT" >> "$GITHUB_ENV"
           echo "SSH_USER=$SSH_USER" >> "$GITHUB_ENV"

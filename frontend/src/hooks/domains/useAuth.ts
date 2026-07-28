@@ -4,11 +4,13 @@ import { AUTH_SESSION_EXPIRED_EVENT, getStoredAuthToken, storeAuthToken, storeSt
 import { isCurrentAuthGeneration, nextAuthGeneration } from "../../utils/authGeneration";
 import { browserTimezone, setPrintoraUserTimezone } from "../../utils/formatters";
 import type {
+  AccountExportResponse,
   AgentCredentialRecord,
   AgentCredentialResponse,
   AuthOrganizationDetail,
   AuthOrganizationInvite,
   AuthOrganizationRole,
+  AuthSessionRecord,
   AuthUser,
   MfaSetupResponse,
   StepUpResponse,
@@ -44,6 +46,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
   const [stepUpPassword, setStepUpPassword] = React.useState("");
   const [stepUpCode, setStepUpCode] = React.useState("");
   const [stepUpResult, setStepUpResult] = React.useState<StepUpResponse | null>(null);
+  const [authSessions, setAuthSessions] = React.useState<AuthSessionRecord[]>([]);
   const [agentCredentialLabel, setAgentCredentialLabel] = React.useState("");
   const [agentCredentials, setAgentCredentials] = React.useState<AgentCredentialRecord[]>([]);
   const [createdAgentCredential, setCreatedAgentCredential] = React.useState<AgentCredentialResponse | null>(null);
@@ -198,7 +201,18 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     setLoading(true);
     setError(null);
     try {
-      setMfaSetup(await authApi.setupMfa());
+      const code = stepUpCode.trim();
+      const password = stepUpPassword.trim();
+      if (authUser?.mfa_enabled && !code) {
+        throw new Error("Informe o código 2FA atual para reconfigurar.");
+      }
+      if (!authUser?.mfa_enabled && !password) {
+        throw new Error("Informe a senha atual para configurar 2FA.");
+      }
+      setMfaSetup(await authApi.setupMfa({
+        code: code || undefined,
+        password: password || undefined,
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao preparar 2FA");
     } finally {
@@ -254,6 +268,9 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     setError(null);
     try {
       await authApi.updatePassword(currentPassword, newPassword);
+      setAuthUser(null);
+      setAuthReady(true);
+      setPrintoraUserTimezone(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao alterar senha");
       throw err;
@@ -490,6 +507,91 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     }
   }
 
+  async function loadAuthSessions() {
+    if (!authUser) {
+      setAuthSessions([]);
+      return;
+    }
+    setAuthSessions(await authApi.listSessions());
+  }
+
+  async function revokeAuthSession(sessionId: number) {
+    setLoading(true);
+    setError(null);
+    try {
+      await authApi.revokeSession(sessionId);
+      await loadAuthSessions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao revogar sessão");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function exportAuthAccount(): Promise<AccountExportResponse | null> {
+    setLoading(true);
+    setError(null);
+    try {
+      const proof = await createPurposeStepUp("account_export");
+      return await authApi.exportAccount(proof.step_up_token, newRequestKey("export"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao exportar conta");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deactivateAuthAccount() {
+    setLoading(true);
+    setError(null);
+    try {
+      const proof = await createPurposeStepUp("account_deletion");
+      await authApi.deactivateAccount(proof.step_up_token, newRequestKey("deletion"));
+      storeAuthToken(null);
+      storeStepUpToken(null);
+      setAuthUser(null);
+      setAuthReady(true);
+      setPrintoraUserTimezone(null);
+      setAuthSessions([]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao desativar conta");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function revokeOtherAuthSessions() {
+    setLoading(true);
+    setError(null);
+    try {
+      const proof = await createPurposeStepUp("session_revoke");
+      await authApi.revokeOtherSessions(proof.step_up_token, newRequestKey("sessions"));
+      await loadAuthSessions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao revogar outras sessões");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function createPurposeStepUp(purpose: "account_export" | "account_deletion" | "session_revoke") {
+    const code = stepUpCode.trim();
+    const password = stepUpPassword.trim();
+    if (authUser?.mfa_enabled && !code) {
+      throw new Error("Informe o código 2FA para confirmar esta ação.");
+    }
+    if (!authUser?.mfa_enabled && !password) {
+      throw new Error("Informe a senha atual para confirmar esta ação.");
+    }
+    return authApi.createStepUpToken({
+      purpose,
+      code: code || undefined,
+      password: password || undefined,
+    });
+  }
+
   return {
     agentCredentialLabel,
     agentCredentials,
@@ -500,6 +602,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     authMode,
     authPassword,
     authReady,
+    authSessions,
     authTelegram,
     authTimezone,
     authUser,
@@ -522,15 +625,19 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     createAuthAgentCredential,
     createAuthOrganization,
     createAuthOrganizationInvite,
+    deactivateAuthAccount,
     deleteAuthOrganization,
     disableMfa,
     loadAgentCredentials,
+    loadAuthSessions,
     loadAuth,
     logoutAuth,
     requestStepUp,
     linkAuthOrganizationPrinter,
     loadOrganizationDetail,
     removeAuthOrganizationMember,
+    revokeAuthSession,
+    revokeOtherAuthSessions,
     revokeAuthOrganizationInvite,
     setCreatedOrganizationInvite,
     setAgentCredentialLabel,
@@ -555,6 +662,7 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
     submitMfaLogin,
     unlinkAuthOrganizationPrinter,
     updateAuthPassword,
+    exportAuthAccount,
     updateAuthProfile,
     updateAuthOrganization,
   };
@@ -562,4 +670,11 @@ export function useAuth({ setError, setLoading }: UseAuthOptions) {
 
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
+}
+
+function newRequestKey(kind: string): string {
+  const suffix = typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${kind}:${suffix}`;
 }

@@ -149,8 +149,8 @@ class ManufacturingWorkflowService:
             return dict(connection.execute("SELECT * FROM manufacturing_orders WHERE id = ?", (order["id"],)).fetchone())
 
     def record_quality(self, public_id: str, check_key: str, specification: dict, measurement: dict,
-                       passed: bool, evidence_object_key: str, inspector_id: int, approver_id: int) -> dict:
-        if inspector_id == approver_id:
+                       passed: bool, evidence_object_key: str, inspector_id: int, approver_id: int | None) -> dict:
+        if approver_id is not None and inspector_id == approver_id:
             raise PermissionError("inspetor não pode aprovar a própria medição")
         with connect_database(self.database_path) as connection:
             order = connection.execute("SELECT id, state FROM manufacturing_orders WHERE public_id=?", (public_id,)).fetchone()
@@ -169,6 +169,38 @@ class ManufacturingWorkflowService:
                 "SELECT * FROM manufacturing_quality_checks WHERE manufacturing_order_id=? AND check_key=?",
                 (order["id"], check_key),
             ).fetchone())
+
+    def approve_quality(self, public_id: str, check_key: str, approver_id: int) -> dict:
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT qc.*, mo.state
+                FROM manufacturing_quality_checks qc
+                JOIN manufacturing_orders mo ON mo.id = qc.manufacturing_order_id
+                WHERE mo.public_id = ? AND qc.check_key = ?
+                """,
+                (public_id, check_key),
+            ).fetchone()
+            if row is None or row["state"] != "quality_pending":
+                raise ValueError("medição de qualidade não encontrada ou fora da etapa")
+            if row["result"] != "passed":
+                raise ValueError("somente medição aprovada pode receber aceite")
+            if int(row["inspected_by_user_id"]) == approver_id:
+                raise PermissionError("inspetor não pode aprovar a própria medição")
+            connection.execute(
+                """
+                UPDATE manufacturing_quality_checks
+                SET approved_by_user_id = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND approved_by_user_id IS NULL
+                """,
+                (approver_id, row["id"]),
+            )
+            return dict(
+                connection.execute(
+                    "SELECT * FROM manufacturing_quality_checks WHERE id = ?",
+                    (row["id"],),
+                ).fetchone()
+            )
 
     def create_shipment(self, public_id: str, carrier: str, tracking_token: str,
                         address_ciphertext: str, actor_user_id: int) -> dict:

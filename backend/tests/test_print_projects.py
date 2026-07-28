@@ -163,13 +163,17 @@ def test_project_detail_uses_immutable_snapshot_and_does_not_change_after_projec
             (file_id, version_id, project_id),
         )
 
-    detail = PrintProjectsRepository(database_path).detail("snapshot-project")
+    detail = PrintProjectsRepository(database_path).detail("snapshot-project", user.id)
 
     assert detail is not None
     assert detail.title == "Projeto alterado"
     assert detail.immutable_snapshot_ready is True
     assert detail.versions[0].project_snapshot["title"] == "Projeto snapshot"
     assert detail.versions[0].files_snapshot[0]["file_name"] == "part-v1.stl"
+    anonymous = PrintProjectsRepository(database_path).detail("snapshot-project")
+    assert anonymous is not None
+    assert anonymous.versions == []
+    assert anonymous.publication_reviews == []
 
 
 def test_save_project_creates_reference_without_copying_files(tmp_path: Path) -> None:

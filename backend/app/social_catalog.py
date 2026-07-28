@@ -846,6 +846,7 @@ class SocialCatalogRepository:
         order: FeedOrder = "recent",
         page: int = 1,
         page_size: int = 20,
+        viewer_user_id: int | None = None,
     ) -> CommunityFeedSummary | None:
         clean_slug = normalize_slug(slug)
         safe_page = max(page, 1)
@@ -857,6 +858,25 @@ class SocialCatalogRepository:
             community = _community_from_row(row)
             clauses = ["f.community_id = ?", "f.visibility = 'public'", "f.deleted_at IS NULL", "? IN ('active', 'uncurated')"]
             parameters: list[object] = [community.id, community.status]
+            if viewer_user_id is not None:
+                clauses.append(
+                    """
+                    (
+                        f.author_user_id IS NULL
+                        OR NOT EXISTS (
+                            SELECT 1
+                            FROM social_relationships br
+                            WHERE br.relation_type = 'block'
+                              AND br.status = 'active'
+                              AND (
+                                  (br.actor_user_id = ? AND br.target_user_id = f.author_user_id)
+                                  OR (br.actor_user_id = f.author_user_id AND br.target_user_id = ?)
+                              )
+                        )
+                    )
+                    """
+                )
+                parameters.extend((viewer_user_id, viewer_user_id))
             for column, value in [
                 ("f.content_type", content_type),
                 ("f.component", component),
@@ -1587,21 +1607,60 @@ class SocialCatalogRepository:
             )
             self._audit_discussion(connection, "post", post_id, actor_user_id, "deleted", previous)
 
-    def discussion_detail(self, post_id: int) -> DiscussionDetail | None:
+    def discussion_detail(self, post_id: int, viewer_user_id: int | None = None) -> DiscussionDetail | None:
         with connect_database(self.database_path) as connection:
             row = connection.execute(FEED_ITEM_SQL + "WHERE f.id = ? AND f.visibility = 'public'", (post_id,)).fetchone()
             if row is None:
                 return None
-            comment_rows = connection.execute(DISCUSSION_COMMENT_SQL + "WHERE c.feed_item_id = ? ORDER BY c.created_at, c.id", (post_id,)).fetchall()
-            reaction_rows = connection.execute(
+            if viewer_user_id is not None and row["author_user_id"] is not None:
+                if self._is_blocked(connection, viewer_user_id, int(row["author_user_id"])):
+                    return None
+            comment_query = DISCUSSION_COMMENT_SQL + "WHERE c.feed_item_id = ?"
+            comment_parameters: list[object] = [post_id]
+            if viewer_user_id is not None:
+                comment_query += """
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM social_relationships br
+                      WHERE br.relation_type = 'block'
+                        AND br.status = 'active'
+                        AND (
+                            (br.actor_user_id = ? AND br.target_user_id = c.author_user_id)
+                            OR (br.actor_user_id = c.author_user_id AND br.target_user_id = ?)
+                        )
+                  )
                 """
+                comment_parameters.extend((viewer_user_id, viewer_user_id))
+            comment_rows = connection.execute(
+                comment_query + " ORDER BY c.created_at, c.id",
+                tuple(comment_parameters),
+            ).fetchall()
+            reaction_block_clause = ""
+            reaction_parameters: list[object] = [post_id]
+            if viewer_user_id is not None:
+                reaction_block_clause = """
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM social_relationships br
+                      WHERE br.relation_type = 'block'
+                        AND br.status = 'active'
+                        AND (
+                            (br.actor_user_id = ? AND br.target_user_id = social_discussion_reactions.user_id)
+                            OR (br.actor_user_id = social_discussion_reactions.user_id AND br.target_user_id = ?)
+                        )
+                  )
+                """
+                reaction_parameters.extend((viewer_user_id, viewer_user_id))
+            reaction_rows = connection.execute(
+                f"""
                 SELECT reaction_type, COUNT(*) AS count
                 FROM social_discussion_reactions
                 WHERE target_type = 'post' AND target_id = ?
+                {reaction_block_clause}
                 GROUP BY reaction_type
                 ORDER BY reaction_type
                 """,
-                (post_id,),
+                tuple(reaction_parameters),
             ).fetchall()
         return DiscussionDetail(
             post=_feed_item_from_row(row),
@@ -1615,15 +1674,17 @@ class SocialCatalogRepository:
             if post["deleted_at"] is not None:
                 raise ValueError("discussão removida não aceita comentário")
             self._ensure_user_exists(connection, actor_user_id)
+            self._ensure_not_blocked(connection, actor_user_id, post["author_user_id"])
             if payload.parent_comment_id is not None:
                 parent = connection.execute(
-                    "SELECT parent_comment_id, feed_item_id, deleted_at FROM social_discussion_comments WHERE id = ?",
+                    "SELECT parent_comment_id, feed_item_id, author_user_id, deleted_at FROM social_discussion_comments WHERE id = ?",
                     (payload.parent_comment_id,),
                 ).fetchone()
                 if parent is None or parent["feed_item_id"] != post_id or parent["deleted_at"] is not None:
                     raise ValueError("comentário pai inválido")
                 if parent["parent_comment_id"] is not None:
                     raise ValueError("respostas aceitam apenas um nível")
+                self._ensure_not_blocked(connection, actor_user_id, parent["author_user_id"])
             cursor = connection.execute(
                 """
                 INSERT INTO social_discussion_comments (feed_item_id, author_user_id, parent_comment_id, body, attachments_json)
@@ -1682,10 +1743,14 @@ class SocialCatalogRepository:
                 row = self._feed_row_for_update(connection, target_id)
                 if row["deleted_at"] is not None:
                     raise ValueError("discussão removida não aceita reação")
+                target_user_id = row["author_user_id"]
             else:
                 row = self._comment_row_for_update(connection, target_id)
                 if row["deleted_at"] is not None:
                     raise ValueError("comentário removido não aceita reação")
+                target_user_id = row["author_user_id"]
+            if active:
+                self._ensure_not_blocked(connection, actor_user_id, target_user_id)
             if active:
                 connection.execute(
                     """
@@ -2101,6 +2166,12 @@ class SocialCatalogRepository:
             (left_user_id, right_user_id, right_user_id, left_user_id),
         ).fetchone()
         return row is not None
+
+    def _ensure_not_blocked(self, connection, actor_user_id: int, target_user_id: int | None) -> None:
+        if target_user_id is None or actor_user_id == int(target_user_id):
+            return
+        if self._is_blocked(connection, actor_user_id, int(target_user_id)):
+            raise PermissionError("interação bloqueada por configuração de segurança social")
 
     def _ensure_user_exists(self, connection, user_id: int) -> None:
         if connection.execute("SELECT 1 FROM auth_users WHERE id = ?", (user_id,)).fetchone() is None:
@@ -2926,11 +2997,16 @@ def _analyze_3mf(body: bytes) -> dict[str, object]:
     mesh_count = 0
     triangle_count = 0
     with zipfile.ZipFile(BytesIO(body)) as archive:
-        model_names = [name for name in archive.namelist() if name.lower().endswith(".model")]
-        if not model_names:
+        model_entries = [entry for entry in archive.infolist() if entry.filename.lower().endswith(".model")]
+        if not model_entries:
             raise ValueError("3MF sem modelo 3D")
-        for name in model_names[:12]:
-            root = ET.fromstring(archive.read(name))
+        total_model_bytes = 0
+        for entry in model_entries[:12]:
+            model_body = _read_bounded_zip_entry(archive, entry, max_bytes=8 * 1024 * 1024)
+            total_model_bytes += len(model_body)
+            if total_model_bytes > 16 * 1024 * 1024:
+                raise ValueError("3MF excede limite de modelos descompactados")
+            root = ET.fromstring(model_body)
             local_vertices: list[tuple[float, float, float]] = []
             for vertex in root.iter():
                 if _xml_local_name(vertex.tag) != "vertex":
@@ -2954,16 +3030,17 @@ def _analyze_bundle(body: bytes) -> dict[str, object]:
 
     summaries: list[dict[str, object]] = []
     with zipfile.ZipFile(BytesIO(body)) as archive:
-        for name in archive.namelist()[:120]:
-            lower = name.lower()
+        for entry in archive.infolist()[:120]:
+            lower = entry.filename.lower()
             if lower.endswith(".stl"):
                 try:
-                    summaries.append(_analyze_stl(archive.read(name)))
+                    summaries.append(_analyze_stl(_read_bounded_zip_entry(archive, entry, max_bytes=16 * 1024 * 1024)))
                 except ValueError:
                     continue
             elif lower.endswith(".3mf"):
                 try:
-                    summaries.append(_analyze_3mf(archive.read(name)))
+                    nested = _read_bounded_zip_entry(archive, entry, max_bytes=16 * 1024 * 1024)
+                    summaries.append(_analyze_3mf(nested))
                 except ValueError:
                     continue
     if not summaries:
@@ -2978,6 +3055,23 @@ def _analyze_bundle(body: bytes) -> dict[str, object]:
         "triangle_count": total_triangles,
         "problems": problems,
     }
+
+
+def _read_bounded_zip_entry(
+    archive: zipfile.ZipFile,
+    entry: zipfile.ZipInfo,
+    *,
+    max_bytes: int,
+) -> bytes:
+    if entry.file_size > max_bytes:
+        raise ValueError("entrada compactada excede limite descompactado")
+    if entry.compress_size and entry.file_size / max(entry.compress_size, 1) > 50:
+        raise ValueError("entrada compactada tem razão suspeita")
+    with archive.open(entry) as source:
+        body = source.read(max_bytes + 1)
+    if len(body) > max_bytes:
+        raise ValueError("entrada compactada excede limite de leitura")
+    return body
 
 
 def _analysis_from_vertices(vertices: list[tuple[float, float, float]], triangle_count: int, *, mesh_count: int, source_format: str) -> dict[str, object]:

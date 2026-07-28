@@ -9,7 +9,7 @@
   "protocol_max": 1,
   "signature_algorithm": "ed25519-sha256",
   "signing_key_id": "sha256:e241d16ebb469da7436ff050a36212635557eab1322495a2c62e2ca6caf24cdc",
-  "auto_update": true,
+  "auto_update": false,
   "releases": [
     {
       "platform": "linux/arm64",
@@ -17,6 +17,7 @@
       "url": "/api/agent/update/releases/0.1.33/linux-arm64",
       "sha256": "1373f97adaf22cb76bf6c9f69c9deedeeb1984659b8e01fea4d261eafd805811",
       "signature": "y/4Y5b/YRN5IUKHMHrn7StZE41n/mvD5IVfw9pPr2lLyrUxEO+hNoVz+5E93qu2Dnp2AGyzjmGnvnoBmclVVBw==",
+      "signature_scope": "legacy-digest-only",
       "protocol_min": 1,
       "protocol_max": 1
     },
@@ -26,6 +27,7 @@
       "url": "/api/agent/update/releases/0.1.34/linux-arm64",
       "sha256": "c430f3b16f0785808b09ecacce63fb734c434864262dc22a50dcc3642a6ff9dc",
       "signature": "+uYOT28B41qHiJPqs0P/OndKLjfSgzm+i5PESRwb+RLQr+K5oAJzCDvCj8EuAevYtzcPKzMPZgLs29g6Yf3eCA==",
+      "signature_scope": "legacy-digest-only",
       "protocol_min": 1,
       "protocol_max": 1
     },
@@ -35,6 +37,7 @@
       "url": "/api/agent/update/releases/0.1.35/linux-arm64",
       "sha256": "fd5bc116aa5b709fa3abf86f153959b0f00f9fdb90e0fae23078fbf3ce2f415f",
       "signature": "X8fjzZx+/9o93aoLiVoKULAYCdvr0QFMK/r3Zpug/obnEeEjemtU4VzQDOPzldu75VCT5aszaMT+L2bxrOlrCg==",
+      "signature_scope": "legacy-digest-only",
       "protocol_min": 1,
       "protocol_max": 1
     },
@@ -44,6 +47,7 @@
       "url": "/api/agent/update/releases/0.1.36/linux-arm64",
       "sha256": "ffcddf957bd3645288f18f7a06f35f29606fd132ee338a5c49605d4792559226",
       "signature": "Pr3+91qbRBfOl7VMfyb6fq/7WeoDce0VzGGAJoCSjvms08k+QlwEPoN9ZGCVhQFNqEWrdTsqHgf9DTEBxLitDA==",
+      "signature_scope": "legacy-digest-only",
       "protocol_min": 1,
       "protocol_max": 1
     }

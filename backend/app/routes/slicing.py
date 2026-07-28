@@ -7,7 +7,7 @@ from app.agent_pairing import printer_for_user
 from app.auth import AuthRepository
 from app.print_delivery import PrintDeliveryCreate, PrintDeliveryRecord, PrintDeliveryRepository
 from app.print_history import PrintFeedbackCreate, PrintHistoryRepository, PrintJobHistoryEvent, PrintJobHistoryRecord
-from app.routes.auth import CurrentUser, require_current_user_when_configured
+from app.routes.auth import CurrentUser, require_current_user, require_current_user_when_configured
 from app.print_preflight import PrintPreflightRecord, PrintPreflightRepository
 from app.slicing import SlicingDryRunResult, SlicingEngineBridge, SlicingEngineInfo, SlicingRepository, SlicingRequest, SlicerEngine
 from app.slicing_pipeline import ProjectSlicingJobCreate, SlicingJob, SlicingJobCreate, SlicingPipelineRepository
@@ -45,6 +45,7 @@ def get_print_history_repository() -> PrintHistoryRepository:
 @router.get("/engine", response_model=SlicingEngineInfo)
 async def get_slicing_engine(
     engine: SlicerEngine | None = None,
+    _current: CurrentUser = Depends(require_current_user),
     bridge: SlicingEngineBridge = Depends(get_slicing_bridge),
     repository: SlicingRepository = Depends(get_slicing_repository),
 ) -> SlicingEngineInfo:
@@ -56,6 +57,7 @@ async def get_slicing_engine(
 @router.post("/dry-run", response_model=SlicingDryRunResult)
 async def create_slicing_dry_run(
     payload: SlicingRequest,
+    _current: CurrentUser = Depends(require_current_user),
     bridge: SlicingEngineBridge = Depends(get_slicing_bridge),
     repository: SlicingRepository = Depends(get_slicing_repository),
 ) -> SlicingDryRunResult:

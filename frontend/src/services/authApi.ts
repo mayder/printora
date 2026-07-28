@@ -2,15 +2,19 @@ import { apiOptional, apiRequest, storeAuthToken, storeStepUpToken } from "./htt
 import type {
   AgentCredentialRecord,
   AgentCredentialResponse,
+  AccountExportResponse,
+  AccountRequestRecord,
   AuthOrganization,
   AuthOrganizationDetail,
   AuthOrganizationInvite,
   AuthOrganizationRole,
   AuthSessionResponse,
+  AuthSessionRecord,
   AuthUser,
   LoginResponse,
   MfaSetupResponse,
   StepUpResponse,
+  StepUpPurpose,
 } from "../types/auth";
 
 const jsonHeaders = { "Content-Type": "application/json" };
@@ -88,6 +92,8 @@ export async function updatePassword(currentPassword: string, newPassword: strin
     headers: jsonHeaders,
     body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
   });
+  storeAuthToken(null);
+  storeStepUpToken(null);
 }
 
 export async function createOrganization(name: string): Promise<AuthOrganization> {
@@ -154,8 +160,12 @@ export async function unlinkOrganizationPrinter(organizationId: number, printerI
   await apiRequest<{ ok: boolean }>(`/api/auth/organizations/${organizationId}/printers/${printerId}`, { method: "DELETE" });
 }
 
-export async function setupMfa(): Promise<MfaSetupResponse> {
-  return apiRequest<MfaSetupResponse>("/api/auth/mfa/setup", { method: "POST" });
+export async function setupMfa(payload: { password?: string; code?: string }): Promise<MfaSetupResponse> {
+  return apiRequest<MfaSetupResponse>("/api/auth/mfa/setup", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function enableMfa(code: string): Promise<AuthUser> {
@@ -174,7 +184,7 @@ export async function disableMfa(code: string): Promise<AuthUser> {
   });
 }
 
-export async function createStepUpToken(payload: { purpose: string; password?: string; code?: string }): Promise<StepUpResponse> {
+export async function createStepUpToken(payload: { purpose: StepUpPurpose; password?: string; code?: string }): Promise<StepUpResponse> {
   const response = await apiRequest<StepUpResponse>("/api/auth/step-up", {
     method: "POST",
     headers: jsonHeaders,
@@ -182,6 +192,38 @@ export async function createStepUpToken(payload: { purpose: string; password?: s
   });
   storeStepUpToken(response.step_up_token);
   return response;
+}
+
+export async function listSessions(): Promise<AuthSessionRecord[]> {
+  return apiRequest<AuthSessionRecord[]>("/api/auth/sessions");
+}
+
+export async function revokeSession(sessionId: number): Promise<void> {
+  await apiRequest<{ ok: boolean }>(`/api/auth/sessions/${sessionId}`, { method: "DELETE" });
+}
+
+export async function revokeOtherSessions(stepUpToken: string, requestKey: string): Promise<{ revoked: number }> {
+  return apiRequest<{ revoked: number }>("/api/auth/sessions/revoke-others", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ step_up_token: stepUpToken, request_key: requestKey }),
+  });
+}
+
+export async function exportAccount(stepUpToken: string, requestKey: string): Promise<AccountExportResponse> {
+  return apiRequest<AccountExportResponse>("/api/auth/account/export", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ step_up_token: stepUpToken, request_key: requestKey }),
+  });
+}
+
+export async function deactivateAccount(stepUpToken: string, requestKey: string): Promise<AccountRequestRecord> {
+  return apiRequest<AccountRequestRecord>("/api/auth/account/deletion", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ step_up_token: stepUpToken, request_key: requestKey }),
+  });
 }
 
 export async function createAgentCredential(label: string, organizationId?: number | null): Promise<AgentCredentialResponse> {

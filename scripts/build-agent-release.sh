@@ -101,9 +101,10 @@ openssl base64 -A -in "$work_dir/checksums.sig" > "$checksums_signature"
 printf '\n' >> "$checksums_signature"
 
 binary_sha256="$(shasum -a 256 "$binary" | awk '{print $1}')"
-printf '%s' "$binary_sha256" > "$work_dir/binary-digest.txt"
+printf 'printora-agent-release-v1\nplatform=%s\nversion=%s\nsha256=%s\nprotocol_min=1\nprotocol_max=1\n' \
+  "$PLATFORM" "$VERSION" "$binary_sha256" > "$work_dir/binary-signature-payload.txt"
 openssl pkeyutl -sign -inkey "$SIGNING_KEY" -rawin \
-  -in "$work_dir/binary-digest.txt" -out "$work_dir/binary.sig"
+  -in "$work_dir/binary-signature-payload.txt" -out "$work_dir/binary.sig"
 binary_signature="$(openssl base64 -A -in "$work_dir/binary.sig")"
 
 openssl base64 -d -A -in "$checksums_signature" -out "$work_dir/checksums-verify.sig"
@@ -111,7 +112,7 @@ openssl pkeyutl -verify -pubin -inkey "$PUBLIC_KEY" -rawin \
   -in "$checksums" -sigfile "$work_dir/checksums-verify.sig" >/dev/null
 printf '%s' "$binary_signature" | openssl base64 -d -A -out "$work_dir/binary-verify.sig"
 openssl pkeyutl -verify -pubin -inkey "$PUBLIC_KEY" -rawin \
-  -in "$work_dir/binary-digest.txt" -sigfile "$work_dir/binary-verify.sig" >/dev/null
+  -in "$work_dir/binary-signature-payload.txt" -sigfile "$work_dir/binary-verify.sig" >/dev/null
 
 python3 - "$OUTPUT_DIR/$artifact_base.metadata.json" "$VERSION" "$PLATFORM" \
   "$binary_sha256" "$binary_signature" "$EXPECTED_KEY_ID" "$toolchain" <<'PY'
@@ -126,6 +127,7 @@ payload = {
     "sha256": sha256,
     "signature": signature,
     "signature_algorithm": "ed25519-sha256",
+    "signature_scope": "printora-agent-release-v1",
     "signing_key_id": key_id,
     "toolchain": toolchain,
     "reproducible_build": True,

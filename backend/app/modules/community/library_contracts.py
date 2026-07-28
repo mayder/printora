@@ -76,6 +76,15 @@ class LibraryFileMetadata(BaseModel):
             raise ValueError("sha256 inválido")
         return cleaned
 
+    def public_projection(self) -> "LibraryFileMetadata":
+        return self.model_copy(
+            update={
+                "storage_key": None,
+                "quarantine_key": None,
+                "rejection_reason": None,
+            }
+        )
+
 
 class LibraryItemBase(BaseModel):
     title: str = Field(min_length=1, max_length=160)
@@ -207,6 +216,11 @@ class LibraryVersion(BaseModel):
     created_by_user_id: int
     created_at: str
     download_count: int = 0
+
+    def public_projection(self) -> "LibraryVersion":
+        return self.model_copy(
+            update={"files": [file.public_projection() for file in self.files]}
+        )
 
 
 class LibraryCollectionCreate(BaseModel):
@@ -365,6 +379,16 @@ class LibraryItem(BaseModel):
     download_count: int = 0
     created_at: str
     updated_at: str
+
+    def public_projection(self) -> "LibraryItem":
+        return self.model_copy(
+            update={
+                "files": [file.public_projection() for file in self.files],
+                "versions": [
+                    version.public_projection() for version in self.versions
+                ],
+            }
+        )
 
 
 class LibraryCommercialReviewCreate(BaseModel):

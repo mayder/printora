@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import Depends, Response
 
@@ -12,6 +13,12 @@ from app.routes.auth import require_current_user, require_current_user_when_conf
 from app.routes.support import *
 
 router = APIRouter()
+
+
+def require_platform_administrator(current=Depends(require_current_user)):
+    if not is_platform_admin(current.user.email):
+        raise HTTPException(status_code=403, detail="acesso restrito ao administrador da plataforma")
+    return current
 
 
 @router.get("/health")
@@ -52,7 +59,9 @@ async def system_version_internal(current=Depends(require_current_user)) -> dict
 
 
 @router.get("/api/system/install-diagnostics")
-async def system_install_diagnostics() -> InstallationDiagnosticsResponse:
+async def system_install_diagnostics(
+    _current=Depends(require_platform_administrator),
+) -> InstallationDiagnosticsResponse:
     settings = get_settings()
     return build_installation_diagnostics(
         settings=settings,
@@ -158,7 +167,7 @@ async def system_update_history(limit: int = 20, _current=Depends(require_curren
 
 
 @router.post("/api/system/update/reconcile")
-async def system_update_reconcile(_current=Depends(require_current_user_when_configured)) -> UpdateReconcileResponse:
+async def system_update_reconcile(_current=Depends(require_platform_administrator)) -> UpdateReconcileResponse:
     settings = get_settings()
     repository = get_self_update_repository(settings)
     reconciled = repository.reconcile_interrupted_updates(
@@ -182,8 +191,11 @@ async def system_update_reconcile(_current=Depends(require_current_user_when_con
 
 
 @router.post("/api/system/update/apply")
-async def system_update_apply(payload: UpdateApplyRequest, _current=Depends(require_current_user_when_configured)) -> UpdateApplyResponse:
+async def system_update_apply(payload: UpdateApplyRequest, _current=Depends(require_platform_administrator)) -> UpdateApplyResponse:
     settings = get_settings()
+    payload = payload.model_copy(
+        update={"source_url": _trusted_update_source(settings, payload.source_url)}
+    )
     repository = get_self_update_repository(settings)
     repository.reconcile_interrupted_updates(installed_version=installed_app_version())
     releases = await system_releases()
@@ -212,10 +224,40 @@ async def system_update_apply(payload: UpdateApplyRequest, _current=Depends(requ
         raise HTTPException(status_code=status_code, detail=detail) from exc
 
 
+def _trusted_update_source(settings, requested_source_url: str | None) -> str:
+    trusted_source = (
+        f"https://github.com/{settings.release_github_owner}/"
+        f"{settings.release_github_repo}.git"
+    )
+    if requested_source_url is None:
+        return trusted_source
+
+    parsed = urlparse(requested_source_url)
+    expected_path = (
+        f"/{settings.release_github_owner}/{settings.release_github_repo}"
+    )
+    requested_path = parsed.path.removesuffix(".git").rstrip("/")
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname != "github.com"
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.port is not None
+        or requested_path != expected_path
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="origem de update não corresponde ao repositório oficial configurado",
+        )
+    return trusted_source
+
+
 
 
 @router.post("/api/system/update/rollback")
-async def system_update_rollback(payload: UpdateRollbackRequest, _current=Depends(require_current_user_when_configured)) -> UpdateRollbackResponse:
+async def system_update_rollback(payload: UpdateRollbackRequest, _current=Depends(require_platform_administrator)) -> UpdateRollbackResponse:
     settings = get_settings()
     repository = get_self_update_repository(settings)
     repository.reconcile_interrupted_updates(installed_version=installed_app_version())

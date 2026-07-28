@@ -8,6 +8,15 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 OrganizationRole = Literal["owner", "admin", "operator"]
+StepUpPurpose = Literal[
+    "destructive_action",
+    "finance_sensitive_action",
+    "account_export",
+    "account_deletion",
+    "mfa_rebind",
+    "session_revoke",
+    "setup_physical_operation",
+]
 
 
 def clean_email(value: str) -> str:
@@ -141,8 +150,13 @@ class MfaCodeRequest(BaseModel):
     code: str = Field(min_length=6, max_length=8)
 
 
+class MfaSetupRequest(BaseModel):
+    password: str | None = Field(default=None, max_length=200)
+    code: str | None = Field(default=None, min_length=6, max_length=8)
+
+
 class StepUpRequest(BaseModel):
-    purpose: str = Field(default="destructive_action", min_length=3, max_length=80)
+    purpose: StepUpPurpose = "destructive_action"
     password: str | None = Field(default=None, max_length=200)
     code: str | None = Field(default=None, min_length=6, max_length=8)
 
@@ -240,6 +254,38 @@ class MfaSetupResponse(BaseModel):
 class StepUpResponse(BaseModel):
     step_up_token: str
     expires_at: str
+
+
+class AuthSessionRecord(BaseModel):
+    id: int
+    current: bool
+    created_at: str
+    last_seen_at: str | None
+    expires_at: str
+    revoked_at: str | None
+
+
+class AccountProtectionCommand(BaseModel):
+    request_key: str = Field(min_length=8, max_length=120, pattern=r"^[A-Za-z0-9._:-]+$")
+    step_up_token: str = Field(min_length=20, max_length=240)
+
+
+class AccountRequestRecord(BaseModel):
+    request_key: str
+    request_type: Literal["export", "deletion"]
+    status: Literal["processing", "ready", "completed", "failed", "cancelled"]
+    artifact_sha256: str | None
+    failure_code: str | None
+    effective_at: str | None
+    retention_until: str
+    created_at: str
+    updated_at: str
+    completed_at: str | None
+
+
+class AccountExportResponse(BaseModel):
+    request: AccountRequestRecord
+    data: dict[str, object]
 
 
 class AgentCredentialResponse(BaseModel):
