@@ -2,7 +2,7 @@
   "manifest_version": 1,
   "minimum_version": "0.1.17",
   "recommended_version": "0.1.36",
-  "candidate_version": null,
+  "candidate_version": "0.1.37",
   "blocked_versions": [],
   "protocol_version": 1,
   "protocol_min": 1,
@@ -48,6 +48,16 @@
       "sha256": "ffcddf957bd3645288f18f7a06f35f29606fd132ee338a5c49605d4792559226",
       "signature": "Pr3+91qbRBfOl7VMfyb6fq/7WeoDce0VzGGAJoCSjvms08k+QlwEPoN9ZGCVhQFNqEWrdTsqHgf9DTEBxLitDA==",
       "signature_scope": "legacy-digest-only",
+      "protocol_min": 1,
+      "protocol_max": 1
+    },
+    {
+      "platform": "linux/arm64",
+      "version": "0.1.37",
+      "url": "/api/agent/update/releases/0.1.37/linux-arm64",
+      "sha256": "9b1aa635c249b8487de4b50c0ffd4583e667852c41b0a3594512135185649888",
+      "signature": "lsWLGuzwI6AJD1AFL9Cv2nTeta/tuKMedEmDB0lzk2pViOQJUqBWrt+FWg2aCgeLE/x46hkQusVgJdD1F6P3Cw==",
+      "signature_scope": "printora-agent-release-v1",
       "protocol_min": 1,
       "protocol_max": 1
     }

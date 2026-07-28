@@ -20,14 +20,20 @@ def test_agent_update_manifest_is_public_and_versioned(tmp_path: Path, monkeypat
             assert payload["manifest_version"] == 1
             assert payload["minimum_version"] == "0.1.17"
             assert payload["recommended_version"] == "0.1.36"
-            assert payload["candidate_version"] is None
+            assert payload["candidate_version"] == "0.1.37"
             assert payload["protocol_min"] == 1
             assert payload["protocol_max"] == 1
             assert payload["signature_algorithm"] == "ed25519-sha256"
             assert payload["signing_key_id"].startswith("sha256:")
             assert payload["releases"]
             assert {release["platform"] for release in payload["releases"]} == {"linux/arm64"}
-            assert {release["version"] for release in payload["releases"]} == {"0.1.33", "0.1.34", "0.1.35", "0.1.36"}
+            assert {release["version"] for release in payload["releases"]} == {
+                "0.1.33",
+                "0.1.34",
+                "0.1.35",
+                "0.1.36",
+                "0.1.37",
+            }
             linux_arm64 = next(
                 release
                 for release in payload["releases"]
@@ -46,8 +52,8 @@ def test_agent_update_manifest_is_public_and_versioned(tmp_path: Path, monkeypat
                 assert release.headers["content-type"] == "application/octet-stream"
                 assert hashlib.sha256(release.content).hexdigest() == linux_arm64["sha256"]
 
-            candidate = next(release for release in payload["releases"] if release["version"] == "0.1.36")
-            candidate_release = client.get("/api/agent/update/releases/0.1.36/linux-arm64")
+            candidate = next(release for release in payload["releases"] if release["version"] == "0.1.37")
+            candidate_release = client.get("/api/agent/update/releases/0.1.37/linux-arm64")
             assert candidate_release.status_code == 200
             assert hashlib.sha256(candidate_release.content).hexdigest() == candidate["sha256"]
 
@@ -61,8 +67,8 @@ def test_agent_update_manifest_is_public_and_versioned(tmp_path: Path, monkeypat
                 "/api/agent/update/manifest/candidate",
                 headers=_auth(credential),
             )
-            assert candidate_manifest.status_code == 404
-            assert candidate_manifest.json()["detail"] == "agent candidate release not found"
+            assert candidate_manifest.status_code == 200
+            assert candidate_manifest.json()["recommended_version"] == "0.1.37"
     finally:
         get_settings.cache_clear()
 

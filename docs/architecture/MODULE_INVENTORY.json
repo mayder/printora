@@ -221,7 +221,7 @@
     {
       "module": "agent_support",
       "owner": "operations",
-      "lines": 655,
+      "lines": 663,
       "imports": [
         "agent_pairing",
         "agent_updates",

@@ -141,7 +141,15 @@ class AgentSupportRepository:
             "target_version": target_version,
             "update_channel": channel,
         }
-        if channel != "stable" or _needs_bootstrap_update(agent.agent_version):
+        legacy_candidate = (
+            channel == "candidate"
+            and release.signature_scope != "printora-agent-release-v1"
+        )
+        if (
+            _needs_bootstrap_update(agent.agent_version)
+            or channel == "rollback"
+            or legacy_candidate
+        ):
             job_type = "remote_host_script"
             payload = {
                 "safe_mode": "agent_update_bootstrap",

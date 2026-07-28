@@ -46,7 +46,7 @@
 | `setup_can` | `operations` | 699 | 0 | 7 |
 | `slicing_pipeline` | `operations` | 680 | 0 | 5 |
 | `modules.administration.intelligence` | `administration` | 673 | 0 | 0 |
-| `agent_support` | `operations` | 655 | 0 | 5 |
+| `agent_support` | `operations` | 663 | 0 | 5 |
 | `setup_wizard` | `operations` | 643 | 0 | 7 |
 | `printers` | `operations` | 635 | 0 | 3 |
 | `database` | `shared` | 594 | 0 | 0 |
