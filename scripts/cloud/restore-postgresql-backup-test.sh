@@ -205,7 +205,13 @@ chown -R postgres:postgres "$cluster"
 started=1
 runuser -u postgres -- "$pg_bin/pg_ctl" -D "$cluster" -t 300 -w start >/dev/null
 export PGHOST="$socket_dir" PGPORT=5432 PGUSER=postgres PGDATABASE=postgres
-for _attempt in $(seq 1 60); do
+promotion_timeout_seconds="${PRINTORA_RESTORE_PROMOTION_TIMEOUT_SECONDS:-600}"
+[[ "$promotion_timeout_seconds" =~ ^[1-9][0-9]*$ && "$promotion_timeout_seconds" -le 720 ]] || {
+  echo "limite de promoção do restore inválido" >&2
+  exit 1
+}
+promotion_deadline="$(( $(date +%s) + promotion_timeout_seconds ))"
+while [[ "$(date +%s)" -lt "$promotion_deadline" ]]; do
   if [[ "$(runuser -u postgres -- "$pg_bin/psql" -X -Atqc 'SELECT pg_is_in_recovery()')" == "f" ]]; then
     break
   fi

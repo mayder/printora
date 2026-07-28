@@ -397,6 +397,9 @@ def test_periodic_restore_replays_external_wal_with_resource_limits() -> None:
     assert "pg_last_wal_replay_lsn" in restore
     assert "recovery_target_lsn = '$recovery_target_lsn'" in restore
     assert "recovery_target_action = 'promote'" in restore
+    assert 'PRINTORA_RESTORE_PROMOTION_TIMEOUT_SECONDS:-600' in restore
+    assert '"$promotion_timeout_seconds" -le 720' in restore
+    assert 'promotion_deadline="$(( $(date +%s) + promotion_timeout_seconds ))"' in restore
     assert "timeout 900" in wrapper
     assert '"wal_replay"' in wrapper
     assert "CPUQuota=20%" in service
