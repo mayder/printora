@@ -86,6 +86,11 @@ registra o conteúdo do rascunho.
   ordem topológica, sem dependência futura;
 - gate final obrigatório: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+Nota de vigência: a evidência acima registra o gate executado no fechamento do
+PKG-101. A `DEC-20260727-01` substituiu posteriormente a sequência de 55
+pacotes por portfólio ativo explícito; isso não altera a evidência funcional do
+pacote concluído.
+
 ## Rollout, Smoke E Rollback
 
 Rollout é aditivo e não foi executado. O smoke autenticado consulta o catálogo,

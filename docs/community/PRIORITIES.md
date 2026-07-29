@@ -1,6 +1,6 @@
 # Prioridade Por Impacto Social
 
-A ordem abaixo usa impacto humano, urgência, alcance, equidade, redução de dano, dependência estrutural e reversibilidade. Receita e engajamento não elevam prioridade sozinhos.
+Classificação histórica do inventário de ideias. Não define a ordem do backlog ativo. A ordem abaixo usa impacto humano, urgência, alcance, equidade, redução de dano, dependência estrutural e reversibilidade.
 
 ## P0
 

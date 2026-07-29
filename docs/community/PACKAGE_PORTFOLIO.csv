@@ -1,0 +1,56 @@
+package_id,status,target_package,decision
+PKG-101,completed,,Design system concluído e restrito à administração; preservar sem ampliar.
+PKG-102,completed,,Acessibilidade concluída; manter como qualidade transversal.
+PKG-103,cancelled,,Responsividade permanece como gate; PWA offline universal e sensores não possuem demanda comprovada.
+PKG-104,completed,,Consolidar segurança privacidade moderação mínima e integridade em um único pacote de proteção essencial.
+PKG-105,merged,PKG-104,Privacidade essencial incorporada ao PKG-104.
+PKG-106,cancelled,,Métricas úteis pertencem aos fluxos operacionais; não criar plataforma de analytics social.
+PKG-107,merged,PKG-104,Moderação mínima da comunidade incorporada ao PKG-104.
+PKG-108,merged,PKG-104,Proveniência e integridade essenciais incorporadas ao PKG-104.
+PKG-109,deferred,,Internacionalização depende de demanda real fora de pt-BR.
+PKG-110,active,,Onboarding operacional reduz tempo até conectar a primeira impressora e executar o primeiro fluxo.
+PKG-111,merged,PKG-132,Segurança de modelo vira regra de preflight no fluxo de impressão.
+PKG-112,cancelled,,Contas infantis não serão oferecidas no escopo atual.
+PKG-113,merged,PKG-114,Metrologia básica e evidência física incorporadas a materiais e qualidade.
+PKG-114,active,,Materiais spools consumo e qualidade básica possuem valor operacional direto.
+PKG-115,cancelled,,Rede de fabricação cotação e pagamento formam outro produto.
+PKG-116,cancelled,,Tecnologia assistiva exige responsabilidade clínica e especialistas fora do escopo.
+PKG-117,cancelled,,Resposta humanitária exige coordenação e responsabilidade externas ao produto.
+PKG-118,cancelled,,LMS completo não pertence ao núcleo; tutoriais técnicos ficam no PKG-126.
+PKG-119,cancelled,,Gestão escolar e reservas formam outro produto; frota permanece no PKG-134.
+PKG-120,cancelled,,Reparo genérico de produtos foge do foco; manutenção de impressoras fica no PKG-133.
+PKG-121,merged,PKG-114,Consumo desperdício e descarte de material entram como métricas do PKG-114.
+PKG-122,cancelled,,Perfil avançado e presença profissional não melhoram o fluxo operacional.
+PKG-123,cancelled,,Grafo social e importação de contatos não agregam ao núcleo.
+PKG-124,cancelled,,Comunidades existentes permanecem; governança social avançada não será ampliada.
+PKG-125,merged,PKG-126,Publicação reproduzível passa a ser evidência técnica no PKG-126.
+PKG-126,active,,Conhecimento técnico diagnóstico e evidência reduzem retrabalho e falhas.
+PKG-127,merged,PKG-126,Fotos e vídeos curtos permanecem como evidência técnica; live é descartada.
+PKG-128,active,,Projetos arquivos versões e inspeção básica são parte central do produto.
+PKG-129,merged,PKG-128,Viewer e inspeção 3D básicos incorporados ao PKG-128.
+PKG-130,deferred,,Customização paramétrica depende de demanda comprovada.
+PKG-131,active,,Perfis executáveis e fatiamento reproduzível são centrais.
+PKG-132,active,,Fluxo projeto até resultado de impressão é a prioridade funcional máxima.
+PKG-133,active,,Manutenção diagnóstico e confiabilidade são centrais para reduzir parada e recorrência.
+PKG-134,active,,Frota e filas atendem o uso já suportado com múltiplas impressoras.
+PKG-135,deferred,,Coautoria avançada depende de equipes reais usando o mesmo projeto.
+PKG-136,cancelled,,Chat próprio adiciona custo de realtime retenção e moderação sem valor central.
+PKG-137,cancelled,,Eventos inscrições e streaming formam outro produto.
+PKG-138,cancelled,,Feed pessoal não é objetivo do Printora.
+PKG-139,merged,PKG-142,Busca técnica essencial é incorporada às integrações e descoberta.
+PKG-140,cancelled,,Recomendação personalizada exige telemetria e vieses sem benefício proporcional.
+PKG-141,deferred,,Visão computacional exige câmera dataset e piloto de falsos positivos antes de entrar no roadmap.
+PKG-142,active,,Integrações com ferramentas reais e busca técnica reduzem atrito operacional.
+PKG-143,deferred,,API pública e marketplace de extensões dependem de demanda externa.
+PKG-144,cancelled,,CRM e studio de criador fogem do núcleo.
+PKG-145,cancelled,,Reputação badges e credenciais não melhoram a impressão.
+PKG-146,cancelled,,Presença institucional e vagas formam outro produto.
+PKG-147,cancelled,,Marketplace pagamentos impostos e disputas formam outro negócio.
+PKG-148,cancelled,,Assinaturas clubes e churn não pertencem ao produto.
+PKG-149,cancelled,,Logística e pós-venda formam um ERP de comércio.
+PKG-150,cancelled,,Concursos e premiações não pertencem ao núcleo.
+PKG-151,cancelled,,Crowdfunding cria risco financeiro e jurídico fora do escopo.
+PKG-152,cancelled,,Plataforma científica não pertence ao produto; experimentos de perfil ficam no PKG-131.
+PKG-153,cancelled,,AR e escaneamento possuem custo alto e benefício não comprovado.
+PKG-154,deferred,,Assistência por IA só volta com hipótese mensurável e fontes técnicas organizadas.
+PKG-155,cancelled,,Wearables háptica telepresença e interfaces imersivas não resolvem problema atual.

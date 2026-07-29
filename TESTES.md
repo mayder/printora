@@ -75,10 +75,11 @@ Comando obrigatório antes de commit:
 ./check.sh
 ```
 
-## Pacotes Comunitários PKG-101 A PKG-155
+## Portfólio Ativo Pós-PKG-100
 
-Cada pacote segue o perfil de risco definido em
-`docs/community/PACKAGE_ARCHITECTURE.csv` e a matriz completa de testes em
+Cada pacote ativo segue o perfil de risco e as dependências técnicas definidos
+em `docs/community/PACKAGE_ARCHITECTURE.csv`, o estado registrado em
+`docs/community/PACKAGE_PORTFOLIO.csv` e os testes de
 `docs/community/PACKAGE_EXECUTION_STANDARD.md`.
 
 Validação estrutural obrigatória:
@@ -101,7 +102,9 @@ Além do gate estrutural, todo pacote cobre:
 - rollout, smoke e rollback proporcionais ao risco.
 
 Gerador e validador aprovados não significam funcionalidade implementada. O
-fechamento exige evidência real das superfícies alteradas.
+inventário gerado é apenas histórico de ideias. O fechamento exige evidência
+real das superfícies alteradas e não exige implementar todos os IDs
+`COM/CAP/SCR`.
 
 ## Objetos e busca Cloud
 
@@ -2196,7 +2199,10 @@ Não avançar se:
 - app não conseguir distinguir leitura de mutação.
 ## Validação Do Programa Comunitário Plurianual
 
-O inventário em `docs/community/COMMUNITY_BACKLOG.md` decompõe cada capacidade em regra, tela, mobile, acessibilidade, confiança, impacto e qualidade. Ao recortar um pacote futuro, `TESTES.md` deve receber cenários específicos proporcionais ao risco.
+O inventário histórico em `docs/community/COMMUNITY_BACKLOG.md` decompõe ideias
+em lentes genéricas, mas não define cobertura obrigatória. Ao reativar uma ideia
+no portfólio, `TESTES.md` deve receber cenários específicos proporcionais ao
+risco e ao fluxo real.
 
 Mínimo por prioridade:
 

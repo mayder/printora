@@ -1,16 +1,18 @@
-# Padrão De Execução Dos Pacotes Comunitários
+# Padrão De Execução Dos Pacotes Ativos
 
-Este documento é bloqueante para `PKG-101` a `PKG-155`. Ele transforma os
-princípios gerais do projeto em um contrato operacional verificável para cada
-janela de implementação. Em caso de conflito, prevalecem `PATHS.toml`,
-`QUALITY_ROADMAP.md`, `GOVERNANCA.md`, `DEMANDAS.md` e as decisões aceitas.
+Este documento é bloqueante somente para IDs com status `active` em
+`PACKAGE_PORTFOLIO.csv`. Ele transforma os princípios gerais do projeto em um
+contrato operacional verificável para cada janela de implementação. Inventário
+`COM/CAP/SCR` não autoriza trabalho. Em caso de conflito, prevalecem
+`PATHS.toml`, `QUALITY_ROADMAP.md`, `GOVERNANCA.md`, `DEMANDAS.md` e as
+decisões aceitas.
 
 ## Garantia Alcançável
 
 Nenhum documento garante ausência absoluta de defeitos em código futuro. A
 garantia exigível é que:
 
-- o pacote começa somente quando todas as dependências anteriores estão fechadas;
+- o pacote começa somente quando suas dependências técnicas explícitas estão fechadas;
 - o desenho explicita domínio, dados, estados, permissões e falhas antes do código;
 - backend, frontend, banco e integrações respeitam fronteiras existentes;
 - gates automatizados e evidência manual proporcional ao risco bloqueiam o fechamento;
@@ -25,6 +27,7 @@ garantia exigível é que:
 - fronteiras colaboradoras permitidas;
 - área frontend;
 - perfil de risco.
+- dependências técnicas explícitas.
 
 Ownership não autoriza importação interna entre módulos. Colaboração ocorre por
 contrato público, port, evento versionado ou application service do owner.
@@ -48,8 +51,8 @@ documentos oficiais:
 10. telas, rotas, estados, responsividade e acessibilidade;
 11. orçamento de capacidade, latência, payload, arquivo e concorrência;
 12. plano de testes, rollout, observabilidade e rollback;
-13. IDs `COM`, `CAP` e `SCR` do lote, sem sobreposição;
-14. confirmação de que nenhuma tabela, serviço ou pacote futuro é necessário.
+13. lotes e critérios de aceite do pacote ativo, sem importar escopo cancelado;
+14. confirmação de que nenhuma tabela, serviço ou pacote não ativo é necessário.
 
 Se um item não se aplicar, registrar `não aplicável` com justificativa. Campo
 vazio, placeholder ou “definir depois” bloqueia implementação.
@@ -199,9 +202,9 @@ Cada lote fecha com:
 
 - código e documentação do recorte;
 - testes focados proporcionais;
-- atualização dos IDs `COM/CAP/SCR`;
+- atualização do lote e de sua evidência em `DEMANDAS.md`;
 - evidência de contrato, permissão, erro e idempotência aplicáveis;
-- diff sem mudança de pacote futuro;
+- diff sem mudança de pacote cancelado, fundido ou adiado;
 - nenhuma pendência escondida para “lote posterior” fora do pacote.
 
 ## Definition Of Done Do Pacote
@@ -209,7 +212,7 @@ Cada lote fecha com:
 O pacote só pode ser marcado 100% quando:
 
 1. todos os itens da Definition of Ready possuem resposta final;
-2. dez lotes e todos os IDs atribuídos têm evidência;
+2. todos os lotes declarados em `DEMANDAS.md` têm evidência;
 3. arquitetura e ownership passam nos gates;
 4. SQL/contratos são idempotentes e N/N-1;
 5. testes do perfil de risco e regressões passam;
@@ -233,7 +236,7 @@ Enviar à nova janela:
 2. branch e commit base;
 3. confirmação de dependências concluídas;
 4. referência a este padrão e à linha do pacote na matriz;
-5. proibição de implementar pacote futuro;
+5. proibição de implementar pacote não ativo;
 6. obrigação de atualizar `DEMANDAS.md` por lote;
 7. obrigação de parar se surgir mudança destrutiva, credencial, produção ou
    decisão que expanda o escopo;

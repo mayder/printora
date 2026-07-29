@@ -1028,7 +1028,7 @@ def write_backlog_markdown(path: Path, rows: list[dict[str, str]]) -> None:
     lines = [
         "# Inventário Atômico Da Comunidade Printora",
         "",
-        "> Arquivo gerado por `scripts/generate_community_roadmap.py`. Não editar manualmente.",
+        "> Arquivo histórico de ideias gerado por `scripts/generate_community_roadmap.py`. Não é backlog executável e não autoriza implementação. Não editar manualmente.",
         "",
         f"Total: **{len(rows)} melhorias verificáveis**, derivadas de {len(DOMAINS)} frentes, "
         f"{sum(len(item['features']) for item in DOMAINS)} capacidades e {len(LENSES)} lentes de entrega.",
@@ -1052,7 +1052,7 @@ def write_screens_markdown(path: Path, rows: list[dict[str, str]]) -> None:
     lines = [
         "# Catálogo De Telas E Fluxos Futuros",
         "",
-        "> Arquivo gerado por `scripts/generate_community_roadmap.py`. Rotas são contratos de planejamento, não rotas já implementadas.",
+        "> Arquivo histórico de ideias gerado por `scripts/generate_community_roadmap.py`. As rotas são hipóteses arquivadas, não contratos ativos nem rotas implementadas.",
         "",
         f"Total: **{len(rows)} famílias de tela**, cada uma cobrindo lista, detalhe e cadastro/edição separados.",
         "",
@@ -1072,7 +1072,7 @@ def write_priorities(path: Path, rows: list[dict[str, str]]) -> None:
     lines = [
         "# Prioridade Por Impacto Social",
         "",
-        "A ordem abaixo usa impacto humano, urgência, alcance, equidade, redução de dano, dependência estrutural e reversibilidade. Receita e engajamento não elevam prioridade sozinhos.",
+        "Classificação histórica do inventário de ideias. Não define a ordem do backlog ativo. A ordem abaixo usa impacto humano, urgência, alcance, equidade, redução de dano, dependência estrutural e reversibilidade.",
         "",
     ]
     for priority in ("P0", "P1", "P2", "P3", "P4"):

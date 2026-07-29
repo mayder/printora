@@ -1,6 +1,6 @@
 # Inventário Atômico Da Comunidade Printora
 
-> Arquivo gerado por `scripts/generate_community_roadmap.py`. Não editar manualmente.
+> Arquivo histórico de ideias gerado por `scripts/generate_community_roadmap.py`. Não é backlog executável e não autoriza implementação. Não editar manualmente.
 
 Total: **3080 melhorias verificáveis**, derivadas de 55 frentes, 440 capacidades e 7 lentes de entrega.
 

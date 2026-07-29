@@ -29,6 +29,39 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260727-01 - Portfólio ativo substitui execução integral do inventário comunitário
+
+Status: aceita
+Data: 2026-07-27
+Contexto: o inventário comunitário de 55 frentes foi convertido em 55 pacotes,
+440 capacidades, 3.080 requisitos e 440 famílias de tela obrigatórios. A regra
+numérica fazia o fluxo de impressão depender de rede social, marketplace,
+educação, finanças e experimentos sem demanda comprovada. A marcação `ausente`
+também divergia de contratos e telas já existentes.
+Decisão: manter o inventário gerado apenas como histórico de ideias e usar
+`docs/community/PACKAGE_PORTFOLIO.csv` como estado oficial dos IDs
+`PKG-101` a `PKG-155`. `DEMANDAS.md` contém somente dez pacotes ativos.
+Dependências passam a ser técnicas e explícitas em
+`PACKAGE_ARCHITECTURE.csv`; número não cria dependência. IDs podem ficar
+`completed`, `active`, `merged`, `deferred` ou `cancelled`. Pacote não ativo
+não autoriza código nem pode ser dependência. Função já existente não é
+removida automaticamente.
+Alternativas consideradas: executar os 55 pacotes; apagar todo o inventário;
+manter a sequência e pular pacotes informalmente; renumerar os pacotes ativos.
+Consequências: o backlog volta ao núcleo operacional, preserva rastreabilidade
+histórica e permite chegar a fatiamento e impressão sem construir produtos
+paralelos. Reativação exige nova decisão e hipótese mensurável.
+Impacto em testes: o validador passa a conferir portfólio completo, matriz dos
+ativos, destino de fusões, dependências explícitas, ordem topológica e estrutura
+de pacote. O gerador continua verificando a reprodução do inventário histórico.
+Impacto em rollback: baixo e documental; restaurar a versão anterior dos
+documentos e validadores. Não remover nem restaurar runtime ou dados.
+Como reverter: reverter conjuntamente `DEMANDAS.md`, portfólio, matriz, padrão,
+gerador, validador, testes e documentos de governança.
+Referências: `DEMANDAS.md`, `docs/community/PACKAGE_PORTFOLIO.csv`,
+`docs/community/PACKAGE_ARCHITECTURE.csv`,
+`docs/community/PACKAGE_MODELING_REVIEW.md`.
+
 ### DEC-20260726-02 - Deploy paralelo com retenção somente de releases vinculados
 
 Status: aceita
@@ -68,6 +101,8 @@ Referencias: `.github/workflows/deploy-cloud.yml`,
 
 Status: aceita
 Data: 2026-07-26
+Vigência: parcialmente superada pela `DEC-20260727-01`; permanece válida apenas
+para a separação entre histórico `PKG-01..100` e backlog ativo.
 Contexto: `DEMANDAS.md` acumulava os detalhes completos de cem pacotes
 consolidados e ainda precisava receber o programa comunitário plurianual com 55
 frentes, 440 capacidades, 3.080 requisitos atômicos e 440 famílias de tela.
@@ -1061,6 +1096,8 @@ Como reverter: reverter `backend/sql/071_print_project_publication.sql`, altera�
 
 Status: aceita
 Data: 2026-07-22
+Vigência: superada pela `DEC-20260727-01`; o inventário permanece histórico,
+sem prioridade ou cobertura obrigatória do backlog ativo.
 Contexto: a base social entregue nos pacotes anteriores cobre identidade pública, comunidades derivadas do catálogo, discussões, biblioteca, descoberta, moderação, notificações, projetos e fluxo de impressão, mas ainda está longe da amplitude de uma rede comunitária e de uma infraestrutura social de fabricação digital. Colocar milhares de itens diretamente em `DEMANDAS.md` tornaria o backlog oficial impraticável e misturaria planejamento de décadas com pacotes executáveis.
 
 Decisão: manter `DEMANDAS.md` como backlog executável e registrar o universo plurianual em `docs/community/`. O inventário parte de 55 frentes e 440 capacidades revisadas; cada capacidade gera sete itens atômicos — produto, tela, mobile, acessibilidade, confiança, impacto e qualidade — totalizando 3.080 melhorias. Telas futuras são catalogadas separando lista, detalhe e cadastro/edição. A ordem P0-P4 usa impacto social, equidade e redução de dano antes de engajamento ou receita.
@@ -2067,6 +2104,9 @@ backup, nunca por `DROP` ou `DELETE`.
 
 Status: aceita
 Data: 2026-07-26
+Vigência: parcialmente superada pela `DEC-20260727-01`; padrão e ownership
+continuam bloqueantes somente para pacotes ativos e a cobertura `COM/CAP/SCR`
+deixa de ser obrigatória.
 Contexto: a ordem topológica e a rastreabilidade dos `PKG-101` a `PKG-155`
 impediam dependência futura explícita, mas não fixavam owner, colaboradores,
 perfil de risco ou um único padrão de execução. Janelas diferentes poderiam

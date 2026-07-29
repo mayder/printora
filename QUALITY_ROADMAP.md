@@ -13,7 +13,10 @@ Ordem de leitura obrigatória:
 
 `DEMANDAS.md` contém somente o backlog executável ativo. Pacotes consolidados
 ficam preservados integralmente em `DEMANDAS_CONSOLIDADAS_PKG_01_100.md`; o
-arquivo histórico é fonte de consulta e não recebe novos lotes.
+arquivo histórico é fonte de consulta e não recebe novos lotes. O estado dos
+IDs `PKG-101` a `PKG-155` fica em
+`docs/community/PACKAGE_PORTFOLIO.csv`; inventários `COM/CAP/SCR` são fontes de
+ideias, não cobertura obrigatória do backlog.
 
 ## Estratégia Técnica Inicial
 
@@ -149,14 +152,15 @@ Módulo não deve importar detalhe interno de outro módulo sem contrato explíc
 - Durante lotes, rodar teste raso e direcionado.
 - No fechamento do pacote, rodar validação completa, revisar regressões e fazer commit.
 - O commit de fechamento não exige push.
-- Pacote comunitário só pode depender de pacote com ID menor e deve entregar
-  uma fatia vertical utilizável, publicável e reversível sem pacote futuro.
+- Pacote ativo depende somente de IDs concluídos ou ativos anteriores na ordem
+  topológica explícita; numeração não cria dependência automática.
 - `docs/community/PACKAGE_EXECUTION_STANDARD.md` é bloqueante para todo pacote
-  comunitário; a matriz `PACKAGE_ARCHITECTURE.csv` fixa owner, colaboradores,
-  área frontend e perfil de risco antes do primeiro lote.
-- `scripts/validate-demand-package-dependencies.py` bloqueia lacuna, referência
-  futura, cobertura `COM/CAP/SCR` divergente, ownership inválido e pacote sem
-  declaração de entrega isolada.
+  ativo; `PACKAGE_PORTFOLIO.csv` registra a decisão de cada ID e
+  `PACKAGE_ARCHITECTURE.csv` fixa owner, colaboradores, área, risco e
+  dependências técnicas.
+- `scripts/validate-demand-package-dependencies.py` bloqueia pacote ativo
+  ausente, destino de fusão inválido, ownership inválido, dependência
+  documental divergente e dependência ativa posterior.
 
 ### Bug e melhoria simples
 

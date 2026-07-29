@@ -1,116 +1,91 @@
-# Revisão De Modelagem Dos PKG-101 A PKG-155
+# Reavaliação Do Portfólio Pós-PKG-100
 
-Data: 2026-07-26
+Data: 2026-07-27.
 
-## Escopo
+## Problema
 
-Revisão transversal de ordem, dependências, rastreabilidade, ownership,
-backend, frontend, banco, segurança, testes, compatibilidade, observabilidade,
-rollout e rollback dos 55 pacotes comunitários.
+O programa anterior transformava 55 frentes de brainstorming em 55 pacotes
+obrigatórios, 440 capacidades, 3.080 requisitos genéricos e 440 famílias de
+tela. A regra numérica fazia funcionalidades operacionais úteis dependerem de
+rede social, marketplace, educação, finanças e experimentos sem demanda
+comprovada.
+
+O baseline `ausente` também divergia do código real: autenticação, moderação,
+busca, projetos, upload, slicing, preflight, entrega, histórico, manutenção,
+múltiplas impressoras e integrações já possuíam implementações parciais.
+
+## Critérios
+
+Cada pacote pendente foi avaliado por:
+
+1. problema real do usuário;
+2. aderência ao núcleo operacional do Printora;
+3. sobreposição com código existente;
+4. custo permanente de operação, segurança e suporte;
+5. risco físico, jurídico ou financeiro;
+6. possibilidade de entrega e rollback independentes;
+7. existência de demanda ou hipótese mensurável.
 
 ## Resultado
 
-Os pacotes podem ser executados em ordem numérica, um por janela, desde que a
-janela cumpra `PACKAGE_EXECUTION_STANDARD.md` e o pacote anterior necessário
-esteja realmente fechado. A ordem é topológica; prioridade social continua
-independente da ordem técnica.
+- 2 pacotes concluídos e preservados;
+- 10 pacotes ativos;
+- 10 IDs fundidos nos ativos;
+- 6 ideias adiadas sem autorização de implementação;
+- 27 pacotes cancelados.
 
-Não existe garantia matemática de ausência de defeitos futuros. O resultado
-desta revisão é uma garantia processual verificável: brechas conhecidas de
-estrutura são bloqueadas por fonte de verdade, matriz de ownership, critérios
-de prontidão/conclusão e gates automatizados.
+O estado e a justificativa de cada ID estão em `PACKAGE_PORTFOLIO.csv`.
 
-## Brechas Encontradas E Tratamento
+## Portfólio Ativo
 
-| Brecha | Risco | Tratamento |
+| Ordem | Pacote | Resultado |
 |---|---|---|
-| ownership não fixado por pacote | regra duplicada, import cruzado e módulo sem responsável | matriz completa para PKG-101..155 |
-| padrão backend/frontend disperso | cada janela interpretar arquitetura de forma diferente | padrão único e bloqueante |
-| gate validava ordem, mas não toda a cobertura | lacuna ou sobreposição de COM/CAP/SCR passar despercebida | validação integral de IDs, faixas e unicidade |
-| prioridade podia ser confundida com ordem | iniciar P0 que depende de fundação ainda ausente | índices técnico e social separados |
-| idempotência apenas declarativa | retry duplicar efeito | cenários obrigatórios de reexecução, concorrência e retomada |
-| “check passou” usado como sinônimo de conclusão | regressão funcional ou operacional não exercitada | DoD exige evidência por superfície e risco |
-| arquivos críticos podem voltar a crescer | novo acoplamento em legado consolidado | extração coesa ao tocar arquivo crítico |
-| pacote futuro poderia virar dependência implícita | entrega incompleta e impossível de publicar | DoR exige confirmação explícita e gate de dependência |
-| mudanças de schema sem sequência compatível | quebra N/N-1 ou perda de dados | expand/contract, SQL idempotente e rollback sem destruição |
-| ausência de auditoria reproduzível da matriz | revisão manual poderia divergir do backlog | matriz incluída no gate estrutural |
+| 1 | PKG-104 | proteção essencial, consolidando segurança, privacidade, integridade e moderação mínima |
+| 2 | PKG-110 | onboarding até impressora conectada e primeiro fluxo seguro |
+| 3 | PKG-114 | materiais, spools, consumo e qualidade básica |
+| 4 | PKG-126 | conhecimento e evidência técnica reproduzível |
+| 5 | PKG-128 | projetos, arquivos, versões e inspeção 3D básica |
+| 6 | PKG-131 | perfis executáveis e fatiamento reproduzível |
+| 7 | PKG-132 | fluxo projeto até resultado de impressão |
+| 8 | PKG-133 | manutenção, diagnóstico e confiabilidade |
+| 9 | PKG-134 | frota e filas de impressão |
+| 10 | PKG-142 | integrações reais e descoberta técnica |
 
-## Revisão Por Grupo
+## Regras De Modelagem
 
-### PKG-101 A PKG-110 — Fundação
+- número é identidade histórica, não dependência;
+- dependência técnica fica na matriz arquitetural;
+- pacote cancelado, fundido ou adiado não pode ser dependência;
+- inventário `COM/CAP/SCR` é histórico de ideias;
+- cada pacote começa por testes de caracterização do comportamento existente;
+- escopo útil fundido é implementado no owner ativo, sem criar módulo por ID;
+- funcionalidade existente de pacote cancelado não é removida automaticamente;
+- qualquer reativação exige decisão de produto e atualização do portfólio.
 
-Design, acessibilidade, mobile, segurança, privacidade, analytics, moderação,
-integridade, internacionalização e onboarding formam a base transversal.
-Nenhum pacote posterior deve recriar tokens, preferências, consentimento,
-telemetria, política ou autorização. Owners primários ficam entre `shared`,
-`identity`, `community` e `administration`.
+## Ownership E Risco
 
-### PKG-111 A PKG-121 — Segurança E Impacto Social
+`PACKAGE_ARCHITECTURE.csv` cobre somente pacotes ativos e fixa:
 
-Modelos seguros, proteção infantil, qualidade, materiais, fabricação local,
-assistência, resposta humanitária, educação, escolas, reparo e sustentabilidade
-possuem risco físico ou humano. Exigem especialistas/pilotos quando indicado,
-evidência versionada, cadeia de custódia e limites de promessa. Relação social
-não substitui validação técnica nem concede operação.
+- owner backend;
+- colaboradores permitidos;
+- área frontend;
+- perfil de risco;
+- dependências explícitas.
 
-### PKG-122 A PKG-127 — Núcleo Social
+Colaboração ocorre por contrato, port, evento ou application service. Número de
+pacote não autoriza importação interna.
 
-Identidade, grafo, comunidades, publicação, conhecimento e mídia reutilizam
-contratos de privacidade/moderação. Perfil, papel, vínculo, visibilidade,
-autoria, licença, moderação e retenção permanecem dimensões separadas.
+## Riscos Residuais
 
-### PKG-128 A PKG-134 — Fabricação Conectada
-
-Biblioteca, viewer, parametrização, slicing, impressão, manutenção e fazendas
-preservam versões imutáveis, checksums, compatibilidade, preflight e segurança
-física. `community` possui projeto/conteúdo; `operations` possui execução e
-impressora. Nenhum compartilhamento social autoriza comando físico.
-
-### PKG-135 A PKG-143 — Colaboração E Plataforma
-
-Coautoria, mensagens, eventos, feed, busca, recomendação, visão, integrações e
-plataforma de desenvolvedor exigem isolamento, quotas, explicação, retenção,
-backpressure e contratos versionados. Realtime/Redis são recomponíveis; eventos
-duráveis permanecem em PostgreSQL.
-
-### PKG-144 A PKG-152 — Economia E Instituições
-
-Creator tools, reputação, organizações, marketplace, assinaturas, logística,
-concursos, crowdfunding e ciência aberta separam conteúdo, identidade, pedido,
-pagamento, ledger, fabricação e moderação. Dinheiro usa o domínio `finance`;
-nenhum saldo deriva de campo mutável.
-
-### PKG-153 A PKG-155 — Experimentação
-
-Scan/AR, automação por IA e interfaces futuras só avançam depois das
-dependências anteriores. Importação preserva origem; IA possui avaliação,
-confiança, revisão humana, opt-out e kill switch. Experimento não recebe acesso
-implícito a dado sensível ou impressora.
-
-## Riscos Residuais Que Nenhum Backlog Elimina
-
-- erro de implementação ainda não escrito;
-- comportamento inesperado de navegador, provider, hardware ou usuário real;
-- vulnerabilidade desconhecida;
-- capacidade insuficiente sob carga futura não ensaiada;
-- decisão de produto inadequada sem pesquisa/piloto;
-- falha física do único host além do RPO/RTO disponível.
-
-Esses riscos não impedem iniciar os pacotes, mas impedem prometer “zero defeito”.
-Cada pacote reduz o risco com testes, piloto, observação e rollback proporcionais.
-
-## Ordem De Execução
-
-1. usar a ordem numérica de `DEMANDAS.md`;
-2. executar um pacote por vez;
-3. permitir outra janela somente com branch/commit base explícitos;
-4. não iniciar se uma dependência listada estiver apenas “quase pronta”;
-5. não antecipar contrato, tabela ou tela de pacote posterior;
-6. fechar, revisar, executar gates e criar commit exclusivo antes do próximo.
+- os pacotes ativos ainda precisam de auditoria de lacunas antes do código;
+- parte da documentação histórica continua descrevendo ideias canceladas;
+- funcionalidades parciais existentes podem exigir consolidação ou remoção em
+  demanda futura própria;
+- câmera, IA, internacionalização, coautoria e API pública permanecem adiadas;
+- validação física continua dependendo de impressora segura e autorização.
 
 ## Veredito
 
-A modelagem está apta para execução sequencial com controles objetivos depois
-que os validadores desta revisão passarem. A garantia é condicionada ao
-cumprimento dos gates; uma janela que ignore o padrão não pode declarar o
-pacote concluído.
+O backlog ativo está apto para execução na ordem topológica explícita de
+`DEMANDAS.md`. O inventário histórico não deve voltar a ser interpretado como
+Definition of Done ou obrigação de implementação.

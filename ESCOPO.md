@@ -8,20 +8,22 @@ O objetivo é resolver uma lacuna comum em impressoras Klipper avançadas: opera
 
 O projeto deve ajudar o usuário a manter a impressora saudável sem precisar ser especialista em Linux, systemd, CAN, Git, Klipper, Moonraker e firmware ao mesmo tempo.
 
-## Visão comunitária plurianual
+## Conhecimento técnico e comunidade
 
-O Printora também deve evoluir de forma incremental para uma infraestrutura comunitária de fabricação digital. Essa visão conecta pessoas, comunidades, conhecimento, projetos, arquivos, materiais, impressoras, escolas, oficinas e necessidades sociais sem misturar relacionamento social com permissão operacional sobre equipamentos.
+Comunidade existe para melhorar diagnóstico, reprodução de resultados,
+projetos e evidência técnica. Ela não transforma o Printora em rede social,
+marketplace, plataforma educacional ou sistema financeiro.
 
-O norte não é maximizar tempo de tela. É aumentar:
+O norte é aumentar:
 
-- autonomia por tecnologia assistiva segura;
-- acesso a educação maker e infraestrutura comunitária;
-- reparo, vida útil de produtos e redução de resíduos;
-- resolução de problemas e reprodução de resultados técnicos;
-- fabricação local, renda justa e resiliência territorial;
-- segurança, inclusão, acessibilidade e confiança.
+- impressão bem-sucedida e reproduzível;
+- resolução confirmada de problemas;
+- manutenção e disponibilidade da impressora;
+- organização de projetos, arquivos, materiais e perfis;
+- segurança, privacidade, acessibilidade e confiança.
 
-O plano completo, benchmark, telas e inventário verificável ficam em `docs/community/`. A execução deve recortar pacotes pequenos em `DEMANDAS.md`, validar o problema com pessoas afetadas e medir benefício e dano antes de expansão.
+O inventário amplo em `docs/community/` é histórico de ideias. Somente
+`DEMANDAS.md` e `PACKAGE_PORTFOLIO.csv` autorizam execução.
 
 ## Arquitetura real do projeto
 
@@ -481,8 +483,8 @@ O produto evolui em quatro etapas:
    observabilidade e deploy blue/green;
 2. PostgreSQL cloud, Redis recomponível, outbox/fila durável, workers, objetos
    S3-compatible, realtime distribuído e busca reconstruível;
-3. ledger, pagamentos, pedidos, fabricação, qualidade e logística isolados;
-4. múltiplas instâncias, resiliência, recuperação, analytics e ML isolado.
+3. múltiplas instâncias, resiliência e recuperação;
+4. analytics operacional ou ML isolado somente com hipótese aprovada.
 
 Todos os componentes devem executar no servidor cloud atual. Kubernetes,
 segundo host e serviços gerenciados não são requisitos. A arquitetura no mesmo

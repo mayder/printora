@@ -1,6 +1,6 @@
 # Catálogo De Telas E Fluxos Futuros
 
-> Arquivo gerado por `scripts/generate_community_roadmap.py`. Rotas são contratos de planejamento, não rotas já implementadas.
+> Arquivo histórico de ideias gerado por `scripts/generate_community_roadmap.py`. As rotas são hipóteses arquivadas, não contratos ativos nem rotas implementadas.
 
 Total: **440 famílias de tela**, cada uma cobrindo lista, detalhe e cadastro/edição separados.
 

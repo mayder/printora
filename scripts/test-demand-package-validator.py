@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercita falhas estruturais que o gate comunitário deve bloquear."""
+"""Exercita falhas estruturais bloqueadas pelo gate do portfólio ativo."""
 
 from __future__ import annotations
 
@@ -12,11 +12,23 @@ ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = ROOT / "scripts" / "validate-demand-package-dependencies.py"
 DEMANDS = ROOT / "DEMANDAS.md"
 ARCHITECTURE = ROOT / "docs" / "community" / "PACKAGE_ARCHITECTURE.csv"
+PORTFOLIO = ROOT / "docs" / "community" / "PACKAGE_PORTFOLIO.csv"
 
 
-def run(demands: Path, architecture: Path, expected: str) -> None:
+def run(
+    demands: Path,
+    architecture: Path,
+    portfolio: Path,
+    expected: str,
+) -> None:
     result = subprocess.run(
-        ["python3", str(VALIDATOR), str(demands), str(architecture)],
+        [
+            "python3",
+            str(VALIDATOR),
+            str(demands),
+            str(architecture),
+            str(portfolio),
+        ],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -29,107 +41,83 @@ def run(demands: Path, architecture: Path, expected: str) -> None:
         )
 
 
-def demand_cases(
-    demands: str,
-    architecture: str,
-) -> dict[str, tuple[str, str, str]]:
-    return {
-        "future.md": (
-            demands.replace(
-                "- Pacotes comunitários: nenhum.",
-                "- Pacotes comunitários: `PKG-155`.",
-                1,
-            ),
-            architecture,
-            "manifesto arquitetural exige",
-        ),
-        "missing.md": (
-            demands.replace(
-                "- Pacotes comunitários: `PKG-101`.",
-                "- Pacotes comunitários: nenhum.",
-                1,
-            ),
-            architecture,
-            "manifesto arquitetural exige",
-        ),
-        "coverage.md": (
-            demands.replace(
-                "- requisitos: `COM-0953` a `COM-1008` — 56 itens;",
-                "- requisitos: `COM-0954` a `COM-1008` — 55 itens;",
-                1,
-            ),
-            architecture,
-            "exatamente 56 requisitos",
-        ),
-        "screen.md": (
-            demands.replace(
-                "- telas: `SCR-0137` a `SCR-0144` — 8 famílias;",
-                "- telas: `SCR-0138` a `SCR-0144` — 7 famílias;",
-                1,
-            ),
-            architecture,
-            "exatamente oito telas",
-        ),
-        "index.md": (
-            demands.replace(
-                "- PKG-101 [P1]:",
-                "- PKG-101 [P0]:",
-                1,
-            ),
-            architecture,
-            "índice de implementação diverge",
-        ),
-    }
-
-
-def architecture_cases(
-    demands: str,
-    architecture: str,
-) -> dict[str, tuple[str, str, str]]:
-    return {
-        "owner.md": (
-            demands,
-            architecture.replace(
-                ",shared,administration,platform,high",
-                ",unknown,administration,platform,high",
-                1,
-            ),
-            "owner inválido",
-        ),
-        "domain.md": (
-            demands,
-            architecture.replace(
-                "PKG-102,accessibility,",
-                "PKG-102,design_system,",
-                1,
-            ),
-            "domain_key duplicado",
-        ),
-        "package.md": (
-            demands,
-            architecture.replace(
-                "PKG-155,future_interfaces,shared,community|operations,platform,critical\n",
-                "",
-                1,
-            ),
-            "não cobre exatamente",
-        ),
-    }
-
-
 def main() -> None:
     demands = DEMANDS.read_text(encoding="utf-8")
     architecture = ARCHITECTURE.read_text(encoding="utf-8")
-    cases = demand_cases(demands, architecture)
-    cases.update(architecture_cases(demands, architecture))
+    portfolio = PORTFOLIO.read_text(encoding="utf-8")
+    cases = {
+        "missing-active": (
+            demands.replace(
+                "## PKG-142: Integrações e descoberta técnica",
+                "## IDEA-142: Integrações e descoberta técnica",
+                1,
+            ),
+            architecture,
+            portfolio,
+            "exatamente os pacotes ativos",
+        ),
+        "dependency-drift": (
+            demands.replace(
+                "- Pacotes ativos: `PKG-114`, `PKG-128`.",
+                "- Pacotes ativos: `PKG-128`.",
+                1,
+            ),
+            architecture,
+            portfolio,
+            "matriz arquitetural exige",
+        ),
+        "dependency-after": (
+            demands.replace(
+                "- Pacotes ativos: nenhum.",
+                "- Pacotes ativos: `PKG-142`.",
+                1,
+            ),
+            architecture.replace(
+                "account,high,PKG-101|PKG-102|PKG-104",
+                "account,high,PKG-101|PKG-102|PKG-104|PKG-142",
+                1,
+            ),
+            portfolio,
+            "pacote ativo ausente ou posterior",
+        ),
+        "owner": (
+            demands,
+            architecture.replace(
+                "PKG-110,onboarding,identity,",
+                "PKG-110,onboarding,unknown,",
+                1,
+            ),
+            portfolio,
+            "owner inválido",
+        ),
+        "merged-target": (
+            demands,
+            architecture,
+            portfolio.replace(
+                "PKG-105,merged,PKG-104,",
+                "PKG-105,merged,PKG-109,",
+                1,
+            ),
+            "fundido em pacote indisponível",
+        ),
+        "missing-acceptance": (
+            demands.replace("Critério de aceite:", "Aceite:", 1),
+            architecture,
+            portfolio,
+            "deve possuir uma seção Critério de aceite:",
+        ),
+    }
+
     with tempfile.TemporaryDirectory(prefix="printora-demand-validator-") as directory:
         root = Path(directory)
-        for name, (demand_text, architecture_text, expected) in cases.items():
-            demand_path = root / name
-            architecture_path = root / f"{name}.csv"
+        for name, (demand_text, architecture_text, portfolio_text, expected) in cases.items():
+            demand_path = root / f"{name}.md"
+            architecture_path = root / f"{name}-architecture.csv"
+            portfolio_path = root / f"{name}-portfolio.csv"
             demand_path.write_text(demand_text, encoding="utf-8")
             architecture_path.write_text(architecture_text, encoding="utf-8")
-            run(demand_path, architecture_path, expected)
+            portfolio_path.write_text(portfolio_text, encoding="utf-8")
+            run(demand_path, architecture_path, portfolio_path, expected)
     print("[demand-dependencies-test] cenários negativos bloqueados")
 
 

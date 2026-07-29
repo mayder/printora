@@ -1,34 +1,36 @@
-# Programa Plurianual Da Comunidade Printora
+# Inventário Histórico E Portfólio Ativo
 
-Este diretório é a fonte complementar do backlog para a evolução do Printora como comunidade e ecossistema de fabricação digital.
+Este diretório preserva o inventário de ideias comunitárias e governa o
+portfólio ativo enxuto. Inventário não é backlog nem autorização de
+implementação.
 
-## Escopo e números
+## Escopo histórico e números
 
-- 55 frentes estratégicas;
-- 440 capacidades de produto;
+- 55 frentes inventariadas;
+- 440 capacidades hipotéticas;
 - 3.080 melhorias atômicas rastreáveis;
 - 440 famílias de tela;
 - 1.320 estados principais de lista, detalhe e cadastro/edição;
-- prioridades P0 a P4 ordenadas por impacto social;
+- prioridades históricas P0 a P4 por impacto social;
 - comparação com redes sociais, comunidades de criadores, repositórios 3D, slicers e interfaces de impressão.
 
 ## Arquivos
 
-- `../../DEMANDAS.md`: pacotes executáveis `PKG-101` a `PKG-155`, com
-  ordem topológica, dependências somente anteriores e rastreabilidade exata
-  para todos os IDs `COM`, `CAP` e `SCR`.
+- `../../DEMANDAS.md`: somente pacotes executáveis ativos, com dependências
+  técnicas explícitas.
 - `../../DEMANDAS_CONSOLIDADAS_PKG_01_100.md`: histórico integral dos pacotes
   consolidados anteriores ao programa comunitário.
 - `MASTER_PLAN.md`: visão, diagnóstico atual, método, arquitetura e fases.
 - `PLATFORM_BENCHMARK.md`: comparação de plataformas e padrões a absorver ou evitar.
-- `COMMUNITY_BACKLOG.md`: lista humana de todos os itens atômicos.
+- `COMMUNITY_BACKLOG.md`: inventário histórico de possibilidades, não backlog.
 - `COMMUNITY_BACKLOG.csv`: versão filtrável e importável do inventário.
-- `COMMUNITY_SCREENS.md`: catálogo completo de telas e fluxos planejados.
+- `COMMUNITY_SCREENS.md`: catálogo histórico de telas hipotéticas.
 - `COMMUNITY_SCREENS.csv`: versão filtrável das telas.
-- `PRIORITIES.md`: ordenação por impacto social.
+- `PRIORITIES.md`: priorização histórica do inventário de ideias.
 - `SUMMARY.json`: contagem verificável do inventário.
-- `PACKAGE_ARCHITECTURE.csv`: owner backend, colaboradores, área frontend e
-  perfil de risco dos 55 pacotes.
+- `PACKAGE_PORTFOLIO.csv`: estado e decisão dos IDs `PKG-101` a `PKG-155`.
+- `PACKAGE_ARCHITECTURE.csv`: owner, colaboradores, área, risco e dependências
+  dos pacotes ativos.
 - `PACKAGE_EXECUTION_STANDARD.md`: padrão bloqueante de modelagem,
   implementação, testes, rollout e fechamento.
 - `PACKAGE_MODELING_REVIEW.md`: revisão transversal, brechas tratadas e riscos
@@ -40,13 +42,17 @@ O inventário é um mapa de possibilidades, não autorização para implementar 
 
 1. validar o problema com pessoas afetadas;
 2. auditar novamente o que já existe no Printora;
-3. localizar o pacote e os IDs `COM`, `CAP` e `SCR` atribuídos em
-   `DEMANDAS.md`, sem criar pacote paralelo ou sobreposto;
-4. consultar owner, colaboradores e risco em `PACKAGE_ARCHITECTURE.csv`;
+3. confirmar status `active` em `PACKAGE_PORTFOLIO.csv`;
+4. consultar owner, colaboradores, risco e dependências em
+   `PACKAGE_ARCHITECTURE.csv`;
 5. cumprir a Definition of Ready de `PACKAGE_EXECUTION_STANDARD.md`;
 6. definir telas em `TELAS.md`, testes em `TESTES.md` e decisões relevantes em `DECISOES.md`;
 7. pilotar com métricas de benefício e dano;
 8. expandir somente quando o resultado justificar o custo e o risco.
+
+Itens cancelados, fundidos ou adiados não podem voltar por referência ao
+inventário gerado. Precisam de nova decisão de produto e atualização explícita
+do portfólio.
 
 Os arquivos gerados são reproduzíveis com:
 
