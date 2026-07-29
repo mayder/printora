@@ -81,6 +81,43 @@ def test_recovery_readiness_allows_new_wal_inside_alert_window(tmp_path: Path) -
     assert report["wal_external_within_alert_window"] is True
 
 
+def test_recovery_readiness_warns_after_daily_target_and_accepts_weekly_base(
+    tmp_path: Path,
+) -> None:
+    module = load_module()
+    configure_healthy_state(module, tmp_path)
+    state_path = module.STATE_DIR / "full-backup.json"
+    state = json.loads(state_path.read_text())
+    state["completed_at"] = datetime.fromtimestamp(
+        time.time() - module.FULL_BACKUP_WARNING_AGE - 1,
+        timezone.utc,
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    state_path.write_text(json.dumps(state))
+
+    report, failures = module.collect()
+
+    assert failures == []
+    assert "full_backup_older_than_daily_target" in report["warnings"]
+    assert report["status"] == "passed"
+
+
+def test_recovery_readiness_blocks_base_older_than_weekly_limit(tmp_path: Path) -> None:
+    module = load_module()
+    configure_healthy_state(module, tmp_path)
+    state_path = module.STATE_DIR / "full-backup.json"
+    state = json.loads(state_path.read_text())
+    state["completed_at"] = datetime.fromtimestamp(
+        time.time() - module.MAX_FULL_BACKUP_AGE - 1,
+        timezone.utc,
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    state_path.write_text(json.dumps(state))
+
+    report, failures = module.collect()
+
+    assert "full_backup_late" in failures
+    assert report["status"] == "failed"
+
+
 def test_recovery_readiness_fails_before_physical_rpo_breach(tmp_path: Path) -> None:
     module = load_module()
     configure_healthy_state(module, tmp_path)

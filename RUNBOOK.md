@@ -199,13 +199,15 @@ ficam fora do escopo. O journal é limitado por
 reservado. O monitor registra aviso abaixo de 15% livre e o preflight continua
 bloqueando abaixo de 10%.
 
-O backup completo limita o `pg_basebackup` a 8 MiB/s e o stream compactado do
-`pg_dump` a 1 MiB/s por padrão, além de usar prioridade de I/O `idle`. Os limites
-podem ser reduzidos por `PRINTORA_BASEBACKUP_MAX_RATE_KIB` e
-`PRINTORA_PG_DUMP_MAX_BYTES_PER_SECOND`, respectivamente. Não aumentar esses
-valores em produção sem observar `health`, latência e I/O; se o endpoint
-degradar, interromper somente `printora-cloud-backup.service` e manter os
-serviços da aplicação intactos.
+A base física é semanal e o WAL externo permanece contínuo, com restore isolado
+semanal. O gate avisa depois de 25 horas e bloqueia uma base acima de sete dias.
+O backup on-host não roda sem o marcador explícito
+`/etc/printora-cloud/allow-onhost-full-backup`, reservado a janela de manutenção:
+o checkpoint físico degradou o endpoint mesmo limitado a 1 MiB/s no host atual.
+Quando autorizado, o backup limita `pg_basebackup` a 1 MiB/s, o stream compactado
+do `pg_dump` a 256 KiB/s e usa prioridade de I/O `idle`. Se `health` degradar,
+interromper somente `printora-cloud-backup.service`, remover o marcador e manter
+os serviços da aplicação intactos.
 
 Validacao pos-deploy:
 

@@ -2,6 +2,7 @@
 Description=Backup externo criptografado PostgreSQL e objetos do Printora Cloud
 After=network-online.target
 Wants=network-online.target
+ConditionPathExists=/etc/printora-cloud/allow-onhost-full-backup
 OnFailure=printora-cloud-recovery-alert@%n.service
 
 [Service]
@@ -10,8 +11,8 @@ User=root
 Group=root
 StateDirectory=printora-cloud
 Environment=RESTIC_CACHE_DIR=/var/www/print3dmaker.xyz/shared/backup-cache
-Environment=PRINTORA_BASEBACKUP_MAX_RATE_KIB=8192
-Environment=PRINTORA_PG_DUMP_MAX_BYTES_PER_SECOND=1048576
+Environment=PRINTORA_BASEBACKUP_MAX_RATE_KIB=1024
+Environment=PRINTORA_PG_DUMP_MAX_BYTES_PER_SECOND=262144
 ExecStart=/usr/local/libexec/printora-cloud/backup-postgresql.sh
 NoNewPrivileges=true
 PrivateTmp=true

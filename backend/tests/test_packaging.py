@@ -222,15 +222,16 @@ def test_cloud_backup_limits_physical_and_logical_streams() -> None:
     bootstrap = (ROOT_DIR / "scripts/cloud/bootstrap-blue-green.sh").read_text()
     service = (ROOT_DIR / "packaging/systemd/printora-cloud-backup.service").read_text()
 
-    assert 'basebackup_max_rate_kib="${PRINTORA_BASEBACKUP_MAX_RATE_KIB:-8192}"' in backup
+    assert 'basebackup_max_rate_kib="${PRINTORA_BASEBACKUP_MAX_RATE_KIB:-1024}"' in backup
     assert '--max-rate="$basebackup_max_rate_kib"' in backup
-    assert 'dump_max_bytes_per_second="${PRINTORA_PG_DUMP_MAX_BYTES_PER_SECOND:-1048576}"' in backup
+    assert 'dump_max_bytes_per_second="${PRINTORA_PG_DUMP_MAX_BYTES_PER_SECOND:-262144}"' in backup
     assert '"$rate_limiter" --bytes-per-second "$dump_max_bytes_per_second"' in backup
     assert "rate-limit-stream.py" in deploy
     assert "rate-limit-stream.py" in bootstrap
-    assert "PRINTORA_BASEBACKUP_MAX_RATE_KIB=8192" in service
-    assert "PRINTORA_PG_DUMP_MAX_BYTES_PER_SECOND=1048576" in service
+    assert "PRINTORA_BASEBACKUP_MAX_RATE_KIB=1024" in service
+    assert "PRINTORA_PG_DUMP_MAX_BYTES_PER_SECOND=262144" in service
     assert "IOSchedulingClass=idle" in service
+    assert "ConditionPathExists=/etc/printora-cloud/allow-onhost-full-backup" in service
 
 
 def test_cloud_stream_rate_limiter_preserves_content_and_rejects_unsafe_rate() -> None:
@@ -338,6 +339,7 @@ def test_cloud_backup_has_external_restore_test_without_automatic_deletion() -> 
     assert "--keep-daily 14" in retention
     assert "nenhum snapshot ou bloco foi removido" in retention
     assert "Persistent=true" in timer
+    assert "OnCalendar=Sat *-*-* 03:15:00 UTC" in timer
     assert "systemctl enable --now printora-cloud-backup.timer" in bootstrap
 
 

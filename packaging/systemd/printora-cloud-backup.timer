@@ -2,7 +2,7 @@
 Description=Agenda backup externo do Printora Cloud
 
 [Timer]
-OnCalendar=*-*-* 03:15:00 UTC
+OnCalendar=Sat *-*-* 03:15:00 UTC
 Persistent=true
 RandomizedDelaySec=900
 

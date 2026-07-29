@@ -22,8 +22,11 @@ ARCHIVE_DIR = Path(
     )
 )
 MAX_SYNC_AGE = int(os.environ.get("PRINTORA_RECOVERY_MAX_SYNC_AGE_SECONDS", "210"))
+FULL_BACKUP_WARNING_AGE = int(
+    os.environ.get("PRINTORA_RECOVERY_FULL_BACKUP_WARNING_AGE_SECONDS", "90000")
+)
 MAX_FULL_BACKUP_AGE = int(
-    os.environ.get("PRINTORA_RECOVERY_MAX_FULL_BACKUP_AGE_SECONDS", "90000")
+    os.environ.get("PRINTORA_RECOVERY_MAX_FULL_BACKUP_AGE_SECONDS", "604800")
 )
 MAX_RESTORE_AGE = int(
     os.environ.get("PRINTORA_RECOVERY_MAX_RESTORE_AGE_SECONDS", "648000")
@@ -163,6 +166,8 @@ def collect() -> tuple[dict[str, Any], list[str]]:
             report[report_key] = value
             if value > maximum:
                 failures.append(failure)
+            elif filename == "full-backup.json" and value > FULL_BACKUP_WARNING_AGE:
+                warnings.append("full_backup_older_than_daily_target")
         except (OSError, ValueError, KeyError, json.JSONDecodeError):
             failures.append(f"{failure}_state")
 

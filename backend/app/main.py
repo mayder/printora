@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
         await realtime_broker.stop()
 
 
-app = FastAPI(title="Printora", version="0.1.46", lifespan=lifespan)
+app = FastAPI(title="Printora", version="0.1.47", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
