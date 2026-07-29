@@ -199,6 +199,14 @@ ficam fora do escopo. O journal é limitado por
 reservado. O monitor registra aviso abaixo de 15% livre e o preflight continua
 bloqueando abaixo de 10%.
 
+O backup completo limita o `pg_basebackup` a 8 MiB/s e o stream compactado do
+`pg_dump` a 1 MiB/s por padrão, além de usar prioridade de I/O `idle`. Os limites
+podem ser reduzidos por `PRINTORA_BASEBACKUP_MAX_RATE_KIB` e
+`PRINTORA_PG_DUMP_MAX_BYTES_PER_SECOND`, respectivamente. Não aumentar esses
+valores em produção sem observar `health`, latência e I/O; se o endpoint
+degradar, interromper somente `printora-cloud-backup.service` e manter os
+serviços da aplicação intactos.
+
 Validacao pos-deploy:
 
 ```bash

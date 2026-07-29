@@ -49,6 +49,7 @@ install -o root -g root -m 0755 "$release_dir/scripts/cloud/common.sh" /usr/loca
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/apply-postgresql-schema.sh" /usr/local/libexec/printora-cloud/apply-postgresql-schema.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/start-worker.sh" /usr/local/libexec/printora-cloud/start-worker.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/backup-postgresql.sh" /usr/local/libexec/printora-cloud/backup-postgresql.sh
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/rate-limit-stream.py" /usr/local/libexec/printora-cloud/rate-limit-stream.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/restore-postgresql-backup-test.sh" /usr/local/libexec/printora-cloud/restore-postgresql-backup-test.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/sync-postgresql-wal.sh" /usr/local/libexec/printora-cloud/sync-postgresql-wal.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/recovery-readiness.py" /usr/local/libexec/printora-cloud/recovery-readiness.py

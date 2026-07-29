@@ -5,10 +5,14 @@ base_path="${PRINTORA_BASE_PATH:-/var/www/print3dmaker.xyz}"
 backup_config="$base_path/shared/backup-target.conf"
 cluster="${PRINTORA_POSTGRESQL_CLUSTER:-printora}"
 port="${PRINTORA_POSTGRESQL_PORT:-5433}"
+basebackup_max_rate_kib="${PRINTORA_BASEBACKUP_MAX_RATE_KIB:-8192}"
+dump_max_bytes_per_second="${PRINTORA_PG_DUMP_MAX_BYTES_PER_SECOND:-1048576}"
 archive_dir="/var/lib/postgresql/16/$cluster-wal-archive"
 state_dir="${PRINTORA_RECOVERY_STATE_DIR:-/var/lib/printora-cloud/recovery}"
 state_file="$state_dir/full-backup.json"
 started_epoch="$(date +%s)"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+rate_limiter="$script_dir/rate-limit-stream.py"
 
 [[ "$(id -u)" -eq 0 ]] || { echo "ERRO: execute como root" >&2; exit 1; }
 [[ -s "$backup_config" ]] || { echo "configuração de backup externo ausente" >&2; exit 1; }
@@ -20,6 +24,13 @@ command -v pg_restore >/dev/null || { echo "pg_restore ausente" >&2; exit 1; }
 command -v psql >/dev/null || { echo "psql ausente" >&2; exit 1; }
 command -v restic >/dev/null || { echo "restic ausente" >&2; exit 1; }
 [[ -x /usr/local/libexec/printora-cloud/export-object-storage-backup.py ]] || { echo "exportador de objetos ausente" >&2; exit 1; }
+[[ -x "$rate_limiter" ]] || { echo "limitador de stream ausente" >&2; exit 1; }
+[[ "$basebackup_max_rate_kib" =~ ^[0-9]+$ ]] \
+  && (( basebackup_max_rate_kib >= 1024 && basebackup_max_rate_kib <= 65536 )) \
+  || { echo "taxa física de backup inválida" >&2; exit 1; }
+[[ "$dump_max_bytes_per_second" =~ ^[0-9]+$ ]] \
+  && (( dump_max_bytes_per_second >= 262144 && dump_max_bytes_per_second <= 67108864 )) \
+  || { echo "taxa lógica de backup inválida" >&2; exit 1; }
 
 set -a
 source "$backup_config"
@@ -70,6 +81,7 @@ runuser -u postgres -- pg_basebackup \
   --port="$port" \
   --pgdata="$work_dir/base" \
   --checkpoint=spread \
+  --max-rate="$basebackup_max_rate_kib" \
   --wal-method=stream \
   --format=tar \
   --compress=zstd:6
@@ -82,7 +94,8 @@ runuser -u postgres -- pg_dump \
   --lock-wait-timeout=30s \
   --no-owner \
   --no-acl \
-  --file="$dump"
+  --file=- \
+  | "$rate_limiter" --bytes-per-second "$dump_max_bytes_per_second" > "$dump"
 pg_restore --list "$dump" >/dev/null
 requested_wal="$(runuser -u postgres -- psql -p "$port" -d printora_cloud -X -Atqc \
   "SELECT pg_walfile_name(pg_switch_wal())")"

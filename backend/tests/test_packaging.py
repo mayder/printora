@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import subprocess
 import sys
 import threading
+import time
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -213,6 +214,45 @@ def test_cloud_journal_and_release_retention_are_installed() -> None:
     assert "printora-cloud-retain-releases --apply" in deploy
     assert "retention_status=" in deploy
     assert "printora-cloud-retain-releases --apply" in sudoers
+
+
+def test_cloud_backup_limits_physical_and_logical_streams() -> None:
+    backup = (ROOT_DIR / "scripts/cloud/backup-postgresql.sh").read_text()
+    deploy = (ROOT_DIR / "scripts/cloud/deploy-blue-green.sh").read_text()
+    bootstrap = (ROOT_DIR / "scripts/cloud/bootstrap-blue-green.sh").read_text()
+    service = (ROOT_DIR / "packaging/systemd/printora-cloud-backup.service").read_text()
+
+    assert 'basebackup_max_rate_kib="${PRINTORA_BASEBACKUP_MAX_RATE_KIB:-8192}"' in backup
+    assert '--max-rate="$basebackup_max_rate_kib"' in backup
+    assert 'dump_max_bytes_per_second="${PRINTORA_PG_DUMP_MAX_BYTES_PER_SECOND:-1048576}"' in backup
+    assert '"$rate_limiter" --bytes-per-second "$dump_max_bytes_per_second"' in backup
+    assert "rate-limit-stream.py" in deploy
+    assert "rate-limit-stream.py" in bootstrap
+    assert "PRINTORA_BASEBACKUP_MAX_RATE_KIB=8192" in service
+    assert "PRINTORA_PG_DUMP_MAX_BYTES_PER_SECOND=1048576" in service
+    assert "IOSchedulingClass=idle" in service
+
+
+def test_cloud_stream_rate_limiter_preserves_content_and_rejects_unsafe_rate() -> None:
+    limiter = ROOT_DIR / "scripts/cloud/rate-limit-stream.py"
+    payload = b"printora-backup-rate-limit\n" * 4096
+    started_at = time.monotonic()
+    result = subprocess.run(
+        [sys.executable, str(limiter), "--bytes-per-second", str(256 * 1024)],
+        input=payload,
+        capture_output=True,
+        check=True,
+    )
+
+    assert result.stdout == payload
+    assert time.monotonic() - started_at >= len(payload) / (256 * 1024) * 0.8
+
+    invalid = subprocess.run(
+        [sys.executable, str(limiter), "--bytes-per-second", "1"],
+        input=b"data",
+        capture_output=True,
+    )
+    assert invalid.returncode != 0
 
 
 def test_cloud_upstream_balances_two_instances_of_the_same_release() -> None:
