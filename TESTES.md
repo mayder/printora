@@ -995,6 +995,13 @@ Validações:
 - auditoria read-only retorna origem dos dados, classifica achados e usa último snapshot quando Moonraker está offline.
 - health check permite impressora ready sem bloqueios.
 - health check bloqueia Klipper não ready ou último diff crítico.
+- health check classifica warning runtime de firmware MCU obsoleto como
+  monitoramento e preserva MCU, recurso ausente e versões na evidência.
+- health check bloqueia erro runtime crítico de comunicação MCU, protocolo,
+  shutdown, temporização ou temperatura; saída normal do console não vira alerta.
+- agente coleta `/server/gcode_store` somente por GET, limita a 200 entradas,
+  envia no máximo 20 alertas deduplicados/sanitizados e não falha o health quando
+  o histórico do console estiver indisponível.
 - health check classifica repo `dirty` como monitoramento.
 - health check normaliza memória real em kB do Moonraker e reporta armazenamento mesmo quando espaço livre não é exposto.
 - backup dry-run cria histórico sem ler/copiar arquivos.

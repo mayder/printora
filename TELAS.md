@@ -295,6 +295,11 @@ quando a ação não é permitida.
 - A impressora ativa deve ser preservada no navegador e restaurada ao recarregar a tela quando ainda existir no cadastro.
 - A Home operacional deve explicar o risco principal quando o estado for `Nao imprimir` ou `Monitorar`, exibindo causa, evidencia e acao segura.
 - A Central de alertas deve consolidar Health Check, Update Manager, checklist pos-update, manutencao e auditoria por impressora com botoes de revalidacao, abertura do diagnostico ou fluxo de update quando aplicavel. Ao abrir, o filtro inicia em `Todas as impressoras`.
+- Warnings runtime do Klipper, como firmware MCU obsoleto, aparecem como alerta
+  amarelo com a mensagem original sanitizada e ação para abrir Monitoramento.
+  Erros críticos de comunicação MCU, protocolo, shutdown, temporização ou
+  temperatura aparecem como bloqueio vermelho e contam para `Não imprimir`.
+  Saída normal do console não aparece na Central.
 - Confirmacoes de decisao devem usar modal proprio do Printora; feedback temporario de sucesso/falha/erro deve usar toast. Dialogos nativos do navegador (`alert`/`confirm`) e banners globais fixos no topo nao devem aparecer na UI operacional.
 - A tela Operacao deve ser leitura ao vivo para operador leigo: sem cadastro manual, sem checklist pos-update, sem auditoria tecnica e com graficos/indicadores que se atualizam automaticamente.
 - Na tela Operacao, temperaturas devem aparecer em tabela compacta com estado, atual, alvo editavel para heaters suportados e potencia, acompanhadas de um unico grafico combinado de evolucao por sensor/heater.

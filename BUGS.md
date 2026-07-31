@@ -838,6 +838,39 @@ Validação:
 
 - `npm run build` no frontend.
 
+### Warnings Runtime Do Klipper Visíveis No Mainsail Não Chegavam Ao Printora
+
+Sintoma:
+
+- o Mainsail exibia warnings como MCU com código obsoleto por ausência de
+  `i2c_transfer` ou `STEPPER_STEP_BOTH_EDGE`, mas a Central do Printora não
+  apresentava o alerta;
+- erros críticos recentes do console Klipper também podiam ficar restritos ao
+  Mainsail.
+
+Causa:
+
+- o agente consultava estado, objetos e Update Manager somente por HTTP, sem
+  coletar o histórico recente de respostas G-code usado pelo Mainsail;
+- o backend não possuía classificação operacional para warning runtime e erro
+  crítico do Klipper.
+
+Correção:
+
+- o agente passou a consultar `/server/gcode_store` em modo somente leitura e
+  envia apenas mensagens reconhecidas como warning ou erro crítico, deduplicadas,
+  sanitizadas e limitadas;
+- o health classifica firmware MCU obsoleto como `warning` e comunicação,
+  protocolo, shutdown, temporização e temperatura críticos como `blocker`;
+- a Central abre o monitoramento da impressora afetada e mantém mensagens
+  normais do console fora do payload.
+
+Validação:
+
+- testes Go cobrem coleta, filtro, deduplicação, sanitização e indisponibilidade;
+- testes Python cobrem as famílias de severidade e a decisão de impressão;
+- teste frontend cobre o encaminhamento do alerta para Monitoramento.
+
 ### Timeout No Envio De G-code De Calibração
 
 Sintoma:

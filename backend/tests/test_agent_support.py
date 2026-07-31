@@ -152,7 +152,7 @@ def test_agent_support_creates_targeted_update_job(tmp_path: Path, monkeypatch) 
             assert candidate_created.status_code == 200
             candidate_job = candidate_created.json()["job"]
             assert candidate_job["job_type"] == "remote_agent_update_check"
-            assert candidate_job["payload"]["target_version"] == "0.1.37"
+            assert candidate_job["payload"]["target_version"] == "0.1.38"
             assert candidate_job["payload"]["update_channel"] == "candidate"
 
             premature_rollback = client.post(

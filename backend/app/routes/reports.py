@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import Depends
 
 from app.agent_executor import AgentCommandExecutor
-from app.agent_moonraker import status_payload
+from app.agent_moonraker import runtime_status_payload, status_payload
 from app.routes.auth import require_current_user_when_configured
 from app.routes.support import *
 
@@ -27,6 +27,7 @@ async def sanitized_report(printer_id: int) -> SanitizedReport:
             timeout_seconds=max(settings.request_timeout_seconds, 10.0),
         )
         printer_info, server_info, system_info, proc_stats, update_status = status_payload(job.result)
+        runtime_alerts, runtime_alerts_state = runtime_status_payload(job.result)
         snapshots = snapshot_repository.list_snapshots_by_type(printer.id, "moonraker_status", limit=2)
         latest_diff = _latest_snapshot_diff(snapshot_repository, printer.id, snapshots)
         update_status = apply_update_alert_silences(
@@ -44,6 +45,8 @@ async def sanitized_report(printer_id: int) -> SanitizedReport:
                 proc_stats=proc_stats,
                 snapshots=snapshots,
                 latest_diff=latest_diff,
+                runtime_alerts=runtime_alerts,
+                runtime_alerts_state=runtime_alerts_state,
                 source="agent",
             ),
         }

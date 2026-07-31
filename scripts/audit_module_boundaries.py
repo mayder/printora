@@ -86,6 +86,7 @@ BOUNDARIES = (
             "setup_",
             "setup",
             "can_monitor",
+            "klipper_",
             "z_offset",
             "firmware",
             "manufacturing",

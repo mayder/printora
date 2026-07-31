@@ -4,7 +4,7 @@
 
 ## Resumo
 
-- módulos Python: 187;
+- módulos Python: 188;
 - endpoints HTTP/WebSocket: 390;
 - contratos tipados: 405;
 - tabelas declaradas em SQL: 160;
@@ -19,7 +19,7 @@
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 14 | 9 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 29 | 46 |
 | `finance` | Finanças e pedidos | Ledger, pedidos, pagamentos, reconciliação, risco e repasses. | 13 | 20 |
-| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 59 | 44 |
+| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 60 | 44 |
 | `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 31 | 40 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 7 | 0 |
 | `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 22 | 0 |
@@ -52,8 +52,8 @@
 | `database` | `shared` | 594 | 0 | 0 |
 | `gcode_files` | `operations` | 574 | 0 | 11 |
 | `social_moderation` | `community` | 567 | 0 | 8 |
+| `health` | `administration` | 547 | 0 | 0 |
 | `setup_firmware` | `operations` | 514 | 0 | 5 |
-| `health` | `administration` | 513 | 0 | 0 |
 | `setup_final_validation` | `operations` | 509 | 0 | 4 |
 | `firmware.repository` | `operations` | 489 | 0 | 0 |
 | `routes.auth` | `identity` | 486 | 30 | 0 |

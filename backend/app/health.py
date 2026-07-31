@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from app.audit import TRACKED_REPOSITORIES
+from app.klipper_runtime_alerts import classify_runtime_alerts
 from app.updates import is_update_alert_silenced
 from app.snapshots import SnapshotDiff, SnapshotRecord
 
@@ -29,6 +30,8 @@ def build_printer_health(
     snapshots: list[SnapshotRecord],
     latest_diff: SnapshotDiff | None = None,
     *,
+    runtime_alerts: list[str] | None = None,
+    runtime_alerts_state: str = "unsupported",
     data_state: str = "live",
     source: str = "moonraker",
     api_latency_ms: float | None = None,
@@ -39,6 +42,7 @@ def build_printer_health(
     _check_data_state(items, data_state, source, error)
     _check_klipper(items, printer_info)
     _check_moonraker(items, server_info)
+    _check_klipper_runtime_alerts(items, runtime_alerts or [], runtime_alerts_state)
     _check_update_manager(items, update_status)
     _check_host_metrics(items, system_info, proc_stats)
     _check_api_latency(items, api_latency_ms)
@@ -162,6 +166,36 @@ def _check_moonraker(items: list[HealthItem], server_info: dict[str, Any]) -> No
             action="Revisar moonraker.log antes de imprimir." if not clean else "Sem ação.",
         )
     )
+
+
+def _check_klipper_runtime_alerts(
+    items: list[HealthItem],
+    messages: list[str],
+    collection_state: str,
+) -> None:
+    alerts = classify_runtime_alerts(messages)
+    for alert in alerts:
+        items.append(
+            HealthItem(
+                key=alert.key,
+                title=alert.title,
+                ok=False,
+                severity=alert.severity,
+                detail=alert.detail,
+                action=alert.action,
+            )
+        )
+    if collection_state == "loaded" and not alerts:
+        items.append(
+            HealthItem(
+                key="klipper_runtime_alerts",
+                title="Alertas runtime do Klipper",
+                ok=True,
+                severity="ok",
+                detail="Nenhum warning ou erro crítico recente detectado.",
+                action="Sem ação.",
+            )
+        )
 
 
 def _check_update_manager(items: list[HealthItem], update_status: dict[str, Any]) -> None:

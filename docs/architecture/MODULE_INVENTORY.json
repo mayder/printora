@@ -70,6 +70,7 @@
         "setup_",
         "setup",
         "can_monitor",
+        "klipper_",
         "z_offset",
         "firmware",
         "manufacturing"
@@ -112,7 +113,7 @@
     }
   ],
   "summary": {
-    "modules": 187,
+    "modules": 188,
     "routes": 390,
     "contracts": 405,
     "tables": 160,
@@ -125,7 +126,7 @@
       "finance": 13,
       "identity": 14,
       "integrations": 7,
-      "operations": 59,
+      "operations": 60,
       "shared": 22
     }
   },
@@ -180,9 +181,10 @@
     {
       "module": "agent_moonraker",
       "owner": "operations",
-      "lines": 111,
+      "lines": 116,
       "imports": [
-        "agent_executor"
+        "agent_executor",
+        "klipper_runtime_alerts"
       ],
       "routes": [],
       "contracts": []
@@ -693,9 +695,10 @@
     {
       "module": "health",
       "owner": "administration",
-      "lines": 513,
+      "lines": 547,
       "imports": [
         "audit",
+        "klipper_runtime_alerts",
         "snapshots",
         "updates"
       ],
@@ -746,6 +749,14 @@
         "config",
         "modules.administration.intelligence"
       ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "klipper_runtime_alerts",
+      "owner": "operations",
+      "lines": 119,
+      "imports": [],
       "routes": [],
       "contracts": []
     },
@@ -3269,7 +3280,7 @@
     {
       "module": "routes.printers",
       "owner": "operations",
-      "lines": 324,
+      "lines": 327,
       "imports": [
         "agent_executor",
         "agent_moonraker",
@@ -3339,7 +3350,7 @@
     {
       "module": "routes.reports",
       "owner": "administration",
-      "lines": 90,
+      "lines": 93,
       "imports": [
         "agent_executor",
         "agent_moonraker",

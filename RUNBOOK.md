@@ -1446,6 +1446,15 @@ Segurança:
 
 - o agente só abre conexões de saída;
 - Moonraker local é acessado pelo agente; a API cloud não acessa Moonraker/SSH/rede local diretamente;
+- o status remoto consulta `/server/gcode_store?count=200` somente por GET e
+  encaminha no máximo 20 warnings/erros críticos recentes, deduplicados,
+  compactados e sanitizados; saída comum do console não sai da rede local;
+- firmware MCU obsoleto é alerta de monitoramento. Comunicação perdida,
+  incompatibilidade de protocolo, shutdown, temporização e temperatura crítica
+  bloqueiam considerar a impressora pronta;
+- falha ao consultar o histórico runtime não derruba as demais leituras do
+  Moonraker. Validar versão do agente antes de concluir que a ausência de alerta
+  representa ausência de warning no Klipper;
 - jobs mutáveis usam tipos explícitos ou `remote_host_script` controlado pelo backend, com confirmação/gate quando aplicável;
 - credencial operacional fica em arquivo separado com permissão `0600`;
 - logs passam por redaction de tokens;

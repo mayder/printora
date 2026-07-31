@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const Version = "0.1.37"
+const Version = "0.1.38"
 const ProtocolVersion = 1
 
 const releaseSignatureAlgorithm = "ed25519-sha256"

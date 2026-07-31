@@ -2332,3 +2332,39 @@ corrigir o secret por canal operacional e executar novamente o pipeline.
 
 Como reverter: reverter em conjunto guards, escopo, origem de update, política
 de known hosts e documentação. Não liberar URL arbitrária como contingência.
+
+### DEC-20260730-01 - Alertas runtime do Klipper usam coleta filtrada pelo agente
+
+Status: aceita
+Data: 2026-07-30
+Contexto: o Mainsail recebia warnings runtime do Klipper que não faziam parte de
+`server_info.warnings` nem dos avisos do Update Manager. O Printora conhecia
+versões de host e MCU, mas não exibia alertas como código MCU obsoleto ou erros
+críticos recentes do console.
+
+Decisão: o agente consulta o histórico limitado de `/server/gcode_store` junto
+do status read-only e filtra na borda somente warnings conhecidos e respostas
+críticas `!!`. O payload contém no máximo 20 mensagens compactadas,
+deduplicadas e sanitizadas. O backend é autoridade da severidade: firmware MCU
+obsoleto monitora; comunicação, protocolo, shutdown, temporização e temperatura
+críticos bloqueiam. A Central reutiliza Health Check e abre Monitoramento, sem
+nova tabela ou canal WebSocket persistente.
+
+Alternativas consideradas: conectar cada navegador diretamente ao WebSocket do
+Moonraker; persistir todo o console; interpretar apenas a diferença de versões;
+depender exclusivamente do Mainsail.
+
+Consequências: alertas aparecem no polling consolidado da frota e os resultados
+dos jobs preservam evidência mínima. Pode existir atraso de até um ciclo de
+health e mensagens antigas podem sair da janela de 200 entradas. Saída normal,
+G-code, URL, home path e segredo não devem atravessar o agente.
+
+Impacto em testes: cobrir mensagens reais de MCU obsoleta, famílias críticas,
+deduplicação, limite, sanitização, falha do endpoint, decisão do health e ação da
+Central.
+
+Impacto em rollback: baixo e sem SQL. A release N-1 ignora os novos campos; o
+backend aceita agente antigo sem gerar falso alerta de coleta limpa.
+
+Como reverter: restaurar backend/frontend N-1 e agente N-1. Não há dado ou
+schema para remover.

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.agent_executor import unwrap_moonraker_list, unwrap_moonraker_result
+from app.klipper_runtime_alerts import runtime_alert_payload
 
 
 def status_payload(result: dict[str, Any] | None) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
@@ -14,6 +15,10 @@ def status_payload(result: dict[str, Any] | None) -> tuple[dict[str, Any], dict[
         unwrap_moonraker_result(payload.get("proc_stats")),
         unwrap_moonraker_result(payload.get("update_status")),
     )
+
+
+def runtime_status_payload(result: dict[str, Any] | None) -> tuple[list[str], str]:
+    return runtime_alert_payload(result)
 
 
 def operation_payload(result: dict[str, Any] | None) -> tuple[

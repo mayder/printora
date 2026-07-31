@@ -156,6 +156,9 @@ func (c *MoonrakerClient) Status(ctx context.Context) map[string]any {
 	c.get(ctx, "/machine/system_info", "system_info", payload)
 	c.get(ctx, "/machine/proc_stats", "proc_stats", payload)
 	c.get(ctx, "/machine/update/status", "update_status", payload)
+	runtimeAlerts := c.gcodeStore(ctx, runtimeAlertStoreLimit)
+	payload["runtime_alerts"] = klipperRuntimeAlertMessages(runtimeAlerts)
+	payload["runtime_alerts_state"] = runtimeAlertCollectionState(runtimeAlerts)
 	return payload
 }
 

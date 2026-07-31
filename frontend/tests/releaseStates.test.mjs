@@ -110,6 +110,8 @@ assert.match(appHookSource, /selectedPrinter: contextPrinter,[\s\S]*selectedPrin
 assert.doesNotMatch(appHookSource, /selectedPrinter: printers\.selectedPrinter,[\s\S]*selectedPrinterId: printers\.selectedPrinterId,/);
 assert.match(alertCenterSource, /const printerOffline = Boolean\(health && !health\.connected\);/);
 assert.match(alertCenterSource, /if \(printerOffline\) \{[\s\S]*return dedupeAlertCenterItems\(items\);[\s\S]*\}/);
+assert.match(alertCenterSource, /item\.key\.startsWith\("klipper_runtime_"\)/);
+assert.match(alertCenterSource, /klipperRuntimeAlert \? "open_monitoring" : "revalidate"/);
 assert.doesNotMatch(updatesHookSource, /window\.confirm|window\.alert/);
 assert.match(updatesHookSource, /confirmAction\(\{[\s\S]*title: "Silenciar versão"/);
 assert.match(updatesHookSource, /showToast\(\{[\s\S]*title: "Versão silenciada"/);
