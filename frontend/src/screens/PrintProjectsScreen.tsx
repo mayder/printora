@@ -27,6 +27,7 @@ import {
   type PrintPreflight,
   type SlicingEngineInfo,
   type SlicingJob,
+  type SlicingProfileBundle,
 } from "../services/slicingApi";
 import type { PrinterRecord } from "../types/printers";
 import type {
@@ -41,6 +42,7 @@ import type {
 } from "../types/printProjects";
 import type { ScreenPropsFor } from "./ScreenProps";
 import { ProjectAssetsEditor, ProjectAssetsSummary } from "./projects/ProjectAssetsPanel";
+import { SlicingProfilesPanel } from "./projects/SlicingProfilesPanel";
 
 type PrintProjectsScreenProps = ScreenPropsFor<"authUser" | "setError">;
 type ProjectFilters = { file_kind: string; license: string; origin: "" | "hosted" | "external" };
@@ -248,6 +250,7 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
               </button>
             </header>
             <StoragePanel storage={storage} />
+            <SlicingProfilesPanel setError={setError} />
             <ProjectCreateForm disabled={!authUser || busy} onCreated={(detail) => void afterProjectMutation(detail)} setError={setError} />
             {myProjects.length === 0 ? (
               <div className="empty-state">
@@ -397,6 +400,8 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
   const [printerId, setPrinterId] = React.useState("");
   const [engineInfo, setEngineInfo] = React.useState<SlicingEngineInfo | null>(null);
+  const [profileBundles, setProfileBundles] = React.useState<SlicingProfileBundle[]>([]);
+  const [profileRevisionId, setProfileRevisionId] = React.useState("");
   const [quality, setQuality] = React.useState("0.20 qualidade");
   const [profile, setProfile] = React.useState("");
   const [jobs, setJobs] = React.useState<SlicingJob[]>([]);
@@ -419,10 +424,11 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
 
   async function loadSlicingContext() {
     try {
-      const [printerResponse, projectJobs, engine, preflightRows, deliveryRows, historyRows] = await Promise.all([
+      const [printerResponse, projectJobs, engine, profileRows, preflightRows, deliveryRows, historyRows] = await Promise.all([
         printerApi.list(),
         slicingApi.projectJobs(project.id),
         slicingApi.engine(),
+        slicingApi.profileBundles(),
         slicingApi.preflights(),
         slicingApi.deliveries(),
         slicingApi.history(),
@@ -438,6 +444,8 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
       setPrinterId((current) => current || String(activePrinters[0]?.id ?? ""));
       setJobs(projectJobs);
       setEngineInfo(engine);
+      setProfileBundles(profileRows);
+      setProfileRevisionId((current) => current || String(profileRows[0]?.current_revision_id ?? ""));
       setPreflights(preflightRows.filter((item) => jobIds.has(item.slicing_job_id)));
       setDeliveries(deliveryRows.filter((item) => jobIds.has(item.slicing_job_id)));
       setHistory(historyRows.filter((item) => item.slicing_job_id !== null && jobIds.has(item.slicing_job_id)));
@@ -458,6 +466,7 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
         project_id: project.id,
         selected_file_ids: selectedFileIds,
         printer_id: Number(printerId),
+        slicing_profile_revision_id: profileRevisionId ? Number(profileRevisionId) : null,
         engine: "orcaslicer",
         model_dimensions: {},
         quality_reference: quality,
@@ -613,7 +622,16 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
           <input value={quality} onChange={(event) => setQuality(event.target.value)} disabled={busy} />
         </label>
         <label>
-          Perfil/material
+          Perfil reproduzível
+          <select value={profileRevisionId} onChange={(event) => setProfileRevisionId(event.target.value)} disabled={busy}>
+            <option value="">Sem perfil executável</option>
+            {profileBundles.map((bundle) => (
+              <option key={bundle.id} value={bundle.current_revision_id ?? ""}>{bundle.title} · v{bundle.revisions[0]?.revision_number ?? 1}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Referência livre
           <input value={profile} onChange={(event) => setProfile(event.target.value)} placeholder="Opcional" disabled={busy} />
         </label>
       </div>
@@ -633,6 +651,7 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
                 <div>
                   <strong>Job #{job.id}</strong>
                   <span>{slicingJobStatus(job.status)} · snapshot {job.print_project_version_id ?? "-"}</span>
+                  {job.slicing_profile_revision_id ? <small>Perfil reproduzível fixado · {job.slicing_profile_sha256?.slice(0, 12)}</small> : null}
                   {job.error_message ? <small>{job.error_message}</small> : null}
                   {latestPreflight ? <small>Preflight {preflightStatus(latestPreflight.status)}</small> : null}
                   {latestDelivery ? <small>{deliveryModeLabel(latestDelivery.mode)} · {deliveryStatus(latestDelivery.status)} · {latestDelivery.remote_filename}</small> : null}

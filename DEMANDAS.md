@@ -40,7 +40,6 @@ backlog ativo.
 ## Ordem Ativa De Implementação
 
 - PKG-126 [P1]: Conhecimento e evidência técnica
-- PKG-131 [P1]: Fatiamento avançado e perfis reproduzíveis
 - PKG-132 [P0]: Fluxo ponta a ponta de impressão
 - PKG-133 [P0]: Manutenção, diagnóstico e confiabilidade
 - PKG-134 [P1]: Frota e filas de impressão
@@ -51,8 +50,8 @@ backlog ativo.
 Estado completo e justificativa por ID:
 `docs/community/PACKAGE_PORTFOLIO.csv`.
 
-- Concluídos e preservados: `PKG-101`, `PKG-102`, `PKG-104`, `PKG-110`, `PKG-114`, `PKG-128`.
-- Ativos: `PKG-126`, `PKG-131`, `PKG-132`, `PKG-133`, `PKG-134`,
+- Concluídos e preservados: `PKG-101`, `PKG-102`, `PKG-104`, `PKG-110`, `PKG-114`, `PKG-128`, `PKG-131`.
+- Ativos: `PKG-126`, `PKG-132`, `PKG-133`, `PKG-134`,
   `PKG-142`.
 - Fundidos em ativos: `PKG-105`, `PKG-107`, `PKG-108`, `PKG-111`,
   `PKG-113`, `PKG-121`, `PKG-125`, `PKG-127`, `PKG-129`, `PKG-139`.
@@ -149,74 +148,6 @@ Estado atual:
 - posts, discussões, solução, busca, upload e moderação já existem parcialmente;
 - `PKG-125` e `PKG-127` foram fundidos neste pacote.
 
-## PKG-131: Fatiamento avançado e perfis reproduzíveis
-
-Objetivo:
-
-Importar, versionar, comparar e executar perfis de slicer sem perda silenciosa
-de configuração.
-
-Valor para o usuário:
-
-Reproduzir uma impressão com a mesma engine, máquina, material e processo,
-entendendo exatamente o que mudou.
-
-Prioridade: P1.
-
-Dependências:
-
-- Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`, `PKG-114`, `PKG-128`.
-- Pacotes ativos: nenhum.
-
-Escopo incluído:
-
-- bundle nativo sanitizado de máquina, processo e filamento;
-- engine, schema, versão, herança, overrides e compatibilidade;
-- import/export OrcaSlicer semanticamente equivalente;
-- diff compreensível e perdas explícitas entre formatos;
-- revisão imutável presa ao job;
-- preview e estimativas derivadas do artefato real.
-
-Fora do escopo:
-
-- editor universal de todos os slicers;
-- orientação ou suporte por IA;
-- conversão silenciosa de parâmetro desconhecido;
-- sincronização cloud automática de diretórios locais;
-- armazenamento de host, path, token ou credencial.
-
-Lotes:
-
-1. **Contrato canônico** — validar a decisão já registrada e fixtures nativas.
-2. **Persistência de revisões** — SQL idempotente, checksum e imutabilidade.
-3. **Importação e exportação** — round-trip OrcaSlicer N/N-1.
-4. **Herança e diff** — base, override, perda e compatibilidade.
-5. **Execução presa à revisão** — job, engine, artefato e resultado.
-6. **Fechamento** — regressão, pacote nativo real, rollback e documentação.
-
-Critério de aceite:
-
-- round-trip preserva campos conhecidos e desconhecidos permitidos;
-- dado operacional sensível é rejeitado;
-- revisão usada pelo job não muda após edição do perfil;
-- conversão com perda exige confirmação explícita;
-- import repetido e reexecução idempotente não duplicam bundle ou revisão;
-- fixture Orca real e controlada reproduz resultado semanticamente equivalente;
-- backend, frontend, integração, SQL e `./check.sh` passam.
-
-Rollback:
-
-- desativar importação/edição e preservar revisões somente leitura;
-- bloquear novos jobs se a engine compatível não existir;
-- restaurar release N-1 sem apagar bundles ou revisões.
-
-Estado atual:
-
-- presets OrcaSlicer já foram versionados em `packaging/orcaslicer/profiles/`;
-- a decisão `DEC-20260726-03` define o contrato, mas persistência e fluxo completo
-  ainda precisam de auditoria e implementação.
-
 ## PKG-132: Fluxo ponta a ponta de impressão
 
 Objetivo:
@@ -234,8 +165,8 @@ Prioridade: P0.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`, `PKG-110`, `PKG-114`, `PKG-128`.
-- Pacotes ativos: `PKG-131`.
+- Pacotes concluídos: `PKG-104`, `PKG-110`, `PKG-114`, `PKG-128`, `PKG-131`.
+- Pacotes ativos: nenhum.
 
 Escopo incluído:
 
@@ -439,8 +370,8 @@ Prioridade: P1.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`, `PKG-114`, `PKG-128`.
-- Pacotes ativos: `PKG-131`, `PKG-132`.
+- Pacotes concluídos: `PKG-104`, `PKG-114`, `PKG-128`, `PKG-131`.
+- Pacotes ativos: `PKG-132`.
 
 Escopo incluído:
 

@@ -28,6 +28,7 @@ class ModelDimensions(BaseModel):
 class SlicingJobCreate(BaseModel):
     printer_id: int = Field(ge=1)
     material_profile_id: int | None = Field(default=None, ge=1)
+    slicing_profile_revision_id: int | None = Field(default=None, ge=1)
     engine: SlicerEngine = "orcaslicer"
     model_reference: str = Field(min_length=1, max_length=240)
     model_version_reference: str = Field(default="", max_length=120)
@@ -52,6 +53,7 @@ class ProjectSlicingJobCreate(BaseModel):
     selected_file_ids: list[int] = Field(default_factory=list, min_length=1, max_length=20)
     printer_id: int = Field(ge=1)
     material_profile_id: int | None = Field(default=None, ge=1)
+    slicing_profile_revision_id: int | None = Field(default=None, ge=1)
     engine: SlicerEngine = "orcaslicer"
     model_dimensions: ModelDimensions = Field(default_factory=ModelDimensions)
     quality_reference: str = Field(default="quality", min_length=1, max_length=120)
@@ -79,6 +81,9 @@ class SlicingJob(BaseModel):
     owner_user_id: int | None
     printer_id: int | None
     material_profile_id: int | None
+    slicing_profile_revision_id: int | None = None
+    slicing_profile_sha256: str | None = None
+    slicing_profile_engine_version: str | None = None
     engine: SlicerEngine
     model_reference: str
     model_version_reference: str
@@ -108,6 +113,8 @@ class SlicingPipelineRepository:
     def create_job(self, actor_user_id: int | None, payload: SlicingJobCreate) -> SlicingJob:
         printer = self._printer_for_actor(payload.printer_id, actor_user_id)
         profile = self._material_profile(payload.material_profile_id, actor_user_id) if payload.material_profile_id else None
+        executable_profile = self._profile_revision(payload.slicing_profile_revision_id, actor_user_id)
+        self._validate_profile_engine(executable_profile, payload.engine)
         compatibility = self._validate_compatibility(printer, profile, payload)
         input_payload = {
             "printer": {"id": printer["id"], "name": printer["name"], "catalog_variant_id": printer["catalog_variant_id"]},
@@ -119,15 +126,17 @@ class SlicingPipelineRepository:
             },
             "quality": payload.quality_reference,
             "profile_reference": payload.profile_reference,
+            "slicing_profile_revision": _profile_revision_summary(executable_profile),
         }
         with connect_database(self.database_path) as connection:
             cursor = connection.execute(
                 """
                 INSERT INTO slicing_jobs (
                     owner_user_id, printer_id, material_profile_id, engine, model_reference,
-                    model_version_reference, model_dimensions_json, quality_reference, compatibility_json, input_json
+                    model_version_reference, model_dimensions_json, quality_reference, compatibility_json, input_json,
+                    slicing_profile_revision_id, slicing_profile_sha256, slicing_profile_engine_version
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     actor_user_id,
@@ -140,6 +149,9 @@ class SlicingPipelineRepository:
                     payload.quality_reference,
                     json.dumps(compatibility, ensure_ascii=False),
                     json.dumps(input_payload, ensure_ascii=False),
+                    payload.slicing_profile_revision_id,
+                    executable_profile["sha256"] if executable_profile else None,
+                    executable_profile["engine_version"] if executable_profile else None,
                 ),
             )
             job_id = int(cursor.lastrowid)
@@ -155,6 +167,7 @@ class SlicingPipelineRepository:
         legacy_payload = SlicingJobCreate(
             printer_id=payload.printer_id,
             material_profile_id=payload.material_profile_id,
+            slicing_profile_revision_id=payload.slicing_profile_revision_id,
             engine=payload.engine,
             model_reference=model_reference,
             model_version_reference=model_version_reference,
@@ -164,6 +177,8 @@ class SlicingPipelineRepository:
         )
         printer = self._printer_for_actor(payload.printer_id, actor_user_id)
         profile = self._material_profile(payload.material_profile_id, actor_user_id) if payload.material_profile_id else None
+        executable_profile = self._profile_revision(payload.slicing_profile_revision_id, actor_user_id)
+        self._validate_profile_engine(executable_profile, payload.engine)
         compatibility = self._validate_compatibility(printer, profile, legacy_payload)
         project_snapshot = _loads_dict(version["project_snapshot_json"])
         selected_files_snapshot = [_file_snapshot(file) for file in selected_files]
@@ -174,6 +189,7 @@ class SlicingPipelineRepository:
             "selected_files": selected_files_snapshot,
             "quality": payload.quality_reference,
             "profile_reference": payload.profile_reference,
+            "slicing_profile_revision": _profile_revision_summary(executable_profile),
         }
         with connect_database(self.database_path) as connection:
             cursor = connection.execute(
@@ -182,9 +198,10 @@ class SlicingPipelineRepository:
                     owner_user_id, printer_id, material_profile_id, engine, model_reference,
                     model_version_reference, model_dimensions_json, quality_reference, compatibility_json,
                     input_json, print_project_id, print_project_version_id, selected_project_files_json,
-                    project_snapshot_json
+                    project_snapshot_json, slicing_profile_revision_id, slicing_profile_sha256,
+                    slicing_profile_engine_version
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     actor_user_id,
@@ -201,6 +218,9 @@ class SlicingPipelineRepository:
                     int(version["id"]),
                     json.dumps(selected_files_snapshot, ensure_ascii=False),
                     json.dumps(project_snapshot, ensure_ascii=False),
+                    payload.slicing_profile_revision_id,
+                    executable_profile["sha256"] if executable_profile else None,
+                    executable_profile["engine_version"] if executable_profile else None,
                 ),
             )
             job_id = int(cursor.lastrowid)
@@ -390,6 +410,26 @@ class SlicingPipelineRepository:
             raise ValueError("perfil de material não encontrado")
         return row
 
+    def _profile_revision(self, revision_id: int | None, actor_user_id: int | None):
+        if revision_id is None:
+            return None
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """SELECT r.id, r.sha256, r.canonical_json, b.engine, b.engine_version, b.schema_version
+                   FROM slicing_profile_revisions r
+                   JOIN slicing_profile_bundles b ON b.id = r.bundle_id
+                   WHERE r.id = ? AND b.owner_user_id = ? AND b.status = 'active'""",
+                (revision_id, actor_user_id or -1),
+            ).fetchone()
+        if row is None:
+            raise ValueError("revisão executável de perfil não encontrada")
+        return row
+
+    @staticmethod
+    def _validate_profile_engine(revision, engine: SlicerEngine) -> None:
+        if revision is not None and revision["engine"] != engine:
+            raise ValueError("perfil executável incompatível com a engine selecionada")
+
     def _validate_compatibility(self, printer, profile, payload: SlicingJobCreate) -> dict[str, Any]:
         volume = self._variant_build_volume(printer["catalog_variant_id"])
         dimensions = payload.model_dimensions.model_dump()
@@ -565,6 +605,9 @@ class SlicingPipelineRepository:
             owner_user_id=row["owner_user_id"],
             printer_id=row["printer_id"],
             material_profile_id=row["material_profile_id"],
+            slicing_profile_revision_id=row["slicing_profile_revision_id"] if "slicing_profile_revision_id" in row.keys() else None,
+            slicing_profile_sha256=row["slicing_profile_sha256"] if "slicing_profile_sha256" in row.keys() else None,
+            slicing_profile_engine_version=row["slicing_profile_engine_version"] if "slicing_profile_engine_version" in row.keys() else None,
             engine=row["engine"],
             model_reference=row["model_reference"],
             model_version_reference=row["model_version_reference"],
@@ -628,6 +671,19 @@ def _profile_summary(profile) -> dict[str, Any]:
             "goal": profile["goal"],
             "settings": json.loads(profile["settings_json"]),
         },
+    }
+
+
+def _profile_revision_summary(revision) -> dict[str, Any]:
+    if revision is None:
+        return {}
+    return {
+        "id": int(revision["id"]),
+        "engine": revision["engine"],
+        "engine_version": revision["engine_version"],
+        "schema_version": revision["schema_version"],
+        "sha256": revision["sha256"],
+        "canonical": _loads_dict(revision["canonical_json"]),
     }
 
 

@@ -174,6 +174,9 @@ Aceite de domínio:
 - histórico público é agregado/sanitizado por projeto/material/perfil/tipo técnico e nunca expõe impressora privada, agente, Moonraker, token, IP, path ou organização;
 - `Social > Comunidades > Projetos` lista compartilhamentos e aponta para o projeto central; não cria/upload/fatia/envia arquivo como fluxo principal;
 - Administração mostra configuração/diagnóstico/fallback do fatiamento; criação diária de job, preflight, salvar G-code e envio ficam no fluxo do projeto;
+- bundle nativo de fatiamento preserva campos OrcaSlicer conhecidos e desconhecidos permitidos no round-trip, rejeita dados operacionais sensíveis, isola owners e não duplica importação idempotente;
+- nova versão produz diff compreensível sem alterar a revisão, versão da engine, checksum ou snapshot canônico já fixados em um job;
+- a interface de perfis descreve impressora, qualidade e material em linguagem humana, suporta teclado e não exige conhecimento do schema JSON;
 - rotas e entradas legadas (`models`, biblioteca social, comunidade/arquivos, pipeline administrativo) redirecionam, ficam somente leitura ou são rebaixadas sem quebrar dados existentes.
 
 Validação inicial do contrato central:

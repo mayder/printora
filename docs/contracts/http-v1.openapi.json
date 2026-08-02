@@ -13910,6 +13910,32 @@
         "title": "ModerationReviewRequest",
         "type": "object"
       },
+      "NativeProfileBundle": {
+        "properties": {
+          "filament": {
+            "additionalProperties": true,
+            "title": "Filament",
+            "type": "object"
+          },
+          "machine": {
+            "additionalProperties": true,
+            "title": "Machine",
+            "type": "object"
+          },
+          "process": {
+            "additionalProperties": true,
+            "title": "Process",
+            "type": "object"
+          }
+        },
+        "required": [
+          "machine",
+          "process",
+          "filament"
+        ],
+        "title": "NativeProfileBundle",
+        "type": "object"
+      },
       "NotificationCenterResponse": {
         "properties": {
           "digest": {
@@ -18007,6 +18033,275 @@
         "title": "PrinterUpdateRollbackRequest",
         "type": "object"
       },
+      "ProfileBundle": {
+        "properties": {
+          "compatibility": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Compatibility",
+            "type": "object"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "current_revision_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Revision Id"
+          },
+          "current_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Sha256"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "engine_version": {
+            "title": "Engine Version",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileRevision"
+            },
+            "title": "Revisions",
+            "type": "array"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_format": {
+            "title": "Source Format",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "engine",
+          "engine_version",
+          "schema_version",
+          "source_format",
+          "compatibility",
+          "current_revision_id",
+          "current_sha256",
+          "revisions",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProfileBundle",
+        "type": "object"
+      },
+      "ProfileBundleImport": {
+        "properties": {
+          "bundle_id": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bundle Id"
+          },
+          "compatibility": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Compatibility",
+            "type": "object"
+          },
+          "engine_version": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Engine Version",
+            "type": "string"
+          },
+          "native_bundle": {
+            "$ref": "#/components/schemas/NativeProfileBundle"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "schema_version": {
+            "default": "1",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "engine_version",
+          "native_bundle"
+        ],
+        "title": "ProfileBundleImport",
+        "type": "object"
+      },
+      "ProfileDiff": {
+        "properties": {
+          "added": {
+            "additionalProperties": true,
+            "title": "Added",
+            "type": "object"
+          },
+          "changed": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Changed",
+            "type": "object"
+          },
+          "from_revision_id": {
+            "title": "From Revision Id",
+            "type": "integer"
+          },
+          "loss_report": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Loss Report",
+            "type": "array"
+          },
+          "removed": {
+            "additionalProperties": true,
+            "title": "Removed",
+            "type": "object"
+          },
+          "to_revision_id": {
+            "title": "To Revision Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "from_revision_id",
+          "to_revision_id",
+          "added",
+          "changed",
+          "removed"
+        ],
+        "title": "ProfileDiff",
+        "type": "object"
+      },
+      "ProfileRevision": {
+        "properties": {
+          "bundle_id": {
+            "title": "Bundle Id",
+            "type": "integer"
+          },
+          "canonical": {
+            "additionalProperties": true,
+            "title": "Canonical",
+            "type": "object"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "loss_report": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Loss Report",
+            "type": "array"
+          },
+          "native_bundle": {
+            "additionalProperties": true,
+            "title": "Native Bundle",
+            "type": "object"
+          },
+          "overrides": {
+            "additionalProperties": true,
+            "title": "Overrides",
+            "type": "object"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "revision_number": {
+            "title": "Revision Number",
+            "type": "integer"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "bundle_id",
+          "revision_number",
+          "parent_revision_id",
+          "sha256",
+          "native_bundle",
+          "canonical",
+          "overrides",
+          "loss_report",
+          "created_at"
+        ],
+        "title": "ProfileRevision",
+        "type": "object"
+      },
       "ProjectSlicingJobCreate": {
         "properties": {
           "engine": {
@@ -18070,6 +18365,18 @@
             "minItems": 1,
             "title": "Selected File Ids",
             "type": "array"
+          },
+          "slicing_profile_revision_id": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slicing Profile Revision Id"
           }
         },
         "required": [
@@ -23161,6 +23468,39 @@
             "title": "Selected Project Files",
             "type": "array"
           },
+          "slicing_profile_engine_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slicing Profile Engine Version"
+          },
+          "slicing_profile_revision_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slicing Profile Revision Id"
+          },
+          "slicing_profile_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slicing Profile Sha256"
+          },
           "status": {
             "enum": [
               "planned",
@@ -23260,6 +23600,18 @@
             "minLength": 1,
             "title": "Quality Reference",
             "type": "string"
+          },
+          "slicing_profile_revision_id": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slicing Profile Revision Id"
           }
         },
         "required": [
@@ -43999,6 +44351,303 @@
         "summary": "Refresh Print Preflight",
         "tags": [
           "slicing"
+        ]
+      }
+    },
+    "/api/slicing/profile-bundles": {
+      "get": {
+        "operationId": "list_slicing_profile_bundles_api_slicing_profile_bundles_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProfileBundle"
+                  },
+                  "title": "Response List Slicing Profile Bundles Api Slicing Profile Bundles Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Slicing Profile Bundles",
+        "tags": [
+          "slicing-profile-bundles"
+        ]
+      }
+    },
+    "/api/slicing/profile-bundles/import": {
+      "post": {
+        "operationId": "import_slicing_profile_bundle_api_slicing_profile_bundles_import_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileBundleImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileBundle"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Slicing Profile Bundle",
+        "tags": [
+          "slicing-profile-bundles"
+        ]
+      }
+    },
+    "/api/slicing/profile-bundles/{bundle_id}": {
+      "get": {
+        "operationId": "get_slicing_profile_bundle_api_slicing_profile_bundles__bundle_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bundle_id",
+            "required": true,
+            "schema": {
+              "title": "Bundle Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileBundle"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Slicing Profile Bundle",
+        "tags": [
+          "slicing-profile-bundles"
+        ]
+      }
+    },
+    "/api/slicing/profile-revisions/{from_revision_id}/diff/{to_revision_id}": {
+      "get": {
+        "operationId": "diff_slicing_profile_revisions_api_slicing_profile_revisions__from_revision_id__diff__to_revision_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "from_revision_id",
+            "required": true,
+            "schema": {
+              "title": "From Revision Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "to_revision_id",
+            "required": true,
+            "schema": {
+              "title": "To Revision Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileDiff"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Diff Slicing Profile Revisions",
+        "tags": [
+          "slicing-profile-bundles"
+        ]
+      }
+    },
+    "/api/slicing/profile-revisions/{revision_id}/export": {
+      "get": {
+        "operationId": "export_slicing_profile_revision_api_slicing_profile_revisions__revision_id__export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "title": "Revision Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Export Slicing Profile Revision Api Slicing Profile Revisions  Revision Id  Export Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Slicing Profile Revision",
+        "tags": [
+          "slicing-profile-bundles"
         ]
       }
     },

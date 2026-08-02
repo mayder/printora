@@ -7,6 +7,7 @@ from app.print_profiles import MaterialProfilePayload, PrintProfilesRepository, 
 from app.print_projects import PrintProjectCreateRequest, PrintProjectExternalLinkRequest, PrintProjectUpdateRequest, PrintProjectsRepository
 from app.printers import PrinterCreate, PrinterRepository
 from app.slicing_pipeline import ModelDimensions, ProjectSlicingJobCreate, SlicingJobCreate, SlicingPipelineRepository
+from app.slicing_profile_bundles import NativeProfileBundle, ProfileBundleImport, SlicingProfileBundlesRepository
 from app.social_catalog import SocialCatalogRepository
 
 VALID_STL = b"solid printora\nfacet normal 0 0 0\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid\n"
@@ -176,6 +177,60 @@ def test_project_slicing_job_uses_immutable_project_snapshot(tmp_path: Path) -> 
     assert job.project_snapshot["title"] == "Projeto para fatiar"
     assert job.input["selected_files"][0]["sha256"]
     assert listed[0].id == job.id
+
+
+def test_slicing_job_pins_immutable_executable_profile_revision(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    user, printer_id, profile_id = _seed_printer_and_profile(database_path)
+    bundles = SlicingProfileBundlesRepository(database_path)
+    first = bundles.import_bundle(
+        user.id,
+        ProfileBundleImport(
+            title="Voron qualidade",
+            engine_version="2.3.1",
+            native_bundle=NativeProfileBundle(
+                machine={"name": "Voron 2.4", "nozzle_diameter": ["0.6"]},
+                process={"name": "0.20 Quality", "outer_wall_speed": "180"},
+                filament={"name": "PLA", "nozzle_temperature": ["215"]},
+            ),
+        ),
+    )
+    revision_id = first.current_revision_id or 0
+    repository = SlicingPipelineRepository(database_path, Settings(data_dir=tmp_path))
+
+    job = repository.create_job(
+        user.id,
+        SlicingJobCreate(
+            printer_id=printer_id,
+            material_profile_id=profile_id,
+            slicing_profile_revision_id=revision_id,
+            model_reference="library://profile-pinned.stl",
+            model_dimensions=ModelDimensions(x_mm=20, y_mm=20, z_mm=20),
+            quality_reference="0.20 qualidade",
+        ),
+    )
+    bundles.import_bundle(
+        user.id,
+        ProfileBundleImport(
+            title="Voron qualidade",
+            engine_version="2.3.2",
+            bundle_id=first.id,
+            parent_revision_id=revision_id,
+            native_bundle=NativeProfileBundle(
+                machine={"name": "Voron 2.4", "nozzle_diameter": ["0.6"]},
+                process={"name": "0.20 Quality", "outer_wall_speed": "220"},
+                filament={"name": "PLA", "nozzle_temperature": ["215"]},
+            ),
+        ),
+    )
+    stored = repository.get_job(job.id, user.id)
+
+    assert stored is not None
+    assert stored.slicing_profile_revision_id == revision_id
+    assert stored.slicing_profile_sha256 == first.current_sha256
+    assert stored.slicing_profile_engine_version == "2.3.1"
+    assert stored.input["slicing_profile_revision"]["canonical"]["presets"]["process"]["outer_wall_speed"] == "180"
 
 
 def test_project_slicing_blocks_external_reference_without_local_file(tmp_path: Path) -> None:

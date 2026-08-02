@@ -11,6 +11,7 @@ from app.routes import (
     printers,
     setup,
     slicing,
+    slicing_profile_bundles,
     z_offset,
 )
 from app.modules.operations import manufacturing_api
@@ -33,6 +34,7 @@ MODULE = ModuleDefinition(
         RouterRegistration(160, printers.router),
         RouterRegistration(190, setup.router),
         RouterRegistration(200, slicing.router),
+        RouterRegistration(205, slicing_profile_bundles.router),
         RouterRegistration(215, materials_routes.router),
         RouterRegistration(310, z_offset.router),
         RouterRegistration(550, manufacturing_api.router),

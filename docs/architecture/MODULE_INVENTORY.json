@@ -113,10 +113,10 @@
     }
   ],
   "summary": {
-    "modules": 196,
-    "routes": 403,
-    "contracts": 417,
-    "tables": 163,
+    "modules": 198,
+    "routes": 408,
+    "contracts": 422,
+    "tables": 165,
     "cycles": 0,
     "modules_by_owner": {
       "accessibility": 7,
@@ -126,7 +126,7 @@
       "finance": 13,
       "identity": 14,
       "integrations": 7,
-      "operations": 65,
+      "operations": 67,
       "shared": 22
     }
   },
@@ -1581,7 +1581,7 @@
     {
       "module": "modules.operations.api",
       "owner": "operations",
-      "lines": 40,
+      "lines": 42,
       "imports": [
         "modules.assembly",
         "modules.operations",
@@ -3772,6 +3772,45 @@
       "contracts": []
     },
     {
+      "module": "routes.slicing_profile_bundles",
+      "owner": "operations",
+      "lines": 79,
+      "imports": [
+        "auth",
+        "config",
+        "routes.auth",
+        "slicing_profile_bundles"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/slicing/profile-bundles",
+          "handler": "list_slicing_profile_bundles"
+        },
+        {
+          "method": "POST",
+          "path": "/api/slicing/profile-bundles/import",
+          "handler": "import_slicing_profile_bundle"
+        },
+        {
+          "method": "GET",
+          "path": "/api/slicing/profile-bundles/{bundle_id}",
+          "handler": "get_slicing_profile_bundle"
+        },
+        {
+          "method": "GET",
+          "path": "/api/slicing/profile-revisions/{revision_id}/export",
+          "handler": "export_slicing_profile_revision"
+        },
+        {
+          "method": "GET",
+          "path": "/api/slicing/profile-revisions/{from_revision_id}/diff/{to_revision_id}",
+          "handler": "diff_slicing_profile_revisions"
+        }
+      ],
+      "contracts": []
+    },
+    {
       "module": "routes.snapshots",
       "owner": "administration",
       "lines": 89,
@@ -4716,7 +4755,7 @@
     {
       "module": "slicing_pipeline",
       "owner": "operations",
-      "lines": 680,
+      "lines": 736,
       "imports": [
         "config",
         "database",
@@ -4730,6 +4769,22 @@
         "ProjectSlicingJobCreate",
         "SlicingArtifact",
         "SlicingJob"
+      ]
+    },
+    {
+      "module": "slicing_profile_bundles",
+      "owner": "operations",
+      "lines": 317,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "NativeProfileBundle",
+        "ProfileBundleImport",
+        "ProfileRevision",
+        "ProfileBundle",
+        "ProfileDiff"
       ]
     },
     {
@@ -5745,6 +5800,16 @@
       "table": "material_quality_samples",
       "owner": "operations",
       "script": "088_material_inventory.sql"
+    },
+    {
+      "table": "slicing_profile_bundles",
+      "owner": "operations",
+      "script": "090_slicing_profile_bundles.sql"
+    },
+    {
+      "table": "slicing_profile_revisions",
+      "owner": "operations",
+      "script": "090_slicing_profile_bundles.sql"
     }
   ]
 }

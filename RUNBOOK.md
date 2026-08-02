@@ -2075,6 +2075,38 @@ Rollback:
 - se o SQL já tiver sido aplicado e for necessário remover colunas/índice, restaurar backup SQLite anterior criado pelo versionador;
 - não executar `DROP TABLE`, recriação de `slicing_jobs` ou remoção manual de jobs/artefatos/preflights sem confirmação explícita.
 
+### Perfis executáveis reproduzíveis
+
+Endpoints autenticados:
+
+- listar/importar: `GET /api/slicing/profile-bundles` e
+  `POST /api/slicing/profile-bundles/import`;
+- exportar revisão: `GET /api/slicing/profile-revisions/<revision_id>/export`;
+- comparar revisões:
+  `GET /api/slicing/profile-revisions/<from_revision_id>/diff/<to_revision_id>`.
+
+Aplicar `backend/sql/090_slicing_profile_bundles.sql` no SQLite e
+`backend/sql/postgresql/022_slicing_profile_bundles.sql` no PostgreSQL conforme
+o versionador oficial. A importação deve conter `machine`, `process` e
+`filament`, ter até 2 MiB e não conter host, path pessoal, token ou credencial.
+Importação repetida com o mesmo checksum não cria nova revisão.
+
+Antes de executar um job, confirme no detalhe que
+`slicing_profile_revision_id`, `slicing_profile_sha256` e
+`slicing_profile_engine_version` correspondem ao perfil escolhido. Atualizar o
+bundle nunca deve reescrever esses valores em jobs existentes.
+
+Validação focada:
+
+```bash
+backend/.venv/bin/python -m pytest -q backend/tests/test_slicing_profile_bundles.py backend/tests/test_slicing_pipeline.py backend/tests/test_schema_versioning.py
+cd frontend && npm run test:unit -- --run tests/unit/SlicingProfilesPanel.test.ts && npm run build
+```
+
+Rollback: desative as rotas de importação e seleção e preserve bundles e
+revisões em leitura somente. Não execute `DROP` ou `DELETE`; se o schema já foi
+aplicado e precisar ser removido, restaure backup validado.
+
 ### Envio e histórico por projeto
 
 Fluxo operacional:
