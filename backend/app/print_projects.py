@@ -344,8 +344,9 @@ class PrintProjectsRepository:
                 SELECT
                     (SELECT COUNT(lf.id) FROM social_library_files lf JOIN social_library_items li ON li.id = lf.item_id WHERE li.owner_user_id = ? AND li.status != 'deleted')
                     + (SELECT COUNT(pc.id) FROM photo_capture_photos pc JOIN photo_capture_sessions ps ON ps.id = pc.session_id WHERE pc.owner_user_id = ? AND ps.status != 'cancelled')
+                    + (SELECT COUNT(ra.id) FROM photo_reconstruction_artifacts ra JOIN photo_reconstruction_jobs rj ON rj.id = ra.reconstruction_job_id WHERE rj.owner_user_id = ?)
                 """,
-                (actor_user_id, actor_user_id),
+                (actor_user_id, actor_user_id, actor_user_id),
             ).fetchone()[0])
         used = personal_used
         return PrintProjectStorageReport(

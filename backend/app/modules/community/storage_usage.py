@@ -37,8 +37,13 @@ def total_personal_storage_used(connection, owner_user_id: int) -> int:
             FROM photo_capture_photos pc
             JOIN photo_capture_sessions ps ON ps.id = pc.session_id
             WHERE pc.owner_user_id = ? AND ps.status != 'cancelled'
+            UNION ALL
+            SELECT ra.size_bytes
+            FROM photo_reconstruction_artifacts ra
+            JOIN photo_reconstruction_jobs rj ON rj.id = ra.reconstruction_job_id
+            WHERE rj.owner_user_id = ?
         ) usage
         """,
-        (owner_user_id, owner_user_id, owner_user_id),
+        (owner_user_id, owner_user_id, owner_user_id, owner_user_id),
     ).fetchone()
     return int(row["used_bytes"] or 0)

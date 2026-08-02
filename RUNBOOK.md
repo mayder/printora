@@ -2899,3 +2899,56 @@ para liberar espaço sem política e autorização explícitas.
 
 Rollback: bloquear novas sessões e ocultar a entrada. Preservar consulta e
 exportação privadas. A release N-1 ignora tabelas aditivas.
+
+## Reconstrução 3D por fotos — base operacional
+
+Banco, na ordem:
+
+1. SQLite aplica `backend/sql/093_photo_reconstruction.sql` pelo versionador,
+   com backup;
+2. cloud aplica `backend/sql/postgresql/025_photo_reconstruction.sql` antes da
+   aplicação;
+3. validar jobs, tentativas, artefatos, saúde do engine e vínculos com captura,
+   projeto, owner e job durável;
+4. não executar `DROP`, `DELETE` nem limpeza física de fotos ou malhas.
+
+Configuração segura:
+
+- `PRINTORA_RECONSTRUCTION_MODE=disabled` é o padrão;
+- `fixture` serve somente a teste local e nunca a produção;
+- `local_command` exige `PRINTORA_RECONSTRUCTION_LOCAL_COMMAND` apontando para
+  executável homologado;
+- `provider_command` exige `PRINTORA_RECONSTRUCTION_PROVIDER_COMMAND` apontando
+  para gateway homologado; segredo não deve entrar em argumento, manifesto,
+  stdout ou stderr;
+- iniciar worker dedicado na fila `bulk`; não executar processamento no agente
+  da impressora ou na Raspberry Pi.
+
+Smoke sem cobrança:
+
+1. manter modo `disabled`, concluir captura e solicitar modelo;
+2. confirmar job único, erro acionável e fotos preservadas;
+3. em ambiente local isolado, usar `fixture` e confirmar artefato identificado
+   como sintético, privado e não imprimível;
+4. repetir chave de idempotência, cancelar e tentar novamente sem duplicar
+   artefato canônico;
+5. outro owner deve receber 404 ao consultar job ou artefato.
+
+Homologação obrigatória antes de habilitar motor real: executar pipeline local e
+provider sobre o mesmo conjunto autorizado; registrar conclusão, cobertura
+observada/inferida, erro geométrico/escala, duração, recurso e custo; validar
+egress, segredo, timeout, cancelamento, carga, canário e reconciliação. Sem essa
+evidência, manter `disabled`.
+
+Diagnóstico: três falhas consecutivas abrem circuito por cinco minutos. Erro de
+cota não promove artefato. Cancelamento invalida a tentativa ativa e encerra o
+wrapper; resultado atrasado não pode virar canônico. Não repetir manualmente um
+provider pago sem conferir tentativa, custo e estado do job.
+
+Retenção: malha canônica acompanha o projeto e permanece privada. Tentativas e
+artefatos não canônicos não têm exclusão automática nesta base; a limpeza só
+deve ser introduzida após política aprovada, preview e autorização explícita.
+
+Rollback: definir modo `disabled`, ocultar a ação de criação e deixar jobs
+existentes em terminal ou leitura. Restaurar release N-1 compatível sem apagar
+capturas, tentativas, artefatos ou objetos.

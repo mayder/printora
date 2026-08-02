@@ -60,6 +60,7 @@
         "operation",
         "operational",
         "printer",
+        "photo_reconstruction",
         "print_delivery",
         "print_history",
         "print_preflight",
@@ -114,10 +115,10 @@
     }
   ],
   "summary": {
-    "modules": 204,
-    "routes": 419,
-    "contracts": 426,
-    "tables": 167,
+    "modules": 211,
+    "routes": 425,
+    "contracts": 431,
+    "tables": 171,
     "cycles": 0,
     "modules_by_owner": {
       "accessibility": 7,
@@ -127,7 +128,7 @@
       "finance": 13,
       "identity": 14,
       "integrations": 7,
-      "operations": 67,
+      "operations": 74,
       "shared": 22
     }
   },
@@ -344,7 +345,7 @@
     {
       "module": "config",
       "owner": "administration",
-      "lines": 97,
+      "lines": 103,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -363,7 +364,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 597,
+      "lines": 601,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -1223,7 +1224,7 @@
     {
       "module": "modules.community.storage_usage",
       "owner": "community",
-      "lines": 44,
+      "lines": 49,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -1637,7 +1638,7 @@
     {
       "module": "modules.operations.api",
       "owner": "operations",
-      "lines": 42,
+      "lines": 44,
       "imports": [
         "modules.assembly",
         "modules.operations",
@@ -1900,6 +1901,80 @@
       ]
     },
     {
+      "module": "modules.operations.reconstruction.__init__",
+      "owner": "operations",
+      "lines": 1,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.operations.reconstruction.adapters",
+      "owner": "operations",
+      "lines": 313,
+      "imports": [
+        "config",
+        "object_storage"
+      ],
+      "routes": [],
+      "contracts": [
+        "ReconstructionAdapter"
+      ]
+    },
+    {
+      "module": "modules.operations.reconstruction.contracts",
+      "owner": "operations",
+      "lines": 73,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "ReconstructionCreate",
+        "ReconstructionArtifact",
+        "ReconstructionAttempt",
+        "ReconstructionJob"
+      ]
+    },
+    {
+      "module": "modules.operations.reconstruction.models",
+      "owner": "operations",
+      "lines": 47,
+      "imports": [
+        "modules.operations.reconstruction.contracts"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.operations.reconstruction.processor",
+      "owner": "operations",
+      "lines": 74,
+      "imports": [
+        "config",
+        "modules.operations.reconstruction.adapters",
+        "modules.operations.reconstruction.repository",
+        "modules.platform.durable_execution"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.operations.reconstruction.repository",
+      "owner": "operations",
+      "lines": 443,
+      "imports": [
+        "config",
+        "database",
+        "modules.community.storage_usage",
+        "modules.operations.reconstruction.adapters",
+        "modules.operations.reconstruction.contracts",
+        "modules.operations.reconstruction.models",
+        "modules.platform.durable_execution",
+        "social_storage"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "modules.platform.__init__",
       "owner": "shared",
       "lines": 1,
@@ -2160,7 +2235,7 @@
     {
       "module": "print_projects",
       "owner": "community",
-      "lines": 1042,
+      "lines": 1043,
       "imports": [
         "database",
         "modules.community.contracts",
@@ -3338,6 +3413,51 @@
           "method": "POST",
           "path": "/{session_id}/cancel",
           "handler": "cancel_photo_capture"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.photo_reconstruction",
+      "owner": "operations",
+      "lines": 117,
+      "imports": [
+        "config",
+        "modules.operations.reconstruction.contracts",
+        "modules.operations.reconstruction.repository",
+        "modules.platform.durable_execution",
+        "routes.auth"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "",
+          "handler": "list_reconstructions"
+        },
+        {
+          "method": "POST",
+          "path": "",
+          "handler": "create_reconstruction"
+        },
+        {
+          "method": "GET",
+          "path": "/{job_id}",
+          "handler": "get_reconstruction"
+        },
+        {
+          "method": "POST",
+          "path": "/{job_id}/cancel",
+          "handler": "cancel_reconstruction"
+        },
+        {
+          "method": "POST",
+          "path": "/{job_id}/retry",
+          "handler": "retry_reconstruction"
+        },
+        {
+          "method": "GET",
+          "path": "/{job_id}/artifacts/{artifact_id}",
+          "handler": "download_reconstruction_artifact"
         }
       ],
       "contracts": []
@@ -5082,11 +5202,12 @@
     {
       "module": "worker",
       "owner": "shared",
-      "lines": 297,
+      "lines": 304,
       "imports": [
         "config",
         "modules.administration.intelligence",
         "modules.administration.intelligence_contracts",
+        "modules.operations.reconstruction.processor",
         "modules.platform.durable_execution",
         "modules.platform.event_dispatcher",
         "modules.platform.recomposable_redis",
@@ -5947,6 +6068,26 @@
       "table": "photo_capture_photos",
       "owner": "community",
       "script": "092_photo_capture.sql"
+    },
+    {
+      "table": "photo_reconstruction_jobs",
+      "owner": "operations",
+      "script": "093_photo_reconstruction.sql"
+    },
+    {
+      "table": "photo_reconstruction_attempts",
+      "owner": "operations",
+      "script": "093_photo_reconstruction.sql"
+    },
+    {
+      "table": "photo_reconstruction_artifacts",
+      "owner": "operations",
+      "script": "093_photo_reconstruction.sql"
+    },
+    {
+      "table": "photo_reconstruction_engine_health",
+      "owner": "operations",
+      "script": "093_photo_reconstruction.sql"
     }
   ]
 }

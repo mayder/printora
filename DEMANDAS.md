@@ -444,8 +444,13 @@ Rollback:
 Estado atual:
 
 - jobs, storage, objetos e infraestrutura de workers possuem bases reutilizáveis;
-- não existe contrato de reconstrução, adapter de fotogrametria ou provedor
-  multiview homologado;
+- contrato, persistência, fila durável, worker, cancelamento cooperativo,
+  provenance, artefato privado e adapters por comando estão implementados;
+- o modo seguro permanece desabilitado por padrão e a fixture sintética existe
+  somente para contrato/teste, sem alegar reconstrução real;
+- pipeline de fotogrametria e provedor multiview ainda não estão homologados:
+  faltam benchmark comparativo real, credencial/egress do provider, carga,
+  canário e retenção operacional antes do fechamento;
 - o antigo escopo genérico de AR/escaneamento foi substituído pela demanda
   concreta de reconstrução de objeto por fotos.
 

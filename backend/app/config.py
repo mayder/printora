@@ -12,6 +12,7 @@ FirmwareBuildMode = Literal["disabled", "local"]
 ReleaseSourceMode = Literal["github", "fixture", "disabled"]
 ObjectStorageMode = Literal["local", "s3"]
 PaymentMode = Literal["disabled", "sandbox"]
+ReconstructionMode = Literal["disabled", "fixture", "local_command", "provider_command"]
 
 
 class Settings(BaseSettings):
@@ -55,6 +56,11 @@ class Settings(BaseSettings):
     payment_webhook_secret: str = ""
     platform_admin_emails: str = "breno@mayder.com.br"
     platform_protection_writes_enabled: bool = True
+    reconstruction_mode: ReconstructionMode = "disabled"
+    reconstruction_local_command: Path | None = None
+    reconstruction_provider_command: Path | None = None
+    reconstruction_timeout_seconds: float = 3600.0
+    reconstruction_max_active_per_user: int = 2
 
     model_config = SettingsConfigDict(
         env_file=".env",

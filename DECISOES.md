@@ -2583,3 +2583,40 @@ existentes permanecem privadas e exportáveis. Não apagar objetos ou tabelas.
 Referências: `backend/sql/092_photo_capture.sql`,
 `backend/sql/postgresql/024_photo_capture.sql`,
 `docs/community/PKG_141_EVIDENCE.md`.
+
+### DEC-20260802-05 - Reconstrução usa gateway por processo com resultado verificável
+
+Status: aceita
+Data: 2026-08-02
+Contexto: motores locais de fotogrametria e serviços multiview possuem instalação,
+GPU, credenciais, cobrança e contratos distintos. Executá-los dentro da API ou
+expor detalhes do fornecedor ao domínio dificultaria isolamento, troca e rollback.
+
+Decisão: o domínio cria um job durável na fila `bulk` e seleciona um adapter por
+configuração. Integrações reais entram por executável fixo, sem shell, recebendo
+manifesto sanitizado em diretório temporário privado e devolvendo JSON sob
+contrato versionado. O Printora valida caminho, symlink, formato, tamanho,
+checksum, custo e proporções antes de promover a malha. Cancelamento encerra o
+processo e uma tentativa antiga não pode substituir o artefato canônico. O modo
+padrão é `disabled`; a fixture é sintética e exclusiva de testes locais.
+
+Alternativas consideradas: biblioteca pesada dentro do processo FastAPI;
+comando livre fornecido pela requisição; chamada direta do frontend ao provider;
+executar na Raspberry Pi; eleger fornecedor antes do benchmark comparativo.
+
+Consequências: API e agente permanecem leves e o motor pode ser trocado sem
+alterar o contrato de produto. O gateway precisa cuidar das credenciais fora dos
+argumentos e produzir provenance confiável. Nenhum motor será padrão até passar
+benchmark real, segurança, carga e canário.
+
+Impacto em testes: idempotência, ownership, fencing, quota, circuit breaker,
+timeout, cancelamento cooperativo, contrato do wrapper, provenance, artefato
+privado, UI sem percentual inventado e regressão do worker.
+
+Impacto em rollback: definir `PRINTORA_RECONSTRUCTION_MODE=disabled`, bloquear
+novos jobs e manter capturas, tentativas e artefatos privados em leitura. Não
+remover tabelas ou objetos.
+
+Referências: `backend/sql/093_photo_reconstruction.sql`,
+`backend/sql/postgresql/025_photo_reconstruction.sql`,
+`docs/community/PKG_153_EVIDENCE.md`.

@@ -86,6 +86,10 @@ POSTGRESQL_REQUIRED_EXTENSION_TABLES = (
     "auth_account_requests",
     "social_moderation_appeals",
     "security_operation_claims",
+    "photo_reconstruction_jobs",
+    "photo_reconstruction_attempts",
+    "photo_reconstruction_artifacts",
+    "photo_reconstruction_engine_health",
 )
 APP_NAME = "Printora"
 VERSIONING_SCRIPT = "000_schema_versioning.sql"

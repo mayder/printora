@@ -239,12 +239,19 @@ def _ingest_analytics_event(job: DurableJob) -> dict[str, Any]:
     return {"event_id": result["event_id"], "status": result["status"]}
 
 
+def _execute_photo_reconstruction(job: DurableJob) -> dict[str, Any]:
+    from app.modules.operations.reconstruction.processor import execute_reconstruction_job
+
+    return execute_reconstruction_job(job, get_settings())
+
+
 def _handlers() -> dict[str, JobHandler]:
     return {
         "realtime.agent_job_available": _realtime_notification,
         "slicing.execute": _execute_slicing,
         "search.rebuild": _rebuild_search,
         "analytics.ingest_event": _ingest_analytics_event,
+        "photo.reconstruction.execute": _execute_photo_reconstruction,
     }
 
 
