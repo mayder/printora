@@ -40,7 +40,6 @@ backlog ativo.
 ## Ordem Ativa De Implementação
 
 - PKG-126 [P1]: Conhecimento e evidência técnica
-- PKG-128 [P1]: Projetos, biblioteca e inspeção 3D
 - PKG-131 [P1]: Fatiamento avançado e perfis reproduzíveis
 - PKG-132 [P0]: Fluxo ponta a ponta de impressão
 - PKG-133 [P0]: Manutenção, diagnóstico e confiabilidade
@@ -52,9 +51,9 @@ backlog ativo.
 Estado completo e justificativa por ID:
 `docs/community/PACKAGE_PORTFOLIO.csv`.
 
-- Concluídos e preservados: `PKG-101`, `PKG-102`, `PKG-104`, `PKG-110`, `PKG-114`.
-- Ativos: `PKG-126`, `PKG-128`,
-  `PKG-131`, `PKG-132`, `PKG-133`, `PKG-134`, `PKG-142`.
+- Concluídos e preservados: `PKG-101`, `PKG-102`, `PKG-104`, `PKG-110`, `PKG-114`, `PKG-128`.
+- Ativos: `PKG-126`, `PKG-131`, `PKG-132`, `PKG-133`, `PKG-134`,
+  `PKG-142`.
 - Fundidos em ativos: `PKG-105`, `PKG-107`, `PKG-108`, `PKG-111`,
   `PKG-113`, `PKG-121`, `PKG-125`, `PKG-127`, `PKG-129`, `PKG-139`.
 - Adiados sem autorização de implementação: `PKG-109`, `PKG-130`,
@@ -150,73 +149,6 @@ Estado atual:
 - posts, discussões, solução, busca, upload e moderação já existem parcialmente;
 - `PKG-125` e `PKG-127` foram fundidos neste pacote.
 
-## PKG-128: Projetos, biblioteca e inspeção 3D
-
-Objetivo:
-
-Consolidar projeto de impressão como raiz de arquivos, versões, peças,
-variantes e inspeção antes do fatiamento.
-
-Valor para o usuário:
-
-Organizar o que será impresso e compreender escala, peças e riscos básicos antes
-de gerar G-code.
-
-Prioridade: P1.
-
-Dependências:
-
-- Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`, `PKG-114`.
-- Pacotes ativos: nenhum.
-
-Escopo incluído:
-
-- projeto multi-arquivo, peças, conjuntos e variantes;
-- snapshot imutável, versão, autoria, licença e checksum;
-- STL, 3MF e formatos adicionais priorizados por uso real;
-- manifesto e download seletivo verificáveis;
-- viewer progressivo com fallback;
-- medição, escala, corte e análise básica de overhang/ilhas.
-
-Fora do escopo:
-
-- preservação universal de projetos abandonados;
-- edição CAD no navegador;
-- anotação 3D colaborativa;
-- acabamento fotorealista;
-- diff geométrico pesado sem orçamento e caso de uso comprovado.
-
-Lotes:
-
-1. **Inventário** — caracterizar projetos, biblioteca, upload e análise existentes.
-2. **Contrato do projeto** — peças, variantes, dependências e snapshot.
-3. **Arquivos e manifesto** — formatos, checksum, bundle e download seletivo.
-4. **Viewer progressivo** — fallback, orçamento e arquivos grandes.
-5. **Inspeção básica** — escala, medida, seção e riscos geométricos.
-6. **Fechamento** — compatibilidade, regressão, performance e rollback.
-
-Critério de aceite:
-
-- job futuro referencia snapshot imutável do projeto;
-- arquivo em quarentena não é executado nem publicado;
-- bundle exportado possui manifesto e checksum;
-- arquivo grande não bloqueia toda a interface;
-- fallback acessível permite obter informação essencial sem WebGL;
-- upload, retry e reexecução idempotente não duplicam objeto ou versão;
-- testes de parser, segurança, performance, UI e `./check.sh` passam.
-
-Rollback:
-
-- manter contratos e arquivos existentes legíveis em N-1;
-- desativar inspeção avançada e voltar ao viewer atual;
-- preservar objetos e versões; nunca remover arquivo canônico automaticamente.
-
-Estado atual:
-
-- projeto multi-arquivo, upload, quarentena, análise e viewer já existem;
-- `PKG-129` foi fundido e o trabalho deve fechar lacunas reais.
-
 ## PKG-131: Fatiamento avançado e perfis reproduzíveis
 
 Objetivo:
@@ -234,8 +166,8 @@ Prioridade: P1.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`, `PKG-114`.
-- Pacotes ativos: `PKG-128`.
+- Pacotes concluídos: `PKG-104`, `PKG-114`, `PKG-128`.
+- Pacotes ativos: nenhum.
 
 Escopo incluído:
 
@@ -302,8 +234,8 @@ Prioridade: P0.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`, `PKG-110`, `PKG-114`.
-- Pacotes ativos: `PKG-128`, `PKG-131`.
+- Pacotes concluídos: `PKG-104`, `PKG-110`, `PKG-114`, `PKG-128`.
+- Pacotes ativos: `PKG-131`.
 
 Escopo incluído:
 
@@ -507,8 +439,8 @@ Prioridade: P1.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`, `PKG-114`.
-- Pacotes ativos: `PKG-128`, `PKG-131`, `PKG-132`.
+- Pacotes concluídos: `PKG-104`, `PKG-114`, `PKG-128`.
+- Pacotes ativos: `PKG-131`, `PKG-132`.
 
 Escopo incluído:
 

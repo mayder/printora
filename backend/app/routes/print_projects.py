@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 
 from app.auth import AuthRepository
 from app.config import get_settings
@@ -7,6 +9,7 @@ from app.print_projects import (
     PrintProjectContract,
     PrintProjectDetail,
     PrintProjectExternalLinkRequest,
+    PrintProjectFileStructureRequest,
     PrintProjectPublicationRequest,
     PrintProjectPublicationReviewRequest,
     ProjectFileRole,
@@ -19,6 +22,7 @@ from app.print_projects import (
 )
 from app.routes.auth import CurrentUser, get_auth_repository, require_current_user
 from app.routes.social_catalog import is_social_admin
+from app.modules.community.project_asset_exports import ProjectAssetExportRepository
 from app.upload_stream import read_limited_upload
 
 router = APIRouter(tags=["print-projects"])
@@ -26,6 +30,10 @@ router = APIRouter(tags=["print-projects"])
 
 def get_print_projects_repository() -> PrintProjectsRepository:
     return PrintProjectsRepository(get_settings().database_path)
+
+
+def get_project_asset_export_repository() -> ProjectAssetExportRepository:
+    return ProjectAssetExportRepository(get_settings().database_path)
 
 
 def optional_current_user(
@@ -189,16 +197,54 @@ async def upload_print_project_file(
     request: Request,
     file_name: str,
     file_role: ProjectFileRole = "printable",
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     current: CurrentUser = Depends(require_current_user),
     repository: PrintProjectsRepository = Depends(get_print_projects_repository),
 ) -> PrintProjectDetail:
     try:
         body = await read_limited_upload(request, 25 * 1024 * 1024)
-        return repository.upload_file(current.user.id, project_id, file_name, file_role, body)
+        return repository.upload_file(current.user.id, project_id, file_name, file_role, body, idempotency_key)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.patch("/api/print-projects/{project_id}/files/{file_id}", response_model=PrintProjectDetail)
+async def update_print_project_file_structure(
+    project_id: int,
+    file_id: int,
+    payload: PrintProjectFileStructureRequest,
+    current: CurrentUser = Depends(require_current_user),
+    repository: PrintProjectsRepository = Depends(get_print_projects_repository),
+) -> PrintProjectDetail:
+    try:
+        return repository.update_file_structure(current.user.id, project_id, file_id, payload)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/api/print-projects/{project_id}/bundle")
+async def download_print_project_bundle(
+    project_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: ProjectAssetExportRepository = Depends(get_project_asset_export_repository),
+) -> FileResponse:
+    try:
+        bundle = repository.build_bundle(project_id, current.user.id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return FileResponse(
+        bundle.path,
+        filename=bundle.file_name,
+        media_type="application/zip",
+        headers={"Cache-Control": "private, no-store"},
+        background=BackgroundTask(bundle.path.unlink, missing_ok=True),
+    )
 
 
 @router.post("/api/print-projects/{project_id}/external-links", response_model=PrintProjectDetail)

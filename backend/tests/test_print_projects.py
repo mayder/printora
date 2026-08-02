@@ -1,4 +1,5 @@
 from pathlib import Path
+from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
 
@@ -6,9 +7,11 @@ from app.auth import AuthRepository, UserRegisterRequest
 from app.config import get_settings
 from app.database import connect_database, initialize_database
 from app.main import app
+from app.modules.community.project_asset_exports import ProjectAssetExportRepository
 from app.print_projects import (
     PrintProjectCreateRequest,
     PrintProjectExternalLinkRequest,
+    PrintProjectFileStructureRequest,
     PrintProjectPublicationRequest,
     PrintProjectPublicationReviewRequest,
     PrintProjectSaveRequest,
@@ -332,6 +335,126 @@ def test_upload_rejection_blocks_only_the_affected_project_file(tmp_path: Path) 
     assert rejected.can_slice is False
     assert rejected.validation_status == "rejected"
     assert rejected.slice_status == "failure"
+
+
+def test_upload_is_idempotent_and_generates_inspection_and_verifiable_manifest(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    user = AuthRepository(database_path).create_user(
+        UserRegisterRequest(email="asset-idempotency@example.com", password="correct-horse")
+    )
+    repository = PrintProjectsRepository(database_path)
+    project = repository.create_project(user.id, PrintProjectCreateRequest(title="Peça inspecionada"))
+
+    first = repository.upload_file(user.id, project.id, "peca.stl", "primary", VALID_STL, "upload-1")
+    repeated = repository.upload_file(user.id, project.id, "peca.stl", "primary", VALID_STL, "upload-1")
+
+    assert repeated.file_count == 1
+    assert len(repeated.versions) == len(first.versions)
+    assert repeated.files[0].inspection_status == "ready"
+    assert repeated.files[0].inspection["triangle_count"] == 1
+    assert repeated.files[0].inspection["dimensions_mm"] == {"x": 1.0, "y": 1.0, "z": 0.0}
+    assert repeated.current_manifest["schema"] == "printora.project-manifest/v1"
+    assert repeated.current_manifest["files"][0]["sha256"] == repeated.files[0].sha256
+    assert len(repeated.current_manifest_sha256 or "") == 64
+
+
+def test_owner_can_organize_piece_variant_and_assembly_without_mutating_previous_snapshot(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    user = AuthRepository(database_path).create_user(
+        UserRegisterRequest(email="asset-structure@example.com", password="correct-horse")
+    )
+    repository = PrintProjectsRepository(database_path)
+    project = repository.create_project(user.id, PrintProjectCreateRequest(title="Conjunto"))
+    uploaded = repository.upload_file(user.id, project.id, "corpo.stl", "primary", VALID_STL)
+    previous_checksum = uploaded.current_manifest_sha256
+
+    organized = repository.update_file_structure(
+        user.id,
+        project.id,
+        uploaded.files[0].id,
+        PrintProjectFileStructureRequest(
+            piece_name="Corpo principal",
+            variant_name="Grande",
+            assembly_name="Conjunto completo",
+            display_order=2,
+            unit="mm",
+        ),
+    )
+
+    assert organized.files[0].piece_name == "Corpo principal"
+    assert organized.files[0].variant_name == "Grande"
+    assert organized.files[0].assembly_name == "Conjunto completo"
+    assert organized.current_manifest_sha256 != previous_checksum
+    assert organized.versions[1].manifest_sha256 == previous_checksum
+
+
+def test_other_user_cannot_change_project_file_structure(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    auth = AuthRepository(database_path)
+    owner = auth.create_user(UserRegisterRequest(email="asset-owner@example.com", password="correct-horse"))
+    outsider = auth.create_user(UserRegisterRequest(email="asset-outsider@example.com", password="correct-horse"))
+    repository = PrintProjectsRepository(database_path)
+    project = repository.create_project(owner.id, PrintProjectCreateRequest(title="Privado"))
+    uploaded = repository.upload_file(owner.id, project.id, "privado.stl", "primary", VALID_STL)
+
+    try:
+        repository.update_file_structure(
+            outsider.id,
+            project.id,
+            uploaded.files[0].id,
+            PrintProjectFileStructureRequest(piece_name="Invasão"),
+        )
+    except PermissionError:
+        pass
+    else:
+        raise AssertionError("outro usuário não pode alterar a estrutura do arquivo")
+
+
+def test_exported_project_bundle_contains_manifest_files_and_checksums(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    user = AuthRepository(database_path).create_user(
+        UserRegisterRequest(email="asset-export@example.com", password="correct-horse")
+    )
+    projects = PrintProjectsRepository(database_path)
+    project = projects.create_project(user.id, PrintProjectCreateRequest(title="Pacote verificável"))
+    projects.upload_file(user.id, project.id, "modelo.stl", "primary", VALID_STL)
+
+    bundle = ProjectAssetExportRepository(database_path).build_bundle(project.id, user.id)
+    try:
+        with ZipFile(bundle.path) as archive:
+            assert set(archive.namelist()) == {"manifest.json", "SHA256SUMS.txt", "files/modelo.stl"}
+            assert b"printora.project-manifest/v1" in archive.read("manifest.json")
+            checksums = archive.read("SHA256SUMS.txt").decode("utf-8")
+            assert "files/modelo.stl" in checksums
+    finally:
+        bundle.path.unlink(missing_ok=True)
+
+
+def test_project_upload_enforces_shared_storage_quota(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    user = AuthRepository(database_path).create_user(
+        UserRegisterRequest(email="asset-quota@example.com", password="correct-horse")
+    )
+    repository = PrintProjectsRepository(database_path)
+    project = repository.create_project(user.id, PrintProjectCreateRequest(title="Cota"))
+    with connect_database(database_path) as connection:
+        connection.execute(
+            "UPDATE social_file_storage_policies SET quota_bytes = ? WHERE scope_type = 'global'",
+            (len(VALID_STL) + 1,),
+        )
+    repository.upload_file(user.id, project.id, "primeiro.stl", "primary", VALID_STL)
+
+    try:
+        repository.upload_file(user.id, project.id, "segundo.stl", "optional_part", VALID_STL)
+    except ValueError as exc:
+        assert "cota" in str(exc)
+    else:
+        raise AssertionError("upload acima da cota deveria ser bloqueado")
 
 
 def test_external_link_is_personal_bookmark_and_cannot_slice_without_local_file(tmp_path: Path) -> None:

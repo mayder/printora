@@ -16219,6 +16219,22 @@
             "title": "Currency",
             "type": "string"
           },
+          "current_manifest": {
+            "additionalProperties": true,
+            "title": "Current Manifest",
+            "type": "object"
+          },
+          "current_manifest_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Manifest Sha256"
+          },
           "description": {
             "title": "Description",
             "type": "string"
@@ -16419,9 +16435,19 @@
       },
       "PrintProjectFile": {
         "properties": {
+          "assembly_name": {
+            "default": "",
+            "title": "Assembly Name",
+            "type": "string"
+          },
           "can_slice": {
             "title": "Can Slice",
             "type": "boolean"
+          },
+          "display_order": {
+            "default": 0,
+            "title": "Display Order",
+            "type": "integer"
           },
           "external_url": {
             "anyOf": [
@@ -16469,6 +16495,28 @@
             "title": "Id",
             "type": "integer"
           },
+          "inspection": {
+            "additionalProperties": true,
+            "title": "Inspection",
+            "type": "object"
+          },
+          "inspection_status": {
+            "default": "pending",
+            "enum": [
+              "pending",
+              "ready",
+              "limited",
+              "failed",
+              "not_applicable"
+            ],
+            "title": "Inspection Status",
+            "type": "string"
+          },
+          "piece_name": {
+            "default": "",
+            "title": "Piece Name",
+            "type": "string"
+          },
           "rejection_reason": {
             "anyOf": [
               {
@@ -16514,6 +16562,16 @@
             "title": "Slice Status",
             "type": "string"
           },
+          "unit": {
+            "default": "mm",
+            "enum": [
+              "mm",
+              "cm",
+              "in"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
           "uploaded_size_bytes": {
             "anyOf": [
               {
@@ -16535,6 +16593,11 @@
             ],
             "title": "Validation Status",
             "type": "string"
+          },
+          "variant_name": {
+            "default": "",
+            "title": "Variant Name",
+            "type": "string"
           }
         },
         "required": [
@@ -16549,6 +16612,47 @@
           "can_slice"
         ],
         "title": "PrintProjectFile",
+        "type": "object"
+      },
+      "PrintProjectFileStructureRequest": {
+        "properties": {
+          "assembly_name": {
+            "default": "",
+            "maxLength": 160,
+            "title": "Assembly Name",
+            "type": "string"
+          },
+          "display_order": {
+            "default": 0,
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Display Order",
+            "type": "integer"
+          },
+          "piece_name": {
+            "default": "",
+            "maxLength": 160,
+            "title": "Piece Name",
+            "type": "string"
+          },
+          "unit": {
+            "default": "mm",
+            "enum": [
+              "mm",
+              "cm",
+              "in"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "variant_name": {
+            "default": "",
+            "maxLength": 160,
+            "title": "Variant Name",
+            "type": "string"
+          }
+        },
+        "title": "PrintProjectFileStructureRequest",
         "type": "object"
       },
       "PrintProjectPublicationRequest": {
@@ -17081,6 +17185,22 @@
           "id": {
             "title": "Id",
             "type": "integer"
+          },
+          "manifest": {
+            "additionalProperties": true,
+            "title": "Manifest",
+            "type": "object"
+          },
+          "manifest_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Sha256"
           },
           "project_snapshot": {
             "additionalProperties": true,
@@ -35049,6 +35169,62 @@
         ]
       }
     },
+    "/api/print-projects/{project_id}/bundle": {
+      "get": {
+        "operationId": "download_print_project_bundle_api_print_projects__project_id__bundle_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Print Project Bundle",
+        "tags": [
+          "print-projects"
+        ]
+      }
+    },
     "/api/print-projects/{project_id}/communities": {
       "post": {
         "operationId": "share_print_project_with_community_api_print_projects__project_id__communities_post",
@@ -35228,6 +35404,22 @@
           },
           {
             "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
             "name": "authorization",
             "required": false,
             "schema": {
@@ -35277,6 +35469,83 @@
           }
         },
         "summary": "Upload Print Project File",
+        "tags": [
+          "print-projects"
+        ]
+      }
+    },
+    "/api/print-projects/{project_id}/files/{file_id}": {
+      "patch": {
+        "operationId": "update_print_project_file_structure_api_print_projects__project_id__files__file_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "title": "File Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrintProjectFileStructureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintProjectDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Print Project File Structure",
         "tags": [
           "print-projects"
         ]

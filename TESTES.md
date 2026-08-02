@@ -207,6 +207,29 @@ Critérios adicionais:
 - comunidade lista projetos centrais compartilhados e não apresenta upload/fatiamento/envio como fluxo principal;
 - Administração lista jobs existentes como diagnóstico/fallback e não cria job diário nem inicia envio operacional como caminho principal.
 
+### PKG-128 - Arquivos, manifesto e inspeção 3D
+
+Validação focada:
+
+```bash
+backend/.venv/bin/python -m pytest -q backend/tests/test_project_assets.py backend/tests/test_print_projects.py backend/tests/test_schema_versioning.py
+PATH=/Users/brenomayder/.nvm/versions/node/v22.22.0/bin:$PATH npm --prefix frontend run build
+PATH=/Users/brenomayder/.nvm/versions/node/v22.22.0/bin:$PATH npm --prefix frontend run test:unit -- tests/unit/ProjectAssetsPanel.test.ts
+```
+
+Aceite adicional:
+
+- upload repetido por chave ou assinatura do arquivo não duplica objeto nem snapshot;
+- cota soma biblioteca e projetos ativos antes de gravar o upload;
+- parser STL/3MF respeita limites de tamanho, triângulos, entradas e conteúdo descompactado;
+- medidas, escala simulada, seção, overhang, ilhas e falhas possuem alternativa textual;
+- arquivo rejeitado, externo ou em quarentena não entra no bundle;
+- bundle contém `manifest.json`, `SHA256SUMS.txt` e somente arquivos validados;
+- outro usuário não altera peça, montagem ou variação;
+- versão anterior mantém manifesto e checksum depois de nova organização;
+- desktop e mobile preservam leitura, foco, zoom e uso sem preview aberto;
+- fechamento executa contrato OpenAPI, inventário modular e `./check.sh` completo.
+
 ## Social, Catálogo E Comunidades
 
 Validação focada:

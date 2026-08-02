@@ -8,10 +8,10 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 
 from app.database import connect_database
+from app.modules.community.contracts import validate_public_url
+from app.modules.community.project_asset_operations import ProjectAssetOperations
 from app.platform_access import is_platform_admin
-from app.modules.community.contracts import clean_library_file_name, validate_public_url
-from app.social_catalog import _validate_library_upload
-from app.social_storage import DEFAULT_USER_QUOTA_BYTES, SocialStorageRepository
+from app.social_storage import DEFAULT_USER_QUOTA_BYTES
 
 ProjectVisibility = Literal["private", "unlisted", "public"]
 ProjectLifecycleStatus = Literal["draft", "active", "archived"]
@@ -51,6 +51,13 @@ class PrintProjectFile(BaseModel):
     uploaded_size_bytes: int | None = None
     rejection_reason: str | None = None
     slice_status: ProjectFileSliceStatus = "blocked"
+    piece_name: str = ""
+    variant_name: str = ""
+    assembly_name: str = ""
+    display_order: int = 0
+    unit: Literal["mm", "cm", "in"] = "mm"
+    inspection_status: Literal["pending", "ready", "limited", "failed", "not_applicable"] = "pending"
+    inspection: dict[str, Any] = Field(default_factory=dict)
 
 
 class PrintProjectSummary(BaseModel):
@@ -87,6 +94,8 @@ class PrintProjectVersion(BaseModel):
     changelog: str
     project_snapshot: dict[str, Any]
     files_snapshot: list[dict[str, Any]]
+    manifest: dict[str, Any] = Field(default_factory=dict)
+    manifest_sha256: str | None = None
     created_at: str
 
 
@@ -104,6 +113,8 @@ class PrintProjectDetail(PrintProjectSummary):
     publication_reviews: list[PrintProjectPublicationReview] = Field(default_factory=list)
     saved_by_viewer: bool = False
     immutable_snapshot_ready: bool
+    current_manifest: dict[str, Any] = Field(default_factory=dict)
+    current_manifest_sha256: str | None = None
 
 
 class PrintProjectSaveRequest(BaseModel):
@@ -169,6 +180,14 @@ class PrintProjectExternalLinkRequest(BaseModel):
         if cleaned is None:
             raise ValueError("url externa obrigatória")
         return cleaned
+
+
+class PrintProjectFileStructureRequest(BaseModel):
+    piece_name: str = Field(default="", max_length=160)
+    variant_name: str = Field(default="", max_length=160)
+    assembly_name: str = Field(default="", max_length=160)
+    display_order: int = Field(default=0, ge=0, le=10_000)
+    unit: Literal["mm", "cm", "in"] = "mm"
 
 
 class PrintProjectStorageReport(BaseModel):
@@ -394,6 +413,8 @@ class PrintProjectsRepository:
                 ).fetchall()
             ]
             immutable_snapshot_ready = bool(versions)
+            current_manifest = versions[0].manifest if versions else {}
+            current_manifest_sha256 = versions[0].manifest_sha256 if versions else None
             publication_reviews = [
                 _publication_review_from_row(review_row)
                 for review_row in connection.execute(
@@ -431,6 +452,8 @@ class PrintProjectsRepository:
             publication_reviews=publication_reviews,
             saved_by_viewer=saved_by_viewer,
             immutable_snapshot_ready=immutable_snapshot_ready,
+            current_manifest=current_manifest,
+            current_manifest_sha256=current_manifest_sha256,
         )
 
     def save_project(self, actor_user_id: int, project_id: int, payload: PrintProjectSaveRequest) -> PrintProjectDetail:
@@ -631,9 +654,10 @@ class PrintProjectsRepository:
                 """
                 INSERT INTO print_project_files (
                     project_id, file_kind, file_role, file_name, external_url,
-                    validation_status, can_slice, rejection_reason
+                    validation_status, can_slice, rejection_reason, inspection_status
                 )
-                VALUES (?, 'link', 'external_reference', ?, ?, 'metadata_only', 0, 'referência externa sem arquivo local validado')
+                VALUES (?, 'link', 'external_reference', ?, ?, 'metadata_only', 0,
+                    'referência externa sem arquivo local validado', 'not_applicable')
                 """,
                 (project_id, payload.label.strip() or "Referência externa", payload.url),
             )
@@ -653,84 +677,25 @@ class PrintProjectsRepository:
             raise ValueError("projeto não encontrado")
         return detail
 
-    def upload_file(self, actor_user_id: int, project_id: int, file_name: str, file_role: ProjectFileRole, body: bytes) -> PrintProjectDetail:
-        if file_role == "external_reference":
-            raise ValueError("use link externo para referência sem arquivo local")
-        clean_name = clean_library_file_name(file_name)
-        if len(body) > 25 * 1024 * 1024:
-            raise ValueError("arquivo excede limite de 25 MB")
-        file_kind = _project_file_kind_from_name(clean_name)
-        checksum = hashlib.sha256(body).hexdigest()
-        validation_status: ProjectFileValidationStatus = "quarantined"
-        rejection_reason = None
-        can_slice = file_role in {"primary", "printable", "optional_part"} and file_kind in {"stl", "3mf", "zip"}
-        try:
-            _validate_library_upload(clean_name, _library_kind_for_project(file_kind), body)
-        except ValueError as exc:
-            validation_status = "rejected"
-            rejection_reason = str(exc)
-            can_slice = False
-        storage = SocialStorageRepository(self.database_path)
-        with connect_database(self.database_path) as connection:
-            project = self._owned_project(connection, actor_user_id, project_id)
-            storage.ensure_upload_allowed(connection, actor_user_id, len(body))
-            stored = storage.storage.write_quarantine(checksum, Path(clean_name).suffix.lower(), body)
-            cursor = connection.execute(
-                """
-                INSERT INTO print_project_files (
-                    project_id, file_kind, file_role, file_name, storage_path, size_bytes,
-                    sha256, validation_status, can_slice, quarantine_key, uploaded_size_bytes,
-                    uploaded_at, rejection_reason, is_primary_preview
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
-                """,
-                (
-                    project_id,
-                    file_kind,
-                    file_role,
-                    clean_name,
-                    stored.key,
-                    len(body),
-                    checksum,
-                    validation_status,
-                    1 if can_slice else 0,
-                    stored.key,
-                    len(body),
-                    rejection_reason,
-                    1 if file_role in {"primary", "preview"} else 0,
-                ),
-            )
-            storage.register_object(
-                connection,
-                stored,
-                owner_user_id=actor_user_id,
-                reference_type="print_project_file",
-                reference_id=int(cursor.lastrowid),
-                state=validation_status,
-            )
-            if validation_status == "quarantined":
-                promoted = storage.storage.promote(stored)
-                storage.register_object(
-                    connection,
-                    promoted,
-                    owner_user_id=actor_user_id,
-                    reference_type="print_project_file",
-                    reference_id=int(cursor.lastrowid),
-                    state="promoted",
-                )
-                connection.execute(
-                    "UPDATE print_project_files SET storage_path = ?, validation_status = 'validated' WHERE id = ?",
-                    (promoted.key, cursor.lastrowid),
-                )
-            if file_role == "primary" or project["primary_file_id"] is None:
-                connection.execute("UPDATE print_projects SET primary_file_id = ? WHERE id = ?", (cursor.lastrowid, project_id))
-            connection.execute("UPDATE print_projects SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (project_id,))
-            self._create_snapshot(connection, project_id, actor_user_id, "arquivo", f"Arquivo {clean_name} adicionado")
-            slug = str(project["slug"])
-        detail = self.detail(slug, actor_user_id)
-        if detail is None:
-            raise ValueError("projeto não encontrado")
-        return detail
+    def upload_file(
+        self,
+        actor_user_id: int,
+        project_id: int,
+        file_name: str,
+        file_role: ProjectFileRole,
+        body: bytes,
+        idempotency_key: str | None = None,
+    ) -> PrintProjectDetail:
+        return ProjectAssetOperations(self).upload(actor_user_id, project_id, file_name, file_role, body, idempotency_key)
+
+    def update_file_structure(
+        self,
+        actor_user_id: int,
+        project_id: int,
+        file_id: int,
+        payload: PrintProjectFileStructureRequest,
+    ) -> PrintProjectDetail:
+        return ProjectAssetOperations(self).update_structure(actor_user_id, project_id, file_id, payload)
 
     def share_with_community(self, actor_user_id: int, project_id: int, payload: PrintProjectShareRequest) -> PrintProjectDetail:
         with connect_database(self.database_path) as connection:
@@ -787,7 +752,8 @@ class PrintProjectsRepository:
         files = connection.execute(
             """
             SELECT id, file_kind, file_role, file_name, external_url, size_bytes, sha256,
-                   validation_status, can_slice, rejection_reason
+                   validation_status, can_slice, rejection_reason, piece_name, variant_name,
+                   assembly_name, display_order, unit, inspection_status, inspection_json
             FROM print_project_files
             WHERE project_id = ?
             ORDER BY id
@@ -807,13 +773,26 @@ class PrintProjectsRepository:
             "metadata": _loads_dict(project["metadata_json"]),
         }
         files_snapshot = [dict(file_row) for file_row in files]
+        manifest = {
+            "schema": "printora.project-manifest/v1",
+            "project": project_snapshot,
+            "files": [
+                {
+                    **{key: value for key, value in file.items() if key != "inspection_json"},
+                    "inspection": _loads_dict(file.get("inspection_json")),
+                }
+                for file in files_snapshot
+            ],
+        }
+        manifest_json = json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        manifest_sha256 = hashlib.sha256(manifest_json.encode("utf-8")).hexdigest()
         cursor = connection.execute(
             """
             INSERT INTO print_project_versions (
                 project_id, version_label, changelog, project_snapshot_json,
-                files_snapshot_json, created_by_user_id
+                files_snapshot_json, created_by_user_id, manifest_json, manifest_sha256
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 project_id,
@@ -822,6 +801,8 @@ class PrintProjectsRepository:
                 json.dumps(project_snapshot, ensure_ascii=False),
                 json.dumps(files_snapshot, ensure_ascii=False),
                 actor_user_id,
+                manifest_json,
+                manifest_sha256,
             ),
         )
         connection.execute(
@@ -933,6 +914,13 @@ def _file_from_row(row) -> PrintProjectFile:
         uploaded_size_bytes=row["uploaded_size_bytes"] if "uploaded_size_bytes" in row.keys() else None,
         rejection_reason=row["rejection_reason"] if "rejection_reason" in row.keys() else None,
         slice_status=_slice_status(row["file_role"], row["validation_status"], bool(row["can_slice"])),
+        piece_name=str(row["piece_name"] or "") if "piece_name" in row.keys() else "",
+        variant_name=str(row["variant_name"] or "") if "variant_name" in row.keys() else "",
+        assembly_name=str(row["assembly_name"] or "") if "assembly_name" in row.keys() else "",
+        display_order=int(row["display_order"] or 0) if "display_order" in row.keys() else 0,
+        unit=row["unit"] if "unit" in row.keys() else "mm",
+        inspection_status=row["inspection_status"] if "inspection_status" in row.keys() else "pending",
+        inspection=_loads_dict(row["inspection_json"] if "inspection_json" in row.keys() else "{}"),
     )
 
 
@@ -943,6 +931,8 @@ def _version_from_row(row) -> PrintProjectVersion:
         changelog=str(row["changelog"] or ""),
         project_snapshot=_loads_dict(row["project_snapshot_json"]),
         files_snapshot=_loads_dict_list(row["files_snapshot_json"]),
+        manifest=_loads_dict(row["manifest_json"] if "manifest_json" in row.keys() else "{}"),
+        manifest_sha256=row["manifest_sha256"] if "manifest_sha256" in row.keys() else None,
         created_at=str(row["created_at"]),
     )
 
@@ -973,25 +963,6 @@ def _loads_dict_list(value: str | None) -> list[dict[str, Any]]:
     if not isinstance(parsed, list):
         return []
     return [item for item in parsed if isinstance(item, dict)]
-
-
-def _project_file_kind_from_name(file_name: str) -> ProjectFileKind:
-    suffix = Path(file_name).suffix.lower()
-    if suffix == ".stl":
-        return "stl"
-    if suffix == ".3mf":
-        return "3mf"
-    if suffix == ".zip":
-        return "zip"
-    raise ValueError("projeto aceita STL, 3MF ou ZIP")
-
-
-def _library_kind_for_project(file_kind: ProjectFileKind) -> Literal["stl", "3mf", "bundle"]:
-    if file_kind == "stl":
-        return "stl"
-    if file_kind == "3mf":
-        return "3mf"
-    return "bundle"
 
 
 def _slice_status(file_role: str, validation_status: str, can_slice: bool) -> ProjectFileSliceStatus:

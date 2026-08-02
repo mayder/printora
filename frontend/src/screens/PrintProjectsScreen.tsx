@@ -40,6 +40,7 @@ import type {
   PrintProjectVisibility,
 } from "../types/printProjects";
 import type { ScreenPropsFor } from "./ScreenProps";
+import { ProjectAssetsEditor, ProjectAssetsSummary } from "./projects/ProjectAssetsPanel";
 
 type PrintProjectsScreenProps = ScreenPropsFor<"authUser" | "setError">;
 type ProjectFilters = { file_kind: string; license: string; origin: "" | "hosted" | "external" };
@@ -233,6 +234,7 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
             savingId={savingId}
             onOpen={openProject}
             onSave={saveProject}
+            setError={setError}
           />
         </>
       ) : (
@@ -264,7 +266,7 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
           <aside className="print-projects-panel print-projects-rules">
             {selectedProject ? (
               <>
-                <ProjectDetail project={selectedProject} authUserPresent={!!authUser} saving={savingId === selectedProject.id} onSave={saveProject} />
+                <ProjectDetail project={selectedProject} authUserPresent={!!authUser} saving={savingId === selectedProject.id} onSave={saveProject} setError={setError} />
                 <ProjectPublicationForm project={selectedProject} setError={setError} onChanged={(detail) => void afterProjectMutation(detail)} />
                 <ProjectSlicingPanel project={selectedProject} setError={setError} />
                 <ProjectFileActions project={selectedProject} setError={setError} onChanged={(detail) => void afterProjectMutation(detail)} />
@@ -287,6 +289,7 @@ function ProjectLayout({
   savingId,
   onOpen,
   onSave,
+  setError,
 }: {
   title: string;
   projects: PrintProjectSummary[];
@@ -295,6 +298,7 @@ function ProjectLayout({
   savingId: number | null;
   onOpen: (project: PrintProjectSummary) => void;
   onSave: (projectId: number) => void;
+  setError: (message: string | null) => void;
 }) {
   return (
     <section className="print-projects-layout">
@@ -320,7 +324,7 @@ function ProjectLayout({
 
       <aside className="print-projects-panel print-projects-rules">
         {selectedProject ? (
-          <ProjectDetail project={selectedProject} authUserPresent={authUserPresent} saving={savingId === selectedProject.id} onSave={onSave} />
+          <ProjectDetail project={selectedProject} authUserPresent={authUserPresent} saving={savingId === selectedProject.id} onSave={onSave} setError={setError} />
         ) : (
           <ProjectRules />
         )}
@@ -831,6 +835,7 @@ function ProjectFileActions({ project, setError, onChanged }: { project: PrintPr
         <Archive size={16} />
         Arquivar projeto
       </button>
+      <ProjectAssetsEditor project={project} setError={setError} onChanged={onChanged} />
     </section>
   );
 }
@@ -973,7 +978,7 @@ function ProjectCard({ project, onOpen }: { project: PrintProjectSummary; onOpen
   );
 }
 
-function ProjectDetail({ project, authUserPresent, saving, onSave }: { project: PrintProjectDetail; authUserPresent: boolean; saving: boolean; onSave: (projectId: number) => void }) {
+function ProjectDetail({ project, authUserPresent, saving, onSave, setError }: { project: PrintProjectDetail; authUserPresent: boolean; saving: boolean; onSave: (projectId: number) => void; setError: (message: string | null) => void }) {
   return (
     <>
       <header>
@@ -995,6 +1000,7 @@ function ProjectDetail({ project, authUserPresent, saving, onSave }: { project: 
         {project.files.map((file) => <ProjectFileRow key={file.id} file={file} />)}
         {project.files.length === 0 ? <span className="muted">Nenhum arquivo declarado.</span> : null}
       </section>
+      <ProjectAssetsSummary project={project} setError={setError} canDownload={authUserPresent} />
       <section className="print-project-detail-section">
         <h4>Comunidades</h4>
         {project.community_shares.length ? <div className="print-project-tags">{project.community_shares.map((community) => <span key={community}>{community}</span>)}</div> : <span className="muted">Ainda não compartilhado.</span>}

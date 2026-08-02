@@ -4,9 +4,9 @@
 
 ## Resumo
 
-- módulos Python: 193;
-- endpoints HTTP/WebSocket: 401;
-- contratos tipados: 415;
+- módulos Python: 196;
+- endpoints HTTP/WebSocket: 403;
+- contratos tipados: 417;
 - tabelas declaradas em SQL: 163;
 - ciclos de import detectados: 0.
 
@@ -17,7 +17,7 @@
 | `accessibility` | Acessibilidade | Preferências acessíveis, semântica, alternativas e contrato compartilhado. | 7 | 1 |
 | `design_system` | Design system | Tokens, componentes, estados e contratos visuais compartilhados. | 5 | 0 |
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 14 | 9 |
-| `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 29 | 46 |
+| `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 32 | 46 |
 | `finance` | Finanças e pedidos | Ledger, pedidos, pagamentos, reconciliação, risco e repasses. | 13 | 20 |
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 65 | 47 |
 | `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 31 | 40 |
@@ -33,7 +33,7 @@
 | `operation` | `operations` | 1158 | 0 | 0 |
 | `routes.social_catalog` | `community` | 1150 | 59 | 0 |
 | `maintenance` | `operations` | 1147 | 0 | 8 |
-| `print_projects` | `community` | 1077 | 0 | 14 |
+| `print_projects` | `community` | 1048 | 0 | 15 |
 | `self_update` | `administration` | 1007 | 0 | 10 |
 | `agent_pairing` | `operations` | 997 | 0 | 0 |
 | `auth` | `identity` | 959 | 0 | 0 |

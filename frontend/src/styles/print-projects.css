@@ -234,6 +234,142 @@
   margin: 0;
 }
 
+.project-assets-heading,
+.project-asset-card {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.project-assets-heading > div,
+.project-asset-facts {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.project-asset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.project-asset-card {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.project-asset-preview {
+  align-items: center;
+  color: var(--accent);
+  display: grid;
+  flex: 0 0 82px;
+  justify-items: center;
+}
+
+.project-asset-preview span,
+.project-asset-checksum {
+  color: var(--muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.project-asset-facts {
+  flex: 1;
+}
+
+.project-asset-facts span,
+.project-asset-warning {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  gap: 5px;
+}
+
+.project-mesh-preview {
+  border-top: 1px solid var(--border-soft);
+  margin-top: 4px;
+  padding-top: 6px;
+}
+
+.project-mesh-preview summary {
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.project-mesh-canvas {
+  margin-top: 8px;
+}
+
+.project-mesh-canvas svg {
+  display: block;
+  max-height: 220px;
+  width: 100%;
+}
+
+.project-mesh-canvas rect {
+  fill: var(--surface-2);
+}
+
+.project-mesh-canvas polygon {
+  fill: color-mix(in srgb, var(--accent) 28%, transparent);
+  stroke: var(--accent);
+  stroke-width: 0.7;
+}
+
+.project-mesh-controls {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 8px;
+}
+
+.project-mesh-controls label {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.8rem;
+  gap: 3px;
+}
+
+.project-mesh-controls select {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  min-height: 34px;
+}
+
+.project-asset-structure-form {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.project-asset-structure-form label {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.85rem;
+  gap: 4px;
+}
+
+.project-asset-structure-form input {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  min-height: 38px;
+  padding: 0 10px;
+}
+
 .print-project-file-row,
 .print-project-version {
   background: var(--panel-soft);
@@ -545,5 +681,19 @@
   .print-project-tabs button {
     flex: 1;
     justify-content: center;
+  }
+
+  .project-assets-heading,
+  .project-asset-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .project-asset-preview {
+    flex-basis: auto;
+  }
+
+  .project-mesh-controls {
+    grid-template-columns: 1fr;
   }
 }

@@ -2438,3 +2438,43 @@ backend aceita agente antigo sem gerar falso alerta de coleta limpa.
 
 Como reverter: restaurar backend/frontend N-1 e agente N-1. Não há dado ou
 schema para remover.
+
+### DEC-20260802-02 - Inspeção de projeto é limitada, determinística e preserva o original
+
+Status: aceita
+Data: 2026-08-02
+Contexto: projetos multi-arquivo precisam de organização, medidas e sinais
+básicos antes do fatiamento, mas analisar malha não pode transformar uma prévia
+em garantia mecânica, executar conteúdo não confiável nem substituir o arquivo
+canônico por inferência.
+
+Decisão: armazenar peça, montagem, variação e unidade como metadados do arquivo;
+inspecionar STL/3MF com limites explícitos e produzir amostra determinística para
+viewer progressivo; congelar cada mudança em manifesto canônico com SHA-256. ZIP
+usa fallback limitado. Escala e corte no viewer são simulações reversíveis. O
+bundle inclui apenas objetos promovidos/validados, manifesto e lista de
+checksums. Upload usa idempotência por chave e assinatura, e cota considera
+biblioteca e projetos ativos.
+
+Alternativas consideradas: renderizar todo arquivo no cliente; aceitar ZIP como
+malha; usar análise sem limites; alterar a malha original ao medir/escalar;
+duplicar upload em retry; criar editor CAD no navegador.
+
+Consequências: a pessoa obtém informação essencial mesmo sem preview, arquivos
+grandes têm limites previsíveis e snapshots permanecem auditáveis. A análise
+básica aponta risco, mas não certifica imprimibilidade, tolerância ou segurança.
+
+Impacto em testes: parser STL/3MF e fallback, limites, idempotência, isolamento
+por owner, cota, snapshot/manifesto, bundle/checksums, UI textual/progressiva,
+mobile, acessibilidade, contrato e regressão completa.
+
+Impacto em rollback: baixo/médio; scripts são aditivos e N-1 ignora as colunas.
+Desativar viewer, inspeção e bundle preserva projetos, arquivos e versões.
+
+Como reverter: restaurar a release N-1 e manter schema/objetos. Em SQLite, usar o
+backup anterior ao script somente se reversão física for indispensável. Não
+executar `DROP`, `DELETE`, prune nem substituir arquivo canônico.
+
+Referências: `backend/sql/089_project_assets.sql`,
+`backend/sql/postgresql/021_project_assets.sql`,
+`docs/community/PKG_128_EVIDENCE.md`.

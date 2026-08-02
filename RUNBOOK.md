@@ -2768,3 +2768,43 @@ Rollback: restaurar a release N-1 e manter as três tabelas aditivas. Não apaga
 spools, IDs externos, consumo ou medidas; não recalcular peso confirmado a
 partir de snapshot. O Spoolman permanece canônico e os dados locais ficam
 preservados até nova release compatível.
+
+## PKG-128 — Projetos, manifesto e inspeção 3D
+
+Banco, na ordem:
+
+1. SQLite aplica `backend/sql/089_project_assets.sql` pelo versionador e cria
+   backup antes da alteração;
+2. cloud aplica `backend/sql/postgresql/021_project_assets.sql` pelo fluxo SQL
+   privilegiado antes de habilitar a nova aplicação;
+3. validar colunas de estrutura/inspeção, índice único de idempotência e
+   manifesto/checksum de versões;
+4. não executar `DROP`, `DELETE`, prune ou limpeza de objetos.
+
+Smoke controlado:
+
+1. abrir `Projetos de impressão > Meus projetos` com conta de teste;
+2. criar projeto privado e enviar um STL pequeno conhecido;
+3. repetir o upload e confirmar um único arquivo e nenhuma nova versão;
+4. organizar nome, grupo e variação e conferir nova versão/checksum;
+5. abrir `Ver forma em 3D`, girar, cortar e simular escala; comparar as medidas
+   textuais com o fixture;
+6. baixar arquivo individual, manifesto e pacote; validar
+   `shasum -a 256 -c SHA256SUMS.txt` dentro do pacote;
+7. testar largura mobile e navegação por teclado sem abrir a prévia;
+8. enviar arquivo inválido e confirmar que só ele falha e não entra no bundle.
+
+Diagnóstico:
+
+- inspeção `failed`: manter o arquivo e orientar nova exportação; não promover a
+  análise como garantia de imprimibilidade;
+- inspeção `limited`: ZIP ou formato sem preview usa metadados e download;
+- erro de cota: revisar relatório do usuário; não remover arquivos
+  automaticamente;
+- bundle acima de 250 MB: usar downloads seletivos;
+- divergência de checksum: interromper uso, preservar ambos os objetos e revisar
+  storage/manifesto sem sobrescrever o canônico.
+
+Rollback: desabilitar painel e endpoints novos, restaurar a release N-1 e manter
+colunas, manifestos, versões e objetos como dados aditivos. Para reversão física
+SQLite, restaurar o backup anterior ao script. O rollback não apaga arquivos.

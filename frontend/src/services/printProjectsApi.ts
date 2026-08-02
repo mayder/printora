@@ -1,10 +1,11 @@
-import { apiRequest } from "./http";
+import { apiInput, apiRequest, apiResponse, readApiError } from "./http";
 import type {
   PrintProjectCreatePayload,
   PrintProjectContract,
   PrintProjectDetail,
   PrintProjectExternalLinkPayload,
   PrintProjectFileRole,
+  PrintProjectFileStructurePayload,
   PrintProjectPublicationPayload,
   PrintProjectStorageReport,
   PrintProjectSummary,
@@ -60,10 +61,27 @@ export const printProjectsApi = {
       `/api/print-projects/${projectId}/files/upload?file_name=${encodeURIComponent(file.name)}&file_role=${encodeURIComponent(fileRole)}`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/octet-stream" },
+        headers: { "Content-Type": "application/octet-stream", "Idempotency-Key": crypto.randomUUID() },
         body: file,
       },
     ),
+  updateFileStructure: (projectId: number, fileId: number, payload: PrintProjectFileStructurePayload) =>
+    apiRequest<PrintProjectDetail>(`/api/print-projects/${projectId}/files/${fileId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  fileBlob: async (fileId: number) => {
+    const token = await apiRequest<{ download_url: string; authorization_token: string }>(`/api/storage/print-project-files/${fileId}/tokens`, { method: "POST" });
+    const response = await fetch(apiInput(token.download_url), { headers: { Authorization: `Bearer ${token.authorization_token}` } });
+    if (!response.ok) throw new Error(await readApiError(response));
+    return response.blob();
+  },
+  bundleBlob: async (projectId: number) => {
+    const response = await apiResponse(`/api/print-projects/${projectId}/bundle`);
+    if (!response.ok) throw new Error(await readApiError(response));
+    return response.blob();
+  },
   addExternalLink: (projectId: number, payload: PrintProjectExternalLinkPayload) =>
     apiRequest<PrintProjectDetail>(`/api/print-projects/${projectId}/external-links`, {
       method: "POST",

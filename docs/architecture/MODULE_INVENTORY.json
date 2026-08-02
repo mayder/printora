@@ -113,15 +113,15 @@
     }
   ],
   "summary": {
-    "modules": 193,
-    "routes": 401,
-    "contracts": 415,
+    "modules": 196,
+    "routes": 403,
+    "contracts": 417,
     "tables": 163,
     "cycles": 0,
     "modules_by_owner": {
       "accessibility": 7,
       "administration": 31,
-      "community": 29,
+      "community": 32,
       "design_system": 5,
       "finance": 13,
       "identity": 14,
@@ -1138,6 +1138,41 @@
       ]
     },
     {
+      "module": "modules.community.project_asset_exports",
+      "owner": "community",
+      "lines": 102,
+      "imports": [
+        "database",
+        "object_storage"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.community.project_asset_operations",
+      "owner": "community",
+      "lines": 170,
+      "imports": [
+        "database",
+        "modules.community.contracts",
+        "modules.community.project_assets",
+        "social_catalog",
+        "social_storage"
+      ],
+      "routes": [],
+      "contracts": [
+        "ProjectAssetOwner"
+      ]
+    },
+    {
+      "module": "modules.community.project_assets",
+      "owner": "community",
+      "lines": 210,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "modules.community.validation",
       "owner": "community",
       "lines": 128,
@@ -2069,12 +2104,12 @@
     {
       "module": "print_projects",
       "owner": "community",
-      "lines": 1077,
+      "lines": 1048,
       "imports": [
         "database",
         "modules.community.contracts",
+        "modules.community.project_asset_operations",
         "platform_access",
-        "social_catalog",
         "social_storage"
       ],
       "routes": [],
@@ -2090,6 +2125,7 @@
         "PrintProjectCreateRequest",
         "PrintProjectUpdateRequest",
         "PrintProjectExternalLinkRequest",
+        "PrintProjectFileStructureRequest",
         "PrintProjectStorageReport",
         "PrintProjectPublicationRequest",
         "PrintProjectPublicationReviewRequest"
@@ -3263,10 +3299,11 @@
     {
       "module": "routes.print_projects",
       "owner": "community",
-      "lines": 239,
+      "lines": 285,
       "imports": [
         "auth",
         "config",
+        "modules.community.project_asset_exports",
         "print_projects",
         "routes.auth",
         "routes.social_catalog",
@@ -3332,6 +3369,16 @@
           "method": "POST",
           "path": "/api/print-projects/{project_id}/files/upload",
           "handler": "upload_print_project_file"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/print-projects/{project_id}/files/{file_id}",
+          "handler": "update_print_project_file_structure"
+        },
+        {
+          "method": "GET",
+          "path": "/api/print-projects/{project_id}/bundle",
+          "handler": "download_print_project_bundle"
         },
         {
           "method": "POST",

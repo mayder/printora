@@ -35,6 +35,23 @@ export interface PrintProjectFile {
   uploaded_size_bytes: number | null;
   rejection_reason: string | null;
   slice_status: PrintProjectFileSliceStatus;
+  piece_name: string;
+  variant_name: string;
+  assembly_name: string;
+  display_order: number;
+  unit: "mm" | "cm" | "in";
+  inspection_status: "pending" | "ready" | "limited" | "failed" | "not_applicable";
+  inspection?: {
+    dimensions_mm?: { x: number; y: number; z: number };
+    triangle_count?: number;
+    shell_count?: number;
+    possible_islands?: number;
+    downward_overhang_ratio?: number;
+    degenerate_triangles?: number;
+    preview_supported?: boolean;
+    preview_triangles?: number[][][];
+    warnings?: string[];
+  };
 }
 
 export interface PrintProjectSummary {
@@ -71,6 +88,8 @@ export interface PrintProjectVersion {
   changelog: string;
   project_snapshot: Record<string, unknown>;
   files_snapshot: Array<Record<string, unknown>>;
+  manifest: Record<string, unknown>;
+  manifest_sha256: string | null;
   created_at: string;
 }
 
@@ -88,6 +107,16 @@ export interface PrintProjectDetail extends PrintProjectSummary {
   publication_reviews: PrintProjectPublicationReview[];
   saved_by_viewer: boolean;
   immutable_snapshot_ready: boolean;
+  current_manifest: Record<string, unknown>;
+  current_manifest_sha256: string | null;
+}
+
+export interface PrintProjectFileStructurePayload {
+  piece_name: string;
+  variant_name: string;
+  assembly_name: string;
+  display_order: number;
+  unit: "mm" | "cm" | "in";
 }
 
 export interface PrintProjectCreatePayload {
