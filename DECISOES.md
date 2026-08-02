@@ -29,6 +29,40 @@ Referencias:
 
 ## Decisoes
 
+### DEC-20260802-01 - Onboarding deriva conclusão do estado operacional existente
+
+Status: aceita
+Data: 2026-08-02
+Contexto: setup, cadastro de impressora, Moonraker, pareamento, projetos,
+fatiamento e preflight já possuíam contratos próprios. Criar um segundo backend
+de wizard duplicaria estado, poderia afirmar sucesso divergente e aumentaria o
+risco de expor credenciais ou repetir efeitos.
+Decisao: a tela global `onboarding` agrega somente leituras autenticadas dos
+contratos existentes. Uma etapa remota conclui apenas com evidência real:
+Moonraker conectado, agente online, projeto existente e preflight aprovado. O
+único estado novo é o passo de retorno salvo no navegador, sem segredo nem dado
+operacional; falha de dependência preserva esse passo e mantém a conclusão como
+não confirmada. As ações encaminham para os fluxos canônicos de impressora,
+agente e projeto.
+Alternativas consideradas: persistir wizard no backend; duplicar cadastro e
+pareamento dentro de um formulário único; marcar etapas manualmente; usar dados
+de demonstração como sucesso.
+Consequencias: a camada guiada pode ser removida sem apagar dados e não cria
+novo schema, mas depende da disponibilidade dos endpoints canônicos para
+confirmar avanço. A tela é carregada de forma lazy; o orçamento total do bundle
+foi ajustado em menos de 1%, preservando os limites por entrada, asset, CSS e
+gzip.
+Impacto em testes: regra pura, componente e E2E desktop/mobile cobrem ordem,
+retomada, timeout, teclado, Axe e overflow; testes existentes continuam cobrindo
+token, duplicidade e isolamento do pareamento.
+Impacto em rollback: baixo; remover seção, chamada da Visão geral e arquivos do
+onboarding restaura integralmente os fluxos técnicos existentes.
+Como reverter: reverter a composição da seção e seu service local, sem remover
+impressoras, agentes, projetos, jobs ou preflights.
+Referencias: `frontend/src/screens/OnboardingScreen.tsx`,
+`frontend/src/services/onboardingProgress.ts`, `TELAS.md`, `TESTES.md`,
+`docs/community/PKG_110_EVIDENCE.md`.
+
 ### DEC-20260727-01 - Portfólio ativo substitui execução integral do inventário comunitário
 
 Status: aceita

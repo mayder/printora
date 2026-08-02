@@ -35,7 +35,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Estado, efeitos e orquestracao de API ficam em hooks por dominio em `frontend/src/hooks/domains`; `frontend/src/hooks/usePrintoraApp.ts` apenas compoe shell, contexto e dominios.
 - Chamadas HTTP ficam isoladas por dominio em `frontend/src/services`.
 - Componentes reutilizados ficam em `frontend/src/components`.
-- O menu lateral principal mostra somente telas globais, que nao dependem de uma impressora selecionada: `overview`, `printers`, `agents`, `projects`, `social`, `catalog`, `setup` e `settings`.
+- O menu lateral principal mostra somente telas globais, que nao dependem de uma impressora selecionada: `overview`, `onboarding`, `printers`, `agents`, `projects`, `social`, `catalog`, `setup` e `settings`.
 - Telas operacionais de impressora nao aparecem no menu lateral; elas ficam como abas internas de `printer-detail`, aberto a partir da lista de impressoras.
 - O seletor de impressora da topbar e o rodape lateral sao apenas contexto rapido. Eles nao definem a arquitetura de navegacao nem tornam o menu dependente de impressora; abrir o detalhe de uma impressora nao deve trocar esse contexto rapido.
 - A topbar e fixa/sticky e deve conter apenas controles globais: titulo da area atual, alertas da frota, Sobre, tema claro/escuro e conta do usuario no extremo direito.
@@ -52,6 +52,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Tela | Secao | Entrada | Arquivo | Objetivo | Dependencia de impressora | Status |
 |---|---|---|---|---|---|---|
 | Visao geral | `overview` | `/`, `/?section=overview`, `/#overview` | `frontend/src/screens/OverviewScreen.tsx` | Dashboard global da frota, agentes, alertas e atalhos para abrir registros | Nao exige impressora ativa | existente |
+| Primeiros passos | `onboarding` | `/?section=onboarding`, `/#onboarding` ou chamada na Visao geral quando nao existe agente online | `frontend/src/screens/OnboardingScreen.tsx` | Guia progressivo para validar o dispositivo local, conectar Moonraker, parear agente, criar o primeiro projeto e aprovar o primeiro preflight sem iniciar impressao | Nao exige impressora ativa; cada conclusao remota depende de evidencia autenticada | existente |
 | Impressoras | `printers` | `/?section=printers`, `/#printers` | `frontend/src/screens/PrintersScreen.tsx` | Lista e cadastro das impressoras gerenciadas; cada registro abre detalhe proprio | Nao exige impressora ativa | existente |
 | Detalhe da impressora | `printer-detail` | Estado interno da SPA | `frontend/src/screens/PrinterDetailScreen.tsx` | Registro operacional da impressora com acao de voltar para a lista e abas de resumo, operacao, updates, calibracao, firmware, manutencao, diagnostico e agentes; cabecalho e contexto usam sempre o registro aberto, mesmo quando a preferencia global aponta para outra impressora | Exige registro de impressora aberto | existente |
 | Agentes | `agents` | `/?section=agents`, `/#agents` | `frontend/src/screens/AgentsScreen.tsx` | Lista de todos os agentes da frota, sem operacoes de impressora no menu global | Nao exige impressora ativa | existente |
@@ -106,6 +107,7 @@ quando a ação não é permitida.
 | Dominio | Hook | Service |
 |---|---|---|
 | Shell/navegacao | `frontend/src/hooks/domains/useAppShell.ts` | Nao acessa API |
+| Primeiros passos | Tela autocontida `frontend/src/screens/OnboardingScreen.tsx` | `frontend/src/services/onboardingProgress.ts`, que apenas agrega leituras existentes e progresso local sem credenciais |
 | Impressoras | `frontend/src/hooks/domains/usePrinters.ts` | `frontend/src/services/printerApi.ts` |
 | Setup | `frontend/src/hooks/domains/useSetup.ts` | `frontend/src/services/setupApi.ts` |
 | Operacao | `frontend/src/hooks/domains/useOperation.ts` | `frontend/src/services/operationApi.ts` |

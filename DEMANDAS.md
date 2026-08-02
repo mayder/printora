@@ -39,7 +39,6 @@ backlog ativo.
 
 ## Ordem Ativa De Implementação
 
-- PKG-110 [P1]: Onboarding operacional
 - PKG-114 [P1]: Materiais, spools e qualidade básica
 - PKG-126 [P1]: Conhecimento e evidência técnica
 - PKG-128 [P1]: Projetos, biblioteca e inspeção 3D
@@ -54,8 +53,8 @@ backlog ativo.
 Estado completo e justificativa por ID:
 `docs/community/PACKAGE_PORTFOLIO.csv`.
 
-- Concluídos e preservados: `PKG-101`, `PKG-102`, `PKG-104`.
-- Ativos: `PKG-110`, `PKG-114`, `PKG-126`, `PKG-128`,
+- Concluídos e preservados: `PKG-101`, `PKG-102`, `PKG-104`, `PKG-110`.
+- Ativos: `PKG-114`, `PKG-126`, `PKG-128`,
   `PKG-131`, `PKG-132`, `PKG-133`, `PKG-134`, `PKG-142`.
 - Fundidos em ativos: `PKG-105`, `PKG-107`, `PKG-108`, `PKG-111`,
   `PKG-113`, `PKG-121`, `PKG-125`, `PKG-127`, `PKG-129`, `PKG-139`.
@@ -85,70 +84,6 @@ e rollback próprio. Bug simples, texto, ajuste visual, teste ou melhoria local
 permanece demanda pequena. Se uma melhoria crescer, registrar problema,
 baseline, hipótese, dependências, risco e decisão antes de alterar o portfólio.
 
-## PKG-110: Onboarding operacional
-
-Objetivo:
-
-Levar uma pessoa da primeira abertura até uma impressora conectada e um fluxo
-seguro concluído, sem esconder conceitos críticos.
-
-Valor para o usuário:
-
-Reduzir configuração manual, erros de pareamento e abandono antes do primeiro
-resultado.
-
-Prioridade: P1.
-
-Dependências:
-
-- Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-101`, `PKG-102`, `PKG-104`.
-- Pacotes ativos: nenhum.
-
-Escopo incluído:
-
-- diagnóstico de instalação e requisitos;
-- cadastro da impressora e validação Moonraker;
-- instalação ou pareamento seguro do agente;
-- checklist do primeiro projeto e primeiro preflight;
-- retomada local do passo interrompido;
-- modo iniciante com termos técnicos explicados no contexto.
-
-Fora do escopo:
-
-- tour social adaptativo;
-- gamificação, perfil comportamental e ambiente LMS;
-- retomada em múltiplos dispositivos sem necessidade comprovada;
-- dados de demonstração persistidos como se fossem produção.
-
-Lotes:
-
-1. **Caracterização** — medir os fluxos atuais de setup e seus pontos de falha.
-2. **Diagnóstico inicial** — ambiente, rede, Moonraker e permissões.
-3. **Impressora e agente** — cadastro, pareamento e estado verificável.
-4. **Primeiro projeto** — orientar arquivo, perfil e preflight sem comando físico.
-5. **Retomada e ajuda** — preservar progresso local e oferecer recuperação.
-6. **Fechamento** — teste limpo por plataforma, acessibilidade e rollback.
-
-Critério de aceite:
-
-- instalação nova chega a impressora conectada com erros acionáveis;
-- credenciais não aparecem em URL, log ou bundle;
-- repetição do pareamento não cria agentes duplicados;
-- falha de rede preserva progresso sem afirmar sucesso;
-- reexecução idempotente mantém uma única configuração canônica;
-- desktop/mobile, teclado, leitor de tela e `./check.sh` passam.
-
-Rollback:
-
-- manter os fluxos técnicos atuais como fallback durante o rollout;
-- reverter a camada guiada sem apagar impressora, agente ou projeto;
-- invalidar somente credencial explicitamente criada e não utilizada.
-
-Estado atual:
-
-- setup, diagnóstico, cadastro e pareamento já existem parcialmente;
-- o pacote começa por caracterização e consolidação, não por novas telas.
 
 ## PKG-114: Materiais, spools e qualidade básica
 
@@ -435,8 +370,8 @@ Prioridade: P0.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`.
-- Pacotes ativos: `PKG-110`, `PKG-114`, `PKG-128`, `PKG-131`.
+- Pacotes concluídos: `PKG-104`, `PKG-110`.
+- Pacotes ativos: `PKG-114`, `PKG-128`, `PKG-131`.
 
 Escopo incluído:
 

@@ -1,8 +1,9 @@
-import { Accessibility as AccessibilityIcon, Activity, BrainCircuit, Database, Factory, FileArchive, FileText, Home, Info, Landmark, Network, Palette, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
+import { Accessibility as AccessibilityIcon, Activity, BrainCircuit, Database, Factory, FileArchive, FileText, Home, Info, Landmark, ListChecks, Network, Palette, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
   | "overview"
+  | "onboarding"
   | "printers"
   | "printer-detail"
   | "agents"
@@ -65,6 +66,13 @@ export const appSections: AppSectionDefinition[] = [
     label: "Visão geral",
     detail: "Dashboard global da frota, agentes, alertas e ações pendentes.",
     purpose: "Use esta tela para acompanhar saúde, manutenção, updates, calibração, agentes e impressoras da frota inteira.",
+  },
+  {
+    key: "onboarding",
+    icon: ListChecks,
+    label: "Primeiros passos",
+    detail: "Guia para conectar a primeira impressora e validar o primeiro projeto.",
+    purpose: "Siga etapas simples e verificáveis para preparar impressora, agente, projeto e preflight sem iniciar uma impressão por engano.",
   },
   {
     key: "printers",
@@ -209,7 +217,7 @@ export const appSections: AppSectionDefinition[] = [
 ];
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
-  { title: "Principal", sections: ["overview", "printers", "agents", "projects", "social", "catalog", "setup"] },
+  { title: "Principal", sections: ["overview", "onboarding", "printers", "agents", "projects", "social", "catalog", "setup"] },
   { title: "Sistema", sections: ["finance", "manufacturing", "data-intelligence", "design-system", "settings"] },
 ];
 

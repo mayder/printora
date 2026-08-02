@@ -276,3 +276,40 @@
     width: 100%;
   }
 }
+.section-overview .onboarding-entry-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.onboarding-entry-card > div {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.onboarding-entry-card h2,
+.onboarding-entry-card p {
+  margin: 0;
+}
+
+.onboarding-entry-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+@media (max-width: 720px) {
+  .section-overview .onboarding-entry-card,
+  .onboarding-entry-card > div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

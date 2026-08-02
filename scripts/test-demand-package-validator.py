@@ -73,8 +73,8 @@ def main() -> None:
                 1,
             ),
             architecture.replace(
-                "account,high,PKG-101|PKG-102|PKG-104",
-                "account,high,PKG-101|PKG-102|PKG-104|PKG-142",
+                "integrations,operations,high,PKG-104",
+                "integrations,operations,high,PKG-104|PKG-142",
                 1,
             ),
             portfolio,
@@ -83,8 +83,8 @@ def main() -> None:
         "owner": (
             demands,
             architecture.replace(
-                "PKG-110,onboarding,identity,",
-                "PKG-110,onboarding,unknown,",
+                "PKG-114,materials_quality,operations,",
+                "PKG-114,materials_quality,unknown,",
                 1,
             ),
             portfolio,

@@ -75,6 +75,18 @@ Comando obrigatório antes de commit:
 ./check.sh
 ```
 
+## Onboarding Operacional
+
+- regra pura valida progresso local corrompido, ordem das etapas e ausência de
+  falso sucesso quando Moonraker, projetos ou slicing não respondem;
+- componente cobre instalação vazia, linguagem sem identificadores internos e
+  retomada do passo preservada em falha de rede;
+- E2E isolado cobre desktop e mobile, teclado, análise Axe sem violações sérias
+  ou críticas, ausência de overflow e recuperação após timeout;
+- pareamento de identidade repetida, token de uso único e segredo sanitizado
+  continuam cobertos pelos testes de agente existentes;
+- validação focada: `scripts/run-e2e-gate.sh onboarding.spec.ts`.
+
 ## Portfólio Ativo Pós-PKG-100
 
 Cada pacote ativo segue o perfil de risco e as dependências técnicas definidos

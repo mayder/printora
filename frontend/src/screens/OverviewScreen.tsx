@@ -1,4 +1,5 @@
 import { Badge, Metric } from "../components/common";
+import { ListChecks } from "lucide-react";
 import { formatDateTime } from "../utils/formatters";
 import type { AlertCenterItem } from "../alertCenter";
 import type { AgentPairingOverview, PrinterRecord } from "../types";
@@ -69,6 +70,18 @@ export function OverviewScreen(props: OverviewScreenProps) {
 
   return (
     <>
+      {fleet.onlinePrinters === 0 ? (
+        <article className="panel wide panel-section onboarding-entry-card">
+          <div>
+            <span className="onboarding-entry-icon"><ListChecks size={22} /></span>
+            <div>
+              <h2>Vamos preparar sua primeira impressão?</h2>
+              <p className="muted">O guia confirma a impressora, o agente, o projeto e a checagem final em linguagem simples.</p>
+            </div>
+          </div>
+          <button type="button" className="primary-button" onClick={() => setActiveSection("onboarding")}>Abrir primeiros passos</button>
+        </article>
+      ) : null}
       <article className="panel wide panel-section panel-overview">
         <div className="panel-heading">
           <div>

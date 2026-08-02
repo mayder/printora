@@ -66,6 +66,11 @@ const AccessibilityScreen = lazy(async () => {
   return { default: module.AccessibilityScreen };
 });
 
+const OnboardingScreen = lazy(async () => {
+  const module = await import("./screens/OnboardingScreen");
+  return { default: module.OnboardingScreen };
+});
+
 const AuthScreen = lazy(async () => {
   const module = await import("./screens/AuthScreen");
   return { default: module.AuthScreen };
@@ -173,6 +178,12 @@ function App() {
     switch (shellSection) {
       case "overview":
         return <OverviewScreen {...screenProps} />;
+      case "onboarding":
+        return (
+          <Suspense fallback={<section aria-live="polite">Carregando primeiros passos.</section>}>
+            <OnboardingScreen {...screenProps} />
+          </Suspense>
+        );
       case "printers":
         return <PrintersScreen {...screenProps} />;
       case "printer-detail":

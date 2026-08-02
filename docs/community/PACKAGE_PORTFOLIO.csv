@@ -8,7 +8,7 @@ PKG-106,cancelled,,Métricas úteis pertencem aos fluxos operacionais; não cria
 PKG-107,merged,PKG-104,Moderação mínima da comunidade incorporada ao PKG-104.
 PKG-108,merged,PKG-104,Proveniência e integridade essenciais incorporadas ao PKG-104.
 PKG-109,deferred,,Internacionalização depende de demanda real fora de pt-BR.
-PKG-110,active,,Onboarding operacional reduz tempo até conectar a primeira impressora e executar o primeiro fluxo.
+PKG-110,completed,,Onboarding guiado concluído com estado derivado de evidência real retomada local falha segura acessibilidade e fallback para os fluxos existentes.
 PKG-111,merged,PKG-132,Segurança de modelo vira regra de preflight no fluxo de impressão.
 PKG-112,cancelled,,Contas infantis não serão oferecidas no escopo atual.
 PKG-113,merged,PKG-114,Metrologia básica e evidência física incorporadas a materiais e qualidade.
