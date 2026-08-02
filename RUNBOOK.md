@@ -2917,12 +2917,18 @@ Configuração segura:
 - `PRINTORA_RECONSTRUCTION_MODE=disabled` é o padrão;
 - `fixture` serve somente a teste local e nunca a produção;
 - `local_command` exige `PRINTORA_RECONSTRUCTION_LOCAL_COMMAND` apontando para
-  executável homologado;
+  executável homologado; no checkout validado, usar o caminho absoluto de
+  `scripts/reconstruction/colmap_gateway.py`;
 - `provider_command` exige `PRINTORA_RECONSTRUCTION_PROVIDER_COMMAND` apontando
   para gateway homologado; segredo não deve entrar em argumento, manifesto,
   stdout ou stderr;
 - iniciar worker dedicado na fila `bulk`; não executar processamento no agente
   da impressora ou na Raspberry Pi.
+
+O gateway detecta a capacidade do COLMAP. Em worker CUDA produz reconstrução
+densa com Poisson. Sem CUDA, produz somente Delaunay sobre o modelo esparso e
+marca a saída como compatibilidade não qualificada. Não promover o fallback
+esparso a modo padrão nem chamá-lo de modelo pronto para impressão.
 
 Smoke sem cobrança:
 
@@ -2933,6 +2939,17 @@ Smoke sem cobrança:
 4. repetir chave de idempotência, cancelar e tentar novamente sem duplicar
    artefato canônico;
 5. outro owner deve receber 404 ao consultar job ou artefato.
+
+Smoke do motor local sem cobrança:
+
+1. instalar COLMAP homologado no worker e confirmar `colmap version`;
+2. manter as fotos em diretório temporário privado e executar o gateway pelo
+   contrato `--input-manifest`, `--output-dir` e `--result`;
+3. conferir checksum, versão, quantidade de imagens registradas, erro médio de
+   reprojeção, vértices/faces e classificação da superfície;
+4. o smoke oficial preservado em
+   `docs/community/benchmarks/photo-reconstruction/2026-08-02-colmap-south-building.json`
+   valida integração, não qualidade de objeto nem precisão dimensional.
 
 Homologação obrigatória antes de habilitar motor real: executar pipeline local e
 provider sobre o mesmo conjunto autorizado; registrar conclusão, cobertura

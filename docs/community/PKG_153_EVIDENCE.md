@@ -11,6 +11,8 @@ Estado: base operacional implementada; pacote permanece ativo.
 - cancelamento cooperativo do wrapper e estado terminal sem nova tentativa;
 - adapters desabilitado, fixture sintética e comando local/provider sob o mesmo
   contrato versionado;
+- gateway COLMAP concreto, com denso/Poisson em CUDA e fallback
+  esparso/Delaunay explicitamente não qualificado sem CUDA;
 - diretório temporário, executável fixo, shell desativado, ambiente restrito,
   timeout e validação de caminho, symlink, formato, tamanho e proporções;
 - circuito após falhas repetidas e falha isolada da reconstrução;
@@ -39,11 +41,25 @@ saúde não transforma reconstrução concluída em retry pago.
 - SQL aditivo: `backend/sql/093_photo_reconstruction.sql` e
   `backend/sql/postgresql/025_photo_reconstruction.sql`.
 
+## Smoke real do motor local
+
+COLMAP 4.1.1 foi executado no Apple M4 Pro sem CUDA sobre 24 imagens reduzidas
+para 1600 px do dataset oficial South Building. O gateway registrou 24/24
+imagens, 3.908 pontos esparsos, erro médio de reprojeção de 0,381595 px e gerou
+PLY esparso com 3.126 vértices e 6.223 faces em 15,003 s. O contrato completo do
+adapter também produziu PLY privado com provenance.
+
+Essa execução prova instalação, isolamento, contrato, SfM, meshing CPU e
+provenance. Não prova reconstrução de objeto, cobertura de superfície, escala,
+qualidade densa ou imprimibilidade. Resultado e checksums estão em
+`docs/community/benchmarks/photo-reconstruction/2026-08-02-colmap-south-building.json`.
+
 ## Pendências para fechamento
 
-Não há COLMAP/Meshroom nem gateway de provider instalado/configurado neste
-ambiente. Portanto, ainda não existe evidência honesta de reconstrução real. O
-pacote só pode ser fechado após:
+O gateway local e o COLMAP estão validados neste ambiente, mas não há CUDA,
+captura de objeto físico nem gateway/credencial de provider. Portanto, ainda não
+existe evidência honesta de reconstrução densa de objeto. O pacote só pode ser
+fechado após:
 
 1. conjunto de fotos autorizado e objeto de referência mensurável;
 2. execução do mesmo benchmark no pipeline local e provider elegível;

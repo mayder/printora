@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import signal
 import subprocess
 import tempfile
 import time
@@ -191,8 +193,9 @@ class CommandReconstructionAdapter:
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                env={"PATH": "/usr/local/bin:/usr/bin:/bin"},
+                env={"PATH": "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"},
                 text=True,
+                start_new_session=True,
             )
             deadline = time.monotonic() + self.timeout_seconds
             while process.poll() is None:
@@ -209,11 +212,14 @@ class CommandReconstructionAdapter:
 
 
 def _terminate_process(process: subprocess.Popen[str]) -> None:
-    process.terminate()
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
     try:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired:
-        process.kill()
+        os.killpg(process.pid, signal.SIGKILL)
         process.wait(timeout=5)
 
 

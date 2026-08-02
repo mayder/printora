@@ -1911,7 +1911,7 @@
     {
       "module": "modules.operations.reconstruction.adapters",
       "owner": "operations",
-      "lines": 313,
+      "lines": 319,
       "imports": [
         "config",
         "object_storage"

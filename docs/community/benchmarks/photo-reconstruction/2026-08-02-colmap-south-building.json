@@ -1,0 +1,51 @@
+{
+  "schema": "printora.photo-reconstruction-engine-smoke/v1",
+  "classification": "engine_smoke_not_package_acceptance",
+  "date": "2026-08-02",
+  "source": {
+    "name": "COLMAP South Building",
+    "url": "https://github.com/colmap/colmap/releases/download/3.11.1/south-building.zip",
+    "archive_sha256": "d210016bd2de20936a5f02b87fd38a76bf0440c42d045231218372cf9db9a7a1",
+    "selection": "primeiras 24 imagens em ordem de nome",
+    "normalization": "maior dimensão reduzida para 1600 px"
+  },
+  "environment": {
+    "os": "macOS 26.5.2",
+    "architecture": "arm64",
+    "chip": "Apple M4 Pro",
+    "memory_gb": 24,
+    "engine": "COLMAP 4.1.1",
+    "cuda": false
+  },
+  "parameters": {
+    "quality": "medium",
+    "single_camera": true,
+    "feature_gpu": false,
+    "dense": false,
+    "mesher": "delaunay_sparse"
+  },
+  "result": {
+    "completed": true,
+    "source_images": 24,
+    "registered_images": 24,
+    "registered_image_ratio": 1.0,
+    "sparse_points": 3908,
+    "mean_reprojection_error_px": 0.381595,
+    "elapsed_seconds": 15.003,
+    "mesh_format": "ply",
+    "mesh_size_bytes": 118584,
+    "mesh_sha256": "6245587a8f03b04a01046e350769b65cddad5167e66341d8d1a78eccb4ed00ca",
+    "vertices": 3126,
+    "faces": 6223,
+    "unit": "unknown",
+    "observed_surface_ratio": null,
+    "inferred_surface_ratio": null,
+    "cost_cents": 0
+  },
+  "limits": [
+    "dataset de edifício, não de objeto isolado",
+    "sem referência dimensional",
+    "malha esparsa não qualificada",
+    "não valida reconstrução densa, reparo ou impressão física"
+  ]
+}
