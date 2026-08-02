@@ -59,7 +59,7 @@ def execute_reconstruction_job(job: DurableJob, settings: Settings) -> dict[str,
             repository.record_engine_failure(adapter.engine_key)
         except Exception:
             pass
-        retryable = job.attempts < job.max_attempts
+        retryable = adapter.automatic_retry_safe and job.attempts < job.max_attempts
         repository.fail(
             reconstruction_job_id,
             attempt_id,

@@ -4,7 +4,7 @@ from pathlib import Path
 import platform
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 HostAuditMode = Literal["disabled", "local", "ssh"]
@@ -13,6 +13,7 @@ ReleaseSourceMode = Literal["github", "fixture", "disabled"]
 ObjectStorageMode = Literal["local", "s3"]
 PaymentMode = Literal["disabled", "sandbox"]
 ReconstructionMode = Literal["disabled", "fixture", "local_command", "provider_command"]
+TripoModelVersion = Literal["v3.1-20260211", "v3.0-20250812", "v2.5-20250123", "P1-20260311"]
 
 
 class Settings(BaseSettings):
@@ -59,6 +60,9 @@ class Settings(BaseSettings):
     reconstruction_mode: ReconstructionMode = "disabled"
     reconstruction_local_command: Path | None = None
     reconstruction_provider_command: Path | None = None
+    reconstruction_tripo_api_key: SecretStr = SecretStr("")
+    reconstruction_tripo_state_dir: Path | None = None
+    reconstruction_tripo_model_version: TripoModelVersion = "v3.1-20260211"
     reconstruction_timeout_seconds: float = 3600.0
     reconstruction_max_active_per_user: int = 2
 

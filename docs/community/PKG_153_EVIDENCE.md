@@ -13,6 +13,9 @@ Estado: base operacional implementada; pacote permanece ativo.
   contrato versionado;
 - gateway COLMAP concreto, com denso/Poisson em CUDA e fallback
   esparso/Delaunay explicitamente não qualificado sem CUDA;
+- gateway Tripo com quatro vistas médias equidistantes, segredo isolado,
+  polling, download HTTPS público e checkpoint privado para não recriar tarefa
+  paga em retry;
 - diretório temporário, executável fixo, shell desativado, ambiente restrito,
   timeout e validação de caminho, symlink, formato, tamanho e proporções;
 - circuito após falhas repetidas e falha isolada da reconstrução;
@@ -54,10 +57,27 @@ provenance. Não prova reconstrução de objeto, cobertura de superfície, escal
 qualidade densa ou imprimibilidade. Resultado e checksums estão em
 `docs/community/benchmarks/photo-reconstruction/2026-08-02-colmap-south-building.json`.
 
+## Contrato do provider
+
+O gateway Tripo segue os endpoints oficiais de upload, criação multiview e
+consulta de tarefa. Testes simulados validam seleção e ordem das quatro vistas,
+uma única criação paga por correlação, retomada pelo `task_id`, divergência de
+fingerprint, custo em créditos e ausência de cobertura inventada. A credencial
+entra somente no ambiente restrito do subprocesso e a URL de saída precisa ser
+HTTPS com resolução pública.
+
+Falhas do provider não são repetidas automaticamente: sem idempotência forte
+documentada na criação remota, um retry cego poderia cobrar outra tarefa. O
+checkpoint reconcilia tarefas conhecidas; estado ambíguo exige revisão humana.
+
+Não foi feita chamada real ou cobrança. Portanto essa evidência valida o
+contrato e as proteções do gateway, não a disponibilidade, qualidade ou custo
+observado do provider.
+
 ## Pendências para fechamento
 
 O gateway local e o COLMAP estão validados neste ambiente, mas não há CUDA,
-captura de objeto físico nem gateway/credencial de provider. Portanto, ainda não
+captura de objeto físico nem credencial/chamada real de provider. Portanto, ainda não
 existe evidência honesta de reconstrução densa de objeto. O pacote só pode ser
 fechado após:
 
@@ -69,6 +89,11 @@ fechado após:
    exigir operação assíncrona;
 5. teste de carga, egress/segredo, canário e política de retenção/cleanup;
 6. validação manual desktop/mobile do estado de processamento real.
+
+Referências oficiais consultadas: [geração multiview](https://platform.tripo3d.ai/docs/generation),
+[upload](https://platform.tripo3d.ai/docs/upload),
+[consulta de tarefa](https://platform.tripo3d.ai/docs/task) e
+[preços em créditos](https://platform.tripo3d.ai/docs/billing).
 
 ## Rollback
 

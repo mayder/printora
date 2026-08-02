@@ -449,10 +449,13 @@ Estado atual:
 - gateway COLMAP concreto passou em smoke real com dataset oficial, inclusive
   modo CPU esparso identificado como não qualificado; o modo denso continua
   reservado a worker CUDA;
+- gateway Tripo implementa quatro vistas determinísticas, credencial isolada,
+  polling, download defensivo e checkpoint que reaproveita a tarefa paga no
+  retry; seu contrato passou somente com provider simulado;
 - o modo seguro permanece desabilitado por padrão e a fixture sintética existe
   somente para contrato/teste, sem alegar reconstrução real;
 - pipeline sobre objeto físico e provedor multiview ainda não estão homologados:
-  faltam benchmark comparativo do mesmo objeto, credencial/egress do provider,
+  faltam benchmark comparativo do mesmo objeto, credencial e chamada reais,
   carga, canário e retenção operacional antes do fechamento;
 - o antigo escopo genérico de AR/escaneamento foi substituído pela demanda
   concreta de reconstrução de objeto por fotos.

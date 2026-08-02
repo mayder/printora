@@ -65,6 +65,7 @@ class ReconstructionAdapterResult:
 class ReconstructionAdapter(Protocol):
     engine_key: str
     adapter_version: str
+    automatic_retry_safe: bool
 
     def reconstruct(
         self,
@@ -77,6 +78,7 @@ class ReconstructionAdapter(Protocol):
 class DisabledReconstructionAdapter:
     engine_key = "disabled"
     adapter_version = "1"
+    automatic_retry_safe = False
 
     def reconstruct(
         self,
@@ -94,6 +96,7 @@ class FixtureReconstructionAdapter:
 
     engine_key = "fixture-photogrammetry"
     adapter_version = "1"
+    automatic_retry_safe = True
 
     def reconstruct(
         self,
@@ -127,10 +130,20 @@ class FixtureReconstructionAdapter:
 class CommandReconstructionAdapter:
     adapter_version = "printora-command-v1"
 
-    def __init__(self, *, engine_key: str, executable: Path, timeout_seconds: float) -> None:
+    def __init__(
+        self,
+        *,
+        engine_key: str,
+        executable: Path,
+        timeout_seconds: float,
+        environment: dict[str, str] | None = None,
+        automatic_retry_safe: bool = True,
+    ) -> None:
         self.engine_key = engine_key
         self.executable = executable.expanduser().resolve()
         self.timeout_seconds = max(30.0, min(timeout_seconds, 14_400.0))
+        self.environment = dict(environment or {})
+        self.automatic_retry_safe = automatic_retry_safe
 
     def reconstruct(
         self,
@@ -193,7 +206,10 @@ class CommandReconstructionAdapter:
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                env={"PATH": "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"},
+                env={
+                    "PATH": "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin",
+                    **self.environment,
+                },
                 text=True,
                 start_new_session=True,
             )
@@ -234,11 +250,19 @@ def build_reconstruction_adapter(settings: Settings, policy: str) -> Reconstruct
             executable=local,
             timeout_seconds=settings.reconstruction_timeout_seconds,
         )
-    if policy == "provider" and settings.reconstruction_mode == "provider_command" and provider:
+    provider_environment = _tripo_provider_environment(settings)
+    if (
+        policy == "provider"
+        and settings.reconstruction_mode == "provider_command"
+        and provider
+        and provider_environment
+    ):
         return CommandReconstructionAdapter(
             engine_key="provider-multiview-gateway",
             executable=provider,
             timeout_seconds=settings.reconstruction_timeout_seconds,
+            environment=provider_environment,
+            automatic_retry_safe=False,
         )
     if policy == "auto":
         if settings.reconstruction_mode == "local_command" and local:
@@ -247,13 +271,27 @@ def build_reconstruction_adapter(settings: Settings, policy: str) -> Reconstruct
                 executable=local,
                 timeout_seconds=settings.reconstruction_timeout_seconds,
             )
-        if settings.reconstruction_mode == "provider_command" and provider:
+        if settings.reconstruction_mode == "provider_command" and provider and provider_environment:
             return CommandReconstructionAdapter(
                 engine_key="provider-multiview-gateway",
                 executable=provider,
                 timeout_seconds=settings.reconstruction_timeout_seconds,
+                environment=provider_environment,
+                automatic_retry_safe=False,
             )
     return DisabledReconstructionAdapter()
+
+
+def _tripo_provider_environment(settings: Settings) -> dict[str, str]:
+    api_key = settings.reconstruction_tripo_api_key.get_secret_value()
+    state_dir = settings.reconstruction_tripo_state_dir
+    if not api_key or state_dir is None:
+        return {}
+    return {
+        "PRINTORA_TRIPO_API_KEY": api_key,
+        "PRINTORA_TRIPO_STATE_DIR": str(state_dir.expanduser().resolve()),
+        "PRINTORA_TRIPO_MODEL_VERSION": settings.reconstruction_tripo_model_version,
+    }
 
 
 def _load_command_result(

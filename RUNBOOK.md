@@ -2920,8 +2920,11 @@ Configuração segura:
   executável homologado; no checkout validado, usar o caminho absoluto de
   `scripts/reconstruction/colmap_gateway.py`;
 - `provider_command` exige `PRINTORA_RECONSTRUCTION_PROVIDER_COMMAND` apontando
-  para gateway homologado; segredo não deve entrar em argumento, manifesto,
-  stdout ou stderr;
+  para `scripts/reconstruction/tripo_gateway.py`, além de
+  `PRINTORA_RECONSTRUCTION_TRIPO_API_KEY` no cofre,
+  `PRINTORA_RECONSTRUCTION_TRIPO_STATE_DIR` em volume persistente privado e uma
+  versão homologada em `PRINTORA_RECONSTRUCTION_TRIPO_MODEL_VERSION`; segredo
+  não deve entrar em argumento, manifesto, stdout ou stderr;
 - iniciar worker dedicado na fila `bulk`; não executar processamento no agente
   da impressora ou na Raspberry Pi.
 
@@ -2950,6 +2953,23 @@ Smoke do motor local sem cobrança:
 4. o smoke oficial preservado em
    `docs/community/benchmarks/photo-reconstruction/2026-08-02-colmap-south-building.json`
    valida integração, não qualidade de objeto nem precisão dimensional.
+
+Smoke do contrato do provider sem cobrança:
+
+1. manter `PRINTORA_RECONSTRUCTION_MODE=disabled` e usar client simulado nos
+   testes de `tripo_gateway.py`;
+2. confirmar seleção de quatro fotos da altura média, na ordem frente,
+   esquerda, costas e direita, sem enviar as demais fotos;
+3. repetir a mesma correlação e verificar que o checkpoint reaproveita o
+   `task_id`, sem novo upload nem nova tarefa paga;
+4. alterar checksums sob a mesma correlação e confirmar bloqueio por divergência;
+5. validar URL HTTPS pública, limite de 500 MB, custo em créditos e cobertura
+   observada/inferida desconhecida; créditos não são convertidos em centavos.
+
+O checkpoint contém somente fingerprint e identificador externo, com arquivo
+`0600`. Deve permanecer durante retries e reconciliação. Antes da habilitação
+real, definir e automatizar retenção após o estado terminal, com preview e sem
+remover fotos ou artefatos canônicos.
 
 Homologação obrigatória antes de habilitar motor real: executar pipeline local e
 provider sobre o mesmo conjunto autorizado; registrar conclusão, cobertura

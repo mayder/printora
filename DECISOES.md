@@ -2609,6 +2609,20 @@ alterar o contrato de produto. O gateway precisa cuidar das credenciais fora dos
 argumentos e produzir provenance confiável. Nenhum motor será padrão até passar
 benchmark real, segurança, carga e canário.
 
+Complemento do provider: o primeiro gateway elegível usa a API multiview Tripo,
+sempre desabilitada por padrão. Somente quatro fotos da altura média são
+enviadas, em vistas equidistantes, sem textura ou PBR. Um checkpoint privado por
+correlação guarda fingerprint e `task_id` para reconciliar polling e evitar nova
+tarefa paga após retry. O custo permanece em créditos do provider, sem conversão
+inventada para moeda. Essa escolha é reversível pelo adapter e não representa
+homologação até existir benchmark real sobre o mesmo objeto.
+
+Como a criação remota não oferece idempotência forte documentada, falhas do
+gateway do provider não recebem retry automático do worker. O checkpoint permite
+reconciliar uma tarefa cujo identificador já foi recebido; qualquer nova criação
+após estado ambíguo exige ação humana. Isso troca disponibilidade automática por
+proteção contra cobrança duplicada.
+
 Impacto em testes: idempotência, ownership, fencing, quota, circuit breaker,
 timeout, cancelamento cooperativo, contrato do wrapper, provenance, artefato
 privado, UI sem percentual inventado e regressão do worker.

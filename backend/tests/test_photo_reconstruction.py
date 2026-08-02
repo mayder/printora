@@ -11,11 +11,13 @@ from app.main import app
 from app.modules.operations.reconstruction.contracts import ReconstructionCreate
 from app.modules.operations.reconstruction.adapters import (
     CommandReconstructionAdapter,
+    DisabledReconstructionAdapter,
     FixtureReconstructionAdapter,
     ReconstructionCancelledError,
     ReconstructionAdapterInput,
     ReconstructionPhotoInput,
     ReconstructionUnavailableError,
+    build_reconstruction_adapter,
 )
 from app.modules.operations.reconstruction.processor import execute_reconstruction_job
 from app.modules.operations.reconstruction.repository import ReconstructionRepository
@@ -126,6 +128,39 @@ def test_disabled_engine_fails_actionably_without_retry_loop(tmp_path: Path) -> 
     assert failed.status == "failed"
     assert failed.can_retry is True
     assert "não está habilitada" in (failed.error_message or "")
+
+
+def test_provider_failure_requires_human_retry_to_protect_billing(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    owner_id, _, capture_id = _ready_capture(database_path)
+    state_dir = tmp_path / "provider-state"
+    state_dir.mkdir()
+    executable = tmp_path / "provider-gateway"
+    executable.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    executable.chmod(0o700)
+    settings = Settings(
+        data_dir=tmp_path,
+        reconstruction_mode="provider_command",
+        reconstruction_provider_command=executable,
+        reconstruction_tripo_api_key="test-provider-key",
+        reconstruction_tripo_state_dir=state_dir,
+    )
+    repository = ReconstructionRepository(database_path, settings)
+    created = repository.create(
+        owner_id,
+        ReconstructionCreate(capture_session_id=capture_id, engine_policy="provider"),
+        "provider-failure-1",
+    )
+    durable = DurableExecutionRepository(database_path).claim_job("bulk", "worker-test")
+
+    assert durable is not None
+    with pytest.raises(RuntimeError, match="processing failed"):
+        execute_reconstruction_job(durable, settings)
+
+    failed = repository.get(owner_id, created.id)
+    assert failed.status == "failed"
+    assert failed.error_code == "processing_failed"
 
 
 def test_stale_attempt_cannot_replace_canonical_reconstruction(tmp_path: Path) -> None:
@@ -271,6 +306,32 @@ def test_command_adapter_terminates_process_when_cancelled(tmp_path: Path) -> No
             executable=executable,
             timeout_seconds=30,
         ).reconstruct(request, MemoryStorage(), lambda: next(checks, True))
+
+
+def test_provider_adapter_requires_checkpoint_and_secret(tmp_path: Path) -> None:
+    executable = tmp_path / "provider"
+    executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    executable.chmod(0o700)
+    incomplete = Settings(
+        data_dir=tmp_path,
+        reconstruction_mode="provider_command",
+        reconstruction_provider_command=executable,
+    )
+    assert isinstance(build_reconstruction_adapter(incomplete, "provider"), DisabledReconstructionAdapter)
+
+    configured = Settings(
+        data_dir=tmp_path,
+        reconstruction_mode="provider_command",
+        reconstruction_provider_command=executable,
+        reconstruction_tripo_api_key="test-provider-key",
+        reconstruction_tripo_state_dir=tmp_path / "provider-state",
+    )
+    adapter = build_reconstruction_adapter(configured, "provider")
+
+    assert isinstance(adapter, CommandReconstructionAdapter)
+    assert adapter.automatic_retry_safe is False
+    assert adapter.environment["PRINTORA_TRIPO_API_KEY"] == "test-provider-key"
+    assert adapter.environment["PRINTORA_TRIPO_STATE_DIR"] == str((tmp_path / "provider-state").resolve())
 
 
 def test_reconstruction_routes_isolate_owner_and_stream_private_artifact(tmp_path: Path, monkeypatch) -> None:
