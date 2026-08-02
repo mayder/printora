@@ -14975,6 +14975,279 @@
         "title": "PayoutResponse",
         "type": "object"
       },
+      "PhotoCaptureCreate": {
+        "properties": {
+          "consent_confirmed": {
+            "title": "Consent Confirmed",
+            "type": "boolean"
+          },
+          "project_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Project Id",
+            "type": "integer"
+          },
+          "target_photo_count": {
+            "default": 24,
+            "maximum": 80.0,
+            "minimum": 12.0,
+            "title": "Target Photo Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "consent_confirmed"
+        ],
+        "title": "PhotoCaptureCreate",
+        "type": "object"
+      },
+      "PhotoCapturePhoto": {
+        "properties": {
+          "capture_index": {
+            "title": "Capture Index",
+            "type": "integer"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "height": {
+            "title": "Height",
+            "type": "integer"
+          },
+          "height_band": {
+            "enum": [
+              "low",
+              "middle",
+              "high"
+            ],
+            "title": "Height Band",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "issues": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "quality_status": {
+            "enum": [
+              "accepted",
+              "needs_review"
+            ],
+            "title": "Quality Status",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "capture_index",
+          "height_band",
+          "file_name",
+          "sha256",
+          "size_bytes",
+          "width",
+          "height",
+          "quality_status",
+          "issues"
+        ],
+        "title": "PhotoCapturePhoto",
+        "type": "object"
+      },
+      "PhotoCaptureScaleUpdate": {
+        "properties": {
+          "method": {
+            "enum": [
+              "none",
+              "known_measurement",
+              "marker"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "uncertainty_mm": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uncertainty Mm"
+          },
+          "value_mm": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 100000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Mm"
+          }
+        },
+        "required": [
+          "method"
+        ],
+        "title": "PhotoCaptureScaleUpdate",
+        "type": "object"
+      },
+      "PhotoCaptureSession": {
+        "properties": {
+          "accepted_photo_count": {
+            "title": "Accepted Photo Count",
+            "type": "integer"
+          },
+          "can_complete": {
+            "title": "Can Complete",
+            "type": "boolean"
+          },
+          "consent_confirmed": {
+            "title": "Consent Confirmed",
+            "type": "boolean"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "missing_height_bands": {
+            "items": {
+              "enum": [
+                "low",
+                "middle",
+                "high"
+              ],
+              "type": "string"
+            },
+            "title": "Missing Height Bands",
+            "type": "array"
+          },
+          "next_actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Next Actions",
+            "type": "array"
+          },
+          "photos": {
+            "items": {
+              "$ref": "#/components/schemas/PhotoCapturePhoto"
+            },
+            "title": "Photos",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "integer"
+          },
+          "scale_confirmed": {
+            "title": "Scale Confirmed",
+            "type": "boolean"
+          },
+          "scale_method": {
+            "enum": [
+              "none",
+              "known_measurement",
+              "marker"
+            ],
+            "title": "Scale Method",
+            "type": "string"
+          },
+          "scale_uncertainty_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale Uncertainty Mm"
+          },
+          "scale_value_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale Value Mm"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "review",
+              "ready",
+              "cancelled",
+              "expired"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target_photo_count": {
+            "title": "Target Photo Count",
+            "type": "integer"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "status",
+          "target_photo_count",
+          "scale_method",
+          "scale_value_mm",
+          "scale_uncertainty_mm",
+          "scale_confirmed",
+          "consent_confirmed",
+          "expires_at",
+          "created_at",
+          "updated_at",
+          "photos",
+          "accepted_photo_count",
+          "missing_height_bands",
+          "next_actions",
+          "can_complete"
+        ],
+        "title": "PhotoCaptureSession",
+        "type": "object"
+      },
       "PluginAuditItem": {
         "properties": {
           "action": {
@@ -35166,6 +35439,531 @@
           }
         },
         "summary": "Operation Voron Offline Fixture"
+      }
+    },
+    "/api/photo-captures": {
+      "get": {
+        "operationId": "list_photo_captures_api_photo_captures_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PhotoCaptureSession"
+                  },
+                  "title": "Response List Photo Captures Api Photo Captures Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Photo Captures",
+        "tags": [
+          "photo-captures"
+        ]
+      },
+      "post": {
+        "operationId": "create_photo_capture_api_photo_captures_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoCaptureCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoCaptureSession"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Photo Capture",
+        "tags": [
+          "photo-captures"
+        ]
+      }
+    },
+    "/api/photo-captures/{session_id}": {
+      "get": {
+        "operationId": "get_photo_capture_api_photo_captures__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoCaptureSession"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Photo Capture",
+        "tags": [
+          "photo-captures"
+        ]
+      }
+    },
+    "/api/photo-captures/{session_id}/cancel": {
+      "post": {
+        "operationId": "cancel_photo_capture_api_photo_captures__session_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoCaptureSession"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Photo Capture",
+        "tags": [
+          "photo-captures"
+        ]
+      }
+    },
+    "/api/photo-captures/{session_id}/complete": {
+      "post": {
+        "operationId": "complete_photo_capture_api_photo_captures__session_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoCaptureSession"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete Photo Capture",
+        "tags": [
+          "photo-captures"
+        ]
+      }
+    },
+    "/api/photo-captures/{session_id}/export": {
+      "get": {
+        "operationId": "export_photo_capture_api_photo_captures__session_id__export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Photo Capture",
+        "tags": [
+          "photo-captures"
+        ]
+      }
+    },
+    "/api/photo-captures/{session_id}/photos": {
+      "post": {
+        "operationId": "upload_capture_photo_api_photo_captures__session_id__photos_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "file_name",
+            "required": true,
+            "schema": {
+              "title": "File Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "capture_index",
+            "required": true,
+            "schema": {
+              "title": "Capture Index",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "height_band",
+            "required": true,
+            "schema": {
+              "enum": [
+                "low",
+                "middle",
+                "high"
+              ],
+              "title": "Height Band",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoCaptureSession"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Capture Photo",
+        "tags": [
+          "photo-captures"
+        ]
+      }
+    },
+    "/api/photo-captures/{session_id}/scale": {
+      "put": {
+        "operationId": "update_capture_scale_api_photo_captures__session_id__scale_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoCaptureScaleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoCaptureSession"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Capture Scale",
+        "tags": [
+          "photo-captures"
+        ]
       }
     },
     "/api/print-projects": {

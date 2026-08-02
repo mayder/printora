@@ -58,6 +58,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Agentes | `agents` | `/?section=agents`, `/#agents` | `frontend/src/screens/AgentsScreen.tsx` | Lista de todos os agentes da frota, sem operacoes de impressora no menu global | Nao exige impressora ativa | existente |
 | Projetos de impressão | `projects` | `/?section=projects`, `/#projects` | `frontend/src/screens/PrintProjectsScreen.tsx` | Explorar, salvar, referenciar, publicar, fatiar e enviar projetos com um ou vários arquivos STL/3MF/ZIP/link externo a partir da biblioteca pessoal do usuário | Nao exige impressora ativa; fatiamento/envio exige impressora escolhida no fluxo | inicial |
 | Materiais | `materials` | `/?section=materials`, `/#materials` | `frontend/src/screens/materials/MaterialsScreen.tsx` + componentes de lista, detalhe e formulário | Cadastrar spools locais, sincronizar leitura do Spoolman, conferir disponibilidade/compatibilidade e registrar consumo e medidas sem alterar o inventário canônico externo | Nao exige impressora ativa; sincronização e conferência usam impressora escolhida no próprio fluxo | existente |
+| Digitalizar objeto | estado dedicado em `projects` | Entrada `Digitalizar este objeto` no detalhe de projeto em `Meus projetos` | `frontend/src/screens/projects/PhotoCapturePanel.tsx`; etapas posteriores permanecem separadas por responsabilidade | Preparar, capturar, validar cobertura/qualidade, definir escala, retomar e exportar fotos privadas; reconstrução e qualificação entram nos estados posteriores | Nao exige impressora; somente a etapa opcional de fatiamento exige escolha posterior | existente |
 | Detalhe do agente | `agent-detail` | Estado interno da SPA | `frontend/src/screens/AgentDetailScreen.tsx` | Registro de agente com acao explicita de voltar para a lista, impressora vinculada, dispositivo/host, versao, saude, fila, doctor remoto, suporte e credencial | Exige agente aberto | existente |
 | Social | `social` | `/?section=social`, `/#social` | `frontend/src/screens/SocialScreen.tsx` | Descoberta pública de makers, impressoras públicas, comunidades automáticas e relações sociais | Nao exige impressora ativa | existente |
 | Catálogo | `catalog` | `/?section=catalog`, `/#catalog` | `frontend/src/screens/CatalogAdminScreen.tsx` | Curadoria administrativa do catálogo mestre de fabricantes, modelos, variantes e componentes | Nao exige impressora ativa; edição exige administrador | existente |
@@ -142,6 +143,37 @@ quando a ação não é permitida.
 - `Explorar` lista projetos publicos e referencias externas com filtros por tipo de arquivo, origem, licenca, material, componente, fabricante/modelo/variante, preco/classificacao e comunidades onde foi compartilhado. Item hospedado no Printora e link externo devem ter indicacao visual diferente.
 - O detalhe de projeto centraliza titulo, descricao, imagens/preview, arquivos, versoes/snapshots, origem, licenca, autoria, atribuicao, comunidades onde foi compartilhado, tags, compatibilidade, downloads, favoritos, status comercial e acoes `Salvar nos meus projetos`, `Fatiar`, `Publicar/Editar publicação` quando o usuario for dono.
 - `Meus projetos` lista tudo que o usuario subiu, salvou, importou ou referenciou. O usuario deve conseguir criar projeto por upload de um ou varios arquivos STL/3MF/ZIP ou por link externo, editar metadados, visibilidade, licenca, autoria, atribuicao, tags, material/componente, arquivar e consultar storage/cota.
+- `Meus projetos` deve oferecer a ação `Digitalizar objeto`, separada do upload
+  simples. Ela cria projeto privado ou vincula a captura a um projeto privado
+  existente, sem exigir comunidade ou impressora.
+- A digitalização é um fluxo em estados dedicados: `Preparar`, `Capturar`,
+  `Revisar fotos`, `Definir escala`, `Reconstruir`, `Qualificar malha`, `Revisar
+  resultado` e `Concluir`. A pessoa pode sair e retomar sem perder fotos já
+  confirmadas.
+- `Preparar` explica classes suportadas, fundo, iluminação, objeto imóvel,
+  privacidade, custo estimado quando houver e limitações de objetos brilhantes,
+  transparentes, finos, sem textura ou mecânicos.
+- `Capturar` prioriza celular, instrui voltas e alturas, exibe cobertura e
+  permite câmera ou seleção de arquivos. Foco, exposição, duplicidade,
+  resolução e ângulos ausentes possuem feedback acionável sem depender de cor.
+- `Definir escala` aceita marcador aprovado ou uma medida conhecida, sempre com
+  unidade, método e incerteza. Continuar sem escala exige confirmação e remove
+  qualquer promessa de dimensão real.
+- `Reconstruir` mostra fila, estágio, progresso confiável, tempo/custo quando
+  disponíveis, cancelamento e recuperação. Percentual não deve avançar de forma
+  fictícia quando o engine só fornece estado por estágio.
+- `Qualificar malha` mostra manifold, watertight, escala, componentes, buracos,
+  espessura e bloqueios. Reparos criam versão nova e nunca sobrescrevem a malha
+  bruta.
+- `Revisar resultado` compara bruto/qualificado e identifica por legenda e
+  alternativa textual as regiões observadas, inferidas e reparadas. Download,
+  fatiamento e publicação permanecem ações separadas e explícitas.
+- O resultado aprovado entra no detalhe do projeto como snapshot imutável com
+  manifesto, checksum, unidade, origem e histórico. `Baixar STL/3MF` não exige
+  impressora; `Fatiar` reutiliza o fluxo canônico do projeto.
+- Captura ou processamento com erro preserva a entrada e oferece refazer foto,
+  retomar, cancelar ou tentar novamente quando seguro. Retry não duplica
+  sessão, cobrança, job, artefato ou snapshot.
 - Upload e link externo devem abrir em modal ou estado de cadastro dedicado, separados em secoes `Projeto`, `Arquivos ou links`, `Autoria e licença`, `Publicação` e `Impressão`. O cadastro nao deve exigir comunidade.
 - Visibilidade (`privado`, `não listado`, `público`), revisão/publicação (`rascunho`, `em revisão`, `aprovado`, `rejeitado`, `arquivado`), classificação comercial (`gratuito`, `curado`, `premium`, `patrocinado`) e compartilhamento em comunidade sao dimensoes separadas.
 - Comunidade nunca e dona do projeto. Compartilhamento em comunidade e relacao N:N; remover compartilhamento nao arquiva, apaga, despublica nem transfere ownership do projeto.

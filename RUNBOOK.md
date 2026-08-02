@@ -2869,3 +2869,33 @@ repetir. Nunca repetir comando físico sem confirmar o estado real no Moonraker.
 
 Rollback: ocultar o novo fluxo e usar Administração como fallback. Preservar
 jobs, artefatos, entregas e histórico. A release N-1 ignora os campos aditivos.
+
+## Captura guiada por fotos
+
+Banco, na ordem:
+
+1. SQLite aplica `backend/sql/092_photo_capture.sql` pelo versionador, com backup;
+2. cloud aplica `backend/sql/postgresql/024_photo_capture.sql` antes da aplicação;
+3. validar tabelas, índices parciais, ownership e expiração lógica;
+4. não executar `DROP`, `DELETE` ou limpeza física de fotos.
+
+Smoke seguro:
+
+1. criar projeto privado e abrir `Digitalizar este objeto` sem impressora;
+2. confirmar consentimento e iniciar; sair e retomar a mesma sessão;
+3. enviar JPEG/PNG com EXIF e confirmar que o artefato promovido não contém o
+   metadado;
+4. repetir idempotency key e checksum; conferir ausência de duplicação;
+5. refazer uma posição e confirmar revisão anterior preservada;
+6. cobrir as três alturas, confirmar escala ou ausência de tamanho real e
+   concluir somente sem pendências;
+7. exportar ZIP como owner e confirmar manifesto/checksums; outro owner recebe
+   404 sem enumeração.
+
+Diagnóstico: erro de formato pede JPEG/PNG; foto escura, clara, desfocada ou com
+baixa resolução deve indicar como refazer. Falha de cota não promove novo
+objeto. Sessão vencida fica `expired` e somente leitura; não remover arquivos
+para liberar espaço sem política e autorização explícitas.
+
+Rollback: bloquear novas sessões e ocultar a entrada. Preservar consulta e
+exportação privadas. A release N-1 ignora tabelas aditivas.

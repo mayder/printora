@@ -1,6 +1,7 @@
 from app.modules.assembly import ModuleDefinition, RouterRegistration
 from app.routes import (
     external_library,
+    photo_capture,
     print_profiles,
     print_projects,
     search_discovery,
@@ -21,6 +22,7 @@ MODULE = ModuleDefinition(
         RouterRegistration(80, external_library.router),
         RouterRegistration(130, print_profiles.router),
         RouterRegistration(140, print_projects.router),
+        RouterRegistration(145, photo_capture.router),
         RouterRegistration(180, search_discovery.router),
         RouterRegistration(220, social_catalog.router),
         RouterRegistration(230, social_moderation.router),

@@ -10,8 +10,8 @@ from pydantic import BaseModel, Field, field_validator
 from app.database import connect_database
 from app.modules.community.contracts import validate_public_url
 from app.modules.community.project_asset_operations import ProjectAssetOperations
+from app.modules.community.storage_usage import personal_storage_quota, total_personal_storage_used
 from app.platform_access import is_platform_admin
-from app.social_storage import DEFAULT_USER_QUOTA_BYTES
 
 ProjectVisibility = Literal["private", "unlisted", "public"]
 ProjectLifecycleStatus = Literal["draft", "active", "archived"]
@@ -323,7 +323,7 @@ class PrintProjectsRepository:
 
     def storage_report(self, actor_user_id: int) -> PrintProjectStorageReport:
         with connect_database(self.database_path) as connection:
-            quota = _quota_for_user(connection, actor_user_id)
+            quota = personal_storage_quota(connection, actor_user_id)
             row = connection.execute(
                 """
                 SELECT
@@ -338,12 +338,21 @@ class PrintProjectsRepository:
                 """,
                 (actor_user_id,),
             ).fetchone()
-        used = int(row["used_bytes"] or 0)
+            personal_used = total_personal_storage_used(connection, actor_user_id)
+            other_file_count = int(connection.execute(
+                """
+                SELECT
+                    (SELECT COUNT(lf.id) FROM social_library_files lf JOIN social_library_items li ON li.id = lf.item_id WHERE li.owner_user_id = ? AND li.status != 'deleted')
+                    + (SELECT COUNT(pc.id) FROM photo_capture_photos pc JOIN photo_capture_sessions ps ON ps.id = pc.session_id WHERE pc.owner_user_id = ? AND ps.status != 'cancelled')
+                """,
+                (actor_user_id, actor_user_id),
+            ).fetchone()[0])
+        used = personal_used
         return PrintProjectStorageReport(
             quota_bytes=quota,
             used_bytes=used,
             remaining_bytes=max(quota - used, 0),
-            file_count=int(row["file_count"] or 0),
+            file_count=int(row["file_count"] or 0) + other_file_count,
             hosted_project_count=int(row["hosted_project_count"] or 0),
             external_reference_count=int(row["external_reference_count"] or 0),
         )
@@ -1002,21 +1011,6 @@ def _unique_slug(connection, title: str) -> str:
         candidate = f"{base}-{suffix}"
         suffix += 1
     return candidate
-
-
-def _quota_for_user(connection, actor_user_id: int) -> int:
-    row = connection.execute(
-        """
-        SELECT quota_bytes
-        FROM social_file_storage_policies
-        WHERE status = 'active'
-          AND ((scope_type = 'user' AND scope_id = ?) OR scope_type = 'global')
-        ORDER BY CASE scope_type WHEN 'user' THEN 0 ELSE 1 END
-        LIMIT 1
-        """,
-        (actor_user_id,),
-    ).fetchone()
-    return int(row["quota_bytes"]) if row is not None else DEFAULT_USER_QUOTA_BYTES
 
 
 def _validate_publication_payload(payload: PrintProjectPublicationRequest) -> None:

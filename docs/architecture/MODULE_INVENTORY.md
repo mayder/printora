@@ -4,10 +4,10 @@
 
 ## Resumo
 
-- módulos Python: 198;
-- endpoints HTTP/WebSocket: 411;
-- contratos tipados: 422;
-- tabelas declaradas em SQL: 165;
+- módulos Python: 204;
+- endpoints HTTP/WebSocket: 419;
+- contratos tipados: 426;
+- tabelas declaradas em SQL: 167;
 - ciclos de import detectados: 0.
 
 ## Fronteiras E Owners
@@ -17,7 +17,7 @@
 | `accessibility` | Acessibilidade | Preferências acessíveis, semântica, alternativas e contrato compartilhado. | 7 | 1 |
 | `design_system` | Design system | Tokens, componentes, estados e contratos visuais compartilhados. | 5 | 0 |
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 14 | 9 |
-| `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 32 | 46 |
+| `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 38 | 48 |
 | `finance` | Finanças e pedidos | Ledger, pedidos, pagamentos, reconciliação, risco e repasses. | 13 | 20 |
 | `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 67 | 49 |
 | `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 31 | 40 |
@@ -33,7 +33,7 @@
 | `operation` | `operations` | 1158 | 0 | 0 |
 | `routes.social_catalog` | `community` | 1150 | 59 | 0 |
 | `maintenance` | `operations` | 1147 | 0 | 8 |
-| `print_projects` | `community` | 1048 | 0 | 15 |
+| `print_projects` | `community` | 1042 | 0 | 15 |
 | `self_update` | `administration` | 1007 | 0 | 10 |
 | `agent_pairing` | `operations` | 997 | 0 | 0 |
 | `auth` | `identity` | 959 | 0 | 0 |

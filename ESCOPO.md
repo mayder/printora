@@ -38,6 +38,35 @@ imutáveis. Compatibilidade é orientação conservadora baseada em evidência d
 perfil, material, impressora, peso e ambiente; ausência de dado não autoriza
 afirmar que a impressão é segura ou compatível.
 
+## Digitalização 3D por fotos
+
+O Printora pode transformar múltiplas fotos de um objeto em um projeto 3D
+privado, desde que trate captura, reconstrução, qualificação da malha e revisão
+humana como etapas separadas e rastreáveis.
+
+O fluxo pertence a `Projetos de impressão > Meus projetos` e deve:
+
+- orientar ângulos, iluminação, foco, cobertura e referência de escala;
+- rejeitar captura insuficiente antes de consumir processamento caro;
+- usar fotogrametria como fonte geométrica e identificar qualquer região
+  inferida ou reparada por IA;
+- preservar fotos, engine/modelo/versão, parâmetros, medidas, checksums,
+  artefatos e decisão humana conforme retenção e privacidade;
+- qualificar manifold, watertight, escala, espessura e defeitos antes de chamar
+  uma versão de imprimível;
+- gerar snapshot imutável para download STL/3MF ou fatiamento explícito;
+- medir qualidade, erro dimensional, taxa de conclusão, tempo e custo por classe
+  de objeto em benchmark e piloto físico.
+
+Não faz parte do escopo garantir réplica metrológica, rosca, encaixe, tolerância
+ou peça de segurança apenas por fotos. A Raspberry Pi e o agente da impressora
+não executam reconstrução pesada. Publicação, cobrança, fatiamento e envio nunca
+ocorrem automaticamente por decisão de IA.
+
+A arquitetura e os gates específicos ficam em
+`docs/architecture/RECONSTRUCAO_3D_POR_FOTOS.md`; a execução foi dividida em
+`PKG-141`, `PKG-153` e `PKG-154`.
+
 ## Arquitetura real do projeto
 
 - Monorepo com backend Python/FastAPI em `backend/`.

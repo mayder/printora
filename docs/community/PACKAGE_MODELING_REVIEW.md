@@ -29,10 +29,10 @@ Cada pacote pendente foi avaliado por:
 ## Resultado
 
 - 5 pacotes concluídos e preservados;
-- 7 pacotes ativos;
+- 10 pacotes ativos;
 - 10 IDs fundidos nos ativos;
-- 6 ideias adiadas sem autorização de implementação;
-- 27 pacotes cancelados.
+- 4 ideias adiadas sem autorização de implementação;
+- 26 pacotes cancelados.
 
 O estado e a justificativa de cada ID estão em `PACKAGE_PORTFOLIO.csv`.
 
@@ -49,7 +49,10 @@ O estado e a justificativa de cada ID estão em `PACKAGE_PORTFOLIO.csv`.
 | 7 | PKG-132 | fluxo projeto até resultado de impressão |
 | 8 | PKG-133 | manutenção, diagnóstico e confiabilidade |
 | 9 | PKG-134 | frota e filas de impressão |
-| 10 | PKG-142 | integrações reais e descoberta técnica |
+| 10 | PKG-141 | captura guiada, cobertura, escala e privacidade das fotos |
+| 11 | PKG-142 | integrações reais e descoberta técnica |
+| 12 | PKG-153 | reconstrução 3D multiview rastreável e substituível |
+| 13 | PKG-154 | qualificação, reparo assistido e entrega do modelo imprimível |
 
 ## Regras De Modelagem
 
@@ -82,7 +85,9 @@ pacote não autoriza importação interna.
 - parte da documentação histórica continua descrevendo ideias canceladas;
 - funcionalidades parciais existentes podem exigir consolidação ou remoção em
   demanda futura própria;
-- câmera, IA, internacionalização, coautoria e API pública permanecem adiadas;
+- IA e visão computacional genéricas, internacionalização, coautoria e API
+  pública permanecem adiadas; captura/reconstrução por fotos está autorizada
+  somente nos limites de `PKG-141`, `PKG-153` e `PKG-154`;
 - validação física continua dependendo de impressora segura e autorização.
 
 ## Veredito

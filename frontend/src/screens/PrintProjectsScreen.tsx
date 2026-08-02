@@ -45,6 +45,7 @@ import type {
 } from "../types/printProjects";
 import type { ScreenPropsFor } from "./ScreenProps";
 import { ProjectAssetsEditor, ProjectAssetsSummary } from "./projects/ProjectAssetsPanel";
+import { PhotoCapturePanel } from "./projects/PhotoCapturePanel";
 import { SlicingProfilesPanel } from "./projects/SlicingProfilesPanel";
 
 type PrintProjectsScreenProps = ScreenPropsFor<"authUser" | "setError">;
@@ -274,6 +275,7 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
               <>
                 <ProjectDetail project={selectedProject} authUserPresent={!!authUser} saving={savingId === selectedProject.id} onSave={saveProject} setError={setError} />
                 <ProjectPublicationForm project={selectedProject} setError={setError} onChanged={(detail) => void afterProjectMutation(detail)} />
+                {myProjects.some((project) => project.id === selectedProject.id) && !selectedProject.saved_by_viewer ? <PhotoCapturePanel projectId={selectedProject.id} setError={setError} /> : null}
                 <ProjectSlicingPanel project={selectedProject} setError={setError} />
                 <ProjectFileActions project={selectedProject} setError={setError} onChanged={(detail) => void afterProjectMutation(detail)} />
               </>

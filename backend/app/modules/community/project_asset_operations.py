@@ -10,6 +10,7 @@ from app.modules.community.contracts import clean_library_file_name
 from app.modules.community.project_assets import inspect_project_asset
 from app.social_catalog import _validate_library_upload
 from app.social_storage import SocialStorageRepository
+from app.modules.community.storage_usage import personal_storage_quota, total_personal_storage_used
 
 
 class ProjectAssetOwner(Protocol):
@@ -69,7 +70,7 @@ class ProjectAssetOperations:
                     raise ValueError("projeto não encontrado")
                 return detail
             storage.ensure_upload_allowed(connection, actor_user_id, len(body))
-            if _total_storage_used(connection, actor_user_id) + len(body) > _quota(connection, actor_user_id):
+            if total_personal_storage_used(connection, actor_user_id) + len(body) > personal_storage_quota(connection, actor_user_id):
                 raise ValueError("cota de armazenamento insuficiente para este arquivo")
             stored = storage.storage.write_quarantine(checksum, Path(clean_name).suffix.lower(), body)
             display_order = int(connection.execute("SELECT COUNT(*) FROM print_project_files WHERE project_id = ?", (project_id,)).fetchone()[0])
@@ -142,29 +143,3 @@ def _clean_idempotency_key(value: str | None) -> str | None:
     if len(cleaned) > 120 or any(character in cleaned for character in "\r\n\0"):
         raise ValueError("chave de repetição inválida")
     return cleaned
-
-
-def _quota(connection, actor_user_id: int) -> int:
-    row = connection.execute(
-        "SELECT quota_bytes FROM social_file_storage_policies WHERE status = 'active' AND ((scope_type = 'user' AND scope_id = ?) OR scope_type = 'global') ORDER BY CASE scope_type WHEN 'user' THEN 0 ELSE 1 END LIMIT 1",
-        (actor_user_id,),
-    ).fetchone()
-    return int(row["quota_bytes"]) if row is not None else 1024 * 1024 * 1024
-
-
-def _total_storage_used(connection, actor_user_id: int) -> int:
-    row = connection.execute(
-        """
-        SELECT COALESCE(SUM(size_bytes), 0) AS used_bytes FROM (
-            SELECT COALESCE(lf.uploaded_size_bytes, lf.size_bytes, 0) AS size_bytes
-            FROM social_library_files lf JOIN social_library_items li ON li.id = lf.item_id
-            WHERE li.owner_user_id = ? AND li.status != 'deleted'
-            UNION ALL
-            SELECT COALESCE(pf.uploaded_size_bytes, pf.size_bytes, 0) AS size_bytes
-            FROM print_project_files pf JOIN print_projects pp ON pp.id = pf.project_id
-            WHERE pp.owner_user_id = ? AND pp.lifecycle_status != 'archived'
-        ) usage
-        """,
-        (actor_user_id, actor_user_id),
-    ).fetchone()
-    return int(row["used_bytes"] or 0)

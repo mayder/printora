@@ -55,6 +55,7 @@ BOUNDARIES = (
             "social_",
             "print_projects",
             "print_profiles",
+            "photo_capture",
             "external_library",
             "search_discovery",
         ),

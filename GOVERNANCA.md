@@ -225,6 +225,26 @@ Mitigações:
 - logs não registram URL privada, token nem payload completo do Spoolman;
 - rollback preserva spools, IDs externos, consumo e medidas confirmadas.
 
+### Digitalização 3D Por Fotos E IA
+
+Riscos: vazamento de fotos privadas, cobrança duplicada, custo sem limite,
+provider indisponível, retenção externa desconhecida, lock-in, reconstrução
+enganosa, escala incorreta e uso de malha visual como peça mecânica confiável.
+
+Mitigações:
+
+- privado e deny-by-default, isolamento de owner/organização e storage assinado;
+- remoção de EXIF desnecessário, consentimento e retenção por tipo de artefato;
+- adapter substituível, egress controlado, segredo rotacionável, quota,
+  backpressure, timeout, circuit breaker e idempotência de cobrança/job;
+- fotogrametria como fonte geométrica e toda inferência/reparo identificado;
+- escala, incerteza, relatório geométrico e aprovação humana antes da entrega;
+- nenhuma promessa metrológica, publicação, fatiamento, cobrança repetida ou
+  comando de impressora decidido apenas por IA;
+- benchmark técnico e piloto físico antes de ampliar classes de objeto;
+- flags e rollback separados para captura, provider, reparo, exportação e
+  integração com fatiamento.
+
 ### Relatórios
 
 Risco: vazar senhas, tokens, IPs ou dados privados.
@@ -273,6 +293,11 @@ Para itens de `docs/community/`, a prioridade é definida por impacto social, n�
 3. `P2`: núcleo comunitário, conhecimento, colaboração, modelos, slicing, impressão em rede e integrações;
 4. `P3`: creator economy, marketplace, logística, reputação, concursos e financiamento;
 5. `P4`: AR, IA generativa e interfaces experimentais.
+
+A classificação P4 continua válida para IA genérica ou experimental. A
+digitalização 3D aprovada em 2026-08-02 é P1 operacional porque resolve criação
+de projeto imprimível com hipótese, benchmark, limites e dependências próprios;
+isso não autoriza outras capacidades de IA.
 
 Critérios de desempate: alcance, urgência, equidade, redução de dano, dependência estrutural, evidência, custo de oportunidade e reversibilidade.
 

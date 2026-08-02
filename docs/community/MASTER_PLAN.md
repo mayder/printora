@@ -50,7 +50,10 @@ Frentes ativas:
 7. fluxo ponta a ponta de impressão;
 8. manutenção e confiabilidade;
 9. frota e filas;
-10. integrações e descoberta técnica.
+10. captura guiada de objeto por fotos;
+11. integrações e descoberta técnica;
+12. reconstrução 3D multiview;
+13. qualificação e entrega de modelo imprimível.
 
 ## Inventário Histórico
 
@@ -84,9 +87,11 @@ depende de problema comprovado e nova decisão.
 
 ## Ideias Adiadas
 
-Internacionalização, customização paramétrica, coautoria, visão computacional,
-API pública e assistência por IA permanecem registradas, mas sem autorização
-de implementação. Para reativar uma delas é obrigatório:
+Internacionalização, customização paramétrica, coautoria e API pública
+permanecem registradas, mas sem autorização de implementação. Visão
+computacional e assistência por IA também permanecem adiadas fora do fluxo
+delimitado de captura/reconstrução aprovado em `PKG-141`, `PKG-153` e `PKG-154`.
+Para reativar outra ideia é obrigatório:
 
 1. identificar usuário e problema;
 2. medir baseline;

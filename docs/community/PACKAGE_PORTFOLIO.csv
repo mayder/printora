@@ -39,7 +39,7 @@ PKG-137,cancelled,,Eventos inscrições e streaming formam outro produto.
 PKG-138,cancelled,,Feed pessoal não é objetivo do Printora.
 PKG-139,merged,PKG-142,Busca técnica essencial é incorporada às integrações e descoberta.
 PKG-140,cancelled,,Recomendação personalizada exige telemetria e vieses sem benefício proporcional.
-PKG-141,deferred,,Visão computacional exige câmera dataset e piloto de falsos positivos antes de entrar no roadmap.
+PKG-141,completed,,Captura privada guiada valida fotos cobertura escala qualidade exportação e retomada antes da reconstrução.
 PKG-142,active,,Integrações com ferramentas reais e busca técnica reduzem atrito operacional.
 PKG-143,deferred,,API pública e marketplace de extensões dependem de demanda externa.
 PKG-144,cancelled,,CRM e studio de criador fogem do núcleo.
@@ -51,6 +51,6 @@ PKG-149,cancelled,,Logística e pós-venda formam um ERP de comércio.
 PKG-150,cancelled,,Concursos e premiações não pertencem ao núcleo.
 PKG-151,cancelled,,Crowdfunding cria risco financeiro e jurídico fora do escopo.
 PKG-152,cancelled,,Plataforma científica não pertence ao produto; experimentos de perfil ficam no PKG-131.
-PKG-153,cancelled,,AR e escaneamento possuem custo alto e benefício não comprovado.
-PKG-154,deferred,,Assistência por IA só volta com hipótese mensurável e fontes técnicas organizadas.
+PKG-153,active,,Reconstrução multiview possui hipótese mensurável benchmark técnico e integração direta com projetos 3D.
+PKG-154,active,,Qualificação reparo assistido e revisão humana convertem reconstrução em artefato imprimível sem promessa dimensional indevida.
 PKG-155,cancelled,,Wearables háptica telepresença e interfaces imersivas não resolvem problema atual.

@@ -2439,6 +2439,53 @@ backend aceita agente antigo sem gerar falso alerta de coleta limpa.
 Como reverter: restaurar backend/frontend N-1 e agente N-1. Não há dado ou
 schema para remover.
 
+### DEC-20260802-01 - Digitalização por fotos separa captura, reconstrução e qualificação
+
+Status: aceita
+Data: 2026-08-02
+Contexto: o produto recebeu demanda explícita para enviar várias fotos de um
+objeto e obter um STL/3MF utilizável. O portfólio mantinha visão computacional e
+IA adiadas e escaneamento cancelado por ausência de benefício comprovado,
+hipótese mensurável e fontes técnicas. A demanda agora possui integração direta
+com projetos, inspeção 3D e fatiamento, mas qualidade visual não equivale a
+precisão dimensional ou imprimibilidade.
+
+Decisão: reativar `PKG-141`, `PKG-153` e `PKG-154` com responsabilidades
+separadas. Captura guiada valida fotos, cobertura, escala e privacidade;
+reconstrução usa job assíncrono e adapter substituível, com fotogrametria como
+fonte geométrica principal e IA explicitamente versionada; qualificação aplica
+regras determinísticas, reparos reversíveis, revisão humana e gera snapshot
+imutável para STL/3MF ou fatiamento. O agente/Raspberry não executa processamento
+pesado. Região inferida ou reparada é diferenciada de região observada. Nenhuma
+etapa publica, cobra novamente, fatia ou comanda impressora automaticamente.
+
+Alternativas consideradas: um único pacote ponta a ponta; chamar diretamente um
+provider de image-to-3D no frontend; executar Meshroom/COLMAP no agente; aceitar
+a saída visual como STL pronto; construir CAD paramétrico automático; manter a
+ideia adiada sem benchmark.
+
+Consequências: o fluxo reutiliza projeto, storage, jobs, snapshots, viewer e
+fatiamento existentes, mas adiciona fotos privadas, custo de GPU/provider,
+retenção, egress, adapters e piloto físico. Três pacotes permitem interromper a
+iniciativa após captura ou benchmark sem acoplar dívida ao fatiamento. Não será
+divulgada garantia metrológica; peças mecânicas dependem de medidas críticas,
+revisão e validação física apropriada.
+
+Impacto em testes: benchmark por classe de objeto, upload/EXIF/IDOR, captura
+mobile, escala, jobs/outbox/webhook/retry/custo, provenance, malhas problemáticas,
+reparos idempotentes, acessibilidade, download, fatiamento, impressão física,
+compatibilidade N/N-1, retenção, incidente e rollback.
+
+Impacto em rollback: cada capacidade possui flag própria. Desabilitar captura,
+adapter, reparo, exportação ou integração de fatiamento não remove projetos,
+fotos, malhas, snapshots, manifestos ou revisões existentes. Jobs iniciados
+devem terminar, cancelar ou reconciliar para estado terminal.
+
+Como reverter: voltar os três pacotes a `deferred`/`cancelled`, retirar novas
+entradas da UI e manter dados já criados privados e somente leitura até
+exportação/retensão autorizadas. Não executar `DROP`, `DELETE`, prune ou
+reprocessamento automático com nova cobrança.
+
 ### DEC-20260802-02 - Inspeção de projeto é limitada, determinística e preserva o original
 
 Status: aceita
@@ -2507,3 +2554,32 @@ fallback e mantém todas as evidências. Não remover colunas nem dados sem back
 Referências: `backend/sql/091_print_journey.sql`,
 `backend/sql/postgresql/023_print_journey.sql`,
 `docs/community/PKG_132_EVIDENCE.md`.
+
+### DEC-20260802-04 - Fotos são normalizadas sem metadados antes da promoção
+
+Status: aceita
+Data: 2026-08-02
+Contexto: fotos de celular podem conter GPS, comentários, orientação EXIF,
+payload disfarçado e resolução desproporcional. Preservar o arquivo original no
+objeto canônico aumentaria risco de privacidade e processamento.
+
+Decisão: aceitar inicialmente JPEG e PNG identificados pelo conteúdo. O backend
+decodifica, limita pixels, normaliza orientação, recodifica sem metadados e só
+então calcula o checksum e promove o objeto privado. HEIC permanece bloqueado
+até existir decoder homologado. Qualidade usa resolução, brilho e foco como
+sinais acionáveis, nunca como garantia da reconstrução. Reenvio mantém
+idempotência e a substituição de uma posição preserva a revisão anterior.
+
+Consequências: há custo controlado de CPU e pequena alteração dos bytes da foto,
+compensados pela remoção verificável de EXIF/GPS e por um artefato processável
+consistente. O manifesto exportado preserva checksum, posição, altura e escala.
+
+Impacto em testes: assinatura, imagem corrompida, limite de pixels, EXIF,
+qualidade, duplicidade, owner, exportação e responsividade.
+
+Impacto em rollback: ocultar a entrada e bloquear novas sessões. Fotos e sessões
+existentes permanecem privadas e exportáveis. Não apagar objetos ou tabelas.
+
+Referências: `backend/sql/092_photo_capture.sql`,
+`backend/sql/postgresql/024_photo_capture.sql`,
+`docs/community/PKG_141_EVIDENCE.md`.

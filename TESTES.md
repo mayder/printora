@@ -2480,3 +2480,80 @@ Aceite de 2026-07-24:
   falha do Spoolman, teclado, Axe e ausência de overflow em desktop e celular;
 - executar testes focados backend/Go/frontend, build/budget, E2E autenticado,
   validador de dependências e `./check.sh`.
+
+### PKG-141 - Captura guiada de objeto por fotos
+
+- validar criação, retomada, conclusão, cancelamento e expiração da sessão por
+  owner, incluindo negação e não enumeração entre usuários/organizações;
+- validar upload direto/repetido, checksum, idempotency key, assinatura real do
+  arquivo, limites, quota, quarentena e ausência de duplicidade após retry;
+- validar JPEG, PNG e HEIC somente quando o decoder homologado estiver presente;
+  formato não suportado falha antes de persistir artefato processável;
+- validar remoção de localização EXIF e preservação somente de metadados
+  necessários, sem foto, nome sensível ou storage key em log/erro;
+- validar fixtures controladas de foco, movimento, exposição, duplicidade,
+  resolução, orientação, cobertura e ângulos ausentes;
+- validar marcador de escala, medida conhecida, unidade e incerteza; sem escala,
+  bloquear alegação de dimensão real;
+- validar retenção de rascunho, exportação do owner e rotina de cleanup em
+  dry-run/fixture, sem exclusão física não autorizada;
+- validar UI de `Digitalizar objeto` em 320, 375, 768, 1024 e 1440 px, câmera e
+  seleção de arquivos, perda/retomada de rede, teclado, leitor de tela, zoom 400%
+  e redução de movimento;
+- executar threat model de upload, conteúdo ilegal, pessoa no quadro, EXIF,
+  abuso de quota, IDOR e storage privado;
+- fechamento exige benchmark de captura real versionado, testes backend/frontend,
+  contrato/SQL N/N-1 e `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### PKG-153 - Reconstrução 3D por múltiplas fotos
+
+- validar máquina de estados do job, tentativa, cancelamento, timeout,
+  reconciliação e terminais sem transição inválida;
+- validar outbox/worker com crash entre etapas, lease, retry seguro,
+  backpressure, quota e concorrência sem duplicar job, cobrança ou artefato;
+- validar webhook autenticado, replay, corpo excessivo, evento fora de ordem,
+  polling concorrente e resposta divergente reconciliada pela fonte;
+- validar adapter com fixtures gravadas, contrato comum, versão fixada,
+  circuit breaker e falha isolada de cada engine/provider;
+- validar egress allowlist/SSRF, URLs assinadas, rotação de segredo, logs
+  sanitizados e ausência de fotos/payload bruto em bundle de suporte;
+- validar provenance com fontes, checksums, engine, modelo/versão, parâmetros,
+  custo e regiões observadas/inferidas;
+- comparar pipeline próprio e provider elegível no mesmo benchmark, medindo
+  conclusão, cobertura, geometria/escala, duração, recurso e custo;
+- validar que Raspberry Pi e agente não recebem job pesado, fotos ou credencial
+  do provider;
+- validar UI de fila, estágios, cancelamento, erro acionável, retomada e preview
+  bruto sem percentual inventado;
+- fechamento exige testes domínio/worker/adapter/API/segurança/carga/UI,
+  canário controlado, compatibilidade N/N-1, retenção/cleanup e
+  `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+### PKG-154 - Qualificação e entrega de modelo imprimível
+
+- validar fixtures de malha manifold e non-manifold, watertight e aberta,
+  normais invertidas, componentes soltos, faces degeneradas, buracos,
+  auto-interseção, escala inválida e espessura insuficiente;
+- validar limites de CPU, memória, faces, tempo e tamanho para parser/reparo,
+  sem travar API nem aceitar arquivo parcial como aprovado;
+- validar que cada reparo gera nova revisão, parent, parâmetros, checksum e
+  diff; original e revisão anterior permanecem íntegros;
+- validar repetibilidade e reexecução idempotente de limpeza, normais,
+  fechamento controlado, remoção de componentes e decimação;
+- validar escala, medida conhecida, dimensões críticas, unidade, incerteza e
+  bloqueio de alegação mecânica sem confirmação;
+- validar mapa e alternativa textual para regiões observadas, inferidas e
+  reparadas; IA não altera artefato sem ação e aprovação humana;
+- validar snapshot imutável, manifesto, provenance, checksum, download STL/3MF
+  e job de fatiamento preso à versão aprovada;
+- validar que download não exige impressora e que fatiamento exige os mesmos
+  preflights e permissões do fluxo normal de projeto;
+- executar piloto físico controlado com instrumento identificado e registrar
+  erro por eixo, material, perfil, resultado e classes não suportadas;
+- validar opt-out, retenção, denúncia, falha do provider/reparo e rollback por
+  flags separadas sem afetar projetos ou fatiamentos comuns;
+- validar UI bruto/qualificado em desktop/mobile, acessibilidade, confirmação de
+  limitações e ausência de publicação/fatiamento/envio automáticos;
+- fechamento exige testes backend/frontend/worker/SQL/contrato/segurança,
+  benchmark físico revisado, rollback ensaiado e
+  `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.

@@ -43,18 +43,22 @@ backlog ativo.
 - PKG-133 [P0]: Manutenção, diagnóstico e confiabilidade
 - PKG-134 [P1]: Frota e filas de impressão
 - PKG-142 [P1]: Integrações e descoberta técnica
+- PKG-153 [P1]: Reconstrução 3D por múltiplas fotos
+- PKG-154 [P1]: Qualificação e entrega de modelo imprimível
 
 ## Portfólio Reavaliado
 
 Estado completo e justificativa por ID:
 `docs/community/PACKAGE_PORTFOLIO.csv`.
 
-- Concluídos e preservados: `PKG-101`, `PKG-102`, `PKG-104`, `PKG-110`, `PKG-114`, `PKG-128`, `PKG-131`, `PKG-132`.
-- Ativos: `PKG-126`, `PKG-133`, `PKG-134`, `PKG-142`.
+- Concluídos e preservados: `PKG-101`, `PKG-102`, `PKG-104`, `PKG-110`, `PKG-114`, `PKG-128`, `PKG-131`, `PKG-132`, `PKG-141`.
+- Ativos: `PKG-126`,
+  `PKG-133`, `PKG-134`, `PKG-142`,
+  `PKG-153`, `PKG-154`.
 - Fundidos em ativos: `PKG-105`, `PKG-107`, `PKG-108`, `PKG-111`,
   `PKG-113`, `PKG-121`, `PKG-125`, `PKG-127`, `PKG-129`, `PKG-139`.
 - Adiados sem autorização de implementação: `PKG-109`, `PKG-130`,
-  `PKG-135`, `PKG-141`, `PKG-143`, `PKG-154`.
+  `PKG-135`, `PKG-143`.
 - Demais IDs entre `PKG-103` e `PKG-155`: cancelados.
 
 Cancelar ou fundir um pacote futuro não remove código existente. Funcionalidade
@@ -78,7 +82,6 @@ regra, persistência, segurança ou integração multi-módulo com valor comprov
 e rollback próprio. Bug simples, texto, ajuste visual, teste ou melhoria local
 permanece demanda pequena. Se uma melhoria crescer, registrar problema,
 baseline, hipótese, dependências, risco e decisão antes de alterar o portfólio.
-
 
 ## PKG-126: Conhecimento e evidência técnica
 
@@ -312,7 +315,8 @@ Escopo incluído:
 Fora do escopo:
 
 - API pública, OAuth e marketplace de extensões;
-- busca geométrica, por foto ou IA sem demanda comprovada;
+- busca geométrica ou por foto no catálogo; digitalização de objeto pertence aos
+  pacotes `PKG-141`, `PKG-153` e `PKG-154`;
 - sincronização irrestrita de diretório local;
 - conectores genéricos para CRM, e-commerce ou rede social;
 - cópia automática de arquivo externo sem licença.
@@ -348,4 +352,200 @@ Estado atual:
 - Moonraker, OrcaSlicer, bookmark externo, busca e perfis já possuem bases
   parciais;
 - `PKG-139` foi fundido neste pacote;
-- API pública e IA permanecem adiadas.
+- API pública permanece adiada; IA de reconstrução fica isolada nos pacotes de
+  digitalização e não amplia a busca técnica.
+
+## PKG-153: Reconstrução 3D por múltiplas fotos
+
+Objetivo:
+
+Transformar uma captura aprovada em reconstrução 3D rastreável por meio de job
+assíncrono, usando fotogrametria como fonte geométrica principal e IA somente
+como capacidade explícita, versionada e substituível.
+
+Valor para o usuário:
+
+Gerar uma primeira malha do objeto real sem instalar ferramentas técnicas,
+acompanhar o processamento e entender falhas ou regiões inferidas.
+
+Prioridade: P1.
+
+Dependências:
+
+- Base consolidada: `PKG-01` a `PKG-100`.
+- Pacotes concluídos: `PKG-104`, `PKG-128`, `PKG-141`.
+- Pacotes ativos: nenhum.
+
+Escopo incluído:
+
+- contrato canônico de job, tentativa, estágio, progresso, cancelamento, erro,
+  custo e artefato de reconstrução;
+- adapter substituível para pipeline próprio de fotogrametria e para provedor
+  externo multiview homologado, sem acoplar domínio a fornecedor;
+- segmentação de fundo, estimativa de poses, reconstrução esparsa/densa,
+  superfície bruta e preview conforme capacidade do engine;
+- fila/outbox durável, worker isolado, timeout, backpressure, circuit breaker,
+  quota, retry seguro, webhook ou polling autenticado e reconciliação;
+- provenance com engine, fornecedor, modelo/versão, parâmetros, fontes,
+  checksums, tempo, custo e classificação de regiões observadas ou inferidas;
+- artefatos intermediários privados com retenção e limpeza documentadas;
+- avaliação comparativa entre pipeline próprio e serviço externo sobre o mesmo
+  benchmark antes de escolher o modo padrão.
+
+Fora do escopo:
+
+- declarar a malha bruta pronta para impressão;
+- edição CAD, parametrização, rosca ou encaixe mecânico garantido;
+- executar carga pesada na Raspberry Pi ou no agente da impressora;
+- treinar modelo fundacional próprio;
+- publicar, cobrar, fatiar ou comandar impressora automaticamente;
+- completar silenciosamente regiões não observadas sem marcar inferência.
+
+Lotes:
+
+1. **Contrato e avaliação técnica** — benchmark, critérios build-versus-buy,
+qualidade, latência, custo, privacidade e modo degradado.
+2. **Domínio e persistência** — estados, tentativas, idempotência, SQL aditivo,
+outbox, artefatos e compatibilidade N/N-1.
+3. **Orquestração** — fila, worker, quota, cancelamento, timeout, retry,
+reconciliação, correlação e observabilidade sanitizada.
+4. **Adapters** — fotogrametria própria e provedor multiview sob contrato comum,
+fixtures gravadas e falha isolada.
+5. **Preview e provenance** — progresso, malha bruta, cobertura, regiões
+inferidas, engine/versão, custo e erro acionável.
+6. **Fechamento** — segurança de upload/egress/webhook, carga, retenção,
+benchmark comparativo, canário e rollback ensaiado.
+
+Critério de aceite:
+
+- captura aprovada produz job único e rastreável, sem bloquear a API web;
+- retry, webhook duplicado, polling concorrente e reexecução idempotente não
+  duplicam cobrança, job, tentativa ou artefato canônico;
+- timeout, indisponibilidade ou quota do provedor degradam somente a
+  reconstrução e oferecem ação de retomar, trocar modo ou cancelar;
+- credencial, URL privada, foto, payload bruto e dados de outro owner não
+  aparecem em log, evento, erro público ou bundle de suporte;
+- saída registra exatamente engine/modelo/versão, parâmetros e checksums das
+  fontes; região inferida nunca é apresentada como observada;
+- cancelamento impede nova tentativa automática e preserva evidência mínima
+  conforme retenção;
+- benchmark mede cobertura, erro geométrico/escala quando aplicável, tempo,
+  taxa de conclusão e custo, sem usar apenas avaliação visual;
+- contrato, worker, adapter, segurança, carga, UI e `./check.sh` passam.
+
+Rollback:
+
+- desativar cada adapter ou todo o início de jobs por feature flag governada;
+- deixar jobs existentes em estado terminal ou reconciliação somente leitura;
+- manter fotos e artefatos canônicos privados, sem apagar dados no downgrade;
+- restaurar release N-1 compatível e reprocessar somente após ação explícita do
+  usuário, nunca automaticamente para consumir nova quota.
+
+Estado atual:
+
+- jobs, storage, objetos e infraestrutura de workers possuem bases reutilizáveis;
+- não existe contrato de reconstrução, adapter de fotogrametria ou provedor
+  multiview homologado;
+- o antigo escopo genérico de AR/escaneamento foi substituído pela demanda
+  concreta de reconstrução de objeto por fotos.
+
+## PKG-154: Qualificação e entrega de modelo imprimível
+
+Objetivo:
+
+Converter a reconstrução bruta em uma versão revisada, dimensionalmente
+explicável e tecnicamente qualificada para download STL/3MF ou entrada no fluxo
+de fatiamento, sempre com aprovação humana.
+
+Valor para o usuário:
+
+Entender se o modelo pode ser impresso, corrigir escala e defeitos comuns,
+comparar antes/depois e evitar baixar uma malha visualmente bonita porém
+inutilizável ou dimensionalmente enganosa.
+
+Prioridade: P1.
+
+Dependências:
+
+- Base consolidada: `PKG-01` a `PKG-100`.
+- Pacotes concluídos: `PKG-104`, `PKG-114`, `PKG-128`, `PKG-131`, `PKG-132`, `PKG-141`.
+- Pacotes ativos: `PKG-153`.
+
+Escopo incluído:
+
+- análise determinística de malha: manifold, watertight, normais, componentes,
+  faces degeneradas, auto-interseção, escala, bounding box, espessura e buracos;
+- reparos reversíveis e versionados: limpeza, orientação de normais, fechamento
+  controlado, remoção de componentes soltos, decimação e conversão;
+- assistência por IA limitada a sugestão ou preenchimento destacado, nunca
+  substituindo regra geométrica nem aprovação humana;
+- revisão de escala e dimensões críticas informadas pelo usuário, com erro,
+  confiança, origem da medida e comparação antes/depois;
+- visualizador com mapa de cobertura, áreas observadas/inferidas/reparadas,
+  alertas, limitações e comparação da malha bruta com a qualificada;
+- snapshot imutável do artefato aprovado, manifesto, checksum, provenance,
+  download STL/3MF e criação opcional de job de fatiamento;
+- piloto físico com objetos de referência medidos por paquímetro e registro de
+  resultado, falha, material, perfil e desvio dimensional;
+- política explícita para privacidade, retenção, custo, opt-out, revisão humana
+  e denúncia de resultado inadequado.
+
+Fora do escopo:
+
+- garantir réplica metrológica, peça mecânica funcional, encaixe, rosca ou
+  tolerância sem validação física e CAD apropriado;
+- ocultar, suavizar ou completar defeito silenciosamente;
+- publicar modelo, iniciar fatiamento ou enviar à impressora sem aprovação;
+- edição CAD universal no navegador;
+- usar feedback privado para treinamento sem consentimento separado.
+
+Lotes:
+
+1. **Qualidade e tolerância** — invariantes, relatório, benchmark, classes de
+uso e linguagem sem promessa indevida.
+2. **Pipeline de reparo** — operações determinísticas, reversibilidade,
+manifesto, idempotência e limites de recurso.
+3. **Revisão métrica** — escala, dimensão conhecida, medidas críticas,
+incerteza e bloqueios para uso mecânico.
+4. **Assistência e revisão humana** — sugestões, regiões inferidas, comparação,
+aceite, rejeição, opt-out e acessibilidade.
+5. **Entrega no projeto** — snapshot, STL/3MF, checksum, download, fatiamento,
+preflight e histórico sem publicação automática.
+6. **Piloto e fechamento** — impressão física de benchmark, comparação com
+paquímetro, custo/SLO, segurança, regressão, documentação e rollback ensaiado.
+
+Critério de aceite:
+
+- relatório bloqueia como não qualificada toda malha que viole invariantes
+  configurados e explica a recuperação possível;
+- operação de reparo é reprodutível, limitada e gera nova versão; original e
+  versões anteriores permanecem disponíveis sem sobrescrita;
+- retry e reexecução idempotente não duplicam reparo, snapshot, cobrança,
+  download ou job de fatiamento;
+- visualizador diferencia sem ambiguidade regiões observadas, inferidas e
+  reparadas, inclusive por alternativa textual acessível;
+- ausência ou incerteza de escala impede alegação de dimensão real e exige
+  confirmação antes de exportar para finalidade mecânica;
+- STL/3MF aprovado possui manifesto, checksum, unidade e vínculo com captura,
+  reconstrução, engine e revisão humana;
+- falha do reparo ou IA não altera a malha bruta nem bloqueia projetos,
+  uploads, downloads ou fatiamentos não relacionados;
+- piloto registra erro dimensional por eixo, taxa de sucesso de reconstrução,
+  tempo, custo, falhas e classes de objeto não suportadas;
+- backend, frontend, worker, SQL, contrato, segurança, benchmark físico e
+  `./check.sh` passam.
+
+Rollback:
+
+- desativar reparo assistido, exportação ou entrada no fatiamento separadamente;
+- manter snapshots já aprovados e seus manifestos legíveis em N-1;
+- voltar ao download somente da malha bruta com alerta, sem promover seu estado;
+- nunca apagar fotos, malhas, versões ou evidência de revisão durante rollback.
+
+Estado atual:
+
+- análise STL, viewer, snapshots, download e fatiamento possuem bases parciais;
+- não existe qualificação específica de malha reconstruída, mapa de inferência,
+  revisão dimensional ou piloto físico definido;
+- a assistência por IA deixa de ser genérica e fica restrita a este fluxo,
+  conforme `docs/architecture/RECONSTRUCAO_3D_POR_FOTOS.md`.

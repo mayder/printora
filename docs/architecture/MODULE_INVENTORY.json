@@ -35,6 +35,7 @@
         "social_",
         "print_projects",
         "print_profiles",
+        "photo_capture",
         "external_library",
         "search_discovery"
       ]
@@ -113,15 +114,15 @@
     }
   ],
   "summary": {
-    "modules": 198,
-    "routes": 411,
-    "contracts": 422,
-    "tables": 165,
+    "modules": 204,
+    "routes": 419,
+    "contracts": 426,
+    "tables": 167,
     "cycles": 0,
     "modules_by_owner": {
       "accessibility": 7,
       "administration": 31,
-      "community": 32,
+      "community": 38,
       "design_system": 5,
       "finance": 13,
       "identity": 14,
@@ -1027,7 +1028,7 @@
     {
       "module": "modules.community.api",
       "owner": "community",
-      "lines": 32,
+      "lines": 34,
       "imports": [
         "modules.assembly",
         "routes"
@@ -1126,6 +1127,52 @@
       ]
     },
     {
+      "module": "modules.community.photo_capture",
+      "owner": "community",
+      "lines": 225,
+      "imports": [
+        "database",
+        "modules.community.photo_capture_contracts",
+        "modules.community.photo_image",
+        "modules.community.storage_usage",
+        "social_storage"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.community.photo_capture_contracts",
+      "owner": "community",
+      "lines": 64,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "PhotoCaptureCreate",
+        "PhotoCaptureScaleUpdate",
+        "PhotoCapturePhoto",
+        "PhotoCaptureSession"
+      ]
+    },
+    {
+      "module": "modules.community.photo_capture_exports",
+      "owner": "community",
+      "lines": 86,
+      "imports": [
+        "database",
+        "object_storage"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.community.photo_image",
+      "owner": "community",
+      "lines": 67,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "modules.community.ports",
       "owner": "community",
       "lines": 33,
@@ -1151,11 +1198,12 @@
     {
       "module": "modules.community.project_asset_operations",
       "owner": "community",
-      "lines": 170,
+      "lines": 145,
       "imports": [
         "database",
         "modules.community.contracts",
         "modules.community.project_assets",
+        "modules.community.storage_usage",
         "social_catalog",
         "social_storage"
       ],
@@ -1168,6 +1216,14 @@
       "module": "modules.community.project_assets",
       "owner": "community",
       "lines": 210,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.community.storage_usage",
+      "owner": "community",
+      "lines": 44,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -2104,13 +2160,13 @@
     {
       "module": "print_projects",
       "owner": "community",
-      "lines": 1048,
+      "lines": 1042,
       "imports": [
         "database",
         "modules.community.contracts",
         "modules.community.project_asset_operations",
-        "platform_access",
-        "social_storage"
+        "modules.community.storage_usage",
+        "platform_access"
       ],
       "routes": [],
       "contracts": [
@@ -3226,6 +3282,62 @@
           "method": "POST",
           "path": "/api/printers/{printer_id}/operation/actions/execute-direct",
           "handler": "execute_direct_printer_operation_action"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "routes.photo_capture",
+      "owner": "community",
+      "lines": 146,
+      "imports": [
+        "config",
+        "modules.community.photo_capture",
+        "modules.community.photo_capture_contracts",
+        "modules.community.photo_capture_exports",
+        "routes.auth",
+        "upload_stream"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "",
+          "handler": "list_photo_captures"
+        },
+        {
+          "method": "POST",
+          "path": "",
+          "handler": "create_photo_capture"
+        },
+        {
+          "method": "GET",
+          "path": "/{session_id}",
+          "handler": "get_photo_capture"
+        },
+        {
+          "method": "GET",
+          "path": "/{session_id}/export",
+          "handler": "export_photo_capture"
+        },
+        {
+          "method": "POST",
+          "path": "/{session_id}/photos",
+          "handler": "upload_capture_photo"
+        },
+        {
+          "method": "PUT",
+          "path": "/{session_id}/scale",
+          "handler": "update_capture_scale"
+        },
+        {
+          "method": "POST",
+          "path": "/{session_id}/complete",
+          "handler": "complete_photo_capture"
+        },
+        {
+          "method": "POST",
+          "path": "/{session_id}/cancel",
+          "handler": "cancel_photo_capture"
         }
       ],
       "contracts": []
@@ -5825,6 +5937,16 @@
       "table": "slicing_profile_revisions",
       "owner": "operations",
       "script": "090_slicing_profile_bundles.sql"
+    },
+    {
+      "table": "photo_capture_sessions",
+      "owner": "community",
+      "script": "092_photo_capture.sql"
+    },
+    {
+      "table": "photo_capture_photos",
+      "owner": "community",
+      "script": "092_photo_capture.sql"
     }
   ]
 }

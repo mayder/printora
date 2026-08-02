@@ -3,3 +3,5 @@ PKG-126,technical_knowledge,community,operations|integrations,community,high,PKG
 PKG-133,reliability,operations,community|integrations,operations,critical,PKG-104|PKG-114|PKG-132
 PKG-134,fleet,operations,community|administration,operations,critical,PKG-104|PKG-114|PKG-132|PKG-133
 PKG-142,ecosystem,integrations,community|operations,integrations,high,PKG-104|PKG-114|PKG-128|PKG-131|PKG-132
+PKG-153,photo_reconstruction,operations,community|integrations,projects,critical,PKG-104|PKG-128|PKG-141
+PKG-154,printable_reconstruction,operations,community|integrations,projects,critical,PKG-104|PKG-114|PKG-128|PKG-131|PKG-132|PKG-141|PKG-153

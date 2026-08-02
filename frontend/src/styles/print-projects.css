@@ -671,6 +671,51 @@
   padding: 10px;
 }
 
+.photo-capture-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-color) 94%, var(--accent-color) 6%);
+}
+
+.photo-capture-heading,
+.photo-capture-note,
+.photo-capture-scale {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.photo-capture-heading h4,
+.photo-capture-heading p { margin: 0; }
+.photo-capture-heading p { color: var(--text-muted); }
+.photo-capture-preparation,
+.photo-capture-actions { margin: 0; padding-left: 22px; }
+.photo-capture-note { color: var(--text-muted); }
+.photo-capture-consent { display: flex; gap: 10px; align-items: flex-start; }
+.photo-capture-panel progress { width: 100%; height: 12px; }
+.photo-capture-band { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.photo-capture-band button { min-height: 44px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; background: color-mix(in srgb, var(--surface-color) 90%, var(--accent-color) 10%); color: inherit; }
+.photo-capture-band button.active { border-color: var(--accent-color); background: color-mix(in srgb, var(--surface-color) 76%, var(--accent-color) 24%); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color) 22%, transparent); }
+.photo-capture-upload { min-height: 70px; display: flex; align-items: center; justify-content: center; gap: 10px; border: 2px dashed var(--border-color); border-radius: 14px; cursor: pointer; }
+.photo-capture-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.photo-capture-review { padding: 12px; border-radius: 12px; background: var(--warning-surface, rgba(245, 158, 11, 0.12)); }
+.photo-capture-review p { margin: 6px 0 0; }
+.photo-capture-review-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.photo-capture-review-row label { position: relative; white-space: nowrap; }
+.photo-capture-review-row input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.photo-capture-scale { flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--border-color); }
+.photo-capture-scale label { display: grid; gap: 5px; min-width: 160px; flex: 1; }
+.photo-capture-panel button:disabled { cursor: not-allowed; opacity: 0.48; }
+
+@media (max-width: 520px) {
+  .photo-capture-band { grid-template-columns: 1fr; }
+  .photo-capture-scale { display: grid; }
+  .photo-capture-review-row { align-items: stretch; flex-direction: column; }
+}
+
 .print-project-history-row > div:first-child {
   display: grid;
   gap: 4px;
