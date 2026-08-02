@@ -1,5 +1,4 @@
 package_id,domain_key,primary_backend_owner,backend_collaborators,frontend_area,risk_profile,dependencies
-PKG-114,materials_quality,operations,community|integrations,operations,high,PKG-104
 PKG-126,technical_knowledge,community,operations|integrations,community,high,PKG-104|PKG-114
 PKG-128,project_assets,community,operations|integrations,projects,critical,PKG-104|PKG-114
 PKG-131,slicing_profiles,operations,community|integrations,operations,critical,PKG-104|PKG-114|PKG-128

@@ -4,10 +4,10 @@
 
 ## Resumo
 
-- módulos Python: 188;
-- endpoints HTTP/WebSocket: 390;
-- contratos tipados: 405;
-- tabelas declaradas em SQL: 160;
+- módulos Python: 193;
+- endpoints HTTP/WebSocket: 401;
+- contratos tipados: 415;
+- tabelas declaradas em SQL: 163;
 - ciclos de import detectados: 0.
 
 ## Fronteiras E Owners
@@ -19,7 +19,7 @@
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 14 | 9 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 29 | 46 |
 | `finance` | Finanças e pedidos | Ledger, pedidos, pagamentos, reconciliação, risco e repasses. | 13 | 20 |
-| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 60 | 44 |
+| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 65 | 47 |
 | `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 31 | 40 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 7 | 0 |
 | `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 22 | 0 |
@@ -49,7 +49,7 @@
 | `agent_support` | `operations` | 663 | 0 | 5 |
 | `setup_wizard` | `operations` | 643 | 0 | 7 |
 | `printers` | `operations` | 635 | 0 | 3 |
-| `database` | `shared` | 594 | 0 | 0 |
+| `database` | `shared` | 597 | 0 | 0 |
 | `gcode_files` | `operations` | 574 | 0 | 11 |
 | `social_moderation` | `community` | 567 | 0 | 8 |
 | `health` | `administration` | 547 | 0 | 0 |
@@ -61,6 +61,7 @@
 | `updates` | `administration` | 465 | 0 | 8 |
 | `backups` | `administration` | 431 | 0 | 0 |
 | `print_delivery` | `operations` | 413 | 0 | 3 |
+| `modules.operations.materials.repository` | `operations` | 405 | 0 | 0 |
 | `install_diagnostics` | `administration` | 403 | 0 | 2 |
 | `modules.community.library_contracts` | `community` | 401 | 0 | 17 |
 | `print_profiles` | `community` | 400 | 0 | 5 |

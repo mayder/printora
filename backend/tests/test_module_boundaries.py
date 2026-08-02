@@ -45,6 +45,8 @@ def test_generated_module_inventory_is_current_and_acyclic() -> None:
     assert payload["summary"]["routes"] >= 300
     assert payload["summary"]["tables"] >= 100
     assert all(row["owner"] for row in payload["modules"])
+    material_tables = [row for row in payload["tables"] if str(row["table"]).startswith("material_")]
+    assert material_tables and all(row["owner"] == "operations" for row in material_tables)
 
 
 def test_versioned_http_and_realtime_contracts_are_current() -> None:
@@ -86,7 +88,7 @@ def test_module_registry_has_unique_versioned_owners_and_router_order() -> None:
     assert all(definition.owner for definition in definitions)
     assert all(definition.contract_version == "1.0.0" for definition in definitions)
     orders = [registration.order for definition in definitions for registration in definition.routers]
-    assert len(orders) == 37
+    assert len(orders) == 38
     assert len(orders) == len(set(orders))
     assert list(module_routers())[-1] is frontend.router
 

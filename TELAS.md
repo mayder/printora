@@ -35,7 +35,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 - Estado, efeitos e orquestracao de API ficam em hooks por dominio em `frontend/src/hooks/domains`; `frontend/src/hooks/usePrintoraApp.ts` apenas compoe shell, contexto e dominios.
 - Chamadas HTTP ficam isoladas por dominio em `frontend/src/services`.
 - Componentes reutilizados ficam em `frontend/src/components`.
-- O menu lateral principal mostra somente telas globais, que nao dependem de uma impressora selecionada: `overview`, `onboarding`, `printers`, `agents`, `projects`, `social`, `catalog`, `setup` e `settings`.
+- O menu lateral principal mostra somente telas globais, que nao dependem de uma impressora selecionada: `overview`, `onboarding`, `printers`, `agents`, `projects`, `materials`, `social`, `catalog`, `setup` e `settings`.
 - Telas operacionais de impressora nao aparecem no menu lateral; elas ficam como abas internas de `printer-detail`, aberto a partir da lista de impressoras.
 - O seletor de impressora da topbar e o rodape lateral sao apenas contexto rapido. Eles nao definem a arquitetura de navegacao nem tornam o menu dependente de impressora; abrir o detalhe de uma impressora nao deve trocar esse contexto rapido.
 - A topbar e fixa/sticky e deve conter apenas controles globais: titulo da area atual, alertas da frota, Sobre, tema claro/escuro e conta do usuario no extremo direito.
@@ -57,6 +57,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Detalhe da impressora | `printer-detail` | Estado interno da SPA | `frontend/src/screens/PrinterDetailScreen.tsx` | Registro operacional da impressora com acao de voltar para a lista e abas de resumo, operacao, updates, calibracao, firmware, manutencao, diagnostico e agentes; cabecalho e contexto usam sempre o registro aberto, mesmo quando a preferencia global aponta para outra impressora | Exige registro de impressora aberto | existente |
 | Agentes | `agents` | `/?section=agents`, `/#agents` | `frontend/src/screens/AgentsScreen.tsx` | Lista de todos os agentes da frota, sem operacoes de impressora no menu global | Nao exige impressora ativa | existente |
 | Projetos de impressão | `projects` | `/?section=projects`, `/#projects` | `frontend/src/screens/PrintProjectsScreen.tsx` | Explorar, salvar, referenciar, publicar, fatiar e enviar projetos com um ou vários arquivos STL/3MF/ZIP/link externo a partir da biblioteca pessoal do usuário | Nao exige impressora ativa; fatiamento/envio exige impressora escolhida no fluxo | inicial |
+| Materiais | `materials` | `/?section=materials`, `/#materials` | `frontend/src/screens/materials/MaterialsScreen.tsx` + componentes de lista, detalhe e formulário | Cadastrar spools locais, sincronizar leitura do Spoolman, conferir disponibilidade/compatibilidade e registrar consumo e medidas sem alterar o inventário canônico externo | Nao exige impressora ativa; sincronização e conferência usam impressora escolhida no próprio fluxo | existente |
 | Detalhe do agente | `agent-detail` | Estado interno da SPA | `frontend/src/screens/AgentDetailScreen.tsx` | Registro de agente com acao explicita de voltar para a lista, impressora vinculada, dispositivo/host, versao, saude, fila, doctor remoto, suporte e credencial | Exige agente aberto | existente |
 | Social | `social` | `/?section=social`, `/#social` | `frontend/src/screens/SocialScreen.tsx` | Descoberta pública de makers, impressoras públicas, comunidades automáticas e relações sociais | Nao exige impressora ativa | existente |
 | Catálogo | `catalog` | `/?section=catalog`, `/#catalog` | `frontend/src/screens/CatalogAdminScreen.tsx` | Curadoria administrativa do catálogo mestre de fabricantes, modelos, variantes e componentes | Nao exige impressora ativa; edição exige administrador | existente |
@@ -108,6 +109,7 @@ quando a ação não é permitida.
 |---|---|---|
 | Shell/navegacao | `frontend/src/hooks/domains/useAppShell.ts` | Nao acessa API |
 | Primeiros passos | Tela autocontida `frontend/src/screens/OnboardingScreen.tsx` | `frontend/src/services/onboardingProgress.ts`, que apenas agrega leituras existentes e progresso local sem credenciais |
+| Materiais | Tela orquestradora `frontend/src/screens/materials/MaterialsScreen.tsx` | `frontend/src/services/materialsApi.ts`; regra de compatibilidade, consumo e qualidade permanece no backend |
 | Impressoras | `frontend/src/hooks/domains/usePrinters.ts` | `frontend/src/services/printerApi.ts` |
 | Setup | `frontend/src/hooks/domains/useSetup.ts` | `frontend/src/services/setupApi.ts` |
 | Operacao | `frontend/src/hooks/domains/useOperation.ts` | `frontend/src/services/operationApi.ts` |

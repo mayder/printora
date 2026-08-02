@@ -2401,3 +2401,30 @@ Aceite de 2026-07-24:
   de comando;
 - executar testes focados, regressão Python/Go/frontend, build/budget,
   auditoria de segurança sobre o estado final e `./check.sh`.
+
+## PKG-114: Materiais, spools e qualidade básica
+
+- aplicar e reaplicar os scripts SQLite e PostgreSQL, validar tabelas, índices,
+  constraints, triggers imutáveis e registro de versão sem perda de dados;
+- provar CRUD local owner-scoped, revisão otimista, arquivamento lógico e
+  rejeição de leitura ou mutação por outro usuário;
+- importar a mesma resposta do Spoolman repetidamente sem duplicar spool e
+  impedir edição do cache canônico pelo Printora;
+- confirmar que falha do agente, Moonraker ou Spoolman devolve estado
+  acionável e preserva integralmente os spools locais;
+- registrar consumo planejado sem reduzir peso e consumo confirmado com
+  redução atômica exatamente uma vez; repetir chave idempotente idêntica deve
+  retornar o mesmo evento e payload divergente deve conflitar;
+- bloquear consumo maior que o disponível e preservar ledger/peso na falha;
+- validar compatibilidade `unknown`, `incompatible` e `compatible` com perfil,
+  material, impressora, peso e ventilação, sem regra de negócio no frontend;
+- registrar medida nominal, real e tolerância e derivar resultado de forma
+  determinística; histórico confirmado permanece imutável;
+- validar alertas de peso, armazenamento, secagem, ventilação, validade e
+  descarte com linguagem acionável e sem promessa física indevida;
+- validar job read-only do agente por `/server/spoolman/status` e
+  `/server/spoolman/proxy`, sem cloud conectar diretamente à rede privada;
+- validar lista, vazio, criação/edição separadas, detalhe, consumo, qualidade,
+  falha do Spoolman, teclado, Axe e ausência de overflow em desktop e celular;
+- executar testes focados backend/Go/frontend, build/budget, E2E autenticado,
+  validador de dependências e `./check.sh`.

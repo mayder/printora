@@ -74,6 +74,8 @@ func (c *MoonrakerClient) RemotePayload(ctx context.Context, jobType string) map
 		return sanitizeMap(c.CalibrationCapabilities(ctx))
 	case "remote_firmware_inventory":
 		return sanitizeMap(c.FirmwareInventory(ctx))
+	case "remote_spoolman_inventory":
+		return sanitizeMap(c.SpoolmanInventory(ctx))
 	case "remote_audit":
 		return sanitizeMap(map[string]any{
 			"safe_mode": "read_only",

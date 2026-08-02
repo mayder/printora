@@ -209,6 +209,22 @@ Mitigações:
 - exclusão física apenas após aceite explícito do relatório de integridade;
 - restore validado antes de qualquer exclusão.
 
+### Materiais E Spoolman
+
+Risco: afirmar compatibilidade indevida, consumir peso duas vezes ou transformar
+o cloud em segunda autoridade do inventário externo.
+
+Mitigações:
+
+- Spoolman permanece canônico e é consultado somente pelo agente pareado via
+  proxy read-only do Moonraker;
+- cache externo é owner-scoped, idempotente e não editável no Printora;
+- consumo confirmado usa ledger imutável, chave idempotente e redução atômica;
+- planejamento nunca reduz peso e insuficiência falha sem alterar inventário;
+- compatibilidade é conservadora e ausência de evidência não produz aprovação;
+- logs não registram URL privada, token nem payload completo do Spoolman;
+- rollback preserva spools, IDs externos, consumo e medidas confirmadas.
+
 ### Relatórios
 
 Risco: vazar senhas, tokens, IPs ou dados privados.

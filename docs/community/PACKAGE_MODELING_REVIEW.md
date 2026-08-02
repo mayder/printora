@@ -28,8 +28,8 @@ Cada pacote pendente foi avaliado por:
 
 ## Resultado
 
-- 4 pacotes concluídos e preservados;
-- 8 pacotes ativos;
+- 5 pacotes concluídos e preservados;
+- 7 pacotes ativos;
 - 10 IDs fundidos nos ativos;
 - 6 ideias adiadas sem autorização de implementação;
 - 27 pacotes cancelados.
@@ -77,8 +77,8 @@ pacote não autoriza importação interna.
 
 ## Riscos Residuais
 
-- os pacotes ativos ainda precisam de auditoria de lacunas antes do código; o
-  onboarding operacional já foi concluído com evidência própria;
+- os pacotes ativos ainda precisam de auditoria de lacunas antes do código;
+  onboarding e materiais já foram concluídos com evidência própria;
 - parte da documentação histórica continua descrevendo ideias canceladas;
 - funcionalidades parciais existentes podem exigir consolidação ou remoção em
   demanda futura própria;

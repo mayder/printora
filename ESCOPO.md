@@ -25,6 +25,19 @@ O norte é aumentar:
 O inventário amplo em `docs/community/` é histórico de ideias. Somente
 `DEMANDAS.md` e `PACKAGE_PORTFOLIO.csv` autorizam execução.
 
+## Materiais e spools
+
+O Printora oferece inventário simples para pessoas sem Spoolman e integração
+read-only quando essa ferramenta já é usada. O Spoolman permanece canônico; o
+cloud consulta seu estado somente pelo agente pareado e pelo proxy do
+Moonraker, sem conexão direta à rede privada.
+
+Spools locais podem registrar identidade, tipo, marca, cor, lote, peso e local
+de armazenamento. Consumo confirmado e medidas físicas formam históricos
+imutáveis. Compatibilidade é orientação conservadora baseada em evidência de
+perfil, material, impressora, peso e ambiente; ausência de dado não autoriza
+afirmar que a impressão é segura ou compatível.
+
 ## Arquitetura real do projeto
 
 - Monorepo com backend Python/FastAPI em `backend/`.

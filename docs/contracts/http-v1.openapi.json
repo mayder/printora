@@ -5848,6 +5848,120 @@
         "title": "CommunityPostUpdate",
         "type": "object"
       },
+      "CompatibilityRequest": {
+        "properties": {
+          "material_profile_id": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Profile Id"
+          },
+          "printer_id": {
+            "minimum": 1.0,
+            "title": "Printer Id",
+            "type": "integer"
+          },
+          "required_weight_g": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Weight G"
+          },
+          "spool_id": {
+            "minimum": 1.0,
+            "title": "Spool Id",
+            "type": "integer"
+          },
+          "ventilation_confirmed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ventilation Confirmed"
+          }
+        },
+        "required": [
+          "spool_id",
+          "printer_id"
+        ],
+        "title": "CompatibilityRequest",
+        "type": "object"
+      },
+      "CompatibilityResult": {
+        "properties": {
+          "available_weight_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Weight G"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "required_weight_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Weight G"
+          },
+          "status": {
+            "enum": [
+              "compatible",
+              "incompatible",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "reasons",
+          "warnings",
+          "available_weight_g",
+          "required_weight_g"
+        ],
+        "title": "CompatibilityResult",
+        "type": "object"
+      },
       "ComplianceControlRequest": {
         "properties": {
           "evidence_reference": {
@@ -6107,6 +6221,93 @@
           "detail"
         ],
         "title": "ConnectionCheckResult",
+        "type": "object"
+      },
+      "ConsumptionPayload": {
+        "properties": {
+          "actual_weight_g": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Weight G"
+          },
+          "idempotency_key": {
+            "maxLength": 160,
+            "minLength": 8,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Note",
+            "type": "string"
+          },
+          "predicted_weight_g": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predicted Weight G"
+          },
+          "print_history_id": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Print History Id"
+          },
+          "slicing_job_id": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slicing Job Id"
+          },
+          "spool_id": {
+            "minimum": 1.0,
+            "title": "Spool Id",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "planned",
+              "confirmed",
+              "released"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spool_id",
+          "idempotency_key",
+          "status"
+        ],
+        "title": "ConsumptionPayload",
         "type": "object"
       },
       "ContentFollowPayload": {
@@ -12085,6 +12286,175 @@
         "title": "MaintenanceTaskRecord",
         "type": "object"
       },
+      "MaterialAlert": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "warning"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "severity",
+          "title",
+          "detail",
+          "action"
+        ],
+        "title": "MaterialAlert",
+        "type": "object"
+      },
+      "MaterialConsumption": {
+        "properties": {
+          "actual_weight_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Weight G"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "owner_user_id": {
+            "title": "Owner User Id",
+            "type": "integer"
+          },
+          "predicted_weight_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predicted Weight G"
+          },
+          "print_history_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Print History Id"
+          },
+          "released_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Released At"
+          },
+          "remaining_weight_after_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Weight After G"
+          },
+          "slicing_job_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slicing Job Id"
+          },
+          "spool_id": {
+            "title": "Spool Id",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "planned",
+              "confirmed",
+              "released"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "owner_user_id",
+          "spool_id",
+          "slicing_job_id",
+          "print_history_id",
+          "idempotency_key",
+          "predicted_weight_g",
+          "actual_weight_g",
+          "status",
+          "remaining_weight_after_g",
+          "note",
+          "created_at",
+          "confirmed_at",
+          "released_at"
+        ],
+        "title": "MaterialConsumption",
+        "type": "object"
+      },
       "MaterialProfile": {
         "properties": {
           "bed_temperature_c": {
@@ -12521,6 +12891,314 @@
           "material_type"
         ],
         "title": "MaterialProfilePayload",
+        "type": "object"
+      },
+      "MaterialQualitySample": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "deviation_mm": {
+            "title": "Deviation Mm",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "measured_value_mm": {
+            "title": "Measured Value Mm",
+            "type": "number"
+          },
+          "metric_name": {
+            "title": "Metric Name",
+            "type": "string"
+          },
+          "nominal_value_mm": {
+            "title": "Nominal Value Mm",
+            "type": "number"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "owner_user_id": {
+            "title": "Owner User Id",
+            "type": "integer"
+          },
+          "photo_object_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Object Id"
+          },
+          "print_history_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Print History Id"
+          },
+          "result": {
+            "enum": [
+              "passed",
+              "failed"
+            ],
+            "title": "Result",
+            "type": "string"
+          },
+          "sample_type": {
+            "enum": [
+              "dimensional",
+              "calibration"
+            ],
+            "title": "Sample Type",
+            "type": "string"
+          },
+          "spool_id": {
+            "title": "Spool Id",
+            "type": "integer"
+          },
+          "tolerance_mm": {
+            "title": "Tolerance Mm",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "owner_user_id",
+          "spool_id",
+          "print_history_id",
+          "sample_type",
+          "metric_name",
+          "nominal_value_mm",
+          "measured_value_mm",
+          "tolerance_mm",
+          "deviation_mm",
+          "result",
+          "photo_object_id",
+          "note",
+          "created_at"
+        ],
+        "title": "MaterialQualitySample",
+        "type": "object"
+      },
+      "MaterialSpool": {
+        "properties": {
+          "alerts": {
+            "items": {
+              "$ref": "#/components/schemas/MaterialAlert"
+            },
+            "title": "Alerts",
+            "type": "array"
+          },
+          "brand": {
+            "title": "Brand",
+            "type": "string"
+          },
+          "color_hex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color Hex"
+          },
+          "color_name": {
+            "title": "Color Name",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "dried_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dried At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "initial_weight_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initial Weight G"
+          },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
+          },
+          "location": {
+            "title": "Location",
+            "type": "string"
+          },
+          "lot_code": {
+            "title": "Lot Code",
+            "type": "string"
+          },
+          "material_profile_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Profile Id"
+          },
+          "material_type": {
+            "title": "Material Type",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "opened_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opened At"
+          },
+          "owner_user_id": {
+            "title": "Owner User Id",
+            "type": "integer"
+          },
+          "remaining_weight_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Weight G"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "local",
+              "spoolman"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "storage_state": {
+            "enum": [
+              "unknown",
+              "sealed",
+              "open",
+              "drying",
+              "dry"
+            ],
+            "title": "Storage State",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "owner_user_id",
+          "material_profile_id",
+          "source",
+          "external_id",
+          "name",
+          "material_type",
+          "brand",
+          "color_name",
+          "color_hex",
+          "lot_code",
+          "initial_weight_g",
+          "remaining_weight_g",
+          "location",
+          "storage_state",
+          "opened_at",
+          "dried_at",
+          "expires_at",
+          "revision",
+          "status",
+          "last_synced_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MaterialSpool",
         "type": "object"
       },
       "MfaCodeRequest": {
@@ -17657,6 +18335,87 @@
           "evidence_object_key"
         ],
         "title": "QualityRequest",
+        "type": "object"
+      },
+      "QualitySamplePayload": {
+        "properties": {
+          "measured_value_mm": {
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Measured Value Mm",
+            "type": "number"
+          },
+          "metric_name": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Metric Name",
+            "type": "string"
+          },
+          "nominal_value_mm": {
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Nominal Value Mm",
+            "type": "number"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Note",
+            "type": "string"
+          },
+          "photo_object_id": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Object Id"
+          },
+          "print_history_id": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Print History Id"
+          },
+          "sample_type": {
+            "enum": [
+              "dimensional",
+              "calibration"
+            ],
+            "title": "Sample Type",
+            "type": "string"
+          },
+          "spool_id": {
+            "minimum": 1.0,
+            "title": "Spool Id",
+            "type": "integer"
+          },
+          "tolerance_mm": {
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Tolerance Mm",
+            "type": "number"
+          }
+        },
+        "required": [
+          "spool_id",
+          "sample_type",
+          "metric_name",
+          "nominal_value_mm",
+          "measured_value_mm",
+          "tolerance_mm"
+        ],
+        "title": "QualitySamplePayload",
         "type": "object"
       },
       "QuoteRequest": {
@@ -23046,6 +23805,342 @@
           "active_signals"
         ],
         "title": "SocialSafetyStatus",
+        "type": "object"
+      },
+      "SpoolPayload": {
+        "properties": {
+          "brand": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Brand",
+            "type": "string"
+          },
+          "color_hex": {
+            "anyOf": [
+              {
+                "maxLength": 7,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color Hex"
+          },
+          "color_name": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Color Name",
+            "type": "string"
+          },
+          "dried_at": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dried At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "initial_weight_g": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initial Weight G"
+          },
+          "location": {
+            "default": "",
+            "maxLength": 160,
+            "title": "Location",
+            "type": "string"
+          },
+          "lot_code": {
+            "default": "",
+            "maxLength": 100,
+            "title": "Lot Code",
+            "type": "string"
+          },
+          "material_profile_id": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Profile Id"
+          },
+          "material_type": {
+            "maxLength": 40,
+            "minLength": 2,
+            "title": "Material Type",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "opened_at": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opened At"
+          },
+          "remaining_weight_g": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Weight G"
+          },
+          "storage_state": {
+            "default": "unknown",
+            "enum": [
+              "unknown",
+              "sealed",
+              "open",
+              "drying",
+              "dry"
+            ],
+            "title": "Storage State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "material_type"
+        ],
+        "title": "SpoolPayload",
+        "type": "object"
+      },
+      "SpoolUpdatePayload": {
+        "properties": {
+          "brand": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Brand",
+            "type": "string"
+          },
+          "color_hex": {
+            "anyOf": [
+              {
+                "maxLength": 7,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color Hex"
+          },
+          "color_name": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Color Name",
+            "type": "string"
+          },
+          "dried_at": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dried At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "initial_weight_g": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initial Weight G"
+          },
+          "location": {
+            "default": "",
+            "maxLength": 160,
+            "title": "Location",
+            "type": "string"
+          },
+          "lot_code": {
+            "default": "",
+            "maxLength": 100,
+            "title": "Lot Code",
+            "type": "string"
+          },
+          "material_profile_id": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Profile Id"
+          },
+          "material_type": {
+            "maxLength": 40,
+            "minLength": 2,
+            "title": "Material Type",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "opened_at": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opened At"
+          },
+          "remaining_weight_g": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Weight G"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "storage_state": {
+            "default": "unknown",
+            "enum": [
+              "unknown",
+              "sealed",
+              "open",
+              "drying",
+              "dry"
+            ],
+            "title": "Storage State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "material_type",
+          "revision"
+        ],
+        "title": "SpoolUpdatePayload",
+        "type": "object"
+      },
+      "SpoolmanSyncResult": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "imported": {
+            "default": 0,
+            "title": "Imported",
+            "type": "integer"
+          },
+          "printer_id": {
+            "title": "Printer Id",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "synced",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "updated": {
+            "default": 0,
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "printer_id",
+          "status",
+          "detail"
+        ],
+        "title": "SpoolmanSyncResult",
         "type": "object"
       },
       "StepUpRequest": {
@@ -32808,6 +33903,648 @@
         "summary": "Accept Quote",
         "tags": [
           "manufacturing"
+        ]
+      }
+    },
+    "/api/materials/compatibility": {
+      "post": {
+        "operationId": "check_compatibility_api_materials_compatibility_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompatibilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompatibilityResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Compatibility",
+        "tags": [
+          "materials"
+        ]
+      }
+    },
+    "/api/materials/consumptions": {
+      "post": {
+        "operationId": "record_consumption_api_materials_consumptions_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumptionPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialConsumption"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Consumption",
+        "tags": [
+          "materials"
+        ]
+      }
+    },
+    "/api/materials/quality": {
+      "post": {
+        "operationId": "create_quality_sample_api_materials_quality_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QualitySamplePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialQualitySample"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Quality Sample",
+        "tags": [
+          "materials"
+        ]
+      }
+    },
+    "/api/materials/spoolman/sync/{printer_id}": {
+      "post": {
+        "operationId": "sync_spoolman_api_materials_spoolman_sync__printer_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "printer_id",
+            "required": true,
+            "schema": {
+              "title": "Printer Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpoolmanSyncResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sync Spoolman",
+        "tags": [
+          "materials"
+        ]
+      }
+    },
+    "/api/materials/spools": {
+      "get": {
+        "operationId": "list_spools_api_materials_spools_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MaterialSpool"
+                  },
+                  "title": "Response List Spools Api Materials Spools Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Spools",
+        "tags": [
+          "materials"
+        ]
+      },
+      "post": {
+        "operationId": "create_spool_api_materials_spools_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpoolPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialSpool"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Spool",
+        "tags": [
+          "materials"
+        ]
+      }
+    },
+    "/api/materials/spools/{spool_id}": {
+      "delete": {
+        "operationId": "archive_spool_api_materials_spools__spool_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spool_id",
+            "required": true,
+            "schema": {
+              "title": "Spool Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Spool",
+        "tags": [
+          "materials"
+        ]
+      },
+      "get": {
+        "operationId": "get_spool_api_materials_spools__spool_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spool_id",
+            "required": true,
+            "schema": {
+              "title": "Spool Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialSpool"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Spool",
+        "tags": [
+          "materials"
+        ]
+      },
+      "put": {
+        "operationId": "update_spool_api_materials_spools__spool_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spool_id",
+            "required": true,
+            "schema": {
+              "title": "Spool Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpoolUpdatePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialSpool"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Spool",
+        "tags": [
+          "materials"
+        ]
+      }
+    },
+    "/api/materials/spools/{spool_id}/consumptions": {
+      "get": {
+        "operationId": "list_consumptions_api_materials_spools__spool_id__consumptions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spool_id",
+            "required": true,
+            "schema": {
+              "title": "Spool Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MaterialConsumption"
+                  },
+                  "title": "Response List Consumptions Api Materials Spools  Spool Id  Consumptions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Consumptions",
+        "tags": [
+          "materials"
+        ]
+      }
+    },
+    "/api/materials/spools/{spool_id}/quality": {
+      "get": {
+        "operationId": "list_quality_samples_api_materials_spools__spool_id__quality_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spool_id",
+            "required": true,
+            "schema": {
+              "title": "Spool Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MaterialQualitySample"
+                  },
+                  "title": "Response List Quality Samples Api Materials Spools  Spool Id  Quality Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Quality Samples",
+        "tags": [
+          "materials"
         ]
       }
     },

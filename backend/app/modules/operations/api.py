@@ -14,6 +14,7 @@ from app.routes import (
     z_offset,
 )
 from app.modules.operations import manufacturing_api
+from app.modules.operations.materials import routes as materials_routes
 
 
 MODULE = ModuleDefinition(
@@ -32,6 +33,7 @@ MODULE = ModuleDefinition(
         RouterRegistration(160, printers.router),
         RouterRegistration(190, setup.router),
         RouterRegistration(200, slicing.router),
+        RouterRegistration(215, materials_routes.router),
         RouterRegistration(310, z_offset.router),
         RouterRegistration(550, manufacturing_api.router),
     ),

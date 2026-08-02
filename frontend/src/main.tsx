@@ -71,6 +71,11 @@ const OnboardingScreen = lazy(async () => {
   return { default: module.OnboardingScreen };
 });
 
+const MaterialsScreen = lazy(async () => {
+  const module = await import("./screens/materials/MaterialsScreen");
+  return { default: module.MaterialsScreen };
+});
+
 const AuthScreen = lazy(async () => {
   const module = await import("./screens/AuthScreen");
   return { default: module.AuthScreen };
@@ -194,6 +199,12 @@ function App() {
         return <AgentDetailScreen {...screenProps} />;
       case "projects":
         return <PrintProjectsScreen {...screenProps} />;
+      case "materials":
+        return (
+          <Suspense fallback={<section aria-live="polite">Carregando materiais.</section>}>
+            <MaterialsScreen {...screenProps} />
+          </Suspense>
+        );
       case "social":
         return <SocialScreen {...screenProps} />;
       case "catalog":

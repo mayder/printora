@@ -255,7 +255,7 @@ func (r *Runner) handleJob(ctx context.Context, job AgentJob) {
 	case "snapshot":
 		snapshot := r.Moonraker.Snapshot(ctx)
 		r.completeJob(ctx, job, compactSnapshot(snapshot))
-	case "remote_audit", "remote_snapshot", "remote_health", "remote_temperatures", "remote_update_status", "remote_can_status", "remote_final_validation", "remote_report_sanitized", "remote_backup_preview", "remote_operation_preview", "remote_firmware_preview", "remote_moonraker_status", "remote_operation_status", "remote_calibration_capabilities", "remote_firmware_inventory":
+	case "remote_audit", "remote_snapshot", "remote_health", "remote_temperatures", "remote_update_status", "remote_can_status", "remote_final_validation", "remote_report_sanitized", "remote_backup_preview", "remote_operation_preview", "remote_firmware_preview", "remote_moonraker_status", "remote_operation_status", "remote_calibration_capabilities", "remote_firmware_inventory", "remote_spoolman_inventory":
 		payload := r.Moonraker.RemotePayload(ctx, job.JobType)
 		r.completeJob(ctx, job, mapValueOrEmpty(payload))
 	case "remote_gcode_files_list":

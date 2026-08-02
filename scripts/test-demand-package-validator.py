@@ -58,8 +58,8 @@ def main() -> None:
         ),
         "dependency-drift": (
             demands.replace(
-                "- Pacotes ativos: `PKG-114`, `PKG-128`.",
                 "- Pacotes ativos: `PKG-128`.",
+                "- Pacotes ativos: nenhum.",
                 1,
             ),
             architecture,
@@ -73,8 +73,8 @@ def main() -> None:
                 1,
             ),
             architecture.replace(
-                "integrations,operations,high,PKG-104",
-                "integrations,operations,high,PKG-104|PKG-142",
+                "PKG-126,technical_knowledge,community,operations|integrations,community,high,PKG-104|PKG-114",
+                "PKG-126,technical_knowledge,community,operations|integrations,community,high,PKG-104|PKG-114|PKG-142",
                 1,
             ),
             portfolio,
@@ -83,8 +83,8 @@ def main() -> None:
         "owner": (
             demands,
             architecture.replace(
-                "PKG-114,materials_quality,operations,",
-                "PKG-114,materials_quality,unknown,",
+                "PKG-126,technical_knowledge,community,",
+                "PKG-126,technical_knowledge,unknown,",
                 1,
             ),
             portfolio,

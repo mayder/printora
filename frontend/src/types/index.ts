@@ -8,6 +8,7 @@ export type * from "./firmware";
 export type * from "./feedback";
 export type * from "./finance";
 export type * from "./maintenance";
+export type * from "./materials";
 export type * from "./operation";
 export type * from "./plugins";
 export type * from "./printers";

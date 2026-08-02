@@ -45,6 +45,7 @@ COALESCIBLE_AGENT_JOB_TYPES = frozenset(
         "remote_gcode_files_list",
         "remote_moonraker_status",
         "remote_operation_status",
+        "remote_spoolman_inventory",
         "remote_update_status",
     }
 )

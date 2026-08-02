@@ -63,6 +63,42 @@ Referencias: `frontend/src/screens/OnboardingScreen.tsx`,
 `frontend/src/services/onboardingProgress.ts`, `TELAS.md`, `TESTES.md`,
 `docs/community/PKG_110_EVIDENCE.md`.
 
+### DEC-20260802-02 - Spoolman permanece canônico e é lido pelo agente local
+
+Status: aceita
+Data: 2026-08-02
+Contexto: o Spoolman já é a ferramenta especializada para inventário de
+filamento e normalmente está acessível apenas na rede da impressora. Conectar o
+cloud diretamente a uma URL privada ampliaria superfície de SSRF e criaria uma
+segunda autoridade de peso. Ao mesmo tempo, usuários sem Spoolman precisam de
+inventário local simples, consumo confiável e orientação antes de imprimir.
+Decisao: o Printora consulta o Spoolman somente pelo agente pareado e pelo proxy
+read-only do Moonraker. Registros importados são cache owner-scoped e não podem
+ser editados no Printora. Spools locais permanecem editáveis e usam ledger
+imutável com chave de idempotência; somente consumo `confirmed` reduz o peso,
+uma única vez e de forma atômica. Compatibilidade falha de forma conservadora:
+ausência de perfil, peso, máquina ou condição ambiental resulta em `unknown` ou
+`incompatible`, nunca em afirmação positiva inventada.
+Alternativas consideradas: cloud conectar diretamente ao Spoolman; copiar e
+editar o inventário externo; decrementar peso no registro de planejamento;
+calcular compatibilidade apenas no frontend.
+Consequencias: a integração degrada sem bloquear spools locais, mas depende de
+agente e Moonraker disponíveis para sincronizar. Medidas e consumo confirmado
+são históricos imutáveis. A nova tela global é lazy; o orçamento total foi
+ajustado em aproximadamente 1,2%, mantendo limites individuais e de entrada.
+Impacto em testes: schema SQLite/PostgreSQL, owner isolation, importação,
+idempotência, concorrência lógica, compatibilidade conservadora, agente Go,
+UI unitária e E2E desktop/mobile cobrem o fluxo.
+Impacto em rollback: restaurar a release N-1 desativa os consumidores novos,
+sem apagar tabelas, IDs externos, consumo ou medidas. O Spoolman continua
+canônico durante todo o rollback.
+Como reverter: retirar seção e rotas do módulo, desabilitar o job read-only no
+agente e preservar o schema aditivo sem executar `DROP` ou `DELETE`.
+Referencias: `backend/app/modules/operations/materials/`,
+`agent/internal/agent/spoolman.go`, `backend/sql/088_material_inventory.sql`,
+`backend/sql/postgresql/020_material_inventory.sql`, `TELAS.md`, `TESTES.md`,
+`RUNBOOK.md`, `docs/community/PKG_114_EVIDENCE.md`.
+
 ### DEC-20260727-01 - Portfólio ativo substitui execução integral do inventário comunitário
 
 Status: aceita

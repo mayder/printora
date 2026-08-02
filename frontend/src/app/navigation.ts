@@ -1,4 +1,4 @@
-import { Accessibility as AccessibilityIcon, Activity, BrainCircuit, Database, Factory, FileArchive, FileText, Home, Info, Landmark, ListChecks, Network, Palette, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
+import { Accessibility as AccessibilityIcon, Activity, Boxes, BrainCircuit, Database, Factory, FileArchive, FileText, Home, Info, Landmark, ListChecks, Network, Palette, Printer, Radio, RefreshCw, Scale, Settings, SlidersHorizontal, Users, Wrench, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppSection =
@@ -9,6 +9,7 @@ export type AppSection =
   | "agents"
   | "agent-detail"
   | "projects"
+  | "materials"
   | "social"
   | "catalog"
   | "setup"
@@ -108,6 +109,13 @@ export const appSections: AppSectionDefinition[] = [
     label: "Projetos de impressão",
     detail: "Biblioteca central de projetos, arquivos, referências externas e snapshots.",
     purpose: "Explore projetos imprimíveis, salve referências e inicie fluxos de fatiamento a partir do projeto central.",
+  },
+  {
+    key: "materials",
+    icon: Boxes,
+    label: "Materiais",
+    detail: "Spools, peso disponível, compatibilidade e histórico de uso.",
+    purpose: "Cadastre materiais, sincronize o Spoolman e confira peso, armazenamento e compatibilidade antes de imprimir.",
   },
   {
     key: "social",
@@ -217,7 +225,7 @@ export const appSections: AppSectionDefinition[] = [
 ];
 
 export const navGroups: Array<{ title: string; sections: AppSection[] }> = [
-  { title: "Principal", sections: ["overview", "onboarding", "printers", "agents", "projects", "social", "catalog", "setup"] },
+  { title: "Principal", sections: ["overview", "onboarding", "printers", "agents", "projects", "materials", "social", "catalog", "setup"] },
   { title: "Sistema", sections: ["finance", "manufacturing", "data-intelligence", "design-system", "settings"] },
 ];
 

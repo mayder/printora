@@ -288,7 +288,9 @@ def infer_table_owner(table: str) -> str:
         return "community"
     if table.startswith(("finance_", "commerce_", "payment_")):
         return "finance"
-    if table.startswith(("agent", "printer", "print_", "calibration", "maintenance", "manufacturing")):
+    if table.startswith(
+        ("agent", "printer", "print_", "calibration", "maintenance", "manufacturing", "material_")
+    ):
         return "operations"
     return "administration"
 

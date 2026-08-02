@@ -39,7 +39,6 @@ backlog ativo.
 
 ## Ordem Ativa De Implementação
 
-- PKG-114 [P1]: Materiais, spools e qualidade básica
 - PKG-126 [P1]: Conhecimento e evidência técnica
 - PKG-128 [P1]: Projetos, biblioteca e inspeção 3D
 - PKG-131 [P1]: Fatiamento avançado e perfis reproduzíveis
@@ -53,8 +52,8 @@ backlog ativo.
 Estado completo e justificativa por ID:
 `docs/community/PACKAGE_PORTFOLIO.csv`.
 
-- Concluídos e preservados: `PKG-101`, `PKG-102`, `PKG-104`, `PKG-110`.
-- Ativos: `PKG-114`, `PKG-126`, `PKG-128`,
+- Concluídos e preservados: `PKG-101`, `PKG-102`, `PKG-104`, `PKG-110`, `PKG-114`.
+- Ativos: `PKG-126`, `PKG-128`,
   `PKG-131`, `PKG-132`, `PKG-133`, `PKG-134`, `PKG-142`.
 - Fundidos em ativos: `PKG-105`, `PKG-107`, `PKG-108`, `PKG-111`,
   `PKG-113`, `PKG-121`, `PKG-125`, `PKG-127`, `PKG-129`, `PKG-139`.
@@ -85,73 +84,6 @@ permanece demanda pequena. Se uma melhoria crescer, registrar problema,
 baseline, hipótese, dependências, risco e decisão antes de alterar o portfólio.
 
 
-## PKG-114: Materiais, spools e qualidade básica
-
-Objetivo:
-
-Relacionar material disponível, perfil, consumo e resultado físico sem
-reimplementar ferramentas especializadas existentes.
-
-Valor para o usuário:
-
-Evitar iniciar trabalho com material incompatível ou insuficiente e aprender
-com medidas e resultados reais.
-
-Prioridade: P1.
-
-Dependências:
-
-- Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`.
-- Pacotes ativos: nenhum.
-
-Escopo incluído:
-
-- integração preferencial com Spoolman;
-- material, marca, cor, lote, peso estimado e localização;
-- compatibilidade entre material, perfil, máquina e ambiente;
-- consumo previsto e realizado por trabalho;
-- medidas nominais/reais, tolerância e amostra de calibração;
-- alerta de armazenamento, secagem, ventilação e descarte.
-
-Fora do escopo:
-
-- balança, QR ou NFC próprios sem hardware e demanda comprovados;
-- marketplace, troca e doação de sobras;
-- controle estatístico industrial completo;
-- certificado formal de fabricação;
-- relatório ambiental ou rede de reciclagem.
-
-Lotes:
-
-1. **Inventário e integração** — mapear Spoolman e dados locais existentes.
-2. **Contrato de material** — identidade, unidade, lote e compatibilidade.
-3. **Disponibilidade e consumo** — reserva informativa, estimativa e resultado.
-4. **Qualidade básica** — medidas, tolerância, foto e amostra de calibração.
-5. **Alertas seguros** — armazenamento, emissão e descarte sem promessa indevida.
-6. **Fechamento** — reconciliação, regressão, documentação e rollback.
-
-Critério de aceite:
-
-- Spoolman continua canônico quando configurado;
-- unidade física é explícita e conversão ocorre na borda;
-- ausência ou divergência de material bloqueia afirmação de compatibilidade;
-- consumo não é decrementado duas vezes em retry;
-- importação e reexecução idempotente não duplicam spool ou lote;
-- falha da integração degrada sem impedir funções não relacionadas;
-- testes de contrato, integração, concorrência e `./check.sh` passam.
-
-Rollback:
-
-- desativar integração e voltar a exibição somente informativa;
-- preservar IDs externos, histórico e medidas confirmadas;
-- nunca apagar inventário ou restaurar snapshot sobre consumo confirmado.
-
-Estado atual:
-
-- perfis técnicos e Spoolman já aparecem em fluxos operacionais;
-- `PKG-113` e a parte útil do `PKG-121` foram fundidos aqui.
-
 ## PKG-126: Conhecimento e evidência técnica
 
 Objetivo:
@@ -169,8 +101,8 @@ Prioridade: P1.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`.
-- Pacotes ativos: `PKG-114`.
+- Pacotes concluídos: `PKG-104`, `PKG-114`.
+- Pacotes ativos: nenhum.
 
 Escopo incluído:
 
@@ -235,8 +167,8 @@ Prioridade: P1.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`.
-- Pacotes ativos: `PKG-114`.
+- Pacotes concluídos: `PKG-104`, `PKG-114`.
+- Pacotes ativos: nenhum.
 
 Escopo incluído:
 
@@ -302,8 +234,8 @@ Prioridade: P1.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`.
-- Pacotes ativos: `PKG-114`, `PKG-128`.
+- Pacotes concluídos: `PKG-104`, `PKG-114`.
+- Pacotes ativos: `PKG-128`.
 
 Escopo incluído:
 
@@ -370,8 +302,8 @@ Prioridade: P0.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`, `PKG-110`.
-- Pacotes ativos: `PKG-114`, `PKG-128`, `PKG-131`.
+- Pacotes concluídos: `PKG-104`, `PKG-110`, `PKG-114`.
+- Pacotes ativos: `PKG-128`, `PKG-131`.
 
 Escopo incluído:
 
@@ -440,8 +372,8 @@ Prioridade: P0.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`.
-- Pacotes ativos: `PKG-114`, `PKG-132`.
+- Pacotes concluídos: `PKG-104`, `PKG-114`.
+- Pacotes ativos: `PKG-132`.
 
 Escopo incluído:
 
@@ -507,8 +439,8 @@ Prioridade: P1.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`.
-- Pacotes ativos: `PKG-114`, `PKG-132`, `PKG-133`.
+- Pacotes concluídos: `PKG-104`, `PKG-114`.
+- Pacotes ativos: `PKG-132`, `PKG-133`.
 
 Escopo incluído:
 
@@ -575,8 +507,8 @@ Prioridade: P1.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`.
-- Pacotes ativos: `PKG-114`, `PKG-128`, `PKG-131`, `PKG-132`.
+- Pacotes concluídos: `PKG-104`, `PKG-114`.
+- Pacotes ativos: `PKG-128`, `PKG-131`, `PKG-132`.
 
 Escopo incluído:
 

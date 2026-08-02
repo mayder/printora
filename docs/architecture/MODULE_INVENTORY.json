@@ -113,10 +113,10 @@
     }
   ],
   "summary": {
-    "modules": 188,
-    "routes": 390,
-    "contracts": 405,
-    "tables": 160,
+    "modules": 193,
+    "routes": 401,
+    "contracts": 415,
+    "tables": 163,
     "cycles": 0,
     "modules_by_owner": {
       "accessibility": 7,
@@ -126,7 +126,7 @@
       "finance": 13,
       "identity": 14,
       "integrations": 7,
-      "operations": 60,
+      "operations": 65,
       "shared": 22
     }
   },
@@ -362,7 +362,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 594,
+      "lines": 597,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -1546,10 +1546,11 @@
     {
       "module": "modules.operations.api",
       "owner": "operations",
-      "lines": 38,
+      "lines": 40,
       "imports": [
         "modules.assembly",
         "modules.operations",
+        "modules.operations.materials",
         "routes"
       ],
       "routes": [],
@@ -1558,7 +1559,7 @@
     {
       "module": "modules.operations.application",
       "owner": "operations",
-      "lines": 189,
+      "lines": 190,
       "imports": [
         "modules.operations.contracts",
         "modules.operations.ports"
@@ -1678,6 +1679,121 @@
         "TrackingRequest",
         "RecallRequest"
       ]
+    },
+    {
+      "module": "modules.operations.materials.__init__",
+      "owner": "operations",
+      "lines": 1,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.operations.materials.contracts",
+      "owner": "operations",
+      "lines": 193,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "SpoolPayload",
+        "MaterialAlert",
+        "MaterialSpool",
+        "ConsumptionPayload",
+        "MaterialConsumption",
+        "QualitySamplePayload",
+        "MaterialQualitySample",
+        "CompatibilityRequest",
+        "CompatibilityResult",
+        "SpoolmanSyncResult"
+      ]
+    },
+    {
+      "module": "modules.operations.materials.repository",
+      "owner": "operations",
+      "lines": 405,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.operations.materials.routes",
+      "owner": "operations",
+      "lines": 184,
+      "imports": [
+        "agent_executor",
+        "agent_pairing",
+        "auth",
+        "config",
+        "routes.auth"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/spools",
+          "handler": "list_spools"
+        },
+        {
+          "method": "POST",
+          "path": "/spools",
+          "handler": "create_spool"
+        },
+        {
+          "method": "GET",
+          "path": "/spools/{spool_id}",
+          "handler": "get_spool"
+        },
+        {
+          "method": "PUT",
+          "path": "/spools/{spool_id}",
+          "handler": "update_spool"
+        },
+        {
+          "method": "DELETE",
+          "path": "/spools/{spool_id}",
+          "handler": "archive_spool"
+        },
+        {
+          "method": "POST",
+          "path": "/compatibility",
+          "handler": "check_compatibility"
+        },
+        {
+          "method": "GET",
+          "path": "/spools/{spool_id}/consumptions",
+          "handler": "list_consumptions"
+        },
+        {
+          "method": "POST",
+          "path": "/consumptions",
+          "handler": "record_consumption"
+        },
+        {
+          "method": "GET",
+          "path": "/spools/{spool_id}/quality",
+          "handler": "list_quality_samples"
+        },
+        {
+          "method": "POST",
+          "path": "/quality",
+          "handler": "create_quality_sample"
+        },
+        {
+          "method": "POST",
+          "path": "/spoolman/sync/{printer_id}",
+          "handler": "sync_spoolman"
+        }
+      ],
+      "contracts": []
+    },
+    {
+      "module": "modules.operations.materials.service",
+      "owner": "operations",
+      "lines": 228,
+      "imports": [],
+      "routes": [],
+      "contracts": []
     },
     {
       "module": "modules.operations.ports",
@@ -5567,6 +5683,21 @@
       "table": "security_operation_claims",
       "owner": "administration",
       "script": "087_platform_protection.sql"
+    },
+    {
+      "table": "material_spools",
+      "owner": "operations",
+      "script": "088_material_inventory.sql"
+    },
+    {
+      "table": "material_consumptions",
+      "owner": "operations",
+      "script": "088_material_inventory.sql"
+    },
+    {
+      "table": "material_quality_samples",
+      "owner": "operations",
+      "script": "088_material_inventory.sql"
     }
   ]
 }

@@ -2711,3 +2711,60 @@ Controles adicionais:
 Rollback: a flag suspende apenas novas exportações, desativações e recursos. Ela
 não apaga dados nem desfaz ações já concluídas. Preservar schema e auditoria,
 restaurar release N-1 compatível e reativar em até 24 horas.
+
+## PKG-114 — Materiais, spools e qualidade básica
+
+Validação local focada, sem alterar impressora:
+
+```bash
+cd backend
+uv run --extra dev pytest tests/test_materials.py tests/test_postgresql_adapter.py tests/test_slicing_pipeline.py tests/test_print_preflight.py -q
+cd ../agent
+go test ./...
+cd ../frontend
+PATH=/Users/brenomayder/.nvm/versions/node/v22.22.0/bin:$PATH npm run build
+PATH=/Users/brenomayder/.nvm/versions/node/v22.22.0/bin:$PATH npm run test:unit -- MaterialsScreen.test.ts navigation.test.ts
+cd ..
+PATH=/Users/brenomayder/.nvm/versions/node/v22.22.0/bin:$PATH scripts/run-e2e-gate.sh materials.spec.ts
+```
+
+Banco, na ordem:
+
+1. SQLite local aplica `backend/sql/088_material_inventory.sql` pelo bootstrap;
+2. antes de publicar o cloud, executar
+   `backend/sql/postgresql/020_material_inventory.sql` no PostgreSQL pelo fluxo
+   privilegiado documentado;
+3. validar `material_spools`, `material_consumptions` e
+   `material_quality_samples`, índices, triggers imutáveis, reexecução e
+   isolamento por owner;
+4. não executar `DROP`, `DELETE`, cascade, prune ou restauração de snapshot.
+
+Smoke após publicação autorizada:
+
+1. autenticar com usuário controlado e abrir `?section=materials`;
+2. criar um spool local, editar localização e confirmar revisão incrementada;
+3. registrar planejamento e confirmar que o peso não mudou;
+4. registrar consumo confirmado com chave idempotente, repetir a chamada e
+   confirmar um único evento e uma única redução de peso;
+5. conferir material sem perfil e validar que o resultado não afirma
+   compatibilidade;
+6. com Spoolman configurado na impressora de teste, sincronizar duas vezes e
+   confirmar ausência de duplicidade e edição somente no Spoolman;
+7. indisponibilizar o Spoolman controladamente e confirmar que inventário local
+   continua navegável sem comando físico ou escrita no Moonraker.
+
+Diagnóstico:
+
+- falha apenas na sincronização: verificar pareamento, versão do agente, status
+  Moonraker e `/server/spoolman/status`; não cadastrar URL privada no cloud;
+- item externo desatualizado: corrigir no Spoolman e sincronizar novamente;
+- conflito de revisão local: recarregar o spool e reaplicar a edição consciente;
+- chave idempotente divergente: não repetir com outro peso; revisar o evento
+  original antes de criar nova confirmação;
+- não registrar token, URL privada, payload completo do Spoolman ou dado
+  pessoal em logs/bundles.
+
+Rollback: restaurar a release N-1 e manter as três tabelas aditivas. Não apagar
+spools, IDs externos, consumo ou medidas; não recalcular peso confirmado a
+partir de snapshot. O Spoolman permanece canônico e os dados locais ficam
+preservados até nova release compatível.
