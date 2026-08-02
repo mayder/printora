@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.responses import PlainTextResponse
 
 from app.config import get_settings
 from app.modules.platform.database_target import uses_postgresql
@@ -8,7 +9,7 @@ from app.auth import AuthRepository
 from app.print_delivery import PrintDeliveryCreate, PrintDeliveryRecord, PrintDeliveryRepository
 from app.print_history import PrintFeedbackCreate, PrintHistoryRepository, PrintJobHistoryEvent, PrintJobHistoryRecord
 from app.routes.auth import CurrentUser, require_current_user, require_current_user_when_configured
-from app.print_preflight import PrintPreflightRecord, PrintPreflightRepository
+from app.print_preflight import PrintPreflightRecord, PrintPreflightRepository, _read_artifact_text
 from app.slicing import SlicingDryRunResult, SlicingEngineBridge, SlicingEngineInfo, SlicingRepository, SlicingRequest, SlicerEngine
 from app.slicing_pipeline import ProjectSlicingJobCreate, SlicingJob, SlicingJobCreate, SlicingPipelineRepository
 
@@ -122,6 +123,48 @@ async def run_slicing_job(
         if uses_postgresql():
             return repository.schedule_job(job_id, current.user.id if current else None)
         return repository.run_job(job_id, current.user.id if current else None)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/jobs/{job_id}/approve-preview", response_model=SlicingJob)
+async def approve_slicing_preview(
+    job_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SlicingPipelineRepository = Depends(get_slicing_pipeline_repository),
+) -> SlicingJob:
+    try:
+        return repository.approve_gcode(job_id, current.user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/jobs/{job_id}/gcode", response_class=PlainTextResponse)
+async def get_slicing_gcode(
+    job_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SlicingPipelineRepository = Depends(get_slicing_pipeline_repository),
+) -> PlainTextResponse:
+    job = repository.get_job(job_id, current.user.id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="job de fatiamento não encontrado")
+    artifact = next((item for item in job.artifacts if item.artifact_kind == "gcode"), None)
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="G-code não encontrado")
+    content = _read_artifact_text(get_settings().data_dir, artifact.storage_key)
+    if not content:
+        raise HTTPException(status_code=404, detail="G-code indisponível")
+    return PlainTextResponse(content, headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+
+
+@router.post("/jobs/{job_id}/reprint", response_model=SlicingJob)
+async def create_reprint_slicing_job(
+    job_id: int,
+    current: CurrentUser = Depends(require_current_user),
+    repository: SlicingPipelineRepository = Depends(get_slicing_pipeline_repository),
+) -> SlicingJob:
+    try:
+        return repository.create_reprint_job(job_id, current.user.id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

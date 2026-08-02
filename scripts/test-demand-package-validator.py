@@ -58,7 +58,7 @@ def main() -> None:
         ),
         "dependency-drift": (
             demands.replace(
-                "- Pacotes ativos: `PKG-132`.",
+                "- Pacotes ativos: `PKG-133`.",
                 "- Pacotes ativos: nenhum.",
                 1,
             ),

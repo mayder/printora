@@ -505,6 +505,60 @@
   gap: 10px;
 }
 
+.print-project-journey-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: journey;
+}
+
+.print-project-journey-steps li {
+  counter-increment: journey;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.print-project-journey-steps li::before {
+  content: counter(journey) ". ";
+  font-weight: 700;
+}
+
+.print-project-journey-steps li.done,
+.print-project-journey-steps li.current {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.print-project-quantity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.print-project-quantity input {
+  width: 64px;
+}
+
+.print-project-gcode-preview {
+  display: grid;
+  gap: 12px;
+  min-height: 420px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.print-project-gcode-preview > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
 .print-project-slice-files,
 .print-project-job-list {
   display: grid;
@@ -653,6 +707,10 @@
 }
 
 @media (max-width: 920px) {
+  .print-project-journey-steps {
+    grid-template-columns: 1fr;
+  }
+
   .print-projects-band,
   .print-projects-layout,
   .print-projects-toolbar,

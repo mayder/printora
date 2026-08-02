@@ -40,7 +40,6 @@ backlog ativo.
 ## Ordem Ativa De Implementação
 
 - PKG-126 [P1]: Conhecimento e evidência técnica
-- PKG-132 [P0]: Fluxo ponta a ponta de impressão
 - PKG-133 [P0]: Manutenção, diagnóstico e confiabilidade
 - PKG-134 [P1]: Frota e filas de impressão
 - PKG-142 [P1]: Integrações e descoberta técnica
@@ -50,9 +49,8 @@ backlog ativo.
 Estado completo e justificativa por ID:
 `docs/community/PACKAGE_PORTFOLIO.csv`.
 
-- Concluídos e preservados: `PKG-101`, `PKG-102`, `PKG-104`, `PKG-110`, `PKG-114`, `PKG-128`, `PKG-131`.
-- Ativos: `PKG-126`, `PKG-132`, `PKG-133`, `PKG-134`,
-  `PKG-142`.
+- Concluídos e preservados: `PKG-101`, `PKG-102`, `PKG-104`, `PKG-110`, `PKG-114`, `PKG-128`, `PKG-131`, `PKG-132`.
+- Ativos: `PKG-126`, `PKG-133`, `PKG-134`, `PKG-142`.
 - Fundidos em ativos: `PKG-105`, `PKG-107`, `PKG-108`, `PKG-111`,
   `PKG-113`, `PKG-121`, `PKG-125`, `PKG-127`, `PKG-129`, `PKG-139`.
 - Adiados sem autorização de implementação: `PKG-109`, `PKG-130`,
@@ -148,77 +146,6 @@ Estado atual:
 - posts, discussões, solução, busca, upload e moderação já existem parcialmente;
 - `PKG-125` e `PKG-127` foram fundidos neste pacote.
 
-## PKG-132: Fluxo ponta a ponta de impressão
-
-Objetivo:
-
-Fechar a jornada projeto, seleção, fatiamento, preflight, envio, monitoramento,
-resultado e reimpressão sem etapas soltas ou estado enganoso.
-
-Valor para o usuário:
-
-Concluir uma impressão segura e reproduzível pelo Printora, com menos troca de
-ferramenta e diagnóstico claro quando algo falhar.
-
-Prioridade: P0.
-
-Dependências:
-
-- Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`, `PKG-110`, `PKG-114`, `PKG-128`, `PKG-131`.
-- Pacotes ativos: nenhum.
-
-Escopo incluído:
-
-- seleção de projeto, snapshot, peças e quantidades;
-- validação de arquivo, perfil, material e impressora;
-- geração e aprovação visual do G-code;
-- preflight local e remoto;
-- entrega auditada pelo agente;
-- monitoramento ligado ao trabalho correto;
-- resultado, consumo, evidência e reimpressão.
-
-Fora do escopo:
-
-- marketplace ou pedido comercial;
-- roteamento de fazenda;
-- pausa ou cancelamento autônomo por IA;
-- comando físico vindo de relação social;
-- bypass de confirmação, step-up ou estado real do Moonraker.
-
-Lotes:
-
-1. **Caracterização ponta a ponta** — mapear contratos existentes e lacunas.
-2. **Seleção e snapshot** — projeto, peças, revisão e perfil imutáveis.
-3. **Preflight** — segurança de modelo, material, máquina e estado remoto.
-4. **G-code e entrega** — preview, confirmação, upload e journal.
-5. **Monitoramento e resultado** — vínculo correto, consumo, falha e evidência.
-6. **Reimpressão e fechamento** — reprodução, regressão física segura e rollback.
-
-Critério de aceite:
-
-- uma jornada completa usa um único snapshot rastreável;
-- preflight falho não envia nem agenda comando;
-- estado exibido pertence à impressora e ao trabalho selecionados;
-- retry de upload ou job não duplica arquivo nem comando físico;
-- reexecução idempotente preserva uma entrega e um histórico canônicos;
-- falha intermediária oferece retomada ou rollback acionável;
-- testes unitários, contrato, integração, E2E, smoke físico seguro e
-  `./check.sh` passam.
-
-Rollback:
-
-- manter Administração como fallback técnico enquanto o fluxo novo é validado;
-- desativar entrada nova e preservar jobs, arquivos e histórico;
-- release N-1 continua lendo contratos N/N-1;
-- nenhuma reversão física de dados sem backup e confirmação.
-
-Estado atual:
-
-- projetos, slicing, preflight, entrega, G-code, monitoramento e histórico já
-  existem em partes;
-- este pacote consolida e valida o fluxo real em vez de duplicar endpoints.
-
 ## PKG-133: Manutenção, diagnóstico e confiabilidade
 
 Objetivo:
@@ -235,8 +162,8 @@ Prioridade: P0.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`, `PKG-114`.
-- Pacotes ativos: `PKG-132`.
+- Pacotes concluídos: `PKG-104`, `PKG-114`, `PKG-132`.
+- Pacotes ativos: nenhum.
 
 Escopo incluído:
 
@@ -302,8 +229,8 @@ Prioridade: P1.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`, `PKG-114`.
-- Pacotes ativos: `PKG-132`, `PKG-133`.
+- Pacotes concluídos: `PKG-104`, `PKG-114`, `PKG-132`.
+- Pacotes ativos: `PKG-133`.
 
 Escopo incluído:
 
@@ -370,8 +297,8 @@ Prioridade: P1.
 Dependências:
 
 - Base consolidada: `PKG-01` a `PKG-100`.
-- Pacotes concluídos: `PKG-104`, `PKG-114`, `PKG-128`, `PKG-131`.
-- Pacotes ativos: `PKG-132`.
+- Pacotes concluídos: `PKG-104`, `PKG-114`, `PKG-128`, `PKG-131`, `PKG-132`.
+- Pacotes ativos: nenhum.
 
 Escopo incluído:
 

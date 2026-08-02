@@ -152,12 +152,31 @@ class PrintPreflightRepository:
         warnings: list[str] = []
         if job.status != "completed":
             blockers.append("Job de fatiamento precisa estar concluído antes do preflight.")
+        artifact = next((item for item in job.artifacts if item.artifact_kind == "gcode"), None)
+        if job.print_project_id is not None:
+            if not job.gcode_approved_at:
+                blockers.append("Revise e aprove a prévia visual do G-code antes do preflight.")
+            elif artifact and job.gcode_approved_checksum != artifact.checksum_sha256:
+                blockers.append("O G-code mudou depois da aprovação visual; revise a prévia novamente.")
         if job.printer_id != printer.id:
             blockers.append("G-code pertence a outra impressora.")
         if not any(artifact.artifact_kind == "gcode" for artifact in job.artifacts):
             blockers.append("Job não possui artefato G-code rastreado.")
         if not job.model_version_reference:
             warnings.append("Versão do modelo não informada no job de fatiamento.")
+        spool = job.input.get("material_spool") if isinstance(job.input.get("material_spool"), dict) else {}
+        if job.print_project_id is not None and not spool:
+            warnings.append("Nenhum spool foi vinculado; confirme manualmente o material carregado.")
+        elif spool:
+            with connect_database(self.database_path) as connection:
+                current = connection.execute(
+                    "SELECT revision, status FROM material_spools WHERE id = ? AND owner_user_id = ?",
+                    (spool.get("id"), job.owner_user_id),
+                ).fetchone()
+            if current is None or current["status"] != "active":
+                blockers.append("O spool selecionado não está mais disponível.")
+            elif int(current["revision"]) != int(spool.get("revision") or 0):
+                warnings.append("O spool mudou desde o preparo; confirme material e quantidade antes de imprimir.")
         return blockers, warnings
 
     def _metadata_for_job(self, job: SlicingJob) -> GcodeMetadata:

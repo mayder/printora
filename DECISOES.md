@@ -2478,3 +2478,32 @@ executar `DROP`, `DELETE`, prune nem substituir arquivo canônico.
 Referências: `backend/sql/089_project_assets.sql`,
 `backend/sql/postgresql/021_project_assets.sql`,
 `docs/community/PKG_128_EVIDENCE.md`.
+
+### DEC-20260802-03 - Aprovação visual é vinculada ao checksum e reimpressão recria a jornada
+
+Status: aceita
+Data: 2026-08-02
+Contexto: concluir o fatiamento não prova que posicionamento, orientação e peças
+estão corretos. Reutilizar um G-code ou o estado atual do projeto também poderia
+ocultar mudança de artefato, perfil, material ou quantidade.
+
+Decisão: jobs de projeto registram quantidades no snapshot; a revisão visual do
+G-code grava data e checksum, e o preflight bloqueia sem essa aprovação ou se o
+checksum mudar. Reimpressão cria novo job a partir do snapshot imutável original
+e exige nova execução, revisão, preflight e confirmação. Material selecionado é
+congelado no input e sua disponibilidade/revisão é revalidada no preflight.
+
+Consequências: a pessoa recebe uma sequência guiada, sem bypass silencioso. Há
+uma etapa humana adicional, mas falhas de posicionamento deixam de avançar por
+confiança implícita. Jobs legados permanecem legíveis e fluxos sem projeto
+continuam compatíveis.
+
+Impacto em testes: quantidades, owner, checksum, alteração de artefato, spool,
+clone imutável, idempotência, preflight, entrega, histórico, desktop e mobile.
+
+Impacto em rollback: aditivo. Ocultar as novas ações restaura Administração como
+fallback e mantém todas as evidências. Não remover colunas nem dados sem backup.
+
+Referências: `backend/sql/091_print_journey.sql`,
+`backend/sql/postgresql/023_print_journey.sql`,
+`docs/community/PKG_132_EVIDENCE.md`.

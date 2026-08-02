@@ -92,6 +92,33 @@ def test_project_delivery_history_keeps_project_snapshot_and_public_privacy(tmp_
         get_settings.cache_clear()
 
 
+def test_project_gcode_preview_is_private_and_requires_checksum_approval(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PRINTORA_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    try:
+        initialize_database(tmp_path / "printora.db")
+        with TestClient(app) as client:
+            owner_token = _register(client, "preview-owner@example.com")
+            other_token = _register(client, "preview-other@example.com")
+            job = _completed_project_job(tmp_path, owner_token)
+
+            forbidden = client.get(f"/api/slicing/jobs/{job['id']}/gcode", headers=_auth(other_token))
+            preview = client.get(f"/api/slicing/jobs/{job['id']}/gcode", headers=_auth(owner_token))
+            approved = client.post(f"/api/slicing/jobs/{job['id']}/approve-preview", headers=_auth(owner_token))
+
+            assert forbidden.status_code == 404
+            assert preview.status_code == 200
+            assert "G1 X20 Y20 Z1" in preview.text
+            assert preview.headers["cache-control"] == "private, no-store"
+            assert approved.status_code == 200
+            assert approved.json()["gcode_approved_at"] is not None
+            assert approved.json()["gcode_approved_checksum"] == next(
+                item["checksum_sha256"] for item in job["artifacts"] if item["artifact_kind"] == "gcode"
+            )
+    finally:
+        get_settings.cache_clear()
+
+
 def _register(client: TestClient, email: str) -> str:
     response = client.post("/api/auth/register", json={"email": email, "password": "correct-horse"})
     assert response.status_code == 200

@@ -114,7 +114,7 @@
   ],
   "summary": {
     "modules": 198,
-    "routes": 408,
+    "routes": 411,
     "contracts": 422,
     "tables": 165,
     "cycles": 0,
@@ -2070,7 +2070,7 @@
     {
       "module": "print_preflight",
       "owner": "operations",
-      "lines": 350,
+      "lines": 369,
       "imports": [
         "agent_pairing",
         "auth",
@@ -3663,7 +3663,7 @@
     {
       "module": "routes.slicing",
       "owner": "operations",
-      "lines": 321,
+      "lines": 364,
       "imports": [
         "agent_executor",
         "agent_pairing",
@@ -3712,6 +3712,21 @@
           "method": "POST",
           "path": "/jobs/{job_id}/run",
           "handler": "run_slicing_job"
+        },
+        {
+          "method": "POST",
+          "path": "/jobs/{job_id}/approve-preview",
+          "handler": "approve_slicing_preview"
+        },
+        {
+          "method": "GET",
+          "path": "/jobs/{job_id}/gcode",
+          "handler": "get_slicing_gcode"
+        },
+        {
+          "method": "POST",
+          "path": "/jobs/{job_id}/reprint",
+          "handler": "create_reprint_slicing_job"
         },
         {
           "method": "POST",
@@ -4755,7 +4770,7 @@
     {
       "module": "slicing_pipeline",
       "owner": "operations",
-      "lines": 736,
+      "lines": 841,
       "imports": [
         "config",
         "database",

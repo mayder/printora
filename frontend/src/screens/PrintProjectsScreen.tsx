@@ -17,8 +17,10 @@ import {
   Tags,
   Upload,
 } from "lucide-react";
+import { GcodePrintViewer } from "../components/monitoring/GcodePrintViewer";
 import { printProjectsApi } from "../services/printProjectsApi";
 import { printerApi } from "../services/printerApi";
+import { materialsApi } from "../services/materialsApi";
 import {
   slicingApi,
   type PrintDelivery,
@@ -30,6 +32,7 @@ import {
   type SlicingProfileBundle,
 } from "../services/slicingApi";
 import type { PrinterRecord } from "../types/printers";
+import type { MaterialSpool } from "../types";
 import type {
   PrintProjectContract,
   PrintProjectCommercialClass,
@@ -397,7 +400,12 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
   const slicableFiles = project.files.filter((file) => file.can_slice && file.file_role !== "external_reference");
   const fileSignature = project.files.map((file) => `${file.id}:${file.can_slice}:${file.file_role}`).join("|");
   const [selectedFileIds, setSelectedFileIds] = React.useState<number[]>(slicableFiles.map((file) => file.id));
+  const [fileQuantities, setFileQuantities] = React.useState<Record<number, number>>(
+    Object.fromEntries(slicableFiles.map((file) => [file.id, 1])),
+  );
   const [printers, setPrinters] = React.useState<PrinterRecord[]>([]);
+  const [spools, setSpools] = React.useState<MaterialSpool[]>([]);
+  const [spoolId, setSpoolId] = React.useState("");
   const [printerId, setPrinterId] = React.useState("");
   const [engineInfo, setEngineInfo] = React.useState<SlicingEngineInfo | null>(null);
   const [profileBundles, setProfileBundles] = React.useState<SlicingProfileBundle[]>([]);
@@ -412,9 +420,12 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
   const [feedbackDrafts, setFeedbackDrafts] = React.useState<Record<number, { outcome: PrintJobFeedback["outcome"]; visibility: PrintJobFeedback["visibility"]; note: string; photo_url: string }>>({});
   const [busy, setBusy] = React.useState(false);
   const [preflightMessage, setPreflightMessage] = React.useState("");
+  const [previewJobId, setPreviewJobId] = React.useState<number | null>(null);
+  const [previewText, setPreviewText] = React.useState("");
 
   React.useEffect(() => {
     setSelectedFileIds(slicableFiles.map((file) => file.id));
+    setFileQuantities(Object.fromEntries(slicableFiles.map((file) => [file.id, 1])));
     setPreflightMessage("");
   }, [project.id, fileSignature]);
 
@@ -424,8 +435,9 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
 
   async function loadSlicingContext() {
     try {
-      const [printerResponse, projectJobs, engine, profileRows, preflightRows, deliveryRows, historyRows] = await Promise.all([
+      const [printerResponse, spoolRows, projectJobs, engine, profileRows, preflightRows, deliveryRows, historyRows] = await Promise.all([
         printerApi.list(),
+        materialsApi.spools(),
         slicingApi.projectJobs(project.id),
         slicingApi.engine(),
         slicingApi.profileBundles(),
@@ -441,6 +453,8 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
       const activePrinters = printerRecords.filter((printer) => printer.is_active);
       const jobIds = new Set(projectJobs.map((job) => job.id));
       setPrinters(activePrinters);
+      setSpools(spoolRows);
+      setSpoolId((current) => current || String(spoolRows[0]?.id ?? ""));
       setPrinterId((current) => current || String(activePrinters[0]?.id ?? ""));
       setJobs(projectJobs);
       setEngineInfo(engine);
@@ -465,7 +479,10 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
       const job = await slicingApi.createProjectJob(project.id, {
         project_id: project.id,
         selected_file_ids: selectedFileIds,
+        file_quantities: Object.fromEntries(selectedFileIds.map((fileId) => [fileId, fileQuantities[fileId] ?? 1])),
         printer_id: Number(printerId),
+        spool_id: spoolId ? Number(spoolId) : null,
+        material_profile_id: spools.find((item) => item.id === Number(spoolId))?.material_profile_id ?? null,
         slicing_profile_revision_id: profileRevisionId ? Number(profileRevisionId) : null,
         engine: "orcaslicer",
         model_dimensions: {},
@@ -476,6 +493,44 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
       await loadSlicingContext();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao criar job de fatiamento");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openPreview(jobId: number) {
+    setBusy(true);
+    try {
+      setPreviewText(await slicingApi.gcodeText(jobId));
+      setPreviewJobId(jobId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao carregar a prévia do G-code");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function approvePreview(jobId: number) {
+    setBusy(true);
+    try {
+      const job = await slicingApi.approvePreview(jobId);
+      setJobs((current) => current.map((item) => (item.id === job.id ? job : item)));
+      setPreflightMessage("Prévia aprovada. Agora faça a verificação de segurança.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao aprovar a prévia");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reprintJob(jobId: number) {
+    setBusy(true);
+    try {
+      const job = await slicingApi.reprintJob(jobId);
+      setJobs((current) => [job, ...current]);
+      setPreflightMessage("Cópia reproduzível criada. Execute o fatiamento e revise a nova prévia.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao preparar a reimpressão");
     } finally {
       setBusy(false);
     }
@@ -498,7 +553,7 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
     setBusy(true);
     try {
       const preflight = await slicingApi.createPreflight(jobId);
-      setPreflightMessage(`Preflight ${preflight.status}`);
+      setPreflightMessage(preflight.status === "approved" ? "Verificação concluída. Você pode enviar." : "Verificação iniciada. Atualize quando a impressora responder.");
       setPreflights((current) => [preflight, ...current.filter((item) => item.id !== preflight.id)]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao criar preflight");
@@ -589,6 +644,13 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
           Engine indisponível. Configure a engine em Administração antes de executar fatiamento.
         </div>
       ) : null}
+      <ol className="print-project-journey-steps" aria-label="Etapas para imprimir">
+        <li className={selectedFileIds.length ? "done" : "current"}>Escolha as peças</li>
+        <li>Prepare o arquivo</li>
+        <li>Revise a prévia</li>
+        <li>Faça a verificação</li>
+        <li>Envie e acompanhe</li>
+      </ol>
       {slicableFiles.length ? (
         <div className="print-project-slice-files">
           {project.files.map((file) => (
@@ -601,6 +663,24 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
               />
               <span>{file.file_name}</span>
               <small>{sliceLabels[file.slice_status]}</small>
+              {selectedFileIds.includes(file.id) ? (
+                <span className="print-project-quantity">
+                  Quantidade
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={fileQuantities[file.id] ?? 1}
+                    onChange={(event) => setFileQuantities((current) => ({
+                      ...current,
+                      [file.id]: Math.max(1, Math.min(100, Number(event.target.value) || 1)),
+                    }))}
+                    onClick={(event) => event.stopPropagation()}
+                    disabled={busy}
+                    aria-label={`Quantidade de ${file.file_name}`}
+                  />
+                </span>
+              ) : null}
             </label>
           ))}
         </div>
@@ -622,6 +702,17 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
           <input value={quality} onChange={(event) => setQuality(event.target.value)} disabled={busy} />
         </label>
         <label>
+          Material carregado
+          <select value={spoolId} onChange={(event) => setSpoolId(event.target.value)} disabled={busy}>
+            <option value="">Confirmar manualmente depois</option>
+            {spools.map((spool) => (
+              <option key={spool.id} value={spool.id}>
+                {spool.name} · {spool.material_type}{spool.remaining_weight_g != null ? ` · ${Math.round(spool.remaining_weight_g)} g` : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
           Perfil reproduzível
           <select value={profileRevisionId} onChange={(event) => setProfileRevisionId(event.target.value)} disabled={busy}>
             <option value="">Sem perfil executável</option>
@@ -637,7 +728,7 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
       </div>
       <button type="submit" className="primary-button" disabled={busy || engineBlocked || !printerId || selectedFileIds.length === 0}>
         <FileArchive size={16} />
-        Criar job de fatiamento
+        Preparar para imprimir
       </button>
       {preflightMessage ? <span className="muted">{preflightMessage}</span> : null}
       {jobs.length ? (
@@ -649,11 +740,13 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
             return (
               <div className="print-project-job-row" key={job.id}>
                 <div>
-                  <strong>Job #{job.id}</strong>
-                  <span>{slicingJobStatus(job.status)} · snapshot {job.print_project_version_id ?? "-"}</span>
+                  <strong>Preparo #{job.id}</strong>
+                  <span>{slicingJobStatus(job.status)} · versão preservada {job.print_project_version_id ?? "-"}</span>
+                  <small>{job.selected_project_files?.map((file) => `${file.file_name} × ${file.quantity ?? 1}`).join(" · ")}</small>
+                  {job.reprint_of_job_id ? <small>Reimpressão fiel do preparo #{job.reprint_of_job_id}</small> : null}
                   {job.slicing_profile_revision_id ? <small>Perfil reproduzível fixado · {job.slicing_profile_sha256?.slice(0, 12)}</small> : null}
                   {job.error_message ? <small>{job.error_message}</small> : null}
-                  {latestPreflight ? <small>Preflight {preflightStatus(latestPreflight.status)}</small> : null}
+                  {latestPreflight ? <small>Verificação {preflightStatus(latestPreflight.status)}</small> : null}
                   {latestDelivery ? <small>{deliveryModeLabel(latestDelivery.mode)} · {deliveryStatus(latestDelivery.status)} · {latestDelivery.remote_filename}</small> : null}
                 </div>
                 <div className="print-project-job-actions">
@@ -664,9 +757,21 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
                     </button>
                   ) : null}
                   {job.status === "completed" ? (
+                    <button type="button" className="secondary-button" onClick={() => void openPreview(job.id)} disabled={busy}>
+                      <Search size={15} />
+                      Ver prévia
+                    </button>
+                  ) : null}
+                  {job.status === "completed" && previewJobId === job.id && !job.gcode_approved_at ? (
+                    <button type="button" className="primary-button" onClick={() => void approvePreview(job.id)} disabled={busy || !previewText}>
+                      <CheckCircle2 size={15} />
+                      A prévia está correta
+                    </button>
+                  ) : null}
+                  {job.status === "completed" && job.gcode_approved_at ? (
                     <button type="button" className="secondary-button" onClick={() => void createPreflight(job.id)} disabled={busy}>
                       <ShieldCheck size={15} />
-                      Preflight
+                      Verificar segurança
                     </button>
                   ) : null}
                   {latestPreflight?.status === "pending_remote" ? (
@@ -697,7 +802,7 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
                         disabled={busy || (confirmationByPreflight[latestPreflight.id] ?? "") !== expectedConfirmation}
                       >
                         <Send size={15} />
-                        Enviar
+                        Enviar e imprimir
                       </button>
                     </>
                   ) : null}
@@ -707,11 +812,28 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
                       Remover salvo
                     </button>
                   ) : null}
+                  {latestDelivery && ["printing", "saved"].includes(latestDelivery.status) ? (
+                    <span className="muted">Acompanhe este trabalho na impressora selecionada: {latestDelivery.remote_filename}</span>
+                  ) : null}
                 </div>
               </div>
             );
           })}
         </div>
+      ) : null}
+      {previewJobId && previewText ? (
+        <section className="print-project-gcode-preview" aria-label="Prévia visual do G-code">
+          <div>
+            <strong>Confira antes de continuar</strong>
+            <span>Veja se a peça está inteira, dentro da mesa e na posição esperada.</span>
+          </div>
+          <GcodePrintViewer
+            printerId={Number(jobs.find((job) => job.id === previewJobId)?.printer_id ?? 0)}
+            filename={`job-${previewJobId}.gcode`}
+            mode="full"
+            sourceText={previewText}
+          />
+        </section>
       ) : null}
       {history.length ? (
         <div className="print-project-history-list">
@@ -769,6 +891,12 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
                   <button type="button" className="secondary-button" onClick={() => void recordHistory(item.id, "completed")} disabled={busy}>
                     Concluiu
                   </button>
+                  {item.slicing_job_id ? (
+                    <button type="button" className="secondary-button" onClick={() => void reprintJob(item.slicing_job_id!)} disabled={busy}>
+                      <RotateCcw size={15} />
+                      Reimprimir igual
+                    </button>
+                  ) : null}
                 </div>
               </div>
             );

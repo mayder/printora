@@ -30,7 +30,7 @@ PKG-128,completed,,Projetos arquivos versões e inspeção básica concluídos c
 PKG-129,merged,PKG-128,Viewer e inspeção 3D básicos incorporados ao PKG-128.
 PKG-130,deferred,,Customização paramétrica depende de demanda comprovada.
 PKG-131,completed,,Perfis executáveis privados versionam OrcaSlicer e fixam revisão imutável nos jobs.
-PKG-132,active,,Fluxo projeto até resultado de impressão é a prioridade funcional máxima.
+PKG-132,completed,,Fluxo projeto até resultado de impressão concluído com snapshot, aprovação visual, preflight, entrega, histórico e reimpressão.
 PKG-133,active,,Manutenção diagnóstico e confiabilidade são centrais para reduzir parada e recorrência.
 PKG-134,active,,Frota e filas atendem o uso já suportado com múltiplas impressoras.
 PKG-135,deferred,,Coautoria avançada depende de equipes reais usando o mesmo projeto.

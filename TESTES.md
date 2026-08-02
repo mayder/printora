@@ -1760,6 +1760,32 @@ Critérios:
 - Validação frontend focada: `npm --prefix frontend run build`.
 - Fechamento do pacote: `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
 
+### PKG-132 - Fluxo ponta a ponta de impressão
+
+- Validar seleção parcial e múltipla com quantidade de 1 a 100 por arquivo.
+- Validar snapshot imutável de projeto, versão, arquivo/checksum, quantidade,
+  impressora, spool e revisão executável do perfil.
+- Validar que spool de outro usuário/inativo bloqueia e mudança de revisão gera
+  aviso no preflight.
+- Validar que job de projeto sem aprovação visual não passa no preflight.
+- Validar que aprovação pertence ao checksum e alteração do G-code exige nova
+  revisão.
+- Validar isolamento por owner no download privado do G-code e cabeçalhos sem
+  cache.
+- Validar preflight local/remoto, confirmação, upload, retry idempotente,
+  unicidade de entrega, histórico canônico, retomada e rollback seguro.
+- Validar que estado/arquivo exibido pertence ao job e impressora selecionados.
+- Validar resultado, telemetria sanitizada, consumo vinculado e feedback.
+- Validar `Reimprimir igual` preservando snapshot e perfil, criando novo job e
+  exigindo nova aprovação/preflight/confirmação.
+- Validar desktop 1440x900 e mobile 390x844, teclado, foco, mensagens simples e
+  ausência de overflow horizontal.
+- Smoke físico seguro: usar peça/material controlados, operador presente,
+  confirmar impressora ociosa e observar primeira camada; não automatizar a
+  confirmação humana.
+- Focado: `backend/.venv/bin/python -m pytest -q backend/tests/test_slicing_pipeline.py backend/tests/test_print_preflight.py backend/tests/test_print_delivery.py backend/tests/test_print_history.py` e `npm --prefix frontend run build`.
+- Fechamento: `./check.sh` integral.
+
 ### PKG-82 - Arquivos G-code Por Impressora
 
 - Validar contrato backend/agente para listagem de `/gcodes` com arquivos, diretórios, tamanhos, datas e metadados quando o Moonraker retornar.

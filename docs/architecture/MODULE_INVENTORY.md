@@ -5,7 +5,7 @@
 ## Resumo
 
 - módulos Python: 198;
-- endpoints HTTP/WebSocket: 408;
+- endpoints HTTP/WebSocket: 411;
 - contratos tipados: 422;
 - tabelas declaradas em SQL: 165;
 - ciclos de import detectados: 0.
@@ -38,12 +38,12 @@
 | `agent_pairing` | `operations` | 997 | 0 | 0 |
 | `auth` | `identity` | 959 | 0 | 0 |
 | `calibration` | `operations` | 910 | 0 | 12 |
+| `slicing_pipeline` | `operations` | 841 | 0 | 5 |
 | `routes.agents` | `operations` | 781 | 38 | 0 |
 | `modules.platform.durable_execution` | `shared` | 763 | 0 | 1 |
 | `search_discovery` | `community` | 760 | 0 | 5 |
 | `setup_flash` | `operations` | 753 | 0 | 7 |
 | `routes.calibration` | `operations` | 742 | 15 | 0 |
-| `slicing_pipeline` | `operations` | 736 | 0 | 5 |
 | `setup_can` | `operations` | 699 | 0 | 7 |
 | `modules.administration.intelligence` | `administration` | 673 | 0 | 0 |
 | `agent_support` | `operations` | 663 | 0 | 5 |

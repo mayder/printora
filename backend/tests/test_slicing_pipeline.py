@@ -179,6 +179,51 @@ def test_project_slicing_job_uses_immutable_project_snapshot(tmp_path: Path) -> 
     assert listed[0].id == job.id
 
 
+def test_project_journey_preserves_quantities_preview_approval_and_reprint(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    user, printer_id, profile_id = _seed_printer_and_profile(database_path)
+    projects = PrintProjectsRepository(database_path)
+    project = projects.create_project(user.id, PrintProjectCreateRequest(title="Peças repetidas", visibility="private"))
+    detail = projects.upload_file(user.id, project.id, "presilha.stl", "primary", VALID_STL)
+    engine = tmp_path / "orcaslicer-journey"
+    engine.write_text(
+        """#!/usr/bin/env bash
+if [[ "$1" == "--version" ]]; then echo "OrcaSlicer fake"; exit 0; fi
+while [[ "$#" -gt 0 ]]; do
+  if [[ "$1" == "--output" ]]; then shift; printf '; fake gcode\\nG28\\n' > "$1"; exit 0; fi
+  shift
+done
+exit 2
+""",
+        encoding="utf-8",
+    )
+    engine.chmod(0o755)
+    repository = SlicingPipelineRepository(database_path, Settings(data_dir=tmp_path, slicer_engine_path=engine))
+    original = repository.create_project_job(
+        user.id,
+        ProjectSlicingJobCreate(
+            project_id=project.id,
+            selected_file_ids=[detail.files[0].id],
+            file_quantities={detail.files[0].id: 4},
+            printer_id=printer_id,
+            material_profile_id=profile_id,
+        ),
+    )
+    completed = repository.run_job(original.id, user.id)
+    approved = repository.approve_gcode(completed.id, user.id)
+    reprint = repository.create_reprint_job(completed.id, user.id)
+
+    assert approved.gcode_approved_at is not None
+    assert approved.gcode_approved_checksum == completed.artifacts[0].checksum_sha256
+    assert approved.selected_project_files[0]["quantity"] == 4
+    assert reprint.status == "planned"
+    assert reprint.reprint_of_job_id == completed.id
+    assert reprint.print_project_version_id == completed.print_project_version_id
+    assert reprint.selected_project_files == completed.selected_project_files
+    assert reprint.slicing_profile_sha256 == completed.slicing_profile_sha256
+
+
 def test_slicing_job_pins_immutable_executable_profile_revision(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)

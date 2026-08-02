@@ -51,7 +51,9 @@ class SlicingJobCreate(BaseModel):
 class ProjectSlicingJobCreate(BaseModel):
     project_id: int = Field(ge=1)
     selected_file_ids: list[int] = Field(default_factory=list, min_length=1, max_length=20)
+    file_quantities: dict[int, int] = Field(default_factory=dict)
     printer_id: int = Field(ge=1)
+    spool_id: int | None = Field(default=None, ge=1)
     material_profile_id: int | None = Field(default=None, ge=1)
     slicing_profile_revision_id: int | None = Field(default=None, ge=1)
     engine: SlicerEngine = "orcaslicer"
@@ -63,6 +65,13 @@ class ProjectSlicingJobCreate(BaseModel):
     @classmethod
     def clean_reference(cls, value: str | None) -> str | None:
         return SlicingJobCreate.clean_reference(value)
+
+    @field_validator("file_quantities")
+    @classmethod
+    def validate_quantities(cls, value: dict[int, int]) -> dict[int, int]:
+        if len(value) > 20 or any(file_id < 1 or quantity < 1 or quantity > 100 for file_id, quantity in value.items()):
+            raise ValueError("quantidades devem ficar entre 1 e 100 para cada arquivo")
+        return value
 
 
 class SlicingArtifact(BaseModel):
@@ -93,6 +102,9 @@ class SlicingJob(BaseModel):
     print_project_version_id: int | None = None
     selected_project_files: list[dict[str, Any]] = Field(default_factory=list)
     project_snapshot: dict[str, Any] = Field(default_factory=dict)
+    gcode_approved_at: str | None = None
+    gcode_approved_checksum: str | None = None
+    reprint_of_job_id: int | None = None
     status: SlicingJobStatus
     compatibility: dict[str, Any]
     input: dict[str, Any]
@@ -176,15 +188,25 @@ class SlicingPipelineRepository:
             profile_reference=payload.profile_reference,
         )
         printer = self._printer_for_actor(payload.printer_id, actor_user_id)
+        spool = self._spool_for_actor(payload.spool_id, actor_user_id) if payload.spool_id else None
+        if spool is not None and payload.material_profile_id and spool["material_profile_id"] != payload.material_profile_id:
+            raise ValueError("o spool selecionado não pertence ao perfil de material escolhido")
         profile = self._material_profile(payload.material_profile_id, actor_user_id) if payload.material_profile_id else None
         executable_profile = self._profile_revision(payload.slicing_profile_revision_id, actor_user_id)
         self._validate_profile_engine(executable_profile, payload.engine)
         compatibility = self._validate_compatibility(printer, profile, legacy_payload)
         project_snapshot = _loads_dict(version["project_snapshot_json"])
-        selected_files_snapshot = [_file_snapshot(file) for file in selected_files]
+        selected_ids = set(payload.selected_file_ids)
+        unknown_quantity_ids = set(payload.file_quantities) - selected_ids
+        if unknown_quantity_ids:
+            raise ValueError("quantidade informada para arquivo não selecionado")
+        selected_files_snapshot = [
+            _file_snapshot(file, payload.file_quantities.get(int(file["id"]), 1)) for file in selected_files
+        ]
         input_payload = {
             "printer": {"id": printer["id"], "name": printer["name"], "catalog_variant_id": printer["catalog_variant_id"]},
             "material_profile": _profile_summary(profile),
+            "material_spool": _spool_summary(spool),
             "project": project_snapshot,
             "selected_files": selected_files_snapshot,
             "quality": payload.quality_reference,
@@ -228,6 +250,56 @@ class SlicingPipelineRepository:
         if job is None:
             raise ValueError("job de fatiamento não encontrado")
         return job
+
+    def approve_gcode(self, job_id: int, actor_user_id: int) -> SlicingJob:
+        job = self.get_job(job_id, actor_user_id)
+        if job is None:
+            raise ValueError("job de fatiamento não encontrado")
+        if job.status != "completed":
+            raise ValueError("conclua o fatiamento antes de aprovar a prévia")
+        artifact = next((item for item in job.artifacts if item.artifact_kind == "gcode"), None)
+        if artifact is None or not artifact.checksum_sha256:
+            raise ValueError("G-code rastreado não encontrado")
+        with connect_database(self.database_path) as connection:
+            connection.execute(
+                """UPDATE slicing_jobs
+                   SET gcode_approved_at = CURRENT_TIMESTAMP, gcode_approved_checksum = ?, updated_at = CURRENT_TIMESTAMP
+                   WHERE id = ? AND owner_user_id = ?""",
+                (artifact.checksum_sha256, job_id, actor_user_id),
+            )
+        return self.get_job(job_id, actor_user_id)  # type: ignore[return-value]
+
+    def create_reprint_job(self, job_id: int, actor_user_id: int) -> SlicingJob:
+        source = self.get_job(job_id, actor_user_id)
+        if source is None:
+            raise ValueError("job original não encontrado")
+        if source.print_project_id is None or source.print_project_version_id is None:
+            raise ValueError("reimpressão reproduzível exige um job criado a partir de projeto")
+        if source.status != "completed":
+            raise ValueError("reimpressão exige um fatiamento original concluído")
+        input_payload = {**source.input, "reprint_of_job_id": source.id}
+        with connect_database(self.database_path) as connection:
+            cursor = connection.execute(
+                """INSERT INTO slicing_jobs (
+                       owner_user_id, printer_id, material_profile_id, engine, model_reference,
+                       model_version_reference, model_dimensions_json, quality_reference, compatibility_json,
+                       input_json, print_project_id, print_project_version_id, selected_project_files_json,
+                       project_snapshot_json, slicing_profile_revision_id, slicing_profile_sha256,
+                       slicing_profile_engine_version, reprint_of_job_id
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    actor_user_id, source.printer_id, source.material_profile_id, source.engine,
+                    source.model_reference, source.model_version_reference,
+                    json.dumps(source.model_dimensions, ensure_ascii=False), source.quality_reference,
+                    json.dumps(source.compatibility, ensure_ascii=False), json.dumps(input_payload, ensure_ascii=False),
+                    source.print_project_id, source.print_project_version_id,
+                    json.dumps(source.selected_project_files, ensure_ascii=False),
+                    json.dumps(source.project_snapshot, ensure_ascii=False), source.slicing_profile_revision_id,
+                    source.slicing_profile_sha256, source.slicing_profile_engine_version, source.id,
+                ),
+            )
+            new_id = int(cursor.lastrowid)
+        return self.get_job(new_id, actor_user_id)  # type: ignore[return-value]
 
     def run_job(self, job_id: int, actor_user_id: int | None) -> SlicingJob:
         job = self.get_job(job_id, actor_user_id)
@@ -408,6 +480,19 @@ class SlicingPipelineRepository:
             ).fetchone()
         if row is None:
             raise ValueError("perfil de material não encontrado")
+        return row
+
+    def _spool_for_actor(self, spool_id: int, actor_user_id: int):
+        with connect_database(self.database_path) as connection:
+            row = connection.execute(
+                """SELECT id, material_profile_id, name, material_type, brand, color_name,
+                          remaining_weight_g, storage_state, revision
+                   FROM material_spools
+                   WHERE id = ? AND owner_user_id = ? AND status = 'active'""",
+                (spool_id, actor_user_id),
+            ).fetchone()
+        if row is None:
+            raise ValueError("spool de material não encontrado")
         return row
 
     def _profile_revision(self, revision_id: int | None, actor_user_id: int | None):
@@ -617,6 +702,9 @@ class SlicingPipelineRepository:
             print_project_version_id=row["print_project_version_id"] if "print_project_version_id" in row.keys() else None,
             selected_project_files=_loads_dict_list(row["selected_project_files_json"]) if "selected_project_files_json" in row.keys() else [],
             project_snapshot=_loads_dict(row["project_snapshot_json"]) if "project_snapshot_json" in row.keys() else {},
+            gcode_approved_at=row["gcode_approved_at"] if "gcode_approved_at" in row.keys() else None,
+            gcode_approved_checksum=row["gcode_approved_checksum"] if "gcode_approved_checksum" in row.keys() else None,
+            reprint_of_job_id=row["reprint_of_job_id"] if "reprint_of_job_id" in row.keys() else None,
             status=row["status"],
             compatibility=json.loads(row["compatibility_json"]),
             input=json.loads(row["input_json"]),
@@ -687,7 +775,23 @@ def _profile_revision_summary(revision) -> dict[str, Any]:
     }
 
 
-def _file_snapshot(file) -> dict[str, Any]:
+def _spool_summary(spool) -> dict[str, Any]:
+    if spool is None:
+        return {}
+    return {
+        "id": int(spool["id"]),
+        "material_profile_id": spool["material_profile_id"],
+        "name": spool["name"],
+        "material_type": spool["material_type"],
+        "brand": spool["brand"],
+        "color_name": spool["color_name"],
+        "remaining_weight_g": spool["remaining_weight_g"],
+        "storage_state": spool["storage_state"],
+        "revision": int(spool["revision"]),
+    }
+
+
+def _file_snapshot(file, quantity: int = 1) -> dict[str, Any]:
     return {
         "id": int(file["id"]),
         "file_name": file["file_name"],
@@ -697,6 +801,7 @@ def _file_snapshot(file) -> dict[str, Any]:
         "sha256": file["sha256"],
         "validation_status": file["validation_status"],
         "can_slice": bool(file["can_slice"]),
+        "quantity": quantity,
     }
 
 

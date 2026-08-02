@@ -1,6 +1,5 @@
 package_id,domain_key,primary_backend_owner,backend_collaborators,frontend_area,risk_profile,dependencies
 PKG-126,technical_knowledge,community,operations|integrations,community,high,PKG-104|PKG-114
-PKG-132,print_flow,operations,community|integrations,operations,critical,PKG-104|PKG-110|PKG-114|PKG-128|PKG-131
 PKG-133,reliability,operations,community|integrations,operations,critical,PKG-104|PKG-114|PKG-132
 PKG-134,fleet,operations,community|administration,operations,critical,PKG-104|PKG-114|PKG-132|PKG-133
 PKG-142,ecosystem,integrations,community|operations,integrations,high,PKG-104|PKG-114|PKG-128|PKG-131|PKG-132

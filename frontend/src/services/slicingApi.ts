@@ -1,4 +1,4 @@
-import { apiRequest } from "./http";
+import { apiRequest, apiResponse, readApiError } from "./http";
 
 export type SlicingEngineInfo = {
   engine: "orcaslicer" | "prusaslicer";
@@ -28,6 +28,9 @@ export type SlicingJob = {
   print_project_version_id?: number | null;
   selected_project_files?: Array<Record<string, any>>;
   project_snapshot?: Record<string, any>;
+  gcode_approved_at?: string | null;
+  gcode_approved_checksum?: string | null;
+  reprint_of_job_id?: number | null;
   status: "planned" | "running" | "completed" | "failed" | "canceled";
   compatibility: Record<string, unknown>;
   input: Record<string, any>;
@@ -139,7 +142,9 @@ export type SlicingJobCreate = {
 export type ProjectSlicingJobCreate = {
   project_id: number;
   selected_file_ids: number[];
+  file_quantities?: Record<number, number>;
   printer_id: number;
+  spool_id?: number | null;
   material_profile_id?: number | null;
   slicing_profile_revision_id?: number | null;
   engine: "orcaslicer" | "prusaslicer";
@@ -234,6 +239,13 @@ export const slicingApi = {
       body: JSON.stringify(body),
     }),
   runJob: (jobId: number) => apiRequest<SlicingJob>(`/api/slicing/jobs/${jobId}/run`, { method: "POST" }),
+  approvePreview: (jobId: number) => apiRequest<SlicingJob>(`/api/slicing/jobs/${jobId}/approve-preview`, { method: "POST" }),
+  reprintJob: (jobId: number) => apiRequest<SlicingJob>(`/api/slicing/jobs/${jobId}/reprint`, { method: "POST" }),
+  gcodeText: async (jobId: number) => {
+    const response = await apiResponse(`/api/slicing/jobs/${jobId}/gcode`);
+    if (!response.ok) throw new Error(await readApiError(response));
+    return response.text();
+  },
   cancelJob: (jobId: number) => apiRequest<SlicingJob>(`/api/slicing/jobs/${jobId}/cancel`, { method: "POST" }),
   createPreflight: (jobId: number) => apiRequest<PrintPreflight>(`/api/slicing/jobs/${jobId}/preflight`, { method: "POST" }),
   refreshPreflight: (preflightId: number) => apiRequest<PrintPreflight>(`/api/slicing/preflights/${preflightId}/refresh`, { method: "POST" }),

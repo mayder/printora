@@ -2840,3 +2840,32 @@ Diagnóstico:
 Rollback: desabilitar painel e endpoints novos, restaurar a release N-1 e manter
 colunas, manifestos, versões e objetos como dados aditivos. Para reversão física
 SQLite, restaurar o backup anterior ao script. O rollback não apaga arquivos.
+
+## Fluxo ponta a ponta de impressão
+
+Banco, na ordem:
+
+1. SQLite aplica `backend/sql/091_print_journey.sql` pelo versionador, com backup;
+2. cloud aplica `backend/sql/postgresql/023_print_journey.sql` antes da aplicação;
+3. validar `gcode_approved_at`, `gcode_approved_checksum` e `reprint_of_job_id`;
+4. não executar `DROP`, `DELETE` ou limpeza de artefatos/histórico.
+
+Smoke seguro:
+
+1. criar projeto privado e escolher peça, quantidade, impressora, spool e perfil;
+2. preparar e fatiar; abrir a prévia visual e aprovar;
+3. confirmar que preflight sem aprovação ou com checksum alterado fica bloqueado;
+4. executar preflight local/remoto com a impressora ociosa;
+5. usar `Salvar G-code` primeiro e conferir arquivo/impressora corretos;
+6. validar rollback do arquivo salvo sem iniciar impressão;
+7. com operador presente, opcionalmente confirmar `Enviar e imprimir` e observar
+   a primeira camada;
+8. registrar resultado e criar `Reimprimir igual`; conferir snapshot preservado
+   e nova aprovação obrigatória.
+
+Diagnóstico: divergência de checksum exige nova revisão; spool ausente/inativo
+exige seleção válida; timeout de envio deve ser consultado no histórico antes de
+repetir. Nunca repetir comando físico sem confirmar o estado real no Moonraker.
+
+Rollback: ocultar o novo fluxo e usar Administração como fallback. Preservar
+jobs, artefatos, entregas e histórico. A release N-1 ignora os campos aditivos.

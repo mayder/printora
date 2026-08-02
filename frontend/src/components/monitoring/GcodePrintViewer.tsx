@@ -86,6 +86,7 @@ export function GcodePrintViewer({
   progress,
   buildVolume,
   nozzleDiameter,
+  sourceText,
 }: {
   printerId: number;
   filename: string;
@@ -98,6 +99,7 @@ export function GcodePrintViewer({
   progress?: number | null;
   buildVolume?: Record<string, unknown> | null;
   nozzleDiameter?: number | null;
+  sourceText?: string | null;
 }) {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const viewerRef = React.useRef<GCodeViewerInstance | null>(null);
@@ -145,7 +147,7 @@ export function GcodePrintViewer({
       try {
         const [{ default: GCodeViewer }, text] = await Promise.all([
           import("@sindarius/gcodeviewer"),
-          operationApi.gcodeCacheTextWithRecovery(printerId, filename, {
+          sourceText != null ? Promise.resolve(sourceText) : operationApi.gcodeCacheTextWithRecovery(printerId, filename, {
             signal: abortController.signal,
             onRetry: (attempt, maximum) => {
               if (!disposed) {
@@ -203,7 +205,7 @@ export function GcodePrintViewer({
       layerOffsetsRef.current = [];
       renderedSourceLimitRef.current = 0;
     };
-  }, [bounds, filename, nozzleDiameter, printerId]);
+  }, [bounds, filename, nozzleDiameter, printerId, sourceText]);
 
   React.useEffect(() => {
     const viewer = viewerRef.current;

@@ -360,6 +360,8 @@ quando a ação não é permitida.
 - `Projetos de impressão > Meus projetos > Fatiamento` permite selecionar arquivos locais fatiáveis do projeto, escolher impressora, qualidade e perfil/material, criar job e ver jobs do projeto com status e snapshot. Link externo sem arquivo local validado aparece desabilitado e não entra na seleção.
 - Quando a engine de fatiamento estiver indisponível, a tela deve bloquear criação de job e apontar Administração como local de configuração/diagnóstico.
 - O mesmo painel mostra preflight, entrega e histórico por projeto: `Salvar G-code`, `Enviar`, confirmação textual obrigatória para iniciar impressão, status da entrega, rollback seguro de arquivo salvo e feedback privado/público sanitizado.
+- O painel apresenta cinco etapas em linguagem simples: escolher peças e quantidades, preparar, revisar a prévia visual, verificar segurança e enviar/acompanhar. A revisão grava o checksum aprovado; `Reimprimir igual` preserva o snapshot, mas exige nova revisão e confirmação.
+- O material carregado pode ser escolhido pelo nome do spool e peso disponível. Ausência de spool é explicada como confirmação manual, sem inventar compatibilidade.
 - Histórico público no contexto do projeto nunca deve exibir impressora privada, agente, Moonraker, token, IP, path, organização ou permissão.
 
 ## Pendencias de mapeamento
