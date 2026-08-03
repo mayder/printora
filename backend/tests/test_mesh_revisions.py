@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,10 @@ from app.modules.operations.mesh_qualification.processor import execute_mesh_rep
 from app.modules.operations.mesh_qualification.repository import MeshRevisionRepository
 from app.modules.operations.mesh_qualification.review_contracts import MeshReviewCreate
 from app.modules.operations.mesh_qualification.review_repository import MeshReviewRepository
+from app.modules.operations.mesh_qualification.physical_validation import (
+    MeshPhysicalValidationCreate,
+    MeshPhysicalValidationRepository,
+)
 from app.modules.operations.reconstruction.contracts import ReconstructionCreate
 from app.modules.operations.reconstruction.processor import execute_reconstruction_job
 from app.modules.operations.reconstruction.repository import ReconstructionRepository
@@ -140,6 +145,46 @@ def test_mesh_revisions_are_idempotent_chained_qualified_and_owner_scoped(tmp_pa
         assert project_file["can_slice"] == 1
         assert project["current_version_id"] is not None
         assert total_personal_storage_used(connection, owner.id) == usage_before_approval
+        printer_id = int(connection.execute(
+            "INSERT INTO printers (name, moonraker_url) VALUES ('Pilot printer', 'http://127.0.0.1:7125')"
+        ).lastrowid)
+        slicing_job_id = int(connection.execute(
+            """INSERT INTO slicing_jobs (
+                owner_user_id, printer_id, engine, model_reference, quality_reference,
+                status, selected_project_files_json, input_json
+            ) VALUES (?, ?, 'orcaslicer', 'project://pilot', '0.20 qualidade', 'completed', ?, ?)""",
+            (owner.id, printer_id, json.dumps([{"id": approved.project_file_id, "file_name": "modelo-revisado.stl"}]),
+             json.dumps({"printer": {"name": "Pilot printer"}, "material_spool": {"name": "PLA branco"}, "slicing_profile_revision": {"sha256": "profile-sha"}})),
+        ).lastrowid)
+        history_id = int(connection.execute(
+            """INSERT INTO print_job_history (
+                owner_user_id, printer_id, slicing_job_id, model_reference,
+                quality_reference, status
+            ) VALUES (?, ?, ?, 'project://pilot', '0.20 qualidade', 'completed')""",
+            (owner.id, printer_id, slicing_job_id),
+        ).lastrowid)
+
+    physical = MeshPhysicalValidationRepository(database_path)
+    pilot = physical.create(owner.id, history_id, MeshPhysicalValidationCreate(
+        outcome="passed", instrument_label="Paquímetro digital", measured_x_mm=20.4,
+        note="Peça resfriada por 30 minutos.",
+    ), "pilot-1")
+    repeated_pilot = physical.create(owner.id, history_id, MeshPhysicalValidationCreate(
+        outcome="passed", instrument_label="Paquímetro digital", measured_x_mm=20.4,
+        note="Peça resfriada por 30 minutos.",
+    ), "pilot-1")
+    assert repeated_pilot.id == pilot.id
+    assert pilot.review_id == approved.id
+    assert pilot.max_error_percent == 2.0
+    assert pilot.material_snapshot["name"] == "PLA branco"
+    with pytest.raises(ValueError, match="passou de 3%"):
+        physical.create(owner.id, history_id, MeshPhysicalValidationCreate(
+            outcome="passed", instrument_label="Paquímetro digital", measured_x_mm=22,
+        ), "pilot-invalid-pass")
+    with pytest.raises(ValueError, match="Conclua a impressão"):
+        physical.create(other.id, history_id, MeshPhysicalValidationCreate(
+            outcome="failed", instrument_label="Régua", measured_x_mm=21,
+        ), "other-pilot")
 
     cancelled = repository.create(
         owner.id, reconstruction.id,

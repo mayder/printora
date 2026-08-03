@@ -26,6 +26,7 @@ import {
   type PrintDelivery,
   type PrintJobFeedback,
   type PrintJobHistory,
+  type MeshPhysicalValidation,
   type PrintPreflight,
   type SlicingEngineInfo,
   type SlicingJob,
@@ -425,6 +426,7 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
   const [history, setHistory] = React.useState<PrintJobHistory[]>([]);
   const [confirmationByPreflight, setConfirmationByPreflight] = React.useState<Record<number, string>>({});
   const [feedbackDrafts, setFeedbackDrafts] = React.useState<Record<number, { outcome: PrintJobFeedback["outcome"]; visibility: PrintJobFeedback["visibility"]; note: string; photo_url: string }>>({});
+  const [measurementDrafts, setMeasurementDrafts] = React.useState<Record<number, { outcome: MeshPhysicalValidation["outcome"]; instrument: string; x: string; y: string; z: string; note: string }>>({});
   const [busy, setBusy] = React.useState(false);
   const [preflightMessage, setPreflightMessage] = React.useState("");
   const [previewJobId, setPreviewJobId] = React.useState<number | null>(null);
@@ -641,6 +643,26 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
     }
   }
 
+  async function addPhysicalValidation(historyId: number) {
+    const draft = measurementDrafts[historyId] ?? { outcome: "passed", instrument: "Paquímetro", x: "", y: "", z: "", note: "" };
+    setBusy(true);
+    try {
+      const validation = await slicingApi.createMeshPhysicalValidation(historyId, {
+        outcome: draft.outcome,
+        instrument_label: draft.instrument,
+        ...(draft.x ? { measured_x_mm: Number(draft.x) } : {}),
+        ...(draft.y ? { measured_y_mm: Number(draft.y) } : {}),
+        ...(draft.z ? { measured_z_mm: Number(draft.z) } : {}),
+        note: draft.note,
+      });
+      setHistory((current) => current.map((item) => item.id === historyId ? { ...item, mesh_physical_validation: validation } : item));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível registrar as medidas.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const engineBlocked = engineInfo?.status === "blocked";
 
   return (
@@ -847,6 +869,9 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
           <h4>Histórico do projeto</h4>
           {history.map((item) => {
             const draft = feedbackDrafts[item.id] ?? { outcome: "worked", visibility: "private", note: "", photo_url: "" };
+            const measurement = measurementDrafts[item.id] ?? { outcome: "passed" as const, instrument: "Paquímetro", x: "", y: "", z: "", note: "" };
+            const job = jobs.find((candidate) => candidate.id === item.slicing_job_id);
+            const isPhotoModel = job?.selected_project_files?.some((file) => String(file.file_name).startsWith("modelo-revisado-")) ?? false;
             return (
               <div className="print-project-history-row" key={item.id}>
                 <div>
@@ -905,6 +930,19 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
                     </button>
                   ) : null}
                 </div>
+                {isPhotoModel && ["completed", "failed"].includes(item.status) ? <div className="print-project-feedback-grid">
+                  {item.mesh_physical_validation ? <div className="success-text"><strong>Peça medida</strong><span>Maior diferença: {item.mesh_physical_validation.max_error_percent.toFixed(1)}%. Instrumento: {item.mesh_physical_validation.instrument_label}.</span></div> : <>
+                    <strong>Medir a peça criada pelas fotos</strong>
+                    <p className="muted">Depois que a peça esfriar, meça largura, profundidade ou altura. Basta informar pelo menos uma medida.</p>
+                    <select value={measurement.outcome} onChange={(event) => setMeasurementDrafts((current) => ({ ...current, [item.id]: { ...measurement, outcome: event.target.value as MeshPhysicalValidation["outcome"] } }))} disabled={busy}><option value="passed">Ficou boa</option><option value="needs_adjustment">Precisa ajuste</option><option value="failed">A impressão falhou</option></select>
+                    <input value={measurement.instrument} onChange={(event) => setMeasurementDrafts((current) => ({ ...current, [item.id]: { ...measurement, instrument: event.target.value } }))} placeholder="Instrumento usado" disabled={busy} />
+                    <input type="number" inputMode="decimal" min="0.1" step="0.1" value={measurement.x} onChange={(event) => setMeasurementDrafts((current) => ({ ...current, [item.id]: { ...measurement, x: event.target.value } }))} placeholder="Largura X em mm" disabled={busy} />
+                    <input type="number" inputMode="decimal" min="0.1" step="0.1" value={measurement.y} onChange={(event) => setMeasurementDrafts((current) => ({ ...current, [item.id]: { ...measurement, y: event.target.value } }))} placeholder="Profundidade Y em mm" disabled={busy} />
+                    <input type="number" inputMode="decimal" min="0.1" step="0.1" value={measurement.z} onChange={(event) => setMeasurementDrafts((current) => ({ ...current, [item.id]: { ...measurement, z: event.target.value } }))} placeholder="Altura Z em mm" disabled={busy} />
+                    <input value={measurement.note} onChange={(event) => setMeasurementDrafts((current) => ({ ...current, [item.id]: { ...measurement, note: event.target.value } }))} placeholder="Observação opcional" disabled={busy} />
+                    <button type="button" className="primary-button" onClick={() => void addPhysicalValidation(item.id)} disabled={busy || !measurement.instrument.trim() || !(measurement.x || measurement.y || measurement.z)}>Salvar medidas</button>
+                  </>}
+                </div> : null}
               </div>
             );
           })}

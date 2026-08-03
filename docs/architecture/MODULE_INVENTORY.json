@@ -116,10 +116,10 @@
     }
   ],
   "summary": {
-    "modules": 222,
-    "routes": 432,
-    "contracts": 436,
-    "tables": 174,
+    "modules": 223,
+    "routes": 433,
+    "contracts": 438,
+    "tables": 175,
     "cycles": 0,
     "modules_by_owner": {
       "accessibility": 7,
@@ -129,7 +129,7 @@
       "finance": 13,
       "identity": 14,
       "integrations": 7,
-      "operations": 85,
+      "operations": 86,
       "shared": 22
     }
   },
@@ -365,7 +365,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 604,
+      "lines": 605,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -1924,6 +1924,19 @@
       "contracts": []
     },
     {
+      "module": "modules.operations.mesh_qualification.physical_validation",
+      "owner": "operations",
+      "lines": 157,
+      "imports": [
+        "database"
+      ],
+      "routes": [],
+      "contracts": [
+        "MeshPhysicalValidationCreate",
+        "MeshPhysicalValidation"
+      ]
+    },
+    {
       "module": "modules.operations.mesh_qualification.processor",
       "owner": "operations",
       "lines": 29,
@@ -2291,9 +2304,10 @@
     {
       "module": "print_history",
       "owner": "operations",
-      "lines": 317,
+      "lines": 326,
       "imports": [
         "database",
+        "modules.operations.mesh_qualification.physical_validation",
         "print_delivery",
         "slicing_pipeline"
       ],
@@ -4054,12 +4068,13 @@
     {
       "module": "routes.slicing",
       "owner": "operations",
-      "lines": 364,
+      "lines": 387,
       "imports": [
         "agent_executor",
         "agent_pairing",
         "auth",
         "config",
+        "modules.operations.mesh_qualification.physical_validation",
         "modules.platform.database_target",
         "print_delivery",
         "print_history",
@@ -4173,6 +4188,11 @@
           "method": "POST",
           "path": "/history/{history_id}/feedback",
           "handler": "add_print_history_feedback"
+        },
+        {
+          "method": "POST",
+          "path": "/history/{history_id}/mesh-physical-validation",
+          "handler": "create_mesh_physical_validation"
         }
       ],
       "contracts": []
@@ -6263,6 +6283,11 @@
       "table": "mesh_revision_reviews",
       "owner": "operations",
       "script": "096_mesh_revision_reviews.sql"
+    },
+    {
+      "table": "mesh_physical_validations",
+      "owner": "operations",
+      "script": "097_mesh_physical_validations.sql"
     }
   ]
 }

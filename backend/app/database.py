@@ -93,6 +93,7 @@ POSTGRESQL_REQUIRED_EXTENSION_TABLES = (
     "mesh_qualifications",
     "mesh_revisions",
     "mesh_revision_reviews",
+    "mesh_physical_validations",
 )
 APP_NAME = "Printora"
 VERSIONING_SCRIPT = "000_schema_versioning.sql"

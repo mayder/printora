@@ -586,6 +586,10 @@ Estado atual:
 - implementação de software e validações automatizadas dos lotes 1 a 5 estão
   concluídas; o lote 6 depende de benchmark real do processador e piloto físico
   autorizado com objeto, paquímetro, material, perfil e impressora.
+- o histórico de uma impressão concluída de modelo criado por fotos oferece um
+  formulário simples para instrumento e medidas X/Y/Z; o backend liga a
+  evidência ao checksum aprovado, material, perfil e impressora, calcula erro
+  por eixo, impede declarar sucesso acima de 3% e mantém o registro privado.
 - uma medida conhecida em X, Y ou Z gera escala uniforme versionada em
   milímetros, com fator e evidência no manifesto, sem alterar a origem;
 - revisão humana, snapshot aprovado, entrada no fatiamento, preflight e piloto

@@ -26,6 +26,9 @@ físico continuam bloqueantes para o fechamento integral.
   de fatiamento, que ainda exige impressora, material, perfil, prévia e preflight;
 - alternativa textual para partes observadas/inferidas e histórico de cada
   reparo com versão e checksum.
+- registro privado do piloto físico no histórico da impressão, com instrumento,
+  medida esperada/obtida por eixo, erro percentual, maior desvio e snapshots de
+  impressora, material e perfil; sucesso acima de 3% é recusado.
 
 ## Evidência automatizada
 
@@ -46,13 +49,15 @@ físico continuam bloqueantes para o fechamento integral.
 
 ## Pendências para fechamento
 
-- piloto físico com objeto autorizado, paquímetro, material e perfil registrados;
+- executar o piloto físico com objeto autorizado, paquímetro, material e perfil
+  usando o formulário já implementado;
 - benchmark real e fechamento dos bloqueios externos do processador 3D.
 
 ## Evidência focal de entrega no projeto
 
-- `37` testes backend em qualificação, revisão, projetos e fatiamento;
-- `8` testes frontend focais de reconstrução e API de revisão;
+- `52` testes backend focais em qualificação, revisão, histórico, projetos,
+  fatiamento e contratos de arquitetura;
+- `9` testes frontend focais de reconstrução, revisão e registro do piloto;
 - build de produção e orçamento de bundle aprovados;
 - aprovação idempotente comprovou snapshot atual, checksum idêntico entre
   revisão e arquivo, autorização por owner e armazenamento sem dupla contagem.

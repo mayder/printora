@@ -13201,6 +13201,197 @@
         "title": "MaterialSpool",
         "type": "object"
       },
+      "MeshPhysicalValidation": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_percent": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Error Percent",
+            "type": "object"
+          },
+          "expected_dimensions_mm": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Expected Dimensions Mm",
+            "type": "object"
+          },
+          "history_id": {
+            "title": "History Id",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "instrument_label": {
+            "title": "Instrument Label",
+            "type": "string"
+          },
+          "material_snapshot": {
+            "additionalProperties": true,
+            "title": "Material Snapshot",
+            "type": "object"
+          },
+          "max_error_percent": {
+            "title": "Max Error Percent",
+            "type": "number"
+          },
+          "measured_dimensions_mm": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Measured Dimensions Mm",
+            "type": "object"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "passed",
+              "needs_adjustment",
+              "failed"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "printer_snapshot": {
+            "additionalProperties": true,
+            "title": "Printer Snapshot",
+            "type": "object"
+          },
+          "profile_snapshot": {
+            "additionalProperties": true,
+            "title": "Profile Snapshot",
+            "type": "object"
+          },
+          "review_id": {
+            "title": "Review Id",
+            "type": "integer"
+          },
+          "revision_sha256": {
+            "title": "Revision Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "review_id",
+          "history_id",
+          "outcome",
+          "instrument_label",
+          "expected_dimensions_mm",
+          "measured_dimensions_mm",
+          "error_percent",
+          "max_error_percent",
+          "printer_snapshot",
+          "material_snapshot",
+          "profile_snapshot",
+          "revision_sha256",
+          "note",
+          "created_at"
+        ],
+        "title": "MeshPhysicalValidation",
+        "type": "object"
+      },
+      "MeshPhysicalValidationCreate": {
+        "properties": {
+          "instrument_label": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Instrument Label",
+            "type": "string"
+          },
+          "measured_x_mm": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 2000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured X Mm"
+          },
+          "measured_y_mm": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 2000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Y Mm"
+          },
+          "measured_z_mm": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 2000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Z Mm"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Note",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "passed",
+              "needs_adjustment",
+              "failed"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "instrument_label"
+        ],
+        "title": "MeshPhysicalValidationCreate",
+        "type": "object"
+      },
       "MeshQualification": {
         "properties": {
           "analyzer_version": {
@@ -16296,6 +16487,16 @@
               }
             ],
             "title": "Library Item Id"
+          },
+          "mesh_physical_validation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeshPhysicalValidation"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "model_reference": {
             "title": "Model Reference",
@@ -46487,6 +46688,83 @@
           }
         },
         "summary": "Add Print History Feedback",
+        "tags": [
+          "slicing"
+        ]
+      }
+    },
+    "/api/slicing/history/{history_id}/mesh-physical-validation": {
+      "post": {
+        "operationId": "create_mesh_physical_validation_api_slicing_history__history_id__mesh_physical_validation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "history_id",
+            "required": true,
+            "schema": {
+              "title": "History Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeshPhysicalValidationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeshPhysicalValidation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Mesh Physical Validation",
         "tags": [
           "slicing"
         ]

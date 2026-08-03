@@ -3,6 +3,11 @@ from fastapi.responses import PlainTextResponse
 
 from app.config import get_settings
 from app.modules.platform.database_target import uses_postgresql
+from app.modules.operations.mesh_qualification.physical_validation import (
+    MeshPhysicalValidation,
+    MeshPhysicalValidationCreate,
+    MeshPhysicalValidationRepository,
+)
 from app.agent_executor import AgentCommandExecutor, AgentJobFailedError
 from app.agent_pairing import printer_for_user
 from app.auth import AuthRepository
@@ -41,6 +46,10 @@ def get_print_delivery_repository() -> PrintDeliveryRepository:
 
 def get_print_history_repository() -> PrintHistoryRepository:
     return PrintHistoryRepository(get_settings().database_path)
+
+
+def get_mesh_physical_validation_repository() -> MeshPhysicalValidationRepository:
+    return MeshPhysicalValidationRepository(get_settings().database_path)
 
 
 @router.get("/engine", response_model=SlicingEngineInfo)
@@ -355,6 +364,20 @@ async def add_print_history_feedback(
         return repository.add_feedback(history_id, current.user.id if current else None, payload)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/history/{history_id}/mesh-physical-validation", response_model=MeshPhysicalValidation)
+async def create_mesh_physical_validation(
+    history_id: int,
+    payload: MeshPhysicalValidationCreate,
+    idempotency_key: str = Header(alias="Idempotency-Key"),
+    current: CurrentUser = Depends(require_current_user),
+    repository: MeshPhysicalValidationRepository = Depends(get_mesh_physical_validation_repository),
+) -> MeshPhysicalValidation:
+    try:
+        return repository.create(current.user.id, history_id, payload, idempotency_key)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _consume_step_up_when_available(database_path, authorization: str | None, actor_user_id: int | None, step_up_token: str | None) -> bool:

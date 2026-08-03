@@ -2701,3 +2701,31 @@ legíveis. Não executar `DELETE`, `DROP` nem remover referências.
 Referências: `backend/sql/096_mesh_revision_reviews.sql`,
 `backend/sql/postgresql/028_mesh_revision_reviews.sql`,
 `docs/community/PKG_154_EVIDENCE.md`.
+
+### DEC-20260802-08 - Piloto físico é evidência privada ligada à cadeia aprovada
+
+Status: aceita
+Data: 2026-08-02
+Contexto: feedback livre não permite provar desvio dimensional, instrumento,
+material, perfil, impressora e checksum usados na validação de uma reconstrução.
+
+Decisão: impressões concluídas ou falhas que incluam um arquivo promovido por
+review podem receber uma única validação física idempotente. A pessoa informa o
+instrumento e ao menos um eixo medido; o servidor recupera dimensões esperadas e
+snapshots canônicos, calcula erro por eixo e maior desvio e recusa resultado de
+sucesso acima de 3%. O registro permanece privado e preso ao histórico e review.
+
+Consequências: o piloto deixa de depender de texto livre e pode ser auditado sem
+expor fotos, endereço da impressora ou dados do provider. O formulário só aparece
+depois da impressão e não altera escala, revisão ou G-code automaticamente.
+
+Impacto em testes: elegibilidade, owner, idempotência, instrumentos, medidas,
+limite de 3%, snapshots e integração com o histórico.
+
+Impacto em rollback: ocultar endpoint/formulário e manter a tabela aditiva para
+leitura; não apagar evidência. A retenção acompanha o snapshot do projeto e o
+fluxo explícito de exclusão, não a limpeza genérica de logs.
+
+Referências: `backend/sql/097_mesh_physical_validations.sql`,
+`backend/sql/postgresql/029_mesh_physical_validations.sql`,
+`docs/community/PKG_154_EVIDENCE.md`.

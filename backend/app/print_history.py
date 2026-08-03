@@ -11,6 +11,10 @@ from pydantic import BaseModel, Field, field_validator
 from app.database import connect_database
 from app.print_delivery import PrintDeliveryRecord
 from app.slicing_pipeline import SlicingJob
+from app.modules.operations.mesh_qualification.physical_validation import (
+    MeshPhysicalValidation,
+    MeshPhysicalValidationRepository,
+)
 
 PrintHistoryStatus = Literal["sent", "started", "completed", "failed", "canceled"]
 PrintFeedbackOutcome = Literal["worked", "failed", "needs_adjustment"]
@@ -72,6 +76,7 @@ class PrintJobHistoryRecord(BaseModel):
     created_at: str
     updated_at: str
     feedback: list[PrintJobFeedback] = Field(default_factory=list)
+    mesh_physical_validation: MeshPhysicalValidation | None = None
 
 
 class PrintHistoryRepository:
@@ -271,6 +276,10 @@ class PrintHistoryRepository:
                 )
                 for feedback in feedback_rows
             ],
+            mesh_physical_validation=(
+                MeshPhysicalValidationRepository(self.database_path).get_for_history(int(row["owner_user_id"]), int(row["id"]))
+                if is_owner else None
+            ),
         )
 
 

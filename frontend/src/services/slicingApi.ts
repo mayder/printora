@@ -104,6 +104,24 @@ export type PrintJobFeedback = {
   updated_at: string;
 };
 
+export type MeshPhysicalValidation = {
+  id: number;
+  review_id: number;
+  history_id: number;
+  outcome: "passed" | "needs_adjustment" | "failed";
+  instrument_label: string;
+  expected_dimensions_mm: Record<"x" | "y" | "z", number | null>;
+  measured_dimensions_mm: Record<"x" | "y" | "z", number | null>;
+  error_percent: Record<"x" | "y" | "z", number | null>;
+  max_error_percent: number;
+  printer_snapshot: Record<string, unknown>;
+  material_snapshot: Record<string, unknown>;
+  profile_snapshot: Record<string, unknown>;
+  revision_sha256: string;
+  note: string;
+  created_at: string;
+};
+
 export type PrintJobHistory = {
   id: number;
   owner_user_id: number | null;
@@ -125,6 +143,7 @@ export type PrintJobHistory = {
   created_at: string;
   updated_at: string;
   feedback: PrintJobFeedback[];
+  mesh_physical_validation: MeshPhysicalValidation | null;
 };
 
 export type SlicingJobCreate = {
@@ -267,6 +286,12 @@ export const slicingApi = {
     apiRequest<PrintJobHistory>(`/api/slicing/history/${historyId}/feedback`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  createMeshPhysicalValidation: (historyId: number, body: { outcome: MeshPhysicalValidation["outcome"]; instrument_label: string; measured_x_mm?: number; measured_y_mm?: number; measured_z_mm?: number; note?: string }) =>
+    apiRequest<MeshPhysicalValidation>(`/api/slicing/history/${historyId}/mesh-physical-validation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": `mesh-pilot-${historyId}-${crypto.randomUUID()}` },
       body: JSON.stringify(body),
     }),
 };

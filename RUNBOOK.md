@@ -3055,7 +3055,19 @@ Smoke seguro adicional:
    prévia e executa o preflight antes de qualquer entrega física;
 10. tentar finalidade mecânica ou medida com desvio acima de 3% e confirmar
     bloqueio sem criar review, arquivo ou snapshot parcial.
+11. aplicar `backend/sql/097_mesh_physical_validations.sql` no SQLite ou
+    `backend/sql/postgresql/029_mesh_physical_validations.sql` na cloud depois
+    do script de reviews; a alteração é aditiva e não remove dados;
+12. após a impressão terminar e a peça esfriar, abrir o histórico do projeto,
+    informar o instrumento e ao menos uma medida X/Y/Z em milímetros; confirmar
+    erro calculado, checksum, impressora, material e perfil preservados;
+13. registrar como `Ficou boa` com desvio acima de 3% e confirmar bloqueio; usar
+    `Precisa ajuste` para preservar a evidência e voltar à escala/reconstrução.
 
 Rollback: ocultar ações de reparo/exportação e parar de consumir
 `mesh.repair.execute`. N-1 ignora a tabela aditiva; manter objetos e linhas para
 leitura futura. Não executar `DROP`, `DELETE` ou limpeza física no rollback.
+Validações físicas são evidência privada do projeto, não telemetria pública, e
+seguem a retenção do snapshot aprovado. O rollback apenas oculta o formulário e
+mantém as linhas legíveis; remoção acompanha o fluxo explícito de exclusão da
+conta/projeto, nunca uma limpeza de logs genérica.

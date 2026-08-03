@@ -2565,6 +2565,10 @@ Aceite de 2026-07-24:
 - validar que o mesmo objeto promovido vira arquivo fatiável e snapshot do
   projeto sem dupla contagem de armazenamento, e que a tela recarrega o projeto
   antes de oferecer continuidade para o fatiamento normal;
+- validar que somente histórico concluído/falho do arquivo aprovado aceita
+  piloto físico, exige instrumento e ao menos um eixo, calcula erro por eixo,
+  preserva snapshots de material/perfil/impressora, é idempotente e não aceita
+  resultado `passed` quando o maior desvio ultrapassa 3%;
 - fechamento exige testes backend/frontend/worker/SQL/contrato/segurança,
   benchmark físico revisado, rollback ensaiado e
   `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
