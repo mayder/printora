@@ -2519,7 +2519,8 @@ Aceite de 2026-07-24:
   circuit breaker e falha isolada de cada engine/provider;
 - no gateway Tripo, validar quatro vistas na ordem documentada, checkpoint por
   correlação, reaproveitamento da tarefa paga no retry, divergência de
-  fingerprint e estados finais do polling sem chamada real no teste comum;
+  fingerprint, duas execuções concorrentes com uma única criação remota e
+  estados finais do polling sem chamada real no teste comum;
 - validar preview e aplicação supervisionada da retenção, removendo somente
   checkpoint concluído e expirado e preservando ativo, recente, legado,
   inválido, symlink e arquivo com lock concorrente;

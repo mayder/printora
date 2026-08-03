@@ -65,10 +65,10 @@ qualidade densa ou imprimibilidade. Resultado e checksums estão em
 
 O gateway Tripo segue os endpoints oficiais de upload, criação multiview e
 consulta de tarefa. Testes simulados validam seleção e ordem das quatro vistas,
-uma única criação paga por correlação, retomada pelo `task_id`, divergência de
-fingerprint, custo em créditos e ausência de cobertura inventada. A credencial
-entra somente no ambiente restrito do subprocesso e a URL de saída precisa ser
-HTTPS com resolução pública.
+uma única criação paga por correlação inclusive sob duas execuções concorrentes,
+retomada pelo `task_id`, divergência de fingerprint, custo em créditos e ausência
+de cobertura inventada. A credencial entra somente no ambiente restrito do
+subprocesso e a URL de saída precisa ser HTTPS com resolução pública.
 
 Falhas do provider não são repetidas automaticamente: sem idempotência forte
 documentada na criação remota, um retry cego poderia cobrar outra tarefa. O

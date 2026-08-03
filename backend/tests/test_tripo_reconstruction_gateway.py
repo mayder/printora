@@ -5,6 +5,8 @@ import hashlib
 import importlib.util
 import json
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType
@@ -72,6 +74,12 @@ class FakeClient:
     def download_model(self, url: str, target: Path) -> None:
         assert url.endswith("model.glb")
         target.write_bytes(b"glTF" + (2).to_bytes(4, "little") + (12).to_bytes(4, "little"))
+
+
+class SlowFakeClient(FakeClient):
+    def create_multiview_task(self, tokens: list[tuple[str, str]], model_version: str) -> str:
+        time.sleep(0.05)
+        return super().create_multiview_task(tokens, model_version)
 
 
 def _manifest(root: Path, bands: list[str] | None = None) -> Path:
@@ -142,6 +150,29 @@ def test_tripo_gateway_reuses_paid_task_and_preserves_unknown_coverage(tmp_path:
     assert checkpoint_payload["status"] == "completed"
     assert checkpoint_payload["completed_at"]
     assert checkpoint.stat().st_mode & 0o777 == 0o600
+
+
+def test_tripo_gateway_serializes_concurrent_requests_for_same_capture(tmp_path: Path) -> None:
+    manifest = _manifest(tmp_path)
+    client = SlowFakeClient()
+
+    def execute(index: int) -> dict[str, object]:
+        return tripo_gateway.run_gateway(
+            manifest,
+            tmp_path / f"output-{index}",
+            tmp_path / f"result-{index}.json",
+            client=client,
+            state_dir=tmp_path / "state",
+            model_version="v3.1-20260211",
+            poll_seconds=0.01,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(execute, (1, 2)))
+
+    assert client.creations == 1
+    assert len(client.uploads) == 4
+    assert sorted(result["provenance"]["checkpoint_reused"] for result in results) == [False, True]
 
 
 def test_tripo_gateway_requires_four_middle_views(tmp_path: Path) -> None:
