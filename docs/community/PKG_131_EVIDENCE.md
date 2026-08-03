@@ -55,6 +55,13 @@ idempotentes.
 - build TypeScript/Vite e orçamento do bundle;
 - contrato OpenAPI, inventários e gate completo do repositório no fechamento.
 
+Os perfis locais homologados incluem 14 finalidades para a Voron 2.4 com bico
+de 0,6 mm e os 14 equivalentes para a Voron 0.2 com bico de 0,4 mm. O teste
+compara cada perfil V02 com sua derivação V24, garante largura mínima de 0,4 mm
+e compatibilidade explícita com a impressora correta. O instalador valida por
+padrão sem alterar arquivos; `--apply` exige configuração Orca válida, rejeita
+endereço com credencial e cria backup antes de instalar.
+
 ## Rollback
 
 Reverter as rotas e consumidores de perfis executáveis e manter as tabelas e

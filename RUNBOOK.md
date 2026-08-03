@@ -2100,8 +2100,15 @@ Validação focada:
 
 ```bash
 backend/.venv/bin/python -m pytest -q backend/tests/test_slicing_profile_bundles.py backend/tests/test_slicing_pipeline.py backend/tests/test_schema_versioning.py
+backend/.venv/bin/python -m pytest -q backend/tests/test_orcaslicer_profiles.py
+python3 scripts/orcaslicer/install-voron-02-profiles.py
 cd frontend && npm run test:unit -- --run tests/unit/SlicingProfilesPanel.test.ts && npm run build
 ```
+
+O último comando Python somente valida os 14 perfis V24 e 14 perfis V02. Para
+instalar localmente, feche o OrcaSlicer e repita com `--apply`. O instalador
+confere o diretório e a configuração antes de escrever, cria backup e não
+aceita endereço de impressora com usuário ou senha embutidos.
 
 Rollback: desative as rotas de importação e seleção e preserve bundles e
 revisões em leitura somente. Não execute `DROP` ou `DELETE`; se o schema já foi

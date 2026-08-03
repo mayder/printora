@@ -2481,6 +2481,17 @@ Aceite de 2026-07-24:
 - executar testes focados backend/Go/frontend, build/budget, E2E autenticado,
   validador de dependências e `./check.sh`.
 
+### PKG-131 - Perfis OrcaSlicer locais reproduzíveis
+
+- validar exatamente 14 perfis V24 0.6 e 14 derivados V02 0.4;
+- comparar cada derivado com sua fonte, herança, impressoras compatíveis e
+  larguras de extrusão nunca menores que 0,4 mm;
+- executar o instalador sem `--apply` e confirmar validação sem escrita local;
+- aplicar somente em diretório temporário controlado, confirmando backup,
+  máquina, processos, seleção preservada e rejeição de host com credenciais;
+- executar `backend/.venv/bin/python -m pytest -q
+  backend/tests/test_orcaslicer_profiles.py` e o gate completo no fechamento.
+
 ### PKG-141 - Captura guiada de objeto por fotos
 
 - validar criação, retomada, conclusão, cancelamento e expiração da sessão por
