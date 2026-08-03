@@ -563,7 +563,10 @@ Estado atual:
 - a interface explica dimensões e bloqueios sem chamar a malha de imprimível;
   unidade desconhecida e verificações pendentes mantêm o resultado não
   qualificado;
-- auto-interseção, espessura, reparos versionados, revisão métrica/humana,
-  snapshot STL/3MF, fatiamento e piloto físico permanecem abertos;
+- cruzamentos internos possuem verificação geométrica limitada por orçamento e
+  a espessura recebe estimativa conservadora; a comparação com impressora e
+  perfil ainda é obrigatória antes de aprovar;
+- reparos versionados, revisão métrica/humana, snapshot STL/3MF, fatiamento e
+  piloto físico permanecem abertos;
 - a assistência por IA deixa de ser genérica e fica restrita a este fluxo,
   conforme `docs/architecture/RECONSTRUCAO_3D_POR_FOTOS.md`.

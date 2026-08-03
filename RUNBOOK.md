@@ -3014,6 +3014,7 @@ Smoke seguro:
 5. conferir no navegador desktop e mobile que dimensão e bloqueios não dependem
    somente de cor e que nenhum botão aprova, fatia ou envia automaticamente.
 
-Esta base não libera download qualificado: auto-interseção e espessura ainda
-aparecem como pendentes. Rollback restaura N-1, que ignora a tabela aditiva; os
+Esta base não libera download qualificado: cruzamentos internos excedendo o
+orçamento falham fechados, e a espessura estimada ainda precisa ser comparada
+com impressora e perfil. Rollback restaura N-1, que ignora a tabela aditiva; os
 relatórios permanecem privados e acompanham a retenção da malha referenciada.

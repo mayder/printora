@@ -115,7 +115,7 @@
     }
   ],
   "summary": {
-    "modules": 214,
+    "modules": 215,
     "routes": 425,
     "contracts": 432,
     "tables": 172,
@@ -128,7 +128,7 @@
       "finance": 13,
       "identity": 14,
       "integrations": 7,
-      "operations": 77,
+      "operations": 78,
       "shared": 22
     }
   },
@@ -1898,7 +1898,7 @@
     {
       "module": "modules.operations.mesh_qualification.analyzer",
       "owner": "operations",
-      "lines": 191,
+      "lines": 199,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -1907,6 +1907,14 @@
       "module": "modules.operations.mesh_qualification.geometry",
       "owner": "operations",
       "lines": 186,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.operations.mesh_qualification.spatial",
+      "owner": "operations",
+      "lines": 157,
       "imports": [],
       "routes": [],
       "contracts": []

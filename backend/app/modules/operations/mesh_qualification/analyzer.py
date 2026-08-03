@@ -5,6 +5,7 @@ from collections import defaultdict
 from typing import Any
 
 from .geometry import TriangleMesh, parse_mesh
+from .spatial import count_self_intersections, estimate_minimum_thickness
 
 
 KNOWN_UNITS = {"mm", "millimeter", "millimetre"}
@@ -47,6 +48,11 @@ def _analyze(mesh: TriangleMesh, file_format: str, unit: str) -> dict[str, Any]:
     hole_count = _boundary_component_count(boundary_edges)
     watertight = bool(valid_faces) and not boundary_edges and not non_manifold_edges
     signed_volume = sum(_signed_tetrahedron_volume(*(welded[index] for index in face)) for face in valid_faces)
+    self_intersections = count_self_intersections(welded, valid_faces, tolerance)
+    minimum_thickness = (
+        estimate_minimum_thickness(welded, valid_faces, tolerance, signed_volume)
+        if watertight and not winding_conflicts else None
+    )
     unit_known = unit in KNOWN_UNITS
     normals_inverted = watertight and signed_volume < 0
     blockers = _blockers(
@@ -57,6 +63,7 @@ def _analyze(mesh: TriangleMesh, file_format: str, unit: str) -> dict[str, Any]:
         degenerate=degenerate,
         components=components,
         normals_inverted=normals_inverted,
+        self_intersections=self_intersections,
     )
     checks = {
         "watertight": watertight,
@@ -68,8 +75,8 @@ def _analyze(mesh: TriangleMesh, file_format: str, unit: str) -> dict[str, Any]:
         "inverted_closed_volume": normals_inverted,
         "component_count": components,
         "degenerate_triangle_count": degenerate,
-        "self_intersection": "pending",
-        "minimum_thickness": "pending",
+        "self_intersection_count": self_intersections if self_intersections is not None else "limit_exceeded",
+        "minimum_thickness_estimate": round(minimum_thickness, 4) if minimum_thickness is not None else "not_available",
     }
     return _report(mesh, file_format, unit, unit_known, welded, minimum, maximum, dimensions, checks, blockers)
 
@@ -88,10 +95,7 @@ def _report(mesh, file_format, unit, unit_known, welded, minimum, maximum, dimen
         "bounds": {"min": [round(value, 4) for value in minimum], "max": [round(value, 4) for value in maximum]},
         "checks": checks,
         "mandatory_checks_complete": False,
-        "blockers": blockers + [
-            "A verificação de cruzamentos internos ainda precisa ser executada.",
-            "A espessura mínima ainda precisa ser comparada com a impressora e o perfil.",
-        ],
+        "blockers": blockers + ["A espessura estimada ainda precisa ser comparada com a impressora e o perfil."],
         "next_action": "Revise os pontos indicados antes de aprovar ou baixar para impressão.",
     }
 
@@ -162,7 +166,7 @@ def _boundary_component_count(edges: list[tuple[int, int]]) -> int:
     return count
 
 
-def _blockers(*, unit_known: bool, watertight: bool, non_manifold_edges: int, winding_conflicts: int, degenerate: int, components: int, normals_inverted: bool) -> list[str]:
+def _blockers(*, unit_known: bool, watertight: bool, non_manifold_edges: int, winding_conflicts: int, degenerate: int, components: int, normals_inverted: bool, self_intersections: int | None) -> list[str]:
     blockers: list[str] = []
     if not unit_known:
         blockers.append("Confirme a unidade e uma medida conhecida do objeto.")
@@ -174,6 +178,10 @@ def _blockers(*, unit_known: bool, watertight: bool, non_manifold_edges: int, wi
         blockers.append("Há superfícies apontando para direções incompatíveis.")
     if normals_inverted:
         blockers.append("A superfície fechada está orientada para dentro e precisa ser corrigida.")
+    if self_intersections is None:
+        blockers.append("A malha é complexa demais para conferir todos os cruzamentos com segurança.")
+    elif self_intersections:
+        blockers.append(f"Foram encontrados {self_intersections} cruzamentos internos na superfície.")
     if degenerate:
         blockers.append("Há triângulos sem área que precisam ser limpos.")
     if components > 1:
