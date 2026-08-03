@@ -1445,3 +1445,22 @@ configurada.
 
 Reteste: teste unitário dos três modos, build de produção, execução isolada na
 porta `18070` e abertura autenticada de Projetos sem erro de rede.
+
+### Modelo Aprovado Não Exibia Medidas Nem Prévia No Projeto
+
+Estado: corrigido e retestado em 2026-08-03.
+
+Impacto:
+
+- o modelo reconstruído e aprovado era liberado corretamente para fatiamento;
+- a área de peças, porém, exibia `Medidas ainda não disponíveis` e ocultava a
+  prévia 3D;
+- os dados existiam, mas usavam o contrato interno da qualificação da malha.
+
+Correção:
+
+- a promoção agora traduz explicitamente a qualificação para o contrato estável
+  de inspeção de arquivos do projeto;
+- medidas, quantidade de triângulos, prévia, componentes e avisos permanecem no
+  snapshot imutável criado durante a aprovação;
+- o teste integrado da revisão bloqueia regressão dessa tradução.

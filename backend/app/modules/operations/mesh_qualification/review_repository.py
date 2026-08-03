@@ -115,6 +115,7 @@ class MeshReviewRepository:
     def _create_project_file(connection, project, revision, qualification: dict[str, object]) -> int:
         role = "primary" if project["primary_file_id"] is None else "printable"
         file_name = f"modelo-revisado-{int(revision['id'])}.{revision['output_format']}"
+        inspection = _project_inspection(qualification)
         cursor = connection.execute(
             """
             INSERT INTO print_project_files (
@@ -128,7 +129,7 @@ class MeshReviewRepository:
                 int(project["id"]), str(revision["output_format"]), role, file_name,
                 str(revision["storage_key"]), int(revision["size_bytes"]), str(revision["sha256"]),
                 int(revision["size_bytes"]), "Modelo revisado", _next_display_order(connection, int(project["id"])),
-                json.dumps(qualification, ensure_ascii=False, sort_keys=True), f"mesh-review-{int(revision['id'])}",
+                json.dumps(inspection, ensure_ascii=False, sort_keys=True), f"mesh-review-{int(revision['id'])}",
             ),
         )
         file_id = int(cursor.lastrowid)
@@ -231,6 +232,37 @@ def _copy_object_reference(connection, revision_id: int, file_id: int) -> None:
 
 def _next_display_order(connection, project_id: int) -> int:
     return int(connection.execute("SELECT COUNT(*) FROM print_project_files WHERE project_id = ?", (project_id,)).fetchone()[0])
+
+
+def _project_inspection(qualification: dict[str, object]) -> dict[str, object]:
+    """Translate mesh qualification facts to the stable project-file inspection contract."""
+    dimensions = qualification.get("dimensions")
+    checks = qualification.get("checks")
+    blockers = qualification.get("blockers")
+    preview = qualification.get("preview_triangles")
+    safe_dimensions = dimensions if isinstance(dimensions, dict) else {}
+    safe_checks = checks if isinstance(checks, dict) else {}
+    safe_blockers = blockers if isinstance(blockers, list) else []
+    safe_preview = preview if isinstance(preview, list) else []
+    component_count = int(safe_checks.get("component_count", 0) or 0)
+    return {
+        "status": "limited" if safe_blockers else "ready",
+        "format": "mesh",
+        "source_unit": str(qualification.get("source_unit") or "mm"),
+        "display_unit": "mm",
+        "triangle_count": int(qualification.get("triangle_count", 0) or 0),
+        "vertex_count": int(qualification.get("vertex_count", 0) or 0),
+        "dimensions_mm": {
+            axis: float(safe_dimensions.get(axis, 0) or 0)
+            for axis in ("x", "y", "z")
+        },
+        "shell_count": component_count,
+        "possible_islands": max(component_count - 1, 0),
+        "degenerate_triangles": int(safe_checks.get("degenerate_triangle_count", 0) or 0),
+        "preview_supported": bool(safe_preview),
+        "preview_triangles": safe_preview,
+        "warnings": [str(item) for item in safe_blockers],
+    }
 
 
 def _request_hash(job_id: int, revision_id: int, payload: MeshReviewCreate) -> str:

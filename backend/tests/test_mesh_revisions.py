@@ -143,6 +143,11 @@ def test_mesh_revisions_are_idempotent_chained_qualified_and_owner_scoped(tmp_pa
         ).fetchone()
         assert project_file["sha256"] == converted.sha256
         assert project_file["can_slice"] == 1
+        inspection = json.loads(project_file["inspection_json"])
+        assert inspection["dimensions_mm"] == {"x": 20.0, "y": 20.0, "z": 20.0}
+        assert inspection["triangle_count"] == converted.qualification["triangle_count"]
+        assert inspection["preview_supported"] is True
+        assert inspection["preview_triangles"] == converted.qualification["preview_triangles"]
         assert project["current_version_id"] is not None
         assert total_personal_storage_used(connection, owner.id) == usage_before_approval
         printer_id = int(connection.execute(
