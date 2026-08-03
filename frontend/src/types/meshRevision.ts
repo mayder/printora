@@ -4,6 +4,7 @@ export type MeshRepairOperation =
   | "close_holes"
   | "remove_small_components"
   | "decimate"
+  | "scale"
   | "convert";
 
 export type MeshRevisionStatus = "queued" | "processing" | "succeeded" | "failed" | "cancelled";

@@ -2649,7 +2649,10 @@ lê somente objeto promovido, aplica uma operação determinística limitada,
 grava manifesto e checksum, requalifica a saída e promove um novo objeto
 privado após fencing e cota. A interface sugere uma ação conservadora por vez e
 bloqueia exportação final quando unidade ou invariantes obrigatórios não são
-seguros. Nenhuma revisão recebe automaticamente estado de aprovação.
+seguros. Nenhuma revisão recebe automaticamente estado de aprovação. A escala
+real só muda por ação explícita: a pessoa associa uma medida ao eixo X, Y ou Z
+exibido e informa milímetros. Eixo, valor, fator e unidades ficam no manifesto
+da nova revisão; a versão anterior continua disponível.
 
 Alternativas consideradas: reparar em memória na API; editar o mesmo objeto;
 executar todas as correções automaticamente; permitir conversão final pela UI

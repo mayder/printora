@@ -13249,6 +13249,7 @@
               "close_holes",
               "remove_small_components",
               "decimate",
+              "scale",
               "convert"
             ],
             "title": "Operation",
@@ -13319,6 +13320,7 @@
               "close_holes",
               "remove_small_components",
               "decimate",
+              "scale",
               "convert"
             ],
             "title": "Operation",

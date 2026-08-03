@@ -13,6 +13,8 @@ físico continuam bloqueantes para o fechamento.
   conversão OBJ/STL/3MF com manifesto e checksum;
 - revisão assíncrona e encadeada por job durável, idempotência, owner, cota,
   cancelamento, requalificação e download privado;
+- escala uniforme explícita a partir de um eixo e uma medida conhecida em
+  milímetros, registrada no manifesto e aplicada em nova revisão;
 - interface simples que recomenda uma correção por vez, preserva a origem e
   bloqueia arquivo final quando escala ou topologia ainda não são seguras.
 

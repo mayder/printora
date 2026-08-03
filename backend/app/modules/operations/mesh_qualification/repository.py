@@ -129,7 +129,7 @@ class MeshRevisionRepository:
             reader.body.close()
 
     def succeed(self, source: MeshRepairInput, durable_job_id: int, result: MeshRepairResult) -> MeshRevision:
-        qualification = qualify_mesh(result.body, result.file_format, source.source_unit)
+        qualification = qualify_mesh(result.body, result.file_format, result.unit)
         with connect_database(self.database_path) as connection:
             row = connection.execute(
                 "SELECT * FROM mesh_revisions WHERE id = ? AND durable_job_id = ? AND status = 'processing'",
@@ -146,14 +146,15 @@ class MeshRevisionRepository:
                 """
                 UPDATE mesh_revisions SET status = 'succeeded', output_format = ?,
                     storage_key = ?, sha256 = ?, size_bytes = ?, manifest_json = ?,
-                    qualification_json = ?, error_message = NULL,
+                    qualification_json = ?, unit = ?, error_message = NULL,
                     completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 """,
                 (
                     result.file_format, promoted.key, result.sha256, len(result.body),
                     json.dumps(result.manifest, ensure_ascii=False, sort_keys=True),
-                    json.dumps(qualification, ensure_ascii=False, sort_keys=True), source.revision_id,
+                    json.dumps(qualification, ensure_ascii=False, sort_keys=True), result.unit,
+                    source.revision_id,
                 ),
             )
             self.storage.register_object(

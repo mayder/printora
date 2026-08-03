@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 
-RepairOperation = Literal["clean", "orient_normals", "close_holes", "remove_small_components", "decimate", "convert"]
+RepairOperation = Literal["clean", "orient_normals", "close_holes", "remove_small_components", "decimate", "scale", "convert"]
 
 
 class MeshRepairCreate(BaseModel):
@@ -22,6 +22,7 @@ class MeshRepairCreate(BaseModel):
             "close_holes": {"maximum_hole_edges", "output_format"},
             "remove_small_components": {"minimum_triangles", "output_format"},
             "decimate": {"target_ratio", "output_format"},
+            "scale": {"scale_factor", "known_axis", "known_dimension_mm", "output_format"},
             "convert": {"output_format"},
         }[self.operation]
         if set(self.parameters) - allowed:

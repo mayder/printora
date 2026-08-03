@@ -3041,6 +3041,9 @@ Smoke seguro adicional:
    concluídas;
 5. no navegador, confirmar recomendação única, bloqueio sem unidade conhecida,
    cancelamento e aviso de que a versão não está automaticamente aprovada.
+6. em uma malha de dimensão conhecida, informar eixo e milímetros, confirmar
+   nova revisão `scale`, unidade `mm`, dimensão esperada e manifesto com
+   `source_unit`, `unit`, fator, eixo e medida informada.
 
 Rollback: ocultar ações de reparo/exportação e parar de consumir
 `mesh.repair.execute`. N-1 ignora a tabela aditiva; manter objetos e linhas para

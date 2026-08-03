@@ -573,7 +573,9 @@ Estado atual:
 - a interface recomenda uma correção conservadora por vez, bloqueia o arquivo
   final diante de escala desconhecida ou defeito não reparável com segurança e
   declara que correção automática não equivale a aprovação;
-- revisão métrica/humana, snapshot aprovado, entrada no fatiamento, preflight e
-  piloto físico permanecem abertos;
+- uma medida conhecida em X, Y ou Z gera escala uniforme versionada em
+  milímetros, com fator e evidência no manifesto, sem alterar a origem;
+- revisão humana, snapshot aprovado, entrada no fatiamento, preflight e piloto
+  físico permanecem abertos;
 - a assistência por IA deixa de ser genérica e fica restrita a este fluxo,
   conforme `docs/architecture/RECONSTRUCAO_3D_POR_FOTOS.md`.

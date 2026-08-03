@@ -82,10 +82,22 @@ def test_mesh_revisions_are_idempotent_chained_qualified_and_owner_scoped(tmp_pa
     assert repaired.manifest["output_sha256"] == repaired.sha256
     assert repaired.qualification["triangle_count"] > 0
 
+    scaled = repository.create(
+        owner.id, reconstruction.id,
+        MeshRepairCreate(operation="scale", source_revision_id=repaired.id, parameters={
+            "scale_factor": 10, "known_axis": "x", "known_dimension_mm": 20, "output_format": "obj",
+        }),
+        "repair-2",
+    )
+    _execute_next_repair(database_path, settings)
+    scaled = repository.get(owner.id, reconstruction.id, scaled.id)
+    assert scaled.unit == "mm"
+    assert scaled.qualification["dimensions"]["x"] == 20.0
+
     converted = repository.create(
         owner.id, reconstruction.id,
-        MeshRepairCreate(operation="convert", source_revision_id=repaired.id, parameters={"output_format": "stl"}),
-        "repair-2",
+        MeshRepairCreate(operation="convert", source_revision_id=scaled.id, parameters={"output_format": "stl"}),
+        "repair-3",
     )
     _execute_next_repair(database_path, settings)
     converted = repository.get(owner.id, reconstruction.id, converted.id)
@@ -99,10 +111,10 @@ def test_mesh_revisions_are_idempotent_chained_qualified_and_owner_scoped(tmp_pa
     cancelled = repository.create(
         owner.id, reconstruction.id,
         MeshRepairCreate(operation="convert", source_revision_id=converted.id, parameters={"output_format": "obj"}),
-        "repair-3",
+        "repair-4",
     )
     assert repository.cancel(owner.id, reconstruction.id, cancelled.id).status == "cancelled"
-    assert len(repository.list(owner.id, reconstruction.id)) == 3
+    assert len(repository.list(owner.id, reconstruction.id)) == 4
     with pytest.raises(PermissionError):
         repository.get(other.id, reconstruction.id, repaired.id)
     with connect_database(database_path) as connection:

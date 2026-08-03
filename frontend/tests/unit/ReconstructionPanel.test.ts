@@ -93,8 +93,39 @@ describe("ReconstructionPanel", () => {
     expect(await screen.findByText("Conferência para impressão em andamento")).toBeTruthy();
     expect(screen.getByText(/unidade e uma medida conhecida/i)).toBeTruthy();
     expect(screen.getByText(/unidade ainda não confirmada/i)).toBeTruthy();
-    expect(await screen.findByText("O arquivo final ainda está bloqueado")).toBeTruthy();
+    expect(await screen.findByText("Confirmar o tamanho real")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Criar STL" })).toBeNull();
+  });
+
+  it("transforma uma medida conhecida em escala explícita sem termos técnicos", async () => {
+    const completed: ReconstructionJob = {
+      ...queued,
+      status: "succeeded", stage: "ready", progress_percent: 100, can_cancel: false,
+      artifacts: [{ id: 91, artifact_type: "raw_mesh", file_format: "obj", sha256: "abc", size_bytes: 100, unit: "unknown", observed_ratio: null, inferred_ratio: null, provenance: {} }],
+      qualification: {
+        id: 92, reconstruction_artifact_id: 91, analyzer_version: "deterministic-v1", status: "not_qualified",
+        report: { dimensions: { x: 10, y: 20, z: 30 }, checks: { watertight: true, self_intersection_count: 0, non_manifold_edge_count: 0 } },
+        created_at: "2026-08-02T00:00:00Z",
+      },
+    };
+    vi.spyOn(photoReconstructionApi, "list").mockResolvedValue([completed]);
+    vi.spyOn(meshRevisionApi, "list").mockResolvedValue([]);
+    const create = vi.spyOn(meshRevisionApi, "create").mockResolvedValue({
+      id: 13, reconstruction_job_id: 11, source_artifact_id: 91, parent_revision_id: null,
+      operation: "scale", parameters: {}, status: "queued", output_format: null, sha256: null,
+      size_bytes: null, unit: "unknown", manifest: {}, qualification: {}, error_message: null,
+      can_cancel: true, next_action: "A correção está na fila.", created_at: "2026-08-02T00:00:00Z", updated_at: "2026-08-02T00:00:00Z",
+    });
+    render(React.createElement(ReconstructionPanel, { captureSessionId: 8, setError: vi.fn() }));
+
+    fireEvent.change(await screen.findByLabelText("Lado medido"), { target: { value: "z" } });
+    fireEvent.change(screen.getByLabelText("Medida real em milímetros"), { target: { value: "60" } });
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar medida" }));
+
+    await waitFor(() => expect(create).toHaveBeenCalledWith(11, {
+      operation: "scale",
+      parameters: { output_format: "obj", scale_factor: 2, known_axis: "z", known_dimension_mm: 60 },
+    }));
   });
 
   it("oferece uma correção humana recomendada e preserva a origem", async () => {

@@ -86,3 +86,23 @@ def test_decimation_is_bounded_and_rejects_unsafe_parameters() -> None:
     reduced = repair_mesh(grid, "obj", "decimate", {"target_ratio": 0.5, "output_format": "obj"})
 
     assert int(reduced.manifest["output_triangles"]) < int(reduced.manifest["source_triangles"])
+
+
+def test_scale_uses_a_known_dimension_and_changes_output_unit_to_mm() -> None:
+    scaled = repair_mesh(
+        OPEN_TETRA,
+        "obj",
+        "scale",
+        {
+            "scale_factor": 4,
+            "known_axis": "x",
+            "known_dimension_mm": 40,
+            "output_format": "obj",
+        },
+    )
+    report = qualify_mesh(scaled.body, "obj", scaled.unit)
+
+    assert scaled.unit == "mm"
+    assert scaled.manifest["source_unit"] == "unknown"
+    assert scaled.manifest["unit"] == "mm"
+    assert report["dimensions"] == {"x": 40.0, "y": 40.0, "z": 40.0}

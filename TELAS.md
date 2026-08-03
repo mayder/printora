@@ -168,7 +168,9 @@ quando a ação não é permitida.
   bruta. A base atual já apresenta tamanho, unidade e bloqueios do relatório
   inicial; a pessoa recebe uma correção recomendada por vez, acompanha fila,
   pode cancelar e baixar a última revisão. STL/3MF final fica bloqueado sem
-  escala conhecida ou quando há defeito que exige revisão especializada.
+  escala conhecida ou quando há defeito que exige revisão especializada. Para
+  definir escala, a pessoa escolhe largura, profundidade ou altura e informa a
+  medida real em milímetros; a aplicação preserva a versão anterior.
 - `Revisar resultado` compara bruto/qualificado e identifica por legenda e
   alternativa textual as regiões observadas, inferidas e reparadas. Download,
   fatiamento e publicação permanecem ações separadas e explícitas.

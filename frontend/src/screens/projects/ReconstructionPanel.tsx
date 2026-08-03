@@ -112,6 +112,6 @@ export function ReconstructionPanel({ captureSessionId, setError }: Props) {
         <ul>{blockers.map((message) => <li key={message}>{message}</li>)}</ul>
       </div>
     </div> : artifact ? <p className="photo-capture-note"><CircleAlert size={16} /> Esta malha ainda não foi qualificada para impressão. Áreas inferidas ou desconhecidas precisam de revisão.</p> : null}
-    {artifact && qualification ? <React.Suspense fallback={<p className="photo-capture-note">Carregando preparação segura…</p>}><MeshRepairPanel jobId={job.id} rawUnit={artifact.unit} rawChecks={qualification.report.checks ?? {}} setError={setError} /></React.Suspense> : null}
+    {artifact && qualification ? <React.Suspense fallback={<p className="photo-capture-note">Carregando preparação segura…</p>}><MeshRepairPanel jobId={job.id} rawUnit={artifact.unit} rawChecks={qualification.report.checks ?? {}} rawDimensions={qualification.report.dimensions} setError={setError} /></React.Suspense> : null}
   </section>;
 }

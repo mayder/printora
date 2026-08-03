@@ -13,7 +13,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from .geometry import TriangleMesh, parse_mesh
 
 
-RepairOperation = Literal["clean", "orient_normals", "close_holes", "remove_small_components", "decimate", "convert"]
+RepairOperation = Literal["clean", "orient_normals", "close_holes", "remove_small_components", "decimate", "scale", "convert"]
 OutputFormat = Literal["stl", "3mf", "obj"]
 
 
@@ -23,6 +23,7 @@ class MeshRepairResult:
     file_format: OutputFormat
     sha256: str
     manifest: dict[str, object]
+    unit: str
 
 
 def repair_mesh(
@@ -35,7 +36,8 @@ def repair_mesh(
     source = parse_mesh(body, file_format)
     safe_parameters = dict(parameters or {})
     output_format = _output_format(safe_parameters)
-    if output_format == "3mf" and unit.lower() not in {"mm", "millimeter", "millimetre"}:
+    output_unit = "mm" if operation == "scale" else unit
+    if output_format == "3mf" and output_unit.lower() not in {"mm", "millimeter", "millimetre"}:
         raise ValueError("Confirme a unidade em milímetros antes de criar um arquivo 3MF.")
     repaired = _apply(source, operation, safe_parameters)
     output = serialize_mesh(repaired, output_format)
@@ -44,13 +46,15 @@ def repair_mesh(
         body=output,
         file_format=output_format,
         sha256=checksum,
+        unit=output_unit,
         manifest={
             "schema": "printora.mesh-repair/v1",
             "operation": operation,
             "parameters": safe_parameters,
             "source_format": file_format.lower(),
             "output_format": output_format,
-            "unit": unit,
+            "source_unit": unit,
+            "unit": output_unit,
             "source_sha256": hashlib.sha256(body).hexdigest(),
             "output_sha256": checksum,
             "source_vertices": len(source.vertices),
@@ -87,6 +91,17 @@ def _apply(mesh: TriangleMesh, operation: RepairOperation, parameters: dict[str,
         if ratio < 0.1:
             raise ValueError("A redução deve preservar pelo menos 10% da malha.")
         return _decimate(_clean(mesh, 1e-6), ratio)
+    if operation == "scale":
+        factor = _positive_float(parameters.get("scale_factor"), 0.0, maximum=1_000.0)
+        if factor < 0.001:
+            raise ValueError("O fator de escala está fora do limite seguro.")
+        if parameters.get("known_axis") not in {"x", "y", "z"}:
+            raise ValueError("Escolha o eixo correspondente à medida conhecida.")
+        _positive_float(parameters.get("known_dimension_mm"), 0.0, maximum=2_000.0)
+        return TriangleMesh(
+            tuple(tuple(value * factor for value in vertex) for vertex in mesh.vertices),
+            mesh.triangles,
+        )
     if operation == "convert":
         return mesh
     raise ValueError("Operação de reparo não permitida.")
