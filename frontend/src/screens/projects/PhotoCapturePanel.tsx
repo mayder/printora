@@ -15,6 +15,14 @@ const bandLabels: Record<PhotoHeightBand, string> = {
   high: "De cima",
 };
 
+const captureOrder: PhotoHeightBand[] = ["middle", "high", "low"];
+
+function recommendedBand(session: PhotoCaptureSession): PhotoHeightBand {
+  return captureOrder.find((value) => (
+    session.accepted_by_height_band[value] < session.required_by_height_band[value]
+  )) ?? "middle";
+}
+
 export function PhotoCapturePanel({ projectId, setError }: Props) {
   const [session, setSession] = React.useState<PhotoCaptureSession | null>(null);
   const [consent, setConsent] = React.useState(false);
@@ -29,6 +37,7 @@ export function PhotoCapturePanel({ projectId, setError }: Props) {
       const resumed = rows.find((row) => row.project_id === projectId && ["draft", "review", "ready"].includes(row.status)) ?? null;
       setSession(resumed);
       if (resumed) {
+        setBand(recommendedBand(resumed));
         setScaleMethod(resumed.scale_method);
         setScaleValue(resumed.scale_value_mm === null ? "" : String(resumed.scale_value_mm));
         setUncertainty(resumed.scale_uncertainty_mm === null ? "1" : String(resumed.scale_uncertainty_mm));
@@ -41,7 +50,9 @@ export function PhotoCapturePanel({ projectId, setError }: Props) {
     setBusy(true);
     setError(null);
     try {
-      setSession(await photoCaptureApi.create(projectId));
+      const created = await photoCaptureApi.create(projectId);
+      setSession(created);
+      setBand(recommendedBand(created));
     } catch (error) {
       setError(error instanceof Error ? error.message : "Não foi possível iniciar a captura.");
     } finally {
@@ -59,6 +70,7 @@ export function PhotoCapturePanel({ projectId, setError }: Props) {
         current = await photoCaptureApi.upload(current.id, file, current.photos.length + 1, band);
       }
       setSession(current);
+      setBand(recommendedBand(current));
     } catch (error) {
       setError(error instanceof Error ? error.message : "Não foi possível guardar as fotos.");
     } finally {
@@ -71,7 +83,9 @@ export function PhotoCapturePanel({ projectId, setError }: Props) {
     setBusy(true);
     setError(null);
     try {
-      setSession(await photoCaptureApi.upload(session.id, file, captureIndex, photoBand));
+      const updated = await photoCaptureApi.upload(session.id, file, captureIndex, photoBand);
+      setSession(updated);
+      setBand(recommendedBand(updated));
     } catch (error) {
       setError(error instanceof Error ? error.message : "Não foi possível substituir a foto.");
     } finally {
@@ -150,12 +164,12 @@ export function PhotoCapturePanel({ projectId, setError }: Props) {
     <section className="photo-capture-panel" aria-labelledby="photo-capture-progress-title">
       <div className="photo-capture-heading">
         {session.status === "ready" ? <CheckCircle2 size={22} /> : <Camera size={22} />}
-        <div><h4 id="photo-capture-progress-title">{session.status === "ready" ? "Fotos prontas para reconstrução" : "Fotografe uma volta por vez"}</h4><p>{session.accepted_photo_count} de {session.target_photo_count} fotos aprovadas.</p></div>
+        <div><h4 id="photo-capture-progress-title">{session.status === "ready" ? "Fotos prontas para reconstrução" : "Fotografe uma volta por vez"}</h4><p>{session.covered_photo_count} de {session.target_photo_count} posições cobertas. {session.accepted_photo_count} fotos aprovadas.</p></div>
       </div>
-      <progress max={session.target_photo_count} value={session.accepted_photo_count}>{session.accepted_photo_count}</progress>
+      <progress max={session.target_photo_count} value={session.covered_photo_count}>{session.covered_photo_count}</progress>
       {session.status !== "ready" ? <>
         <div className="photo-capture-band" role="group" aria-label="Altura da câmera">
-          {(Object.keys(bandLabels) as PhotoHeightBand[]).map((value) => <button type="button" className={band === value ? "active" : ""} aria-pressed={band === value} key={value} onClick={() => setBand(value)}>{bandLabels[value]}</button>)}
+          {captureOrder.map((value) => <button type="button" className={band === value ? "active" : ""} aria-pressed={band === value} key={value} onClick={() => setBand(value)}>{bandLabels[value]} <span>{session.accepted_by_height_band[value]} de {session.required_by_height_band[value]}</span></button>)}
         </div>
         <label className="photo-capture-upload"><Upload size={18} /><span>{busy ? "Verificando fotos..." : "Tirar ou escolher fotos"}</span><input type="file" accept="image/jpeg,image/png" capture="environment" multiple disabled={busy} onChange={(event) => void upload(event.target.files)} /></label>
         {session.next_actions.length ? <ul className="photo-capture-actions">{session.next_actions.map((action) => <li key={action}>{action}</li>)}</ul> : <p className="success-text">A cobertura está completa.</p>}

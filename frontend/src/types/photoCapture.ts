@@ -30,6 +30,9 @@ export interface PhotoCaptureSession {
   updated_at: string;
   photos: PhotoCapturePhoto[];
   accepted_photo_count: number;
+  covered_photo_count: number;
+  accepted_by_height_band: Record<PhotoHeightBand, number>;
+  required_by_height_band: Record<PhotoHeightBand, number>;
   missing_height_bands: PhotoHeightBand[];
   next_actions: string[];
   can_complete: boolean;

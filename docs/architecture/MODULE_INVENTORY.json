@@ -1130,7 +1130,7 @@
     {
       "module": "modules.community.photo_capture",
       "owner": "community",
-      "lines": 225,
+      "lines": 245,
       "imports": [
         "database",
         "modules.community.photo_capture_contracts",
@@ -1144,7 +1144,7 @@
     {
       "module": "modules.community.photo_capture_contracts",
       "owner": "community",
-      "lines": 64,
+      "lines": 67,
       "imports": [],
       "routes": [],
       "contracts": [

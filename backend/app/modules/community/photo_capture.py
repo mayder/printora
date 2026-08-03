@@ -191,15 +191,31 @@ def _session_model(session, rows) -> PhotoCaptureSession:
         for row in rows
     ]
     accepted = [photo for photo in photos if photo.quality_status == "accepted"]
-    bands = {photo.height_band for photo in accepted}
-    missing = [band for band in ("low", "middle", "high") if band not in bands]
     target = int(session["target_photo_count"])
+    accepted_by_band = {
+        band: sum(photo.height_band == band for photo in accepted)
+        for band in ("low", "middle", "high")
+    }
+    base, remainder = divmod(target, 3)
+    required_by_band = {
+        "low": base,
+        "middle": base + (1 if remainder >= 1 else 0),
+        "high": base + (1 if remainder >= 2 else 0),
+    }
+    covered_photo_count = sum(
+        min(accepted_by_band[band], required_by_band[band])
+        for band in ("low", "middle", "high")
+    )
+    missing = [
+        band for band in ("low", "middle", "high")
+        if accepted_by_band[band] < required_by_band[band]
+    ]
     actions: list[str] = []
-    if len(accepted) < target:
-        actions.append(f"Adicione mais {target - len(accepted)} foto(s) nítida(s).")
-    if missing:
-        labels = {"low": "de baixo", "middle": "na altura do objeto", "high": "de cima"}
-        actions.append("Fotografe também " + ", ".join(labels[band] for band in missing) + ".")
+    labels = {"low": "De baixo", "middle": "Na altura do objeto", "high": "De cima"}
+    for band in ("middle", "high", "low"):
+        remaining = required_by_band[band] - accepted_by_band[band]
+        if remaining > 0:
+            actions.append(f"{labels[band]}: faça mais {remaining} foto(s) durante a volta.")
     if any(photo.quality_status == "needs_review" for photo in photos):
         actions.append("Refaça as fotos marcadas para revisão.")
     scale_confirmed = session["scale_confirmed_at"] is not None
@@ -211,8 +227,12 @@ def _session_model(session, rows) -> PhotoCaptureSession:
         scale_uncertainty_mm=session["scale_uncertainty_mm"], scale_confirmed=scale_confirmed,
         consent_confirmed=session["consent_confirmed_at"] is not None,
         expires_at=str(session["expires_at"]), created_at=str(session["created_at"]), updated_at=str(session["updated_at"]),
-        photos=photos, accepted_photo_count=len(accepted), missing_height_bands=missing,
-        next_actions=actions, can_complete=len(accepted) >= target and not missing and len(accepted) == len(photos) and scale_confirmed,
+        photos=photos, accepted_photo_count=len(accepted), covered_photo_count=covered_photo_count,
+        accepted_by_height_band=accepted_by_band,
+        required_by_height_band=required_by_band, missing_height_bands=missing,
+        next_actions=actions, can_complete=(
+            len(accepted) >= target and not missing and len(accepted) == len(photos) and scale_confirmed
+        ),
     )
 
 

@@ -59,6 +59,9 @@ class PhotoCaptureSession(BaseModel):
     updated_at: str
     photos: list[PhotoCapturePhoto]
     accepted_photo_count: int
+    covered_photo_count: int
+    accepted_by_height_band: dict[HeightBand, int]
+    required_by_height_band: dict[HeightBand, int]
     missing_height_bands: list[HeightBand]
     next_actions: list[str]
     can_complete: bool

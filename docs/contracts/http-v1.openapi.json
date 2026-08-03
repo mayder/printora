@@ -15117,6 +15117,20 @@
       },
       "PhotoCaptureSession": {
         "properties": {
+          "accepted_by_height_band": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "low",
+                "middle",
+                "high"
+              ]
+            },
+            "title": "Accepted By Height Band",
+            "type": "object"
+          },
           "accepted_photo_count": {
             "title": "Accepted Photo Count",
             "type": "integer"
@@ -15128,6 +15142,10 @@
           "consent_confirmed": {
             "title": "Consent Confirmed",
             "type": "boolean"
+          },
+          "covered_photo_count": {
+            "title": "Covered Photo Count",
+            "type": "integer"
           },
           "created_at": {
             "title": "Created At",
@@ -15170,6 +15188,20 @@
           "project_id": {
             "title": "Project Id",
             "type": "integer"
+          },
+          "required_by_height_band": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "low",
+                "middle",
+                "high"
+              ]
+            },
+            "title": "Required By Height Band",
+            "type": "object"
           },
           "scale_confirmed": {
             "title": "Scale Confirmed",
@@ -15241,6 +15273,9 @@
           "updated_at",
           "photos",
           "accepted_photo_count",
+          "covered_photo_count",
+          "accepted_by_height_band",
+          "required_by_height_band",
           "missing_height_bands",
           "next_actions",
           "can_complete"

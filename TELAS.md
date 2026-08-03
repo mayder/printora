@@ -58,7 +58,7 @@ Cadastro e edicao podem compartilhar componente de formulario, mas carregamento,
 | Agentes | `agents` | `/?section=agents`, `/#agents` | `frontend/src/screens/AgentsScreen.tsx` | Lista de todos os agentes da frota, sem operacoes de impressora no menu global | Nao exige impressora ativa | existente |
 | Projetos de impressão | `projects` | `/?section=projects`, `/#projects` | `frontend/src/screens/PrintProjectsScreen.tsx` | Explorar, salvar, referenciar, publicar, fatiar e enviar projetos com um ou vários arquivos STL/3MF/ZIP/link externo a partir da biblioteca pessoal do usuário | Nao exige impressora ativa; fatiamento/envio exige impressora escolhida no fluxo | inicial |
 | Materiais | `materials` | `/?section=materials`, `/#materials` | `frontend/src/screens/materials/MaterialsScreen.tsx` + componentes de lista, detalhe e formulário | Cadastrar spools locais, sincronizar leitura do Spoolman, conferir disponibilidade/compatibilidade e registrar consumo e medidas sem alterar o inventário canônico externo | Nao exige impressora ativa; sincronização e conferência usam impressora escolhida no próprio fluxo | existente |
-| Digitalizar objeto | estado dedicado em `projects` | Entrada `Digitalizar este objeto` no detalhe de projeto em `Meus projetos` | `frontend/src/screens/projects/PhotoCapturePanel.tsx`; etapas posteriores permanecem separadas por responsabilidade | Preparar, capturar, validar cobertura/qualidade, definir escala, retomar e exportar fotos privadas; reconstrução e qualificação entram nos estados posteriores | Nao exige impressora; somente a etapa opcional de fatiamento exige escolha posterior | existente |
+| Digitalizar objeto | estado dedicado em `projects` | Entrada `Digitalizar este objeto` no detalhe de projeto em `Meus projetos` | `frontend/src/screens/projects/PhotoCapturePanel.tsx`; etapas posteriores permanecem separadas por responsabilidade | Preparar, capturar por três alturas com contador e próxima volta sugerida, validar cobertura/qualidade, definir escala, retomar e exportar fotos privadas; reconstrução e qualificação entram nos estados posteriores | Nao exige impressora; somente a etapa opcional de fatiamento exige escolha posterior | existente |
 | Detalhe do agente | `agent-detail` | Estado interno da SPA | `frontend/src/screens/AgentDetailScreen.tsx` | Registro de agente com acao explicita de voltar para a lista, impressora vinculada, dispositivo/host, versao, saude, fila, doctor remoto, suporte e credencial | Exige agente aberto | existente |
 | Social | `social` | `/?section=social`, `/#social` | `frontend/src/screens/SocialScreen.tsx` | Descoberta pública de makers, impressoras públicas, comunidades automáticas e relações sociais | Nao exige impressora ativa | existente |
 | Catálogo | `catalog` | `/?section=catalog`, `/#catalog` | `frontend/src/screens/CatalogAdminScreen.tsx` | Curadoria administrativa do catálogo mestre de fabricantes, modelos, variantes e componentes | Nao exige impressora ativa; edição exige administrador | existente |
@@ -153,8 +153,9 @@ quando a ação não é permitida.
 - `Preparar` explica classes suportadas, fundo, iluminação, objeto imóvel,
   privacidade, custo estimado quando houver e limitações de objetos brilhantes,
   transparentes, finos, sem textura ou mecânicos.
-- `Capturar` prioriza celular, instrui voltas e alturas, exibe cobertura e
-  permite câmera ou seleção de arquivos. Foco, exposição, duplicidade,
+- `Capturar` prioriza celular, instrui voltas e alturas, exibe cobertura útil
+  por altura, recomenda a próxima volta incompleta e permite câmera ou seleção
+  de arquivos. Foco, exposição, duplicidade,
   resolução e ângulos ausentes possuem feedback acionável sem depender de cor.
 - `Definir escala` aceita marcador aprovado ou uma medida conhecida, sempre com
   unidade, método e incerteza. Continuar sem escala exige confirmação e remove

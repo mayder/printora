@@ -2500,6 +2500,8 @@ Aceite de 2026-07-24:
 - validar UI de `Digitalizar objeto` em 320, 375, 768, 1024 e 1440 px, câmera e
   seleção de arquivos, perda/retomada de rede, teclado, leitor de tela, zoom 400%
   e redução de movimento;
+- validar distribuição mínima por altura, contador de posições cobertas e
+  recomendação da próxima volta; quantidade total desequilibrada não conclui;
 - executar threat model de upload, conteúdo ilegal, pessoa no quadro, EXIF,
   abuso de quota, IDOR e storage privado;
 - fechamento exige benchmark de captura real versionado, testes backend/frontend,

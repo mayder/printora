@@ -9,6 +9,11 @@ privada sem escolher impressora. A tela explica preparação, consentimento,
 voltas e alturas em linguagem simples; mostra cobertura, fotos para refazer,
 escala e próximas ações antes de liberar a conclusão.
 
+A cobertura agora reserva posições entre as três alturas, mostra contadores por
+volta e recomenda automaticamente a próxima altura incompleta. Muitas fotos em
+uma única altura não produzem uma falsa conclusão, mesmo quando o total nominal
+já foi atingido.
+
 ## Contrato e persistência
 
 - sessão vinculada ao projeto e ao owner, com estados `draft`, `review`,

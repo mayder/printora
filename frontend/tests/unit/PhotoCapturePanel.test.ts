@@ -21,8 +21,11 @@ const session: PhotoCaptureSession = {
   updated_at: "2026-08-02T00:00:00Z",
   photos: [],
   accepted_photo_count: 0,
+  covered_photo_count: 0,
+  accepted_by_height_band: { low: 0, middle: 0, high: 0 },
+  required_by_height_band: { low: 8, middle: 8, high: 8 },
   missing_height_bands: ["low", "middle", "high"],
-  next_actions: ["Adicione mais 24 foto(s) nítida(s)."],
+  next_actions: ["Na altura do objeto: faça mais 8 foto(s) durante a volta."],
   can_complete: false,
 };
 
@@ -45,7 +48,7 @@ describe("PhotoCapturePanel", () => {
     fireEvent.click(start);
 
     await waitFor(() => expect(create).toHaveBeenCalledWith(7));
-    expect(await screen.findByText("0 de 24 fotos aprovadas.")).toBeTruthy();
+    expect(await screen.findByText("0 de 24 posições cobertas. 0 fotos aprovadas.")).toBeTruthy();
     expect(document.body.textContent).not.toContain("PKG-");
   });
 
@@ -54,7 +57,8 @@ describe("PhotoCapturePanel", () => {
     render(React.createElement(PhotoCapturePanel, { projectId: 7, setError: vi.fn() }));
 
     expect(await screen.findByRole("heading", { name: "Fotografe uma volta por vez" })).toBeTruthy();
-    expect(screen.getByText("Adicione mais 24 foto(s) nítida(s).")).toBeTruthy();
+    expect(screen.getByText("Na altura do objeto: faça mais 8 foto(s) durante a volta.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Na altura do objeto 0 de 8" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByText("Tirar ou escolher fotos")).toBeTruthy();
   });
 });

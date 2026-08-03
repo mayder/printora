@@ -104,6 +104,41 @@ def test_capture_only_completes_with_coverage_and_explicit_scale_choice(tmp_path
     assert completed.status == "ready"
     assert completed.can_complete is True
     assert completed.scale_method == "none"
+    assert completed.accepted_by_height_band == {"low": 4, "middle": 4, "high": 4}
+    assert completed.required_by_height_band == {"low": 4, "middle": 4, "high": 4}
+
+
+def test_capture_explains_missing_views_instead_of_accepting_unbalanced_total(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    owner_id, project_id = _owner_and_project(database_path, "unbalanced@example.com")
+    repository = PhotoCaptureRepository(database_path)
+    session = repository.create(
+        owner_id,
+        PhotoCaptureCreate(project_id=project_id, target_photo_count=12, consent_confirmed=True),
+    )
+    repository.update_scale(owner_id, session.id, PhotoCaptureScaleUpdate(method="none"))
+    with connect_database(database_path) as connection:
+        for index in range(1, 13):
+            connection.execute(
+                """
+                INSERT INTO photo_capture_photos (
+                    session_id, owner_user_id, capture_index, height_band, file_name,
+                    storage_key, sha256, size_bytes, width, height, quality_status, quality_json
+                ) VALUES (?, ?, ?, 'middle', ?, ?, ?, 100000, 1600, 1200, 'accepted', '{}')
+                """,
+                (session.id, owner_id, index, f"photo-{index}.jpg", f"photo-{index}.jpg", f"checksum-{index}"),
+            )
+
+    current = repository.get(owner_id, session.id)
+
+    assert current.can_complete is False
+    assert current.accepted_photo_count == 12
+    assert current.covered_photo_count == 4
+    assert current.next_actions == [
+        "De cima: faça mais 4 foto(s) durante a volta.",
+        "De baixo: faça mais 4 foto(s) durante a volta.",
+    ]
 
 
 def test_photo_signature_is_checked_instead_of_extension() -> None:
