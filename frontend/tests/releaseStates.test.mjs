@@ -123,7 +123,7 @@ assert.match(updatesScreenSource, /update-row-busy/);
 assert.match(overviewScreenSource, /alertBlockerCount/);
 assert.doesNotMatch(overviewScreenSource, /health\?\.counts\.blocker/);
 assert.match(navigationSource, /export type PrinterAvailability = "none" \| "unknown" \| "online" \| "offline";/);
-assert.match(navigationSource, /\{ title: "Principal", sections: \["overview", "printers", "agents", "projects", "social", "catalog", "setup"\] \}/);
+assert.match(navigationSource, /\{ title: "Principal", sections: \["overview", "onboarding", "printers", "agents", "projects", "materials", "social", "catalog", "setup"\] \}/);
 assert.match(navigationSource, /\{ title: "Sistema", sections: \["finance", "manufacturing", "data-intelligence", "design-system", "settings"\] \}/);
 assert.doesNotMatch(navigationSource, /title: "Impressora ativa"/);
 assert.match(navigationSource, /sectionKey === "printer-detail" \|\| sectionKey === "agent-detail"/);
