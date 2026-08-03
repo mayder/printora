@@ -3018,3 +3018,9 @@ Esta base não libera download qualificado: cruzamentos internos excedendo o
 orçamento falham fechados, e a espessura estimada ainda precisa ser comparada
 com impressora e perfil. Rollback restaura N-1, que ignora a tabela aditiva; os
 relatórios permanecem privados e acompanham a retenção da malha referenciada.
+
+O motor de reparo pode ser validado sem persistir ou substituir artefatos:
+`backend/.venv/bin/pytest -q backend/tests/test_mesh_repair.py`. Ele gera nova
+saída e manifesto determinístico para limpeza, normais, buracos limitados,
+componentes, redução e conversão; ainda não deve ser exposto como ação final até
+o job durável, o versionamento e a revisão humana estarem ligados ao projeto.

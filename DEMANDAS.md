@@ -566,7 +566,10 @@ Estado atual:
 - cruzamentos internos possuem verificação geométrica limitada por orçamento e
   a espessura recebe estimativa conservadora; a comparação com impressora e
   perfil ainda é obrigatória antes de aprovar;
-- reparos versionados, revisão métrica/humana, snapshot STL/3MF, fatiamento e
-  piloto físico permanecem abertos;
+- limpeza, orientação, fechamento limitado, remoção de componentes, redução e
+  conversão STL/3MF/OBJ possuem motor determinístico com manifesto e checksum;
+  a persistência assíncrona de cada versão e sua aprovação ainda estão abertas;
+- revisão métrica/humana, snapshot aprovado, fatiamento e piloto físico
+  permanecem abertos;
 - a assistência por IA deixa de ser genérica e fica restrita a este fluxo,
   conforme `docs/architecture/RECONSTRUCAO_3D_POR_FOTOS.md`.

@@ -4,6 +4,9 @@ import json
 import math
 import struct
 from dataclasses import dataclass
+from io import BytesIO
+from xml.etree import ElementTree
+from zipfile import BadZipFile, ZipFile
 
 
 MAX_MESH_BYTES = 500 * 1024 * 1024
@@ -20,7 +23,7 @@ class TriangleMesh:
 def parse_mesh(body: bytes, file_format: str) -> TriangleMesh:
     if not body or len(body) > MAX_MESH_BYTES:
         raise ValueError("O arquivo está vazio ou excede o limite seguro.")
-    readers = {"stl": _read_stl, "obj": _read_obj, "ply": _read_ply, "glb": _read_glb}
+    readers = {"stl": _read_stl, "obj": _read_obj, "ply": _read_ply, "glb": _read_glb, "3mf": _read_3mf}
     reader = readers.get(file_format.lower())
     if reader is None:
         raise ValueError("Este formato de malha ainda não pode ser qualificado.")
@@ -47,6 +50,33 @@ def _read_obj(body: bytes) -> TriangleMesh:
             indexes = [_obj_index(value, len(vertices)) for value in parts[1:]]
             for offset in range(1, len(indexes) - 1):
                 triangles.append((indexes[0], indexes[offset], indexes[offset + 1]))
+    return TriangleMesh(tuple(vertices), tuple(triangles))
+
+
+def _read_3mf(body: bytes) -> TriangleMesh:
+    try:
+        with ZipFile(BytesIO(body)) as archive:
+            entries = archive.infolist()
+            if len(entries) > 100 or sum(entry.file_size for entry in entries) > MAX_MESH_BYTES:
+                raise ValueError("O pacote 3MF excede os limites seguros.")
+            models = [entry.filename for entry in entries if entry.filename.lower().endswith(".model")]
+            if not models:
+                raise ValueError("O 3MF não contém um modelo reconhecível.")
+            root = ElementTree.fromstring(archive.read(models[0]))
+    except (BadZipFile, ElementTree.ParseError) as exc:
+        raise ValueError("O pacote 3MF está danificado.") from exc
+    unit = root.attrib.get("unit", "millimeter").lower()
+    scale = {"micron": 0.001, "millimeter": 1.0, "centimeter": 10.0, "inch": 25.4, "foot": 304.8, "meter": 1000.0}.get(unit)
+    if scale is None:
+        raise ValueError("O 3MF declara uma unidade não suportada.")
+    vertices: list[tuple[float, float, float]] = []
+    triangles: list[tuple[int, int, int]] = []
+    for element in root.iter():
+        name = element.tag.rsplit("}", 1)[-1]
+        if name == "vertex":
+            vertices.append(tuple(float(element.attrib[axis]) * scale for axis in ("x", "y", "z")))  # type: ignore[arg-type]
+        elif name == "triangle":
+            triangles.append(tuple(int(element.attrib[key]) for key in ("v1", "v2", "v3")))  # type: ignore[arg-type]
     return TriangleMesh(tuple(vertices), tuple(triangles))
 
 
