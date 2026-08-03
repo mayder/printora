@@ -1,8 +1,8 @@
 import { apiResponse, getStoredStepUpToken } from "./http";
 
-const protectedHeaders = () => ({
+const protectedHeaders = (stepUpToken?: string) => ({
   "Content-Type": "application/json",
-  "X-Printora-Step-Up": getStoredStepUpToken() ?? "",
+  "X-Printora-Step-Up": stepUpToken ?? getStoredStepUpToken() ?? "",
 });
 
 export const updatesApi = {
@@ -13,16 +13,16 @@ export const updatesApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
-  run: (printerId: number, body: unknown) =>
+  run: (printerId: number, body: unknown, stepUpToken?: string) =>
     apiResponse(`/api/printers/${printerId}/updates/run`, {
       method: "POST",
-      headers: protectedHeaders(),
+      headers: protectedHeaders(stepUpToken),
       body: JSON.stringify(body),
     }),
-  rollback: (printerId: number, body: unknown) =>
+  rollback: (printerId: number, body: unknown, stepUpToken?: string) =>
     apiResponse(`/api/printers/${printerId}/updates/rollback`, {
       method: "POST",
-      headers: protectedHeaders(),
+      headers: protectedHeaders(stepUpToken),
       body: JSON.stringify(body),
     }),
   silence: (printerId: number, body: unknown, init?: RequestInit) =>

@@ -4,10 +4,12 @@ import type { ScreenPropsFor } from "../../screens/ScreenProps";
 export type UpdateDialogModalProps = ScreenPropsFor<
   | "RefreshCw"
   | "X"
+  | "authUser"
   | "closeUpdateDialog"
   | "formatUpdatePhase"
   | "loadUpdateStatus"
   | "loading"
+  | "patchUpdateDialog"
   | "runUpdate"
   | "runRollback"
   | "selectedPrinter"
@@ -23,10 +25,12 @@ export function UpdateDialogModal(props: UpdateDialogModalProps) {
   const {
     RefreshCw,
     X,
+    authUser,
     closeUpdateDialog,
     formatUpdatePhase,
     loadUpdateStatus,
     loading,
+    patchUpdateDialog,
     runUpdate,
     runRollback,
     selectedPrinter,
@@ -37,6 +41,7 @@ export function UpdateDialogModal(props: UpdateDialogModalProps) {
     updateLogs,
     updatePhaseIcon,
   } = props;
+  const usesMfa = Boolean(authUser?.mfa_enabled);
 
   return (
     <>
@@ -77,7 +82,7 @@ export function UpdateDialogModal(props: UpdateDialogModalProps) {
                         : "O Moonraker pode reiniciar serviços durante o update. Não execute se houver impressão em andamento."}
                     </p>
                     {updateDialog.riskReason ? <small>{updateDialog.riskReason}</small> : null}
-                    <small>O Printora vai abrir o log ao vivo do Moonraker e atualizar o status ao final.</small>
+                    <small>O Printora acompanhará o status pelo agente e confirmará o resultado ao final.</small>
                   </div>
                   {updateDialog.requiresConfirmation ? (
                     <label className="confirmation-field">
@@ -86,14 +91,35 @@ export function UpdateDialogModal(props: UpdateDialogModalProps) {
                       </span>
                       <input
                         value={updateDialog.confirmationPhrase}
-                        onChange={(event) =>
-                          setUpdateDialog((currentDialog) =>
-                            currentDialog ? { ...currentDialog, confirmationPhrase: event.target.value } : currentDialog,
-                          )
-                        }
+                        onChange={(event) => patchUpdateDialog({ confirmationPhrase: event.target.value })}
                         disabled={loading}
                       />
                     </label>
+                  ) : null}
+                  {authUser ? (
+                    <div className="auth-stack">
+                      <p>
+                        <strong>Autorize esta operação.</strong>{" "}
+                        Informe {usesMfa ? "um código 2FA novo" : "a senha atual da sua conta"}.
+                        A autorização é de uso único.
+                      </p>
+                      <label>
+                        <span>{usesMfa ? "Código 2FA" : "Senha atual da conta"}</span>
+                        <input
+                          value={updateDialog.authorizationCredential}
+                          onChange={(event) =>
+                            patchUpdateDialog({ authorizationCredential: event.target.value, authorizationError: null })
+                          }
+                          type={usesMfa ? "text" : "password"}
+                          inputMode={usesMfa ? "numeric" : undefined}
+                          autoComplete={usesMfa ? "one-time-code" : "current-password"}
+                          disabled={loading}
+                        />
+                      </label>
+                      {updateDialog.authorizationError ? (
+                        <p className="form-error" role="alert">{updateDialog.authorizationError}</p>
+                      ) : null}
+                    </div>
                   ) : null}
                   <div className="modal-footer">
                     <button type="button" className="ghost-button" onClick={() => setUpdateDialog(null)}>

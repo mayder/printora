@@ -28,7 +28,15 @@ describe("HTTP client", () => {
           { status: 403 },
         ),
       ),
-    ).toContain("Conta > 2FA");
+    ).toContain("senha ou código 2FA");
+    expect(
+      await readApiError(
+        Response.json(
+          { detail: "autorização reforçada obrigatória" },
+          { status: 403 },
+        ),
+      ),
+    ).toContain("senha ou código 2FA");
     expect(
       await readApiError(new Response("x".repeat(600), { status: 500 })),
     ).toHaveLength(500);

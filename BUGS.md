@@ -6,6 +6,30 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Update Falhava Sem Explicar Como Autorizar A Operacao
+
+Sintoma:
+
+- update de componente terminava com `autorização reforçada obrigatória`;
+- a tela não explicava como obter a autorização exigida;
+- a autorização genérica da conta usava outro propósito e não liberava o update.
+
+Causa:
+
+- o endpoint aceita apenas autorização descartável para operação física;
+- a tela de update tentava reutilizar um token armazenado, sem solicitar senha
+  ou código 2FA no contexto da ação.
+
+Correção:
+
+- o diálogo solicita senha ou código 2FA antes de iniciar update ou rollback;
+- a autorização usa o propósito específico de operação física e não é guardada
+  como autorização genérica da conta;
+- o acompanhamento usa o agente e não tenta conectar o navegador ao endereço
+  local `127.0.0.1` do Moonraker;
+- ausência ou falha de autenticação mantém o diálogo aberto com orientação
+  acionável e nenhum comando é enviado à impressora.
+
 ### Moonraker Permanecia Offline Após O Agente Reconectar
 
 Sintoma:

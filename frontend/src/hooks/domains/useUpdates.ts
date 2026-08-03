@@ -1,9 +1,10 @@
 import React from "react";
+import * as authApi from "../../services/authApi";
 import { updatesApi } from "../../services/updatesApi";
 import { readApiError } from "../../services/http";
-import { delay, isUpdateTargetConfirmedUpdated, moonrakerWebsocketUrl, parseMoonrakerUpdateMessage } from "../../utils/formatters";
+import { delay, isUpdateTargetConfirmedUpdated } from "../../utils/formatters";
 import { formatTime } from "../../utils/formatters/dates";
-import type { PrinterRecord, UpdateActionResponse, UpdateDialogState, UpdateLogEntry } from "../../types";
+import type { AuthUser, UpdateActionResponse, UpdateDialogState, UpdateLogEntry } from "../../types";
 import type { ConfirmActionOptions, ShowToastOptions } from "../../types";
 import type { AlertCenterItem, UpdateComponent, UpdateStatusResponse } from "../../alertCenter";
 import type { SetActiveSection, SetError, SetLoading } from "./shared";
@@ -19,7 +20,7 @@ type PendingUpdateAction = {
 } | null;
 
 type UseUpdatesOptions = {
-  selectedPrinter: PrinterRecord | undefined;
+  authUser: AuthUser | null;
   selectedPrinterId: number | null;
   loadOperationStatus: (printerId: number, options?: { preserveData?: boolean }) => Promise<void>;
   loadPrinterAudit: (printerId: number) => Promise<void>;
@@ -35,7 +36,7 @@ type UseUpdatesOptions = {
 
 export function useUpdates(options: UseUpdatesOptions) {
   const {
-    selectedPrinter,
+    authUser,
     selectedPrinterId,
     loadOperationStatus,
     loadPrinterAudit,
@@ -53,9 +54,11 @@ export function useUpdates(options: UseUpdatesOptions) {
   const [updateDialog, setUpdateDialog] = React.useState<UpdateDialogState | null>(null);
   const [updateLogs, setUpdateLogs] = React.useState<UpdateLogEntry[]>([]);
   const [pendingUpdateAction, setPendingUpdateAction] = React.useState<PendingUpdateAction>(null);
-  const updateSocketRef = React.useRef<WebSocket | null>(null);
-  const updateSocketCompleteRef = React.useRef(false);
   const updateLogIdRef = React.useRef(0);
+
+  function patchUpdateDialog(patch: Partial<UpdateDialogState>) {
+    setUpdateDialog((current) => (current ? { ...current, ...patch } : current));
+  }
 
   async function loadUpdateStatus(printerId: number): Promise<UpdateStatusResponse | null> {
     const response = await updatesApi.status(printerId);
@@ -262,7 +265,6 @@ export function useUpdates(options: UseUpdatesOptions) {
     setError(null);
     setUpdateActionResult(null);
     setUpdateLogs([]);
-    updateSocketCompleteRef.current = false;
     updateLogIdRef.current = 0;
     setUpdateDialog({
       open: true,
@@ -272,6 +274,8 @@ export function useUpdates(options: UseUpdatesOptions) {
       phase: "confirm",
       requiresConfirmation: riskyComponents.length > 0,
       confirmationPhrase: "",
+      authorizationCredential: "",
+      authorizationError: null,
       riskReason: riskyComponents.map((component) => `${component.title}: ${component.risk_reason ?? "risco operacional alto"}`).join(" "),
     });
   }
@@ -283,7 +287,6 @@ export function useUpdates(options: UseUpdatesOptions) {
     setError(null);
     setUpdateActionResult(null);
     setUpdateLogs([]);
-    updateSocketCompleteRef.current = false;
     updateLogIdRef.current = 0;
     setUpdateDialog({
       open: true,
@@ -293,13 +296,10 @@ export function useUpdates(options: UseUpdatesOptions) {
       phase: "confirm",
       requiresConfirmation: true,
       confirmationPhrase: "",
+      authorizationCredential: "",
+      authorizationError: null,
       riskReason: `Voltar ${component.title} para ${component.rollback_version ?? "a versão anterior"} usando o rollback do Moonraker.`,
     });
-  }
-
-  function closeUpdateSocket() {
-    updateSocketRef.current?.close();
-    updateSocketRef.current = null;
   }
 
   async function refreshPostUpdateContext(printerId: number) {
@@ -313,73 +313,28 @@ export function useUpdates(options: UseUpdatesOptions) {
   }
 
   async function closeUpdateDialog() {
-    closeUpdateSocket();
     setUpdateDialog(null);
     if (selectedPrinterId) {
       await refreshPostUpdateContext(selectedPrinterId);
     }
   }
 
-  function connectUpdateSocket(printer: PrinterRecord) {
-    closeUpdateSocket();
-    const websocketUrl = moonrakerWebsocketUrl(printer.moonraker_url);
-    if (!websocketUrl) {
-      appendUpdateLog("warning", "Nao foi possivel montar a URL WebSocket do Moonraker. O update continua sem log ao vivo.");
-      return;
-    }
-    appendUpdateLog("info", `Conectando ao log ao vivo em ${websocketUrl}`);
-    const socket = new WebSocket(websocketUrl);
-    updateSocketRef.current = socket;
-    socket.onopen = () => {
-      socket.send(
-        JSON.stringify({
-          jsonrpc: "2.0",
-          method: "server.connection.identify",
-          params: {
-            client_name: "Printora",
-            version: "0.1.12",
-            type: "web",
-            url: "https://github.com/printora/printora",
-          },
-          id: 1,
-        }),
-      );
-      appendUpdateLog("success", "Log ao vivo conectado.");
-    };
-    socket.onerror = () => appendUpdateLog("warning", "WebSocket do Moonraker indisponivel. O update continua via HTTP.");
-    socket.onclose = () => {
-      if (updateSocketRef.current === socket) {
-        appendUpdateLog("warning", "Conexao de log encerrada. Moonraker pode estar reiniciando.");
-      }
-    };
-    socket.onmessage = (event) => {
-      const updateMessage = parseMoonrakerUpdateMessage(event.data);
-      if (!updateMessage) {
-        return;
-      }
-      appendUpdateLog(updateMessage.complete ? "success" : "info", updateMessage.message);
-      if (updateMessage.complete) {
-        updateSocketCompleteRef.current = true;
-        setUpdateDialog((currentDialog) =>
-          currentDialog && currentDialog.phase === "running" ? { ...currentDialog, phase: "done" } : currentDialog,
-        );
-      }
-    };
-  }
-
   async function runUpdate(target: string) {
-    if (!selectedPrinterId || !selectedPrinter) {
+    if (!selectedPrinterId) {
       return;
     }
-    setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "running" } : currentDialog));
-    connectUpdateSocket(selectedPrinter);
+    const stepUpToken = await requestUpdateAuthorization();
+    if (stepUpToken === null) {
+      return;
+    }
+    patchUpdateDialog({ phase: "running" });
     appendUpdateLog("info", `Solicitando update de ${target === "all" ? "todos os componentes" : target}.`);
     setLoading(true);
     setError(null);
     setUpdateActionResult(null);
     try {
       const confirmationPhrase = updateDialog?.target === target ? updateDialog.confirmationPhrase : "";
-      const response = await updatesApi.run(selectedPrinterId, { target, confirmation_phrase: confirmationPhrase });
+      const response = await updatesApi.run(selectedPrinterId, { target, confirmation_phrase: confirmationPhrase }, stepUpToken);
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
@@ -388,11 +343,11 @@ export function useUpdates(options: UseUpdatesOptions) {
       appendUpdateLog("success", actionResult.message);
       const confirmedStatus = await pollUpdateCompletion(selectedPrinterId, target);
       await refreshPostUpdateContext(selectedPrinterId);
-      if (updateSocketCompleteRef.current || isUpdateTargetConfirmedUpdated(confirmedStatus, target)) {
-        setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "done" } : currentDialog));
+      if (isUpdateTargetConfirmedUpdated(confirmedStatus, target)) {
+        patchUpdateDialog({ phase: "done" });
       } else {
         appendUpdateLog("warning", "Update solicitado, mas o status final ainda nao foi confirmado pelo Moonraker.");
-        setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "failed" } : currentDialog));
+        patchUpdateDialog({ phase: "failed" });
       }
     } catch (err) {
       const latestStatus = await reloadUpdateStatusAfterUpdateError(selectedPrinterId, target);
@@ -412,12 +367,12 @@ export function useUpdates(options: UseUpdatesOptions) {
           "Update confirmado apos reanalise. O erro HTTP provavelmente veio de reinicio temporario do Moonraker.",
         );
         setError(null);
-        setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "done" } : currentDialog));
+        patchUpdateDialog({ phase: "done" });
       } else {
         const errorMessage = unknownErrorMessage(err);
         appendUpdateLog("error", errorMessage);
         setError(errorMessage);
-        setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "failed" } : currentDialog));
+        patchUpdateDialog({ phase: "failed" });
       }
     } finally {
       setLoading(false);
@@ -425,18 +380,21 @@ export function useUpdates(options: UseUpdatesOptions) {
   }
 
   async function runRollback(target: string) {
-    if (!selectedPrinterId || !selectedPrinter) {
+    if (!selectedPrinterId) {
+      return;
+    }
+    const stepUpToken = await requestUpdateAuthorization();
+    if (stepUpToken === null) {
       return;
     }
     const confirmationPhrase = updateDialog?.target === target ? updateDialog.confirmationPhrase : "";
-    setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "running" } : currentDialog));
-    connectUpdateSocket(selectedPrinter);
+    patchUpdateDialog({ phase: "running" });
     appendUpdateLog("info", `Solicitando rollback de ${target}.`);
     setLoading(true);
     setError(null);
     setUpdateActionResult(null);
     try {
-      const response = await updatesApi.rollback(selectedPrinterId, { target, confirmation_phrase: confirmationPhrase });
+      const response = await updatesApi.rollback(selectedPrinterId, { target, confirmation_phrase: confirmationPhrase }, stepUpToken);
       if (!response.ok) {
         throw new Error(await readApiError(response));
       }
@@ -445,13 +403,43 @@ export function useUpdates(options: UseUpdatesOptions) {
       appendUpdateLog("success", actionResult.message);
       await delay(2500);
       await refreshPostUpdateContext(selectedPrinterId);
-      setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "done" } : currentDialog));
+      patchUpdateDialog({ phase: "done" });
     } catch (err) {
       const errorMessage = unknownErrorMessage(err);
       appendUpdateLog("error", errorMessage);
       setError(errorMessage);
       await refreshPostUpdateContext(selectedPrinterId);
-      setUpdateDialog((currentDialog) => (currentDialog ? { ...currentDialog, phase: "failed" } : currentDialog));
+      patchUpdateDialog({ phase: "failed" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function requestUpdateAuthorization(): Promise<string | undefined | null> {
+    if (!authUser) {
+      patchUpdateDialog({ authorizationError: "Sessão expirada." });
+      return null;
+    }
+    const credential = updateDialog?.authorizationCredential.trim() ?? "";
+    const missingMessage = `Informe ${authUser.mfa_enabled ? "o código 2FA" : "a senha atual"} para autorizar.`;
+    if (!credential) {
+      patchUpdateDialog({ authorizationError: missingMessage });
+      return null;
+    }
+    setLoading(true);
+    patchUpdateDialog({ authorizationError: null });
+    try {
+      const proof = await authApi.createStepUpToken({
+        purpose: "setup_physical_operation",
+        password: authUser.mfa_enabled ? undefined : credential,
+        code: authUser.mfa_enabled ? credential : undefined,
+      }, { store: false });
+      patchUpdateDialog({ authorizationCredential: "", authorizationError: null });
+      return proof.step_up_token;
+    } catch (err) {
+      const detail = unknownErrorMessage(err);
+      patchUpdateDialog({ authorizationError: `Autorização recusada. ${detail}` });
+      return null;
     } finally {
       setLoading(false);
     }
@@ -496,17 +484,14 @@ export function useUpdates(options: UseUpdatesOptions) {
     return latestStatus;
   }
 
-  React.useEffect(() => () => closeUpdateSocket(), []);
-
   return {
     appendUpdateLog,
-    closeUpdateSocket,
     closeUpdateDialog,
-    connectUpdateSocket,
     handleAlertCenterAction,
     loadUpdateStatus,
     openRollbackDialog,
     openUpdateDialog,
+    patchUpdateDialog,
     refreshUpdateStatus,
     silenceUpdateAlert,
     clearUpdateAlertSilence,
@@ -521,7 +506,6 @@ export function useUpdates(options: UseUpdatesOptions) {
     updateDialog,
     updateLogIdRef,
     updateLogs,
-    updateSocketRef,
     updateStatus,
     pendingUpdateAction,
   };

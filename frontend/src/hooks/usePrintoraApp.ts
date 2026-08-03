@@ -361,7 +361,7 @@ export function usePrintoraApp() {
   setup = useSetup({ setError, setLoading });
   const selfUpdate = useSelfUpdate();
   updates = useUpdates({
-    selectedPrinter: contextPrinter,
+    authUser: auth.authUser,
     selectedPrinterId: contextPrinterId,
     loadOperationStatus: operation.loadOperationStatus,
     loadPrinterAudit: settings.loadPrinterAudit,

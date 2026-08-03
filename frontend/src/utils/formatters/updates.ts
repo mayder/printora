@@ -94,46 +94,6 @@ export function delay(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-export function moonrakerWebsocketUrl(moonrakerUrl: string): string | null {
-  try {
-    const url = new URL(moonrakerUrl);
-    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-    url.pathname = "/websocket";
-    url.search = "";
-    url.hash = "";
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
-
-export function parseMoonrakerUpdateMessage(rawData: string): { message: string; complete: boolean } | null {
-  try {
-    const payload = JSON.parse(rawData) as {
-      method?: string;
-      params?: Array<{
-        application?: string;
-        message?: string;
-        complete?: boolean;
-      }>;
-    };
-    if (payload.method !== "notify_update_response") {
-      return null;
-    }
-    const response = payload.params?.[0];
-    if (!response?.message) {
-      return null;
-    }
-    const application = response.application ? `${response.application}: ` : "";
-    return {
-      message: `${application}${response.message}`,
-      complete: Boolean(response.complete),
-    };
-  } catch {
-    return null;
-  }
-}
-
 export function formatUpdatePhase(phase: UpdateDialogState["phase"]) {
   const labels: Record<UpdateDialogState["phase"], string> = {
     confirm: "Aguardando confirmação",

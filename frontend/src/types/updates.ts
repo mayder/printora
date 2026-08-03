@@ -50,5 +50,7 @@ export type UpdateDialogState = {
   phase: "confirm" | "running" | "done" | "failed";
   requiresConfirmation: boolean;
   confirmationPhrase: string;
+  authorizationCredential: string;
+  authorizationError?: string | null;
   riskReason?: string | null;
 };

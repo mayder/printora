@@ -184,13 +184,18 @@ export async function disableMfa(code: string): Promise<AuthUser> {
   });
 }
 
-export async function createStepUpToken(payload: { purpose: StepUpPurpose; password?: string; code?: string }): Promise<StepUpResponse> {
+export async function createStepUpToken(
+  payload: { purpose: StepUpPurpose; password?: string; code?: string },
+  options: { store?: boolean } = {},
+): Promise<StepUpResponse> {
   const response = await apiRequest<StepUpResponse>("/api/auth/step-up", {
     method: "POST",
     headers: jsonHeaders,
     body: JSON.stringify(payload),
   });
-  storeStepUpToken(response.step_up_token);
+  if (options.store !== false) {
+    storeStepUpToken(response.step_up_token);
+  }
   return response;
 }
 
