@@ -39,3 +39,31 @@ export interface MeshRepairRequest {
   source_revision_id?: number;
   parameters: Record<string, unknown>;
 }
+
+export interface MeshReviewRequest {
+  decision: "approve" | "reject";
+  intended_use: "decorative" | "prototype" | "mechanical";
+  known_axis?: "x" | "y" | "z";
+  known_dimension_mm?: number;
+  shape_reviewed: boolean;
+  limitations_accepted: boolean;
+  note?: string;
+}
+
+export interface MeshRevisionReview {
+  id: number;
+  revision_id: number;
+  reconstruction_job_id: number;
+  decision: "approved_for_slicing" | "rejected";
+  intended_use: "decorative" | "prototype" | "mechanical";
+  known_axis: string | null;
+  known_dimension_mm: number | null;
+  model_dimension_mm: number | null;
+  deviation_percent: number | null;
+  revision_sha256: string;
+  review_manifest: Record<string, unknown>;
+  qualification: Record<string, unknown>;
+  project_file_id: number | null;
+  note: string;
+  created_at: string;
+}

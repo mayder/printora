@@ -160,6 +160,11 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
     await Promise.all([loadExplore(), loadMine()]);
   }
 
+  async function refreshApprovedModel() {
+    if (!selectedProject) return;
+    setSelectedProject(await printProjectsApi.detail(selectedProject.slug));
+  }
+
   React.useEffect(() => {
     void loadExplore("");
   }, [filters.file_kind, filters.license, filters.origin]);
@@ -275,7 +280,7 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
               <>
                 <ProjectDetail project={selectedProject} authUserPresent={!!authUser} saving={savingId === selectedProject.id} onSave={saveProject} setError={setError} />
                 <ProjectPublicationForm project={selectedProject} setError={setError} onChanged={(detail) => void afterProjectMutation(detail)} />
-                {myProjects.some((project) => project.id === selectedProject.id) && !selectedProject.saved_by_viewer ? <PhotoCapturePanel projectId={selectedProject.id} setError={setError} /> : null}
+                {myProjects.some((project) => project.id === selectedProject.id) && !selectedProject.saved_by_viewer ? <PhotoCapturePanel projectId={selectedProject.id} setError={setError} onModelApproved={refreshApprovedModel} /> : null}
                 <ProjectSlicingPanel project={selectedProject} setError={setError} />
                 <ProjectFileActions project={selectedProject} setError={setError} onChanged={(detail) => void afterProjectMutation(detail)} />
               </>
@@ -639,7 +644,7 @@ function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetai
   const engineBlocked = engineInfo?.status === "blocked";
 
   return (
-    <form className="print-project-detail-section print-project-slicing-form" onSubmit={(event) => void createJob(event)}>
+    <form id="project-slicing" className="print-project-detail-section print-project-slicing-form" onSubmit={(event) => void createJob(event)}>
       <h4>Fatiamento</h4>
       {engineBlocked ? (
         <div className="print-project-slicing-warning">

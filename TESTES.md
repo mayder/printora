@@ -2559,6 +2559,12 @@ Aceite de 2026-07-24:
   flags separadas sem afetar projetos ou fatiamentos comuns;
 - validar UI bruto/qualificado em desktop/mobile, acessibilidade, confirmação de
   limitações e ausência de publicação/fatiamento/envio automáticos;
+- validar que aprovação humana exige checksum vigente, forma conferida, aceite
+  de limitações e medida com desvio máximo de 3%, e que finalidade mecânica é
+  recusada;
+- validar que o mesmo objeto promovido vira arquivo fatiável e snapshot do
+  projeto sem dupla contagem de armazenamento, e que a tela recarrega o projeto
+  antes de oferecer continuidade para o fatiamento normal;
 - fechamento exige testes backend/frontend/worker/SQL/contrato/segurança,
   benchmark físico revisado, rollback ensaiado e
   `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.

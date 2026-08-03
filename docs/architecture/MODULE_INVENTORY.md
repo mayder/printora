@@ -4,10 +4,10 @@
 
 ## Resumo
 
-- módulos Python: 220;
-- endpoints HTTP/WebSocket: 430;
-- contratos tipados: 434;
-- tabelas declaradas em SQL: 173;
+- módulos Python: 222;
+- endpoints HTTP/WebSocket: 432;
+- contratos tipados: 436;
+- tabelas declaradas em SQL: 174;
 - ciclos de import detectados: 0.
 
 ## Fronteiras E Owners
@@ -19,7 +19,7 @@
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 14 | 9 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 38 | 48 |
 | `finance` | Finanças e pedidos | Ledger, pedidos, pagamentos, reconciliação, risco e repasses. | 13 | 20 |
-| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 83 | 55 |
+| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 85 | 56 |
 | `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 31 | 40 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 7 | 0 |
 | `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 22 | 0 |
@@ -49,7 +49,7 @@
 | `agent_support` | `operations` | 663 | 0 | 5 |
 | `setup_wizard` | `operations` | 643 | 0 | 7 |
 | `printers` | `operations` | 635 | 0 | 3 |
-| `database` | `shared` | 603 | 0 | 0 |
+| `database` | `shared` | 604 | 0 | 0 |
 | `gcode_files` | `operations` | 574 | 0 | 11 |
 | `social_moderation` | `community` | 567 | 0 | 8 |
 | `health` | `administration` | 547 | 0 | 0 |

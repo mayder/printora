@@ -2671,3 +2671,33 @@ objetos somente leitura. Não apagar malha bruta, revisões ou manifestos.
 Referências: `backend/sql/095_mesh_revisions.sql`,
 `backend/sql/postgresql/027_mesh_revisions.sql`,
 `docs/community/PKG_154_EVIDENCE.md`.
+
+### DEC-20260802-07 - Aprovação de malha promove o mesmo objeto para o projeto
+
+Status: aceita
+Data: 2026-08-02
+Contexto: copiar o STL/3MF aprovado criaria cobrança dupla, risco de divergência
+de checksum e dois artefatos sem uma origem única. Também seria inseguro criar
+fatiamento ou impressão automaticamente ao aprovar a forma.
+
+Decisão: a revisão humana fica presa ao checksum da revisão final e exige forma
+conferida, limitações aceitas, finalidade e medida física com desvio de até 3%.
+Uso mecânico continua bloqueado. A aprovação cria um arquivo validado no projeto
+referenciando o mesmo objeto privado, gera snapshot imutável e exclui a revisão
+já promovida da dupla contagem de cota. A interface recarrega o projeto e oferece
+continuidade para o fluxo normal, mas não cria job, preflight ou entrega.
+
+Consequências: projeto, revisão e snapshot compartilham checksum e provenance;
+aprovação é idempotente e reversível por ocultação do recurso. A pessoa ainda
+precisa selecionar impressora, material e perfil, revisar o G-code e passar pelo
+preflight. Rejeição preserva todas as versões.
+
+Impacto em testes: owner, idempotência, limite métrico, uso mecânico, referência
+de objeto, snapshot, cota, API, atualização da UI e continuidade explícita.
+
+Impacto em rollback: N-1 ignora a tabela aditiva e mantém snapshots e objetos
+legíveis. Não executar `DELETE`, `DROP` nem remover referências.
+
+Referências: `backend/sql/096_mesh_revision_reviews.sql`,
+`backend/sql/postgresql/028_mesh_revision_reviews.sql`,
+`docs/community/PKG_154_EVIDENCE.md`.

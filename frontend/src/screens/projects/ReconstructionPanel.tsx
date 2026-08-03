@@ -8,6 +8,7 @@ const MeshRepairPanel = React.lazy(() => import("./MeshRepairPanel").then((modul
 interface Props {
   captureSessionId: number;
   setError: (message: string | null) => void;
+  onModelApproved?: () => Promise<void>;
 }
 
 const stageLabels: Record<string, string> = {
@@ -28,7 +29,7 @@ const engineLabels: Record<string, string> = {
   "provider-multiview-gateway": "Serviço online homologado",
 };
 
-export function ReconstructionPanel({ captureSessionId, setError }: Props) {
+export function ReconstructionPanel({ captureSessionId, setError, onModelApproved }: Props) {
   const [job, setJob] = React.useState<ReconstructionJob | null>(null);
   const [policy, setPolicy] = React.useState<ReconstructionEnginePolicy>("auto");
   const [busy, setBusy] = React.useState(false);
@@ -112,6 +113,7 @@ export function ReconstructionPanel({ captureSessionId, setError }: Props) {
         <ul>{blockers.map((message) => <li key={message}>{message}</li>)}</ul>
       </div>
     </div> : artifact ? <p className="photo-capture-note"><CircleAlert size={16} /> Esta malha ainda não foi qualificada para impressão. Áreas inferidas ou desconhecidas precisam de revisão.</p> : null}
-    {artifact && qualification ? <React.Suspense fallback={<p className="photo-capture-note">Carregando preparação segura…</p>}><MeshRepairPanel jobId={job.id} rawUnit={artifact.unit} rawChecks={qualification.report.checks ?? {}} rawDimensions={qualification.report.dimensions} setError={setError} /></React.Suspense> : null}
+    {artifact && (artifact.observed_ratio !== null || artifact.inferred_ratio !== null) ? <div className="photo-capture-note"><CircleAlert size={16} aria-hidden="true" /><div><strong>Origem da forma</strong><p>Partes observadas nas fotos: {Math.round((artifact.observed_ratio ?? 0) * 100)}%. Partes estimadas pelo processamento: {Math.round((artifact.inferred_ratio ?? 0) * 100)}%. As correções posteriores aparecem no histórico abaixo.</p></div></div> : null}
+    {artifact && qualification ? <React.Suspense fallback={<p className="photo-capture-note">Carregando preparação segura…</p>}><MeshRepairPanel jobId={job.id} rawUnit={artifact.unit} rawChecks={qualification.report.checks ?? {}} rawDimensions={qualification.report.dimensions} setError={setError} onModelApproved={onModelApproved} /></React.Suspense> : null}
   </section>;
 }

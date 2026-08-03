@@ -7,6 +7,7 @@ import { ReconstructionPanel } from "./ReconstructionPanel";
 interface Props {
   projectId: number;
   setError: (message: string | null) => void;
+  onModelApproved?: () => Promise<void>;
 }
 
 const bandLabels: Record<PhotoHeightBand, string> = {
@@ -23,7 +24,7 @@ function recommendedBand(session: PhotoCaptureSession): PhotoHeightBand {
   )) ?? "middle";
 }
 
-export function PhotoCapturePanel({ projectId, setError }: Props) {
+export function PhotoCapturePanel({ projectId, setError, onModelApproved }: Props) {
   const [session, setSession] = React.useState<PhotoCaptureSession | null>(null);
   const [consent, setConsent] = React.useState(false);
   const [band, setBand] = React.useState<PhotoHeightBand>("middle");
@@ -177,7 +178,7 @@ export function PhotoCapturePanel({ projectId, setError }: Props) {
         <div className="photo-capture-scale"><Ruler size={18} /><label>Escala<select value={scaleMethod} onChange={(event) => setScaleMethod(event.target.value as PhotoScaleMethod)}><option value="none">Continuar sem tamanho real</option><option value="known_measurement">Sei uma medida do objeto</option><option value="marker">Usei um marcador de escala</option></select></label>{scaleMethod !== "none" ? <><label>Medida em mm<input type="number" min="0.1" value={scaleValue} onChange={(event) => setScaleValue(event.target.value)} /></label><label>Margem em mm<input type="number" min="0" value={uncertainty} onChange={(event) => setUncertainty(event.target.value)} /></label></> : null}<button type="button" className="secondary-button" disabled={busy || (scaleMethod !== "none" && !scaleValue)} onClick={() => void saveScale()}>{session.scale_confirmed ? "Atualizar escala" : "Confirmar escala"}</button></div>
         <button type="button" className="primary-button" disabled={!session.can_complete || busy} onClick={() => void complete()}>Concluir fotos</button>
         {session.photos.length ? <button type="button" className="secondary-button" disabled={busy} onClick={() => void exportPhotos()}>Baixar minhas fotos</button> : null}
-      </> : <><p>As fotos continuam privadas e vinculadas a este projeto.</p><button type="button" className="secondary-button" disabled={busy} onClick={() => void exportPhotos()}>Baixar minhas fotos</button><ReconstructionPanel captureSessionId={session.id} setError={setError} /></>}
+      </> : <><p>As fotos continuam privadas e vinculadas a este projeto.</p><button type="button" className="secondary-button" disabled={busy} onClick={() => void exportPhotos()}>Baixar minhas fotos</button><ReconstructionPanel captureSessionId={session.id} setError={setError} onModelApproved={onModelApproved} /></>}
     </section>
   );
 }

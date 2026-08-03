@@ -46,6 +46,12 @@ def total_personal_storage_used(connection, owner_user_id: int) -> int:
             SELECT mr.size_bytes
             FROM mesh_revisions mr
             WHERE mr.owner_user_id = ? AND mr.status = 'succeeded'
+              AND NOT EXISTS (
+                  SELECT 1 FROM mesh_revision_reviews review
+                  WHERE review.revision_id = mr.id
+                    AND review.decision = 'approved_for_slicing'
+                    AND review.project_file_id IS NOT NULL
+              )
         ) usage
         """,
         (owner_user_id, owner_user_id, owner_user_id, owner_user_id, owner_user_id),

@@ -573,6 +573,19 @@ Estado atual:
 - a interface recomenda uma correção conservadora por vez, bloqueia o arquivo
   final diante de escala desconhecida ou defeito não reparável com segurança e
   declara que correção automática não equivale a aprovação;
+- aprovação ou rejeição humana fica vinculada ao checksum da revisão; aprovação
+  exige finalidade não mecânica, comparação da forma, aceite das limitações e
+  medida física com desvio máximo de 3%; uso mecânico permanece bloqueado;
+- STL/3MF aprovado entra no projeto como arquivo local validado, sem duplicar a
+  cota do mesmo objeto, gera snapshot imutável e aparece no fluxo normal de
+  fatiamento; impressora, material, perfil, prévia e preflight continuam sendo
+  escolhas explícitas e nenhuma impressão é iniciada automaticamente;
+- a interface informa em texto as proporções observada e inferida e apresenta
+  o histórico das correções com versão e checksum para não depender apenas de
+  uma visualização ou de cor;
+- implementação de software e validações automatizadas dos lotes 1 a 5 estão
+  concluídas; o lote 6 depende de benchmark real do processador e piloto físico
+  autorizado com objeto, paquímetro, material, perfil e impressora.
 - uma medida conhecida em X, Y ou Z gera escala uniforme versionada em
   milímetros, com fator e evidência no manifesto, sem alterar a origem;
 - revisão humana, snapshot aprovado, entrada no fatiamento, preflight e piloto

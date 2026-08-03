@@ -3044,6 +3044,17 @@ Smoke seguro adicional:
 6. em uma malha de dimensão conhecida, informar eixo e milímetros, confirmar
    nova revisão `scale`, unidade `mm`, dimensão esperada e manifesto com
    `source_unit`, `unit`, fator, eixo e medida informada.
+7. aplicar `backend/sql/096_mesh_revision_reviews.sql` no SQLite ou
+   `backend/sql/postgresql/028_mesh_revision_reviews.sql` na cloud, nesta ordem
+   após os scripts de revisões; não há transformação ou remoção de dados;
+8. converter a revisão segura para STL/3MF, conferir a forma, aceitar as
+   limitações, informar uma medida física e aprovar; validar checksum no review,
+   arquivo `can_slice`, snapshot atual e ausência de dupla contagem na cota;
+9. atualizar o projeto na interface, usar `Continuar para o fatiamento` e
+   confirmar que a pessoa ainda escolhe impressora, material e perfil, revisa a
+   prévia e executa o preflight antes de qualquer entrega física;
+10. tentar finalidade mecânica ou medida com desvio acima de 3% e confirmar
+    bloqueio sem criar review, arquivo ou snapshot parcial.
 
 Rollback: ocultar ações de reparo/exportação e parar de consumir
 `mesh.repair.execute`. N-1 ignora a tabela aditiva; manter objetos e linhas para

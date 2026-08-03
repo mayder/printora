@@ -116,10 +116,10 @@
     }
   ],
   "summary": {
-    "modules": 220,
-    "routes": 430,
-    "contracts": 434,
-    "tables": 173,
+    "modules": 222,
+    "routes": 432,
+    "contracts": 436,
+    "tables": 174,
     "cycles": 0,
     "modules_by_owner": {
       "accessibility": 7,
@@ -129,7 +129,7 @@
       "finance": 13,
       "identity": 14,
       "integrations": 7,
-      "operations": 83,
+      "operations": 85,
       "shared": 22
     }
   },
@@ -365,7 +365,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 603,
+      "lines": 604,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -1225,7 +1225,7 @@
     {
       "module": "modules.community.storage_usage",
       "owner": "community",
-      "lines": 53,
+      "lines": 59,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -1907,7 +1907,7 @@
     {
       "module": "modules.operations.mesh_qualification.contracts",
       "owner": "operations",
-      "lines": 52,
+      "lines": 53,
       "imports": [],
       "routes": [],
       "contracts": [
@@ -1939,7 +1939,7 @@
     {
       "module": "modules.operations.mesh_qualification.repair",
       "owner": "operations",
-      "lines": 358,
+      "lines": 373,
       "imports": [],
       "routes": [],
       "contracts": []
@@ -1947,7 +1947,7 @@
     {
       "module": "modules.operations.mesh_qualification.repository",
       "owner": "operations",
-      "lines": 259,
+      "lines": 260,
       "imports": [
         "config",
         "database",
@@ -1957,6 +1957,29 @@
         "modules.operations.mesh_qualification.repair",
         "modules.platform.durable_execution",
         "social_storage"
+      ],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.operations.mesh_qualification.review_contracts",
+      "owner": "operations",
+      "lines": 42,
+      "imports": [],
+      "routes": [],
+      "contracts": [
+        "MeshReviewCreate",
+        "MeshRevisionReview"
+      ]
+    },
+    {
+      "module": "modules.operations.mesh_qualification.review_repository",
+      "owner": "operations",
+      "lines": 258,
+      "imports": [
+        "database",
+        "modules.operations.mesh_qualification.review_contracts",
+        "print_projects"
       ],
       "routes": [],
       "contracts": []
@@ -3347,11 +3370,13 @@
     {
       "module": "routes.mesh_revisions",
       "owner": "operations",
-      "lines": 73,
+      "lines": 94,
       "imports": [
         "config",
         "modules.operations.mesh_qualification.contracts",
         "modules.operations.mesh_qualification.repository",
+        "modules.operations.mesh_qualification.review_contracts",
+        "modules.operations.mesh_qualification.review_repository",
         "modules.platform.durable_execution",
         "routes.auth"
       ],
@@ -3360,6 +3385,11 @@
           "method": "GET",
           "path": "",
           "handler": "list_revisions"
+        },
+        {
+          "method": "GET",
+          "path": "/reviews",
+          "handler": "list_reviews"
         },
         {
           "method": "POST",
@@ -3375,6 +3405,11 @@
           "method": "POST",
           "path": "/{revision_id}/cancel",
           "handler": "cancel_revision"
+        },
+        {
+          "method": "POST",
+          "path": "/{revision_id}/reviews",
+          "handler": "review_revision"
         },
         {
           "method": "GET",
@@ -6223,6 +6258,11 @@
       "table": "mesh_revisions",
       "owner": "operations",
       "script": "095_mesh_revisions.sql"
+    },
+    {
+      "table": "mesh_revision_reviews",
+      "owner": "operations",
+      "script": "096_mesh_revision_reviews.sql"
     }
   ]
 }

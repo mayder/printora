@@ -21,4 +21,17 @@ describe("meshRevisionApi", () => {
     expect(new Headers(init?.headers).get("Idempotency-Key")).toContain("00000000-0000-4000-8000-000000000001");
     expect(JSON.parse(String(init?.body))).toEqual({ operation: "clean", parameters: { output_format: "obj" } });
   });
+
+  it("records human approval separately from mesh repair", async () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue("00000000-0000-4000-8000-000000000002");
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ id: 18 }), { status: 200 }),
+    );
+    await meshRevisionApi.review(11, 17, {
+      decision: "approve", intended_use: "decorative", known_axis: "x", known_dimension_mm: 20,
+      shape_reviewed: true, limitations_accepted: true,
+    });
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/mesh-revisions\/17\/reviews$/);
+    expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get("Idempotency-Key")).toContain("mesh-review-11-");
+  });
 });

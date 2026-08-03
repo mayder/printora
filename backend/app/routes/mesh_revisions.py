@@ -8,6 +8,8 @@ from fastapi.responses import StreamingResponse
 from app.config import get_settings
 from app.modules.operations.mesh_qualification.contracts import MeshRepairCreate, MeshRevision
 from app.modules.operations.mesh_qualification.repository import MeshRevisionRepository
+from app.modules.operations.mesh_qualification.review_contracts import MeshReviewCreate, MeshRevisionReview
+from app.modules.operations.mesh_qualification.review_repository import MeshReviewRepository
 from app.modules.platform.durable_execution import QueueSaturatedError
 from app.routes.auth import CurrentUser, require_current_user
 
@@ -20,8 +22,17 @@ def get_repository() -> MeshRevisionRepository:
     return MeshRevisionRepository(settings.database_path, settings)
 
 
+def get_review_repository() -> MeshReviewRepository:
+    return MeshReviewRepository(get_settings().database_path)
+
+
 @router.get("", response_model=list[MeshRevision])
 async def list_revisions(job_id: int, current: CurrentUser = Depends(require_current_user), repository: MeshRevisionRepository = Depends(get_repository)) -> list[MeshRevision]:
+    return repository.list(current.user.id, job_id)
+
+
+@router.get("/reviews", response_model=list[MeshRevisionReview])
+async def list_reviews(job_id: int, current: CurrentUser = Depends(require_current_user), repository: MeshReviewRepository = Depends(get_review_repository)) -> list[MeshRevisionReview]:
     return repository.list(current.user.id, job_id)
 
 
@@ -51,6 +62,16 @@ async def cancel_revision(job_id: int, revision_id: int, current: CurrentUser = 
         return repository.cancel(current.user.id, job_id, revision_id)
     except PermissionError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/{revision_id}/reviews", response_model=MeshRevisionReview)
+async def review_revision(payload: MeshReviewCreate, job_id: int, revision_id: int, idempotency_key: str = Header(alias="Idempotency-Key"), current: CurrentUser = Depends(require_current_user), repository: MeshReviewRepository = Depends(get_review_repository)) -> MeshRevisionReview:
+    try:
+        return repository.create(current.user.id, job_id, revision_id, payload, idempotency_key)
+    except PermissionError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/{revision_id}/download")

@@ -88,6 +88,7 @@ describe("ReconstructionPanel", () => {
     };
     vi.spyOn(photoReconstructionApi, "list").mockResolvedValue([completed]);
     vi.spyOn(meshRevisionApi, "list").mockResolvedValue([]);
+    vi.spyOn(meshRevisionApi, "listReviews").mockResolvedValue([]);
     render(React.createElement(ReconstructionPanel, { captureSessionId: 8, setError: vi.fn() }));
 
     expect(await screen.findByText("Conferência para impressão em andamento")).toBeTruthy();
@@ -110,6 +111,7 @@ describe("ReconstructionPanel", () => {
     };
     vi.spyOn(photoReconstructionApi, "list").mockResolvedValue([completed]);
     vi.spyOn(meshRevisionApi, "list").mockResolvedValue([]);
+    vi.spyOn(meshRevisionApi, "listReviews").mockResolvedValue([]);
     const create = vi.spyOn(meshRevisionApi, "create").mockResolvedValue({
       id: 13, reconstruction_job_id: 11, source_artifact_id: 91, parent_revision_id: null,
       operation: "scale", parameters: {}, status: "queued", output_format: null, sha256: null,
@@ -155,6 +157,7 @@ describe("ReconstructionPanel", () => {
     };
     vi.spyOn(photoReconstructionApi, "list").mockResolvedValue([completed]);
     vi.spyOn(meshRevisionApi, "list").mockResolvedValue([]);
+    vi.spyOn(meshRevisionApi, "listReviews").mockResolvedValue([]);
     const create = vi.spyOn(meshRevisionApi, "create").mockResolvedValue({
       id: 12, reconstruction_job_id: 11, source_artifact_id: 91, parent_revision_id: null,
       operation: "clean", parameters: { output_format: "obj" }, status: "queued",
@@ -171,5 +174,46 @@ describe("ReconstructionPanel", () => {
       parameters: { output_format: "obj" },
     }));
     expect(screen.getByText(/malha bruta nunca é alterada/i)).toBeTruthy();
+  });
+
+  it("exige comparação humana antes de adicionar o STL ao projeto", async () => {
+    const completed: ReconstructionJob = {
+      ...queued, status: "succeeded", stage: "ready", progress_percent: 100, can_cancel: false,
+      artifacts: [{ id: 91, artifact_type: "raw_mesh", file_format: "obj", sha256: "abc", size_bytes: 100, unit: "mm", observed_ratio: 1, inferred_ratio: 0, provenance: {} }],
+      qualification: { id: 92, reconstruction_artifact_id: 91, analyzer_version: "deterministic-v1", status: "not_qualified", report: { dimensions: { x: 20, y: 20, z: 20 }, checks: {} }, created_at: "2026-08-02T00:00:00Z" },
+    };
+    const revision = {
+      id: 17, reconstruction_job_id: 11, source_artifact_id: 91, parent_revision_id: 16,
+      operation: "convert" as const, parameters: { output_format: "stl" }, status: "succeeded" as const,
+      output_format: "stl", sha256: "final", size_bytes: 200, unit: "mm", manifest: {},
+      qualification: { dimensions: { x: 20, y: 20, z: 20 }, checks: { watertight: true, non_manifold_edge_count: 0, winding_conflict_count: 0, degenerate_triangle_count: 0, component_count: 1, self_intersection_count: 0 } },
+      error_message: null, can_cancel: false, next_action: "A nova versão está pronta para revisão.",
+      created_at: "2026-08-02T00:00:00Z", updated_at: "2026-08-02T00:00:00Z",
+    };
+    vi.spyOn(photoReconstructionApi, "list").mockResolvedValue([completed]);
+    vi.spyOn(meshRevisionApi, "list").mockResolvedValue([revision]);
+    vi.spyOn(meshRevisionApi, "listReviews").mockResolvedValue([]);
+    const review = vi.spyOn(meshRevisionApi, "review").mockResolvedValue({
+      id: 3, revision_id: 17, reconstruction_job_id: 11, decision: "approved_for_slicing",
+      intended_use: "decorative", known_axis: "x", known_dimension_mm: 20, model_dimension_mm: 20,
+      deviation_percent: 0, revision_sha256: "final", review_manifest: {}, qualification: {},
+      project_file_id: 44, note: "", created_at: "2026-08-02T00:00:00Z",
+    });
+    const onModelApproved = vi.fn().mockResolvedValue(undefined);
+    render(React.createElement(ReconstructionPanel, { captureSessionId: 8, setError: vi.fn(), onModelApproved }));
+
+    expect(await screen.findByText("Revisão final antes do fatiamento")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Medida do objeto em milímetros"), { target: { value: "20" } });
+    fireEvent.click(screen.getByLabelText(/Comparei a forma/i));
+    fireEvent.click(screen.getByLabelText(/não garante encaixe/i));
+    fireEvent.click(screen.getByRole("button", { name: "Aprovar para fatiamento" }));
+
+    await waitFor(() => expect(review).toHaveBeenCalledWith(11, 17, expect.objectContaining({
+      decision: "approve", intended_use: "decorative", known_axis: "x", known_dimension_mm: 20,
+      shape_reviewed: true, limitations_accepted: true,
+    })));
+    await waitFor(() => expect(onModelApproved).toHaveBeenCalledOnce());
+    expect(await screen.findByText("Modelo adicionado ao projeto")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Continuar para o fatiamento" })).toBeTruthy();
   });
 });

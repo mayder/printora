@@ -13279,6 +13279,78 @@
         "title": "MeshRepairCreate",
         "type": "object"
       },
+      "MeshReviewCreate": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "intended_use": {
+            "default": "decorative",
+            "enum": [
+              "decorative",
+              "prototype",
+              "mechanical"
+            ],
+            "title": "Intended Use",
+            "type": "string"
+          },
+          "known_axis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "x",
+                  "y",
+                  "z"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Axis"
+          },
+          "known_dimension_mm": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 2000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Dimension Mm"
+          },
+          "limitations_accepted": {
+            "default": false,
+            "title": "Limitations Accepted",
+            "type": "boolean"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Note",
+            "type": "string"
+          },
+          "shape_reviewed": {
+            "default": false,
+            "title": "Shape Reviewed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "MeshReviewCreate",
+        "type": "object"
+      },
       "MeshRevision": {
         "properties": {
           "can_cancel": {
@@ -13429,6 +13501,135 @@
           "updated_at"
         ],
         "title": "MeshRevision",
+        "type": "object"
+      },
+      "MeshRevisionReview": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "approved_for_slicing",
+              "rejected"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "deviation_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deviation Percent"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "intended_use": {
+            "enum": [
+              "decorative",
+              "prototype",
+              "mechanical"
+            ],
+            "title": "Intended Use",
+            "type": "string"
+          },
+          "known_axis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Axis"
+          },
+          "known_dimension_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Dimension Mm"
+          },
+          "model_dimension_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Dimension Mm"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "project_file_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project File Id"
+          },
+          "qualification": {
+            "additionalProperties": true,
+            "title": "Qualification",
+            "type": "object"
+          },
+          "reconstruction_job_id": {
+            "title": "Reconstruction Job Id",
+            "type": "integer"
+          },
+          "review_manifest": {
+            "additionalProperties": true,
+            "title": "Review Manifest",
+            "type": "object"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "integer"
+          },
+          "revision_sha256": {
+            "title": "Revision Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "revision_id",
+          "reconstruction_job_id",
+          "decision",
+          "intended_use",
+          "known_axis",
+          "known_dimension_mm",
+          "model_dimension_mm",
+          "deviation_percent",
+          "revision_sha256",
+          "review_manifest",
+          "qualification",
+          "project_file_id",
+          "note",
+          "created_at"
+        ],
+        "title": "MeshRevisionReview",
         "type": "object"
       },
       "MfaCodeRequest": {
@@ -37050,6 +37251,68 @@
         ]
       }
     },
+    "/api/photo-reconstructions/{job_id}/mesh-revisions/reviews": {
+      "get": {
+        "operationId": "list_reviews_api_photo_reconstructions__job_id__mesh_revisions_reviews_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MeshRevisionReview"
+                  },
+                  "title": "Response List Reviews Api Photo Reconstructions  Job Id  Mesh Revisions Reviews Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Reviews",
+        "tags": [
+          "mesh-revisions"
+        ]
+      }
+    },
     "/api/photo-reconstructions/{job_id}/mesh-revisions/{revision_id}": {
       "get": {
         "operationId": "get_revision_api_photo_reconstructions__job_id__mesh_revisions__revision_id__get",
@@ -37244,6 +37507,92 @@
           }
         },
         "summary": "Download Revision",
+        "tags": [
+          "mesh-revisions"
+        ]
+      }
+    },
+    "/api/photo-reconstructions/{job_id}/mesh-revisions/{revision_id}/reviews": {
+      "post": {
+        "operationId": "review_revision_api_photo_reconstructions__job_id__mesh_revisions__revision_id__reviews_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "title": "Revision Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeshReviewCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeshRevisionReview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Revision",
         "tags": [
           "mesh-revisions"
         ]

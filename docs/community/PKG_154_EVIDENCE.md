@@ -1,8 +1,8 @@
 # Evidência atual — qualificação e revisão de malha
 
 Data: 2026-08-02
-Estado: implementação parcial; aprovação humana, snapshot, preflight e piloto
-físico continuam bloqueantes para o fechamento.
+Estado: lotes de software concluídos; benchmark real do processador e piloto
+físico continuam bloqueantes para o fechamento integral.
 
 ## Entregue
 
@@ -17,6 +17,15 @@ físico continuam bloqueantes para o fechamento.
   milímetros, registrada no manifesto e aplicada em nova revisão;
 - interface simples que recomenda uma correção por vez, preserva a origem e
   bloqueia arquivo final quando escala ou topologia ainda não são seguras.
+- aprovação/rejeição humana idempotente presa ao checksum, com finalidade,
+  aceite de limitações e comparação métrica de até 3% de desvio;
+- uso mecânico bloqueado sem CAD, dimensões críticas e validação física;
+- promoção do STL/3MF aprovado para arquivo validado do projeto, referência ao
+  mesmo objeto privado, snapshot imutável e cota sem contagem dupla;
+- atualização imediata do projeto e continuidade explícita para o fluxo normal
+  de fatiamento, que ainda exige impressora, material, perfil, prévia e preflight;
+- alternativa textual para partes observadas/inferidas e histórico de cada
+  reparo com versão e checksum.
 
 ## Evidência automatizada
 
@@ -37,8 +46,13 @@ físico continuam bloqueantes para o fechamento.
 
 ## Pendências para fechamento
 
-- confirmação métrica e revisão humana vinculadas ao checksum;
-- snapshot aprovado no projeto e integração com fatiamento/preflight;
-- comparação visual/textual bruto versus revisado;
 - piloto físico com objeto autorizado, paquímetro, material e perfil registrados;
 - benchmark real e fechamento dos bloqueios externos do processador 3D.
+
+## Evidência focal de entrega no projeto
+
+- `37` testes backend em qualificação, revisão, projetos e fatiamento;
+- `8` testes frontend focais de reconstrução e API de revisão;
+- build de produção e orçamento de bundle aprovados;
+- aprovação idempotente comprovou snapshot atual, checksum idêntico entre
+  revisão e arquivo, autorização por owner e armazenamento sem dupla contagem.

@@ -11,6 +11,8 @@ from app.modules.community.storage_usage import total_personal_storage_used
 from app.modules.operations.mesh_qualification.contracts import MeshRepairCreate
 from app.modules.operations.mesh_qualification.processor import execute_mesh_repair
 from app.modules.operations.mesh_qualification.repository import MeshRevisionRepository
+from app.modules.operations.mesh_qualification.review_contracts import MeshReviewCreate
+from app.modules.operations.mesh_qualification.review_repository import MeshReviewRepository
 from app.modules.operations.reconstruction.contracts import ReconstructionCreate
 from app.modules.operations.reconstruction.processor import execute_reconstruction_job
 from app.modules.operations.reconstruction.repository import ReconstructionRepository
@@ -108,6 +110,37 @@ def test_mesh_revisions_are_idempotent_chained_qualified_and_owner_scoped(tmp_pa
     finally:
         reader.body.close()
 
+    reviews = MeshReviewRepository(database_path)
+    with pytest.raises(ValueError, match="Uso mecânico"):
+        reviews.create(owner.id, reconstruction.id, converted.id, MeshReviewCreate(
+            decision="approve", intended_use="mechanical", known_axis="x", known_dimension_mm=20,
+            shape_reviewed=True, limitations_accepted=True,
+        ), "mechanical-review")
+    with connect_database(database_path) as connection:
+        usage_before_approval = total_personal_storage_used(connection, owner.id)
+    approved = reviews.create(owner.id, reconstruction.id, converted.id, MeshReviewCreate(
+        decision="approve", intended_use="decorative", known_axis="x", known_dimension_mm=20,
+        shape_reviewed=True, limitations_accepted=True,
+    ), "approve-review")
+    repeated_approval = reviews.create(owner.id, reconstruction.id, converted.id, MeshReviewCreate(
+        decision="approve", intended_use="decorative", known_axis="x", known_dimension_mm=20,
+        shape_reviewed=True, limitations_accepted=True,
+    ), "approve-review")
+    assert approved.id == repeated_approval.id
+    assert approved.project_file_id is not None
+    assert approved.review_manifest["scope"] == "slicing_only"
+    with connect_database(database_path) as connection:
+        project_file = connection.execute(
+            "SELECT * FROM print_project_files WHERE id = ?", (approved.project_file_id,),
+        ).fetchone()
+        project = connection.execute(
+            "SELECT * FROM print_projects WHERE id = ?", (reconstruction.project_id,),
+        ).fetchone()
+        assert project_file["sha256"] == converted.sha256
+        assert project_file["can_slice"] == 1
+        assert project["current_version_id"] is not None
+        assert total_personal_storage_used(connection, owner.id) == usage_before_approval
+
     cancelled = repository.create(
         owner.id, reconstruction.id,
         MeshRepairCreate(operation="convert", source_revision_id=converted.id, parameters={"output_format": "obj"}),
@@ -159,6 +192,32 @@ def test_mesh_revision_routes_create_poll_cancel_and_download(tmp_path: Path, mo
             assert downloaded.status_code == 200
             assert downloaded.headers["cache-control"] == "private, no-store"
             assert downloaded.content.startswith(b"v -1 -1 0")
+
+            scaled = client.post(
+                f"/api/photo-reconstructions/{reconstruction.id}/mesh-revisions",
+                headers={"Authorization": f"Bearer {token}", "Idempotency-Key": "route-scale"},
+                json={"operation": "scale", "source_revision_id": revision_id, "parameters": {
+                    "scale_factor": 10, "known_axis": "x", "known_dimension_mm": 20, "output_format": "obj",
+                }},
+            ).json()
+            _execute_next_repair(database_path, settings)
+            converted = client.post(
+                f"/api/photo-reconstructions/{reconstruction.id}/mesh-revisions",
+                headers={"Authorization": f"Bearer {token}", "Idempotency-Key": "route-convert"},
+                json={"operation": "convert", "source_revision_id": scaled["id"], "parameters": {"output_format": "stl"}},
+            ).json()
+            _execute_next_repair(database_path, settings)
+            approved = client.post(
+                f"/api/photo-reconstructions/{reconstruction.id}/mesh-revisions/{converted['id']}/reviews",
+                headers={"Authorization": f"Bearer {token}", "Idempotency-Key": "route-approval"},
+                json={
+                    "decision": "approve", "intended_use": "decorative", "known_axis": "x",
+                    "known_dimension_mm": 20, "shape_reviewed": True, "limitations_accepted": True,
+                },
+            )
+            assert approved.status_code == 200
+            assert approved.json()["decision"] == "approved_for_slicing"
+            assert approved.json()["project_file_id"] is not None
 
             queued = client.post(
                 f"/api/photo-reconstructions/{reconstruction.id}/mesh-revisions",
