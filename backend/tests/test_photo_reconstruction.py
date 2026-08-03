@@ -88,6 +88,10 @@ def test_fixture_worker_persists_raw_mesh_and_provenance_without_claiming_real_c
     assert completed.artifacts[0].inferred_ratio is None
     assert completed.artifacts[0].provenance["classification"] == "synthetic_fixture"
     assert len(completed.artifacts[0].provenance["source_checksums"]) == 12
+    assert completed.qualification is not None
+    assert completed.qualification.reconstruction_artifact_id == completed.artifacts[0].id
+    assert completed.qualification.status == "not_qualified"
+    assert completed.qualification.report["mandatory_checks_complete"] is False
 
 
 def test_engine_health_write_failure_does_not_retry_completed_reconstruction(tmp_path: Path, monkeypatch) -> None:

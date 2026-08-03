@@ -4,10 +4,10 @@
 
 ## Resumo
 
-- módulos Python: 211;
+- módulos Python: 214;
 - endpoints HTTP/WebSocket: 425;
-- contratos tipados: 431;
-- tabelas declaradas em SQL: 171;
+- contratos tipados: 432;
+- tabelas declaradas em SQL: 172;
 - ciclos de import detectados: 0.
 
 ## Fronteiras E Owners
@@ -19,8 +19,8 @@
 | `identity` | Identidade e permissões | Autenticação, sessão, organizações, autorização e auditoria de acesso. | 14 | 9 |
 | `community` | Comunidade e projetos | Catálogo social, projetos, biblioteca, descoberta, moderação e perfis públicos. | 38 | 48 |
 | `finance` | Finanças e pedidos | Ledger, pedidos, pagamentos, reconciliação, risco e repasses. | 13 | 20 |
-| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 74 | 53 |
-| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 31 | 40 |
+| `operations` | Operação e agentes | Impressoras, agentes, impressão, calibração, manutenção, setup e firmware. | 77 | 53 |
+| `administration` | Administração | Saúde, configuração, backup, relatórios, releases, suporte e operação do produto. | 31 | 41 |
 | `integrations` | Integrações | Adapters de Moonraker, descoberta, plugins e dependências externas. | 7 | 0 |
 | `shared` | Plataforma | Bootstrap e persistência transversal durante a extração. | 22 | 0 |
 
@@ -49,7 +49,7 @@
 | `agent_support` | `operations` | 663 | 0 | 5 |
 | `setup_wizard` | `operations` | 643 | 0 | 7 |
 | `printers` | `operations` | 635 | 0 | 3 |
-| `database` | `shared` | 601 | 0 | 0 |
+| `database` | `shared` | 602 | 0 | 0 |
 | `gcode_files` | `operations` | 574 | 0 | 11 |
 | `social_moderation` | `community` | 567 | 0 | 8 |
 | `health` | `administration` | 547 | 0 | 0 |
@@ -58,8 +58,8 @@
 | `firmware.repository` | `operations` | 489 | 0 | 0 |
 | `routes.auth` | `identity` | 486 | 30 | 0 |
 | `firmware_catalog` | `operations` | 478 | 0 | 14 |
+| `modules.operations.reconstruction.repository` | `operations` | 469 | 0 | 0 |
 | `updates` | `administration` | 465 | 0 | 8 |
-| `modules.operations.reconstruction.repository` | `operations` | 443 | 0 | 0 |
 | `backups` | `administration` | 431 | 0 | 0 |
 | `print_delivery` | `operations` | 413 | 0 | 3 |
 | `modules.operations.materials.repository` | `operations` | 405 | 0 | 0 |

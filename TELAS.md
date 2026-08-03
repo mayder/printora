@@ -165,7 +165,8 @@ quando a ação não é permitida.
   fictícia quando o engine só fornece estado por estágio.
 - `Qualificar malha` mostra manifold, watertight, escala, componentes, buracos,
   espessura e bloqueios. Reparos criam versão nova e nunca sobrescrevem a malha
-  bruta.
+  bruta. A base atual já apresenta tamanho, unidade e bloqueios do relatório
+  inicial; verificações ainda pendentes são declaradas e impedem aprovação.
 - `Revisar resultado` compara bruto/qualificado e identifica por legenda e
   alternativa textual as regiões observadas, inferidas e reparadas. Download,
   fatiamento e publicação permanecem ações separadas e explícitas.

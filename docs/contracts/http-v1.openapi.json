@@ -13201,6 +13201,45 @@
         "title": "MaterialSpool",
         "type": "object"
       },
+      "MeshQualification": {
+        "properties": {
+          "analyzer_version": {
+            "title": "Analyzer Version",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "reconstruction_artifact_id": {
+            "title": "Reconstruction Artifact Id",
+            "type": "integer"
+          },
+          "report": {
+            "additionalProperties": true,
+            "title": "Report",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reconstruction_artifact_id",
+          "analyzer_version",
+          "status",
+          "report",
+          "created_at"
+        ],
+        "title": "MeshQualification",
+        "type": "object"
+      },
       "MfaCodeRequest": {
         "properties": {
           "code": {
@@ -19733,6 +19772,16 @@
             "title": "Project Id",
             "type": "integer"
           },
+          "qualification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeshQualification"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "stage": {
             "enum": [
               "waiting",
@@ -19784,7 +19833,8 @@
           "created_at",
           "updated_at",
           "attempts",
-          "artifacts"
+          "artifacts",
+          "qualification"
         ],
         "title": "ReconstructionJob",
         "type": "object"

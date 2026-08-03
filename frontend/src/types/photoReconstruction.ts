@@ -26,6 +26,20 @@ export interface ReconstructionAttempt {
   completed_at: string | null;
 }
 
+export interface MeshQualification {
+  id: number;
+  reconstruction_artifact_id: number;
+  analyzer_version: string;
+  status: string;
+  report: {
+    mandatory_checks_complete?: boolean;
+    blockers?: string[];
+    dimensions?: { x: number; y: number; z: number };
+    checks?: Record<string, unknown>;
+  };
+  created_at: string;
+}
+
 export interface ReconstructionJob {
   id: number;
   capture_session_id: number;
@@ -47,4 +61,5 @@ export interface ReconstructionJob {
   updated_at: string;
   attempts: ReconstructionAttempt[];
   artifacts: ReconstructionArtifact[];
+  qualification: MeshQualification | null;
 }

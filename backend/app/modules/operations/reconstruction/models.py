@@ -6,10 +6,11 @@ from app.modules.operations.reconstruction.contracts import (
     ReconstructionArtifact,
     ReconstructionAttempt,
     ReconstructionJob,
+    MeshQualification,
 )
 
 
-def reconstruction_job_model(row, attempts, artifacts) -> ReconstructionJob:
+def reconstruction_job_model(row, attempts, artifacts, qualification=None) -> ReconstructionJob:
     status = str(row["status"])
     next_action = {
         "queued": "Você pode sair desta tela. O processamento começará quando houver capacidade.",
@@ -44,4 +45,15 @@ def reconstruction_job_model(row, attempts, artifacts) -> ReconstructionJob:
             )
             for item in artifacts
         ],
+        qualification=(
+            MeshQualification(
+                id=int(qualification["id"]),
+                reconstruction_artifact_id=int(qualification["reconstruction_artifact_id"]),
+                analyzer_version=str(qualification["analyzer_version"]),
+                status=str(qualification["status"]),
+                report=json.loads(qualification["report_json"]),
+                created_at=str(qualification["created_at"]),
+            )
+            if qualification is not None else None
+        ),
     )

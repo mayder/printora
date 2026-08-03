@@ -50,6 +50,15 @@ class ReconstructionAttempt(BaseModel):
     completed_at: str | None
 
 
+class MeshQualification(BaseModel):
+    id: int
+    reconstruction_artifact_id: int
+    analyzer_version: str
+    status: str
+    report: dict[str, object]
+    created_at: str
+
+
 class ReconstructionJob(BaseModel):
     id: int
     capture_session_id: int
@@ -71,3 +80,4 @@ class ReconstructionJob(BaseModel):
     updated_at: str
     attempts: list[ReconstructionAttempt]
     artifacts: list[ReconstructionArtifact]
+    qualification: MeshQualification | None

@@ -555,8 +555,15 @@ Rollback:
 
 Estado atual:
 
-- análise STL, viewer, snapshots, download e fatiamento possuem bases parciais;
-- não existe qualificação específica de malha reconstruída, mapa de inferência,
-  revisão dimensional ou piloto físico definido;
+- a primeira análise determinística roda no worker sobre o artefato bruto,
+  preserva seu checksum e registra relatório privado ligado à versão canônica;
+- OBJ, STL, PLY ASCII e GLB incorporado possuem leitura limitada, validação de
+  índices e coordenadas, dimensões, solda geométrica, fechamento, manifold,
+  bordas, buracos, orientação, componentes e faces sem área;
+- a interface explica dimensões e bloqueios sem chamar a malha de imprimível;
+  unidade desconhecida e verificações pendentes mantêm o resultado não
+  qualificado;
+- auto-interseção, espessura, reparos versionados, revisão métrica/humana,
+  snapshot STL/3MF, fatiamento e piloto físico permanecem abertos;
 - a assistência por IA deixa de ser genérica e fica restrita a este fluxo,
   conforme `docs/architecture/RECONSTRUCAO_3D_POR_FOTOS.md`.

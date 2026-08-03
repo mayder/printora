@@ -89,6 +89,9 @@ export function ReconstructionPanel({ captureSessionId, setError }: Props) {
   }
 
   const artifact = job.artifacts.find((item) => item.artifact_type === "raw_mesh");
+  const qualification = job.qualification;
+  const blockers = qualification?.report.blockers ?? [];
+  const dimensions = qualification?.report.dimensions;
   return <section className="reconstruction-panel" aria-live="polite">
     <div className="photo-capture-heading">{job.status === "processing" ? <LoaderCircle className="reconstruction-spinner" size={22} /> : <Box size={22} />}<div><h4>{stageLabels[job.stage] ?? "Reconstrução 3D"}</h4><p>{job.next_action}</p></div></div>
     {job.progress_percent !== null ? <progress max={100} value={job.progress_percent}>{job.progress_percent}%</progress> : null}
@@ -99,6 +102,13 @@ export function ReconstructionPanel({ captureSessionId, setError }: Props) {
       {job.can_retry ? <button type="button" className="secondary-button" disabled={busy} onClick={() => void run(() => photoReconstructionApi.retry(job.id))}><RotateCcw size={16} /> Tentar novamente</button> : null}
       {artifact ? <button type="button" className="secondary-button" disabled={busy} onClick={() => void download()}><Download size={16} /> Baixar malha bruta</button> : null}
     </div>
-    {artifact ? <p className="photo-capture-note"><CircleAlert size={16} /> Esta malha ainda não foi qualificada para impressão. Áreas inferidas ou desconhecidas precisam de revisão.</p> : null}
+    {artifact && qualification ? <div className="photo-capture-note" role="status">
+      <CircleAlert size={16} aria-hidden="true" />
+      <div><strong>Conferência para impressão em andamento</strong>
+        {dimensions ? <p>Tamanho encontrado: {dimensions.x} × {dimensions.y} × {dimensions.z} {artifact.unit === "mm" ? "mm" : "(unidade ainda não confirmada)"}.</p> : null}
+        <p>A malha bruta foi preservada. Ela só poderá ser aprovada depois destas conferências:</p>
+        <ul>{blockers.map((message) => <li key={message}>{message}</li>)}</ul>
+      </div>
+    </div> : artifact ? <p className="photo-capture-note"><CircleAlert size={16} /> Esta malha ainda não foi qualificada para impressão. Áreas inferidas ou desconhecidas precisam de revisão.</p> : null}
   </section>;
 }

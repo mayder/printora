@@ -2989,3 +2989,31 @@ deve ser introduzida após política aprovada, preview e autorização explícit
 Rollback: definir modo `disabled`, ocultar a ação de criação e deixar jobs
 existentes em terminal ou leitura. Restaurar release N-1 compatível sem apagar
 capturas, tentativas, artefatos ou objetos.
+
+## Qualificação inicial de malha reconstruída
+
+Banco, após a reconstrução:
+
+1. SQLite aplica `backend/sql/094_mesh_qualification.sql` pelo versionador, com
+   backup;
+2. cloud aplica `backend/sql/postgresql/026_mesh_qualification.sql`;
+3. validar que cada relatório referencia um artefato de reconstrução existente
+   e preserva `source_sha256`, versão do analisador e JSON determinístico;
+4. não executar `DROP`, `DELETE` nem alterar malhas brutas para corrigir um
+   relatório.
+
+Smoke seguro:
+
+1. executar uma reconstrução sintética local e confirmar relatório ligado ao
+   artefato canônico, com status `not_qualified`;
+2. confirmar que unidade desconhecida, superfície aberta, componentes extras ou
+   faces inválidas aparecem em linguagem simples;
+3. consultar como outro owner e confirmar 404 tanto para job quanto artefato;
+4. repetir a reconstrução e confirmar que o artefato anterior e seu relatório
+   permanecem íntegros, enquanto a resposta usa somente a versão canônica;
+5. conferir no navegador desktop e mobile que dimensão e bloqueios não dependem
+   somente de cor e que nenhum botão aprova, fatia ou envia automaticamente.
+
+Esta base não libera download qualificado: auto-interseção e espessura ainda
+aparecem como pendentes. Rollback restaura N-1, que ignora a tabela aditiva; os
+relatórios permanecem privados e acompanham a retenção da malha referenciada.

@@ -115,10 +115,10 @@
     }
   ],
   "summary": {
-    "modules": 211,
+    "modules": 214,
     "routes": 425,
-    "contracts": 431,
-    "tables": 171,
+    "contracts": 432,
+    "tables": 172,
     "cycles": 0,
     "modules_by_owner": {
       "accessibility": 7,
@@ -128,7 +128,7 @@
       "finance": 13,
       "identity": 14,
       "integrations": 7,
-      "operations": 74,
+      "operations": 77,
       "shared": 22
     }
   },
@@ -364,7 +364,7 @@
     {
       "module": "database",
       "owner": "shared",
-      "lines": 601,
+      "lines": 602,
       "imports": [
         "modules.platform.database_target",
         "modules.platform.postgresql"
@@ -1888,6 +1888,30 @@
       "contracts": []
     },
     {
+      "module": "modules.operations.mesh_qualification.__init__",
+      "owner": "operations",
+      "lines": 5,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.operations.mesh_qualification.analyzer",
+      "owner": "operations",
+      "lines": 191,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
+      "module": "modules.operations.mesh_qualification.geometry",
+      "owner": "operations",
+      "lines": 186,
+      "imports": [],
+      "routes": [],
+      "contracts": []
+    },
+    {
       "module": "modules.operations.ports",
       "owner": "operations",
       "lines": 27,
@@ -1924,20 +1948,21 @@
     {
       "module": "modules.operations.reconstruction.contracts",
       "owner": "operations",
-      "lines": 73,
+      "lines": 83,
       "imports": [],
       "routes": [],
       "contracts": [
         "ReconstructionCreate",
         "ReconstructionArtifact",
         "ReconstructionAttempt",
+        "MeshQualification",
         "ReconstructionJob"
       ]
     },
     {
       "module": "modules.operations.reconstruction.models",
       "owner": "operations",
-      "lines": 47,
+      "lines": 59,
       "imports": [
         "modules.operations.reconstruction.contracts"
       ],
@@ -1960,11 +1985,12 @@
     {
       "module": "modules.operations.reconstruction.repository",
       "owner": "operations",
-      "lines": 443,
+      "lines": 469,
       "imports": [
         "config",
         "database",
         "modules.community.storage_usage",
+        "modules.operations.mesh_qualification",
         "modules.operations.reconstruction.adapters",
         "modules.operations.reconstruction.contracts",
         "modules.operations.reconstruction.models",
@@ -6088,6 +6114,11 @@
       "table": "photo_reconstruction_engine_health",
       "owner": "operations",
       "script": "093_photo_reconstruction.sql"
+    },
+    {
+      "table": "mesh_qualifications",
+      "owner": "administration",
+      "script": "094_mesh_qualification.sql"
     }
   ]
 }

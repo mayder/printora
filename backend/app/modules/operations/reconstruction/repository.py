@@ -17,6 +17,7 @@ from app.modules.operations.reconstruction.adapters import (
 )
 from app.modules.operations.reconstruction.contracts import ReconstructionCreate, ReconstructionJob
 from app.modules.operations.reconstruction.models import reconstruction_job_model
+from app.modules.operations.mesh_qualification import qualify_mesh
 from app.modules.platform.durable_execution import DurableExecutionRepository, QueueSaturatedError
 from app.social_storage import SocialStorageRepository
 
@@ -127,7 +128,17 @@ class ReconstructionRepository:
                 "SELECT * FROM photo_reconstruction_artifacts WHERE reconstruction_job_id = ? AND is_canonical = 1 ORDER BY id",
                 (job_id,),
             ).fetchall()
-        return reconstruction_job_model(row, attempts, artifacts)
+            qualification = connection.execute(
+                """
+                SELECT mq.*
+                FROM mesh_qualifications mq
+                JOIN photo_reconstruction_artifacts ra ON ra.id = mq.reconstruction_artifact_id
+                WHERE ra.reconstruction_job_id = ? AND ra.is_canonical = 1
+                ORDER BY mq.id DESC LIMIT 1
+                """,
+                (job_id,),
+            ).fetchone()
+        return reconstruction_job_model(row, attempts, artifacts, qualification)
 
     def cancel(self, owner_user_id: int, job_id: int) -> ReconstructionJob:
         with connect_database(self.database_path) as connection:
@@ -383,6 +394,21 @@ class ReconstructionRepository:
                 ),
             )
             artifact_id = int(cursor.lastrowid)
+            qualification = qualify_mesh(result.mesh_bytes, result.mesh_format, result.unit)
+            connection.execute(
+                """
+                INSERT INTO mesh_qualifications (
+                    reconstruction_artifact_id, source_sha256, analyzer_version,
+                    status, report_json
+                ) VALUES (?, ?, 'deterministic-v1', ?, ?)
+                """,
+                (
+                    artifact_id,
+                    checksum,
+                    str(qualification["status"]),
+                    json.dumps(qualification, ensure_ascii=False, sort_keys=True),
+                ),
+            )
             self.storage.register_object(
                 connection,
                 promoted,

@@ -27,6 +27,7 @@ const queued: ReconstructionJob = {
   updated_at: "2026-08-02T00:00:00Z",
   attempts: [],
   artifacts: [],
+  qualification: null,
 };
 
 
@@ -58,5 +59,37 @@ describe("ReconstructionPanel", () => {
     expect(await screen.findByRole("heading", { name: "Aguardando capacidade" })).toBeTruthy();
     expect(screen.queryByRole("progressbar")).toBeNull();
     expect(screen.getByRole("button", { name: "Cancelar" })).toBeTruthy();
+  });
+
+  it("explica por que a malha ainda não pode ser aprovada", async () => {
+    const completed: ReconstructionJob = {
+      ...queued,
+      status: "succeeded",
+      stage: "ready",
+      progress_percent: 100,
+      can_cancel: false,
+      artifacts: [{
+        id: 91, artifact_type: "raw_mesh", file_format: "obj", sha256: "abc",
+        size_bytes: 100, unit: "unknown", observed_ratio: null, inferred_ratio: null, provenance: {},
+      }],
+      qualification: {
+        id: 92,
+        reconstruction_artifact_id: 91,
+        analyzer_version: "deterministic-v1",
+        status: "not_qualified",
+        report: {
+          dimensions: { x: 10, y: 20, z: 30 },
+          mandatory_checks_complete: false,
+          blockers: ["Confirme a unidade e uma medida conhecida do objeto."],
+        },
+        created_at: "2026-08-02T00:00:00Z",
+      },
+    };
+    vi.spyOn(photoReconstructionApi, "list").mockResolvedValue([completed]);
+    render(React.createElement(ReconstructionPanel, { captureSessionId: 8, setError: vi.fn() }));
+
+    expect(await screen.findByText("Conferência para impressão em andamento")).toBeTruthy();
+    expect(screen.getByText(/unidade e uma medida conhecida/i)).toBeTruthy();
+    expect(screen.getByText(/unidade ainda não confirmada/i)).toBeTruthy();
   });
 });
