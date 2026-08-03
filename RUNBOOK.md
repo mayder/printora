@@ -2928,6 +2928,20 @@ Configuração segura:
 - iniciar worker dedicado na fila `bulk`; não executar processamento no agente
   da impressora ou na Raspberry Pi.
 
+Retenção dos checkpoints Tripo:
+
+1. checkpoints enviados permanecem preservados para impedir uma nova cobrança
+   quando o estado remoto ainda é ambíguo;
+2. após download e validação do resultado, o gateway marca o checkpoint como
+   concluído, com data UTC, sem registrar segredo ou fotos;
+3. revisar candidatos concluídos há mais de 30 dias, sem apagar:
+   `scripts/reconstruction/tripo_checkpoint_retention.py --state-dir <diretorio> --retention-days 30`;
+4. conferir a contagem e executar a mesma chamada com `--apply` somente em
+   janela supervisionada. Checkpoints ativos, legados, inválidos, recentes ou
+   bloqueados por processamento concorrente são preservados;
+5. o rollback é interromper a rotina. Não há limpeza automática, e capturas,
+   jobs, artefatos e registros do banco não são removidos por esse comando.
+
 O gateway detecta a capacidade do COLMAP. Em worker CUDA produz reconstrução
 densa com Poisson. Sem CUDA, produz somente Delaunay sobre o modelo esparso e
 marca a saída como compatibilidade não qualificada. Não promover o fallback

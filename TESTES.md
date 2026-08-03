@@ -2520,6 +2520,9 @@ Aceite de 2026-07-24:
 - no gateway Tripo, validar quatro vistas na ordem documentada, checkpoint por
   correlação, reaproveitamento da tarefa paga no retry, divergência de
   fingerprint e estados finais do polling sem chamada real no teste comum;
+- validar preview e aplicação supervisionada da retenção, removendo somente
+  checkpoint concluído e expirado e preservando ativo, recente, legado,
+  inválido, symlink e arquivo com lock concorrente;
 - validar egress allowlist/SSRF, URLs assinadas, rotação de segredo, logs
   sanitizados e ausência de fotos/payload bruto em bundle de suporte;
 - validar provenance com fontes, checksums, engine, modelo/versão, parâmetros,

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import importlib.util
 import json
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType
 
@@ -28,6 +30,20 @@ def _load_gateway() -> ModuleType:
 
 tripo_gateway = _load_gateway()
 tripo_client = sys.modules["tripo_client"]
+
+
+def _load_retention() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "tripo_checkpoint_retention",
+        SCRIPT_DIR / "tripo_checkpoint_retention.py",
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+tripo_retention = _load_retention()
 
 
 class FakeClient:
@@ -120,6 +136,12 @@ def test_tripo_gateway_reuses_paid_task_and_preserves_unknown_coverage(tmp_path:
     assert first["provenance"]["checkpoint_reused"] is False
     assert second["provenance"]["checkpoint_reused"] is True
     assert json.loads(result_path.read_text(encoding="utf-8")) == second
+    checkpoint = next((tmp_path / "state").glob("*.json"))
+    checkpoint_payload = json.loads(checkpoint.read_text(encoding="utf-8"))
+    assert checkpoint_payload["schema"] == "printora.tripo-checkpoint/v1"
+    assert checkpoint_payload["status"] == "completed"
+    assert checkpoint_payload["completed_at"]
+    assert checkpoint.stat().st_mode & 0o777 == 0o600
 
 
 def test_tripo_gateway_requires_four_middle_views(tmp_path: Path) -> None:
@@ -169,3 +191,79 @@ def test_tripo_gateway_rejects_malformed_glb(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError, match="GLB inválido"):
         tripo_gateway._validate_glb(path)
+
+
+def test_tripo_checkpoint_retention_previews_then_removes_only_expired_completed(tmp_path: Path) -> None:
+    now = datetime(2026, 8, 2, 12, tzinfo=UTC)
+    old_completed = tmp_path / ("a" * 64 + ".json")
+    recent_completed = tmp_path / ("b" * 64 + ".json")
+    active = tmp_path / ("c" * 64 + ".json")
+    legacy = tmp_path / ("d" * 64 + ".json")
+    for path, status, completed_at in (
+        (old_completed, "completed", now - timedelta(days=31)),
+        (recent_completed, "completed", now - timedelta(days=5)),
+        (active, "submitted", None),
+    ):
+        path.write_text(json.dumps({
+            "schema": "printora.tripo-checkpoint/v1",
+            "status": status,
+            "completed_at": completed_at.isoformat() if completed_at else None,
+        }), encoding="utf-8")
+    legacy.write_text(json.dumps({"task_id": "legacy-task"}), encoding="utf-8")
+
+    preview = tripo_retention.review_checkpoints(tmp_path, retention_days=30, now=now)
+    assert preview["mode"] == "preview"
+    assert preview["candidates"] == [old_completed.name]
+    assert old_completed.exists()
+
+    applied = tripo_retention.review_checkpoints(tmp_path, retention_days=30, apply=True, now=now)
+
+    assert applied["removed_count"] == 1
+    assert not old_completed.exists()
+    assert recent_completed.exists()
+    assert active.exists()
+    assert legacy.exists()
+
+
+def test_tripo_checkpoint_retention_preserves_invalid_symlink_and_locked_checkpoint(tmp_path: Path) -> None:
+    now = datetime(2026, 8, 2, 12, tzinfo=UTC)
+    completed = {
+        "schema": "printora.tripo-checkpoint/v1",
+        "status": "completed",
+        "completed_at": (now - timedelta(days=90)).isoformat(),
+    }
+    locked = tmp_path / ("e" * 64 + ".json")
+    locked.write_text(json.dumps(completed), encoding="utf-8")
+    lock_path = locked.with_suffix(".lock")
+    invalid = tmp_path / ("f" * 64 + ".json")
+    invalid.write_text("not-json", encoding="utf-8")
+    external = tmp_path / "external.json"
+    external.write_text(json.dumps(completed), encoding="utf-8")
+    symlink = tmp_path / ("1" * 64 + ".json")
+    symlink.symlink_to(external)
+
+    with lock_path.open("a+b") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        report = tripo_retention.review_checkpoints(
+            tmp_path,
+            retention_days=30,
+            apply=True,
+            now=now,
+        )
+
+    assert report["candidates"] == [locked.name]
+    assert report["removed_count"] == 0
+    assert locked.exists()
+    assert invalid.exists()
+    assert symlink.is_symlink()
+    assert external.exists()
+
+
+def test_tripo_checkpoint_retention_rejects_symlinked_state_directory(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    state.mkdir()
+    linked_state = tmp_path / "linked-state"
+    linked_state.symlink_to(state, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="diretório de checkpoint inválido"):
+        tripo_retention.review_checkpoints(linked_state)

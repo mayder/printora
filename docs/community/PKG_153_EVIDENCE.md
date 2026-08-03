@@ -16,6 +16,10 @@ Estado: base operacional implementada; pacote permanece ativo.
 - gateway Tripo com quatro vistas médias equidistantes, segredo isolado,
   polling, download HTTPS público e checkpoint privado para não recriar tarefa
   paga em retry;
+- checkpoint versionado marca somente conclusões validadas e possui revisão de
+  retenção em modo preview por padrão; aplicação supervisionada remove apenas
+  checkpoints concluídos e expirados, preservando estados ativos, ambíguos,
+  legados, inválidos e bloqueados;
 - diretório temporário, executável fixo, shell desativado, ambiente restrito,
   timeout e validação de caminho, symlink, formato, tamanho e proporções;
 - circuito após falhas repetidas e falha isolada da reconstrução;
@@ -37,7 +41,7 @@ saúde não transforma reconstrução concluída em retry pago.
 ## Validação executável
 
 - backend: domínio, worker, adapter, cancelamento, fencing, circuito, ownership,
-  rota e artefato privado;
+  rota, artefato privado e retenção segura do checkpoint;
 - frontend: criação em linguagem humana, ausência de identificadores internos e
   ausência de percentual quando o engine só informa estágio;
 - contrato OpenAPI, inventário modular, build e orçamento de bundle;
@@ -87,7 +91,8 @@ fechado após:
    custo, sem avaliação apenas visual;
 4. webhook ou polling autenticado/reconciliado quando o provider escolhido
    exigir operação assíncrona;
-5. teste de carga, egress/segredo, canário e política de retenção/cleanup;
+5. teste de carga e canário em ambiente do provider; a política e o executor
+   supervisionado de retenção/cleanup local já estão implementados;
 6. validação manual desktop/mobile do estado de processamento real.
 
 Referências oficiais consultadas: [geração multiview](https://platform.tripo3d.ai/docs/generation),

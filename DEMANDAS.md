@@ -452,11 +452,13 @@ Estado atual:
 - gateway Tripo implementa quatro vistas determinísticas, credencial isolada,
   polling, download defensivo e checkpoint que reaproveita a tarefa paga no
   retry; seu contrato passou somente com provider simulado;
+- checkpoints concluídos possuem metadados versionados e rotina supervisionada
+  com preview padrão, preservando estados ativos, ambíguos e legados;
 - o modo seguro permanece desabilitado por padrão e a fixture sintética existe
   somente para contrato/teste, sem alegar reconstrução real;
 - pipeline sobre objeto físico e provedor multiview ainda não estão homologados:
   faltam benchmark comparativo do mesmo objeto, credencial e chamada reais,
-  carga, canário e retenção operacional antes do fechamento;
+  carga e canário em ambiente do provider antes do fechamento;
 - o antigo escopo genérico de AR/escaneamento foi substituído pela demanda
   concreta de reconstrução de objeto por fotos.
 

@@ -2729,3 +2729,32 @@ fluxo explícito de exclusão, não a limpeza genérica de logs.
 Referências: `backend/sql/097_mesh_physical_validations.sql`,
 `backend/sql/postgresql/029_mesh_physical_validations.sql`,
 `docs/community/PKG_154_EVIDENCE.md`.
+
+### DEC-20260802-09 - Checkpoint pago só expira após conclusão comprovada
+
+Status: aceita
+Data: 2026-08-02
+Contexto: apagar checkpoints Tripo por idade ou em rotina automática poderia
+recriar uma tarefa paga ainda ativa ou ambígua. Preservá-los para sempre também
+deixaria o volume operacional sem política verificável de retenção.
+
+Decisão: o gateway grava checkpoint versionado ao receber o identificador
+remoto e somente o marca como concluído depois do download, validação GLB e
+gravação do resultado. Uma rotina separada opera em preview por padrão e, com
+`--apply` explícito, remove apenas checkpoints concluídos além da retenção.
+Estado enviado, legado, inválido, recente, symlink ou com lock concorrente é
+preservado. O comando não toca fotos, banco, jobs ou artefatos.
+
+Consequências: há limpeza operacional sem transformar incerteza remota em nova
+cobrança. A execução deve permanecer supervisionada; 30 dias é o padrão do
+runbook e pode ser ampliado conforme contrato do provider.
+
+Impacto em testes: conclusão versionada, preview sem escrita, aplicação seletiva
+e preservação de estados não comprovadamente seguros.
+
+Impacto em rollback: deixar de executar a rotina. Os checkpoints restantes
+continuam válidos para reconciliação e nenhum dado de produto é removido.
+
+Referências: `scripts/reconstruction/tripo_gateway.py`,
+`scripts/reconstruction/tripo_checkpoint_retention.py`,
+`docs/community/PKG_153_EVIDENCE.md`.

@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol, Sequence
 
@@ -17,6 +18,7 @@ from tripo_client import FINAL_STATUSES, TripoClient
 
 MAX_MANIFEST_BYTES = 256 * 1024
 MAX_PHOTOS = 80
+CHECKPOINT_SCHEMA = "printora.tripo-checkpoint/v1"
 SUPPORTED_MODELS = {"v3.1-20260211", "v3.0-20250812", "v2.5-20250123", "P1-20260311"}
 
 
@@ -80,9 +82,10 @@ def run_gateway(
     sources = _validate_sources(payload.get("sources"), photos_dir)
     selected = _select_middle_views(sources)
     fingerprint = _fingerprint(selected, model_version)
-    state_dir = state_dir.expanduser().resolve()
-    if not state_dir.is_absolute() or not state_dir.is_dir() or state_dir.is_symlink():
+    state_dir_input = state_dir.expanduser()
+    if not state_dir_input.is_absolute() or not state_dir_input.is_dir() or state_dir_input.is_symlink():
         raise ValueError("diretório de checkpoint inválido")
+    state_dir = state_dir_input.resolve()
     checkpoint = state_dir / f"{hashlib.sha256(correlation_id.encode()).hexdigest()}.json"
     lock_path = checkpoint.with_suffix(".lock")
     started = time.monotonic()
@@ -136,6 +139,7 @@ def run_gateway(
             },
         }
         result_path.write_text(json.dumps(result, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+        _mark_checkpoint_completed(checkpoint, fingerprint, task_id)
         return result
 
 
@@ -215,10 +219,40 @@ def _read_checkpoint(path: Path, fingerprint: str) -> str | None:
 
 
 def _write_checkpoint(path: Path, fingerprint: str, task_id: str) -> None:
+    now = _utc_now()
     temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps({"fingerprint": fingerprint, "task_id": task_id}), encoding="utf-8")
+    temporary.write_text(json.dumps({
+        "schema": CHECKPOINT_SCHEMA,
+        "fingerprint": fingerprint,
+        "task_id": task_id,
+        "status": "submitted",
+        "created_at": now,
+        "updated_at": now,
+        "completed_at": None,
+    }, sort_keys=True), encoding="utf-8")
     os.chmod(temporary, 0o600)
     temporary.replace(path)
+
+
+def _mark_checkpoint_completed(path: Path, fingerprint: str, task_id: str) -> None:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("fingerprint") != fingerprint or payload.get("task_id") != task_id:
+        raise RuntimeError("checkpoint divergiu durante a conclusão")
+    now = _utc_now()
+    payload.update({
+        "schema": CHECKPOINT_SCHEMA,
+        "status": "completed",
+        "updated_at": now,
+        "completed_at": now,
+    })
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    os.chmod(temporary, 0o600)
+    temporary.replace(path)
+
+
+def _utc_now() -> str:
+    return datetime.now(UTC).isoformat()
 
 
 def _fingerprint(selected: list[dict[str, object]], model_version: str) -> str:
