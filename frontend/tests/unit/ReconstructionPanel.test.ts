@@ -180,13 +180,13 @@ describe("ReconstructionPanel", () => {
     const completed: ReconstructionJob = {
       ...queued, status: "succeeded", stage: "ready", progress_percent: 100, can_cancel: false,
       artifacts: [{ id: 91, artifact_type: "raw_mesh", file_format: "obj", sha256: "abc", size_bytes: 100, unit: "mm", observed_ratio: 1, inferred_ratio: 0, provenance: {} }],
-      qualification: { id: 92, reconstruction_artifact_id: 91, analyzer_version: "deterministic-v1", status: "not_qualified", report: { dimensions: { x: 20, y: 20, z: 20 }, checks: {} }, created_at: "2026-08-02T00:00:00Z" },
+      qualification: { id: 92, reconstruction_artifact_id: 91, analyzer_version: "deterministic-v1", status: "not_qualified", report: { dimensions: { x: 20, y: 20, z: 20 }, checks: {}, preview_triangles: [[[0, 0, 0], [20, 0, 0], [0, 20, 20]]] }, created_at: "2026-08-02T00:00:00Z" },
     };
     const revision = {
       id: 17, reconstruction_job_id: 11, source_artifact_id: 91, parent_revision_id: 16,
       operation: "convert" as const, parameters: { output_format: "stl" }, status: "succeeded" as const,
       output_format: "stl", sha256: "final", size_bytes: 200, unit: "mm", manifest: {},
-      qualification: { dimensions: { x: 20, y: 20, z: 20 }, checks: { watertight: true, non_manifold_edge_count: 0, winding_conflict_count: 0, degenerate_triangle_count: 0, component_count: 1, self_intersection_count: 0 } },
+      qualification: { dimensions: { x: 20, y: 20, z: 20 }, checks: { watertight: true, non_manifold_edge_count: 0, winding_conflict_count: 0, degenerate_triangle_count: 0, component_count: 1, self_intersection_count: 0 }, preview_triangles: [[[0, 0, 0], [20, 0, 0], [0, 20, 18]]] },
       error_message: null, can_cancel: false, next_action: "A nova versão está pronta para revisão.",
       created_at: "2026-08-02T00:00:00Z", updated_at: "2026-08-02T00:00:00Z",
     };
@@ -203,6 +203,9 @@ describe("ReconstructionPanel", () => {
     render(React.createElement(ReconstructionPanel, { captureSessionId: 8, setError: vi.fn(), onModelApproved }));
 
     expect(await screen.findByText("Revisão final antes do fatiamento")).toBeTruthy();
+    fireEvent.click(screen.getByText("Comparar antes e depois"));
+    expect(screen.getByRole("img", { name: "Prévia do modelo inicial" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Prévia da última versão corrigida" })).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Medida do objeto em milímetros"), { target: { value: "20" } });
     fireEvent.click(screen.getByLabelText(/Comparei a forma/i));
     fireEvent.click(screen.getByLabelText(/não garante encaixe/i));

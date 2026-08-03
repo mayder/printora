@@ -26,6 +26,7 @@ def test_closed_obj_reports_topology_but_waits_for_mandatory_checks() -> None:
     assert report["checks"]["self_intersection_count"] == 0
     assert report["checks"]["minimum_thickness_estimate"] != "not_available"
     assert report["dimensions"] == {"x": 10.0, "y": 10.0, "z": 10.0}
+    assert report["preview_triangles"][0] == [[0.0, 0.0, 0.0], [0.0, 10.0, 0.0], [10.0, 0.0, 0.0]]
     assert report["mandatory_checks_complete"] is False
     assert any("espessura" in message.lower() for message in report["blockers"])
 
@@ -103,6 +104,16 @@ def test_malformed_or_external_glb_fails_closed() -> None:
 
     assert report["status"] == "failed"
     assert report["mandatory_checks_complete"] is False
+
+
+def test_preview_is_deterministic_and_bounded() -> None:
+    vertices = b"".join(f"v {index} 0 0\nv {index} 1 0\nv {index} 0 1\nf {index * 3 + 1} {index * 3 + 2} {index * 3 + 3}\n".encode() for index in range(300))
+
+    first = qualify_mesh(vertices, "obj", "mm")["preview_triangles"]
+    second = qualify_mesh(vertices, "obj", "mm")["preview_triangles"]
+
+    assert first == second
+    assert len(first) <= 240
 
 
 def test_detects_non_adjacent_triangles_that_cross_each_other() -> None:

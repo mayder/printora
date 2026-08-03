@@ -9,6 +9,7 @@ from .spatial import count_self_intersections, estimate_minimum_thickness
 
 
 KNOWN_UNITS = {"mm", "millimeter", "millimetre"}
+MAX_PREVIEW_TRIANGLES = 240
 
 
 def qualify_mesh(body: bytes, file_format: str, unit: str) -> dict[str, Any]:
@@ -93,11 +94,20 @@ def _report(mesh, file_format, unit, unit_known, welded, minimum, maximum, dimen
         "triangle_count": len(mesh.triangles),
         "dimensions": {"x": round(dimensions[0], 4), "y": round(dimensions[1], 4), "z": round(dimensions[2], 4)},
         "bounds": {"min": [round(value, 4) for value in minimum], "max": [round(value, 4) for value in maximum]},
+        "preview_triangles": _preview_triangles(mesh),
         "checks": checks,
         "mandatory_checks_complete": False,
         "blockers": blockers + ["A espessura estimada ainda precisa ser comparada com a impressora e o perfil."],
         "next_action": "Revise os pontos indicados antes de aprovar ou baixar para impressão.",
     }
+
+
+def _preview_triangles(mesh: TriangleMesh) -> list[list[list[float]]]:
+    step = max(1, math.ceil(len(mesh.triangles) / MAX_PREVIEW_TRIANGLES))
+    return [
+        [[round(value, 4) for value in mesh.vertices[index]] for index in face]
+        for face in mesh.triangles[::step][:MAX_PREVIEW_TRIANGLES]
+    ]
 
 
 def _weld(mesh: TriangleMesh, tolerance: float) -> tuple[list[tuple[float, float, float]], list[tuple[int, int, int]]]:

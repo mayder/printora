@@ -2,12 +2,14 @@ import * as React from "react";
 import { CircleAlert, Download, LoaderCircle, ShieldCheck, XCircle } from "lucide-react";
 import { meshRevisionApi } from "../../services/meshRevisionApi";
 import type { MeshRepairOperation, MeshRevision, MeshRevisionReview } from "../../types/meshRevision";
+import { MeshShapeCanvas } from "./MeshShapeCanvas";
 
 interface Props {
   jobId: number;
   rawUnit: string;
   rawChecks: Record<string, unknown>;
   rawDimensions?: { x: number; y: number; z: number };
+  rawTriangles?: number[][][];
   setError: (message: string | null) => void;
   onModelApproved?: () => Promise<void>;
 }
@@ -47,7 +49,7 @@ function exportBlocker(checks: Record<string, unknown>, unitKnown: boolean): str
   return null;
 }
 
-export function MeshRepairPanel({ jobId, rawUnit, rawChecks, rawDimensions, setError, onModelApproved }: Props) {
+export function MeshRepairPanel({ jobId, rawUnit, rawChecks, rawDimensions, rawTriangles = [], setError, onModelApproved }: Props) {
   const [revisions, setRevisions] = React.useState<MeshRevision[]>([]);
   const [reviews, setReviews] = React.useState<MeshRevisionReview[]>([]);
   const [busy, setBusy] = React.useState(false);
@@ -188,6 +190,7 @@ export function MeshRepairPanel({ jobId, rawUnit, rawChecks, rawDimensions, setE
     {latestReview?.decision === "approved_for_slicing" ? <div className="mesh-repair-export" role="status"><ShieldCheck size={18} /><div><strong>Modelo adicionado ao projeto</strong><p>Ele está aprovado somente para seguir ao fatiamento. A escolha da impressora, do material e o preflight continuam obrigatórios.</p><button type="button" className="primary-button" onClick={() => document.getElementById("project-slicing")?.scrollIntoView({ behavior: "smooth", block: "start" })}>Continuar para o fatiamento</button></div></div> : null}
     {latestReview?.decision === "rejected" ? <div className="mesh-repair-export" role="status"><CircleAlert size={18} /><div><strong>Versão rejeitada</strong><p>A malha bruta e as versões anteriores continuam preservadas. Faça outra correção ou gere uma nova reconstrução.</p></div></div> : null}
     {revisions.some((revision) => revision.status === "succeeded") ? <details className="mesh-repair-history"><summary>O que foi reparado?</summary><ol>{revisions.filter((revision) => revision.status === "succeeded").map((revision) => <li key={revision.id}>Versão {revision.id}: {operationLabels[revision.operation]}. O resultado foi salvo separadamente com checksum {revision.sha256?.slice(0, 12)}.</li>)}</ol></details> : null}
+    {latest ? <details className="project-mesh-preview"><summary>Comparar antes e depois</summary><p>Use esta comparação para procurar partes faltando ou deformadas. Ela ajuda na revisão, mas não substitui comparar com o objeto real.</p><div className="print-project-grid"><div><strong>Modelo inicial</strong><MeshShapeCanvas triangles={rawTriangles} label="Prévia do modelo inicial" /></div><div><strong>Última versão</strong><MeshShapeCanvas triangles={latest.qualification.preview_triangles ?? []} label="Prévia da última versão corrigida" /></div></div></details> : null}
     {latest ? <div className="mesh-repair-history"><p><strong>Última versão:</strong> {latest.output_format?.toUpperCase()} — {latest.next_action}</p><button type="button" className="secondary-button" disabled={busy} onClick={() => void download()}><Download size={16} /> Baixar última versão</button></div> : null}
     <p className="photo-capture-note"><CircleAlert size={16} /> Uma correção automática não significa que a peça foi aprovada para impressão.</p>
   </div>;

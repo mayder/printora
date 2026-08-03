@@ -2533,6 +2533,8 @@ Aceite de 2026-07-24:
   do provider;
 - validar UI de fila, estágios, cancelamento, erro acionável, retomada e preview
   bruto sem percentual inventado;
+- validar que ausência de classificação espacial gera aviso explícito e que a
+  pessoa pode comparar amostras determinísticas da forma inicial e corrigida;
 - fechamento exige testes domínio/worker/adapter/API/segurança/carga/UI,
   canário controlado, compatibilidade N/N-1, retenção/cleanup e
   `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.

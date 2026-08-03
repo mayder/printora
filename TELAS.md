@@ -173,8 +173,11 @@ quando a ação não é permitida.
   definir escala, a pessoa escolhe largura, profundidade ou altura e informa a
   medida real em milímetros; a aplicação preserva a versão anterior.
 - `Revisar resultado` compara bruto/qualificado e identifica por legenda e
-  alternativa textual as regiões observadas, inferidas e reparadas. Download,
-  fatiamento e publicação permanecem ações separadas e explícitas.
+  alternativa textual as regiões observadas, inferidas e reparadas. A versão
+  atual mostra as formas inicial e corrigida lado a lado, com alternativa
+  textual quando o processador não classifica espacialmente a origem da
+  superfície. Download, fatiamento e publicação permanecem ações separadas e
+  explícitas.
 - O resultado aprovado entra no detalhe do projeto como snapshot imutável com
   manifesto, checksum, unidade, origem e histórico. `Baixar STL/3MF` não exige
   impressora; `Fatiar` reutiliza o fluxo canônico do projeto.

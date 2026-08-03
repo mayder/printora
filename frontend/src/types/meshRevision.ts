@@ -26,6 +26,7 @@ export interface MeshRevision {
     blockers?: string[];
     dimensions?: { x: number; y: number; z: number };
     checks?: Record<string, unknown>;
+    preview_triangles?: number[][][];
   };
   error_message: string | null;
   can_cancel: boolean;

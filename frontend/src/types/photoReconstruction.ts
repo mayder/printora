@@ -36,6 +36,7 @@ export interface MeshQualification {
     blockers?: string[];
     dimensions?: { x: number; y: number; z: number };
     checks?: Record<string, unknown>;
+    preview_triangles?: number[][][];
   };
   created_at: string;
 }

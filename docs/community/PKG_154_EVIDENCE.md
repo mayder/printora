@@ -16,7 +16,7 @@ físico continuam bloqueantes para o fechamento integral.
 - escala uniforme explícita a partir de um eixo e uma medida conhecida em
   milímetros, registrada no manifesto e aplicada em nova revisão;
 - interface simples que recomenda uma correção por vez, preserva a origem e
-  bloqueia arquivo final quando escala ou topologia ainda não são seguras.
+  bloqueia arquivo final quando escala ou topologia ainda não são seguras;
 - aprovação/rejeição humana idempotente presa ao checksum, com finalidade,
   aceite de limitações e comparação métrica de até 3% de desvio;
 - uso mecânico bloqueado sem CAD, dimensões críticas e validação física;
@@ -25,7 +25,11 @@ físico continuam bloqueantes para o fechamento integral.
 - atualização imediata do projeto e continuidade explícita para o fluxo normal
   de fatiamento, que ainda exige impressora, material, perfil, prévia e preflight;
 - alternativa textual para partes observadas/inferidas e histórico de cada
-  reparo com versão e checksum.
+  reparo com versão e checksum;
+- amostra geométrica determinística e limitada em cada qualificação, com
+  comparação lado a lado entre o modelo inicial e a última versão;
+- aviso explícito quando o processador não classifica espacialmente quais
+  regiões vieram das fotos ou foram estimadas, sem inventar cobertura;
 - registro privado do piloto físico no histórico da impressão, com instrumento,
   medida esperada/obtida por eixo, erro percentual, maior desvio e snapshots de
   impressora, material e perfil; sucesso acima de 3% é recusado.
@@ -46,6 +50,8 @@ físico continuam bloqueantes para o fechamento integral.
   fechada, sem cruzamentos ou junções complexas detectadas;
 - o artefato bruto e todas as revisões anteriores permanecem privados e
   imutáveis durante correção, falha, cancelamento e rollback.
+- a prévia é uma amostra visual para revisão humana; não mede cobertura e não
+  substitui a comparação com o objeto real.
 
 ## Pendências para fechamento
 
