@@ -5,6 +5,7 @@ import {
   apiRequest,
   apiResponse,
   readApiError,
+  resolveApiInput,
   storeAuthToken,
   storeStepUpToken,
 } from "../../src/services/http";
@@ -108,5 +109,28 @@ describe("HTTP client", () => {
     );
     await expect(apiOptional("/api/limited")).rejects.toThrow("limite atingido");
     storeAuthToken(null);
+  });
+});
+
+describe("resolveApiInput", () => {
+  it("keeps production requests on the same configurable origin", () => {
+    expect(resolveApiInput("/api/health", undefined, false, {
+      hostname: "127.0.0.1",
+      port: "18070",
+    })).toBe("/api/health");
+  });
+
+  it("uses the local backend during the vite development server", () => {
+    expect(resolveApiInput("/api/health", undefined, true, {
+      hostname: "localhost",
+      port: "5173",
+    })).toBe("http://127.0.0.1:8069/api/health");
+  });
+
+  it("honors an explicitly configured API origin", () => {
+    expect(resolveApiInput("/api/health", "https://api.printora.test/base", false, {
+      hostname: "printora.test",
+      port: "",
+    })).toBe("https://api.printora.test/api/health");
   });
 });

@@ -1426,3 +1426,22 @@ Correção:
 - todos os retornos antecipados usam a mesma fronteira responsiva da tela;
 - timeout, `429` e `5xx` são exercitados em desktop e mobile até recuperação;
 - o rascunho local permanece intacto durante as falhas.
+
+### Porta Local Configurável Mantinha Parte Da API Em 8069
+
+Status: corrigido
+
+Reprodução: iniciar o bundle de produção com `PRINTORA_PORT` diferente de
+`8069`, criar sessão e abrir Projetos. O carregamento auxiliar do catálogo de
+firmware tentava acessar `127.0.0.1:8069` e a interface exibia `Failed to fetch`.
+
+Causa: o desvio usado pelo servidor de desenvolvimento do Vite era aplicado
+também ao bundle de produção. Nesse modo, frontend e API são servidos pela mesma
+origem e precisam preservar a porta configurada.
+
+Correção: restringir o desvio para `8069` a `import.meta.env.DEV`; produção usa
+URL relativa, salvo quando `VITE_PRINTORA_API_BASE_URL` estiver explicitamente
+configurada.
+
+Reteste: teste unitário dos três modos, build de produção, execução isolada na
+porta `18070` e abertura autenticada de Projetos sem erro de rede.

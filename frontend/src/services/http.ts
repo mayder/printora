@@ -99,13 +99,24 @@ export function apiInput(input: RequestInfo | URL): RequestInfo | URL {
     return input;
   }
   const apiBaseUrl = import.meta.env.VITE_PRINTORA_API_BASE_URL;
+  return resolveApiInput(input, apiBaseUrl, import.meta.env.DEV, window.location);
+}
+
+export function resolveApiInput(
+  input: string,
+  apiBaseUrl: string | undefined,
+  development: boolean,
+  location: Pick<Location, "hostname" | "port">,
+): string {
   if (apiBaseUrl) {
     return new URL(input, apiBaseUrl).toString();
   }
-  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-    if (window.location.port && window.location.port !== "8069") {
-      return new URL(input, "http://127.0.0.1:8069").toString();
-    }
+  const localDevelopment = development
+    && (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+    && location.port
+    && location.port !== "8069";
+  if (localDevelopment) {
+    return new URL(input, "http://127.0.0.1:8069").toString();
   }
   return input;
 }
