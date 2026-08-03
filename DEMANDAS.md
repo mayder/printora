@@ -594,7 +594,8 @@ Estado atual:
   por eixo, impede declarar sucesso acima de 3% e mantém o registro privado.
 - uma medida conhecida em X, Y ou Z gera escala uniforme versionada em
   milímetros, com fator e evidência no manifesto, sem alterar a origem;
-- revisão humana, snapshot aprovado, entrada no fatiamento, preflight e piloto
-  físico permanecem abertos;
+- revisão humana, snapshot aprovado, entrada no fatiamento, preflight e
+  formulário do piloto físico estão implementados e cobertos; permanecem
+  abertas somente a execução real do benchmark e a impressão/medição física;
 - a assistência por IA deixa de ser genérica e fica restrita a este fluxo,
   conforme `docs/architecture/RECONSTRUCAO_3D_POR_FOTOS.md`.
