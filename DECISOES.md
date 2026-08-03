@@ -2634,3 +2634,37 @@ remover tabelas ou objetos.
 Referências: `backend/sql/093_photo_reconstruction.sql`,
 `backend/sql/postgresql/025_photo_reconstruction.sql`,
 `docs/community/PKG_153_EVIDENCE.md`.
+
+### DEC-20260802-06 - Reparo de malha é uma revisão privada e encadeada
+
+Status: aceita
+Data: 2026-08-02
+Contexto: corrigir a malha dentro da requisição ou sobrescrever o artefato bruto
+impediria cancelamento confiável, comparação, rollback e diagnóstico de uma
+operação pesada ou malsucedida.
+
+Decisão: cada correção explícita cria `mesh_revisions` com parent opcional,
+parâmetros canônicos, chave idempotente e job durável na fila `bulk`. O worker
+lê somente objeto promovido, aplica uma operação determinística limitada,
+grava manifesto e checksum, requalifica a saída e promove um novo objeto
+privado após fencing e cota. A interface sugere uma ação conservadora por vez e
+bloqueia exportação final quando unidade ou invariantes obrigatórios não são
+seguros. Nenhuma revisão recebe automaticamente estado de aprovação.
+
+Alternativas consideradas: reparar em memória na API; editar o mesmo objeto;
+executar todas as correções automaticamente; permitir conversão final pela UI
+mesmo com escala desconhecida; armazenar somente o último resultado.
+
+Consequências: há custo adicional de armazenamento, controlado pela cota, mas o
+histórico fica reproduzível e reversível. Defeitos complexos permanecem
+bloqueados para revisão especializada em vez de receber correção inventada.
+
+Impacto em testes: parser e motor, determinismo, parent, idempotência, worker,
+cancelamento, cota, owner, download privado, API, UI humana e contrato público.
+
+Impacto em rollback: desabilitar criação/consumo do job e manter tabela e
+objetos somente leitura. Não apagar malha bruta, revisões ou manifestos.
+
+Referências: `backend/sql/095_mesh_revisions.sql`,
+`backend/sql/postgresql/027_mesh_revisions.sql`,
+`docs/community/PKG_154_EVIDENCE.md`.

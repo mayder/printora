@@ -13240,6 +13240,195 @@
         "title": "MeshQualification",
         "type": "object"
       },
+      "MeshRepairCreate": {
+        "properties": {
+          "operation": {
+            "enum": [
+              "clean",
+              "orient_normals",
+              "close_holes",
+              "remove_small_components",
+              "decimate",
+              "convert"
+            ],
+            "title": "Operation",
+            "type": "string"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "title": "Parameters",
+            "type": "object"
+          },
+          "source_revision_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Revision Id"
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "title": "MeshRepairCreate",
+        "type": "object"
+      },
+      "MeshRevision": {
+        "properties": {
+          "can_cancel": {
+            "title": "Can Cancel",
+            "type": "boolean"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "manifest": {
+            "additionalProperties": true,
+            "title": "Manifest",
+            "type": "object"
+          },
+          "next_action": {
+            "title": "Next Action",
+            "type": "string"
+          },
+          "operation": {
+            "enum": [
+              "clean",
+              "orient_normals",
+              "close_holes",
+              "remove_small_components",
+              "decimate",
+              "convert"
+            ],
+            "title": "Operation",
+            "type": "string"
+          },
+          "output_format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Format"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "title": "Parameters",
+            "type": "object"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "qualification": {
+            "additionalProperties": true,
+            "title": "Qualification",
+            "type": "object"
+          },
+          "reconstruction_job_id": {
+            "title": "Reconstruction Job Id",
+            "type": "integer"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "source_artifact_id": {
+            "title": "Source Artifact Id",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "processing",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reconstruction_job_id",
+          "source_artifact_id",
+          "parent_revision_id",
+          "operation",
+          "parameters",
+          "status",
+          "output_format",
+          "sha256",
+          "size_bytes",
+          "unit",
+          "manifest",
+          "qualification",
+          "error_message",
+          "can_cancel",
+          "next_action",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MeshRevision",
+        "type": "object"
+      },
       "MfaCodeRequest": {
         "properties": {
           "code": {
@@ -36719,6 +36908,342 @@
         "summary": "Cancel Reconstruction",
         "tags": [
           "photo-reconstructions"
+        ]
+      }
+    },
+    "/api/photo-reconstructions/{job_id}/mesh-revisions": {
+      "get": {
+        "operationId": "list_revisions_api_photo_reconstructions__job_id__mesh_revisions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MeshRevision"
+                  },
+                  "title": "Response List Revisions Api Photo Reconstructions  Job Id  Mesh Revisions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Revisions",
+        "tags": [
+          "mesh-revisions"
+        ]
+      },
+      "post": {
+        "operationId": "create_revision_api_photo_reconstructions__job_id__mesh_revisions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeshRepairCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeshRevision"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Revision",
+        "tags": [
+          "mesh-revisions"
+        ]
+      }
+    },
+    "/api/photo-reconstructions/{job_id}/mesh-revisions/{revision_id}": {
+      "get": {
+        "operationId": "get_revision_api_photo_reconstructions__job_id__mesh_revisions__revision_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "title": "Revision Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeshRevision"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Revision",
+        "tags": [
+          "mesh-revisions"
+        ]
+      }
+    },
+    "/api/photo-reconstructions/{job_id}/mesh-revisions/{revision_id}/cancel": {
+      "post": {
+        "operationId": "cancel_revision_api_photo_reconstructions__job_id__mesh_revisions__revision_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "title": "Revision Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeshRevision"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Revision",
+        "tags": [
+          "mesh-revisions"
+        ]
+      }
+    },
+    "/api/photo-reconstructions/{job_id}/mesh-revisions/{revision_id}/download": {
+      "get": {
+        "operationId": "download_revision_api_photo_reconstructions__job_id__mesh_revisions__revision_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "title": "Revision Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Revision",
+        "tags": [
+          "mesh-revisions"
         ]
       }
     },

@@ -568,8 +568,12 @@ Estado atual:
   perfil ainda é obrigatória antes de aprovar;
 - limpeza, orientação, fechamento limitado, remoção de componentes, redução e
   conversão STL/3MF/OBJ possuem motor determinístico com manifesto e checksum;
-  a persistência assíncrona de cada versão e sua aprovação ainda estão abertas;
-- revisão métrica/humana, snapshot aprovado, fatiamento e piloto físico
-  permanecem abertos;
+  cada ação explícita gera revisão privada, assíncrona, idempotente e encadeada,
+  com requalificação, cota, cancelamento, download e preservação do original;
+- a interface recomenda uma correção conservadora por vez, bloqueia o arquivo
+  final diante de escala desconhecida ou defeito não reparável com segurança e
+  declara que correção automática não equivale a aprovação;
+- revisão métrica/humana, snapshot aprovado, entrada no fatiamento, preflight e
+  piloto físico permanecem abertos;
 - a assistência por IA deixa de ser genérica e fica restrita a este fluxo,
   conforme `docs/architecture/RECONSTRUCAO_3D_POR_FOTOS.md`.

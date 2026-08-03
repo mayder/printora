@@ -2997,9 +2997,11 @@ Banco, após a reconstrução:
 1. SQLite aplica `backend/sql/094_mesh_qualification.sql` pelo versionador, com
    backup;
 2. cloud aplica `backend/sql/postgresql/026_mesh_qualification.sql`;
-3. validar que cada relatório referencia um artefato de reconstrução existente
+3. SQLite aplica `backend/sql/095_mesh_revisions.sql` e cloud aplica
+   `backend/sql/postgresql/027_mesh_revisions.sql` para revisões encadeadas;
+4. validar que cada relatório referencia um artefato de reconstrução existente
    e preserva `source_sha256`, versão do analisador e JSON determinístico;
-4. não executar `DROP`, `DELETE` nem alterar malhas brutas para corrigir um
+5. não executar `DROP`, `DELETE` nem alterar malhas brutas para corrigir um
    relatório.
 
 Smoke seguro:
@@ -3019,8 +3021,27 @@ orçamento falham fechados, e a espessura estimada ainda precisa ser comparada
 com impressora e perfil. Rollback restaura N-1, que ignora a tabela aditiva; os
 relatórios permanecem privados e acompanham a retenção da malha referenciada.
 
-O motor de reparo pode ser validado sem persistir ou substituir artefatos:
-`backend/.venv/bin/pytest -q backend/tests/test_mesh_repair.py`. Ele gera nova
-saída e manifesto determinístico para limpeza, normais, buracos limitados,
-componentes, redução e conversão; ainda não deve ser exposto como ação final até
-o job durável, o versionamento e a revisão humana estarem ligados ao projeto.
+O motor e o encadeamento assíncrono podem ser validados sem substituir o
+artefato bruto:
+`backend/.venv/bin/pytest -q backend/tests/test_mesh_repair.py backend/tests/test_mesh_revisions.py`.
+Cada ação cria uma linha em `mesh_revisions`, agenda `mesh.repair.execute` na
+fila `bulk`, promove um objeto privado somente após checksum, cota e fencing e
+requalifica a saída. Repetir a mesma chave e payload retorna a mesma revisão;
+reusar a chave com payload diferente falha. Há no máximo três correções ativas
+por pessoa.
+
+Smoke seguro adicional:
+
+1. criar `clean` sobre a malha bruta e confirmar nova revisão `succeeded`;
+2. criar `convert` usando `source_revision_id` anterior e confirmar parent,
+   manifesto, checksum e download privado `no-store`;
+3. cancelar uma revisão na fila e confirmar que a malha bruta e as versões
+   concluídas continuam legíveis;
+4. confirmar 404 por outro owner e que cota/storage incluem apenas revisões
+   concluídas;
+5. no navegador, confirmar recomendação única, bloqueio sem unidade conhecida,
+   cancelamento e aviso de que a versão não está automaticamente aprovada.
+
+Rollback: ocultar ações de reparo/exportação e parar de consumir
+`mesh.repair.execute`. N-1 ignora a tabela aditiva; manter objetos e linhas para
+leitura futura. Não executar `DROP`, `DELETE` ou limpeza física no rollback.

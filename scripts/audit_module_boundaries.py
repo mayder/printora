@@ -77,6 +77,7 @@ BOUNDARIES = (
             "operational",
             "printer",
             "photo_reconstruction",
+            "mesh_",
             "print_delivery",
             "print_history",
             "print_preflight",

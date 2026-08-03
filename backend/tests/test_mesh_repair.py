@@ -59,10 +59,10 @@ def test_remove_small_components_keeps_largest_when_threshold_removes_all() -> N
 
 def test_conversion_generates_reproducible_stl_and_3mf() -> None:
     stl = repair_mesh(OPEN_TETRA, "obj", "convert", {"output_format": "stl"})
-    three_mf = repair_mesh(OPEN_TETRA, "obj", "convert", {"output_format": "3mf"})
+    three_mf = repair_mesh(OPEN_TETRA, "obj", "convert", {"output_format": "3mf"}, unit="mm")
 
     assert stl.body == repair_mesh(OPEN_TETRA, "obj", "convert", {"output_format": "stl"}).body
-    assert three_mf.body == repair_mesh(OPEN_TETRA, "obj", "convert", {"output_format": "3mf"}).body
+    assert three_mf.body == repair_mesh(OPEN_TETRA, "obj", "convert", {"output_format": "3mf"}, unit="mm").body
     assert qualify_mesh(stl.body, "stl", "mm")["triangle_count"] == 3
     assert qualify_mesh(three_mf.body, "3mf", "mm")["triangle_count"] == 3
 

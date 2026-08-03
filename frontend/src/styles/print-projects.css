@@ -722,6 +722,11 @@
 .reconstruction-actions { display: flex; flex-wrap: wrap; gap: 0.55rem; }
 .reconstruction-actions button { display: inline-flex; align-items: center; gap: 0.35rem; }
 .reconstruction-spinner { animation: reconstruction-spin 1s linear infinite; }
+.mesh-repair-panel { display: grid; gap: 0.8rem; padding: 1rem; border: 1px solid var(--border-color); border-radius: 14px; background: color-mix(in srgb, var(--surface-color) 92%, var(--accent-color) 8%); }
+.mesh-repair-status,
+.mesh-repair-recommendation,
+.mesh-repair-export,
+.mesh-repair-history { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; padding: 0.75rem; }
 
 @keyframes reconstruction-spin { to { transform: rotate(360deg); } }
 

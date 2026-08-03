@@ -30,10 +30,13 @@ def repair_mesh(
     file_format: str,
     operation: RepairOperation,
     parameters: dict[str, object] | None = None,
+    unit: str = "unknown",
 ) -> MeshRepairResult:
     source = parse_mesh(body, file_format)
     safe_parameters = dict(parameters or {})
     output_format = _output_format(safe_parameters)
+    if output_format == "3mf" and unit.lower() not in {"mm", "millimeter", "millimetre"}:
+        raise ValueError("Confirme a unidade em milímetros antes de criar um arquivo 3MF.")
     repaired = _apply(source, operation, safe_parameters)
     output = serialize_mesh(repaired, output_format)
     checksum = hashlib.sha256(output).hexdigest()
@@ -47,6 +50,7 @@ def repair_mesh(
             "parameters": safe_parameters,
             "source_format": file_format.lower(),
             "output_format": output_format,
+            "unit": unit,
             "source_sha256": hashlib.sha256(body).hexdigest(),
             "output_sha256": checksum,
             "source_vertices": len(source.vertices),

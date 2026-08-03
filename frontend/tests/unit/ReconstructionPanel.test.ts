@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ReconstructionPanel } from "../../src/screens/projects/ReconstructionPanel";
 import { photoReconstructionApi } from "../../src/services/photoReconstructionApi";
+import { meshRevisionApi } from "../../src/services/meshRevisionApi";
 import type { ReconstructionJob } from "../../src/types/photoReconstruction";
 
 
@@ -86,10 +87,58 @@ describe("ReconstructionPanel", () => {
       },
     };
     vi.spyOn(photoReconstructionApi, "list").mockResolvedValue([completed]);
+    vi.spyOn(meshRevisionApi, "list").mockResolvedValue([]);
     render(React.createElement(ReconstructionPanel, { captureSessionId: 8, setError: vi.fn() }));
 
     expect(await screen.findByText("Conferência para impressão em andamento")).toBeTruthy();
     expect(screen.getByText(/unidade e uma medida conhecida/i)).toBeTruthy();
     expect(screen.getByText(/unidade ainda não confirmada/i)).toBeTruthy();
+    expect(await screen.findByText("O arquivo final ainda está bloqueado")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Criar STL" })).toBeNull();
+  });
+
+  it("oferece uma correção humana recomendada e preserva a origem", async () => {
+    const completed: ReconstructionJob = {
+      ...queued,
+      status: "succeeded",
+      stage: "ready",
+      progress_percent: 100,
+      can_cancel: false,
+      artifacts: [{
+        id: 91, artifact_type: "raw_mesh", file_format: "obj", sha256: "abc",
+        size_bytes: 100, unit: "mm", observed_ratio: 0.9, inferred_ratio: 0.1, provenance: {},
+      }],
+      qualification: {
+        id: 92,
+        reconstruction_artifact_id: 91,
+        analyzer_version: "deterministic-v1",
+        status: "not_qualified",
+        report: {
+          dimensions: { x: 10, y: 20, z: 30 },
+          mandatory_checks_complete: false,
+          blockers: ["Há triângulos sem área que precisam ser limpos."],
+          checks: { degenerate_triangle_count: 2, watertight: true },
+        },
+        created_at: "2026-08-02T00:00:00Z",
+      },
+    };
+    vi.spyOn(photoReconstructionApi, "list").mockResolvedValue([completed]);
+    vi.spyOn(meshRevisionApi, "list").mockResolvedValue([]);
+    const create = vi.spyOn(meshRevisionApi, "create").mockResolvedValue({
+      id: 12, reconstruction_job_id: 11, source_artifact_id: 91, parent_revision_id: null,
+      operation: "clean", parameters: { output_format: "obj" }, status: "queued",
+      output_format: null, sha256: null, size_bytes: null, unit: "mm", manifest: {}, qualification: {},
+      error_message: null, can_cancel: true, next_action: "A correção está na fila.",
+      created_at: "2026-08-02T00:00:00Z", updated_at: "2026-08-02T00:00:00Z",
+    });
+
+    render(React.createElement(ReconstructionPanel, { captureSessionId: 8, setError: vi.fn() }));
+    fireEvent.click(await screen.findByRole("button", { name: "Limpar a malha" }));
+
+    await waitFor(() => expect(create).toHaveBeenCalledWith(11, {
+      operation: "clean",
+      parameters: { output_format: "obj" },
+    }));
+    expect(screen.getByText(/malha bruta nunca é alterada/i)).toBeTruthy();
   });
 });

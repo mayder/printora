@@ -3,6 +3,8 @@ import { Box, CircleAlert, Download, LoaderCircle, RotateCcw, XCircle } from "lu
 import { photoReconstructionApi } from "../../services/photoReconstructionApi";
 import type { ReconstructionEnginePolicy, ReconstructionJob } from "../../types/photoReconstruction";
 
+const MeshRepairPanel = React.lazy(() => import("./MeshRepairPanel").then((module) => ({ default: module.MeshRepairPanel })));
+
 interface Props {
   captureSessionId: number;
   setError: (message: string | null) => void;
@@ -110,5 +112,6 @@ export function ReconstructionPanel({ captureSessionId, setError }: Props) {
         <ul>{blockers.map((message) => <li key={message}>{message}</li>)}</ul>
       </div>
     </div> : artifact ? <p className="photo-capture-note"><CircleAlert size={16} /> Esta malha ainda não foi qualificada para impressão. Áreas inferidas ou desconhecidas precisam de revisão.</p> : null}
+    {artifact && qualification ? <React.Suspense fallback={<p className="photo-capture-note">Carregando preparação segura…</p>}><MeshRepairPanel jobId={job.id} rawUnit={artifact.unit} rawChecks={qualification.report.checks ?? {}} setError={setError} /></React.Suspense> : null}
   </section>;
 }

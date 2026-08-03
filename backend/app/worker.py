@@ -245,6 +245,12 @@ def _execute_photo_reconstruction(job: DurableJob) -> dict[str, Any]:
     return execute_reconstruction_job(job, get_settings())
 
 
+def _execute_mesh_repair(job: DurableJob) -> dict[str, Any]:
+    from app.modules.operations.mesh_qualification.processor import execute_mesh_repair
+
+    return execute_mesh_repair(job, get_settings())
+
+
 def _handlers() -> dict[str, JobHandler]:
     return {
         "realtime.agent_job_available": _realtime_notification,
@@ -252,6 +258,7 @@ def _handlers() -> dict[str, JobHandler]:
         "search.rebuild": _rebuild_search,
         "analytics.ingest_event": _ingest_analytics_event,
         "photo.reconstruction.execute": _execute_photo_reconstruction,
+        "mesh.repair.execute": _execute_mesh_repair,
     }
 
 

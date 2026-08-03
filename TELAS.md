@@ -166,7 +166,9 @@ quando a ação não é permitida.
 - `Qualificar malha` mostra manifold, watertight, escala, componentes, buracos,
   espessura e bloqueios. Reparos criam versão nova e nunca sobrescrevem a malha
   bruta. A base atual já apresenta tamanho, unidade e bloqueios do relatório
-  inicial; verificações ainda pendentes são declaradas e impedem aprovação.
+  inicial; a pessoa recebe uma correção recomendada por vez, acompanha fila,
+  pode cancelar e baixar a última revisão. STL/3MF final fica bloqueado sem
+  escala conhecida ou quando há defeito que exige revisão especializada.
 - `Revisar resultado` compara bruto/qualificado e identifica por legenda e
   alternativa textual as regiões observadas, inferidas e reparadas. Download,
   fatiamento e publicação permanecem ações separadas e explícitas.
