@@ -186,6 +186,16 @@ test("comunidade, busca, projeto e quarentena percorrem contratos reais", async 
   await openSection(page, "projects", "Projetos de impressão");
   await page.getByRole("button", { name: "Meus projetos" }).click();
   await expect(page.getByText(`Fixture E2E ${suffix}`, { exact: true })).toBeVisible();
+  const projectCard = page.locator(".print-project-card").filter({ hasText: `Fixture E2E ${suffix}` });
+  await projectCard.getByRole("button", { name: "Abrir projeto" }).click();
+  await expect(page.getByRole("heading", { level: 2, name: `Fixture E2E ${suffix}`, exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Voltar para projetos" })).toBeVisible();
+  await expect(page.locator(".print-projects-layout")).toHaveCount(0);
+  await page.getByRole("button", { name: "Digitalizar objeto" }).click();
+  await expect(page.getByText("Você fará exatamente 24 fotos", { exact: true })).toBeVisible();
+  await expect(page.getByText("8 na altura do objeto, 8 de cima e 8 de baixo. A tela pedirá uma foto por vez.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Voltar para projetos" }).click();
+  await expect(page.getByRole("heading", { name: "Meus projetos", exact: true })).toBeVisible();
   await openSection(page, "social", "Social");
   await expect(
     page.getByRole("heading", {

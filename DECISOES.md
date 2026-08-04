@@ -2758,3 +2758,35 @@ continuam válidos para reconciliação e nenhum dado de produto é removido.
 Referências: `scripts/reconstruction/tripo_gateway.py`,
 `scripts/reconstruction/tripo_checkpoint_retention.py`,
 `docs/community/PKG_153_EVIDENCE.md`.
+
+### DEC-20260804-01 - Projeto usa telas dedicadas e captura posicional
+
+Status: aceita
+Data: 2026-08-04
+Contexto: manter listagem e detalhe simultaneamente comprimia as ações do
+projeto em uma coluna lateral e obrigava rolagem extensa. A captura agrupada por
+altura também informava quantidades, mas não dizia com precisão qual foto uma
+pessoa sem experiência deveria produzir.
+
+Decisão: listagem, criação e detalhe de projeto são estados mutuamente
+exclusivos. O detalhe usa navegação por responsabilidade e mantém retorno
+explícito para a lista. A captura padrão usa 24 posições determinísticas: oito
+na altura do objeto, oito de cima e oito de baixo, com frente, diagonais, lados
+e traseira. A interface destaca a próxima posição, permite substituir uma foto
+e o servidor recusa índice acima do total contratado.
+
+Consequências: a pessoa vê uma tarefa principal por vez e não precisa interpretar
+ângulos livres. O protocolo fica mais previsível para reconstrução, mas objetos
+difíceis ainda podem falhar por brilho, transparência, pouca textura ou
+oclusões; aumentar fotos exige uma futura versão explícita do protocolo.
+
+Impacto em testes: estados exclusivos de CRUD, retorno, navegação do detalhe,
+responsividade, 24 posições nomeadas, sequência, substituição, limite da API e
+ausência de overflow horizontal.
+
+Impacto em rollback: restaurar a interface anterior não exige alteração de
+banco. Sessões já criadas continuam compatíveis pelo total e pelas três alturas;
+nenhuma foto deve ser apagada no downgrade.
+
+Referências: `frontend/src/screens/PrintProjectsScreen.tsx`,
+`frontend/src/screens/projects/PhotoCapturePanel.tsx`.

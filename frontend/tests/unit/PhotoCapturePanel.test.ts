@@ -42,6 +42,7 @@ describe("PhotoCapturePanel", () => {
     render(React.createElement(PhotoCapturePanel, { projectId: 7, setError: vi.fn() }));
 
     expect(await screen.findByRole("heading", { name: "Digitalizar este objeto" })).toBeTruthy();
+    expect(screen.getByText("Você fará exatamente 24 fotos")).toBeTruthy();
     const start = screen.getByRole("button", { name: "Começar pelas fotos" });
     expect(start).toHaveProperty("disabled", true);
     fireEvent.click(screen.getByRole("checkbox"));
@@ -59,6 +60,9 @@ describe("PhotoCapturePanel", () => {
     expect(await screen.findByRole("heading", { name: "Fotografe uma volta por vez" })).toBeTruthy();
     expect(screen.getByText("Na altura do objeto: faça mais 8 foto(s) durante a volta.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Na altura do objeto 0 de 8" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText("Tirar ou escolher fotos")).toBeTruthy();
+    expect(screen.getByText("Mantenha a câmera na metade da altura do objeto e aponte para o centro.")).toBeTruthy();
+    expect(screen.getByText("Frente")).toBeTruthy();
+    expect(screen.getAllByText("Adicionar")).toHaveLength(8);
+    expect(screen.queryByText("Posição 9")).toBeNull();
   });
 });

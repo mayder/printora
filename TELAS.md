@@ -137,7 +137,7 @@ quando a ação não é permitida.
 
 - A tela `Projetos de impressão` e a entrada principal para projetos com STL/3MF/ZIP, multiplos arquivos, pecas, links externos e artefatos gerados. Ela deve permitir explorar projetos publicos, buscar por conteudo, salvar na conta, abrir detalhe, criar/uploadar projeto proprio, cadastrar link externo, publicar, colocar em revisao/venda quando aplicavel e iniciar fatiamento a partir de projeto salvo.
 - `Projetos de impressão` possui pelo menos as areas `Explorar`, `Meus projetos`, `Salvos`, `Listas` e `Jobs de fatiamento`. A navegacao deve ser clara e nao depender de escolher uma comunidade antes.
-- Implementação atual: a área `Projetos de impressão` existe no menu principal com contrato canônico, busca pública, filtros por tipo/licença/origem, estado vazio, cards, detalhe central, arquivos, versões/snapshots, comunidades, distinção entre projeto hospedado e referência externa e ação `Salvar nos meus projetos` como referência sem cópia. `Meus projetos` cobre criação, upload, referência externa, armazenamento, publicação comercial e criação/listagem de jobs de fatiamento por projeto. O detalhe também apresenta `Peças e inspeção` com medidas e avisos textuais, visualização progressiva da malha, giro, corte e simulação de escala; o dono organiza nome da peça, montagem e variação em formulário próprio.
+- Implementação atual: a área `Projetos de impressão` existe no menu principal com contrato canônico, busca pública, filtros por tipo/licença/origem, estado vazio e cards. Listagem, criação e detalhe são telas/estados mutuamente exclusivos: `Abrir projeto` nunca comprime o detalhe em coluna lateral, `Novo projeto` abre cadastro dedicado e `Voltar para projetos` preserva uma saída evidente. O detalhe usa navegação própria entre `Visão geral`, `Arquivos`, `Digitalizar objeto`, `Fatiar e imprimir` e `Publicação`, exibindo uma responsabilidade por vez. Arquivos, versões/snapshots, comunidades, distinção entre projeto hospedado e referência externa e ação `Salvar nos meus projetos` permanecem no contrato central. `Meus projetos` cobre criação, upload, referência externa, armazenamento, publicação comercial e criação/listagem de jobs de fatiamento por projeto. O detalhe também apresenta `Peças e inspeção` com medidas e avisos textuais, visualização progressiva da malha, giro, corte e simulação de escala; o dono organiza nome da peça, montagem e variação em formulário próprio.
 - Em `Meus projetos`, `Perfis de fatiamento` permite importar o conjunto OrcaSlicer de impressora, qualidade e material, criar ou atualizar versões, comparar mudanças e baixar uma cópia. No formulário de fatiamento, `Perfil reproduzível` fixa a revisão escolhida no trabalho; nomes e explicações vêm antes de checksum ou detalhes técnicos.
 - A entidade raiz e `Projeto de impressão`. Arquivos do projeto, versoes, compartilhamentos em comunidade, publicacao, jobs de fatiamento, entrega/G-code e historico de impressao sao relacoes ou derivados do projeto.
 - Projeto pode conter um ou varios arquivos. A UI deve distinguir arquivo principal/preview, arquivos imprimiveis, pecas opcionais, documentacao, links externos e artefatos gerados.
@@ -158,6 +158,11 @@ quando a ação não é permitida.
   por altura, recomenda a próxima volta incompleta e permite câmera ou seleção
   de arquivos. Foco, exposição, duplicidade,
   resolução e ângulos ausentes possuem feedback acionável sem depender de cor.
+- O protocolo padrão solicita exatamente 24 posições: oito na altura do objeto,
+  oito de cima e oito de baixo. Cada volta nomeia frente, diagonais, lados e
+  traseira, destaca somente a próxima posição vazia e permite refazer a posição
+  reprovada sem adicionar foto extra. A API recusa índice além do total da
+  sessão.
 - `Definir escala` aceita marcador aprovado ou uma medida conhecida, sempre com
   unidade, método e incerteza. Continuar sem escala exige confirmação e remove
   qualquer promessa de dimensão real.

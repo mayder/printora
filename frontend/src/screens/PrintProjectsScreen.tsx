@@ -1,11 +1,12 @@
 import React from "react";
 import {
+  ArrowLeft,
   Archive,
+  Camera,
   CheckCircle2,
   ExternalLink,
   FileArchive,
   FilePlus2,
-  FileText,
   HardDrive,
   Link2,
   Play,
@@ -14,7 +15,6 @@ import {
   Search,
   Send,
   ShieldCheck,
-  Tags,
   Upload,
 } from "lucide-react";
 import { GcodePrintViewer } from "../components/monitoring/GcodePrintViewer";
@@ -46,12 +46,18 @@ import type {
 } from "../types/printProjects";
 import type { ScreenPropsFor } from "./ScreenProps";
 import { ProjectAssetsEditor, ProjectAssetsSummary } from "./projects/ProjectAssetsPanel";
-import { PhotoCapturePanel } from "./projects/PhotoCapturePanel";
 import { SlicingProfilesPanel } from "./projects/SlicingProfilesPanel";
+
+const PhotoCapturePanel = React.lazy(async () => {
+  const module = await import("./projects/PhotoCapturePanel");
+  return { default: module.PhotoCapturePanel };
+});
 
 type PrintProjectsScreenProps = ScreenPropsFor<"authUser" | "setError">;
 type ProjectFilters = { file_kind: string; license: string; origin: "" | "hosted" | "external" };
 type ProjectTab = "explore" | "mine";
+type ProjectView = "list" | "create" | "detail";
+type ProjectDetailTab = "overview" | "files" | "capture" | "slicing" | "publication";
 
 const commercialLabels: Record<PrintProjectSummary["commercial_class"], string> = {
   free: "Gratuito",
@@ -101,6 +107,8 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
   const [myProjects, setMyProjects] = React.useState<PrintProjectSummary[]>([]);
   const [storage, setStorage] = React.useState<PrintProjectStorageReport | null>(null);
   const [selectedProject, setSelectedProject] = React.useState<PrintProjectDetail | null>(null);
+  const [view, setView] = React.useState<ProjectView>("list");
+  const [detailTab, setDetailTab] = React.useState<ProjectDetailTab>("overview");
   const [busy, setBusy] = React.useState(false);
   const [savingId, setSavingId] = React.useState<number | null>(null);
 
@@ -138,6 +146,8 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
     setError(null);
     try {
       setSelectedProject(await printProjectsApi.detail(project.slug));
+      setDetailTab("overview");
+      setView("detail");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao abrir projeto");
     }
@@ -157,7 +167,11 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
   }
 
   async function afterProjectMutation(detail?: PrintProjectDetail) {
-    if (detail) setSelectedProject(detail);
+    if (detail) {
+      setSelectedProject(detail);
+      setDetailTab("overview");
+      setView("detail");
+    }
     await Promise.all([loadExplore(), loadMine()]);
   }
 
@@ -173,6 +187,69 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
   React.useEffect(() => {
     if (activeTab === "mine") void loadMine();
   }, [activeTab, authUser?.id]);
+
+  function changeArea(tab: ProjectTab) {
+    setActiveTab(tab);
+    setSelectedProject(null);
+    setView("list");
+  }
+
+  const ownsSelectedProject = !!selectedProject
+    && myProjects.some((project) => project.id === selectedProject.id)
+    && !selectedProject.saved_by_viewer;
+
+  if (view === "create") {
+    return (
+      <div className="print-projects-screen">
+        <ProjectPageHeader
+          eyebrow="Meus projetos"
+          title="Criar projeto"
+          description="Comece com um nome. Depois você poderá enviar arquivos ou fotografar um objeto real."
+          onBack={() => setView("list")}
+        />
+        <section className="print-projects-panel print-project-create-page">
+          <div className="print-project-create-intro">
+            <FilePlus2 size={28} aria-hidden="true" />
+            <div>
+              <h3>Informações básicas</h3>
+              <p>Seu projeto começa privado. Você decide se quer publicar somente quando ele estiver pronto.</p>
+            </div>
+          </div>
+          <ProjectCreateForm disabled={!authUser || busy} onCreated={(detail) => void afterProjectMutation(detail)} setError={setError} />
+        </section>
+      </div>
+    );
+  }
+
+  if (view === "detail" && selectedProject) {
+    return (
+      <div className="print-projects-screen">
+        <ProjectPageHeader
+          eyebrow={activeTab === "mine" ? "Meus projetos" : "Explorar"}
+          title={selectedProject.title}
+          description={selectedProject.description || "Organize os arquivos e escolha o próximo passo deste projeto."}
+          onBack={() => {
+            setSelectedProject(null);
+            setView("list");
+          }}
+        />
+        <nav className="print-project-detail-tabs" aria-label="Seções do projeto">
+          <DetailTabButton active={detailTab === "overview"} onClick={() => setDetailTab("overview")}>Visão geral</DetailTabButton>
+          {ownsSelectedProject ? <DetailTabButton active={detailTab === "files"} onClick={() => setDetailTab("files")}>Arquivos</DetailTabButton> : null}
+          {ownsSelectedProject ? <DetailTabButton active={detailTab === "capture"} onClick={() => setDetailTab("capture")}><Camera size={16} /> Digitalizar objeto</DetailTabButton> : null}
+          {ownsSelectedProject ? <DetailTabButton active={detailTab === "slicing"} onClick={() => setDetailTab("slicing")}>Fatiar e imprimir</DetailTabButton> : null}
+          {ownsSelectedProject ? <DetailTabButton active={detailTab === "publication"} onClick={() => setDetailTab("publication")}>Publicação</DetailTabButton> : null}
+        </nav>
+        <section className="print-projects-panel print-project-detail-page">
+          {detailTab === "overview" ? <ProjectDetail project={selectedProject} authUserPresent={!!authUser} saving={savingId === selectedProject.id} onSave={saveProject} setError={setError} /> : null}
+          {detailTab === "files" && ownsSelectedProject ? <ProjectFileActions project={selectedProject} setError={setError} onChanged={(detail) => void afterProjectMutation(detail)} /> : null}
+          {detailTab === "capture" && ownsSelectedProject ? <React.Suspense fallback={<div className="empty-state"><Camera size={22} /><strong>Preparando a digitalização...</strong></div>}><PhotoCapturePanel projectId={selectedProject.id} setError={setError} onModelApproved={refreshApprovedModel} /></React.Suspense> : null}
+          {detailTab === "slicing" && ownsSelectedProject ? <ProjectSlicingPanel project={selectedProject} setError={setError} /> : null}
+          {detailTab === "publication" && ownsSelectedProject ? <ProjectPublicationForm project={selectedProject} setError={setError} onChanged={(detail) => void afterProjectMutation(detail)} /> : null}
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="print-projects-screen">
@@ -190,11 +267,11 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
       </section>
 
       <section className="print-project-tabs" aria-label="Área de projetos">
-        <button type="button" className={activeTab === "explore" ? "active" : ""} onClick={() => setActiveTab("explore")}>
+        <button type="button" className={activeTab === "explore" ? "active" : ""} onClick={() => changeArea("explore")}>
           <Search size={16} />
           Explorar
         </button>
-        <button type="button" className={activeTab === "mine" ? "active" : ""} onClick={() => setActiveTab("mine")} disabled={!authUser}>
+        <button type="button" className={activeTab === "mine" ? "active" : ""} onClick={() => changeArea("mine")} disabled={!authUser}>
           <FileArchive size={16} />
           Meus projetos
         </button>
@@ -241,27 +318,20 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
           <ProjectLayout
             title="Explorar"
             projects={projects}
-            selectedProject={selectedProject}
-            authUserPresent={!!authUser}
-            savingId={savingId}
             onOpen={openProject}
-            onSave={saveProject}
-            setError={setError}
           />
         </>
       ) : (
-        <section className="print-projects-layout mine-layout">
-          <div className="print-projects-panel">
+        <section className="print-projects-panel">
             <header>
-              <h3>Meus projetos</h3>
-              <button type="button" className="secondary-button" onClick={() => void loadMine()} disabled={busy || !authUser}>
-                <RefreshCw size={16} />
-                Atualizar
-              </button>
+              <div><h3>Meus projetos</h3><span className="muted">{myProjects.length} projeto(s)</span></div>
+              <div className="print-project-list-actions">
+                <button type="button" className="secondary-button" onClick={() => void loadMine()} disabled={busy || !authUser}><RefreshCw size={16} />Atualizar</button>
+                <button type="button" className="primary-button" onClick={() => setView("create")} disabled={!authUser}><FilePlus2 size={16} />Novo projeto</button>
+              </div>
             </header>
             <StoragePanel storage={storage} />
             <SlicingProfilesPanel setError={setError} />
-            <ProjectCreateForm disabled={!authUser || busy} onCreated={(detail) => void afterProjectMutation(detail)} setError={setError} />
             {myProjects.length === 0 ? (
               <div className="empty-state">
                 <FilePlus2 size={22} />
@@ -275,20 +345,6 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
                 ))}
               </div>
             )}
-          </div>
-          <aside className="print-projects-panel print-projects-rules">
-            {selectedProject ? (
-              <>
-                <ProjectDetail project={selectedProject} authUserPresent={!!authUser} saving={savingId === selectedProject.id} onSave={saveProject} setError={setError} />
-                <ProjectPublicationForm project={selectedProject} setError={setError} onChanged={(detail) => void afterProjectMutation(detail)} />
-                {myProjects.some((project) => project.id === selectedProject.id) && !selectedProject.saved_by_viewer ? <PhotoCapturePanel projectId={selectedProject.id} setError={setError} onModelApproved={refreshApprovedModel} /> : null}
-                <ProjectSlicingPanel project={selectedProject} setError={setError} />
-                <ProjectFileActions project={selectedProject} setError={setError} onChanged={(detail) => void afterProjectMutation(detail)} />
-              </>
-            ) : (
-              <ProjectRules contract={contract} />
-            )}
-          </aside>
         </section>
       )}
     </div>
@@ -298,25 +354,14 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
 function ProjectLayout({
   title,
   projects,
-  selectedProject,
-  authUserPresent,
-  savingId,
   onOpen,
-  onSave,
-  setError,
 }: {
   title: string;
   projects: PrintProjectSummary[];
-  selectedProject: PrintProjectDetail | null;
-  authUserPresent: boolean;
-  savingId: number | null;
   onOpen: (project: PrintProjectSummary) => void;
-  onSave: (projectId: number) => void;
-  setError: (message: string | null) => void;
 }) {
   return (
-    <section className="print-projects-layout">
-      <div className="print-projects-panel">
+    <section className="print-projects-panel">
         <header>
           <h3>{title}</h3>
           <span>{projects.length} projeto(s)</span>
@@ -334,17 +379,21 @@ function ProjectLayout({
             ))}
           </div>
         )}
-      </div>
-
-      <aside className="print-projects-panel print-projects-rules">
-        {selectedProject ? (
-          <ProjectDetail project={selectedProject} authUserPresent={authUserPresent} saving={savingId === selectedProject.id} onSave={onSave} setError={setError} />
-        ) : (
-          <ProjectRules />
-        )}
-      </aside>
     </section>
   );
+}
+
+function ProjectPageHeader({ eyebrow, title, description, onBack }: { eyebrow: string; title: string; description: string; onBack: () => void }) {
+  return (
+    <section className="print-project-page-header">
+      <button type="button" className="secondary-button" onClick={onBack}><ArrowLeft size={17} />Voltar para projetos</button>
+      <div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2><p>{description}</p></div>
+    </section>
+  );
+}
+
+function DetailTabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return <button type="button" className={active ? "active" : ""} aria-current={active ? "page" : undefined} onClick={onClick}>{children}</button>;
 }
 
 function ProjectCreateForm({ disabled, onCreated, setError }: { disabled: boolean; onCreated: (detail: PrintProjectDetail) => void; setError: (message: string | null) => void }) {
@@ -1225,30 +1274,6 @@ function ProjectFileRow({ file }: { file: PrintProjectFile }) {
         </span>
       </div>
       <span>{sliceLabels[file.slice_status]}</span>
-    </div>
-  );
-}
-
-function ProjectRules({ contract }: { contract?: PrintProjectContract | null }) {
-  return (
-    <>
-      <h3>Contrato operacional</h3>
-      <Rule icon={ShieldCheck} label="Snapshot" text="Fatiamento, G-code e histórico exigem versão imutável." />
-      <Rule icon={Link2} label="Links externos" text={contract?.external_link_rule ?? "Referência sem arquivo validado não pode ser fatiada ou enviada."} />
-      <Rule icon={Tags} label="Dimensões separadas" text="Visibilidade, publicação, venda e comunidade não se misturam." />
-      <Rule icon={FileText} label="Privacidade pública" text={contract?.public_privacy_rule ?? "Histórico público usa dados sanitizados."} />
-    </>
-  );
-}
-
-function Rule({ icon: Icon, label, text }: { icon: React.ComponentType<{ size?: number }>; label: string; text: string }) {
-  return (
-    <div className="print-project-rule">
-      <Icon size={18} />
-      <div>
-        <strong>{label}</strong>
-        <span>{text}</span>
-      </div>
     </div>
   );
 }

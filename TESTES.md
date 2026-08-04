@@ -2516,6 +2516,12 @@ Aceite de 2026-07-24:
   e redução de movimento;
 - validar distribuição mínima por altura, contador de posições cobertas e
   recomendação da próxima volta; quantidade total desequilibrada não conclui;
+- validar que o protocolo padrão mostra exatamente 24 posições nomeadas, em
+  três voltas de oito, libera uma próxima posição por vez, permite substituir
+  posição reprovada e recusa índice acima do total da sessão;
+- validar que listagem, criação e detalhe de projeto são estados separados, que
+  `Abrir projeto` remove a grade da tela e que o detalhe oferece retorno e
+  navegação por responsabilidade sem coluna lateral;
 - executar threat model de upload, conteúdo ilegal, pessoa no quadro, EXIF,
   abuso de quota, IDOR e storage privado;
 - fechamento exige benchmark de captura real versionado, testes backend/frontend,

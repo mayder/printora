@@ -1491,3 +1491,31 @@ Correção:
   registros existentes;
 - o ajuste usa lock curto para impedir colisão durante a sincronização e é
   reaplicável pelo fluxo oficial de publicação.
+
+### Detalhe De Projeto Era Comprimido Em Coluna Lateral
+
+Estado: corrigido e retestado localmente em 2026-08-04; publicação pendente.
+
+Reprodução:
+
+- abrir `Projetos de impressão > Meus projetos`;
+- selecionar `Abrir projeto` em qualquer card;
+- o detalhe era anexado à direita da listagem em uma coluna estreita, reunindo
+  arquivos, publicação, digitalização, fatiamento e histórico em uma rolagem
+  extensa.
+
+Causa:
+
+- a tela tratava seleção de card como expansão do layout, contrariando a regra
+  de separar lista, criação e detalhe;
+- a captura aceitava várias fotos genéricas por altura e não apresentava cada
+  posição que a pessoa precisava fotografar.
+
+Correção:
+
+- listagem, criação e detalhe passaram a ser estados exclusivos, com retorno
+  visível e abas de responsabilidade no detalhe;
+- a digitalização passou a solicitar 24 posições nomeadas, divididas em três
+  voltas de oito, destacando a próxima foto e permitindo refazer a posição;
+- frontend e API impedem fotos além do total solicitado;
+- o fluxo foi retestado em desktop e 390 px, sem overflow horizontal da página.

@@ -108,6 +108,17 @@ def test_capture_only_completes_with_coverage_and_explicit_scale_choice(tmp_path
     assert completed.required_by_height_band == {"low": 4, "middle": 4, "high": 4}
 
 
+def test_capture_rejects_photo_beyond_requested_positions(tmp_path: Path) -> None:
+    database_path = tmp_path / "printora.db"
+    initialize_database(database_path)
+    owner_id, project_id = _owner_and_project(database_path, "exact-positions@example.com")
+    repository = PhotoCaptureRepository(database_path)
+    session = repository.create(owner_id, PhotoCaptureCreate(project_id=project_id, target_photo_count=12, consent_confirmed=True))
+
+    with pytest.raises(ValueError, match="somente as posições solicitadas"):
+        repository.upload(owner_id, session.id, "extra.png", 13, "low", _png(), "extra-position")
+
+
 def test_capture_explains_missing_views_instead_of_accepting_unbalanced_total(tmp_path: Path) -> None:
     database_path = tmp_path / "printora.db"
     initialize_database(database_path)

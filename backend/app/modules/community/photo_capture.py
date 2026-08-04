@@ -89,6 +89,8 @@ class PhotoCaptureRepository:
             session = self._owned_session(connection, owner_user_id, session_id)
             if session["status"] not in {"draft", "review"}:
                 raise ValueError("esta captura não aceita novas fotos")
+            if capture_index > int(session["target_photo_count"]):
+                raise ValueError("esta captura aceita somente as posições solicitadas")
             replay = connection.execute(
                 "SELECT id FROM photo_capture_photos WHERE session_id = ? AND upload_idempotency_key IS NOT NULL AND upload_idempotency_key = ? LIMIT 1",
                 (session_id, safe_key),

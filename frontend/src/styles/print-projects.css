@@ -133,6 +133,100 @@
   grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
 }
 
+.print-project-page-header {
+  align-items: flex-start;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 20px;
+}
+
+.print-project-page-header > div {
+  display: grid;
+  gap: 5px;
+}
+
+.print-project-page-header h2,
+.print-project-page-header p,
+.print-project-create-intro h3,
+.print-project-create-intro p {
+  margin: 0;
+}
+
+.print-project-page-header p,
+.print-project-create-intro p {
+  color: var(--muted);
+}
+
+.print-project-detail-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px;
+  scrollbar-width: none;
+}
+
+.print-project-detail-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.print-project-detail-tabs button {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 7px;
+  min-height: 42px;
+  padding: 0 14px;
+}
+
+.print-project-detail-tabs button.active {
+  background: color-mix(in srgb, var(--panel) 82%, var(--accent) 18%);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.print-project-detail-page {
+  margin: 0 auto;
+  max-width: 1400px;
+  width: 100%;
+}
+
+.print-project-create-page {
+  margin: 0 auto;
+  max-width: 820px;
+  width: 100%;
+}
+
+.print-project-create-intro,
+.print-project-list-actions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.print-project-create-intro > div {
+  display: grid;
+  gap: 4px;
+}
+
+.print-project-create-page .print-project-form {
+  grid-template-columns: 1fr 1fr;
+  padding: 18px;
+}
+
+.print-project-create-page .print-project-form button {
+  grid-column: 1 / -1;
+  justify-self: end;
+}
+
 .print-projects-panel {
   display: flex;
   flex-direction: column;
@@ -671,75 +765,6 @@
   padding: 10px;
 }
 
-.photo-capture-panel {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--surface-color) 94%, var(--accent-color) 6%);
-}
-
-.photo-capture-heading,
-.photo-capture-note,
-.photo-capture-scale {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.photo-capture-heading h4,
-.photo-capture-heading p { margin: 0; }
-.photo-capture-heading p { color: var(--text-muted); }
-.photo-capture-preparation,
-.photo-capture-actions { margin: 0; padding-left: 22px; }
-.photo-capture-note { color: var(--text-muted); }
-.photo-capture-consent { display: flex; gap: 10px; align-items: flex-start; }
-.photo-capture-panel progress { width: 100%; height: 12px; }
-.photo-capture-band { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.photo-capture-band button { min-height: 44px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; background: color-mix(in srgb, var(--surface-color) 90%, var(--accent-color) 10%); color: inherit; }
-.photo-capture-band button span { display: block; margin-top: 3px; color: var(--text-muted); font-size: 0.78rem; }
-.photo-capture-band button.active { border-color: var(--accent-color); background: color-mix(in srgb, var(--surface-color) 76%, var(--accent-color) 24%); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color) 22%, transparent); }
-.photo-capture-upload { min-height: 70px; display: flex; align-items: center; justify-content: center; gap: 10px; border: 2px dashed var(--border-color); border-radius: 14px; cursor: pointer; }
-.photo-capture-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.photo-capture-review { padding: 12px; border-radius: 12px; background: var(--warning-surface, rgba(245, 158, 11, 0.12)); }
-.photo-capture-review p { margin: 6px 0 0; }
-.photo-capture-review-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.photo-capture-review-row label { position: relative; white-space: nowrap; }
-.photo-capture-review-row input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.photo-capture-scale { flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--border-color); }
-.photo-capture-scale label { display: grid; gap: 5px; min-width: 160px; flex: 1; }
-.photo-capture-panel button:disabled { cursor: not-allowed; opacity: 0.48; }
-
-.reconstruction-panel {
-  display: grid;
-  gap: 0.85rem;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-color);
-}
-.reconstruction-panel > label { display: grid; gap: 0.35rem; }
-.reconstruction-actions { display: flex; flex-wrap: wrap; gap: 0.55rem; }
-.reconstruction-actions button { display: inline-flex; align-items: center; gap: 0.35rem; }
-.reconstruction-spinner { animation: reconstruction-spin 1s linear infinite; }
-.mesh-repair-panel { display: grid; gap: 0.8rem; padding: 1rem; border: 1px solid var(--border-color); border-radius: 14px; background: color-mix(in srgb, var(--surface-color) 92%, var(--accent-color) 8%); }
-.mesh-repair-status,
-.mesh-repair-recommendation,
-.mesh-repair-export,
-.mesh-repair-history { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; padding: 0.75rem; }
-
-@keyframes reconstruction-spin { to { transform: rotate(360deg); } }
-
-@media (prefers-reduced-motion: reduce) {
-  .reconstruction-spinner { animation: none; }
-}
-
-@media (max-width: 520px) {
-  .photo-capture-band { grid-template-columns: 1fr; }
-  .photo-capture-scale { display: grid; }
-  .photo-capture-review-row { align-items: stretch; flex-direction: column; }
-}
-
 .print-project-history-row > div:first-child {
   display: grid;
   gap: 4px;
@@ -781,6 +806,7 @@
   }
 
   .print-projects-band,
+  .print-project-page-header,
   .print-projects-layout,
   .print-projects-toolbar,
   .print-project-grid,
@@ -822,5 +848,19 @@
 
   .project-mesh-controls {
     grid-template-columns: 1fr;
+  }
+
+  .print-project-create-page .print-project-form,
+  .photo-capture-slot-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .print-project-page-header .secondary-button {
+    justify-self: start;
+  }
+
+  .print-project-list-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
   }
 }
