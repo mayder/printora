@@ -1990,19 +1990,24 @@ Endpoints autenticados:
 Banco:
 
 - ordem: `070_print_project_personal_library.sql` depois de `069_print_project_experience.sql`;
+- na cloud, `backend/sql/postgresql/030_print_project_identity.sql` deve ser
+  aplicado antes de liberar escrita da release; ele cria e sincroniza as
+  identidades das tabelas centrais sem alterar linhas existentes;
 - efeito: adiciona metadados de quarentena/upload/rejeição nos arquivos de projeto e índices de checksum/storage;
 - não apaga projeto, arquivo, versão, comunidade ou referência salva.
 
 Validação:
 
 ```bash
-cd backend && uv run --extra dev pytest ../backend/tests/test_print_projects.py ../backend/tests/test_schema_versioning.py::test_initialize_database_registers_sql_scripts_on_new_database -q
+cd backend && uv run --extra dev pytest ../backend/tests/test_print_projects.py ../backend/tests/test_print_project_postgresql_identity.py ../backend/tests/test_schema_versioning.py::test_initialize_database_registers_sql_scripts_on_new_database -q
 npm --prefix frontend run build
 ```
 
 Rollback:
 
 - reverter `backend/app/print_projects.py`, `backend/app/routes/print_projects.py`, serviço/tipos/tela de projetos no frontend e documentação;
+- em rollback da cloud, preservar as sequências e os valores padrão: versões
+  anteriores continuam compatíveis e removê-los reintroduz a falha de escrita;
 - se `070_print_project_personal_library.sql` já tiver sido aplicado e for necessário remover colunas/índices, restaurar backup SQLite anterior criado pelo versionador;
 - não executar `DROP TABLE`, recriação manual de tabela ou remoção de arquivos de quarentena sem confirmação explícita.
 

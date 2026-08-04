@@ -1464,3 +1464,30 @@ Correção:
 - medidas, quantidade de triângulos, prévia, componentes e avisos permanecem no
   snapshot imutável criado durante a aprovação;
 - o teste integrado da revisão bloqueia regressão dessa tradução.
+
+### Criação De Projeto Falhava Com Erro Interno No PostgreSQL
+
+Estado: corrigido e retestado localmente em 2026-08-03; publicação pendente.
+
+Reprodução:
+
+- em `Projetos de impressão > Meus projetos`, preencher o nome e selecionar
+  `Criar projeto`;
+- a API respondia `500` antes de criar o projeto e a interface exibia
+  `Internal Server Error`.
+
+Causa:
+
+- o baseline PostgreSQL legado criou as tabelas centrais de projetos com `id`
+  obrigatório, porém sem sequência e sem valor padrão;
+- o primeiro `INSERT` omitia corretamente o identificador, mas o banco não
+  conseguia gerá-lo.
+
+Correção:
+
+- o SQL PostgreSQL incremental cria e sincroniza as sequências das seis tabelas
+  graváveis do domínio de projetos;
+- cada sequência fica ligada à respectiva coluna `id`, sem alterar ou remover
+  registros existentes;
+- o ajuste usa lock curto para impedir colisão durante a sincronização e é
+  reaplicável pelo fluxo oficial de publicação.

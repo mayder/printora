@@ -182,7 +182,7 @@ Aceite de domínio:
 Validação inicial do contrato central:
 
 ```bash
-cd backend && uv run --extra dev pytest ../backend/tests/test_print_projects.py -q
+cd backend && uv run --extra dev pytest ../backend/tests/test_print_projects.py ../backend/tests/test_print_project_postgresql_identity.py -q
 npm --prefix frontend run build
 ```
 
@@ -193,6 +193,9 @@ Critérios do lote inicial:
 - referência externa sem arquivo validado aparece como não fatiável;
 - projeto multi-arquivo com uma peça válida e outra inválida mantém o projeto acessível e bloqueia só o arquivo inválido para fatiamento;
 - a tela `Projetos de impressão` aparece no menu principal sem expor identificadores internos de pacote/lote.
+- no PostgreSQL, criar projeto gera o identificador do projeto e do snapshot
+  inicial sem exigir `id` no payload; arquivos, compartilhamentos, salvamentos e
+  revisões usam identidades próprias pelo mesmo contrato.
 
 Validação de fechamento da área central:
 
