@@ -6,6 +6,35 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Meus Projetos Ficava Vazio Quando Apenas A Cota Falhava
+
+Sintoma:
+
+- o projeto pessoal existia e a API de listagem respondia com sucesso;
+- a tela aguardava e depois mostrava `0 projeto(s)`, armazenamento sem dados e
+  `Internal Server Error`.
+
+Causa:
+
+- o resumo de armazenamento acessava por posição uma linha que, no PostgreSQL,
+  é retornada por nome;
+- a interface agrupava lista e armazenamento em uma operação indivisível e
+  descartava a lista válida quando somente o resumo de armazenamento falhava.
+
+Correção:
+
+- a contagem adicional recebeu alias explícito e passou a ser lida pelo nome;
+- lista e armazenamento são carregados de forma independente;
+- falha isolada da cota mantém os projetos visíveis e mostra orientação local,
+  sem expor mensagem técnica genérica.
+
+Validação:
+
+- teste backend reproduz linha no formato de mapeamento do PostgreSQL;
+- teste frontend confirma que um projeto pessoal continua visível quando apenas
+  o armazenamento falha;
+- testes focados e build do frontend aprovados.
+
 ### Update Falhava Sem Explicar Como Autorizar A Operacao
 
 Sintoma:

@@ -1,4 +1,5 @@
 from pathlib import Path
+from contextlib import contextmanager
 from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
@@ -19,9 +20,43 @@ from app.print_projects import (
     PrintProjectUpdateRequest,
     PrintProjectsRepository,
 )
+import app.print_projects as print_projects_module
 
 
 VALID_STL = b"solid printora\nfacet normal 0 0 0\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid\n"
+
+
+def test_storage_report_accepts_postgresql_mapping_rows(monkeypatch, tmp_path: Path) -> None:
+    class Cursor:
+        def __init__(self, row: dict[str, int]) -> None:
+            self.row = row
+
+        def fetchone(self) -> dict[str, int]:
+            return self.row
+
+    class Connection:
+        def execute(self, statement: str, _parameters) -> Cursor:
+            if "AS other_file_count" in statement:
+                return Cursor({"other_file_count": 4})
+            return Cursor({
+                "used_bytes": 10,
+                "file_count": 2,
+                "hosted_project_count": 1,
+                "external_reference_count": 0,
+            })
+
+    @contextmanager
+    def mapping_connection(_database_path: Path):
+        yield Connection()
+
+    monkeypatch.setattr(print_projects_module, "connect_database", mapping_connection)
+    monkeypatch.setattr(print_projects_module, "personal_storage_quota", lambda _connection, _owner_id: 100)
+    monkeypatch.setattr(print_projects_module, "total_personal_storage_used", lambda _connection, _owner_id: 10)
+
+    report = PrintProjectsRepository(tmp_path / "unused.db").storage_report(7)
+
+    assert report.used_bytes == 10
+    assert report.file_count == 6
 
 
 def test_print_project_contract_sets_project_as_root_entity(tmp_path: Path) -> None:

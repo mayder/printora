@@ -208,6 +208,11 @@ npm --prefix frontend run build
 Critérios adicionais:
 
 - detalhe central retorna arquivos, versões/snapshots e estado de salvamento;
+- `Meus projetos` preserva a lista pessoal quando somente o resumo de
+  armazenamento falhar, apresentando a indisponibilidade da cota no próprio
+  painel e sem expor `Internal Server Error`;
+- o resumo de armazenamento funciona tanto com linhas SQLite quanto com linhas
+  nomeadas do PostgreSQL;
 - `Salvar nos meus projetos` cria referência sem duplicar arquivo;
 - compartilhamento com comunidade é N:N e não altera owner, visibilidade nem classificação comercial;
 - comunidade lista projetos centrais compartilhados e não apresenta upload/fatiamento/envio como fluxo principal;

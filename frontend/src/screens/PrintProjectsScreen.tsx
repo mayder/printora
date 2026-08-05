@@ -106,6 +106,7 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
   const [projects, setProjects] = React.useState<PrintProjectSummary[]>([]);
   const [myProjects, setMyProjects] = React.useState<PrintProjectSummary[]>([]);
   const [storage, setStorage] = React.useState<PrintProjectStorageReport | null>(null);
+  const [storageError, setStorageError] = React.useState(false);
   const [selectedProject, setSelectedProject] = React.useState<PrintProjectDetail | null>(null);
   const [view, setView] = React.useState<ProjectView>("list");
   const [detailTab, setDetailTab] = React.useState<ProjectDetailTab>("overview");
@@ -131,15 +132,23 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
   async function loadMine() {
     if (!authUser) return;
     setBusy(true);
-    try {
-      const [owned, storagePayload] = await Promise.all([printProjectsApi.myProjects(), printProjectsApi.storage()]);
-      setMyProjects(owned);
-      setStorage(storagePayload);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao carregar meus projetos");
-    } finally {
-      setBusy(false);
+    const [ownedResult, storageResult] = await Promise.allSettled([
+      printProjectsApi.myProjects(),
+      printProjectsApi.storage(),
+    ]);
+    if (ownedResult.status === "fulfilled") {
+      setMyProjects(ownedResult.value);
+    } else {
+      setError(ownedResult.reason instanceof Error ? ownedResult.reason.message : "Falha ao carregar meus projetos");
     }
+    if (storageResult.status === "fulfilled") {
+      setStorage(storageResult.value);
+      setStorageError(false);
+    } else {
+      setStorage(null);
+      setStorageError(true);
+    }
+    setBusy(false);
   }
 
   async function openProject(project: PrintProjectSummary) {
@@ -330,7 +339,7 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
                 <button type="button" className="primary-button" onClick={() => setView("create")} disabled={!authUser}><FilePlus2 size={16} />Novo projeto</button>
               </div>
             </header>
-            <StoragePanel storage={storage} />
+            <StoragePanel storage={storage} failed={storageError} />
             <SlicingProfilesPanel setError={setError} />
             {myProjects.length === 0 ? (
               <div className="empty-state">
@@ -1167,14 +1176,18 @@ function ProjectPublicationForm({ project, setError, onChanged }: { project: Pri
   );
 }
 
-function StoragePanel({ storage }: { storage: PrintProjectStorageReport | null }) {
+function StoragePanel({ storage, failed }: { storage: PrintProjectStorageReport | null; failed: boolean }) {
   const usedPercent = storage ? Math.min(100, Math.round((storage.used_bytes / Math.max(storage.quota_bytes, 1)) * 100)) : 0;
   return (
     <div className="print-project-storage">
       <HardDrive size={18} />
       <div>
         <strong>Armazenamento pessoal</strong>
-        <span>{storage ? `${formatBytes(storage.used_bytes)} usados de ${formatBytes(storage.quota_bytes)} · ${storage.file_count} arquivo(s)` : "Entre para ver cota e uso."}</span>
+        <span>{storage
+          ? `${formatBytes(storage.used_bytes)} usados de ${formatBytes(storage.quota_bytes)} · ${storage.file_count} arquivo(s)`
+          : failed
+            ? "Não foi possível carregar o armazenamento agora. Seus projetos continuam disponíveis."
+            : "Carregando cota e uso..."}</span>
         <div className="storage-meter" aria-label="Uso de armazenamento">
           <span style={{ width: `${usedPercent}%` }} />
         </div>
