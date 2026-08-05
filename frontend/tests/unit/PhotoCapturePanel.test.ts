@@ -43,6 +43,10 @@ describe("PhotoCapturePanel", () => {
 
     expect(await screen.findByRole("heading", { name: "Digitalizar este objeto" })).toBeTruthy();
     expect(screen.getByText("Você fará exatamente 24 fotos")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Onde ficar para tirar cada foto" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Todos os 24 campos da captura" })).toBeTruthy();
+    expect(screen.getByText(/“De baixo” significa câmera baixa/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /De cima/ })).toBeTruthy();
     const start = screen.getByRole("button", { name: "Começar pelas fotos" });
     expect(start).toHaveProperty("disabled", true);
     fireEvent.click(screen.getByRole("checkbox"));
@@ -60,9 +64,12 @@ describe("PhotoCapturePanel", () => {
     expect(await screen.findByRole("heading", { name: "Fotografe uma volta por vez" })).toBeTruthy();
     expect(screen.getByText("Na altura do objeto: faça mais 8 foto(s) durante a volta.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Na altura do objeto 0 de 8" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText("Mantenha a câmera na metade da altura do objeto e aponte para o centro.")).toBeTruthy();
-    expect(screen.getByText("Frente")).toBeTruthy();
-    expect(screen.getAllByText("Adicionar")).toHaveLength(8);
+    expect(screen.getAllByText("Mantenha a câmera na metade da altura do objeto e aponte para o centro.").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Na altura do objeto — 8 campos" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "De cima — 8 campos" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "De baixo — 8 campos" })).toBeTruthy();
+    expect(screen.getAllByText("Adicionar")).toHaveLength(24);
+    expect(screen.getAllByText("1. Frente")).toHaveLength(3);
     expect(screen.queryByText("Posição 9")).toBeNull();
   });
 });

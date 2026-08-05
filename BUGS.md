@@ -1548,3 +1548,33 @@ Correção:
   voltas de oito, destacando a próxima foto e permitindo refazer a posição;
 - frontend e API impedem fotos além do total solicitado;
 - o fluxo foi retestado em desktop e 390 px, sem overflow horizontal da página.
+
+### Captura Por Fotos Não Explicava Visualmente Cada Campo
+
+Estado: corrigido e em reteste em 2026-08-05.
+
+Reprodução:
+
+- abrir um projeto próprio e acessar `Digitalizar objeto`;
+- a preparação informava apenas a quantidade total e, após iniciar, mostrava
+  uma volta por vez com uma representação abstrata do objeto;
+- uma pessoa sem experiência não conseguia relacionar com segurança cada campo
+  a frente, diagonais, lados, traseira e altura correta da câmera.
+
+Causa:
+
+- o protocolo técnico de 24 posições existia, mas a interface escondia grupos
+  não selecionados e não demonstrava visualmente a posição da pessoa ao redor
+  do objeto;
+- os campos não repetiam a instrução específica de direção e inclinação.
+
+Correção:
+
+- a preparação agora mostra um objeto de exemplo no centro, oito posições
+  numeradas ao redor e as três alturas da câmera;
+- os 24 campos ficam visíveis e separados em três grupos de oito, com direção,
+  inclinação, estado e ação individual para fotografar ou escolher arquivo;
+- a interface esclarece que `De baixo` significa câmera baixa inclinada para
+  cima, sem mover ou virar o objeto;
+- a captura continua liberando uma posição por vez para prevenir lacunas, mas
+  permite visualizar antecipadamente todo o trabalho necessário.

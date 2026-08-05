@@ -2524,6 +2524,10 @@ Aceite de 2026-07-24:
 - validar que o protocolo padrão mostra exatamente 24 posições nomeadas, em
   três voltas de oito, libera uma próxima posição por vez, permite substituir
   posição reprovada e recusa índice acima do total da sessão;
+- validar que a preparação apresenta objeto central, mapa das oito posições,
+  três alturas e explicação explícita de que a volta baixa não exige virar o
+  objeto; após iniciar, validar 24 controles individuais visíveis, agrupados em
+  três conjuntos de oito, com direção e inclinação legíveis sem depender de cor;
 - validar que listagem, criação e detalhe de projeto são estados separados, que
   `Abrir projeto` remove a grade da tela e que o detalhe oferece retorno e
   navegação por responsabilidade sem coluna lateral;

@@ -193,7 +193,10 @@ test("comunidade, busca, projeto e quarentena percorrem contratos reais", async 
   await expect(page.locator(".print-projects-layout")).toHaveCount(0);
   await page.getByRole("button", { name: "Digitalizar objeto" }).click();
   await expect(page.getByText("Você fará exatamente 24 fotos", { exact: true })).toBeVisible();
-  await expect(page.getByText("8 na altura do objeto, 8 de cima e 8 de baixo. A tela pedirá uma foto por vez.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Onde ficar para tirar cada foto", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Todos os 24 campos da captura", exact: true })).toBeVisible();
+  await expect(page.getByText("São três grupos separados. Cada grupo tem oito campos, um para cada lado do objeto.", { exact: true })).toBeVisible();
+  expect(await findUncontainedHorizontalOverflow(page)).toEqual([]);
   await page.getByRole("button", { name: "Voltar para projetos" }).click();
   await expect(page.getByRole("heading", { name: "Meus projetos", exact: true })).toBeVisible();
   await openSection(page, "social", "Social");
