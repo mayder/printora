@@ -25,3 +25,28 @@ def test_photo_capture_repository_uses_cross_database_boolean_parameters() -> No
     assert "(session_id, True)" in source
     assert "SET is_current = ?, replaced_at = CURRENT_TIMESTAMP" in source
     assert "(False, session_id, capture_index, True)" in source
+
+
+def test_reconstruction_flow_uses_named_aggregates_and_boolean_parameters() -> None:
+    reconstruction = (
+        ROOT_DIR / "backend/app/modules/operations/reconstruction/repository.py"
+    ).read_text()
+    mesh_revisions = (
+        ROOT_DIR
+        / "backend/app/modules/operations/mesh_qualification/repository.py"
+    ).read_text()
+    reviews = (
+        ROOT_DIR
+        / "backend/app/modules/operations/mesh_qualification/review_repository.py"
+    ).read_text()
+
+    assert "COUNT(*) AS active_count" in reconstruction
+    assert 'fetchone()["active_count"]' in reconstruction
+    assert "AS next_attempt_number" in reconstruction
+    assert 'fetchone()["next_attempt_number"]' in reconstruction
+    assert "is_current = ? AND quality_status = 'accepted'" in reconstruction
+    assert "(capture_session_id, True)" in reconstruction
+    assert "COUNT(*) AS active_count" in mesh_revisions
+    assert 'fetchone()["active_count"]' in mesh_revisions
+    assert "COUNT(*) AS file_count" in reviews
+    assert 'fetchone()["file_count"]' in reviews

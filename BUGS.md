@@ -8,7 +8,7 @@ Nenhum bug aberto de implementação registrado.
 
 ### Começar Pelas Fotos Falhava No PostgreSQL
 
-Estado: corrigido e retestado localmente em 2026-08-05; publicação pendente.
+Estado: corrigido, publicado e retestado em produção em 2026-08-05.
 
 Reprodução:
 
@@ -36,8 +36,40 @@ Validação:
 
 - testes de repositório e de compatibilidade PostgreSQL cobrem criação,
   retomada, envio, substituição, escala, conclusão e isolamento por usuário;
-- publicação só pode ser considerada concluída após repetir a ação no ambiente
-  público e confirmar a sessão criada sem erro técnico.
+- em produção, a sessão foi criada, as 24 posições receberam fotos aprovadas,
+  a escala foi confirmada e a captura chegou ao estado pronto sem erro técnico.
+
+### Criar Modelo 3D Falhava Com Linha PostgreSQL Nomeada
+
+Estado: corrigido e retestado localmente em 2026-08-05; publicação pendente.
+
+Reprodução:
+
+- concluir as 24 fotos, confirmar a escala e selecionar `Criar modelo 3D`;
+- a interface exibia `Internal Server Error` e não criava o trabalho.
+
+Causa:
+
+- a contagem de reconstruções ativas era lida pela posição `0`;
+- o adaptador PostgreSQL retorna linhas como mapeamentos nomeados, produzindo
+  `KeyError: 0` antes do enfileiramento;
+- o processamento e a revisão continham outras contagens posicionais e uma
+  comparação inteira com o booleano PostgreSQL, que falhariam nas etapas
+  seguintes.
+
+Correção:
+
+- todas as contagens do fluxo de reconstrução, correção e aprovação receberam
+  aliases explícitos e passaram a ser lidas pelo nome;
+- a seleção de fotos atuais passou a parametrizar o booleano real;
+- o teste de compatibilidade cobre os contratos que diferem entre SQLite e
+  PostgreSQL.
+
+Validação:
+
+- testes focados de captura, reconstrução e revisão de malha aprovados;
+- publicação só pode ser considerada concluída após criar o trabalho no
+  ambiente público e acompanhar o estado retornado pelo processador.
 
 ### Meus Projetos Ficava Vazio Quando Apenas A Cota Falhava
 

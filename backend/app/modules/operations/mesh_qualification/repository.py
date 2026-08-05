@@ -46,9 +46,9 @@ class MeshRevisionRepository:
                 revision_id = int(existing["id"])
             else:
                 active = int(connection.execute(
-                    "SELECT COUNT(*) FROM mesh_revisions WHERE owner_user_id = ? AND status IN ('queued', 'processing')",
+                    "SELECT COUNT(*) AS active_count FROM mesh_revisions WHERE owner_user_id = ? AND status IN ('queued', 'processing')",
                     (owner_user_id,),
-                ).fetchone()[0])
+                ).fetchone()["active_count"])
                 if active >= 3:
                     raise QueueSaturatedError("aguarde uma correção terminar antes de iniciar outra")
                 source = self._source(connection, owner_user_id, job_id, payload.source_revision_id)

@@ -231,7 +231,10 @@ def _copy_object_reference(connection, revision_id: int, file_id: int) -> None:
 
 
 def _next_display_order(connection, project_id: int) -> int:
-    return int(connection.execute("SELECT COUNT(*) FROM print_project_files WHERE project_id = ?", (project_id,)).fetchone()[0])
+    return int(connection.execute(
+        "SELECT COUNT(*) AS file_count FROM print_project_files WHERE project_id = ?",
+        (project_id,),
+    ).fetchone()["file_count"])
 
 
 def _project_inspection(qualification: dict[str, object]) -> dict[str, object]:

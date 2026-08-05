@@ -60,9 +60,9 @@ class ReconstructionRepository:
                     job_id = int(prior["id"])
                 else:
                     active = int(connection.execute(
-                        "SELECT COUNT(*) FROM photo_reconstruction_jobs WHERE owner_user_id = ? AND status IN ('queued', 'processing')",
+                        "SELECT COUNT(*) AS active_count FROM photo_reconstruction_jobs WHERE owner_user_id = ? AND status IN ('queued', 'processing')",
                         (owner_user_id,),
-                    ).fetchone()[0])
+                    ).fetchone()["active_count"])
                     if active >= max(1, min(self.settings.reconstruction_max_active_per_user, 10)):
                         raise QueueSaturatedError("aguarde uma reconstrução terminar antes de iniciar outra")
                     correlation_id = uuid4().hex
@@ -227,15 +227,15 @@ class ReconstructionRepository:
             if capture is None:
                 raise ValueError("captura não está pronta")
             photos = connection.execute(
-                "SELECT * FROM photo_capture_photos WHERE session_id = ? AND is_current = 1 AND quality_status = 'accepted' ORDER BY capture_index, id",
-                (int(job["capture_session_id"]),),
+                "SELECT * FROM photo_capture_photos WHERE session_id = ? AND is_current = ? AND quality_status = 'accepted' ORDER BY capture_index, id",
+                (int(job["capture_session_id"]), True),
             ).fetchall()
             if len(photos) < int(capture["target_photo_count"]):
                 raise ValueError("captura ficou incompleta")
             attempt_number = int(connection.execute(
-                "SELECT COALESCE(MAX(attempt_number), 0) + 1 FROM photo_reconstruction_attempts WHERE reconstruction_job_id = ?",
+                "SELECT COALESCE(MAX(attempt_number), 0) + 1 AS next_attempt_number FROM photo_reconstruction_attempts WHERE reconstruction_job_id = ?",
                 (job_id,),
-            ).fetchone()[0])
+            ).fetchone()["next_attempt_number"])
             cursor = connection.execute(
                 "INSERT INTO photo_reconstruction_attempts (reconstruction_job_id, attempt_number, engine_key, adapter_version) VALUES (?, ?, ?, ?)",
                 (job_id, attempt_number, engine_key, adapter_version),
@@ -449,8 +449,8 @@ class ReconstructionRepository:
     @staticmethod
     def _photo_inputs(connection, capture_session_id: int) -> tuple[ReconstructionPhotoInput, ...]:
         rows = connection.execute(
-            "SELECT * FROM photo_capture_photos WHERE session_id = ? AND is_current = 1 AND quality_status = 'accepted' ORDER BY capture_index, id",
-            (capture_session_id,),
+            "SELECT * FROM photo_capture_photos WHERE session_id = ? AND is_current = ? AND quality_status = 'accepted' ORDER BY capture_index, id",
+            (capture_session_id, True),
         ).fetchall()
         return tuple(
             ReconstructionPhotoInput(
