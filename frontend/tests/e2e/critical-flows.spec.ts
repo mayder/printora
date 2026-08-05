@@ -209,6 +209,10 @@ test("comunidade, busca, projeto e quarentena percorrem contratos reais", async 
   await expect(page.getByRole("heading", { name: "Onde ficar para tirar cada foto", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Todos os 24 campos da captura", exact: true })).toBeVisible();
   await expect(page.getByText("São três grupos separados. Cada grupo tem oito campos, um para cada lado do objeto.", { exact: true })).toBeVisible();
+  await page.getByRole("checkbox", { name: /Confirmo que posso fotografar/ }).check();
+  await page.getByRole("button", { name: "Começar pelas fotos", exact: true }).click();
+  await expect(page.getByText("0 de 24 posições cobertas. 0 fotos aprovadas.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Adicionar", { exact: true })).toHaveCount(24);
   expect(await findUncontainedHorizontalOverflow(page)).toEqual([]);
   await page.getByRole("button", { name: "Voltar para projetos" }).click();
   await expect(page.getByRole("heading", { name: "Meus projetos", exact: true })).toBeVisible();

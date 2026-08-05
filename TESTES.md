@@ -196,6 +196,9 @@ Critérios do lote inicial:
 - no PostgreSQL, criar projeto gera o identificador do projeto e do snapshot
   inicial sem exigir `id` no payload; arquivos, compartilhamentos, salvamentos e
   revisões usam identidades próprias pelo mesmo contrato.
+- o fluxo crítico de digitalização deve confirmar o consentimento, executar
+  `Começar pelas fotos`, criar ou retomar a sessão e exibir exatamente os 24
+  campos; validar somente a preparação não cobre esse contrato.
 
 Validação de fechamento da área central:
 

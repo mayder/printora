@@ -6,6 +6,39 @@ Nenhum bug aberto de implementação registrado.
 
 ## Bugs Corrigidos
 
+### Começar Pelas Fotos Falhava No PostgreSQL
+
+Estado: corrigido e retestado localmente em 2026-08-05; publicação pendente.
+
+Reprodução:
+
+- abrir um projeto próprio, acessar `Digitalizar objeto`, confirmar o
+  consentimento e selecionar `Começar pelas fotos`;
+- a interface permanecia na preparação e exibia `Internal Server Error`.
+
+Causa:
+
+- as tabelas PostgreSQL da captura declaravam horários como `TIMESTAMPTZ`, mas
+  o adaptador compartilhado da aplicação grava horários como texto ISO;
+- a consulta seguinte também comparava a coluna booleana `is_current` com os
+  inteiros usados pelo SQLite, criando uma segunda falha latente.
+
+Correção:
+
+- um SQL incremental, reaplicável e limitado à captura converte os horários
+  existentes para o contrato textual compartilhado, sem remover registros;
+- consultas e substituições de foto passaram a parametrizar booleanos reais,
+  compatíveis com SQLite e PostgreSQL;
+- o E2E crítico agora inicia de fato a captura e exige os 24 campos, em vez de
+  validar somente a tela de preparação.
+
+Validação:
+
+- testes de repositório e de compatibilidade PostgreSQL cobrem criação,
+  retomada, envio, substituição, escala, conclusão e isolamento por usuário;
+- publicação só pode ser considerada concluída após repetir a ação no ambiente
+  público e confirmar a sessão criada sem erro técnico.
+
 ### Meus Projetos Ficava Vazio Quando Apenas A Cota Falhava
 
 Sintoma:
@@ -1496,7 +1529,7 @@ Correção:
 
 ### Criação De Projeto Falhava Com Erro Interno No PostgreSQL
 
-Estado: corrigido e retestado localmente em 2026-08-03; publicação pendente.
+Estado: corrigido, retestado e publicado em 2026-08-05.
 
 Reprodução:
 
@@ -1523,7 +1556,7 @@ Correção:
 
 ### Detalhe De Projeto Era Comprimido Em Coluna Lateral
 
-Estado: corrigido e retestado localmente em 2026-08-04; publicação pendente.
+Estado: corrigido, retestado e publicado em 2026-08-05.
 
 Reprodução:
 

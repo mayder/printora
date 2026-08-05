@@ -61,8 +61,8 @@ class PhotoCaptureRepository:
         with connect_database(self.database_path) as connection:
             session = self._owned_session(connection, owner_user_id, session_id)
             photos = connection.execute(
-                "SELECT * FROM photo_capture_photos WHERE session_id = ? AND is_current = 1 ORDER BY capture_index, id",
-                (session_id,),
+                "SELECT * FROM photo_capture_photos WHERE session_id = ? AND is_current = ? ORDER BY capture_index, id",
+                (session_id, True),
             ).fetchall()
         return _session_model(session, photos)
 
@@ -107,8 +107,8 @@ class PhotoCaptureRepository:
                 stored = self.storage.storage.write_quarantine(checksum, Path(clean_name).suffix.lower(), cleaned)
                 promoted = self.storage.storage.promote(stored)
                 connection.execute(
-                    "UPDATE photo_capture_photos SET is_current = 0, replaced_at = CURRENT_TIMESTAMP WHERE session_id = ? AND capture_index = ? AND is_current = 1",
-                    (session_id, capture_index),
+                    "UPDATE photo_capture_photos SET is_current = ?, replaced_at = CURRENT_TIMESTAMP WHERE session_id = ? AND capture_index = ? AND is_current = ?",
+                    (False, session_id, capture_index, True),
                 )
                 cursor = connection.execute(
                     """
