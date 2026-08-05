@@ -46,6 +46,7 @@ import type {
 } from "../types/printProjects";
 import type { ScreenPropsFor } from "./ScreenProps";
 import { ProjectAssetsEditor, ProjectAssetsSummary } from "./projects/ProjectAssetsPanel";
+import { ProjectCreateModal } from "./projects/ProjectCreateModal";
 import { SlicingProfilesPanel } from "./projects/SlicingProfilesPanel";
 
 const PhotoCapturePanel = React.lazy(async () => {
@@ -56,7 +57,7 @@ const PhotoCapturePanel = React.lazy(async () => {
 type PrintProjectsScreenProps = ScreenPropsFor<"authUser" | "setError">;
 type ProjectFilters = { file_kind: string; license: string; origin: "" | "hosted" | "external" };
 type ProjectTab = "explore" | "mine";
-type ProjectView = "list" | "create" | "detail";
+type ProjectView = "list" | "detail";
 type ProjectDetailTab = "overview" | "files" | "capture" | "slicing" | "publication";
 
 const commercialLabels: Record<PrintProjectSummary["commercial_class"], string> = {
@@ -109,6 +110,7 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
   const [storageError, setStorageError] = React.useState(false);
   const [selectedProject, setSelectedProject] = React.useState<PrintProjectDetail | null>(null);
   const [view, setView] = React.useState<ProjectView>("list");
+  const [createModalOpen, setCreateModalOpen] = React.useState(false);
   const [detailTab, setDetailTab] = React.useState<ProjectDetailTab>("overview");
   const [busy, setBusy] = React.useState(false);
   const [savingId, setSavingId] = React.useState<number | null>(null);
@@ -207,29 +209,6 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
     && myProjects.some((project) => project.id === selectedProject.id)
     && !selectedProject.saved_by_viewer;
 
-  if (view === "create") {
-    return (
-      <div className="print-projects-screen">
-        <ProjectPageHeader
-          eyebrow="Meus projetos"
-          title="Criar projeto"
-          description="Comece com um nome. Depois você poderá enviar arquivos ou fotografar um objeto real."
-          onBack={() => setView("list")}
-        />
-        <section className="print-projects-panel print-project-create-page">
-          <div className="print-project-create-intro">
-            <FilePlus2 size={28} aria-hidden="true" />
-            <div>
-              <h3>Informações básicas</h3>
-              <p>Seu projeto começa privado. Você decide se quer publicar somente quando ele estiver pronto.</p>
-            </div>
-          </div>
-          <ProjectCreateForm disabled={!authUser || busy} onCreated={(detail) => void afterProjectMutation(detail)} setError={setError} />
-        </section>
-      </div>
-    );
-  }
-
   if (view === "detail" && selectedProject) {
     return (
       <div className="print-projects-screen">
@@ -262,6 +241,17 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
 
   return (
     <div className="print-projects-screen">
+      {createModalOpen ? (
+        <ProjectCreateModal
+          disabled={!authUser || busy}
+          onClose={() => setCreateModalOpen(false)}
+          onCreated={(detail) => {
+            setCreateModalOpen(false);
+            void afterProjectMutation(detail);
+          }}
+          setError={setError}
+        />
+      ) : null}
       <section className="print-projects-band">
         <div>
           <span className="eyebrow">Projetos de impressão</span>
@@ -336,7 +326,7 @@ export function PrintProjectsScreen({ authUser, setError }: PrintProjectsScreenP
               <div><h3>Meus projetos</h3><span className="muted">{myProjects.length} projeto(s)</span></div>
               <div className="print-project-list-actions">
                 <button type="button" className="secondary-button" onClick={() => void loadMine()} disabled={busy || !authUser}><RefreshCw size={16} />Atualizar</button>
-                <button type="button" className="primary-button" onClick={() => setView("create")} disabled={!authUser}><FilePlus2 size={16} />Novo projeto</button>
+                <button type="button" className="primary-button" onClick={() => setCreateModalOpen(true)} disabled={!authUser}><FilePlus2 size={16} />Novo projeto</button>
               </div>
             </header>
             <StoragePanel storage={storage} failed={storageError} />
@@ -403,63 +393,6 @@ function ProjectPageHeader({ eyebrow, title, description, onBack }: { eyebrow: s
 
 function DetailTabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return <button type="button" className={active ? "active" : ""} aria-current={active ? "page" : undefined} onClick={onClick}>{children}</button>;
-}
-
-function ProjectCreateForm({ disabled, onCreated, setError }: { disabled: boolean; onCreated: (detail: PrintProjectDetail) => void; setError: (message: string | null) => void }) {
-  const [title, setTitle] = React.useState("");
-  const [visibility, setVisibility] = React.useState<PrintProjectVisibility>("private");
-  const [license, setLicense] = React.useState("cc-by");
-  const [tags, setTags] = React.useState("");
-  const [busy, setBusy] = React.useState(false);
-
-  async function createProject(event: React.FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    try {
-      const detail = await printProjectsApi.create({
-        title,
-        visibility,
-        license,
-        tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-      });
-      setTitle("");
-      setTags("");
-      onCreated(detail);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao criar projeto");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form className="print-project-form" onSubmit={(event) => void createProject(event)}>
-      <label>
-        Nome do projeto
-        <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ex.: Suporte de mesa" required disabled={disabled || busy} />
-      </label>
-      <label>
-        Visibilidade
-        <select value={visibility} onChange={(event) => setVisibility(event.target.value as PrintProjectVisibility)} disabled={disabled || busy}>
-          <option value="private">Privado</option>
-          <option value="unlisted">Não listado</option>
-          <option value="public">Público</option>
-        </select>
-      </label>
-      <label>
-        Licença
-        <input value={license} onChange={(event) => setLicense(event.target.value)} disabled={disabled || busy} />
-      </label>
-      <label>
-        Tags
-        <input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="mesa, pla, suporte" disabled={disabled || busy} />
-      </label>
-      <button type="submit" className="primary-button" disabled={disabled || busy || !title.trim()}>
-        <FilePlus2 size={16} />
-        Criar projeto
-      </button>
-    </form>
-  );
 }
 
 function ProjectSlicingPanel({ project, setError }: { project: PrintProjectDetail; setError: (message: string | null) => void }) {

@@ -194,37 +194,22 @@
 }
 
 .print-project-detail-page {
-  margin: 0 auto;
-  max-width: 1400px;
   width: 100%;
 }
 
-.print-project-create-page {
-  margin: 0 auto;
-  max-width: 820px;
-  width: 100%;
-}
-
-.print-project-create-intro,
 .print-project-list-actions {
   align-items: center;
   display: flex;
   gap: 12px;
 }
 
-.print-project-create-intro > div {
+.project-create-modal-form {
   display: grid;
-  gap: 4px;
+  gap: 14px;
 }
 
-.print-project-create-page .print-project-form {
-  grid-template-columns: 1fr 1fr;
-  padding: 18px;
-}
-
-.print-project-create-page .print-project-form button {
-  grid-column: 1 / -1;
-  justify-self: end;
+.project-create-modal-card {
+  width: min(780px, 100%);
 }
 
 .print-projects-panel {
@@ -850,7 +835,6 @@
     grid-template-columns: 1fr;
   }
 
-  .print-project-create-page .print-project-form,
   .photo-capture-slot-grid {
     grid-template-columns: 1fr;
   }

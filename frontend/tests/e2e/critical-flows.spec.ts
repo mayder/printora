@@ -185,12 +185,25 @@ test("comunidade, busca, projeto e quarentena percorrem contratos reais", async 
   await loginInBrowser(page, email);
   await openSection(page, "projects", "Projetos de impressão");
   await page.getByRole("button", { name: "Meus projetos" }).click();
+  await page.getByRole("button", { name: "Novo projeto" }).click();
+  const projectDialog = page.getByRole("dialog", { name: "Cadastrar projeto", exact: true });
+  await expect(projectDialog).toBeVisible();
+  await expect(projectDialog.getByText("Informações básicas", { exact: true })).toBeVisible();
+  expect(await findUncontainedHorizontalOverflow(page, "[role='dialog']")).toEqual([]);
+  await projectDialog.getByRole("button", { name: "Fechar" }).click();
   await expect(page.getByText(`Fixture E2E ${suffix}`, { exact: true })).toBeVisible();
   const projectCard = page.locator(".print-project-card").filter({ hasText: `Fixture E2E ${suffix}` });
   await projectCard.getByRole("button", { name: "Abrir projeto" }).click();
   await expect(page.getByRole("heading", { level: 2, name: `Fixture E2E ${suffix}`, exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Voltar para projetos" })).toBeVisible();
   await expect(page.locator(".print-projects-layout")).toHaveCount(0);
+  const detailWidth = await page.locator(".print-project-detail-page").evaluate((element) => ({
+    detail: element.getBoundingClientRect().width,
+    screen: document.querySelector(".print-projects-screen")?.getBoundingClientRect().width ?? 0,
+    maxWidth: getComputedStyle(element).maxWidth,
+  }));
+  expect(detailWidth.maxWidth).toBe("none");
+  expect(detailWidth.detail).toBeGreaterThanOrEqual(detailWidth.screen - 2);
   await page.getByRole("button", { name: "Digitalizar objeto" }).click();
   await expect(page.getByText("Você fará exatamente 24 fotos", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Onde ficar para tirar cada foto", exact: true })).toBeVisible();

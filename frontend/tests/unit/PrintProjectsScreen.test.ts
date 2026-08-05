@@ -87,4 +87,17 @@ describe("PrintProjectsScreen", () => {
     expect(screen.getByText("Não foi possível carregar o armazenamento agora. Seus projetos continuam disponíveis.")).toBeTruthy();
     expect(setError).not.toHaveBeenCalledWith("Internal Server Error");
   });
+
+  it("opens project registration in the standard modal without leaving the list", async () => {
+    render(React.createElement(PrintProjectsScreen, { authUser: user, setError: vi.fn() }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Meus projetos" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Novo projeto" }));
+
+    expect(await screen.findByRole("dialog", { name: "Cadastrar projeto" })).toBeTruthy();
+    expect(screen.getByText("Teste objeto 3D")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Fechar" }));
+    expect(screen.queryByRole("dialog", { name: "Cadastrar projeto" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Meus projetos", exact: true })).toBeTruthy();
+  });
 });

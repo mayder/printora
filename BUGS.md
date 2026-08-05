@@ -1542,8 +1542,8 @@ Causa:
 
 Correção:
 
-- listagem, criação e detalhe passaram a ser estados exclusivos, com retorno
-  visível e abas de responsabilidade no detalhe;
+- listagem e detalhe passaram a ser estados exclusivos, com retorno visível e
+  abas de responsabilidade no detalhe; a criação abre em modal sobre a lista;
 - a digitalização passou a solicitar 24 posições nomeadas, divididas em três
   voltas de oito, destacando a próxima foto e permitindo refazer a posição;
 - frontend e API impedem fotos além do total solicitado;
@@ -1551,7 +1551,7 @@ Correção:
 
 ### Captura Por Fotos Não Explicava Visualmente Cada Campo
 
-Estado: corrigido e em reteste em 2026-08-05.
+Estado: corrigido, retestado e publicado em 2026-08-05.
 
 Reprodução:
 
@@ -1578,3 +1578,29 @@ Correção:
   cima, sem mover ou virar o objeto;
 - a captura continua liberando uma posição por vez para prevenir lacunas, mas
   permite visualizar antecipadamente todo o trabalho necessário.
+
+### Cadastro E Detalhe De Projeto Divergiam Do Padrão Visual
+
+Estado: corrigido e retestado localmente em 2026-08-05; publicação pendente.
+
+Reprodução:
+
+- abrir `Projetos de impressão > Meus projetos` e selecionar `Novo projeto`;
+- o formulário substituía a listagem em vez de abrir no modal usado pelos
+  demais cadastros;
+- abrir um projeto e observar que o conteúdo do detalhe permanecia limitado e
+  centralizado, deixando espaço útil sem uso em telas largas.
+
+Causa:
+
+- o fluxo de projetos criou uma página exclusiva para um formulário curto;
+- o container do detalhe mantinha `max-width`, apesar de a tela já separar
+  listagem e detalhe.
+
+Correção:
+
+- `Novo projeto` abre modal com cabeçalho, seções, cancelamento e rodapé de ações
+  iguais aos formulários existentes;
+- o detalhe e todas as suas abas usam 100% da largura útil da área principal;
+- testes cobrem permanência da listagem sob o modal, ausência de overflow e
+  largura integral do detalhe.

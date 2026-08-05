@@ -2528,9 +2528,10 @@ Aceite de 2026-07-24:
   três alturas e explicação explícita de que a volta baixa não exige virar o
   objeto; após iniciar, validar 24 controles individuais visíveis, agrupados em
   três conjuntos de oito, com direção e inclinação legíveis sem depender de cor;
-- validar que listagem, criação e detalhe de projeto são estados separados, que
-  `Abrir projeto` remove a grade da tela e que o detalhe oferece retorno e
-  navegação por responsabilidade sem coluna lateral;
+- validar que `Novo projeto` abre o formulário em modal sem remover a listagem,
+  que o modal não causa overflow, que `Abrir projeto` remove a grade da tela e
+  que o detalhe ocupa toda a largura útil com retorno e navegação por
+  responsabilidade sem coluna lateral;
 - executar threat model de upload, conteúdo ilegal, pessoa no quadro, EXIF,
   abuso de quota, IDOR e storage privado;
 - fechamento exige benchmark de captura real versionado, testes backend/frontend,
