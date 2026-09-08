@@ -98,6 +98,23 @@ A renovação de backup, restore isolado, instalação do timer e publicação s
 gates operacionais separados da recuperação de espaço. Seus resultados finais
 serão registrados após execução, sem equivaler código ou CI a aceite produtivo.
 
+Na renovação, o backup físico terminou, mas `pg_dump --file=-` tentou abrir
+um arquivo literal chamado `-` no diretório protegido do serviço. O defeito
+preexistente foi corrigido removendo essa opção: o dump custom usa stdout por
+padrão e continua atravessando o limitador. Um teste executa o pipeline com
+conteúdo binário e impede regressão do argumento. Referência:
+[pg_dump 16, opção file](https://www.postgresql.org/docs/16/app-pgdump.html).
+O pipeline inicial `34230658591` foi cancelado antes da publicação, para
+incorporar essa correção. A repetição operacional usa uma cópia isolada do
+script, sem substituir a aplicação, com taxa física temporária de 4 MiB/s,
+dump de 256 KiB/s, prioridade baixa e interrupção se health/ready falharem.
+Os limites permanentes do serviço continuam em 1 MiB/s e 256 KiB/s.
+
+Também foi encontrada falha preexistente na unidade de alerta: `%I` convertia
+hífens em barras, rejeitadas pelo contrato sanitizado do emissor. O argumento
+passa a usar `%i`, preservando o evento. O destino configurado no host é journal;
+não há webhook externo configurado, portanto não se afirma entrega externa.
+
 Rollback: suspender exclusivamente o timer de retenção; manter sync e custódia.
 Recompor cópia local pelo snapshot e checksum auditados, se necessário; nunca
 restaurar banco antigo sobre escritas novas. O host único permanece sem HA

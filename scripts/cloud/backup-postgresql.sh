@@ -95,7 +95,6 @@ runuser -u postgres -- pg_dump \
   --lock-wait-timeout=30s \
   --no-owner \
   --no-acl \
-  --file=- \
   | "$rate_limiter" --bytes-per-second "$dump_max_bytes_per_second" > "$dump"
 pg_restore --list "$dump" >/dev/null
 requested_wal="$(runuser -u postgres -- psql -p "$port" -d printora_cloud -X -Atqc \

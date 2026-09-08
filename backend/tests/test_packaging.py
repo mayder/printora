@@ -234,6 +234,26 @@ def test_cloud_backup_limits_physical_and_logical_streams() -> None:
     assert "ConditionPathExists=/etc/printora-cloud/allow-onhost-full-backup" in service
 
 
+def test_cloud_dump_pipeline_uses_stdout_and_preserves_binary_payload(tmp_path: Path) -> None:
+    backup = (ROOT_DIR / "scripts/cloud/backup-postgresql.sh").read_text()
+    command = "runuser -u postgres -- pg_dump" + backup.split(
+        "runuser -u postgres -- pg_dump", 1)[1].split("pg_restore --list", 1)[0]
+    # pg_dump treats --file=- as a literal filename, not standard output.
+    fake = tmp_path / "runuser"
+    fake.write_text("#!/usr/bin/env python3\nimport sys\n"
+                    "assert not any(a.startswith('--file') or a == '-f' for a in sys.argv)\n"
+                    "sys.stdout.buffer.write(b'PGDMP\\x00\\xff' * 1024)\n")
+    fake.chmod(0o755)
+    output = tmp_path / "backup.dump"
+    result = subprocess.run(["bash", "-euo", "pipefail", "-c", command],
+                            env={**os.environ, "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
+                                 "port": "5433", "dump": str(output),
+                                 "rate_limiter": str(ROOT_DIR / "scripts/cloud/rate-limit-stream.py"),
+                                 "dump_max_bytes_per_second": "262144"}, capture_output=True)
+    assert result.returncode == 0, result.stderr
+    assert output.read_bytes() == b"PGDMP\x00\xff" * 1024
+
+
 def test_cloud_stream_rate_limiter_preserves_content_and_rejects_unsafe_rate() -> None:
     limiter = ROOT_DIR / "scripts/cloud/rate-limit-stream.py"
     payload = b"printora-backup-rate-limit\n" * 4096
@@ -419,6 +439,9 @@ def test_physical_rpo_uses_external_wal_and_fails_before_five_minutes() -> None:
     assert "OnFailure=printora-cloud-recovery-alert@%n.service" in service
     assert "owner=operations" in alert
     assert "PRINTORA_RECOVERY_ALERT_WEBHOOK_URL" in alert
+    alert_unit = (ROOT_DIR / "packaging/systemd/printora-cloud-recovery-alert@.service").read_text()
+    # %I unescapes dashes to slashes, which the sanitized event contract rejects.
+    assert "ExecStart=/usr/local/libexec/printora-cloud/emit-recovery-alert.sh %i\n" in alert_unit
     for unit_path in (ROOT_DIR / "packaging/systemd").glob("*.service"):
         unit = unit_path.read_text()
         if "Type=oneshot" in unit:

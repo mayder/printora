@@ -2,7 +2,8 @@
 
 ## Bugs Conhecidos
 
-Nenhum bug aberto de implementação registrado.
+O incidente de capacidade WAL tem recuperação emergencial comprovada e
+aceite operacional da correção permanente em andamento, registrado abaixo.
 
 ## Bugs Corrigidos
 

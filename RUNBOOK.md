@@ -3155,3 +3155,11 @@ reuso do mesmo SHA. O marcador permanece até liberação explícita do owner.
 Backup físico e restore também executam `capacity_guard.py` antes de criar
 artefatos temporários e recusam menos de 10% livre. A retenção continua sendo
 a ação de recuperação de espaço; ela não é bloqueada pelo limiar de deploy.
+
+O dump custom deve usar stdout omitindo `--file`; `--file=-` cria um arquivo
+literal e falha com ProtectSystem. Manter o pipe pelo limitador existente.
+O marcador `allow-onhost-full-backup` habilita a agenda semanal: sua ausência
+impede renovar a base e faz a retenção falhar fechada quando ela vence.
+Na unidade de alerta, manter `%i` no argumento do emissor: `%I` transforma
+hífens em barras e invalida o evento sanitizado. Conferir `last-alert.json`
+para distinguir registro em journal de entrega por webhook.
