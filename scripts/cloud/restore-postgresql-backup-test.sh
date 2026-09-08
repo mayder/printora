@@ -19,7 +19,7 @@ restore_root="$(mktemp -d /var/lib/postgresql/printora-restore-test.XXXXXX)"
 cluster="$restore_root/cluster"
 socket_dir="$restore_root/socket"
 restored="$restore_root/restored"
-export RESTIC_CACHE_DIR="$restore_root/restic-cache"
+export RESTIC_CACHE_DIR="$base_path/shared/backup-cache"
 started=0
 cleanup() {
   if [[ "$started" -eq 1 ]]; then
@@ -32,7 +32,23 @@ cleanup() {
 }
 trap cleanup EXIT
 
-restic restore latest --tag printora-cloud-postgresql --target "$restored" \
+# Pin the full snapshot and the complete physical WAL chain once, before I/O.
+PYTHONPATH="$script_dir" python3 - "$restore_root/plan.json" <<'PYPLAN'
+import json
+import pathlib
+import sys
+import time
+from wal_custody import restore_plan
+
+sync = json.loads(pathlib.Path("/var/lib/printora-cloud/recovery/wal-sync.json").read_text())
+plan = restore_plan(sync, time.time())
+pathlib.Path(sys.argv[1]).write_text(json.dumps(plan))
+print(json.dumps({"event": "restore_plan", "snapshot": plan["snapshot"],
+                  "first_wal": plan["first_wal"], "target_wal": plan["target_wal"],
+                  "wal_files": len(plan["files"])}))
+PYPLAN
+full_snapshot="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["snapshot"])' "$restore_root/plan.json")"
+restic restore "$full_snapshot" --target "$restored" \
   --include '/tmp/**/base/base.tar.zst' \
   --include '/tmp/**/base/pg_wal.tar*' \
   --include '/tmp/**/manifest.json' \
@@ -74,49 +90,21 @@ with open(sys.argv[1], encoding="utf-8") as source:
     print(json.load(source)["dump_sha256"])
 PY
 )"
-last_archived_wal="$(python3 - "$manifest" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as source:
-    print(json.load(source)["last_archived_wal"])
-PY
-)"
-continuous_state=/var/lib/printora-cloud/recovery/wal-sync.json
-[[ -s "$continuous_state" ]] || { echo "estado do WAL contínuo ausente" >&2; exit 1; }
-continuous_wal="$(python3 - "$continuous_state" <<'PY'
-import json
-import sys
-
-print(json.load(open(sys.argv[1]))["uploaded_wal"])
-PY
-)"
-[[ "$continuous_wal" =~ ^[0-9A-F]{24}$ ]] || { echo "WAL contínuo inválido" >&2; exit 1; }
-# Resolve immutable historical snapshots: retention deliberately removes old files
-# from the newest local tree, but those files remain in earlier Restic snapshots.
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHONPATH="$script_dir" python3 - "$manifest" "$continuous_wal" "$restore_root" <<'PYCHAIN'
+continuous_wal="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["target_wal"])' "$restore_root/plan.json")"
+PYTHONPATH="$script_dir" python3 - "$manifest" "$restore_root/plan.json" "$restored" <<'PYCHAIN'
 import json
 import pathlib
 import sys
-from wal_custody import ARCHIVE, chain, full_backup
+from wal_custody import ARCHIVE, restore_paths
 
 manifest = json.loads(pathlib.Path(sys.argv[1]).read_text())
-full, current_manifest, nodes = full_backup()
-if current_manifest != manifest:
-    raise SystemExit("backup changed during restore; retry with a pinned base")
-plan = chain(manifest["last_archived_wal"], sys.argv[2], full, nodes)
-root = pathlib.Path(sys.argv[3])
-for snapshot in sorted(set(plan.values())):
-    (root / ("wal-" + snapshot + ".includes")).write_text(
-        "\n".join(ARCHIVE + "/" + name for name, source in sorted(plan.items())
-                  if source == snapshot) + "\n")
+plan = json.loads(pathlib.Path(sys.argv[2]).read_text())
+if manifest != plan["manifest"]:
+    raise SystemExit("restored manifest differs from pinned snapshot")
+for snapshot in sorted(set(plan["files"].values())):
+    paths = [ARCHIVE + "/" + name for name, source in sorted(plan["files"].items()) if source == snapshot]
+    restore_paths(snapshot, sys.argv[3], paths)
 PYCHAIN
-for includes in "$restore_root"/wal-*.includes; do
-  snapshot="$(basename "$includes" .includes)"
-  snapshot="${snapshot#wal-}"
-  restic restore "$snapshot" --target "$restored" --sparse --verify --include-file "$includes"
-done
 last_archived_wal="$continuous_wal"
 [[ "$last_archived_wal" =~ ^[0-9A-F]{24}$ ]] || { echo "WAL final inválido" >&2; exit 1; }
 archive_dir="$(find "$restored" -type d -name printora-wal-archive -print -quit)"

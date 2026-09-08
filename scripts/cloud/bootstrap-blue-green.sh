@@ -50,6 +50,7 @@ install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/retain-postgresql-wal.p
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/retain-postgresql-wal.sh" /usr/local/libexec/printora-cloud/retain-postgresql-wal.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/recovery-readiness.py" /usr/local/libexec/printora-cloud/recovery-readiness.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/run-restore-test.sh" /usr/local/libexec/printora-cloud/run-restore-test.sh
+install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/offhost-restore-client.py" /usr/local/libexec/printora-cloud/offhost-restore-client.py
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/emit-recovery-alert.sh" /usr/local/libexec/printora-cloud/emit-recovery-alert.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/preview-backup-retention.sh" /usr/local/libexec/printora-cloud/preview-backup-retention.sh
 install -o root -g root -m 0755 "$ROOT_DIR/scripts/cloud/apply-postgresql-schema.sh" /usr/local/libexec/printora-cloud/apply-postgresql-schema.sh

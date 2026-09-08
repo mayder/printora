@@ -60,6 +60,7 @@ install -o root -g root -m 0755 "$release_dir/scripts/cloud/retain-postgresql-wa
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/retain-postgresql-wal.sh" /usr/local/libexec/printora-cloud/retain-postgresql-wal.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/recovery-readiness.py" /usr/local/libexec/printora-cloud/recovery-readiness.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/run-restore-test.sh" /usr/local/libexec/printora-cloud/run-restore-test.sh
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/offhost-restore-client.py" /usr/local/libexec/printora-cloud/offhost-restore-client.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/emit-recovery-alert.sh" /usr/local/libexec/printora-cloud/emit-recovery-alert.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/preview-backup-retention.sh" /usr/local/libexec/printora-cloud/preview-backup-retention.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/run-object-storage-tool.sh" /usr/local/libexec/printora-cloud/run-object-storage-tool.sh
@@ -110,7 +111,16 @@ if [[ ! -s "$replica_env" ]]; then
   mv -Tf "$replica_env.next" "$replica_env"
 fi
 
-"$SCRIPT_DIR/apply-postgresql-schema.sh" "$release_dir"
+if [[ -e /etc/printora-cloud/preserve-schema ]]; then
+  schema_source="$(readlink -f "$PRINTORA_BASE_PATH/current")"
+  diff -qr --exclude='._*' "$schema_source/backend/sql/postgresql" "$release_dir/backend/sql/postgresql" >/dev/null \
+    || fail "preservação de schema ativa; SQL diferente da release atual"
+  cmp -s "$schema_source/scripts/cloud/postgresql-runtime-permissions.sql" "$release_dir/scripts/cloud/postgresql-runtime-permissions.sql" \
+    || fail "preservação de schema ativa; permissões SQL diferentes"
+  echo "[printora-cloud] Schema idêntico preservado; reaplicação de DDL dispensada."
+else
+  "$SCRIPT_DIR/apply-postgresql-schema.sh" "$release_dir"
+fi
 
 current_slot="$(active_slot)"
 candidate_slot="$(other_slot "$current_slot")"

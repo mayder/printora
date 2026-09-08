@@ -26,6 +26,31 @@ def test_required_chain_crosses_log_boundary():
         "0000000100000000000000FF", "000000010000000100000000", "000000010000000100000001"]
 
 
+def test_physical_start_includes_wal_before_logical_dump_finishes(monkeypatch):
+    manifest = {"WAL-Ranges": [{"Timeline": 1, "Start-LSN": "7C/EC000028", "End-LSN": "7C/F1021F68"}]}
+    monkeypatch.setattr(custody, "restic", lambda *args: json.dumps(manifest))
+    first = custody.first_backup_wal({"id": "base"}, {"/tmp/base/backup_manifest": {}})
+    assert first == "000000010000007C000000EC"
+    names = custody.required_names(first, "000000010000007C000000F3")
+    assert "000000010000007C000000F1" in names
+    assert len(names) == 8
+
+
+@pytest.mark.parametrize("ranges", [[], None, [None], [{"Timeline": 0}],
+    [{"Timeline": 1, "Start-LSN": "bad", "End-LSN": "0/1"}],
+    [{"Timeline": 1, "Start-LSN": "0/2", "End-LSN": "0/1"}],
+    [{"Timeline": 1}, {"Timeline": 2}]])
+def test_invalid_physical_range_fails_closed(monkeypatch, ranges):
+    monkeypatch.setattr(custody, "restic", lambda *args: json.dumps({"WAL-Ranges": ranges}))
+    with pytest.raises(ValueError):
+        custody.first_backup_wal({"id": "base"}, {"/tmp/base/backup_manifest": {}})
+
+
+def test_physical_manifest_is_mandatory():
+    with pytest.raises(ValueError, match="physical_manifest_absent"):
+        custody.first_backup_wal({"id": "base"}, {})
+
+
 @pytest.mark.parametrize("first,last", [(wal(3), wal(1)), (wal(1), "000000020000000000000002"), (wal(256), wal(257))])
 def test_reject_unsupported_chain(first, last):
     with pytest.raises(ValueError):
@@ -101,7 +126,7 @@ def test_checksum_mismatch_blocks_before_delete(monkeypatch, tmp_path):
     restored.mkdir(parents=True)
     (restored / wal(1)).write_bytes(b"b")
     monkeypatch.setattr(retention, "SEGMENT_BYTES", 1)
-    monkeypatch.setattr(retention, "restic", lambda *args: "")
+    monkeypatch.setattr(retention, "restore_paths", lambda *args: None)
     with pytest.raises(ValueError, match="wal_checksum_mismatch"):
         retention.verify_batch([wal(1)], {wal(1): "snapshot"}, tmp_path, source)
     assert (source / wal(1)).read_bytes() == b"a"
@@ -172,3 +197,52 @@ def test_full_backup_requires_its_initial_wal_stream(monkeypatch):
         custody.full_backup()
     nodes["/tmp/backup/base/pg_wal.tar.zst"] = {}
     assert custody.full_backup()[0]["id"] == "full"
+
+
+def test_restore_uses_bounded_include_arguments_supported_by_installed_restic(monkeypatch):
+    calls = []
+    monkeypatch.setattr(custody, "restic", lambda *args: calls.append(args))
+    paths = [f"{custody.ARCHIVE}/0000000100000001{i:08X}" for i in range(256)]
+    paths.append(f"{custody.ARCHIVE}/000000010000000200000000")
+    custody.restore_paths("snapshot", "/isolated", paths)
+    assert [call.count("--include") for call in calls] == [128, 128, 1]
+    assert all("--verify" in call and "--sparse" in call and "--include-file" not in call for call in calls)
+    assert [call[i + 1] for call in calls for i, arg in enumerate(call) if arg == "--include"] == paths
+
+
+def test_restore_rejects_paths_outside_dedicated_archive():
+    with pytest.raises(ValueError, match="restore_wal_paths_invalid"):
+        custody.restore_paths("snapshot", "/isolated", ["/var/lib/postgresql/16/printora/pg_wal/" + wal(1)])
+
+
+def test_snapshot_index_is_read_once_and_filtered_without_mutating_cache(monkeypatch):
+    calls = []
+    items = [{"id": "full", "tags": ["full"], "time": "2026-09-08T00:00:00Z"},
+             {"id": "wal", "tags": ["wal"], "time": "2026-09-08T00:01:00Z"}]
+    monkeypatch.setattr(custody, "restic", lambda *args: calls.append(args) or json.dumps(items))
+    custody._snapshot_index.cache_clear()
+    try:
+        assert custody.snapshots("full")[0]["id"] == "full"
+        custody.snapshots("wal").pop()
+        assert custody.snapshots("wal")[0]["id"] == "wal"
+        assert len(calls) == 1
+    finally:
+        custody._snapshot_index.cache_clear()
+
+
+def test_restore_plan_pins_physical_start_and_target_before_download(monkeypatch):
+    monkeypatch.setattr(custody, "full_backup", lambda: ({"id": "full"}, {"last_archived_wal": wal(5)}, {}))
+    monkeypatch.setattr(custody, "first_backup_wal", lambda *args: wal(1))
+    calls = []
+    monkeypatch.setattr(custody, "chain", lambda *args: calls.append(args) or {wal(1): "full"})
+    sync = {"status": "passed", "checked_at": "2026-09-08T00:00:00Z", "uploaded_wal": wal(6)}
+    result = custody.restore_plan(sync, custody.epoch(sync["checked_at"]) + 1)
+    assert result["snapshot"] == "full" and result["target_wal"] == wal(6)
+    assert calls[0][:2] == (wal(1), wal(6))
+
+
+@pytest.mark.parametrize("age", [-1, 211])
+def test_restore_plan_rejects_stale_or_future_sync(age):
+    state = {"status": "passed", "checked_at": "2026-09-08T00:00:00Z", "uploaded_wal": wal(6)}
+    with pytest.raises(ValueError, match="restore_sync_state_invalid"):
+        custody.restore_plan(state, custody.epoch(state["checked_at"]) + age)

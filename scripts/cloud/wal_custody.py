@@ -5,6 +5,7 @@ import json
 import re
 import subprocess
 from datetime import datetime
+from functools import lru_cache
 
 ARCHIVE = "/var/lib/postgresql/16/printora-wal-archive"
 WAL = re.compile(r"^[0-9A-F]{24}$")
@@ -22,11 +23,27 @@ def restic(*args: str) -> str:
     return result.stdout
 
 
+@lru_cache(maxsize=1)
+def _snapshot_index() -> list[dict]:
+    # One immutable view per short-lived invocation; never persisted between runs.
+    return json.loads(restic("snapshots", "--json", "--host", "printora-cloud"))
+
+
 def snapshots(tag: str) -> list[dict]:
-    items = json.loads(restic("snapshots", "--json", "--tag", tag, "--host", "printora-cloud"))
+    items = [item for item in _snapshot_index() if tag in item.get("tags", [])]
     if not items:
         raise ValueError("external_snapshot_absent")
     return sorted(items, key=lambda item: epoch(item["time"]), reverse=True)
+
+
+def restore_paths(snapshot: str, target: str, paths: list[str]) -> None:
+    if not paths or any(path.rsplit("/", 1)[0] != ARCHIVE or not WAL.fullmatch(path.rsplit("/", 1)[1]) for path in paths):
+        raise ValueError("restore_wal_paths_invalid")
+    # Installed Restic supports repeated --include, not --include-file. Bound
+    # argument size independently of archive age and the OS ARG_MAX limit.
+    for offset in range(0, len(paths), 128):
+        includes = [arg for path in paths[offset:offset + 128] for arg in ("--include", path)]
+        restic("restore", snapshot, "--target", target, "--sparse", "--verify", *includes)
 
 
 def inventory(snapshot: str) -> dict[str, dict]:
@@ -70,6 +87,41 @@ def full_backup() -> tuple[dict, dict, dict]:
     if not any(path.endswith(("/base/pg_wal.tar", "/base/pg_wal.tar.zst")) for path in nodes):
         raise ValueError("full_backup_wal_stream_absent")
     return snapshot, manifest, nodes
+
+
+def first_backup_wal(snapshot: dict, nodes: dict) -> str:
+    paths = [path for path in nodes if path.endswith("/base/backup_manifest")]
+    if len(paths) != 1:
+        raise ValueError("physical_manifest_absent_or_ambiguous")
+    document = json.loads(restic("dump", snapshot["id"], paths[0]))
+    ranges = document.get("WAL-Ranges", []) if isinstance(document, dict) else []
+    if not isinstance(ranges, list) or len(ranges) != 1 or not isinstance(ranges[0], dict):
+        raise ValueError("physical_wal_ranges_unsupported")
+    item = ranges[0]
+    timeline = item.get("Timeline")
+    if type(timeline) is not int or not 0 < timeline <= 0xFFFFFFFF:
+        raise ValueError("physical_timeline_invalid")
+    positions = []
+    for key in ("Start-LSN", "End-LSN"):
+        value = item.get(key, "")
+        if not isinstance(value, str) or not re.fullmatch(r"[0-9A-Fa-f]{1,8}/[0-9A-Fa-f]{1,8}", value):
+            raise ValueError("physical_lsn_invalid")
+        high, low = value.split("/")
+        positions.append((int(high, 16) << 32) + int(low, 16))
+    if positions[0] > positions[1]:
+        raise ValueError("physical_lsn_range_invalid")
+    number = positions[0] // SEGMENT_BYTES
+    return f"{timeline:08X}{number // 256:08X}{number % 256:08X}"
+
+
+def restore_plan(sync: dict, now: float) -> dict:
+    if sync.get("status") != "passed" or not 0 <= now - epoch(sync["checked_at"]) <= 210:
+        raise ValueError("restore_sync_state_invalid")
+    full, manifest, nodes = full_backup()
+    first = first_backup_wal(full, nodes)
+    files = chain(first, sync["uploaded_wal"], full, nodes)
+    return {"snapshot": full["id"], "manifest": manifest, "first_wal": first,
+            "target_wal": sync["uploaded_wal"], "files": files}
 
 
 def chain(first: str, last: str, full_snapshot: dict, full_nodes: dict) -> dict[str, str]:

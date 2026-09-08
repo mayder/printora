@@ -3128,7 +3128,7 @@ disco antes da exclusão; cada resultado é registrado em
 - `archive_timeout=120s` e sincronização a cada 60 segundos permanecem intactos;
   nenhuma redução de RPO foi autorizada.
 - Restore consulta snapshots históricos imutáveis e reconstrói a cadeia desde
-  o WAL final do backup físico, cujo stream inclui o WAL inicial. Não depende
+  o Start-LSN de `base/backup_manifest`, emitido pelo PostgreSQL. Não depende
   de todos os segmentos ainda constarem no snapshot mais recente.
 
 Validação: testes em `backend/tests/test_wal_retention.py` e
@@ -3151,6 +3151,9 @@ Durante incidentes com proibição de remover releases, o marcador operacional
 `/etc/printora-cloud/preserve-releases` impede retenção no preflight e após a
 troca de slot; diretório de release incompleto também é preservado e bloqueia
 reuso do mesmo SHA. O marcador permanece até liberação explícita do owner.
+O marcador `preserve-schema` dispensa reaplicar DDL somente quando os SQL e
+grants são idênticos aos da release atual; qualquer diferença bloqueia o deploy.
+Isso preserva também triggers que o fluxo normal recriaria durante a reaplicação.
 
 Backup físico e restore também executam `capacity_guard.py` antes de criar
 artefatos temporários e recusam menos de 10% livre. A retenção continua sendo
@@ -3167,5 +3170,59 @@ O backup completo fixa o snapshot WAL externo como pai do Restic para evitar
 reler todo o arquivo por causa dos caminhos temporários exclusivos. O serviço
 limita leitura e escrita no dispositivo a 4 MB/s, além dos limites de stream.
 Não usar `--force` nem retirar o limite de I/O no servidor compartilhado.
-O restore isolado limita leitura e escrita a 10 MB/s, preservando o RTO de
+O restore isolado limita leitura e escrita a 4 MB/s, preservando o RTO de
 900 segundos e evitando que a extração do cluster concorra sem limite no disco.
+Seu cache Restic é compartilhado com as demais operações para evitar recarregar
+milhares de metadados em cada teste; o destino de restauração permanece isolado.
+O `last_archived_wal` do manifesto da aplicação pode avançar durante o dump
+lógico e não pode ser usado como início da cadeia física. A retenção e o
+restore usam o mesmo início extraído do manifesto nativo do PostgreSQL.
+O Restic instalado recebe `--include` repetido em grupos de até 128 caminhos;
+não usar `--include-file` nem montar uma linha com todo o histórico de WAL.
+
+O plano de restore fixa snapshot completo e WAL alvo antes de baixar arquivos.
+O catálogo de snapshots é lido uma vez por processo, filtrado em memória, e não
+é persistido entre execuções. Retenção e restore usam I/O idle e limite de
+4 MB/s, mantendo o sync fora do trecho de verificação e o RTO de 900 segundos.
+
+### Restore periódico fora do disco compartilhado
+
+No host `187.45.180.181`, o teste local de extração física acionou o guard de
+latência mesmo com I/O limitado. O executor periódico passa a usar o host de
+custódia `186.196.9.58`, mantendo RTO máximo de 900 s e todos os checks físicos,
+WAL, objetos, configuração e busca. Não é restauração sobre o banco produtivo.
+
+- Provisionar a imagem de `packaging/recovery/Dockerfile` com o backend validado;
+  os dois FROM são fixados por digest. O build precisa de rede; a execução usa
+  `--network=none`, raiz somente leitura e PostgreSQL acessível apenas por socket.
+- Instalar `scripts/cloud/offhost-restore-runner.py` como root em
+  `/usr/local/sbin/printora-offhost-restore`. O diretório privado
+  `/var/lib/printora-cloud-offhost` guarda `current-image` (ID imutável Docker),
+  `backend-fingerprint`, cache, último resultado e logs privados por 180 dias.
+  O fingerprint é calculado por `backend_fingerprint` do cliente sobre `backend`.
+  Bytecode e metadados AppleDouble não compõem a identidade do código.
+- Usar usuário `printora-restore`, chave dedicada gerada no host produtivo,
+  `from="187.45.180.181",restrict,command="sudo -n /usr/local/sbin/printora-offhost-restore verify"`
+  na chave autorizada e sudo limitado exatamente a esse comando. A allowlist SSH
+  deve permitir exclusivamente esse usuário/origem adicional. Validar `sshd -t`
+  antes de reload, preservando os acessos existentes.
+- Configurar `/etc/printora-cloud/restore-target.json` root:root 0600 com `host`,
+  `port`, `user`, `key` e `known_hosts`; fixar a chave do servidor previamente
+  autenticado. Nenhuma chave administrativa do operador é copiada para produção.
+- O cliente envia a chave Restic por stdin do SSH, sem log. No destino ela existe
+  somente em arquivo 0600 temporário sob `/run`, montado somente leitura e
+  removido ao terminar. O repositório `/srv/printora-backup/repository` é montado
+  **somente leitura**. O wrapper permite apenas snapshots/ls/dump/restore;
+  `--no-lock` evita escrita de locks nesse mount. Ausência ou divergência de
+  qualquer arquivo continua falhando fechado; não há prune/forget/unlock.
+- A imagem deve ser reprovisionada antes de uma mudança do backend/dependências.
+  Fingerprint divergente bloqueia o teste; nunca alterar apenas o fingerprint
+  para aceitar imagem antiga. Manter o ID anterior para rollback operacional.
+- Executar `systemctl start printora-cloud-restore-test.service`, conferir
+  `restore-test.json`, log privado e `last-restore.json` no destino. Falha substitui
+  o estado anterior por `failed`; sucesso antigo não mascara falha recente.
+- Rollback: suspender o timer de teste, restaurar imagem/configuração compatível
+  e retestar. Não remover a configuração para voltar silenciosamente ao disco
+  compartilhado. A retenção falha fechada enquanto o teste não estiver válido.
+  Somente scratch UUID criado pelo teste e seus logs expirados são removidos;
+  backups, releases de aplicação e o `pg_wal` produtivo são preservados.

@@ -7,6 +7,12 @@ state_dir="${PRINTORA_RECOVERY_STATE_DIR:-/var/lib/printora-cloud/recovery}"
 state_file="$state_dir/restore-test.json"
 private_log="$state_dir/restore-test-private.log"
 restore_script=/usr/local/libexec/printora-cloud/restore-postgresql-backup-test.sh
+if [[ -s /etc/printora-cloud/restore-target.json ]]; then
+  set -a
+  source "${PRINTORA_BASE_PATH:-/var/www/print3dmaker.xyz}/shared/backup-target.conf"
+  set +a
+  restore_script=/usr/local/libexec/printora-cloud/offhost-restore-client.py
+fi
 started_epoch="$(date +%s)"
 install -d -o root -g root -m 0700 "$state_dir"
 [[ -x "$restore_script" ]] || { echo "executor de restore ausente" >&2; exit 1; }
@@ -19,14 +25,10 @@ chmod 0600 "$private_log"
 finished_epoch="$(date +%s)"
 duration="$((finished_epoch - started_epoch))"
 
-if [[ "$result" -ne 0 ]]; then
-  echo "restore isolado falhou; diagnóstico preservado em log privado" >&2
-  exit "$result"
-fi
-[[ "$duration" -le 900 ]] || { echo "restore excedeu o RTO" >&2; exit 1; }
+[[ "$duration" -le 900 ]] || result=124
 
 state_next="$state_file.next"
-python3 - "$state_next" "$duration" <<'PY'
+python3 - "$state_next" "$duration" "$result" <<'PY'
 import json
 import pathlib
 import sys
@@ -36,7 +38,7 @@ payload = {
     "completed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     "duration_seconds": int(sys.argv[2]),
     "isolated": True,
-    "status": "passed",
+    "status": "passed" if sys.argv[3] == "0" else "failed",
     "validation": [
         "configuration_checksums",
         "foreign_keys",
@@ -51,4 +53,8 @@ path.write_text(json.dumps(payload, sort_keys=True) + "\n")
 path.chmod(0o600)
 PY
 mv -f "$state_next" "$state_file"
+if [[ "$result" -ne 0 ]]; then
+  echo "restore isolado falhou; diagnóstico preservado em log privado" >&2
+  exit "$result"
+fi
 echo "status=passed restore=isolated rto_seconds=$duration"

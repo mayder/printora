@@ -14,7 +14,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from wal_custody import ARCHIVE, SEGMENT_BYTES, WAL, chain, epoch, full_backup, inventory, restic, snapshots, wal_nodes
+from wal_custody import ARCHIVE, SEGMENT_BYTES, WAL, chain, epoch, first_backup_wal, full_backup, inventory, restore_paths, snapshots, wal_nodes
 
 STATE = Path("/var/lib/printora-cloud/recovery")
 LOCK = Path("/var/lib/printora-cloud/recovery/wal-sync.lock")
@@ -71,9 +71,7 @@ def digest(path: Path) -> str:
 def verify_batch(names: list[str], custody: dict[str, str], target: Path, root: Path) -> dict:
     proofs = {}
     for snapshot in sorted({custody[name] for name in names}):
-        includes = target / "includes.txt"
-        includes.write_text("\n".join(f"{ARCHIVE}/{name}" for name in names if custody[name] == snapshot) + "\n")
-        restic("restore", snapshot, "--target", str(target), "--sparse", "--verify", "--include-file", str(includes))
+        restore_paths(snapshot, str(target), [f"{ARCHIVE}/{name}" for name in names if custody[name] == snapshot])
     for name in names:
         restored = target / ARCHIVE.lstrip("/") / name
         if not restored.is_file() or restored.stat().st_size != SEGMENT_BYTES:
@@ -152,7 +150,7 @@ def run(apply: bool) -> None:
     nodes = wal_nodes(inventory(latest["id"]))
     if sync["uploaded_wal"] not in nodes:
         raise ValueError("sync_snapshot_mismatch")
-    custody = chain(manifest["last_archived_wal"], sync["uploaded_wal"], full, full_nodes)
+    custody = chain(first_backup_wal(full, full_nodes), sync["uploaded_wal"], full, full_nodes)
     # Older than the base still requires individually verified external custody.
     custody.update({name: latest["id"] for name in nodes})
     usage = shutil.disk_usage(root)

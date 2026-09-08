@@ -126,7 +126,64 @@ cancelado antes de publicar. Uma nova execução operacional usa 4 MiB/s físico
 O dry-run desse pai no host reconheceu 1.403 arquivos inalterados, 23.303.557.804
 bytes, zero blobs novos e terminou em 2,61 s, sem criar snapshot externo.
 
+O backup novo foi confirmado em `2026-09-08T13:52:58Z`, duração de 846 s,
+2.003.336.215 bytes de banco e 56 versões de objetos. Snapshot:
+`2a455238d263300307f1cbcf10453a4d07e22ecca97e8944bf0bad67d5d80263`.
+O manifesto nativo declara Start-LSN `7C/EC000028` e End-LSN `7C/F1021F68`;
+o manifesto da aplicação registra WAL final `000000010000007C000000F2`,
+depois do dump lógico. O seletor antigo iniciava tarde demais e podia omitir
+a continuação do segmento F1. Retenção e restore passaram a usar o Start-LSN
+nativo. O teste antigo foi interrompido antes do aceite e reiniciado com esse
+seletor e cache Restic compartilhado; o pipeline `34234356408` foi cancelado
+antes da publicação para incorporar a correção.
+
+O reteste identificou que o Restic instalado não aceita `--include-file`.
+O transporte dos WAL usa agora `--include` repetido, em grupos máximos de 128
+caminhos, tanto na retenção quanto no restore. Isso preserva `--verify` e
+`--sparse`, sem atualizar o binário nem exceder ARG_MAX. O caso de 257 caminhos
+e a recusa de caminhos fora do arquivo dedicado têm regressão automatizada.
+Foi confirmado que a release ativa antes da publicação é `e6173bb`, igual à
+base de código deste incidente. Não há mudanças de aplicação ou SQL. O marcador
+`preserve-schema` evita reaplicar DDL idêntico e recriar triggers; SQL ou grants
+diferentes bloqueiam o fluxo, preservando os objetos durante a intervenção.
+
 Rollback: suspender exclusivamente o timer de retenção; manter sync e custódia.
 Recompor cópia local pelo snapshot e checksum auditados, se necessário; nunca
 restaurar banco antigo sobre escritas novas. O host único permanece sem HA
 física, e inconsistência externa bloqueia retenção, exigindo ação operacional.
+
+A extração com limite de 10 MB/s acionou o guard de latência e foi interrompida.
+O limite final de restore e retenção é 4 MB/s com prioridade idle. O restore
+agora fixa o snapshot completo e o alvo WAL antes do download e consulta o
+catálogo uma única vez por processo, eliminando trabalho repetido sem ampliar
+o RTO de 900 segundos. O destino continua sendo o disco, em cluster isolado.
+
+O reteste com 4 MB/s também acionou timeout HTTP de 5 s (TCP/TLS concluídos,
+sem primeiro byte), revertido ao parar exclusivamente o restore de teste.
+Foi provisionado executor de recuperação no disco do host externo, com 705 GiB
+livres na inspeção, mantendo rede desativada durante o teste e custódia montada
+somente leitura. A imagem usa PostgreSQL 16 e Restic fixados por digest; chave
+SSH dedicada permite somente o executor. Essa preparação de infraestrutura de
+recuperação não é publicação da aplicação. O fluxo oficial continua condicionado
+a um restore real bem-sucedido e aos demais gates. Evidência final pendente.
+
+O primeiro teste de container detectou permissão de travessia na raiz do mount
+PostgreSQL temporário; corrigida para 0755, mantendo o cluster próprio em 0700.
+A limitação cgroup de I/O exige o disco físico `/dev/sda`, não a partição; essa
+configuração foi validada em container vazio antes de retestar. Metadados
+AppleDouble do deploy antigo são ignorados no fingerprint e na comparação de
+SQL; todos os arquivos efetivos do backend foram comparados e são idênticos.
+
+### Restore externo aprovado
+
+Em `2026-09-08T15:15:21Z`, o teste físico em disco terminou com `status=passed`
+em **210 s**, abaixo do RTO de 900 s. Imagem imutável:
+`sha256:e2f9832b50ebe872eaa226765071f8b1e28a15c3c3544b93a9028b241ed10a8b`.
+Reproduziu 43 segmentos desde `000000010000007C000000EC` até
+`000000010000007D00000016`, a partir do backup completo `2a455238…`.
+Banco isolado promovido (`in_recovery=false`), 176 tabelas, 99 versões de schema,
+zero FKs inválidas; 12 configurações e 56 versões de objetos verificadas por
+checksum; 30 referências canônicas reconciliadas; 364 documentos de busca
+reconstruídos. Container sem rede, custódia somente leitura, scratch removido.
+Evidência privada em `offhost-success-custody.log` e estado do wrapper produtivo
+em `offhost-success-production.log`, na pasta local deste incidente.

@@ -99,3 +99,15 @@ Owner: operations. `printora-cloud-wal-retention.service` e
 com quotas, alerta existente, evidência de 180 dias e rollback pela suspensão
 do timer. Nenhuma autoridade nova de dados; PostgreSQL e Restic permanecem
 canônicos. O lock persistente é compartilhado com a sincronização WAL.
+
+### Executor externo de restauração (2026-09-08)
+
+Owner: SRE. `offhost-restore-client.py` integra a unit semanal ao executor SSH
+restrito `offhost-restore-runner.py` no host de custódia. A imagem descrita em
+`packaging/recovery/Dockerfile` deve corresponder ao fingerprint do backend;
+novas versões são provisionadas antes de alterar a aplicação. O container não
+publica portas, não tem rede e monta a custódia somente leitura. O limite de I/O
+é 16 MiB/s no dispositivo físico `/dev/sda` do host externo, com 2 CPUs e 8 GiB.
+Logs root-only expiram em 180 dias; scratch UUID e chave temporária são limpos
+após cada execução. Remoção do executor exige destino substituto validado;
+rollback não retorna silenciosamente o restore ao disco compartilhado.

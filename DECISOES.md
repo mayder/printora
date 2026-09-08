@@ -2829,3 +2829,26 @@ seleção automática e provocavam releitura integral do arquivo local. O limite
 de I/O de 4 MB/s no serviço protege o host compartilhado; os limites normais
 de stream permanecem 1 MiB/s físico e 256 KiB/s lógico. O teste de restore
 continua sendo gate obrigatório, sem substituir conteúdo por simples inventário.
+O início da cadeia é derivado do `WAL-Ranges.Start-LSN` do manifesto nativo
+PostgreSQL, não do WAL final coletado depois do dump lógico. Isso inclui a
+continuação de WAL parcial existente no stream do basebackup e evita lacunas
+entre a conclusão física e a lógica. Manifesto ausente ou timeline ambígua
+bloqueia retenção e restore.
+
+O catálogo Restic é fixado em memória somente durante cada invocação, sem cache
+lógico persistente. O restore baixa IDs imutáveis já selecionados para reduzir
+consultas repetidas e preservar o RTO com I/O de 4 MB/s e prioridade idle. O
+marcador operacional preserve-schema dispensa DDL apenas quando SQL e grants
+são byte a byte idênticos aos da release ativa; divergência bloqueia publicação.
+
+### 2026-09-08 — Restore físico no host de custódia
+
+O teste no disco compartilhado foi interrompido pelo guard de latência mesmo
+com I/O idle e limite de 4 MB/s. Executar o mesmo restore/checks em container
+isolado no disco do host de custódia, com repositório somente leitura, chave
+Restic temporária em `/run`, SSH dedicado e fingerprint do backend. Não medir
+RTO usando RAM nem dispensar replay real. O RTO de 900 s e a periodicidade
+permanecem. Falha de teste invalida o estado de sucesso anterior. A atualização
+da imagem de recuperação é um pré-requisito operacional quando o backend muda;
+logs privados têm retenção de 180 dias. Rollback mantém a retenção bloqueada até
+revalidar imagem compatível; não retorna automaticamente ao disco produtivo.

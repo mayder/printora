@@ -213,6 +213,9 @@ def test_cloud_journal_and_release_retention_are_installed() -> None:
     assert "printora-cloud-retain-releases" in bootstrap
     assert "printora-cloud-retain-releases --apply" in deploy
     assert "retention_status=" in deploy
+    assert "/etc/printora-cloud/preserve-schema" in deploy
+    assert "diff -qr --exclude='._*'" in deploy
+    assert 'cmp -s "$schema_source/scripts/cloud/postgresql-runtime-permissions.sql"' in deploy
     assert "printora-cloud-retain-releases --apply" in sudoers
 
 
@@ -236,8 +239,8 @@ def test_cloud_backup_limits_physical_and_logical_streams() -> None:
     assert "IOReadBandwidthMax=/var/lib/postgresql 4M" in service
     assert "IOWriteBandwidthMax=/var/lib/postgresql 4M" in service
     restore_service = (ROOT_DIR / "packaging/systemd/printora-cloud-restore-test.service").read_text()
-    assert "IOReadBandwidthMax=/var/lib/postgresql 10M" in restore_service
-    assert "IOWriteBandwidthMax=/var/lib/postgresql 10M" in restore_service
+    assert "IOReadBandwidthMax=/var/lib/postgresql 4M" in restore_service
+    assert "IOWriteBandwidthMax=/var/lib/postgresql 4M" in restore_service
     assert "ConditionPathExists=/etc/printora-cloud/allow-onhost-full-backup" in service
 
 
@@ -357,7 +360,7 @@ def test_cloud_backup_has_external_restore_test_without_automatic_deletion() -> 
     assert "restic backup" in backup
     assert "configuration_sha256" in backup
     assert "PRINTORA_RECOVERY_CUSTODY_ID" in backup
-    assert "restic restore latest" in restore
+    assert 'restic restore "$full_snapshot"' in restore
     assert "configuration_checksums" in restore
     assert "aplicação não foi iniciada" in restore
     assert "forget" not in backup
@@ -463,10 +466,9 @@ def test_periodic_restore_replays_external_wal_with_resource_limits() -> None:
     deploy = (ROOT_DIR / "scripts/cloud/deploy-blue-green.sh").read_text()
     audit = (ROOT_DIR / "scripts/cloud/audit-final-architecture.sh").read_text()
 
-    assert "from wal_custody import ARCHIVE, chain, full_backup" in restore
-    assert 'chain(manifest["last_archived_wal"], sys.argv[2], full, nodes)' in restore
-    assert '--include-file "$includes"' in restore
-    assert 'restic restore "$snapshot"' in restore
+    assert "from wal_custody import restore_plan" in restore
+    assert "plan = restore_plan(sync, time.time())" in restore
+    assert 'restore_paths(snapshot, sys.argv[3], paths)' in restore
     assert "pg_last_wal_replay_lsn" in restore
     assert "recovery_target_lsn = '$recovery_target_lsn'" in restore
     assert "recovery_target_action = 'promote'" in restore
