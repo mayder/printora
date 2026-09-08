@@ -3232,3 +3232,9 @@ executar em `agent`: `go test ./...` e
 `go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...`. O guard de build assinado
 exige essa mesma versão. Atualizar toolchain não substitui nem re-assina os
 binários de agente já publicados; uma nova distribuição segue seu fluxo próprio.
+
+O diretório `/etc/printora-cloud` deve continuar atravessável pelo usuário
+`deploy` (0755), pois o fluxo oficial consulta os marcadores `preserve-releases`
+e `preserve-schema`. Proteger os segredos individualmente com 0600; não tornar
+o diretório inteiro 0700 ao provisionar uma chave. Validar a visibilidade dos
+marcadores com `runuser -u deploy -- test -e /etc/printora-cloud/preserve-releases`.

@@ -605,7 +605,7 @@ Estado atual:
 Correção transversal de bug crítico, sem reabrir pacote consolidado.
 - [x] Recuperar espaço: 30.553 WAL drenados, 511,8 GB disponíveis e margem de 72 h.
 - [x] Validar PostgreSQL, Printora, 51 clientes Inspect e PDF.
-- [ ] Instalar/retestar retenção local, backup/restore e monitoramento.
-- [ ] Revisar, validar, commitar/push em cloud e publicar pelo fluxo oficial.
+- [x] Instalar/retestar retenção local, backup/restore e monitoramento: remoção automática auditada e restore em 206 s.
+- [x] Revisar, validar, commitar/push em cloud e publicar pelo fluxo oficial: `3da7f94`, workflow `34246366459` aprovado.
 
 Rastreabilidade: `BUGS.md`, DEC-20260908-01 e relatório do incidente em `docs/audits`.

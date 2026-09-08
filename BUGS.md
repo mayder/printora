@@ -2,8 +2,8 @@
 
 ## Bugs Conhecidos
 
-O incidente de capacidade WAL tem recuperação emergencial comprovada e
-aceite operacional da correção permanente em andamento, registrado abaixo.
+O incidente de capacidade WAL foi corrigido, publicado e validado em produção
+em 2026-09-08, com evidência de exclusão automática e restore real abaixo.
 
 ## Bugs Corrigidos
 
@@ -1673,7 +1673,7 @@ Correção:
 
 ### Incidente crítico — WAL local sem retenção esgota volume compartilhado
 
-Estado: recuperação emergencial validada em 2026-09-08; correção permanente em validação/publicação.
+Estado: corrigido, publicado e retestado em produção em 2026-09-08; commit produtivo `3da7f94`.
 Evidência: `docs/audits/WAL_CAPACITY_INCIDENT_2026-09-08.md`.
 
 Reprodução confirmada: `/dev/sda4` com zero bytes disponíveis; arquivo de WAL
@@ -1686,7 +1686,7 @@ retenção após custódia externa. O estado local também continha backup compl
 de 27/07 e restore de 24/07, ambos vencidos. O status da unit não comprovava
 que o banco aceitava conexões.
 
-Correção em validação: retenção local com margem mínima de 72 horas, checksum
+Correção instalada e retestada: retenção local com margem mínima de 72 horas, checksum
 externo, lock compartilhado, lotes auditados, dry-run, limites por idade/capacidade
 e bloqueio por inconsistência. Resolver histórico Restic no restore evita perda
 de acesso aos segmentos que não constam mais no último snapshot.
@@ -1694,3 +1694,12 @@ de acesso aos segmentos que não constam mais no último snapshot.
 Fechamento exige espaço livre >=15%, banco fora de recovery, checkpoints,
 Printora health/ready, 51 clientes Inspect, geração/abertura de PDF, ausência de
 novos erros de espaço, testes, check, commit/push e publicação efetiva.
+
+
+Aceite final do incidente: 505.866.477.568 bytes disponíveis (52,03% do volume;
+`df` 46% ocupado), PostgreSQL fora de recovery e checkpoints avançando, zero
+novos erros de espaço detectados, Printora e 51 clientes Inspect validados,
+PDFs gerados/abertos. Restore pela unit instalada passou em 206 s. O timer de
+retenção removeu o WAL recomposto de teste após confirmação de custódia, com
+lock, checksum e auditoria; duas recusas anteriores preservaram o arquivo e a
+retentativa automática passou. Pipeline `34246366459`, tentativa 2, aprovado.

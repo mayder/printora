@@ -1,5 +1,8 @@
 # Incidente de capacidade WAL — 8 de setembro de 2026
 
+**Estado: corrigido, publicado e validado em produção.** Código ativo `3da7f94`;
+aceite operacional final em 2026-09-08, conforme evidências abaixo.
+
 ## Recuperação emergencial comprovada
 
 Host compartilhado: `187.45.180.181`; cluster dedicado `16/printora`, porta
@@ -197,3 +200,92 @@ corrigida pontualmente para 1.25.13, mantendo o scanner. Fontes do backend,
 objetos, schema, artefatos de agente e imagem de restore não mudaram.
 Referências oficiais: https://pkg.go.dev/vuln/GO-2026-6218 e
 https://pkg.go.dev/vuln/GO-2026-6090. O pipeline que falhou não publicou aplicação.
+
+## Publicação e validação dos executores instalados
+
+Código publicado: `3da7f949c00c58e4f2423ecd0dbe572dad926c4a`, branch `cloud`.
+Workflow oficial: https://github.com/mayder/printora/actions/runs/34246366459,
+tentativa 2, concluído com sucesso. Na tentativa 1, a cobertura passou, mas o
+GitHub respondeu 403 ao finalizar seu artefato; repetiu-se o job falho e seus
+dependentes no mesmo SHA, sem dispensar gates. O scanner Go corrigido terminou
+sem vulnerabilidades encontradas. `./check.sh` completo passou, incluindo 821
+testes backend, 70 frontend, 36 E2E e mutação de 70,34%; 76 testes focados passaram.
+
+A release ativa e os hashes de nove executores instalados foram comparados com
+o commit. Timers de sincronização, retenção e restore habilitados. O teste de
+alerta confirmou registro no journal; nenhum webhook externo está configurado.
+A unit definitiva de restore passou às `2026-09-08T16:09:32Z` em **206 s totais**
+(195 s no disco externo): replay de 70 WAL, de `000000010000007C000000EC` até
+`000000010000007D00000031`; todas as validações físicas, configuração, objetos,
+FKs, schema e busca aprovadas. A imagem/runner externos correspondem aos scripts
+versionados, com hashes preservados na evidência.
+
+Após a publicação, 51/51 endpoints de login Inspect retornaram 200; 51 workers
+ativos e 51 links de releases válidos. PDFs regenerados, baixados com checksum
+idêntico e renderizados/abertos: IRB 124573, 78.971 bytes, 3 páginas, SHA-256
+`fde3efd72f17e71bb19d7740029d97547d0d35c52e8be9c87cbce071ea09d2b3`;
+ItaMinas 2258, 75.151 bytes, 2 páginas, SHA-256
+`27ae094f37bc1646a7b31d3bf05eb4116a9f7b469156dc1a1afd8104e51cfc40`.
+Essa validação dos 51 clientes é pública/operacional; não representa navegação
+autenticada de todas as telas de cada tenant. Avisos libpng sobre perfil sRGB
+não impediram geração, download ou renderização dos PDFs.
+
+A preparação da chave dedicada havia restringido o diretório de controles a
+0700; a conferência final restaurou `/etc/printora-cloud` a 0755, mantendo chaves
+e senhas 0600. Ambos os preflights anteriores registraram `candidates=0`, duas
+releases protegidas e tamanho inalterado: **nenhuma release foi removida**.
+Os marcadores de preservação foram novamente conferidos como usuário `deploy`.
+
+
+## Prova de retenção e estado final
+
+O WAL `000000010000000000000001` foi recomposto da custódia `f11846ed…` somente
+para validar o mecanismo, com tamanho 16 MiB e SHA-256
+`77508c586d664f9fad823bcee42a0a6175da5e733b8deae9634b905826fc4645`.
+Duas tentativas recusaram a exclusão com o motivo sanitizado agregado do guard;
+ambas preservaram o arquivo. A execução seguinte, disparada pelo timer instalado,
+registrou `flock(LOCK_EX|LOCK_NB)=0`, intent fsync, unlink exclusivamente do WAL e
+`wal_retention_completed removed=1`, terminando com status 0 às **16:20:41 UTC**.
+O snapshot de confirmação da exclusão foi
+`1981671c8e38319919ec13b5081f5e6d7591b52beb71f8762682706615ea8612`.
+Não foi forçada remoção nem dispensada a verificação. A instrumentação somente
+observou syscalls do processo existente. Scratch de verificação foi limpo pelo
+próprio executor. O WAL recomposto já fazia parte dos 30.553 originais: esse
+ciclo adicional de teste tem ganho líquido zero e não aumenta a contagem única.
+
+A auditoria persistente registra intenção e conclusão em
+`/var/lib/printora-cloud/recovery/wal-retention/*.jsonl`; inventários originais,
+cutoff e comprovantes continuam em `recovery/incident-20260908`. Cópias locais
+privadas: `.artifacts/wal-incident-20260908`, incluindo `retention-proof-final.log`,
+`retention-lock-trace.log`, `installed-proof.log`, `installed-restore-final.log`
+e `final-production-state.log`.
+
+Leitura final às **16:22:21 UTC**:
+
+| Medida | Resultado |
+|---|---|
+| Volume | 972.185.931.776 bytes; `df` 46% ocupado |
+| Disponível | **505.866.477.568 bytes; 52,03% livres**, acima dos 15% exigidos |
+| WAL completos locais | 1.467; 24.612.175.872 bytes |
+| Primeiro WAL preservado por horário | 2026-09-05 12:12:26.746751 UTC |
+| Último WAL local e confirmado externamente | `000000010000007D0000003A` |
+| Último check de sincronização | 16:22:01 UTC; status passed, duração 51 s |
+| PostgreSQL | pg_isready aceitando; pg_is_in_recovery=false; archive failures=0 |
+| Checkpoints | timed avançou de 12 para 13 após a publicação; requested=4 |
+| Printora | health, ready e catálogo HTTP 200; serviços e timers ativos |
+| Recuperação | monitor passed, sem warnings/failures; backup e restore recentes |
+| Erros de espaço | zero novos no journal desde 12:36 UTC e nos logs recentes amostrados |
+
+A diferença entre o espaço logo após a drenagem e o final inclui novos WAL,
+preparação de release e artefatos temporários do trabalho. Nenhum dado de usuário,
+release ou backup externo foi removido para obter essa folga.
+
+Riscos residuais: o host produtivo continua compartilhado e sem HA física; o
+canal de alertas está no journal, sem webhook configurado. Disputa de lock ou
+custódia/backup/restore indisponível adia a limpeza e exige acompanhamento da
+capacidade. O check de integridade cobriu os snapshots necessários e houve
+restore real; não se afirma um check global de todo o histórico Restic. Mudança
+futura de backend exige preparar a imagem de recuperação compatível. Rollback:
+suspender somente o timer de retenção, mantendo archive/sync/custódia; recompor
+WAL pelo snapshot e checksum auditados se necessário. Não restaurar banco antigo
+sobre escritas novas nem remover backups externos.
