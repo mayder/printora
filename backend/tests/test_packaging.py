@@ -231,6 +231,13 @@ def test_cloud_backup_limits_physical_and_logical_streams() -> None:
     assert "PRINTORA_BASEBACKUP_MAX_RATE_KIB=1024" in service
     assert "PRINTORA_PG_DUMP_MAX_BYTES_PER_SECOND=262144" in service
     assert "IOSchedulingClass=idle" in service
+    assert 'snapshots("printora-cloud-wal")[0]["id"]' in backup
+    assert '--parent "$wal_parent"' in backup
+    assert "IOReadBandwidthMax=/var/lib/postgresql 4M" in service
+    assert "IOWriteBandwidthMax=/var/lib/postgresql 4M" in service
+    restore_service = (ROOT_DIR / "packaging/systemd/printora-cloud-restore-test.service").read_text()
+    assert "IOReadBandwidthMax=/var/lib/postgresql 10M" in restore_service
+    assert "IOWriteBandwidthMax=/var/lib/postgresql 10M" in restore_service
     assert "ConditionPathExists=/etc/printora-cloud/allow-onhost-full-backup" in service
 
 

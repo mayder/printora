@@ -115,6 +115,17 @@ hífens em barras, rejeitadas pelo contrato sanitizado do emissor. O argumento
 passa a usar `%i`, preservando o evento. O destino configurado no host é journal;
 não há webhook externo configurado, portanto não se afirma entrega externa.
 
+A segunda tentativa foi interrompida pelo guard de health durante a leitura
+final do Restic: os caminhos temporários exclusivos impediam selecionar um
+snapshot pai, provocando releitura de todos os WAL locais. A correção fixa como
+pai o snapshot WAL externo mais recente e adiciona limite de I/O de 4 MB/s ao
+serviço de backup. O conteúdo novo continua sendo lido e autenticado; arquivos
+inalterados reutilizam os blobs já custodiados. O pipeline `34232247844` foi
+cancelado antes de publicar. Uma nova execução operacional usa 4 MiB/s físico,
+1 MiB/s lógico e limite de I/O de 4 MB/s, mantendo a interrupção por health.
+O dry-run desse pai no host reconheceu 1.403 arquivos inalterados, 23.303.557.804
+bytes, zero blobs novos e terminou em 2,61 s, sem criar snapshot externo.
+
 Rollback: suspender exclusivamente o timer de retenção; manter sync e custódia.
 Recompor cópia local pelo snapshot e checksum auditados, se necessário; nunca
 restaurar banco antigo sobre escritas novas. O host único permanece sem HA

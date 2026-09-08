@@ -147,8 +147,13 @@ with open(sys.argv[1], "w", encoding="utf-8") as output:
     output.write("\n")
 PY
 
+# A unique temporary base path prevents Restic's default parent matching. Use
+# the latest immutable WAL tree to avoid rereading unchanged archived segments.
+wal_parent="$(PYTHONPATH="$script_dir" python3 -c \
+  'from wal_custody import snapshots; print(snapshots("printora-cloud-wal")[0]["id"])')"
+[[ "$wal_parent" =~ ^[0-9a-f]{64}$ ]] || { echo "snapshot WAL pai inválido" >&2; exit 1; }
 restic backup "$work_dir/base" "$dump" "$manifest" "$archive_dir" "$work_dir/object-storage" "$configuration_dir" \
-  --tag printora-cloud-postgresql --host printora-cloud
+  --tag printora-cloud-postgresql --host printora-cloud --parent "$wal_parent"
 install -d -o root -g root -m 0700 "$state_dir"
 state_next="$state_file.next"
 python3 - "$state_next" "$database_size" "$object_version_count" \

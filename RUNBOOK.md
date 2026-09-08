@@ -3163,3 +3163,9 @@ impede renovar a base e faz a retenção falhar fechada quando ela vence.
 Na unidade de alerta, manter `%i` no argumento do emissor: `%I` transforma
 hífens em barras e invalida o evento sanitizado. Conferir `last-alert.json`
 para distinguir registro em journal de entrega por webhook.
+O backup completo fixa o snapshot WAL externo como pai do Restic para evitar
+reler todo o arquivo por causa dos caminhos temporários exclusivos. O serviço
+limita leitura e escrita no dispositivo a 4 MB/s, além dos limites de stream.
+Não usar `--force` nem retirar o limite de I/O no servidor compartilhado.
+O restore isolado limita leitura e escrita a 10 MB/s, preservando o RTO de
+900 segundos e evitando que a extração do cluster concorra sem limite no disco.

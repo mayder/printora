@@ -2822,3 +2822,10 @@ Rollback: suspender apenas retenção, preservar sync e snapshots; restaurar
 arquivos locais pelo ID/checksum auditado quando necessário. Limites são
 objetivos subordinados à margem e custódia, não promessa de espaço disponível
 quando backup está inconsistente. Evidência local: 180 dias, limpeza supervisionada.
+
+Complemento operacional da DEC-20260908-01: o backup completo usa como pai
+o snapshot WAL externo fixado, porque seus caminhos temporários impediam a
+seleção automática e provocavam releitura integral do arquivo local. O limite
+de I/O de 4 MB/s no serviço protege o host compartilhado; os limites normais
+de stream permanecem 1 MiB/s físico e 256 KiB/s lógico. O teste de restore
+continua sendo gate obrigatório, sem substituir conteúdo por simples inventário.
