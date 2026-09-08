@@ -187,3 +187,13 @@ checksum; 30 referências canônicas reconciliadas; 364 documentos de busca
 reconstruídos. Container sem rede, custódia somente leitura, scratch removido.
 Evidência privada em `offhost-success-custody.log` e estado do wrapper produtivo
 em `offhost-success-production.log`, na pasta local deste incidente.
+
+### Bloqueio adicional de publicação e correção
+
+O workflow `34243801219` aprovou todos os gates de qualidade, mas bloqueou antes
+do upload no scanner de dependências: quatro vulnerabilidades alcançáveis da
+stdlib Go 1.25.12. Python e dependências produtivas npm passaram. Toolchain
+corrigida pontualmente para 1.25.13, mantendo o scanner. Fontes do backend,
+objetos, schema, artefatos de agente e imagem de restore não mudaram.
+Referências oficiais: https://pkg.go.dev/vuln/GO-2026-6218 e
+https://pkg.go.dev/vuln/GO-2026-6090. O pipeline que falhou não publicou aplicação.

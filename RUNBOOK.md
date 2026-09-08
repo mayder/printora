@@ -3226,3 +3226,9 @@ WAL, objetos, configuração e busca. Não é restauração sobre o banco produt
   compartilhado. A retenção falha fechada enquanto o teste não estiver válido.
   Somente scratch UUID criado pelo teste e seus logs expirados são removidos;
   backups, releases de aplicação e o `pg_wal` produtivo são preservados.
+
+A toolchain canônica do agente e do CI cloud é Go 1.25.13. Antes de publicar,
+executar em `agent`: `go test ./...` e
+`go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...`. O guard de build assinado
+exige essa mesma versão. Atualizar toolchain não substitui nem re-assina os
+binários de agente já publicados; uma nova distribuição segue seu fluxo próprio.

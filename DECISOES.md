@@ -2852,3 +2852,13 @@ permanecem. Falha de teste invalida o estado de sucesso anterior. A atualizaçã
 da imagem de recuperação é um pré-requisito operacional quando o backend muda;
 logs privados têm retenção de 180 dias. Rollback mantém a retenção bloqueada até
 revalidar imagem compatível; não retorna automaticamente ao disco produtivo.
+
+### 2026-09-08 — Toolchain Go corrigida como gate de publicação
+
+A auditoria do workflow `34243801219` bloqueou o envio por quatro vulnerabilidades
+alcançáveis da stdlib Go 1.25.12. Atualizar a toolchain fixada para 1.25.13 em
+`agent/go.mod`, CI e guard do build assinado, sem alterar fontes ou redistribuir
+binários de agente neste incidente. Não dispensar a auditoria para publicar a
+retenção. Os avisos oficiais GO-2026-6218, GO-2026-6090, GO-2026-5972 e
+GO-2026-5026 apontam 1.25.13 como correção. Rollback da publicação permanece no
+slot anterior; não recolocar a toolchain vulnerável para contornar o gate.
