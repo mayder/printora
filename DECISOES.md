@@ -2790,3 +2790,35 @@ nenhuma foto deve ser apagada no downgrade.
 
 Referências: `frontend/src/screens/PrintProjectsScreen.tsx`,
 `frontend/src/screens/projects/PhotoCapturePanel.tsx`.
+
+### DEC-20260908-01 — Retenção local de WAL exige custódia verificada
+
+Status: aceita para implementação; validação/publicação registradas no relatório do incidente.
+Data: 2026-09-08.
+
+Causa: a sincronização externa não encerrava o ciclo de vida da cópia local;
+535 GB de WAL esgotaram o volume compartilhado e impediram checkpoints.
+Decisão: preservar 72 horas locais, usar sete dias como idade normal e 64 GiB
+como gatilho de capacidade; sob pressão, excluir somente arquivos completos,
+antigos, imutáveis e comprovados em snapshot Restic fixado por ID. Comparar
+SHA-256 após restauração temporária em RAM e falhar fechado em divergências.
+
+A sincronização e a exclusão compartilham lock em `/var/lib/printora-cloud/recovery`, independente do
+ciclo de vida de RuntimeDirectory. A verificação externa fica fora da seção
+crítica para preservar o RPO. Inventário/intenção são persistidos antes de cada
+lote, com resultado por arquivo. O restore passa a resolver a união de snapshots
+históricos; remover localmente não autoriza `forget`, `prune` ou exclusão externa.
+
+Esta autorização específica substitui somente a restrição de retenção local
+da DEC-20260724-19. O intervalo WAL de 120 segundos e sync de 60 segundos são
+mantidos. Base e restore vencidos continuam bloqueando automação/publicação;
+a intervenção emergencial depende de evidência integral da cadeia externa.
+Aviso de disco passa a 20% livre; bloqueio de publicação permanece em 10%.
+
+Alternativas rejeitadas: aumentar archive_timeout, excluir por idade apenas,
+confiar somente no último nome registrado, limpar pg_wal ou exigir todos os WAL
+no snapshot mais recente. Nenhuma protege simultaneamente capacidade e PITR.
+Rollback: suspender apenas retenção, preservar sync e snapshots; restaurar
+arquivos locais pelo ID/checksum auditado quando necessário. Limites são
+objetivos subordinados à margem e custódia, não promessa de espaço disponível
+quando backup está inconsistente. Evidência local: 180 dias, limpeza supervisionada.

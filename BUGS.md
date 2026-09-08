@@ -1669,3 +1669,27 @@ Correção:
 - o detalhe e todas as suas abas usam 100% da largura útil da área principal;
 - testes cobrem permanência da listagem sob o modal, ausência de overflow e
   largura integral do detalhe.
+
+### Incidente crítico — WAL local sem retenção esgota volume compartilhado
+
+Estado: recuperação emergencial validada em 2026-09-08; correção permanente em validação/publicação.
+Evidência: `docs/audits/WAL_CAPACITY_INCIDENT_2026-09-08.md`.
+
+Reprodução confirmada: `/dev/sda4` com zero bytes disponíveis; arquivo de WAL
+com 535.193.194.492 bytes, 31.900 segmentos completos e 12 arquivos auxiliares.
+PostgreSQL 16/printora rejeita conexões; log registra PANIC ao gravar checkpoint
+por `No space left on device`. Printora e geração de PDFs do Inspect afetados.
+
+Causa: `sync-postgresql-wal.sh` enviava o arquivo local ao Restic, mas não havia
+retenção após custódia externa. O estado local também continha backup completo
+de 27/07 e restore de 24/07, ambos vencidos. O status da unit não comprovava
+que o banco aceitava conexões.
+
+Correção em validação: retenção local com margem mínima de 72 horas, checksum
+externo, lock compartilhado, lotes auditados, dry-run, limites por idade/capacidade
+e bloqueio por inconsistência. Resolver histórico Restic no restore evita perda
+de acesso aos segmentos que não constam mais no último snapshot.
+
+Fechamento exige espaço livre >=15%, banco fora de recovery, checkpoints,
+Printora health/ready, 51 clientes Inspect, geração/abertura de PDF, ausência de
+novos erros de espaço, testes, check, commit/push e publicação efetiva.

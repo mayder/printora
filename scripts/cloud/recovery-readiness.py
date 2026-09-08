@@ -32,7 +32,7 @@ MAX_RESTORE_AGE = int(
     os.environ.get("PRINTORA_RECOVERY_MAX_RESTORE_AGE_SECONDS", "648000")
 )
 CONFIGURED_RPO_SECONDS = 120 + 60 + 110
-DISK_WARNING_PERCENT = 15
+DISK_WARNING_PERCENT = 20
 DISK_FAILURE_PERCENT = 10
 
 
@@ -191,6 +191,14 @@ def collect() -> tuple[dict[str, Any], list[str]]:
 
 def main() -> int:
     report, failures = collect()
+    if "disk_capacity" in report.get("warnings", []):
+        try:
+            run("systemctl", "start", "--no-block",
+                "printora-cloud-recovery-alert@disk-capacity-warning.service")
+        except (OSError, subprocess.SubprocessError):
+            failures.append("disk_capacity_alert_delivery")
+            report["failures"] = sorted(set(failures))
+            report["status"] = "failed"
     print(json.dumps(report, sort_keys=True))
     return 1 if failures else 0
 

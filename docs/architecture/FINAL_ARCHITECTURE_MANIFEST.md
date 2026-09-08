@@ -91,3 +91,11 @@ Recuperação física usa PostgreSQL base backup + WAL, objetos versionados e
 configuração criptografada externa. O host único oferece redundância de
 processo, não alta disponibilidade física. Nenhuma tabela, arquivo de usuário,
 backup ou objeto é removido por este manifesto ou pelo scanner.
+
+### Retenção WAL local
+
+Owner: operations. `printora-cloud-wal-retention.service` e
+`printora-cloud-wal-retention.timer` executam a retenção local por custódia,
+com quotas, alerta existente, evidência de 180 dias e rollback pela suspensão
+do timer. Nenhuma autoridade nova de dados; PostgreSQL e Restic permanecem
+canônicos. O lock persistente é compartilhado com a sincronização WAL.

@@ -196,7 +196,7 @@ um deploy bem-sucedido, a retenção roda automaticamente e remove somente
 diretórios SHA sem vínculo. Banco, storage, backup, WAL e dados compartilhados
 ficam fora do escopo. O journal é limitado por
 `packaging/systemd/journald-printora-cloud.conf` a 2 GB, com 15% do filesystem
-reservado. O monitor registra aviso abaixo de 15% livre e o preflight continua
+reservado. O monitor registra aviso abaixo de 20% livre e o preflight continua
 bloqueando abaixo de 10%.
 
 A base física é semanal e o WAL externo permanece contínuo, com restore isolado
@@ -3097,3 +3097,61 @@ Validações físicas são evidência privada do projeto, não telemetria públi
 seguem a retenção do snapshot aprovado. O rollback apenas oculta o formulário e
 mantém as linhas legíveis; remoção acompanha o fluxo explícito de exclusão da
 conta/projeto, nunca uma limpeza de logs genérica.
+
+## Incidente e retenção local de WAL — 2026-09-08
+
+O arquivo `/var/lib/postgresql/16/printora-wal-archive` acumulou WAL já enviado
+externamente e esgotou o volume compartilhado. `pg_wal` nunca é alvo da retenção.
+A decisão DEC-20260908-01 autoriza exclusivamente retenção local comprovada;
+snapshots, packs, objetos e backups externos permanecem preservados.
+
+Operação: `retain-postgresql-wal.sh --dry-run` produz plano sem exclusão;
+`--apply` restaura até 32 segmentos em RAM, verifica conteúdo pelo Restic e
+compara SHA-256 com a origem. Antes de remover, adquire o mesmo lock persistente
+`/var/lib/printora-cloud/recovery/wal-sync.lock` da sincronização, revalida estado,
+inode, tamanho, mtime, ctime e margem. Evidência de intenção é sincronizada em
+disco antes da exclusão; cada resultado é registrado em
+`/var/lib/printora-cloud/recovery/wal-retention/*.jsonl`.
+
+- Mínimo local absoluto: 72 horas. Em condição normal, máximo por idade de sete
+  dias; pressão começa em 20% livre ou arquivo acima de 64 GiB e permite reduzir
+  até 72 horas. Esses limites nunca autorizam remover segmento sem custódia.
+- O arquivo mais recente, parciais, links e arquivos fora do diretório são
+  protegidos. Timeline diferente ou cadeia com lacunas bloqueia automaticamente.
+- Aviso de capacidade começa abaixo de 20% livre, antes de atingir 85% ocupado;
+  o preflight continua bloqueando publicação abaixo de 10% livre.
+- O timer roda 60 segundos após o término anterior. Download e checksums ficam
+  fora do lock da sincronização; somente a revalidação/exclusão breve usa o lock.
+- Restic indisponível, checksum divergente, estado de sincronização acima de
+  210 segundos, base acima de sete dias ou restore acima de 7,5 dias bloqueiam
+  a retenção. O `OnFailure` usa o alerta sanitizado existente, owner operations.
+- `archive_timeout=120s` e sincronização a cada 60 segundos permanecem intactos;
+  nenhuma redução de RPO foi autorizada.
+- Restore consulta snapshots históricos imutáveis e reconstrói a cadeia desde
+  o WAL final do backup físico, cujo stream inclui o WAL inicial. Não depende
+  de todos os segmentos ainda constarem no snapshot mais recente.
+
+Validação: testes em `backend/tests/test_wal_retention.py` e
+`backend/tests/test_recovery_readiness.py`, `./check.sh`, dry-run no host,
+execução efetiva do timer e comparação de espaço, PostgreSQL e readiness após
+cada lote. Código/pipeline não substituem a execução real.
+
+Evidências de retenção devem permanecer por 180 dias, com cópia externa antes
+de eventual limpeza supervisionada e autorizada. Journald usa o limite já
+existente; não há tabela nova nem limpeza automática de backups/evidências.
+
+Rollback: desabilitar apenas `printora-cloud-wal-retention.timer`, aguardar o
+oneshot terminar e manter a sincronização WAL ativa. Reverter o código pelo
+fluxo oficial; preservar o lock compartilhado enquanto versões coexistirem.
+Se uma cópia local precisar ser recomposta, usar o snapshot e SHA-256 da
+evidência para restaurá-la em staging e conferir conteúdo. Nunca restaurar
+sobre banco produtivo nem escrever em seu `pg_wal`.
+
+Durante incidentes com proibição de remover releases, o marcador operacional
+`/etc/printora-cloud/preserve-releases` impede retenção no preflight e após a
+troca de slot; diretório de release incompleto também é preservado e bloqueia
+reuso do mesmo SHA. O marcador permanece até liberação explícita do owner.
+
+Backup físico e restore também executam `capacity_guard.py` antes de criar
+artefatos temporários e recusam menos de 10% livre. A retenção continua sendo
+a ação de recuperação de espaço; ela não é bloqueada pelo limiar de deploy.

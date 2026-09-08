@@ -410,11 +410,11 @@ def test_physical_rpo_uses_external_wal_and_fails_before_five_minutes() -> None:
     assert "AccuracySec=5s" in timer
     assert "TimeoutStartSec=110" in service
     assert "RuntimeDirectory=printora-cloud" in service
-    assert "/run/printora-cloud/wal-sync.lock" in sync
+    assert "/var/lib/printora-cloud/recovery/wal-sync.lock" in sync
     assert "CONFIGURED_RPO_SECONDS = 120 + 60 + 110" in monitor
     assert 'MAX_SYNC_AGE = int' in monitor
     assert '"210"' in monitor
-    assert "DISK_WARNING_PERCENT = 15" in monitor
+    assert "DISK_WARNING_PERCENT = 20" in monitor
     assert "DISK_FAILURE_PERCENT = 10" in monitor
     assert "OnFailure=printora-cloud-recovery-alert@%n.service" in service
     assert "owner=operations" in alert
@@ -433,9 +433,10 @@ def test_periodic_restore_replays_external_wal_with_resource_limits() -> None:
     deploy = (ROOT_DIR / "scripts/cloud/deploy-blue-green.sh").read_text()
     audit = (ROOT_DIR / "scripts/cloud/audit-final-architecture.sh").read_text()
 
-    assert "--tag printora-cloud-wal" in restore
-    assert "first <= name <= last" in restore
-    assert 'wal_includes+=(--include "$wal_path")' in restore
+    assert "from wal_custody import ARCHIVE, chain, full_backup" in restore
+    assert 'chain(manifest["last_archived_wal"], sys.argv[2], full, nodes)' in restore
+    assert '--include-file "$includes"' in restore
+    assert 'restic restore "$snapshot"' in restore
     assert "pg_last_wal_replay_lsn" in restore
     assert "recovery_target_lsn = '$recovery_target_lsn'" in restore
     assert "recovery_target_action = 'promote'" in restore

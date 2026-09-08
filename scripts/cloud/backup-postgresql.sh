@@ -13,6 +13,7 @@ state_file="$state_dir/full-backup.json"
 started_epoch="$(date +%s)"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 rate_limiter="$script_dir/rate-limit-stream.py"
+python3 "$script_dir/capacity_guard.py"
 
 [[ "$(id -u)" -eq 0 ]] || { echo "ERRO: execute como root" >&2; exit 1; }
 [[ -s "$backup_config" ]] || { echo "configuração de backup externo ausente" >&2; exit 1; }

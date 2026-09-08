@@ -49,7 +49,7 @@ jobs:
           set -euo pipefail
           ssh -i ~/.ssh/printora_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" '
             set -euo pipefail
-            if sudo -n /usr/local/sbin/printora-cloud-retain-releases --dry-run >/dev/null 2>&1; then
+            if [[ ! -e /etc/printora-cloud/preserve-releases ]] && sudo -n /usr/local/sbin/printora-cloud-retain-releases --dry-run >/dev/null 2>&1; then
               sudo -n /usr/local/sbin/printora-cloud-retain-releases --apply
             fi
             sudo -n /usr/local/sbin/printora-cloud-preflight --quick
@@ -294,6 +294,7 @@ jobs:
           if [[ -e "$release_dir" ]]; then
             active_release="$(readlink -f "$DEPLOY_BASE_PATH/current" 2>/dev/null || true)"
             [[ "$active_release" != "$release_dir" ]] || { echo "release ativa sem marcador; intervenção manual necessária" >&2; exit 1; }
+            [[ ! -e /etc/printora-cloud/preserve-releases ]] || { echo "preservação de releases ativa; use novo commit" >&2; exit 1; }
             rm -rf -- "$release_dir"
           fi
           mkdir -p "$release_dir"

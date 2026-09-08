@@ -24,8 +24,8 @@ command -v restic >/dev/null || { echo "restic ausente" >&2; exit 1; }
 command -v flock >/dev/null || { echo "flock ausente" >&2; exit 1; }
 
 install -d -o root -g root -m 0700 "$state_dir"
-lock_file="${PRINTORA_RECOVERY_LOCK_FILE:-/run/printora-cloud/wal-sync.lock}"
-install -d -o root -g root -m 0755 "$(dirname "$lock_file")"
+lock_file="/var/lib/printora-cloud/recovery/wal-sync.lock"
+install -d -o root -g root -m 0700 "$(dirname "$lock_file")"
 exec 9>"$lock_file"
 flock -n 9 || { echo "sincronização WAL já está em execução"; exit 0; }
 

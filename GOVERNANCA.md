@@ -78,7 +78,7 @@ Os pacotes `PKG-86` a `PKG-95` seguem
 - retenção de release preserva obrigatoriamente todos os alvos de `current`,
   `blue`, `green` e `replica`; somente diretório imutável sem vínculo pode ser
   removido automaticamente;
-- capacidade de disco gera aviso abaixo de 15% livre e bloqueia deploy abaixo
+- capacidade de disco gera aviso abaixo de 20% livre e bloqueia deploy abaixo
   de 10%; o bloqueio não pode ser retirado para acelerar publicação;
 - schema, evento e contrato preservam compatibilidade N/N-1 durante a drenagem;
 - o perfil cloud não carrega SQLite; o adapter SQLite local fica isolado e testado;
@@ -331,3 +331,11 @@ Rollback mínimo para firmware:
 5. reiniciar Klipper;
 6. confirmar printer/info ready.
 ```
+
+### Capacidade e WAL local
+
+A DEC-20260908-01 autoriza a retenção automática exclusivamente do arquivo WAL
+local do Printora, com custódia por conteúdo, lock compartilhado e margem
+mínima de 72 horas. Avisar abaixo de 20% livre e bloquear publicação abaixo de
+10%. Inconsistência externa ou proteção vencida bloqueia a retenção; o owner
+operations deve tratar o incidente sem reduzir RPO nem limpar dados externos.

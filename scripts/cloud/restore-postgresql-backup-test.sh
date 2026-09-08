@@ -12,6 +12,9 @@ set -a
 source "$config"
 set +a
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+python3 "$script_dir/capacity_guard.py"
+
 restore_root="$(mktemp -d /var/lib/postgresql/printora-restore-test.XXXXXX)"
 cluster="$restore_root/cluster"
 socket_dir="$restore_root/socket"
@@ -89,34 +92,31 @@ print(json.load(open(sys.argv[1]))["uploaded_wal"])
 PY
 )"
 [[ "$continuous_wal" =~ ^[0-9A-F]{24}$ ]] || { echo "WAL contínuo inválido" >&2; exit 1; }
-mapfile -t wal_paths < <(
-  restic ls latest --tag printora-cloud-wal --json \
-    | python3 -c '
+# Resolve immutable historical snapshots: retention deliberately removes old files
+# from the newest local tree, but those files remain in earlier Restic snapshots.
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHONPATH="$script_dir" python3 - "$manifest" "$continuous_wal" "$restore_root" <<'PYCHAIN'
 import json
 import pathlib
-import re
 import sys
+from wal_custody import ARCHIVE, chain, full_backup
 
-first, last = sys.argv[1:3]
-pattern = re.compile(r"^[0-9A-F]{24}$")
-paths = []
-for line in sys.stdin:
-    payload = json.loads(line)
-    path = payload.get("path", "")
-    name = pathlib.PurePosixPath(path).name
-    if pattern.fullmatch(name) and first <= name <= last:
-        paths.append(path)
-for path in sorted(set(paths)):
-    print(path)
-' "$last_archived_wal" "$continuous_wal"
-)
-[[ "${#wal_paths[@]}" -gt 0 ]] || { echo "faixa WAL externa ausente" >&2; exit 1; }
-wal_includes=()
-for wal_path in "${wal_paths[@]}"; do
-  wal_includes+=(--include "$wal_path")
+manifest = json.loads(pathlib.Path(sys.argv[1]).read_text())
+full, current_manifest, nodes = full_backup()
+if current_manifest != manifest:
+    raise SystemExit("backup changed during restore; retry with a pinned base")
+plan = chain(manifest["last_archived_wal"], sys.argv[2], full, nodes)
+root = pathlib.Path(sys.argv[3])
+for snapshot in sorted(set(plan.values())):
+    (root / ("wal-" + snapshot + ".includes")).write_text(
+        "\n".join(ARCHIVE + "/" + name for name, source in sorted(plan.items())
+                  if source == snapshot) + "\n")
+PYCHAIN
+for includes in "$restore_root"/wal-*.includes; do
+  snapshot="$(basename "$includes" .includes)"
+  snapshot="${snapshot#wal-}"
+  restic restore "$snapshot" --target "$restored" --sparse --verify --include-file "$includes"
 done
-restic restore latest --tag printora-cloud-wal --target "$restored" \
-  "${wal_includes[@]}"
 last_archived_wal="$continuous_wal"
 [[ "$last_archived_wal" =~ ^[0-9A-F]{24}$ ]] || { echo "WAL final inválido" >&2; exit 1; }
 archive_dir="$(find "$restored" -type d -name printora-wal-archive -print -quit)"

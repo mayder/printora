@@ -136,3 +136,25 @@ def test_recovery_readiness_fails_before_physical_rpo_breach(tmp_path: Path) -> 
     assert "wal_external_behind" in failures
     assert report["wal_external_within_alert_window"] is False
     assert report["status"] == "failed"
+
+
+def test_capacity_warning_dispatches_existing_operational_alert(monkeypatch, capsys) -> None:
+    module = load_module()
+    failures = []
+    monkeypatch.setattr(module, "collect", lambda: ({"warnings": ["disk_capacity"], "failures": list(failures), "status": "passed"}, failures))
+    calls = []
+    monkeypatch.setattr(module, "run", lambda *args: calls.append(args) or "")
+    assert module.main() == 0
+    assert calls == [("systemctl", "start", "--no-block", "printora-cloud-recovery-alert@disk-capacity-warning.service")]
+    assert json.loads(capsys.readouterr().out)["status"] == "passed"
+
+
+def test_capacity_alert_failure_is_not_silenced(monkeypatch, capsys) -> None:
+    module = load_module()
+    failures = []
+    monkeypatch.setattr(module, "collect", lambda: ({"warnings": ["disk_capacity"], "failures": list(failures), "status": "passed"}, failures))
+    def unavailable(*args):
+        raise OSError("unavailable")
+    monkeypatch.setattr(module, "run", unavailable)
+    assert module.main() == 1
+    assert json.loads(capsys.readouterr().out)["failures"] == ["disk_capacity_alert_delivery"]

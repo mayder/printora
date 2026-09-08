@@ -599,3 +599,13 @@ Estado atual:
   abertas somente a execução real do benchmark e a impressão/medição física;
 - a assistência por IA deixa de ser genérica e fica restrita a este fluxo,
   conforme `docs/architecture/RECONSTRUCAO_3D_POR_FOTOS.md`.
+
+## Incidente operacional prioritário — capacidade WAL (2026-09-08)
+
+Correção transversal de bug crítico, sem reabrir pacote consolidado.
+- [x] Recuperar espaço: 30.553 WAL drenados, 511,8 GB disponíveis e margem de 72 h.
+- [x] Validar PostgreSQL, Printora, 51 clientes Inspect e PDF.
+- [ ] Instalar/retestar retenção local, backup/restore e monitoramento.
+- [ ] Revisar, validar, commitar/push em cloud e publicar pelo fluxo oficial.
+
+Rastreabilidade: `BUGS.md`, DEC-20260908-01 e relatório do incidente em `docs/audits`.

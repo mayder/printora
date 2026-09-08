@@ -2611,3 +2611,14 @@ Aceite de 2026-07-24:
 - fechamento exige testes backend/frontend/worker/SQL/contrato/segurança,
   benchmark físico revisado, rollback ensaiado e
   `RUN_PYTHON_TESTS=1 RUN_FRONTEND_CHECKS=1 ./check.sh`.
+
+## Retenção local de WAL e cadeia externa
+
+`backend/tests/test_wal_retention.py` cobre fronteira de 72 horas, sete dias,
+capacidade, proteção do último WAL, nomes/parciais, caminho exclusivo, cadeia
+entre snapshots históricos, lacunas, troca de timeline, estado vencido,
+checksum divergente e instalação do lock/timer. Executar junto de
+`backend/tests/test_recovery_readiness.py` e `./check.sh`.
+Aceite operacional exige dry-run, remoção real auditada de segmentos já em
+custódia, backup físico e restore isolado atuais, continuidade externa, disco e
+saúde do banco/aplicações após lotes. Nunca usar pg_wal produtivo como fixture.

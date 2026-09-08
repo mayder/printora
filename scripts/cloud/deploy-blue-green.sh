@@ -28,6 +28,8 @@ install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-b
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-backup.timer" /etc/systemd/system/printora-cloud-backup.timer
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-wal-sync.service" /etc/systemd/system/printora-cloud-wal-sync.service
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-wal-sync.timer" /etc/systemd/system/printora-cloud-wal-sync.timer
+install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-wal-retention.service" /etc/systemd/system/printora-cloud-wal-retention.service
+install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-wal-retention.timer" /etc/systemd/system/printora-cloud-wal-retention.timer
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-recovery-monitor.service" /etc/systemd/system/printora-cloud-recovery-monitor.service
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-recovery-monitor.timer" /etc/systemd/system/printora-cloud-recovery-monitor.timer
 install -o root -g root -m 0644 "$release_dir/packaging/systemd/printora-cloud-restore-test.service" /etc/systemd/system/printora-cloud-restore-test.service
@@ -52,6 +54,10 @@ install -o root -g root -m 0755 "$release_dir/scripts/cloud/backup-postgresql.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/rate-limit-stream.py" /usr/local/libexec/printora-cloud/rate-limit-stream.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/restore-postgresql-backup-test.sh" /usr/local/libexec/printora-cloud/restore-postgresql-backup-test.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/sync-postgresql-wal.sh" /usr/local/libexec/printora-cloud/sync-postgresql-wal.sh
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/wal_custody.py" /usr/local/libexec/printora-cloud/wal_custody.py
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/capacity_guard.py" /usr/local/libexec/printora-cloud/capacity_guard.py
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/retain-postgresql-wal.py" /usr/local/libexec/printora-cloud/retain-postgresql-wal.py
+install -o root -g root -m 0755 "$release_dir/scripts/cloud/retain-postgresql-wal.sh" /usr/local/libexec/printora-cloud/retain-postgresql-wal.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/recovery-readiness.py" /usr/local/libexec/printora-cloud/recovery-readiness.py
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/run-restore-test.sh" /usr/local/libexec/printora-cloud/run-restore-test.sh
 install -o root -g root -m 0755 "$release_dir/scripts/cloud/emit-recovery-alert.sh" /usr/local/libexec/printora-cloud/emit-recovery-alert.sh
@@ -92,6 +98,7 @@ archive_timeout="$(
 [[ "$archive_timeout" == "120" ]] || fail "archive_timeout não aplicado"
 systemctl enable --now printora-cloud-backup.timer
 systemctl enable --now printora-cloud-wal-sync.timer
+systemctl enable --now printora-cloud-wal-retention.timer
 systemctl enable --now printora-cloud-restore-test.timer
 systemctl enable --now printora-cloud-recovery-monitor.timer
 
@@ -138,7 +145,9 @@ systemctl stop "printora-cloud@$current_slot.service" || true
 standby_status="ready"
 if ! start_standby "$current_slot"; then standby_status="degraded"; fi
 retention_status="ok"
-if ! /usr/local/sbin/printora-cloud-retain-releases --apply; then
+if [[ -e /etc/printora-cloud/preserve-releases ]]; then
+  retention_status="preserved_by_operations"
+elif ! /usr/local/sbin/printora-cloud-retain-releases --apply; then
   retention_status="failed"
   echo "[printora-cloud] ALERTA: retenção de releases falhou; links ativos foram preservados" >&2
 fi
